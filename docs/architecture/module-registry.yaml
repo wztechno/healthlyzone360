@@ -1,0 +1,211 @@
+# Healthy360 module registry (machine-readable)
+#
+# Consumed by architecture tests. Rules (plan §6):
+#   - Only modules with status "foundation" may have code, migrations or routes.
+#   - Modules with status "planned" MUST NOT have directories, classes or migrations.
+#   - depends_on for planned modules is indicative future coupling, reviewed at
+#     that module's design time; it is not a licence to import anything today.
+#   - Kitchen and commercial permissions remain registry proposals until their
+#     modules are implemented (plan §10).
+
+version: 1
+updated: "2026-07-30"
+
+modules:
+  # ── Implemented foundation modules (phase 1) ──────────────────────────────
+  - name: Support
+    status: foundation
+    phase: 1
+    description: Cross-cutting primitives — UUIDv7 identifier service, base classes, shared contracts; also the InterNACHI Modular spike module.
+    depends_on: []
+
+  - name: ReferenceData
+    status: foundation
+    phase: 1
+    description: Countries, currencies, languages and measurement units with ISO-code keys; launch-market activation flags.
+    depends_on: [Support]
+
+  - name: Localisation
+    status: foundation
+    phase: 1
+    description: Locale resolution, translation infrastructure, direction (RTL/LTR) and numbering-system configuration.
+    depends_on: [Support, ReferenceData]
+
+  - name: Identity
+    status: foundation
+    phase: 1
+    description: Users, profiles, devices; registration, verification, credentials, 2FA and session/device management via Fortify + Sanctum.
+    depends_on: [Support, ReferenceData]
+
+  - name: Organisations
+    status: foundation
+    phase: 1
+    description: Organisation types, organisations, capabilities, branches and memberships.
+    depends_on: [Support, ReferenceData, Identity]
+
+  - name: Tenancy
+    status: foundation
+    phase: 1
+    description: Organisation/branch context middleware, context validation, query scoping and (incrementally) RLS session context.
+    depends_on: [Support, Organisations]
+
+  - name: AccessControl
+    status: foundation
+    phase: 1
+    description: Roles, permissions, membership-role assignment, permission calculation and caching with version-counter invalidation.
+    depends_on: [Support, Organisations, Tenancy]
+
+  - name: Features
+    status: foundation
+    phase: 1
+    description: Feature definitions, per-organisation entitlements and subscription scaffolding; entitlement checks separate from RBAC.
+    depends_on: [Support, Organisations]
+
+  - name: Consent
+    status: foundation
+    phase: 1
+    description: Consent definitions (versioned) and consent grants; evaluated separately from RBAC with distinct denial reasons.
+    depends_on: [Support, Identity, Organisations]
+
+  - name: Audit
+    status: foundation
+    phase: 1
+    description: Append-only audit logs, correlation IDs, redaction processor, data-classification enum, purpose-of-use capture, idempotency keys.
+    depends_on: [Support, Identity, Tenancy]
+
+  - name: PlatformAdministration
+    status: foundation
+    phase: 1
+    description: Platform-level administration surface (tenant lifecycle, reference-data management); no broadly privileged runtime DB role.
+    depends_on: [Support, Organisations, AccessControl, Features, Audit]
+
+  # ── Planned modules (documented only — no code, no directories) ───────────
+  - name: Nutrition
+    status: planned
+    description: Nutritional facts, macro/micronutrient values, calorie and energy calculations with stated basis and limitations.
+    depends_on: [Ingredients, ReferenceData]
+
+  - name: Ingredients
+    status: planned
+    description: Ingredient master database, categories, units and portion/quantity conversion.
+    depends_on: [ReferenceData]
+
+  - name: Allergens
+    status: planned
+    description: Allergen identification, dietary classifications and special-instruction flags.
+    depends_on: [Ingredients]
+
+  - name: Recipes
+    status: planned
+    description: Recipe creation, versioning, costing and nutrition-label generation.
+    depends_on: [Ingredients, Allergens, Nutrition]
+
+  - name: MealPlanning
+    status: planned
+    description: Meal plans, daily/weekly schedules, substitution rules, dietitian approval and consumption-versus-target comparison.
+    depends_on: [Recipes, Nutrition, ClinicalRecords]
+
+  - name: Kitchens
+    status: planned
+    description: Kitchen/branch operational setup, menus, approved meal-plan receipt and kitchen instructions.
+    depends_on: [Organisations, Recipes]
+
+  - name: Inventory
+    status: planned
+    description: Stock levels, availability and waste monitoring; stock valuation deferred with it.
+    depends_on: [Ingredients, Kitchens]
+
+  - name: Procurement
+    status: planned
+    description: Purchasing, supplier management and ingredient-requirement planning.
+    depends_on: [Inventory]
+
+  - name: Production
+    status: planned
+    description: Production scheduling, batch preparation, portion control, task allocation and escalation of delays or shortages.
+    depends_on: [Kitchens, Inventory, Recipes]
+
+  - name: QualityControl
+    status: planned
+    description: Food-safety checkpoints, quality checks, labelling and packaging verification.
+    depends_on: [Production, Allergens]
+
+  - name: Marketplace
+    status: planned
+    description: Partner onboarding, due diligence, listings, suspension/termination and partner dashboards.
+    depends_on: [Organisations, Catalogues]
+
+  - name: Catalogues
+    status: planned
+    description: Product and service listings with availability and configuration.
+    depends_on: [Organisations]
+
+  - name: Pricing
+    status: planned
+    description: Price lists, currencies, commission structures and premium listings.
+    depends_on: [Catalogues, ReferenceData]
+
+  - name: B2B
+    status: planned
+    description: Corporate wellness and insurer arrangements — enrolment, eligibility validation, corporate/insurer billing.
+    depends_on: [Organisations, Catalogues, Pricing, Consent]
+
+  - name: Cart
+    status: planned
+    description: Basket, address validation and checkout preparation.
+    depends_on: [Catalogues, Pricing]
+
+  - name: Orders
+    status: planned
+    description: Order capture, status tracking and fulfilment orchestration across kitchens and delivery.
+    depends_on: [Cart, Kitchens]
+
+  - name: Subscriptions
+    status: planned
+    description: Consumer and partner subscription lifecycles, trials, upgrades and downgrades.
+    depends_on: [Features, Payments]
+
+  - name: Payments
+    status: planned
+    description: Payment-gateway integration, invoices, refunds; per-market provider selection.
+    depends_on: [Orders, Pricing]
+
+  - name: Accounting
+    status: planned
+    description: Commissions, settlements, partner payouts and financial reporting feeds; tax jurisdictions arrive here.
+    depends_on: [Payments, Subscriptions]
+
+  - name: POS
+    status: planned
+    description: Point-of-sale transactions for kitchen/clinic counters; offline requirements need a separate threat model (ADR-0012).
+    depends_on: [Catalogues, Pricing, Payments]
+
+  - name: KitchenDisplay
+    status: planned
+    description: KDS ticket flow for production stations; shell/prototype build mode until hardware known.
+    depends_on: [Production, Orders]
+
+  - name: Delivery
+    status: planned
+    description: Delivery zones, provider integration, driver allocation, tracking, proof of delivery and failed-delivery handling.
+    depends_on: [Orders]
+
+  - name: ClinicalRecords
+    status: planned
+    description: Patient records, assessments, anthropometrics, dietary history, consultation notes and attachments; consent- and relationship-gated.
+    depends_on: [Identity, Organisations, Consent, Audit]
+
+  - name: Appointments
+    status: planned
+    description: Appointment types, booking, rescheduling, reminders and calendar management across branches.
+    depends_on: [Organisations, ClinicalRecords]
+
+  - name: Reporting
+    status: planned
+    description: Role-specific dashboards and exports per the report catalogue; aggregation with anonymisation rules.
+    depends_on: [Audit, Orders, MealPlanning, Appointments]
+
+  - name: ArtificialIntelligence
+    status: planned
+    description: Decision-support capabilities under the source document's AI principles — professional review, identifiability, explainability, monitoring.
+    depends_on: [Reporting, Nutrition, MealPlanning]

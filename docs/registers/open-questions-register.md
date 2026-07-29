@@ -1,0 +1,14 @@
+# Open Questions Register
+
+Questions requiring management decision. Nothing here blocks foundation implementation unless marked; each records the safe interim position being used.
+
+| ID | Question | Interim position | Needed by | Status |
+|---|---|---|---|---|
+| OQ-001 | Default numbering system for Arabic locales in clinical and financial contexts: Latin digits (0-9) or Eastern Arabic numerals (٠-٩)? | Configurable per locale/context; **Latin digits as provisional default** for clinical/financial numerals (A-002, D-026). Not permanently forced (Plan §20) | Phase 5 (i18n implementation) | Open — needs management sign-off |
+| OQ-002 | Audit-log and personal-data retention periods per record class (and per country where law differs) | Append-only audit with no purging; retention/crypto-shredding remain documented designs (Plan §12) | Before first production tenant | Open |
+| OQ-003 | Per-country regulatory validation for the nine launch markets (health-data rules, residency, licensing of dietetic advice, insurer integration rules) | No compliance claims made; architecture avoids residency lock-in (ADR-0002); assessed separately per country as the source document requires (§8) | Before real-tenant onboarding per market | Open — external advice likely required |
+| OQ-004 | Enable passkeys, and if so for which audiences and when? | Fortify may install supporting dependencies but passkeys remain disabled in the UI (D-021) | Any time post-foundation | Open |
+| OQ-005 | Which organisation types require branches (branch-required rules)? E.g. must every clinic have at least one branch, while an independent practitioner organisation has none? | Branch optional at the model level; membership may be branch-scoped or organisation-wide; workflow requires branch selection only "where applicable" (Plan §9) | Phase 3 (organisation module rules) | Open |
+| OQ-006 | Does the source requirement "independent tenant environments" (§6) accept logical isolation in a shared database, or does any customer segment require physical separation? | Shared database with layered isolation (ADR-0002, ADR-0007) | Before enterprise/insurer contracts | Open |
+| OQ-007 | French language: timing and scope (source §6 names it as a capability to add) | en + ar only; i18n architecture keeps locale addition cheap | Post-foundation product decision | Open |
+| OQ-008 | Production hosting, object-storage provider and email/SMS providers per market | Docker Compose parity locally; S3-compatible abstraction (ADR-0010); Mailpit in dev | Phase 7 / pre-launch | Open |
