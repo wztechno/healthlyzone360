@@ -1,0 +1,128 @@
+name: healthy360
+
+# Local development stack (plan §22).
+# The Laravel app can run either fully containerised (api + nginx on
+# http://localhost:8080) or on the host against these services
+# (postgres/redis/garage/mailpit are all published on localhost).
+# All credentials here are local-development-only values.
+
+services:
+  api:
+    build:
+      context: infrastructure/docker/php
+    image: healthy360/php-dev
+    volumes:
+      - ./apps/api:/var/www/html
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      AWS_ENDPOINT: http://garage:3900
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof php-fpm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:1.29-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./infrastructure/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./apps/api:/var/www/html:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  queue:
+    image: healthy360/php-dev
+    build:
+      context: infrastructure/docker/php
+    command: ["php", "artisan", "horizon"]
+    restart: unless-stopped
+    volumes:
+      - ./apps/api:/var/www/html
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      AWS_ENDPOINT: http://garage:3900
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # 55432 on the host: a native PostgreSQL service commonly occupies 5432
+      # on developer machines. Inside the compose network the port is 5432.
+      - "55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  garage:
+    image: dxflrs/garage:v2.1.0
+    volumes:
+      - ./infrastructure/docker/garage/garage.toml:/etc/garage.toml:ro
+      - garagemeta:/var/lib/garage/meta
+      - garagedata:/var/lib/garage/data
+    ports:
+      - "3900:3900"
+      - "3903:3903"
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  mailpit:
+    image: axllent/mailpit:v1.30
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8025/livez"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:
+  garagemeta:
+  garagedata:

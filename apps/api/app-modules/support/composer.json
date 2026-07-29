@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/support",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Support\\": "src/",
+			"Healthy360\\Support\\Tests\\": "tests/",
+			"Healthy360\\Support\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Support\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Support\\Providers\\SupportServiceProvider"
+			]
+		}
+	}
+}
