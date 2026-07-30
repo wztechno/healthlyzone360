@@ -7,7 +7,7 @@ import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { EmptyState } from './empty-state.tsx';
 import { ErrorState } from './error-state.tsx';
 import { CONNECTIVITY_STATES, OfflineIndicator } from './offline-indicator.tsx';
-import { Skeleton } from './skeleton.tsx';
+import { SKELETON_VARIANTS, Skeleton } from './skeleton.tsx';
 import { Spinner } from './spinner.tsx';
 
 describe('Spinner', () => {
@@ -238,4 +238,43 @@ describe('OfflineIndicator', () => {
         expect(screen.getByTestId('net-title')).toHaveTextContent(/أنت غير متصل/);
         assertSubtreeIsLogical(screen.getByTestId('net'));
     });
+});
+
+describe('Skeleton — shimmer variant', () => {
+    beforeEach(() => {
+        jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('stays a pulse by default, so nothing that already used it changes', async () => {
+        await renderWithI18n(<Skeleton testID="line" />);
+
+        expect(screen.queryByTestId('line-shimmer')).toBeNull();
+        expect(screen.getByTestId('line').props.style).toBeDefined();
+    });
+
+    it('sweeps a highlight when asked to, and hides the whole thing from assistive technology', async () => {
+        await renderWithI18n(<Skeleton testID="card" variant="shimmer" heightClassName="h-32" />);
+
+        const node = screen.getByTestId('card');
+        expect(node.props['aria-hidden']).toBe(true);
+        expect(node.props.importantForAccessibility).toBe('no-hide-descendants');
+        expect(screen.getByTestId('card-shimmer')).toBeTruthy();
+    });
+
+    /** A slowed shimmer is still a moving highlight: reduced motion removes it, both variants. */
+    it.each(SKELETON_VARIANTS)(
+        'collapses the %s variant to a static block under reduced motion',
+        async (variant) => {
+            jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+            await renderWithI18n(<Skeleton testID="block" variant={variant} />);
+
+            const node = await screen.findByTestId('block');
+            expect(node.props.style).toBeUndefined();
+            expect(screen.queryByTestId('block-shimmer')).toBeNull();
+        },
+    );
 });

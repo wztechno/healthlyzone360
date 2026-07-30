@@ -45,6 +45,12 @@ export const ICON_GLYPHS = {
     refresh: '⟳',
     prototype: '◊',
     dot: '•',
+    dotOutline: '◦',
+    star: '★',
+    starOutline: '☆',
+    filter: '⚟',
+    calendar: '▤',
+    more: '⋯',
 } as const;
 
 export type IconGlyphName = keyof typeof ICON_GLYPHS;

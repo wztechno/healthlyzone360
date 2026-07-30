@@ -57,7 +57,7 @@ async function signIn(
 }
 
 describe('scenario inventory', () => {
-    it('exposes exactly the six named worlds, each self-labelled', () => {
+    it('exposes exactly the eight named worlds, each self-labelled', () => {
         expect([...MOCK_SCENARIO_NAMES]).toEqual([
             'multi-org-dietitian',
             'single-org-owner',
@@ -65,6 +65,9 @@ describe('scenario inventory', () => {
             'unverified-email',
             'two-factor-user',
             'platform-admin',
+            // Prompt 2: the same consumer account, before and after onboarding.
+            'consumer-prototype',
+            'consumer-onboarding',
         ]);
         for (const name of MOCK_SCENARIO_NAMES) {
             const scenario = MOCK_SCENARIOS[name];

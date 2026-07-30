@@ -89,6 +89,12 @@ export class MockDataInProductionError extends Error {
  * least code-split — the entire fixture world out of the initial chunk, and a mock-mode
  * development build never pulls the generated wire types in either. The async signature exists for
  * that reason alone.
+ *
+ * The split matters more since Prompt 2 than it did before. `./mock/repositories.ts` now also builds
+ * the prototype world — sixty ingredients, twenty recipes rolled up through `@healthy360/nutrition`,
+ * forty meals with two weeks of availability each — and none of it may reach an api-mode build.
+ * `./api/prototype-repositories.ts` therefore imports nothing from `./mock/`, and
+ * `api/prototype-repositories.test.ts` reads the source of every file in `src/api/` to prove it.
  */
 export async function createRepositories(config: RepositoryConfig): Promise<Repositories> {
     if (config.dataMode === 'mock') {

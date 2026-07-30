@@ -24,8 +24,10 @@ function findRequestClose(node: unknown): (() => void) | null {
 import { Button } from '../actions/button.tsx';
 import { Text } from '../primitives/text.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
+import { ActionSheet } from './action-sheet.tsx';
 import { Dialog } from './dialog.tsx';
-import { Drawer } from './drawer.tsx';
+import { DRAWER_PLACEMENTS, Drawer } from './drawer.tsx';
+import { Popover } from './popover.tsx';
 import { ToastProvider, useToast } from './toast.tsx';
 
 describe('Dialog', () => {
@@ -340,5 +342,263 @@ describe('Toast', () => {
         } finally {
             consoleError.mockRestore();
         }
+    });
+});
+
+describe('Drawer — placement', () => {
+    /**
+     * Placement is resolved by *source order* inside a flex row, never by an inset utility: a flex
+     * row lays its children out right-to-left in Arabic on both platforms, so `start` lands on the
+     * correct physical side with no mirrored geometry at all.
+     */
+    function orderOf(): readonly string[] {
+        const root = screen.getByTestId('nav').parent;
+        const children = (root?.children ?? []) as readonly {
+            props?: Record<string, unknown>;
+        }[];
+        return children
+            .map((child) => String(child.props?.['testID'] ?? ''))
+            .filter((id) => id.length > 0);
+    }
+
+    it('defaults to the leading edge, panel first', async () => {
+        await renderWithI18n(
+            <Drawer testID="nav" open onClose={jest.fn()} title="Filters">
+                <Text>Body</Text>
+            </Drawer>,
+        );
+
+        expect(orderOf()).toEqual(['nav', 'nav-backdrop']);
+    });
+
+    it('puts the panel last for the trailing edge', async () => {
+        await renderWithI18n(
+            <Drawer testID="nav" open onClose={jest.fn()} title="Filters" placement="end">
+                <Text>Body</Text>
+            </Drawer>,
+        );
+
+        expect(orderOf()).toEqual(['nav-backdrop', 'nav']);
+    });
+
+    it('becomes a bottom sheet in a column, backdrop above', async () => {
+        await renderWithI18n(
+            <Drawer testID="nav" open onClose={jest.fn()} title="Filters" placement="bottom">
+                <Text>Body</Text>
+            </Drawer>,
+        );
+
+        expect(orderOf()).toEqual(['nav-backdrop', 'nav']);
+        expect(screen.getByTestId('nav').props.className).toContain('rounded-t-2xl');
+        expect(screen.getByTestId('nav').props.className).not.toContain('h-full');
+    });
+
+    it.each(DRAWER_PLACEMENTS)(
+        'uses no physical direction utility for placement=%s',
+        async (placement) => {
+            await renderWithI18n(
+                <Drawer
+                    testID="nav"
+                    open
+                    onClose={jest.fn()}
+                    title="المرشّحات"
+                    placement={placement}
+                >
+                    <Text>محتوى</Text>
+                </Drawer>,
+                'ar',
+            );
+            assertSubtreeIsLogical(screen.getByTestId('nav'));
+        },
+    );
+});
+
+describe('ActionSheet', () => {
+    const actions = [
+        { key: 'duplicate', label: 'Duplicate', onPress: jest.fn() },
+        { key: 'share', label: 'Share', onPress: jest.fn() },
+        {
+            key: 'delete',
+            label: 'Delete',
+            tone: 'destructive' as const,
+            onPress: jest.fn(),
+        },
+    ];
+
+    it('is a bottom drawer holding a menu', async () => {
+        await renderWithI18n(
+            <ActionSheet
+                testID="sheet"
+                open
+                onClose={jest.fn()}
+                title="Choose an action"
+                actions={actions}
+            />,
+        );
+
+        expect(screen.getByTestId('sheet').props.role).toBe('dialog');
+        expect(screen.getByTestId('sheet').props.className).toContain('rounded-t-2xl');
+        expect(screen.getByTestId('sheet-actions').props.role).toBe('menu');
+        expect(screen.getByTestId('sheet-action-share').props.accessibilityRole).toBe('menuitem');
+    });
+
+    /** A sheet still standing over the screen it just changed hides the result. */
+    it('closes before it runs the action', async () => {
+        const order: string[] = [];
+        await renderWithI18n(
+            <ActionSheet
+                testID="sheet"
+                open
+                onClose={() => order.push('close')}
+                title="Choose an action"
+                actions={[{ key: 'go', label: 'Go', onPress: () => order.push('action') }]}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('sheet-action-go'));
+        expect(order).toEqual(['close', 'action']);
+    });
+
+    /** A destructive action must still be distinguishable in greyscale. */
+    it('marks a destructive action with an icon as well as a tone', async () => {
+        await renderWithI18n(
+            <ActionSheet
+                testID="sheet"
+                open
+                onClose={jest.fn()}
+                title="Choose an action"
+                actions={actions}
+            />,
+        );
+
+        const icon = screen.getByTestId('sheet-action-delete-icon');
+        expect(icon.props.className).toContain('text-danger-strong');
+        expect(screen.queryByTestId('sheet-action-share-icon')).toBeNull();
+    });
+
+    it('does not run a disabled action', async () => {
+        const onPress = jest.fn();
+        await renderWithI18n(
+            <ActionSheet
+                testID="sheet"
+                open
+                onClose={jest.fn()}
+                title="Choose an action"
+                actions={[{ key: 'go', label: 'Go', disabled: true, onPress }]}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('sheet-action-go'));
+        expect(onPress).not.toHaveBeenCalled();
+    });
+
+    it('offers a translated cancel that only closes', async () => {
+        const onClose = jest.fn();
+        await renderWithI18n(
+            <ActionSheet
+                testID="sheet"
+                open
+                onClose={onClose}
+                title="اختر إجراءً"
+                actions={actions}
+            />,
+            'ar',
+        );
+
+        await fireEvent.press(screen.getByTestId('sheet-cancel'));
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(
+            <ActionSheet
+                testID="sheet"
+                open
+                onClose={jest.fn()}
+                title="اختر إجراءً"
+                actions={actions}
+            />,
+            'ar',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('sheet'));
+    });
+});
+
+describe('Popover', () => {
+    it('is a collapsed trigger that owns a panel', async () => {
+        await renderWithI18n(
+            <Popover testID="why" triggerLabel="Why this figure?" title="How this is worked out">
+                <Text>Body</Text>
+            </Popover>,
+        );
+
+        const trigger = screen.getByTestId('why-trigger');
+        expect(trigger.props.accessibilityRole).toBe('button');
+        expect(trigger.props.accessibilityState).toMatchObject({ expanded: false });
+        expect(trigger.props['aria-controls']).toBe('why-panel');
+        expect(screen.queryByTestId('why-panel')).toBeNull();
+    });
+
+    it('opens and closes on press', async () => {
+        await renderWithI18n(
+            <Popover testID="why" triggerLabel="Why this figure?" title="How this is worked out">
+                <Text testID="explanation">Body</Text>
+            </Popover>,
+        );
+
+        await fireEvent.press(screen.getByTestId('why-trigger'));
+        expect(screen.getByTestId('why-panel').props.role).toBe('dialog');
+        expect(screen.getByTestId('explanation')).toBeTruthy();
+
+        await fireEvent.press(screen.getByTestId('why-trigger'));
+        expect(screen.queryByTestId('why-panel')).toBeNull();
+    });
+
+    /**
+     * A touch screen has no hover state, so a hover-only affordance would be unreachable there
+     * (07-animation-and-motion-inventory.md, CST-03). On a coarse pointer — which is every native
+     * target — the component degrades to press, and the *behaviour* is what this asserts: the
+     * explanation is still reachable. Which pointer the device has is `usePointerKind`'s job and is
+     * tested there.
+     */
+    it('is still reachable by press when asked to trigger on hover', async () => {
+        await renderWithI18n(
+            <Popover
+                testID="why"
+                trigger="hover"
+                triggerLabel="Why this figure?"
+                title="How this is worked out"
+            >
+                <Text testID="explanation">Body</Text>
+            </Popover>,
+        );
+
+        await fireEvent.press(screen.getByTestId('why-trigger'));
+        expect(screen.getByTestId('explanation')).toBeTruthy();
+    });
+
+    it('anchors the panel with no horizontal inset at all', async () => {
+        await renderWithI18n(
+            <Popover testID="why" triggerLabel="Why?" title="Explanation">
+                <Text>Body</Text>
+            </Popover>,
+        );
+
+        await fireEvent.press(screen.getByTestId('why-trigger'));
+        const panel = screen.getByTestId('why-panel');
+        expect(panel.props.className).toContain('top-full');
+        expect(panel.props.className).not.toMatch(/\b(start|end)-\d/);
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(
+            <Popover testID="why" triggerLabel="لماذا؟" title="التفسير">
+                <Text>نص</Text>
+            </Popover>,
+            'ar',
+        );
+
+        await fireEvent.press(screen.getByTestId('why-trigger'));
+        assertSubtreeIsLogical(screen.getByTestId('why'));
     });
 });

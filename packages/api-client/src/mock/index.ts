@@ -50,3 +50,29 @@ export type { Clock } from './store.ts';
 
 export { DEFAULT_MOCK_LATENCY_MS, createMockRepositories } from './repositories.ts';
 export type { MockRepositories, MockRepositoriesOptions } from './repositories.ts';
+
+/**
+ * The Prompt 2 prototype world — the store and the repositories over it.
+ *
+ * The **fixtures** are deliberately not re-exported here. A screen reaches data through
+ * repositories; a test that needs a known identifier imports `./prototype/fixtures/index.ts`
+ * directly and is visibly doing so.
+ */
+export {
+    PROTOTYPE_ADDRESS,
+    PROTOTYPE_DELIVERY_SLOTS,
+    PROTOTYPE_ID_BANDS,
+    PROTOTYPE_ID_PREFIX,
+    PROTOTYPE_NOW,
+    PROTOTYPE_TODAY,
+    PROTOTYPE_WEEK_START,
+    PrototypeStore,
+    createPrototypeRepositories,
+} from './prototype/index.ts';
+export type {
+    PrototypeIdBand,
+    PrototypeRepositories,
+    PrototypeRepositoriesOptions,
+    PrototypeRepositoryBundle,
+    PrototypeStoreOptions,
+} from './prototype/index.ts';

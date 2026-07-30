@@ -22,6 +22,8 @@ export type { UseThemeResult } from './hooks/use-theme.ts';
 export { BREAKPOINT_ORDER, useBreakpoint } from './hooks/use-breakpoint.ts';
 export type { Breakpoint, UseBreakpointResult } from './hooks/use-breakpoint.ts';
 export { useReducedMotion } from './hooks/use-reduced-motion.ts';
+export { POINTER_KINDS, useIsCoarsePointer, usePointerKind } from './hooks/use-pointer.ts';
+export type { PointerKind } from './hooks/use-pointer.ts';
 
 export {
     DIRECTIONAL_ICON_NAMES,
@@ -77,6 +79,26 @@ export { Checkbox } from './forms/checkbox.tsx';
 export type { CheckboxProps } from './forms/checkbox.tsx';
 export { Select } from './forms/select.tsx';
 export type { SelectOption, SelectProps } from './forms/select.tsx';
+export { NumberStepper, clampToStep } from './forms/number-stepper.tsx';
+export type { NumberStepperProps } from './forms/number-stepper.tsx';
+export { RangeFilter, isInvertedRange } from './forms/range-filter.tsx';
+export type { RangeFilterProps, RangeValue } from './forms/range-filter.tsx';
+/**
+ * Extensionless on purpose — this is the one import in the package that Metro must resolve per
+ * platform (`date-field.web.tsx` / `date-field.native.tsx`). Everything both halves share is
+ * exported from `date-field-shared.ts`, which is platform-neutral.
+ */
+export { DateField } from './forms/date-field';
+export type { DateFieldProps } from './forms/date-field';
+export {
+    daysInMonth,
+    isIsoDate,
+    isoFromParts,
+    monthNames,
+    partsFromIso,
+    yearRange,
+} from './forms/date-field-shared.ts';
+export type { DateParts } from './forms/date-field-shared.ts';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
@@ -84,11 +106,52 @@ export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
 export { BADGE_TONES, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
 export type { BadgeProps, BadgeTone, NutritionLevel } from './content/badge.tsx';
+export { CHIP_TONES, Chip, FilterChip } from './content/chip.tsx';
+export type { ChipProps, ChipTone, FilterChipProps } from './content/chip.tsx';
+export { CALLOUT_ROLES, CALLOUT_TONES, Callout } from './content/callout.tsx';
+export type { CalloutProps, CalloutRole, CalloutTone } from './content/callout.tsx';
+export { Accordion } from './content/accordion.tsx';
+export type { AccordionItem, AccordionProps } from './content/accordion.tsx';
+export {
+    AVATAR_SIZES,
+    Avatar,
+    IMAGE_PLACEHOLDER_ASPECTS,
+    ImagePlaceholder,
+    initialsFrom,
+    seedHash,
+} from './content/avatar.tsx';
+export type {
+    AvatarProps,
+    AvatarSize,
+    ImagePlaceholderAspect,
+    ImagePlaceholderProps,
+} from './content/avatar.tsx';
+
+export { SegmentedControl, TABS_VARIANTS, Tabs } from './navigation/tabs.tsx';
+export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './navigation/tabs.tsx';
+export { Stepper } from './navigation/stepper.tsx';
+export type { StepperProps } from './navigation/stepper.tsx';
+export { Breadcrumbs } from './navigation/breadcrumbs.tsx';
+export type { BreadcrumbItem, BreadcrumbsProps } from './navigation/breadcrumbs.tsx';
+
+export { Table } from './data/table.tsx';
+export type { TableColumn, TableProps } from './data/table.tsx';
+export { CalendarGrid } from './data/calendar-grid.tsx';
+export type {
+    CalendarCell,
+    CalendarDay,
+    CalendarGridProps,
+    CalendarSlot,
+} from './data/calendar-grid.tsx';
+export { MeterBar, PROGRESS_RING_SIZES, ProgressRing } from './data/progress.tsx';
+export type { MeterBarProps, ProgressRingProps, ProgressRingSize } from './data/progress.tsx';
+export { RATING_SIZES, RATING_VARIANTS, Rating } from './data/rating.tsx';
+export type { RatingProps, RatingSize, RatingVariant } from './data/rating.tsx';
 
 export { SPINNER_SIZES, Spinner } from './status/spinner.tsx';
 export type { SpinnerProps, SpinnerSize } from './status/spinner.tsx';
-export { Skeleton } from './status/skeleton.tsx';
-export type { SkeletonProps } from './status/skeleton.tsx';
+export { SKELETON_VARIANTS, Skeleton } from './status/skeleton.tsx';
+export type { SkeletonProps, SkeletonVariant } from './status/skeleton.tsx';
 export { EMPTY_STATE_VARIANTS, EmptyState } from './status/empty-state.tsx';
 export type { EmptyStateProps, EmptyStateVariant } from './status/empty-state.tsx';
 export { ErrorState, FAILURE_MESSAGE_KEYS } from './status/error-state.tsx';
@@ -98,8 +161,12 @@ export type { ConnectivityState, OfflineIndicatorProps } from './status/offline-
 
 export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps } from './overlays/dialog.tsx';
-export { Drawer } from './overlays/drawer.tsx';
-export type { DrawerProps } from './overlays/drawer.tsx';
+export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
+export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
+export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';
+export type { ActionSheetAction, ActionSheetProps, ActionTone } from './overlays/action-sheet.tsx';
+export { POPOVER_TRIGGERS, Popover } from './overlays/popover.tsx';
+export type { PopoverProps, PopoverTrigger } from './overlays/popover.tsx';
 export {
     DEFAULT_TOAST_DURATION_MS,
     TOAST_TONES,
@@ -116,3 +183,18 @@ export type {
 
 export { APP_SHELL_VARIANTS, AppShell } from './shell/app-shell.tsx';
 export type { AppShellProps, AppShellVariant, NavigationItem } from './shell/app-shell.tsx';
+
+export { MAX_STAGGERED_ITEMS, STAGGER_STEP_MS, useMotion } from './motion/use-motion.ts';
+export type { MotionTokens } from './motion/use-motion.ts';
+export { FadeIn } from './motion/fade-in.tsx';
+export type { FadeInProps } from './motion/fade-in.tsx';
+export { SLIDE_EDGES, SlideIn } from './motion/slide-in.tsx';
+export type { SlideEdge, SlideInProps } from './motion/slide-in.tsx';
+export { Collapse } from './motion/collapse.tsx';
+export type { CollapseProps } from './motion/collapse.tsx';
+export { Shimmer } from './motion/shimmer.tsx';
+export type { ShimmerProps } from './motion/shimmer.tsx';
+export { useAnimatedNumber } from './motion/use-animated-number.ts';
+export type { UseAnimatedNumberOptions } from './motion/use-animated-number.ts';
+export { PageTransition } from './motion/page-transition.tsx';
+export type { PageTransitionProps } from './motion/page-transition.tsx';

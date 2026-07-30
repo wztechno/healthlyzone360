@@ -41,6 +41,7 @@
         "validation_failed": "Some of the details need correcting.",
         "rate_limit_exceeded": "Too many attempts. Try again in {{seconds}} seconds.",
         "network": "We cannot reach Healthy360. Check your connection and try again.",
-        "server": "Something went wrong on our side. Try again in a moment."
+        "server": "Something went wrong on our side. Try again in a moment.",
+        "prototype_not_implemented": "This part of Healthy360 is not built yet. Nothing was changed."
     }
 }

@@ -216,38 +216,31 @@ export type {
 /**
  * The complete data surface a screen may reach. Nothing else is exported to the application: a
  * screen depends on this bundle, never on a transport (plan §18).
+ *
+ * ## The twelve fields are all required, and that is the point
+ *
+ * Wave 1.1 declared the eight Prompt 2 contracts behind a separate `PrototypeRepositories` interface
+ * because neither implementation existed yet, and adding required fields to a bundle nothing
+ * satisfies breaks every consumer at once. Wave 1.2 built both — the fixture world in
+ * `../mock/prototype/` and the written-out rejections in `../api/prototype-repositories.ts` — so the
+ * split has been folded away and the extra interface deleted.
+ *
+ * Required rather than optional is deliberate. An optional repository turns every call site into
+ * `repositories.planner?.getWeek(...)`, and the compiler stops being able to prove that both
+ * implementations cover the whole surface, which is the entire reason the contracts exist. With them
+ * required, adding a method to any contract fails the build in exactly two places — the mock and the
+ * API stub — which is where it should fail.
+ *
+ * The eight are *proposed*, not implemented: against the real API every one of them rejects with
+ * `prototype.not_implemented` naming the endpoint it would have called. A screen therefore compiles
+ * against the same surface in both modes and differs only in what it renders when the call fails.
  */
 export interface Repositories {
     readonly auth: AuthRepository;
     readonly session: SessionRepository;
     readonly context: ContextRepository;
     readonly devices: DeviceRepository;
-}
 
-/**
- * The prototype surface — the foundation repositories plus the eight Prompt 2 contracts.
- *
- * ## Why this is a separate interface (the Wave 1.2 seam)
- *
- * The eight new fields are **required**, not optional: an optional repository turns every call site
- * into `repositories.planner?.getWeek(...)`, and the compiler stops being able to prove that both
- * implementations cover the whole surface — which is the entire reason the contracts exist.
- *
- * But adding eight required fields to `Repositories` itself would immediately invalidate the two
- * implementations that already satisfy it (`src/mock/repositories.ts` and `src/api/repositories.ts`)
- * and break `createRepositories` in `src/registry.ts` — none of which this wave owns. So the
- * foundation bundle is left exactly as it was, and the wider surface is declared here.
- *
- * **What Wave 1.2-FIX does with it.** Once the mock world and the API stubs implement all eight,
- * that wave should: widen `createRepositories` to return `PrototypeRepositories`, and then either
- * fold the eight fields into `Repositories` and delete this interface, or keep the split
- * permanently if the foundation ever needs to be consumed without the prototype surface. Either is
- * a one-line decision at that point; neither is available before both implementations exist.
- *
- * Nothing outside this file needs to change in the meantime: a screen that only needs `auth` keeps
- * depending on `Repositories`, and a screen that needs the planner depends on this.
- */
-export interface PrototypeRepositories extends Repositories {
     readonly marketplace: MarketplaceRepository;
     readonly nutrition: NutritionRepository;
     readonly planner: MealPlanRepository;

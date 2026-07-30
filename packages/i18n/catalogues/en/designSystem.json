@@ -54,6 +54,37 @@
     "select": {
         "placeholder": "Choose an option"
     },
+    "stepper": {
+        "progress": "Step {{current}} of {{total}}"
+    },
+    "numberStepper": {
+        "increase": "Increase {{label}}",
+        "decrease": "Decrease {{label}}"
+    },
+    "rangeFilter": {
+        "min": "From",
+        "max": "To",
+        "inverted": "The lower value cannot be greater than the upper value."
+    },
+    "chip": {
+        "remove": "Remove {{label}}"
+    },
+    "table": {
+        "empty": "There is nothing to show here yet."
+    },
+    "dateField": {
+        "day": "Day",
+        "month": "Month",
+        "year": "Year"
+    },
+    "rating": {
+        "summary": "{{value}} out of {{max}}",
+        "count_one": "{{count}} rating",
+        "count_other": "{{count}} ratings"
+    },
+    "breadcrumbs": {
+        "label": "Breadcrumb trail"
+    },
     "emptyState": {
         "prototypeBadge": "Prototype — planned for a later phase",
         "prototypeBody": "This area is part of the route registry but has no screens yet. It will be built with the module that owns it."
@@ -65,7 +96,7 @@
     },
     "showcase": {
         "title": "Design system",
-        "subtitle": "Every Phase 1 component, in English and Arabic, light and dark. This page is the accessibility target.",
+        "subtitle": "Every component, in English and Arabic, light and dark. This page is the accessibility target.",
         "sections": {
             "typography": "Typography and layout",
             "actions": "Actions",
@@ -73,7 +104,12 @@
             "content": "Content",
             "status": "Status",
             "overlays": "Overlays",
-            "shell": "Application shell"
+            "shell": "Application shell",
+            "navigation": "Navigation and progress",
+            "filters": "Filters and selection",
+            "dates": "Dates",
+            "data": "Data and measurement",
+            "motion": "Motion"
         },
         "openDialog": "Open the dialog",
         "openDrawer": "Open the drawer",
@@ -85,6 +121,50 @@
         "sampleLabel": "Sample field",
         "sampleHint": "A hint that explains the field.",
         "sampleError": "Something about this value is wrong.",
-        "sampleOption": "Option {{index}}"
+        "sampleOption": "Option {{index}}",
+        "openDrawerEnd": "Open the trailing drawer",
+        "openActionSheet": "Open the action sheet",
+        "actionSheetTitle": "Choose an action",
+        "actionSheetPrimary": "Duplicate",
+        "actionSheetSecondary": "Share",
+        "actionSheetDestructive": "Delete",
+        "popoverTrigger": "Why this figure?",
+        "popoverTitle": "How this is worked out",
+        "popoverBody": "Every figure on this page is generated from synthetic prototype data.",
+        "tabsLabel": "Example tabs",
+        "tabOverview": "Overview",
+        "tabNutrition": "Nutrition",
+        "tabDelivery": "Delivery",
+        "stepperLabel": "Example wizard progress",
+        "stepperStep": "Activity level",
+        "breadcrumbHome": "Home",
+        "breadcrumbSection": "Meals",
+        "breadcrumbCurrent": "Grilled halloumi bowl",
+        "amountLabel": "Portion size",
+        "rangeLabel": "Calories per meal",
+        "chipRemovable": "No peanuts",
+        "chipFilter": "High protein",
+        "dateLabel": "Start date",
+        "tableCaption": "Example nutrition table",
+        "tableColumnName": "Nutrient",
+        "tableColumnAmount": "Amount",
+        "tableColumnTarget": "Target",
+        "ringLabel": "Energy against target",
+        "ringCaption": "kcal",
+        "meterLabel": "Protein",
+        "ratingLabel": "Average kitchen rating",
+        "calendarLabel": "Example week",
+        "accordionOne": "What is a synthetic fixture?",
+        "accordionTwo": "Where do these figures come from?",
+        "accordionBody": "Nothing on this page is real data. It exists so the component can be seen and tested.",
+        "calloutTitle": "Prototype data",
+        "calloutBody": "This screen is a design-system reference, not a product screen.",
+        "avatarName": "Nour Saleh",
+        "placeholderLabel": "Image not available",
+        "replay": "Replay the motion",
+        "motionFade": "Faded in",
+        "motionSlideStart": "Slid in from the leading edge",
+        "motionSlideBottom": "Slid in from below",
+        "motionNumber": "Animated figure"
     }
 }

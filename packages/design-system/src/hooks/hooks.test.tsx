@@ -1,8 +1,9 @@
 import { screen } from '@testing-library/react-native';
-import { AccessibilityInfo, Text as RNText, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Platform, Text as RNText, useWindowDimensions } from 'react-native';
 
 import { renderWithI18n } from '../testing/render.tsx';
 import { BREAKPOINT_ORDER, useBreakpoint } from './use-breakpoint.ts';
+import { usePointerKind } from './use-pointer.ts';
 import { useReducedMotion } from './use-reduced-motion.ts';
 import { useTheme } from './use-theme.ts';
 
@@ -91,5 +92,85 @@ describe('useReducedMotion', () => {
         );
         await renderWithI18n(<MotionProbe />);
         expect(screen.getByTestId('reduced')).toHaveTextContent('false');
+    });
+});
+
+function PointerProbe() {
+    return <RNText testID="pointer">{usePointerKind()}</RNText>;
+}
+
+/**
+ * The guard that keeps hover-only affordances off touch devices. A phone has no hover state, so a
+ * popover that only opened on hover would simply be unreachable there
+ * (`docs/reference-research/07-animation-and-motion-inventory.md`, CST-03).
+ */
+describe('usePointerKind', () => {
+    afterEach(() => {
+        Reflect.deleteProperty(globalThis, 'window');
+        jest.restoreAllMocks();
+    });
+
+    function stubMatchMedia(matches: boolean) {
+        const query = {
+            matches,
+            addEventListener: jest.fn(),
+            removeEventListener: jest.fn(),
+        };
+        const matchMedia = jest.fn().mockReturnValue(query);
+        Object.defineProperty(globalThis, 'window', {
+            configurable: true,
+            writable: true,
+            value: { matchMedia },
+        });
+        return { matchMedia, query };
+    }
+
+    it('reports coarse on every native target, without consulting a media query', async () => {
+        const { matchMedia } = stubMatchMedia(true);
+        await renderWithI18n(<PointerProbe />);
+
+        expect(await screen.findByTestId('pointer')).toHaveTextContent('coarse');
+        expect(matchMedia).not.toHaveBeenCalled();
+    });
+
+    it('reads the pointer media query on the web', async () => {
+        jest.replaceProperty(Platform, 'OS', 'web');
+        const { matchMedia } = stubMatchMedia(true);
+        await renderWithI18n(<PointerProbe />);
+
+        expect(matchMedia).toHaveBeenCalledWith('(pointer: fine)');
+        expect(screen.getByTestId('pointer')).toHaveTextContent('fine');
+    });
+
+    it('reports coarse on a touch-first browser', async () => {
+        jest.replaceProperty(Platform, 'OS', 'web');
+        stubMatchMedia(false);
+        await renderWithI18n(<PointerProbe />);
+
+        expect(screen.getByTestId('pointer')).toHaveTextContent('coarse');
+    });
+
+    /** A tablet with a keyboard case changes its answer while the app is running. */
+    it('subscribes to changes and unsubscribes on unmount', async () => {
+        jest.replaceProperty(Platform, 'OS', 'web');
+        const { query } = stubMatchMedia(true);
+        const view = await renderWithI18n(<PointerProbe />);
+
+        expect(query.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+        await view.unmount();
+        expect(query.removeEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+    });
+
+    it('leaves the pointer coarse when the browser cannot answer', async () => {
+        jest.replaceProperty(Platform, 'OS', 'web');
+        Object.defineProperty(globalThis, 'window', {
+            configurable: true,
+            writable: true,
+            value: {},
+        });
+        await renderWithI18n(<PointerProbe />);
+
+        // No media query available: the first answer stands rather than a crash.
+        expect(screen.getByTestId('pointer')).toHaveTextContent('fine');
     });
 });

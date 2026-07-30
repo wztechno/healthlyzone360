@@ -13,6 +13,13 @@
  * restoration calls `me()` with a persisted token, and an expired or revoked token has to be
  * distinguishable from bad sign-in credentials or the guard kernel will send the user to the wrong
  * screen. It maps to a plain `401` (recorded in `docs/architecture/notes/phase5b-decisions.md`).
+ *
+ * `prototype.not_implemented` is **client-side**, like `network`. It has no wire counterpart and
+ * never will: it is what the eight Prompt 2 repositories reject with when the application is running
+ * against the real API, because the endpoints behind them are proposed drafts
+ * (`docs/api/proposed/`) rather than implemented routes. Giving it a code of its own — rather than
+ * projecting it onto `server` — is what lets a screen say "this part of the prototype needs a
+ * backend" instead of "something went wrong on our side", which would be untrue.
  */
 export const API_FAILURE_CODES = [
     'auth.invalid_credentials',
@@ -27,6 +34,7 @@ export const API_FAILURE_CODES = [
     'rate_limit.exceeded',
     'network',
     'server',
+    'prototype.not_implemented',
 ] as const;
 export type ApiFailureCode = (typeof API_FAILURE_CODES)[number];
 
@@ -72,6 +80,8 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'context.branch_out_of_scope',
     'validation.failed',
     'rate_limit.exceeded',
+    // Retrying cannot conjure an endpoint that has not been built.
+    'prototype.not_implemented',
 ]);
 
 export function isApiFailureCode(value: unknown): value is ApiFailureCode {
@@ -121,6 +131,8 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'rate_limit.exceeded': 'Too many attempts. Wait a moment and try again.',
     network: 'Healthy360 could not be reached.',
     server: 'Something went wrong on our side.',
+    'prototype.not_implemented':
+        'This part of the prototype has no backend yet, so it cannot be used against the live API.',
 };
 
 export function apiFailure(code: SimpleFailureCode, options: FailureOptions = {}): ApiFailure {

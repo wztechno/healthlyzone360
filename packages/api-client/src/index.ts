@@ -50,6 +50,28 @@ export type {
     ValidationFields,
 } from './contracts/index.ts';
 
+/**
+ * The eight Prompt 2 repository interfaces.
+ *
+ * Only the *interfaces*: the models, filters and request shapes they trade in are a large
+ * vocabulary, and a screen imports those from `@healthy360/api-client/contracts` rather than
+ * inflating the package root. No fixture is exported from anywhere in this package — a screen that
+ * reaches for one is reaching past the seam the whole layer exists to hold.
+ */
+export type {
+    BusinessRepository,
+    CommerceRepository,
+    CursorPage,
+    CursorPageRequest,
+    FoodRepository,
+    MarketplaceRepository,
+    MealPlanRepository,
+    NumericRangeFilter,
+    NutritionRepository,
+    ProfessionalRepository,
+    VirtualDietitianRepository,
+} from './contracts/index.ts';
+
 export {
     MissingApiBaseUrlError,
     MockDataInProductionError,
@@ -77,3 +99,5 @@ export {
     isMockScenarioName,
 } from './mock/scenarios.ts';
 export type { MockScenario, MockScenarioName } from './mock/scenarios.ts';
+
+export { SORT_DIRECTIONS, emptyPage } from './contracts/index.ts';

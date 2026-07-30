@@ -1,10 +1,23 @@
 import { fireEvent, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 import { Text } from '../primitives/text.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { Checkbox } from './checkbox.tsx';
+import {
+    daysInMonth,
+    isIsoDate,
+    isoFromParts,
+    monthNames,
+    partsFromIso,
+    yearRange,
+} from './date-field-shared.ts';
+import { DateField } from './date-field.native.tsx';
+import { DateField as WebDateField } from './date-field.web.tsx';
 import { FormField } from './form-field.tsx';
+import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
+import { RangeFilter, isInvertedRange } from './range-filter.tsx';
 import { Select } from './select.tsx';
 import { TextInputField } from './text-input.tsx';
 
@@ -377,5 +390,529 @@ describe('Select', () => {
             'ar',
         );
         assertSubtreeIsLogical(screen.getByTestId('org'));
+    });
+});
+
+describe('clampToStep', () => {
+    it('snaps to the nearest step measured from the lower bound', () => {
+        expect(clampToStep(37, { min: 0, max: 100, step: 5 })).toBe(35);
+        expect(clampToStep(38, { min: 0, max: 100, step: 5 })).toBe(40);
+        expect(clampToStep(37, { min: 1, max: 100, step: 5 })).toBe(36);
+    });
+
+    it('clamps to the bounds after snapping', () => {
+        expect(clampToStep(-40, { min: 0, max: 100, step: 5 })).toBe(0);
+        expect(clampToStep(400, { min: 0, max: 100, step: 5 })).toBe(100);
+    });
+
+    it('keeps a fractional step free of floating-point dust', () => {
+        expect(clampToStep(0.30000000000000004, { min: 0, step: 0.1 })).toBe(0.3);
+    });
+});
+
+describe('NumberStepper', () => {
+    it('announces itself as a spinbutton carrying its own bounds', async () => {
+        await renderWithI18n(
+            <NumberStepper
+                testID="portion"
+                id="portion"
+                label="Portion size"
+                value={2}
+                min={1}
+                max={6}
+                onChange={jest.fn()}
+            />,
+        );
+
+        const input = screen.getByTestId('portion-input');
+        expect(input.props.role).toBe('spinbutton');
+        expect(input.props.accessibilityValue).toMatchObject({ now: 2, min: 1, max: 6 });
+    });
+
+    it('increments and decrements by the step', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <NumberStepper
+                testID="calories"
+                id="calories"
+                label="Calories"
+                value={500}
+                step={50}
+                onChange={onChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('calories-increment'));
+        expect(onChange).toHaveBeenLastCalledWith(550);
+
+        await fireEvent.press(screen.getByTestId('calories-decrement'));
+        expect(onChange).toHaveBeenLastCalledWith(450);
+    });
+
+    /** Both buttons are 44 dp, which is the reason this replaced a drag rail. */
+    it('gives both controls a 44 dp target and a translated name', async () => {
+        await renderWithI18n(
+            <NumberStepper
+                testID="portion"
+                id="portion"
+                label="Portion size"
+                value={2}
+                onChange={jest.fn()}
+            />,
+        );
+
+        const increment = screen.getByTestId('portion-increment');
+        expect(increment.props.className).toContain('min-h-touch');
+        expect(increment.props.className).toContain('min-w-touch');
+        expect(increment.props.accessibilityLabel).toBe('Increase Portion size');
+        expect(screen.getByTestId('portion-decrement').props.accessibilityLabel).toBe(
+            'Decrease Portion size',
+        );
+    });
+
+    it('disables the control that would leave the range', async () => {
+        await renderWithI18n(
+            <NumberStepper
+                testID="portion"
+                id="portion"
+                label="Portion size"
+                value={1}
+                min={1}
+                max={6}
+                onChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.getByTestId('portion-decrement').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+        expect(screen.getByTestId('portion-increment').props.accessibilityState).toMatchObject({
+            disabled: false,
+        });
+    });
+
+    it('accepts a typed number and reports an emptied field as unanswered', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <NumberStepper
+                testID="calories"
+                id="calories"
+                label="Calories"
+                value={500}
+                onChange={onChange}
+            />,
+        );
+
+        await fireEvent.changeText(screen.getByTestId('calories-input'), '640');
+        expect(onChange).toHaveBeenLastCalledWith(640);
+
+        await fireEvent.changeText(screen.getByTestId('calories-input'), '');
+        expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+
+    it('snaps a typed value back into the range when the field is left', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <NumberStepper
+                testID="calories"
+                id="calories"
+                label="Calories"
+                value={9999}
+                min={200}
+                max={1200}
+                step={50}
+                onChange={onChange}
+            />,
+        );
+
+        await fireEvent(screen.getByTestId('calories-input'), 'blur');
+        expect(onChange).toHaveBeenLastCalledWith(1200);
+    });
+
+    it('is keyboard-operable with the arrow keys on the web', async () => {
+        jest.replaceProperty(Platform, 'OS', 'web');
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <NumberStepper
+                testID="calories"
+                id="calories"
+                label="Calories"
+                value={500}
+                step={50}
+                onChange={onChange}
+            />,
+        );
+
+        const handler = screen.getByTestId('calories-input').props.onKeyDown as (event: {
+            key: string;
+            preventDefault: () => void;
+        }) => void;
+        handler({ key: 'ArrowUp', preventDefault: () => undefined });
+        expect(onChange).toHaveBeenLastCalledWith(550);
+
+        handler({ key: 'ArrowDown', preventDefault: () => undefined });
+        expect(onChange).toHaveBeenLastCalledWith(450);
+    });
+
+    it('shows its unit without announcing it twice', async () => {
+        await renderWithI18n(
+            <NumberStepper
+                testID="protein"
+                id="protein"
+                label="Protein"
+                value={30}
+                unit="g"
+                onChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.getByTestId('protein-unit')).toHaveTextContent('g');
+        expect(screen.getByTestId('protein-unit').props['aria-hidden']).toBe(true);
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(
+            <NumberStepper
+                testID="portion"
+                id="portion"
+                label="حجم الحصة"
+                value={2}
+                onChange={jest.fn()}
+            />,
+            'ar',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('portion'));
+    });
+});
+
+describe('RangeFilter', () => {
+    it('is a labelled group of two numeric fields, not a drag rail', async () => {
+        await renderWithI18n(
+            <RangeFilter
+                testID="calories"
+                id="calories"
+                label="Calories per meal"
+                value={{ min: 300, max: 700 }}
+                onChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.getByTestId('calories').props.role).toBe('group');
+        expect(screen.getByTestId('calories-label')).toHaveTextContent('Calories per meal');
+        expect(screen.getByTestId('calories-min-input')).toBeTruthy();
+        expect(screen.getByTestId('calories-max-input')).toBeTruthy();
+    });
+
+    it('reports each end independently', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <RangeFilter
+                testID="calories"
+                id="calories"
+                label="Calories per meal"
+                value={{ min: 300, max: 700 }}
+                step={50}
+                onChange={onChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('calories-min-increment'));
+        expect(onChange).toHaveBeenLastCalledWith({ min: 350, max: 700 });
+
+        await fireEvent.press(screen.getByTestId('calories-max-decrement'));
+        expect(onChange).toHaveBeenLastCalledWith({ min: 300, max: 650 });
+    });
+
+    /** Swapping the numbers behind the user loses the value they were part-way through typing. */
+    it('reports a crossed range rather than silently correcting it', async () => {
+        await renderWithI18n(
+            <RangeFilter
+                testID="calories"
+                id="calories"
+                label="Calories per meal"
+                value={{ min: 900, max: 300 }}
+                onChange={jest.fn()}
+            />,
+        );
+
+        const error = screen.getByTestId('calories-error');
+        expect(error.props.accessibilityRole).toBe('alert');
+        expect(error).toHaveTextContent('The lower value cannot be greater than the upper value.');
+    });
+
+    it('treats a half-filled range as valid', () => {
+        expect(isInvertedRange({ min: 900, max: null })).toBe(false);
+        expect(isInvertedRange({ min: null, max: 300 })).toBe(false);
+        expect(isInvertedRange({ min: 900, max: 300 })).toBe(true);
+        expect(isInvertedRange({ min: 300, max: 300 })).toBe(false);
+    });
+
+    it('translates its default end labels', async () => {
+        await renderWithI18n(
+            <RangeFilter
+                testID="calories"
+                id="calories"
+                label="السعرات"
+                value={{ min: null, max: null }}
+                onChange={jest.fn()}
+            />,
+            'ar',
+        );
+
+        expect(screen.getByTestId('calories-min-label')).toHaveTextContent('من');
+        expect(screen.getByTestId('calories-max-label')).toHaveTextContent('إلى');
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(
+            <RangeFilter
+                testID="calories"
+                id="calories"
+                label="السعرات"
+                value={{ min: 300, max: 700 }}
+                onChange={jest.fn()}
+            />,
+            'ar',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('calories'));
+    });
+});
+
+describe('DateField — shared arithmetic', () => {
+    it('accepts only real calendar dates', () => {
+        expect(isIsoDate('2026-02-28')).toBe(true);
+        expect(isIsoDate('2024-02-29')).toBe(true);
+        expect(isIsoDate('2026-02-29')).toBe(false);
+        expect(isIsoDate('2026-13-01')).toBe(false);
+        expect(isIsoDate('28-02-2026')).toBe(false);
+    });
+
+    it('applies the full leap-year rule, including the century exception', () => {
+        expect(daysInMonth(2024, 2)).toBe(29);
+        expect(daysInMonth(2100, 2)).toBe(28);
+        expect(daysInMonth(2000, 2)).toBe(29);
+        expect(daysInMonth(2026, 4)).toBe(30);
+    });
+
+    /** A silent roll-over is how a birth date ends up one day out. */
+    it('refuses to roll a non-existent day over into the next month', () => {
+        expect(isoFromParts({ year: 2026, month: 2, day: 31 })).toBeNull();
+        expect(isoFromParts({ year: 2026, month: 2, day: 28 })).toBe('2026-02-28');
+        expect(isoFromParts({ year: 2026, month: null, day: 3 })).toBeNull();
+    });
+
+    it('reads parts back out of an ISO date', () => {
+        expect(partsFromIso('2026-08-03')).toEqual({ year: 2026, month: 8, day: 3 });
+        expect(partsFromIso(null)).toEqual({ year: null, month: null, day: null });
+        expect(partsFromIso('nonsense')).toEqual({ year: null, month: null, day: null });
+    });
+
+    it('derives the offered years from the bounds when it has them', () => {
+        const years = yearRange('2020-01-01', '2024-12-31');
+        expect(years[0]).toBe(2024);
+        expect(years.at(-1)).toBe(2020);
+        expect(years).toHaveLength(5);
+    });
+
+    it('falls back to month numbers when the engine has no locale data', () => {
+        expect(monthNames('en')).toHaveLength(12);
+        expect(monthNames('ar')).toHaveLength(12);
+    });
+});
+
+describe('DateField — native (three selects)', () => {
+    it('is a labelled group of day, month and year', async () => {
+        await renderWithI18n(
+            <DateField
+                testID="start"
+                id="start"
+                label="Start date"
+                value="2026-08-03"
+                onChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.getByTestId('start').props.role).toBe('group');
+        expect(screen.getByTestId('start-day-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('start-year-value')).toHaveTextContent('2026');
+    });
+
+    it('offers only the days that exist in the chosen month', async () => {
+        await renderWithI18n(
+            <DateField
+                testID="start"
+                id="start"
+                label="Start date"
+                value="2026-02-10"
+                onChange={jest.fn()}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('start-day-trigger'));
+        expect(screen.getByTestId('start-day-option-28')).toBeTruthy();
+        expect(screen.queryByTestId('start-day-option-29')).toBeNull();
+    });
+
+    it('emits an ISO date when every part is answered', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <DateField
+                testID="start"
+                id="start"
+                label="Start date"
+                value="2026-08-03"
+                onChange={onChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('start-day-trigger'));
+        await fireEvent.press(screen.getByTestId('start-day-option-14'));
+        expect(onChange).toHaveBeenLastCalledWith('2026-08-14');
+    });
+
+    it('clamps an out-of-bounds choice back into the permitted window', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <DateField
+                testID="start"
+                id="start"
+                label="Start date"
+                value="2026-08-20"
+                min="2026-08-01"
+                max="2026-08-15"
+                onChange={onChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('start-day-trigger'));
+        await fireEvent.press(screen.getByTestId('start-day-option-25'));
+        expect(onChange).toHaveBeenLastCalledWith('2026-08-15');
+    });
+
+    it('translates its part labels', async () => {
+        await renderWithI18n(
+            <DateField
+                testID="start"
+                id="start"
+                label="تاريخ البدء"
+                value={null}
+                onChange={jest.fn()}
+            />,
+            'ar',
+        );
+
+        expect(screen.getByTestId('start-day-trigger').props.accessibilityLabel).toContain('اليوم');
+        expect(screen.getByTestId('start-year-trigger').props.accessibilityLabel).toContain(
+            'السنة',
+        );
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(
+            <DateField
+                testID="start"
+                id="start"
+                label="تاريخ البدء"
+                value="2026-08-03"
+                onChange={jest.fn()}
+            />,
+            'ar',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('start'));
+    });
+});
+
+/**
+ * Walks the rendered tree for a host element of a given type. The web `DateField` renders a real
+ * DOM `input`, which react-test-renderer records as a plain host node — there is no `testID` query
+ * for it, and adding one would put a stray attribute on a real browser element.
+ */
+function findHostByType(node: unknown, type: string): { props: Record<string, unknown> } | null {
+    if (node === null || typeof node !== 'object') return null;
+    const candidate = node as {
+        type?: unknown;
+        props?: Record<string, unknown>;
+        children?: readonly unknown[] | null;
+    };
+    if (candidate.type === type) return { props: candidate.props ?? {} };
+    for (const child of candidate.children ?? []) {
+        const found = findHostByType(child, type);
+        if (found !== null) return found;
+    }
+    return null;
+}
+
+function dateInput(): Record<string, unknown> {
+    const found = findHostByType(screen.toJSON(), 'input');
+    expect(found).not.toBeNull();
+    return found!.props;
+}
+
+describe('DateField — web (native date input)', () => {
+    /**
+     * The web half is imported explicitly: jest-expo resolves the platform files as iOS, so
+     * `./date-field` would give us the three-select variant. This is the only way to hold the
+     * browser implementation to the same props contract.
+     */
+    it('renders a real date input wired to the field label', async () => {
+        await renderWithI18n(
+            <WebDateField
+                testID="start"
+                id="start"
+                label="Start date"
+                value="2026-08-03"
+                min="2026-08-01"
+                max="2026-12-31"
+                onChange={jest.fn()}
+            />,
+        );
+
+        const input = dateInput();
+        expect(input['type']).toBe('date');
+        expect(input['id']).toBe('start');
+        expect(input['aria-labelledby']).toBe('start-label');
+        expect(input['value']).toBe('2026-08-03');
+        expect(input['min']).toBe('2026-08-01');
+        expect(input['max']).toBe('2026-12-31');
+    });
+
+    it('reports a cleared input as unanswered', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <WebDateField
+                testID="start"
+                id="start"
+                label="Start date"
+                value="2026-08-03"
+                onChange={onChange}
+            />,
+        );
+
+        const onDomChange = dateInput()['onChange'] as (event: {
+            target: { value: string };
+        }) => void;
+        onDomChange({ target: { value: '' } });
+        expect(onChange).toHaveBeenCalledWith(null);
+    });
+
+    it('clamps a value the browser allowed past the bounds', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <WebDateField
+                testID="start"
+                id="start"
+                label="Start date"
+                value="2026-08-03"
+                min="2026-08-01"
+                max="2026-08-15"
+                onChange={onChange}
+            />,
+        );
+
+        const onDomChange = dateInput()['onChange'] as (event: {
+            target: { value: string };
+        }) => void;
+        onDomChange({ target: { value: '2026-09-30' } });
+        expect(onChange).toHaveBeenCalledWith('2026-08-15');
     });
 });

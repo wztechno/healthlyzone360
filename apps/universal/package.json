@@ -8,7 +8,7 @@
         "android": "expo start --android",
         "ios": "expo start --ios",
         "web": "expo start --web",
-        "build:web": "expo export -p web",
+        "build:web": "expo export -p web --clear",
         "build:web:api": "expo export -p web --output-dir dist-api --clear",
         "doctor": "expo-doctor",
         "lint": "eslint . --max-warnings=0",

@@ -12,7 +12,20 @@ import {
     spacing,
     zIndex,
 } from './layout.ts';
-import { DURATION_NAMES, durations, durationsFor, easings, reducedDurations } from './motion.ts';
+import {
+    DURATION_NAMES,
+    MAX_STAGGERED_ITEMS,
+    MOTION_DISTANCE_NAMES,
+    STAGGER_STEP_MS,
+    durations,
+    durationsFor,
+    easings,
+    motionDistances,
+    motionDistancesFor,
+    reducedDurations,
+    reducedMotionDistances,
+    staggerDelay,
+} from './motion.ts';
 import {
     DISPLAY_SIZE_THRESHOLD,
     FONT_SIZE_NAMES,
@@ -200,6 +213,35 @@ describe('motion', () => {
             expect(token.bezier, name).toHaveLength(4);
             expect(token.css).toBe(`cubic-bezier(${token.bezier.join(', ')})`);
         }
+    });
+
+    it('zeroes every travel distance under reduced motion', () => {
+        for (const name of MOTION_DISTANCE_NAMES) {
+            expect(reducedMotionDistances[name], name).toBe(0);
+        }
+        expect(motionDistancesFor(true)).toBe(reducedMotionDistances);
+        expect(motionDistancesFor(false)).toBe(motionDistances);
+    });
+
+    it('increases travel distance monotonically from zero', () => {
+        const values = MOTION_DISTANCE_NAMES.map((name) => motionDistances[name]);
+        expect(values[0]).toBe(0);
+        for (let index = 1; index < values.length; index += 1) {
+            expect(values[index]!).toBeGreaterThan(values[index - 1]!);
+        }
+    });
+
+    /** An uncapped stagger turns a long planner week into a wait rather than a flourish. */
+    it('caps the stagger so a long list never queues behind an ever-growing delay', () => {
+        expect(staggerDelay(0)).toBe(0);
+        expect(staggerDelay(1)).toBe(STAGGER_STEP_MS);
+        const capped = (MAX_STAGGERED_ITEMS - 1) * STAGGER_STEP_MS;
+        expect(staggerDelay(MAX_STAGGERED_ITEMS - 1)).toBe(capped);
+        expect(staggerDelay(200)).toBe(capped);
+    });
+
+    it('removes the stagger entirely under reduced motion', () => {
+        expect(staggerDelay(5, true)).toBe(0);
     });
 });
 

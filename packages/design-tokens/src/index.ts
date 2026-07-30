@@ -87,9 +87,16 @@ export type { ElevationLevel, ElevationRole, ElevationToken, NativeShadow } from
 export {
     DURATION_NAMES,
     EASING_NAMES,
+    MAX_STAGGERED_ITEMS,
+    MOTION_DISTANCE_NAMES,
+    STAGGER_STEP_MS,
     durations,
     durationsFor,
     easings,
+    motionDistances,
+    motionDistancesFor,
     reducedDurations,
+    reducedMotionDistances,
+    staggerDelay,
 } from './motion.ts';
-export type { DurationName, EasingName, EasingToken } from './motion.ts';
+export type { DurationName, EasingName, EasingToken, MotionDistanceName } from './motion.ts';

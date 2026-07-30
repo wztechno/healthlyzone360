@@ -54,6 +54,41 @@
     "select": {
         "placeholder": "اختر أحد الخيارات"
     },
+    "stepper": {
+        "progress": "الخطوة {{current}} من {{total}}"
+    },
+    "numberStepper": {
+        "increase": "زيادة {{label}}",
+        "decrease": "إنقاص {{label}}"
+    },
+    "rangeFilter": {
+        "min": "من",
+        "max": "إلى",
+        "inverted": "لا يمكن أن تكون القيمة الدنيا أكبر من القيمة العليا."
+    },
+    "chip": {
+        "remove": "إزالة {{label}}"
+    },
+    "table": {
+        "empty": "لا يوجد شيء لعرضه هنا بعد."
+    },
+    "dateField": {
+        "day": "اليوم",
+        "month": "الشهر",
+        "year": "السنة"
+    },
+    "rating": {
+        "summary": "{{value}} من {{max}}",
+        "count_zero": "لا توجد تقييمات",
+        "count_one": "تقييم واحد",
+        "count_two": "تقييمان",
+        "count_few": "{{count}} تقييمات",
+        "count_many": "{{count}} تقييمًا",
+        "count_other": "{{count}} تقييم"
+    },
+    "breadcrumbs": {
+        "label": "مسار التنقّل"
+    },
     "emptyState": {
         "prototypeBadge": "نموذج أولي — مُخطَّط لمرحلة لاحقة",
         "prototypeBody": "هذا القسم مُسجَّل ضمن خريطة المسارات لكن لا توجد له شاشات بعد. سيُبنى مع الوحدة التي يتبع لها."
@@ -65,7 +100,7 @@
     },
     "showcase": {
         "title": "نظام التصميم",
-        "subtitle": "كل مكوّنات المرحلة الأولى بالإنجليزية والعربية، في الوضعين الفاتح والداكن. هذه الصفحة هي مرجع اختبار الوصولية.",
+        "subtitle": "كل المكوّنات بالإنجليزية والعربية، في الوضعين الفاتح والداكن. هذه الصفحة هي مرجع اختبار الوصولية.",
         "sections": {
             "typography": "الخطوط والتخطيط",
             "actions": "الإجراءات",
@@ -73,7 +108,12 @@
             "content": "المحتوى",
             "status": "الحالة",
             "overlays": "الطبقات",
-            "shell": "هيكل التطبيق"
+            "shell": "هيكل التطبيق",
+            "navigation": "التنقّل والتقدّم",
+            "filters": "التصفية والاختيار",
+            "dates": "التواريخ",
+            "data": "البيانات والقياس",
+            "motion": "الحركة"
         },
         "openDialog": "فتح الحوار",
         "openDrawer": "فتح اللوحة الجانبية",
@@ -85,6 +125,50 @@
         "sampleLabel": "حقل تجريبي",
         "sampleHint": "ملاحظة توضّح الحقل.",
         "sampleError": "هناك خطأ في هذه القيمة.",
-        "sampleOption": "الخيار {{index}}"
+        "sampleOption": "الخيار {{index}}",
+        "openDrawerEnd": "فتح اللوحة من الحافة الخلفية",
+        "openActionSheet": "فتح قائمة الإجراءات",
+        "actionSheetTitle": "اختر إجراءً",
+        "actionSheetPrimary": "نسخ",
+        "actionSheetSecondary": "مشاركة",
+        "actionSheetDestructive": "حذف",
+        "popoverTrigger": "لماذا هذا الرقم؟",
+        "popoverTitle": "كيف حُسب هذا",
+        "popoverBody": "كل رقم في هذه الصفحة مُولَّد من بيانات نموذج أولي اصطناعية.",
+        "tabsLabel": "تبويبات تجريبية",
+        "tabOverview": "نظرة عامة",
+        "tabNutrition": "التغذية",
+        "tabDelivery": "التوصيل",
+        "stepperLabel": "تقدّم المعالج التجريبي",
+        "stepperStep": "مستوى النشاط",
+        "breadcrumbHome": "الرئيسية",
+        "breadcrumbSection": "الوجبات",
+        "breadcrumbCurrent": "طبق الحلوم المشوي",
+        "amountLabel": "حجم الحصة",
+        "rangeLabel": "السعرات لكل وجبة",
+        "chipRemovable": "بدون فول سوداني",
+        "chipFilter": "عالي البروتين",
+        "dateLabel": "تاريخ البدء",
+        "tableCaption": "جدول تغذية تجريبي",
+        "tableColumnName": "العنصر الغذائي",
+        "tableColumnAmount": "الكمية",
+        "tableColumnTarget": "الهدف",
+        "ringLabel": "الطاقة مقابل الهدف",
+        "ringCaption": "سعرة",
+        "meterLabel": "البروتين",
+        "ratingLabel": "متوسط تقييم المطبخ",
+        "calendarLabel": "أسبوع تجريبي",
+        "accordionOne": "ما هي البيانات الاصطناعية؟",
+        "accordionTwo": "من أين تأتي هذه الأرقام؟",
+        "accordionBody": "لا شيء في هذه الصفحة بيانات حقيقية. وُجدت لكي يمكن رؤية المكوّن واختباره.",
+        "calloutTitle": "بيانات نموذج أولي",
+        "calloutBody": "هذه الشاشة مرجع لنظام التصميم وليست شاشة منتج.",
+        "avatarName": "نور صالح",
+        "placeholderLabel": "الصورة غير متوفرة",
+        "replay": "إعادة تشغيل الحركة",
+        "motionFade": "ظهر بالتلاشي",
+        "motionSlideStart": "انزلق من الحافة الأمامية",
+        "motionSlideBottom": "انزلق من الأسفل",
+        "motionNumber": "رقم متحرّك"
     }
 }

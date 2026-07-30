@@ -30,6 +30,8 @@ export const MOCK_SCENARIO_NAMES = [
     'unverified-email',
     'two-factor-user',
     'platform-admin',
+    'consumer-prototype',
+    'consumer-onboarding',
 ] as const;
 export type MockScenarioName = (typeof MOCK_SCENARIO_NAMES)[number];
 
@@ -238,6 +240,32 @@ const platformAdministrator: MockScenario = {
     ],
 };
 
+/**
+ * The Prompt 2 prototype world, fully populated.
+ *
+ * Same account as `customer-no-org` — Nour Saleh, a global identity with no organisation — because
+ * the prototype is *about* that person: onboarding is complete, a nutrition target is stored, a week
+ * is generated, a subscription is running and a review is with a dietitian. What differs from
+ * `customer-no-org` is not the account but the prototype world behind it (`./prototype/store.ts`),
+ * which is keyed on the scenario name.
+ */
+const consumerPrototype: MockScenario = {
+    name: 'consumer-prototype',
+    summary:
+        'Nour Saleh with onboarding complete: targets set, a generated week, an active subscription and a review pending.',
+    primaryEmail: consumer.email,
+    accounts: [account(consumer, [])],
+};
+
+/** The same person on day one: no targets, an empty planner, nothing generated. */
+const consumerOnboarding: MockScenario = {
+    name: 'consumer-onboarding',
+    summary:
+        'Nour Saleh before onboarding finishes — no nutrition target, an empty planner and nothing to review.',
+    primaryEmail: consumer.email,
+    accounts: [account(consumer, [])],
+};
+
 export const MOCK_SCENARIOS: Readonly<Record<MockScenarioName, MockScenario>> = {
     'multi-org-dietitian': multiOrgDietitian,
     'single-org-owner': singleOrgOwner,
@@ -245,6 +273,8 @@ export const MOCK_SCENARIOS: Readonly<Record<MockScenarioName, MockScenario>> = 
     'unverified-email': unverifiedEmail,
     'two-factor-user': twoFactor,
     'platform-admin': platformAdministrator,
+    'consumer-prototype': consumerPrototype,
+    'consumer-onboarding': consumerOnboarding,
 };
 
 export function resolveScenario(name: string | null | undefined): MockScenario {

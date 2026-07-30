@@ -24,6 +24,8 @@ import type {
     SetContextRequest,
 } from '../contracts/session.ts';
 import { createMemoryTokenStore } from '../contracts/session.ts';
+import { createPrototypeRepositories } from './prototype/repositories.ts';
+import type { PrototypeStore } from './prototype/store.ts';
 import { DEFAULT_MOCK_SCENARIO, resolveScenario } from './scenarios.ts';
 import type { MockScenario, MockScenarioName } from './scenarios.ts';
 import { MockStore } from './store.ts';
@@ -47,6 +49,11 @@ export interface MockRepositories extends Repositories {
     readonly kind: 'mock';
     readonly scenario: MockScenario;
     readonly tokenStore: SessionTokenStore;
+    /**
+     * The mutable prototype world, exposed so a test can assert what a mutation did without going
+     * back through a repository. Screens never touch it — they only ever see `Repositories`.
+     */
+    readonly prototypeStore: PrototypeStore;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -71,6 +78,15 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
 
     const settle = () => sleep(latency);
     const current = () => store.requireAccount(tokenStore.get());
+
+    /**
+     * The eight Prompt 2 repositories, over their own store.
+     *
+     * They share the foundation bundle's latency so a screen sees one consistent timing model, and
+     * they are built here rather than in the registry so that everything behind the mock dynamic
+     * import stays behind it.
+     */
+    const prototype = createPrototypeRepositories({ scenario: scenario.name, settle });
 
     const auth: AuthRepository = {
         async login(request: LoginRequest): Promise<LoginResult> {
@@ -194,5 +210,22 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         },
     };
 
-    return { kind: 'mock', scenario, tokenStore, auth, session, context, devices };
+    return {
+        kind: 'mock',
+        scenario,
+        tokenStore,
+        prototypeStore: prototype.store,
+        auth,
+        session,
+        context,
+        devices,
+        marketplace: prototype.marketplace,
+        nutrition: prototype.nutrition,
+        planner: prototype.planner,
+        foods: prototype.foods,
+        virtualDietitian: prototype.virtualDietitian,
+        commerce: prototype.commerce,
+        business: prototype.business,
+        professional: prototype.professional,
+    };
 }

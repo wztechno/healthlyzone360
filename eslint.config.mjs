@@ -245,5 +245,50 @@ export default tseslint.config(
         },
     },
 
+    // Prompt 2 guard invariants (plan §5), orchestrator-owned.
+    //
+    // 1. Screens never import fixtures: the mock world (including the prototype fixture world)
+    //    is reachable only through repositories. Tests and the app's own test harness are exempt.
+    // 2. No dead controls: an empty onPress body is a dead button by construction. Real handlers
+    //    call a hook, a mutation or usePrototypeAction() — never nothing.
+    {
+        files: ['apps/universal/app/**/*.{ts,tsx}', 'apps/universal/src/**/*.{ts,tsx}'],
+        ignores: [
+            'apps/universal/src/testing/**',
+            '**/*.test.{ts,tsx}',
+            '**/__tests__/**/*.{ts,tsx}',
+        ],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    ...restrictedImports,
+                    patterns: [
+                        ...restrictedImports.patterns,
+                        {
+                            group: [
+                                '**/mock/**',
+                                '@healthy360/api-client/mock',
+                                '@healthy360/api-client/mock/**',
+                            ],
+                            message:
+                                'Screens must not import fixtures or the mock world directly (plan §5). Go through the repository hooks; tests use src/testing helpers.',
+                        },
+                    ],
+                },
+            ],
+            'no-restricted-syntax': [
+                'error',
+                ...classNameAttributeSelectors,
+                {
+                    selector:
+                        "JSXAttribute[name.name='onPress'] ArrowFunctionExpression[body.type='BlockStatement'][body.body.length=0]",
+                    message:
+                        'Empty onPress handlers are dead controls. Wire a real action or usePrototypeAction() (plan §5).',
+                },
+            ],
+        },
+    },
+
     prettier,
 );

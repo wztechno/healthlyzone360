@@ -5,6 +5,11 @@ import { Text as RNText, View } from 'react-native';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import {
+    NUTRITION_ON_CLASS,
+    NUTRITION_SURFACE_CLASS,
+    nutritionMark,
+} from '../internal/nutrition.ts';
 
 export const BADGE_TONES = ['neutral', 'success', 'warning', 'danger', 'info', 'brand'] as const;
 export type BadgeTone = (typeof BADGE_TONES)[number];
@@ -45,32 +50,11 @@ const TONE_ICON: Readonly<Record<BadgeTone, IconName | null>> = {
 
 /**
  * Nutrition levels get a *pattern word* alongside the colour, taken straight from the token's
- * `pattern` field, because the five-stop scale is exactly the case where colour alone fails.
+ * `pattern` field, because the five-stop scale is exactly the case where colour alone fails. The
+ * surfaces, foregrounds and marker come from `internal/nutrition.ts`, which is the single source
+ * every nutrition-aware component reads — a badge and a meter must never disagree about what
+ * "moderate" looks like in greyscale.
  */
-const NUTRITION_TONE: Readonly<Record<NutritionLevel, string>> = {
-    optimal: 'bg-nutrition-optimal',
-    good: 'bg-nutrition-good',
-    moderate: 'bg-nutrition-moderate',
-    high: 'bg-nutrition-high',
-    excessive: 'bg-nutrition-excessive',
-};
-
-const NUTRITION_TEXT: Readonly<Record<NutritionLevel, string>> = {
-    optimal: 'text-nutrition-optimal-on',
-    good: 'text-nutrition-good-on',
-    moderate: 'text-nutrition-moderate-on',
-    high: 'text-nutrition-high-on',
-    excessive: 'text-nutrition-excessive-on',
-};
-
-/** Repeat count of the marker glyph — an ordinal signal that needs no colour at all. */
-const NUTRITION_MARKS: Readonly<Record<NutritionLevel, number>> = {
-    optimal: 1,
-    good: 2,
-    moderate: 3,
-    high: 4,
-    excessive: 5,
-};
 
 export interface BadgeProps {
     readonly label: string;
@@ -92,7 +76,7 @@ export function Badge({ label, tone = 'neutral', nutrition, icon, className, tes
                 accessibilityLabel={label}
                 className={cx(
                     'flex-row items-center gap-1 self-start rounded-full px-2 py-0.5',
-                    NUTRITION_TONE[nutrition],
+                    NUTRITION_SURFACE_CLASS[nutrition],
                     className,
                 )}
             >
@@ -100,11 +84,11 @@ export function Badge({ label, tone = 'neutral', nutrition, icon, className, tes
                     testID={testID === undefined ? undefined : `${testID}-pattern`}
                     aria-hidden
                     accessibilityElementsHidden
-                    className={cx('text-xs tracking-wide', NUTRITION_TEXT[nutrition])}
+                    className={cx('text-xs tracking-wide', NUTRITION_ON_CLASS[nutrition])}
                 >
-                    {'▮'.repeat(NUTRITION_MARKS[nutrition])}
+                    {nutritionMark(nutrition)}
                 </RNText>
-                <RNText className={cx('text-xs font-medium', NUTRITION_TEXT[nutrition])}>
+                <RNText className={cx('text-xs font-medium', NUTRITION_ON_CLASS[nutrition])}>
                     {label}
                 </RNText>
             </View>

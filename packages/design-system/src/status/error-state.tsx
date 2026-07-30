@@ -21,6 +21,10 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'context.branch_out_of_scope': 'errors:failure.context_branch_out_of_scope',
     'validation.failed': 'errors:failure.validation_failed',
     'rate_limit.exceeded': 'errors:failure.rate_limit_exceeded',
+    // Raised by every prototype API repository. The record is exhaustive over `ApiFailure['code']`,
+    // so a new failure code cannot be added upstream without this table being updated — which is
+    // exactly the point of typing it that way.
+    'prototype.not_implemented': 'errors:failure.prototype_not_implemented',
     network: 'errors:failure.network',
     server: 'errors:failure.server',
 };

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 330 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 394 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -252,37 +252,98 @@ export interface NamespaceKeys {
     | 'theme.light'
     | 'theme.system';
   readonly "designSystem":
+    | 'breadcrumbs.label'
+    | 'chip.remove'
     | 'controls.currentDirection'
     | 'controls.currentLocale'
     | 'controls.currentTheme'
     | 'controls.toggleLocale'
     | 'controls.toggleTheme'
+    | 'dateField.day'
+    | 'dateField.month'
+    | 'dateField.year'
     | 'emptyState.prototypeBadge'
     | 'emptyState.prototypeBody'
+    | 'numberStepper.decrease'
+    | 'numberStepper.increase'
     | 'passwordInput.hide'
     | 'passwordInput.show'
+    | 'rangeFilter.inverted'
+    | 'rangeFilter.max'
+    | 'rangeFilter.min'
+    | 'rating.count'
+    | 'rating.summary'
     | 'select.placeholder'
     | 'shell.openNavigation'
     | 'shell.primaryNavigation'
     | 'shell.skipToContent'
+    | 'showcase.accordionBody'
+    | 'showcase.accordionOne'
+    | 'showcase.accordionTwo'
+    | 'showcase.actionSheetDestructive'
+    | 'showcase.actionSheetPrimary'
+    | 'showcase.actionSheetSecondary'
+    | 'showcase.actionSheetTitle'
+    | 'showcase.amountLabel'
+    | 'showcase.avatarName'
+    | 'showcase.breadcrumbCurrent'
+    | 'showcase.breadcrumbHome'
+    | 'showcase.breadcrumbSection'
+    | 'showcase.calendarLabel'
+    | 'showcase.calloutBody'
+    | 'showcase.calloutTitle'
+    | 'showcase.chipFilter'
+    | 'showcase.chipRemovable'
+    | 'showcase.dateLabel'
     | 'showcase.dialogBody'
     | 'showcase.dialogTitle'
     | 'showcase.drawerTitle'
+    | 'showcase.meterLabel'
+    | 'showcase.motionFade'
+    | 'showcase.motionNumber'
+    | 'showcase.motionSlideBottom'
+    | 'showcase.motionSlideStart'
+    | 'showcase.openActionSheet'
     | 'showcase.openDialog'
     | 'showcase.openDrawer'
+    | 'showcase.openDrawerEnd'
+    | 'showcase.placeholderLabel'
+    | 'showcase.popoverBody'
+    | 'showcase.popoverTitle'
+    | 'showcase.popoverTrigger'
+    | 'showcase.rangeLabel'
+    | 'showcase.ratingLabel'
+    | 'showcase.replay'
+    | 'showcase.ringCaption'
+    | 'showcase.ringLabel'
     | 'showcase.sampleError'
     | 'showcase.sampleHint'
     | 'showcase.sampleLabel'
     | 'showcase.sampleOption'
     | 'showcase.sections.actions'
     | 'showcase.sections.content'
+    | 'showcase.sections.data'
+    | 'showcase.sections.dates'
+    | 'showcase.sections.filters'
     | 'showcase.sections.forms'
+    | 'showcase.sections.motion'
+    | 'showcase.sections.navigation'
     | 'showcase.sections.overlays'
     | 'showcase.sections.shell'
     | 'showcase.sections.status'
     | 'showcase.sections.typography'
     | 'showcase.showToast'
+    | 'showcase.stepperLabel'
+    | 'showcase.stepperStep'
     | 'showcase.subtitle'
+    | 'showcase.tabDelivery'
+    | 'showcase.tabNutrition'
+    | 'showcase.tabOverview'
+    | 'showcase.tableCaption'
+    | 'showcase.tableColumnAmount'
+    | 'showcase.tableColumnName'
+    | 'showcase.tableColumnTarget'
+    | 'showcase.tabsLabel'
     | 'showcase.title'
     | 'showcase.toastMessage'
     | 'spike.colour.description'
@@ -305,7 +366,9 @@ export interface NamespaceKeys {
     | 'spike.subtitle'
     | 'spike.title'
     | 'spike.typography.description'
-    | 'swatch.contrast';
+    | 'stepper.progress'
+    | 'swatch.contrast'
+    | 'table.empty';
   readonly "errors":
     | 'failure.auth_email_unverified'
     | 'failure.auth_invalid_credentials'
@@ -316,6 +379,7 @@ export interface NamespaceKeys {
     | 'failure.context_organisation_forbidden'
     | 'failure.context_organisation_required'
     | 'failure.network'
+    | 'failure.prototype_not_implemented'
     | 'failure.rate_limit_exceeded'
     | 'failure.server'
     | 'failure.validation_failed'
@@ -600,37 +664,98 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:theme.label',
   'common:theme.light',
   'common:theme.system',
+  'designSystem:breadcrumbs.label',
+  'designSystem:chip.remove',
   'designSystem:controls.currentDirection',
   'designSystem:controls.currentLocale',
   'designSystem:controls.currentTheme',
   'designSystem:controls.toggleLocale',
   'designSystem:controls.toggleTheme',
+  'designSystem:dateField.day',
+  'designSystem:dateField.month',
+  'designSystem:dateField.year',
   'designSystem:emptyState.prototypeBadge',
   'designSystem:emptyState.prototypeBody',
+  'designSystem:numberStepper.decrease',
+  'designSystem:numberStepper.increase',
   'designSystem:passwordInput.hide',
   'designSystem:passwordInput.show',
+  'designSystem:rangeFilter.inverted',
+  'designSystem:rangeFilter.max',
+  'designSystem:rangeFilter.min',
+  'designSystem:rating.count',
+  'designSystem:rating.summary',
   'designSystem:select.placeholder',
   'designSystem:shell.openNavigation',
   'designSystem:shell.primaryNavigation',
   'designSystem:shell.skipToContent',
+  'designSystem:showcase.accordionBody',
+  'designSystem:showcase.accordionOne',
+  'designSystem:showcase.accordionTwo',
+  'designSystem:showcase.actionSheetDestructive',
+  'designSystem:showcase.actionSheetPrimary',
+  'designSystem:showcase.actionSheetSecondary',
+  'designSystem:showcase.actionSheetTitle',
+  'designSystem:showcase.amountLabel',
+  'designSystem:showcase.avatarName',
+  'designSystem:showcase.breadcrumbCurrent',
+  'designSystem:showcase.breadcrumbHome',
+  'designSystem:showcase.breadcrumbSection',
+  'designSystem:showcase.calendarLabel',
+  'designSystem:showcase.calloutBody',
+  'designSystem:showcase.calloutTitle',
+  'designSystem:showcase.chipFilter',
+  'designSystem:showcase.chipRemovable',
+  'designSystem:showcase.dateLabel',
   'designSystem:showcase.dialogBody',
   'designSystem:showcase.dialogTitle',
   'designSystem:showcase.drawerTitle',
+  'designSystem:showcase.meterLabel',
+  'designSystem:showcase.motionFade',
+  'designSystem:showcase.motionNumber',
+  'designSystem:showcase.motionSlideBottom',
+  'designSystem:showcase.motionSlideStart',
+  'designSystem:showcase.openActionSheet',
   'designSystem:showcase.openDialog',
   'designSystem:showcase.openDrawer',
+  'designSystem:showcase.openDrawerEnd',
+  'designSystem:showcase.placeholderLabel',
+  'designSystem:showcase.popoverBody',
+  'designSystem:showcase.popoverTitle',
+  'designSystem:showcase.popoverTrigger',
+  'designSystem:showcase.rangeLabel',
+  'designSystem:showcase.ratingLabel',
+  'designSystem:showcase.replay',
+  'designSystem:showcase.ringCaption',
+  'designSystem:showcase.ringLabel',
   'designSystem:showcase.sampleError',
   'designSystem:showcase.sampleHint',
   'designSystem:showcase.sampleLabel',
   'designSystem:showcase.sampleOption',
   'designSystem:showcase.sections.actions',
   'designSystem:showcase.sections.content',
+  'designSystem:showcase.sections.data',
+  'designSystem:showcase.sections.dates',
+  'designSystem:showcase.sections.filters',
   'designSystem:showcase.sections.forms',
+  'designSystem:showcase.sections.motion',
+  'designSystem:showcase.sections.navigation',
   'designSystem:showcase.sections.overlays',
   'designSystem:showcase.sections.shell',
   'designSystem:showcase.sections.status',
   'designSystem:showcase.sections.typography',
   'designSystem:showcase.showToast',
+  'designSystem:showcase.stepperLabel',
+  'designSystem:showcase.stepperStep',
   'designSystem:showcase.subtitle',
+  'designSystem:showcase.tabDelivery',
+  'designSystem:showcase.tabNutrition',
+  'designSystem:showcase.tabOverview',
+  'designSystem:showcase.tableCaption',
+  'designSystem:showcase.tableColumnAmount',
+  'designSystem:showcase.tableColumnName',
+  'designSystem:showcase.tableColumnTarget',
+  'designSystem:showcase.tabsLabel',
   'designSystem:showcase.title',
   'designSystem:showcase.toastMessage',
   'designSystem:spike.colour.description',
@@ -653,7 +778,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:spike.subtitle',
   'designSystem:spike.title',
   'designSystem:spike.typography.description',
+  'designSystem:stepper.progress',
   'designSystem:swatch.contrast',
+  'designSystem:table.empty',
   'errors:failure.auth_email_unverified',
   'errors:failure.auth_invalid_credentials',
   'errors:failure.auth_step_up_required',
@@ -663,6 +790,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.context_organisation_forbidden',
   'errors:failure.context_organisation_required',
   'errors:failure.network',
+  'errors:failure.prototype_not_implemented',
   'errors:failure.rate_limit_exceeded',
   'errors:failure.server',
   'errors:failure.validation_failed',

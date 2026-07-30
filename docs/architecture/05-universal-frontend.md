@@ -144,6 +144,44 @@ Deferred: advanced tables, nutrition charts, meal-planner components, kitchen pr
 
 Platform-specific files (`.web.tsx` / `.native.tsx`) are allowed wherever platform behaviour genuinely differs — they are not restricted to primitives.
 
+### 7.1.1 Phase 2 additions
+
+Added for the Prompt 2 prototype. The design system stays **domain-free**: nothing below knows what a meal, a kitchen or a plan is. Domain components (`NutritionFactsPanel`, `MealCard`, `PlanCard`, `MacroSummary`, `AllergenList`) live in `apps/universal/src/features/**`.
+
+| Group | Component | Why it exists, and the decision inside it |
+| --- | --- | --- |
+| Navigation | `Tabs`, `SegmentedControl` | One behaviour, two chromes. `role="tablist"` with a **roving tab stop** — only the selected tab is focusable, so an eleven-way filter costs one Tab press. Arrow keys are remapped for RTL, because the browser does not do it |
+| Navigation | `Stepper` | Wizard progress for up to 22 steps. A counter plus a bar, not 22 dots: 22 labelled nodes cannot fit at 360 px without dropping below the touch minimum. The bar fills from the leading edge by flex source order |
+| Navigation | `Breadcrumbs` | Its own named `navigation` landmark (a page has two otherwise). Last crumb is `aria-current="page"` and is not a link |
+| Forms | `NumberStepper` | **Replaces the slider.** A drag rail needs a pointer, a bespoke keyboard implementation and a gesture dependency, and cannot be hit accurately at 360 px. Announces as a `spinbutton` carrying its own bounds; two 44 dp buttons; Arrow Up/Down on the web |
+| Forms | `RangeFilter` | Two `NumberStepper`s. Crossed values are **reported, not silently swapped** — swapping loses what the user was typing |
+| Forms | `DateField` (`.web` / `.native`) | Web: a real `input[type=date]` written as a DOM element, because the browser's picker is already accessible, translated and locale-formatted, and react-native-web's `TextInput` cannot express `type="date"`. Native: three `Select`s (a birth date is 100 years of swiping in a month grid). Shared arithmetic in `date-field-shared.ts`; a non-existent day never rolls over |
+| Content | `Chip`, `FilterChip` | Chips reflow by count and width at a constant height — raised to the 44 dp minimum, which both reference products fell short of. `FilterChip` uses `aria-pressed` on the web (`aria-selected` is invalid on a button and axe reports it) and `accessibilityState.selected` on native, which react-native-web ignores |
+| Content | `Callout` | The base of the app-level `MedicalDisclaimer` and `PrototypeNotice`. `role` is a prop — a standing disclaimer is a `note`, not an `alert`; making everything an alert teaches users to ignore them |
+| Content | `Accordion` | Headers carry `aria-expanded` + `aria-controls`; the panel element always exists so the reference resolves, its contents unmount so a closed panel holds no focusable controls |
+| Content | `Avatar`, `ImagePlaceholder` | Generated from a seed hash; **no remote images anywhere**. Initials are taken by code point so Arabic is not split mid-character |
+| Data | `Table` | ARIA `table` / `columnheader` / `rowheader` above `md` (react-native-web renders every primitive as a `div`, so the roles *are* the semantics, and they mean the same on native); stacked cards below `md`. A branch, not a responsive class — a hidden copy would be read twice |
+| Data | `CalendarGrid` | Headless. Day columns are flex children in source order, so Arabic mirrors for free; **no absolute positioning and no physical inset in the file at all**. Weekday order comes from the caller. Claims no row-based table semantics, because its DOM order is column-major |
+| Data | `ProgressRing`, `MeterBar` | Value against target. Drawn from 24 rotated ticks rather than an SVG arc — an SVG library is a native module. **Always a visible numeric label**, and the five-stop nutrition tone always carries its `pattern` marker, so nothing is said by colour alone. The ring's sweep direction flips under RTL |
+| Data | `Rating` | Display only — rating submission is a write to a backend that does not exist, and stars that look pressable but do nothing are a dead control. Numeric label always rendered; glyphs hidden from assistive technology |
+| Overlays | `Drawer` `placement` | `start` \| `end` \| `bottom`. Resolved by source order inside a flex row/column, never an inset utility. `start` is the default, so Phase 1 behaviour is unchanged |
+| Overlays | `ActionSheet` | A thin composition over a bottom `Drawer`, so the focus trap and dismiss contract have one implementation. Closes *before* running the action. Destructive actions carry an icon as well as the danger tone |
+| Overlays | `Popover` | Non-modal: focus stays on the trigger, Escape closes, an outside press closes on the web. `trigger="hover"` is **inert on a coarse pointer** — a touch screen has no hover state |
+| Status | `Skeleton` `variant` | Adds `shimmer` alongside the default `pulse`. Both collapse to the same static block under reduced motion |
+| Structure | `AppShell` `marketplace` | Public chrome: brand slot, horizontal nav at `md`+, menu button below, trailing actions, `contentinfo` footer |
+| Structure | `AppShell` `consumer` | Signed-in chrome: sidebar at `lg`+, bottom tabs below — literally the same tab bar as `driver`, so the two cannot drift |
+| Motion | `motion/` | `useMotion`, `FadeIn`, `SlideIn`, `Collapse`, `Shimmer`, `useAnimatedNumber`, `PageTransition` — see §7.1.2 |
+
+Two token additions support the motion module: `motionDistances` (a travel scale with reduced-motion zeros, mirroring `durations`) and `staggerDelay` / `MAX_STAGGERED_ITEMS` (an uncapped stagger turns a planner week into a wait). Neither reaches the generated artefacts, so `build:tokens --check` reports no drift.
+
+### 7.1.2 Motion
+
+`useMotion()` answers the only two questions any animation here needs, both of them properties of the *user*: whether motion is wanted at all, and which way "forward" points. `axisSign` is `1` in a left-to-right locale and `-1` in a right-to-left one, and every horizontal offset is multiplied by it — the only mirroring technique that survives a live `dir` flip on the web, because the component re-renders when the locale changes.
+
+Under `prefers-reduced-motion` every duration and distance is **zero** and every component renders its **final style as a literal** (`opacity: 1`, `translateX: 0`) rather than an animated value parked at the final position. That is the defect this design guards against: an animation suppressed while its starting style survives leaves content permanently invisible. It is asserted per component in `motion.test.tsx`.
+
+Motion is built on React Native's `Animated`, not Reanimated. `Animated` is already in use (`Skeleton`), works identically through react-native-web, needs no Babel plugin and adds no dependency to this package — and the package's hard constraint for Prompt 2 is zero new dependencies. `Collapse` is the one component that animates on the JavaScript thread, because height cannot go through the native driver.
+
 ### 7.2 Styling: NativeWind is provisional
 
 * **Problem**: A styling approach must work across en/ar (RTL), web/native and light/dark, and a wrong choice is expensive to reverse across a design system.

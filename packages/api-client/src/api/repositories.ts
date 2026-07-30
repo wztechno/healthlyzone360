@@ -35,6 +35,7 @@ import type {
 } from '../generated/types.ts';
 import type { ApiClientConfig } from './config.ts';
 import { generateRequestId } from './config.ts';
+import { API_PROTOTYPE_REPOSITORIES } from './prototype-repositories.ts';
 import {
     createBranchDirectory,
     mapActiveContext,
@@ -433,5 +434,15 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         },
     };
 
-    return { kind: 'api', transport, auth, session, context, devices };
+    // The eight Prompt 2 repositories are stateless rejections (`./prototype-repositories.ts`), so
+    // they are one shared object rather than eight closures built per bundle.
+    return {
+        kind: 'api',
+        transport,
+        auth,
+        session,
+        context,
+        devices,
+        ...API_PROTOTYPE_REPOSITORIES,
+    };
 }

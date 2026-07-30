@@ -267,3 +267,144 @@ describe('AppShell — direction safety', () => {
         },
     );
 });
+
+describe('AppShell — marketplace', () => {
+    it('puts the destinations in the top bar from md upwards', async () => {
+        setViewport(1024);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="marketplace" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        const nav = screen.getByTestId('shell-navigation');
+        expect(nav.props.role).toBe('navigation');
+        expect(nav.props.className).toContain('flex-row');
+        expect(screen.queryByTestId('shell-menu')).toBeNull();
+        expect(screen.queryByTestId('shell-sidebar')).toBeNull();
+    });
+
+    /** Hidden navigation stays in the tab order; the row is removed, not concealed. */
+    it('replaces the row with a menu button below md', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="marketplace" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.queryByTestId('shell-navigation')).toBeNull();
+        expect(screen.queryByTestId('nav-overview')).toBeNull();
+        expect(screen.getByTestId('shell-menu')).toBeTruthy();
+    });
+
+    it('opens the drawer from the menu control', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="marketplace" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        await fireEvent.press(screen.getByTestId('shell-menu'));
+        expect(screen.getByTestId('shell-drawer')).toBeTruthy();
+        expect(screen.getByTestId('nav-overview')).toBeTruthy();
+    });
+
+    it('marks the active destination as the current page', async () => {
+        setViewport(1024);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="marketplace" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('nav-overview').props['aria-current']).toBe('page');
+        expect(screen.getByTestId('nav-devices').props['aria-current']).toBeUndefined();
+    });
+
+    it('renders the brand, trailing and footer slots', async () => {
+        setViewport(1024);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="marketplace"
+                topbarStart={<Text testID="brand">Healthy360</Text>}
+                topbarEnd={<Text testID="actions">Sign in</Text>}
+                footer={<Text testID="legal">Prototype</Text>}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('brand')).toBeTruthy();
+        expect(screen.getByTestId('actions')).toBeTruthy();
+        expect(screen.getByTestId('shell-footer').props.role).toBe('contentinfo');
+        expect(screen.getByTestId('legal')).toBeTruthy();
+    });
+
+    it('draws no footer landmark when there is no footer', async () => {
+        setViewport(1024);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="marketplace">
+                <Text>Body</Text>
+            </AppShell>,
+        );
+        expect(screen.queryByTestId('shell-footer')).toBeNull();
+    });
+});
+
+describe('AppShell — consumer', () => {
+    it('keeps a sidebar at lg and above', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="consumer" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-sidebar').props.className).toContain('w-[260px]');
+        expect(screen.queryByTestId('shell-tabs')).toBeNull();
+    });
+
+    /** Below `lg` the destinations belong under the thumb — the same bar the driver shell uses. */
+    it('moves the destinations to bottom tabs below lg', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="consumer" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.queryByTestId('shell-sidebar')).toBeNull();
+        const tabs = screen.getByTestId('shell-tabs');
+        expect(tabs.props.accessibilityRole).toBe('tablist');
+        expect(screen.getByTestId('nav-overview').props.accessibilityRole).toBe('tab');
+        expect(screen.getByTestId('nav-overview').props.accessibilityState).toMatchObject({
+            selected: true,
+        });
+    });
+
+    it('meets the touch minimum on every tab', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="consumer" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('nav-overview').props.className).toContain('min-h-touch');
+    });
+
+    it('draws neither sidebar nor tabs when there is nothing permitted to show', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="consumer" navigation={[]}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.queryByTestId('shell-sidebar')).toBeNull();
+        expect(screen.queryByTestId('shell-tabs')).toBeNull();
+    });
+});

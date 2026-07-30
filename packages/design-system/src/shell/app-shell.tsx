@@ -17,6 +17,8 @@ export const APP_SHELL_VARIANTS = [
     'rail',
     'kiosk',
     'driver',
+    'marketplace',
+    'consumer',
 ] as const;
 export type AppShellVariant = (typeof APP_SHELL_VARIANTS)[number];
 
@@ -56,18 +58,27 @@ export interface AppShellProps {
  * crossed with a *viewport* decision (is there room for a sidebar?), and putting that crossing in
  * one place is the only way the answer stays consistent.
  *
- * | variant     | chrome                                                              |
- * | ----------- | ------------------------------------------------------------------- |
- * | `public`    | top bar, centred content, no navigation                              |
- * | `auth`      | no navigation at all — a centred card on a sunken background         |
- * | `workspace` | sidebar at `lg` and above; below that a top bar with a drawer        |
- * | `rail`      | permanent narrow icon rail — tablets, where a full sidebar is greedy |
- * | `kiosk`     | bare: no chrome whatsoever (POS/KDS hardware)                        |
- * | `driver`    | bottom tab bar, thumb-reachable                                      |
+ * | variant       | chrome                                                                |
+ * | ------------- | --------------------------------------------------------------------- |
+ * | `public`      | top bar, centred content, no navigation                               |
+ * | `auth`        | no navigation at all — a centred card on a sunken background          |
+ * | `workspace`   | sidebar at `lg` and above; below that a top bar with a drawer         |
+ * | `rail`        | permanent narrow icon rail — tablets, where a full sidebar is greedy  |
+ * | `kiosk`       | bare: no chrome whatsoever (POS/KDS hardware)                         |
+ * | `driver`      | bottom tab bar, thumb-reachable                                       |
+ * | `marketplace` | public site chrome: brand, horizontal nav at `md`+, menu below, footer |
+ * | `consumer`    | signed-in customer: sidebar at `lg`+, bottom tabs below               |
  *
- * The workspace variant *switches* between sidebar and drawer rather than rendering both and
- * hiding one with a responsive class. Hidden navigation is still in the accessibility tree and
- * still in the tab order, which axe reports and which strands keyboard users in an invisible menu.
+ * Every variant that has to choose between two navigation shapes *switches* rather than rendering
+ * both and hiding one with a responsive class. Hidden navigation is still in the accessibility tree
+ * and still in the tab order, which axe reports and which strands keyboard users in an invisible
+ * menu.
+ *
+ * The two Phase 2 variants differ from `workspace` in what the viewport buys. A marketplace is a
+ * *reading* surface: its navigation belongs in the top bar where it costs no width, and it needs a
+ * footer, which no workspace does. A consumer app is a *task* surface: below `lg` its destinations
+ * belong under the thumb, which is the same bottom bar the `driver` variant uses — and it is
+ * literally the same code, so the two cannot drift.
  */
 export function AppShell({
     variant,
@@ -125,6 +136,54 @@ export function AppShell({
         );
     }
 
+    // One bottom bar, shared by `driver` and `consumer`. Extracted rather than duplicated so the
+    // two can never drift into two subtly different tab semantics.
+    const tabBar = (
+        <View
+            testID={testID === undefined ? undefined : `${testID}-tabs`}
+            role="navigation"
+            accessibilityRole="tablist"
+            aria-label={t('designSystem:shell.primaryNavigation')}
+            className="flex-row border-t border-stroke-subtle bg-surface-raised"
+        >
+            {navigation.map((item) => (
+                <Pressable
+                    key={item.key}
+                    testID={item.testID}
+                    role="tab"
+                    accessibilityRole="tab"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{ selected: item.active === true }}
+                    aria-selected={item.active === true}
+                    focusable
+                    onPress={item.onPress}
+                    className="min-h-touch flex-1 items-center justify-center gap-0.5 py-2"
+                >
+                    {item.icon === undefined ? null : (
+                        <Icon
+                            name={item.icon}
+                            className={
+                                item.active === true
+                                    ? 'text-content-on-brand-subtle'
+                                    : 'text-content-secondary'
+                            }
+                        />
+                    )}
+                    <RNText
+                        className={cx(
+                            'text-xs',
+                            item.active === true
+                                ? 'text-content-on-brand-subtle font-medium'
+                                : 'text-content-secondary',
+                        )}
+                    >
+                        {item.label}
+                    </RNText>
+                </Pressable>
+            ))}
+        </View>
+    );
+
     if (variant === 'driver') {
         return (
             <View testID={testID} className="flex-1 bg-surface-base">
@@ -132,49 +191,7 @@ export function AppShell({
                 <View role="main" className={cx('flex-1', contentClassName)}>
                     {children}
                 </View>
-                <View
-                    testID={testID === undefined ? undefined : `${testID}-tabs`}
-                    role="navigation"
-                    accessibilityRole="tablist"
-                    aria-label={t('designSystem:shell.primaryNavigation')}
-                    className="flex-row border-t border-stroke-subtle bg-surface-raised"
-                >
-                    {navigation.map((item) => (
-                        <Pressable
-                            key={item.key}
-                            testID={item.testID}
-                            role="tab"
-                            accessibilityRole="tab"
-                            accessibilityLabel={item.label}
-                            accessibilityState={{ selected: item.active === true }}
-                            aria-selected={item.active === true}
-                            focusable
-                            onPress={item.onPress}
-                            className="min-h-touch flex-1 items-center justify-center gap-0.5 py-2"
-                        >
-                            {item.icon === undefined ? null : (
-                                <Icon
-                                    name={item.icon}
-                                    className={
-                                        item.active === true
-                                            ? 'text-content-on-brand-subtle'
-                                            : 'text-content-secondary'
-                                    }
-                                />
-                            )}
-                            <RNText
-                                className={cx(
-                                    'text-xs',
-                                    item.active === true
-                                        ? 'text-content-on-brand-subtle font-medium'
-                                        : 'text-content-secondary',
-                                )}
-                            >
-                                {item.label}
-                            </RNText>
-                        </Pressable>
-                    ))}
-                </View>
+                {tabBar}
             </View>
         );
     }
@@ -264,6 +281,175 @@ export function AppShell({
         </View>
     );
 
+    const sidebar = (
+        <View
+            testID={testID === undefined ? undefined : `${testID}-sidebar`}
+            className={cx(
+                'h-full border-e border-stroke-subtle bg-surface-raised',
+                variant === 'rail' ? 'w-[88px]' : 'w-[260px]',
+            )}
+        >
+            {navigationList(variant === 'rail')}
+        </View>
+    );
+
+    const navigationDrawer = (
+        <Drawer
+            testID={testID === undefined ? undefined : `${testID}-drawer`}
+            open={drawerOpen}
+            onClose={() => {
+                setDrawerOpen(false);
+            }}
+            title={t('designSystem:shell.primaryNavigation')}
+        >
+            {navigationList(false)}
+        </Drawer>
+    );
+
+    if (variant === 'marketplace') {
+        // A marketing surface earns its navigation a top bar rather than a sidebar: horizontal
+        // space is what the content wants back, and `md` is where a row of destinations still fits
+        // beside the brand. Below that it is the same drawer every other variant collapses to.
+        const wideEnoughForTopNav = atLeast('md');
+        const showTopNav = wideEnoughForTopNav && navigation.length > 0;
+
+        return (
+            <View testID={testID} className="flex-1 bg-surface-base">
+                {banner}
+
+                <View
+                    testID={testID === undefined ? undefined : `${testID}-topbar`}
+                    role="banner"
+                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2"
+                >
+                    {!wideEnoughForTopNav && navigation.length > 0 ? (
+                        <IconButton
+                            testID={testID === undefined ? undefined : `${testID}-menu`}
+                            label={t('designSystem:shell.openNavigation')}
+                            icon={<Icon name="menu" />}
+                            onPress={() => {
+                                setDrawerOpen(true);
+                            }}
+                        />
+                    ) : null}
+                    {topbarStart}
+                    <RNText
+                        testID={testID === undefined ? undefined : `${testID}-title`}
+                        accessibilityRole="header"
+                        aria-level={1}
+                        numberOfLines={1}
+                        className="text-base font-semibold text-content-primary text-start"
+                    >
+                        {title ?? t('common:app.name')}
+                    </RNText>
+
+                    <View className="flex-1 flex-row items-center">
+                        {showTopNav ? (
+                            <View
+                                testID={testID === undefined ? undefined : `${testID}-navigation`}
+                                role="navigation"
+                                aria-label={t('designSystem:shell.primaryNavigation')}
+                                className="flex-row flex-wrap items-center gap-1"
+                            >
+                                {navigation.map((item) => (
+                                    <Pressable
+                                        key={item.key}
+                                        testID={item.testID}
+                                        role="link"
+                                        accessibilityRole="link"
+                                        accessibilityLabel={item.label}
+                                        accessibilityState={{ selected: item.active === true }}
+                                        aria-current={item.active === true ? 'page' : undefined}
+                                        focusable
+                                        onPress={item.onPress}
+                                        className={cx(
+                                            'min-h-touch flex-row items-center gap-2 rounded-lg px-3 py-2',
+                                            item.active === true
+                                                ? 'bg-surface-brand-subtle'
+                                                : 'bg-transparent',
+                                        )}
+                                    >
+                                        {item.icon === undefined ? null : (
+                                            <Icon
+                                                name={item.icon}
+                                                className={
+                                                    item.active === true
+                                                        ? 'text-content-on-brand-subtle'
+                                                        : 'text-content-secondary'
+                                                }
+                                            />
+                                        )}
+                                        <RNText
+                                            numberOfLines={1}
+                                            className={cx(
+                                                'text-sm text-start',
+                                                item.active === true
+                                                    ? 'text-content-on-brand-subtle font-medium'
+                                                    : 'text-content-primary',
+                                            )}
+                                        >
+                                            {item.label}
+                                        </RNText>
+                                    </Pressable>
+                                ))}
+                            </View>
+                        ) : null}
+                    </View>
+
+                    {topbarEnd}
+                </View>
+
+                <ScrollView
+                    testID={testID === undefined ? undefined : `${testID}-content`}
+                    role="main"
+                    className="flex-1"
+                    contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                >
+                    {children}
+                    {footer === undefined ? null : (
+                        <View
+                            testID={testID === undefined ? undefined : `${testID}-footer`}
+                            role="contentinfo"
+                            className="border-t border-stroke-subtle pt-4"
+                        >
+                            {footer}
+                        </View>
+                    )}
+                </ScrollView>
+
+                {!wideEnoughForTopNav && navigation.length > 0 ? navigationDrawer : null}
+            </View>
+        );
+    }
+
+    if (variant === 'consumer') {
+        const showSidebar = wideEnoughForSidebar && navigation.length > 0;
+        const showTabs = !wideEnoughForSidebar && navigation.length > 0;
+
+        return (
+            <View testID={testID} className="flex-1 bg-surface-base">
+                {banner}
+                {topBar}
+
+                <View className="flex-1 flex-row">
+                    {showSidebar ? sidebar : null}
+
+                    <ScrollView
+                        testID={testID === undefined ? undefined : `${testID}-content`}
+                        role="main"
+                        className="flex-1"
+                        contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                    >
+                        {children}
+                        {footer}
+                    </ScrollView>
+                </View>
+
+                {showTabs ? tabBar : null}
+            </View>
+        );
+    }
+
     const sidebarVisible =
         navigation.length > 0 &&
         (variant === 'rail' || (variant === 'workspace' && wideEnoughForSidebar));
@@ -274,17 +460,7 @@ export function AppShell({
             {topBar}
 
             <View className="flex-1 flex-row">
-                {sidebarVisible ? (
-                    <View
-                        testID={testID === undefined ? undefined : `${testID}-sidebar`}
-                        className={cx(
-                            'h-full border-e border-stroke-subtle bg-surface-raised',
-                            variant === 'rail' ? 'w-[88px]' : 'w-[260px]',
-                        )}
-                    >
-                        {navigationList(variant === 'rail')}
-                    </View>
-                ) : null}
+                {sidebarVisible ? sidebar : null}
 
                 <ScrollView
                     testID={testID === undefined ? undefined : `${testID}-content`}
@@ -297,18 +473,9 @@ export function AppShell({
                 </ScrollView>
             </View>
 
-            {variant === 'workspace' && !wideEnoughForSidebar && navigation.length > 0 ? (
-                <Drawer
-                    testID={testID === undefined ? undefined : `${testID}-drawer`}
-                    open={drawerOpen}
-                    onClose={() => {
-                        setDrawerOpen(false);
-                    }}
-                    title={t('designSystem:shell.primaryNavigation')}
-                >
-                    {navigationList(false)}
-                </Drawer>
-            ) : null}
+            {variant === 'workspace' && !wideEnoughForSidebar && navigation.length > 0
+                ? navigationDrawer
+                : null}
         </View>
     );
 }

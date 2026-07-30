@@ -31,8 +31,22 @@ describe('the failure vocabulary', () => {
             'rate_limit.exceeded',
             'network',
             'server',
+            'prototype.not_implemented',
         ]);
         expect(new Set(API_FAILURE_CODES).size).toBe(API_FAILURE_CODES.length);
+    });
+
+    /**
+     * Two codes have no wire counterpart and never will: `network` is what a failed fetch becomes,
+     * and `prototype.not_implemented` is what the eight proposed contracts reject with when the
+     * application is talking to the real API. Stated here so that a future "map every code to a wire
+     * code" refactor has to notice them.
+     */
+    it('keeps the two client-side codes distinguishable from the wire vocabulary', () => {
+        expect(isApiFailureCode('network')).toBe(true);
+        expect(isApiFailureCode('prototype.not_implemented')).toBe(true);
+        expect(apiFailure('prototype.not_implemented').retryable).toBe(false);
+        expect(apiFailure('prototype.not_implemented').message).toContain('no backend yet');
     });
 
     it('recognises its own codes and nothing else', () => {
