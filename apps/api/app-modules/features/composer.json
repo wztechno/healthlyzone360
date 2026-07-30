@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/features",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Features\\": "src/",
+			"Healthy360\\Features\\Tests\\": "tests/",
+			"Healthy360\\Features\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Features\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Features\\Providers\\FeaturesServiceProvider"
+			]
+		}
+	}
+}

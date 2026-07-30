@@ -13,6 +13,11 @@ services:
     image: healthy360/php-dev
     volumes:
       - ./apps/api:/var/www/html
+      # Container-private vendor: the host vendor tree contains Windows
+      # junctions for app-modules (Composer path repositories) that do not
+      # resolve inside Linux. Populate with:
+      #   docker compose exec -T api composer install
+      - apivendor:/var/www/html/vendor
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -50,6 +55,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./apps/api:/var/www/html
+      - apivendor:/var/www/html/vendor
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -126,3 +132,4 @@ volumes:
   redisdata:
   garagemeta:
   garagedata:
+  apivendor:

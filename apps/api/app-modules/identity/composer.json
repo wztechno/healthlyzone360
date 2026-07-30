@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/identity",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Identity\\": "src/",
+			"Healthy360\\Identity\\Tests\\": "tests/",
+			"Healthy360\\Identity\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Identity\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Identity\\Providers\\IdentityServiceProvider"
+			]
+		}
+	}
+}

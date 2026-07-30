@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/tenancy",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Tenancy\\": "src/",
+			"Healthy360\\Tenancy\\Tests\\": "tests/",
+			"Healthy360\\Tenancy\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Tenancy\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Tenancy\\Providers\\TenancyServiceProvider"
+			]
+		}
+	}
+}

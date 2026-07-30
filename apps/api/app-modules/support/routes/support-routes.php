@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Support\Facades\Route;
 
 // Spike verification route (ADR-0001 modular spike). Replaced by real

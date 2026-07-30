@@ -18,6 +18,12 @@ echo "==> Installing Composer dependencies"
 echo "==> Starting Docker services"
 docker compose up -d --build --wait
 
+echo "==> Installing Composer dependencies inside the container"
+# The container has its own vendor volume: host vendor contains Windows
+# junctions for app-modules that do not resolve inside Linux.
+docker compose exec -T api composer install --no-interaction
+docker compose restart queue nginx
+
 echo "==> Initialising object storage"
 bash scripts/storage-init.sh
 

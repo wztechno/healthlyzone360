@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Middleware\HandleAppearance;
-use App\Http\Middleware\HandleInertiaRequests;
-use App\Http\Middleware\SetTeamUrlDefaults;
+declare(strict_types=1);
+
+use Healthy360\Tenancy\Http\Middleware\ResolveBranchContext;
+use Healthy360\Tenancy\Http\Middleware\ResolveOrganisationContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -16,13 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
-
-        $middleware->web(append: [
-            HandleAppearance::class,
-            HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
-            SetTeamUrlDefaults::class,
+        $middleware->alias([
+            'org.context' => ResolveOrganisationContext::class,
+            'branch.context' => ResolveBranchContext::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c59094197b3eeead73371e5c49d57dec",
+    "content-hash": "a1b4a2c330f7cc0eda7f8d857cbb833f",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1976,6 +1976,230 @@
             "time": "2026-07-17T13:53:03+00:00"
         },
         {
+            "name": "healthy360/access-control",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/access-control",
+                "reference": "bfa1c4ab1a5821927389d55643510d38328a5347"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\AccessControl\\Providers\\AccessControlServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\AccessControl\\": "src/",
+                    "Healthy360\\AccessControl\\Tests\\": "tests/",
+                    "Healthy360\\AccessControl\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\AccessControl\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/audit",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/audit",
+                "reference": "d0c874e1a20e503b524d9ad2925131bbab6c7ba9"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Audit\\Providers\\AuditServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Audit\\": "src/",
+                    "Healthy360\\Audit\\Tests\\": "tests/",
+                    "Healthy360\\Audit\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Audit\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/consent",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/consent",
+                "reference": "b1767aaf96ef998df65dc10285e5b32f76dc5a09"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Consent\\Providers\\ConsentServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Consent\\": "src/",
+                    "Healthy360\\Consent\\Tests\\": "tests/",
+                    "Healthy360\\Consent\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Consent\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/features",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/features",
+                "reference": "103c289983e52e5d646c8ebc061bfb58babcdbf9"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Features\\Providers\\FeaturesServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Features\\": "src/",
+                    "Healthy360\\Features\\Tests\\": "tests/",
+                    "Healthy360\\Features\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Features\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/identity",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/identity",
+                "reference": "9d37e420b1ebbd7cfd602a9977cf432056ebbc94"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Identity\\Providers\\IdentityServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Identity\\": "src/",
+                    "Healthy360\\Identity\\Tests\\": "tests/",
+                    "Healthy360\\Identity\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Identity\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/organisations",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/organisations",
+                "reference": "37f8f45547c3b075b12ebb0c592190336c14f710"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Organisations\\Providers\\OrganisationsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Organisations\\": "src/",
+                    "Healthy360\\Organisations\\Tests\\": "tests/",
+                    "Healthy360\\Organisations\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Organisations\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/reference-data",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/reference-data",
+                "reference": "3d12ad8fcaae2d41fb7bd4639d22939d7cba8551"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\ReferenceData\\Providers\\ReferenceDataServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\ReferenceData\\": "src/",
+                    "Healthy360\\ReferenceData\\Tests\\": "tests/",
+                    "Healthy360\\ReferenceData\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\ReferenceData\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/support",
             "version": "1.0",
             "dist": {
@@ -2008,76 +2232,36 @@
             }
         },
         {
-            "name": "inertiajs/inertia-laravel",
-            "version": "v3.2.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/inertiajs/inertia-laravel.git",
-                "reference": "e6ad31fbafb3c8d1c269c93ab12da3712c077744"
-            },
+            "name": "healthy360/tenancy",
+            "version": "1.0",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/inertiajs/inertia-laravel/zipball/e6ad31fbafb3c8d1c269c93ab12da3712c077744",
-                "reference": "e6ad31fbafb3c8d1c269c93ab12da3712c077744",
-                "shasum": ""
-            },
-            "require": {
-                "ext-json": "*",
-                "laravel/framework": "^11.35|^12.0|^13.0",
-                "php": "^8.2.0",
-                "symfony/console": "^7.0|^8.0"
-            },
-            "conflict": {
-                "laravel/boost": "<2.2.0"
-            },
-            "require-dev": {
-                "guzzlehttp/guzzle": "^7.15.2|^8.0",
-                "larastan/larastan": "^3.0",
-                "laravel/pint": "^1.16",
-                "mockery/mockery": "^1.3.3",
-                "orchestra/testbench": "^9.2|^10.0|^11.0",
-                "phpunit/phpunit": "^11.5|^12.0"
-            },
-            "suggest": {
-                "ext-pcntl": "Recommended when running the Inertia SSR server via the `inertia:start-ssr` artisan command."
+                "type": "path",
+                "url": "app-modules/tenancy",
+                "reference": "8a43a450969cb4697b0c9f8e12fe453ab09d5aac"
             },
             "type": "library",
             "extra": {
                 "laravel": {
                     "providers": [
-                        "Inertia\\ServiceProvider"
+                        "Healthy360\\Tenancy\\Providers\\TenancyServiceProvider"
                     ]
                 }
             },
             "autoload": {
-                "files": [
-                    "./helpers.php"
-                ],
                 "psr-4": {
-                    "Inertia\\": "src"
+                    "Healthy360\\Tenancy\\": "src/",
+                    "Healthy360\\Tenancy\\Tests\\": "tests/",
+                    "Healthy360\\Tenancy\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Tenancy\\Database\\Seeders\\": "database/seeders/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
             "license": [
-                "MIT"
+                "proprietary"
             ],
-            "authors": [
-                {
-                    "name": "Jonathan Reinink",
-                    "email": "jonathan@reinink.ca",
-                    "homepage": "https://reinink.ca"
-                }
-            ],
-            "description": "The Laravel adapter for Inertia.js.",
-            "keywords": [
-                "inertia",
-                "laravel"
-            ],
-            "support": {
-                "issues": "https://github.com/inertiajs/inertia-laravel/issues",
-                "source": "https://github.com/inertiajs/inertia-laravel/tree/v3.2.1"
-            },
-            "time": "2026-07-29T09:10:23+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "internachi/modular",
@@ -2273,58 +2457,6 @@
                 "source": "https://github.com/jsonrainbow/json-schema/tree/6.10.0"
             },
             "time": "2026-06-16T20:50:26+00:00"
-        },
-        {
-            "name": "laravel/chisel",
-            "version": "v0.1.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/laravel/chisel.git",
-                "reference": "c2ac11cd1c6b763b412aa26b9d95fce70a489d31"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/laravel/chisel/zipball/c2ac11cd1c6b763b412aa26b9d95fce70a489d31",
-                "reference": "c2ac11cd1c6b763b412aa26b9d95fce70a489d31",
-                "shasum": ""
-            },
-            "require": {
-                "illuminate/process": "^10.20|^11.0|^12.0|^13.0",
-                "nikic/php-parser": "^5.0",
-                "php": "^8.2"
-            },
-            "require-dev": {
-                "laravel/pint": "^1.24.0",
-                "pestphp/pest": "^4.1.0",
-                "phpstan/phpstan": "^2.1.26",
-                "rector/rector": "^2.1.7"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Laravel\\Chisel\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Taylor Otwell",
-                    "email": "taylor@laravel.com"
-                }
-            ],
-            "description": "Toolkit for building scripts that remove unwanted code, files, and dependencies.",
-            "keywords": [
-                "chisel",
-                "laravel"
-            ],
-            "support": {
-                "issues": "https://github.com/laravel/chisel/issues",
-                "source": "https://github.com/laravel/chisel/tree/v0.1.1"
-            },
-            "time": "2026-05-13T21:29:24+00:00"
         },
         {
             "name": "laravel/fortify",
@@ -3072,69 +3204,6 @@
                 "source": "https://github.com/laravel/tinker/tree/v3.0.2"
             },
             "time": "2026-03-17T14:54:13+00:00"
-        },
-        {
-            "name": "laravel/wayfinder",
-            "version": "v0.1.20",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/laravel/wayfinder.git",
-                "reference": "91d958a6f99fe9187c6eda84e62aa93d79330be5"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/laravel/wayfinder/zipball/91d958a6f99fe9187c6eda84e62aa93d79330be5",
-                "reference": "91d958a6f99fe9187c6eda84e62aa93d79330be5",
-                "shasum": ""
-            },
-            "require": {
-                "illuminate/console": "^11.0|^12.0|^13.0",
-                "illuminate/filesystem": "^11.0|^12.0|^13.0",
-                "illuminate/routing": "^11.0|^12.0|^13.0",
-                "illuminate/support": "^11.0|^12.0|^13.0",
-                "php": "^8.2",
-                "phpstan/phpdoc-parser": "^2.3"
-            },
-            "require-dev": {
-                "laravel/pint": "^1.21",
-                "orchestra/testbench": "^11.0|^10.1|^9.0"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Laravel\\Wayfinder\\WayfinderServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Laravel\\Wayfinder\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Taylor Otwell",
-                    "email": "taylor@laravel.com"
-                }
-            ],
-            "description": "Generate TypeScript representations of your Laravel actions and routes.",
-            "homepage": "https://github.com/laravel/wayfinder",
-            "keywords": [
-                "laravel",
-                "php",
-                "routes",
-                "typescript"
-            ],
-            "support": {
-                "issues": "https://github.com/laravel/wayfinder/issues",
-                "source": "https://github.com/laravel/wayfinder"
-            },
-            "time": "2026-05-12T01:44:17+00:00"
         },
         {
             "name": "league/commonmark",

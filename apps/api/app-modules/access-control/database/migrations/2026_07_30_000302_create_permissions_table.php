@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('permissions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('code')->unique()->comment('domain.action_scope, e.g. organisation.view_current');
+            $table->string('domain');
+            $table->string('description');
+            $table->boolean('is_assignable')->default(true)->comment('kitchen/commercial perms stay registry proposals');
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('permissions');
+    }
+};

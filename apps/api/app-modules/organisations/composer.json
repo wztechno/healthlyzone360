@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/organisations",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Organisations\\": "src/",
+			"Healthy360\\Organisations\\Tests\\": "tests/",
+			"Healthy360\\Organisations\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Organisations\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Organisations\\Providers\\OrganisationsServiceProvider"
+			]
+		}
+	}
+}

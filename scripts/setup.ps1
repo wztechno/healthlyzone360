@@ -22,6 +22,13 @@ Write-Host "==> Starting Docker services"
 docker compose up -d --build --wait
 if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
 
+Write-Host "==> Installing Composer dependencies inside the container"
+# The container has its own vendor volume: host vendor contains Windows
+# junctions for app-modules that do not resolve inside Linux.
+docker compose exec -T api composer install --no-interaction
+if ($LASTEXITCODE -ne 0) { throw "container composer install failed" }
+docker compose restart queue nginx
+
 Write-Host "==> Initialising object storage"
 & (Join-Path $PSScriptRoot "storage-init.ps1")
 

@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/reference-data",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\ReferenceData\\": "src/",
+			"Healthy360\\ReferenceData\\Tests\\": "tests/",
+			"Healthy360\\ReferenceData\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\ReferenceData\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\ReferenceData\\Providers\\ReferenceDataServiceProvider"
+			]
+		}
+	}
+}
