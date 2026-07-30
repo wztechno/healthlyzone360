@@ -1,0 +1,38 @@
+{
+    "name": "healthy360-workspace",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Healthy360 platform monorepo — universal Expo frontend and shared TypeScript packages.",
+    "license": "UNLICENSED",
+    "packageManager": "pnpm@11.15.1",
+    "engines": {
+        "node": ">=24.0.0 <25.0.0",
+        "pnpm": ">=11.15.1"
+    },
+    "scripts": {
+        "dev": "turbo run dev",
+        "typecheck": "turbo run typecheck",
+        "lint": "turbo run lint",
+        "test": "turbo run test",
+        "build:web": "turbo run build:web",
+        "build:tokens": "turbo run build:tokens",
+        "check": "turbo run lint typecheck test",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "gen:pseudo-locale": "node packages/i18n/scripts/generate-pseudo-locale.mjs",
+        "gen:i18n-keys": "node packages/i18n/scripts/generate-keys.mjs",
+        "i18n:check": "node packages/i18n/scripts/check-catalogues.mjs"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.8.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-react-hooks": "^7.1.1",
+        "globals": "^17.8.0",
+        "prettier": "^3.9.6",
+        "turbo": "^2.10.7",
+        "typescript": "~6.0.3",
+        "typescript-eslint": "^8.65.0",
+        "vitest": "^4.1.10"
+    }
+}

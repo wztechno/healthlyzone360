@@ -1,0 +1,18 @@
+{
+    "printWidth": 100,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "semi": true,
+    "arrowParens": "always",
+    "endOfLine": "lf",
+    "overrides": [
+        {
+            "files": ["*.json", "*.jsonc"],
+            "options": { "printWidth": 120 }
+        },
+        {
+            "files": ["packages/i18n/catalogues/**/*.json"],
+            "options": { "printWidth": 200 }
+        }
+    ]
+}

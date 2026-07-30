@@ -1,0 +1,30 @@
+/* Design tokens: `:root` (light) plus `.dark`, generated from @healthy360/design-tokens.
+   Imported first because CSS requires @import before any other rule.
+
+   The path is relative rather than `@healthy360/design-tokens/tokens.css`: postcss-import resolves
+   with Node's classic algorithm and does not read a package's `exports` subpath map, so the bare
+   specifier fails to resolve inside the workspace. */
+@import '../../packages/design-tokens/generated/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html,
+    body,
+    #root {
+        height: 100%;
+    }
+
+    /* Per-script typography. `lang` is set before hydration by app/+html.tsx, so the correct family
+     and line height apply on first paint rather than after a flash of Latin metrics. */
+    html:lang(en),
+    html:lang(en-XA) {
+        font-family: var(--h360-font-family-latin);
+    }
+
+    html:lang(ar) {
+        font-family: var(--h360-font-family-arabic);
+    }
+}

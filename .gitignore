@@ -18,6 +18,16 @@ build/
 .phpunit.cache/
 .phpunit.result.cache
 .eslintcache
+coverage/
+*.tsbuildinfo
+
+# Expo / native
+apps/universal/.expo/
+apps/universal/dist/
+apps/universal/web-build/
+apps/universal/ios/
+apps/universal/android/
+apps/universal/expo-env.d.ts
 
 # OS / editor
 .DS_Store

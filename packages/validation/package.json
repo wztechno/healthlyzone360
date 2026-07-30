@@ -1,0 +1,31 @@
+{
+    "name": "@healthy360/validation",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "sideEffects": false,
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts",
+        "./package.json": "./package.json"
+    },
+    "scripts": {
+        "lint": "eslint . --max-warnings=0",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@healthy360/domain-types": "workspace:*",
+        "@hookform/resolvers": "^5.5.7",
+        "zod": "^4.4.3"
+    },
+    "peerDependencies": {
+        "react-hook-form": "^7.83.0"
+    },
+    "devDependencies": {
+        "@healthy360/testing": "workspace:*",
+        "react-hook-form": "^7.83.0",
+        "vitest": "^4.1.10"
+    }
+}

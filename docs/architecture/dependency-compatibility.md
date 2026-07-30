@@ -57,6 +57,16 @@ The single authoritative compatibility document (plan §3). Versions below were 
 
 "SDK-managed" ranges follow `npx expo install` resolution for SDK 57; do not override them manually.
 
+### Verified additions from Phase 5a implementation (2026-07-30)
+
+| Package | Range | Note |
+| --- | --- | --- |
+| jest | ^29.7 | **Pinned to 29, not 30** — jest-expo 57.0.3 depends on `babel-jest`/`jest-snapshot`/`jest-environment-jsdom` `^29.2.1`; jest 30 fails at runtime (`clearMocksOnScope is not a function`) |
+| test-renderer | ^1.2 | Required peer of @testing-library/react-native 14 (replaces the deprecated `react-test-renderer`) |
+| expo-constants | 57.0.8 (pnpm override) | `expo-linking` nested 57.0.7 created two copies of a native module; expo-doctor fails without the override |
+| eslint / typescript-eslint | ^10.8 / ^8.65 | typescript-eslint peer range `<6.1.0` is the TS 7 blocker (ADR-0009) |
+| prettier | ^3.9 | Honours the repository `.editorconfig` (4-space indentation) |
+
 ## Version-management rules (plan §3)
 
 1. **Lockfiles pin exact versions** (`composer.lock`, `pnpm-lock.yaml`); manifests use the controlled ranges above.

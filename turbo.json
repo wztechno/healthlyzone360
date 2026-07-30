@@ -1,0 +1,48 @@
+{
+    "$schema": "https://turborepo.com/schema.json",
+    "ui": "stream",
+    "globalDependencies": ["tsconfig.base.json", "eslint.config.mjs", ".prettierrc.json"],
+    "globalPassThroughEnv": [
+        "APP_MODE",
+        "APP_ENV",
+        "EXPO_PUBLIC_*",
+        "EXPO_NO_TELEMETRY",
+        "CI",
+        "NODE_ENV",
+        "TERM",
+        "TZ"
+    ],
+    "tasks": {
+        "topo": {
+            "dependsOn": ["^topo"]
+        },
+        "build:tokens": {
+            "inputs": ["src/**", "scripts/**"],
+            "outputs": ["generated/**"]
+        },
+        "lint": {
+            "dependsOn": ["topo"],
+            "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "../../eslint.config.mjs", "../../tsconfig.base.json"],
+            "outputs": []
+        },
+        "typecheck": {
+            "dependsOn": ["topo"],
+            "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "../../tsconfig.base.json"],
+            "outputs": []
+        },
+        "test": {
+            "dependsOn": ["topo"],
+            "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+            "outputs": []
+        },
+        "build:web": {
+            "dependsOn": ["topo"],
+            "env": ["APP_MODE", "APP_ENV", "EXPO_PUBLIC_DATA_MODE"],
+            "outputs": ["dist/**", ".expo/**"]
+        },
+        "dev": {
+            "cache": false,
+            "persistent": true
+        }
+    }
+}

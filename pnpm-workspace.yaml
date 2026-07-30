@@ -1,0 +1,41 @@
+packages:
+  - apps/universal
+  - packages/*
+
+# React Native / Metro cannot follow pnpm's default symlinked store layout reliably,
+# so the workspace uses a hoisted node_modules tree (dependency-compatibility.md).
+nodeLinker: hoisted
+
+# pnpm 11 renamed `onlyBuiltDependencies` to `allowBuilds` and takes a name -> boolean map.
+# Only these packages may run install lifecycle scripts; everything else is blocked by default.
+allowBuilds:
+  core-js: true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+# The npm registry is slow enough from some networks to trip the 60s default.
+fetchTimeout: 600000
+
+# expo-linking pins an older patch of expo-constants, which leaves two copies of a *native* module
+# in the tree — a hard error for a native build and an expo-doctor failure. Both are SDK 57
+# patches, so pinning the newer one is safe.
+overrides:
+  expo-constants: 57.0.8
+
+minimumReleaseAgeExclude:
+  - '@expo/cli@57.0.11'
+  - '@expo/inline-modules@0.1.4'
+  - '@expo/local-build-cache-provider@57.0.5'
+  - '@expo/log-box@57.0.2'
+  - '@expo/metro-runtime@57.0.8'
+  - '@expo/prebuild-config@57.0.10'
+  - '@expo/ui@57.0.8'
+  - babel-preset-expo@57.0.5
+  - expo-asset@57.0.8
+  - expo-constants@57.0.8
+  - expo-modules-core@57.0.8
+  - expo-router@57.0.9
+  - expo-system-ui@57.0.2
+  - expo@57.0.9
+  - jest-expo@57.0.3

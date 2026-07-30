@@ -1,0 +1,56 @@
+{
+    "app": {
+        "name": "Healthy360",
+        "tagline": "Nutrition, clinics and kitchens in one place"
+    },
+    "action": {
+        "continue": "Continue",
+        "back": "Back",
+        "cancel": "Cancel",
+        "save": "Save",
+        "retry": "Try again",
+        "close": "Close",
+        "select": "Select",
+        "change": "Change",
+        "signIn": "Sign in",
+        "signOut": "Sign out",
+        "signUp": "Create account",
+        "resend": "Resend",
+        "refresh": "Refresh"
+    },
+    "state": {
+        "loading": "Loading…",
+        "restoringSession": "Restoring your session…",
+        "saving": "Saving…",
+        "empty": "Nothing to show yet"
+    },
+    "network": {
+        "offlineTitle": "You are offline",
+        "offlineBody": "Some information may be out of date. We will try again when the connection returns.",
+        "backOnline": "Connection restored"
+    },
+    "notifications": {
+        "count_one": "You have one unread notification",
+        "count_other": "You have {{count}} unread notifications"
+    },
+    "locale": {
+        "label": "Language",
+        "english": "English",
+        "arabic": "العربية",
+        "changed": "Language changed to {{language}}",
+        "reloadRequiredTitle": "Restart needed",
+        "reloadRequiredBody": "Healthy360 needs to restart before the layout can change direction.",
+        "reloadNow": "Restart now",
+        "reloadLater": "Not now"
+    },
+    "theme": {
+        "label": "Appearance",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Match device"
+    },
+    "direction": {
+        "ltr": "Left to right",
+        "rtl": "Right to left"
+    }
+}

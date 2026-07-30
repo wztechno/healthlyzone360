@@ -1,0 +1,22 @@
+node_modules/
+vendor/
+dist/
+build/
+coverage/
+.turbo/
+.expo/
+pnpm-lock.yaml
+
+# Owned by other workstreams — formatting them here would create cross-agent churn.
+apps/api/
+infrastructure/
+scripts/
+docs/
+.github/
+README.md
+LICENSE
+# Generated artefacts — reformatting them would fight their own drift checks.
+packages/i18n/catalogues/en-XA/
+packages/i18n/src/keys.generated.ts
+packages/design-tokens/generated/
+apps/universal/expo-env.d.ts

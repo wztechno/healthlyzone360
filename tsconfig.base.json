@@ -1,0 +1,40 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "display": "Healthy360 base",
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": ["ES2022"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "moduleDetection": "force",
+        "resolveJsonModule": true,
+        "allowJs": false,
+        "checkJs": false,
+
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "isolatedModules": true,
+        "verbatimModuleSyntax": true,
+
+        /* Workspace packages publish TypeScript SOURCE (package.json "main"/"exports"
+       point at src/index.ts). There is no build step: Metro, Vitest and Jest all
+       transpile the source directly, so relative imports carry explicit `.ts`
+       extensions and nothing is emitted. */
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "exactOptionalPropertyTypes": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "noPropertyAccessFromIndexSignature": false,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "useDefineForClassFields": true
+    }
+}

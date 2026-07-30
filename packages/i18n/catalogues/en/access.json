@@ -1,0 +1,51 @@
+{
+    "denial": {
+        "mode_excluded": {
+            "title": "Not part of this app",
+            "body": "This area is not included in this Healthy360 application. Use the application built for it."
+        },
+        "unauthenticated": {
+            "title": "Sign in to continue",
+            "body": "You need to be signed in to open this page."
+        },
+        "email_unverified": {
+            "title": "Confirm your email address first",
+            "body": "Open the confirmation link we sent you, then come back."
+        },
+        "no_organisation_context": {
+            "title": "Choose an organisation",
+            "body": "This page belongs to an organisation. Pick which one you are working in."
+        },
+        "no_branch_context": {
+            "title": "Choose a branch",
+            "body": "This page belongs to a specific site. Pick the branch you are at."
+        },
+        "entitlement_missing": {
+            "title": "Not included in this plan",
+            "body": "Your organisation's subscription does not include this feature. An administrator can change that."
+        },
+        "permission_missing": {
+            "title": "You do not have access",
+            "body": "Your role in this organisation does not allow this. Ask an administrator if you need it."
+        }
+    },
+    "forbidden": {
+        "title": "You cannot open this page",
+        "reasonLabel": "Reason",
+        "backToWorkspace": "Go to your workspace",
+        "signInAgain": "Sign in with a different account"
+    },
+    "notFound": {
+        "title": "Page not found",
+        "body": "The page you asked for does not exist, or it has moved.",
+        "home": "Go to the start"
+    },
+    "pending": {
+        "title": "One moment",
+        "body": "Restoring your session…"
+    },
+    "mockMode": {
+        "badge": "Mock data",
+        "description": "This build is reading from mock repositories, not the Healthy360 API."
+    }
+}

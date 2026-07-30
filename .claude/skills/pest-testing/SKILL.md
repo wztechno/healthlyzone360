@@ -1,9 +1,9 @@
 ---
 name: pest-testing
-description: "Use this skill for Pest PHP testing in Laravel projects only. Trigger whenever any test is being written, edited, fixed, or refactored — including fixing tests that broke after a code change, adding assertions, converting PHPUnit to Pest, adding datasets, and TDD workflows. Always activate when the user asks how to write something in Pest, mentions test files or directories (tests/Feature, tests/Unit, tests/Browser), or needs browser testing, smoke testing multiple pages for JS errors, architecture tests, or faster test runs with Test Impact Analysis. Covers: test()/it()/expect() syntax, datasets, mocking, browser testing (visit/click/fill), smoke testing, arch(), Livewire component tests, RefreshDatabase, Tia (--tia), sharding, and all Pest 5 features. Do not use for factories, seeders, migrations, controllers, models, or non-test PHP code."
+description: 'Use this skill for Pest PHP testing in Laravel projects only. Trigger whenever any test is being written, edited, fixed, or refactored — including fixing tests that broke after a code change, adding assertions, converting PHPUnit to Pest, adding datasets, and TDD workflows. Always activate when the user asks how to write something in Pest, mentions test files or directories (tests/Feature, tests/Unit, tests/Browser), or needs browser testing, smoke testing multiple pages for JS errors, architecture tests, or faster test runs with Test Impact Analysis. Covers: test()/it()/expect() syntax, datasets, mocking, browser testing (visit/click/fill), smoke testing, arch(), Livewire component tests, RefreshDatabase, Tia (--tia), sharding, and all Pest 5 features. Do not use for factories, seeders, migrations, controllers, models, or non-test PHP code.'
 license: MIT
 metadata:
-  author: laravel
+    author: laravel
 ---
 
 # Pest Testing 5
@@ -19,6 +19,7 @@ Use `search-docs` for detailed Pest 5 patterns and documentation.
 All tests must be written using Pest. Use `php artisan make:test --pest {name}`.
 
 The `{name}` argument should include only the path and test name, but should not include the test suite.
+
 - Incorrect: `php artisan make:test --pest Feature/SomeFeatureTest` will generate `tests/Feature/Feature/SomeFeatureTest.php`
 - Correct: `php artisan make:test --pest SomeControllerTest` will generate `tests/Feature/SomeControllerTest.php`
 - Incorrect: `php artisan make:test --pest --unit Unit/SomeServiceTest` will generate `tests/Unit/Unit/SomeServiceTest.php`
@@ -35,6 +36,7 @@ The `{name}` argument should include only the path and test name, but should not
 Pest supports both `test()` and `it()` functions. Before writing new tests, check existing test files in the same directory to match the project's convention. Use `test()` if existing tests use `test()`, or `it()` if they use `it()`.
 
 <!-- Basic Pest Test Example -->
+
 ```php
 it('is true', function () {
     expect(true)->toBeTrue();
@@ -53,17 +55,18 @@ it('is true', function () {
 Use specific assertions (`assertSuccessful()`, `assertNotFound()`) instead of `assertStatus()`:
 
 <!-- Pest Response Assertion -->
+
 ```php
 it('returns all', function () {
     $this->postJson('/api/docs', [])->assertSuccessful();
 });
 ```
 
-| Use | Instead of |
-|-----|------------|
+| Use                  | Instead of          |
+| -------------------- | ------------------- |
 | `assertSuccessful()` | `assertStatus(200)` |
-| `assertNotFound()` | `assertStatus(404)` |
-| `assertForbidden()` | `assertStatus(403)` |
+| `assertNotFound()`   | `assertStatus(404)` |
+| `assertForbidden()`  | `assertStatus(403)` |
 
 ## Mocking
 
@@ -74,6 +77,7 @@ Import mock function before use: `use function Pest\Laravel\mock;`
 Use datasets for repetitive tests (validation rules, etc.):
 
 <!-- Pest Dataset Example -->
+
 ```php
 it('has emails', function (string $email) {
     expect($email)->not->toBeEmpty();
@@ -85,21 +89,22 @@ it('has emails', function (string $email) {
 
 ## Pest 5 Features
 
-| Feature | Purpose |
-|---------|---------|
-| Tia (Test Impact Analysis) | Rerun only tests affected by recent changes |
-| Time-Balanced Sharding | Split tests across CI shards by execution time |
+| Feature                     | Purpose                                                  |
+| --------------------------- | -------------------------------------------------------- |
+| Tia (Test Impact Analysis)  | Rerun only tests affected by recent changes              |
+| Time-Balanced Sharding      | Split tests across CI shards by execution time           |
 | New Validation Expectations | `toBeEmail()`, `toBeUlid()`, `toBeIpAddress()`, and more |
-| Browser Testing | Full integration tests in real browsers |
-| Smoke Testing | Validate multiple pages quickly |
-| Visual Regression | Compare screenshots for visual changes |
-| Architecture Testing | Enforce code conventions |
+| Browser Testing             | Full integration tests in real browsers                  |
+| Smoke Testing               | Validate multiple pages quickly                          |
+| Visual Regression           | Compare screenshots for visual changes                   |
+| Architecture Testing        | Enforce code conventions                                 |
 
 ### Tia (Test Impact Analysis)
 
 Tia reruns only tests affected by recent changes and replays cached results for the rest, dramatically reducing suite duration:
 
 <!-- Tia Example -->
+
 ```shell
 ./vendor/bin/pest --parallel --tia
 ```
@@ -112,6 +117,7 @@ Tia reruns only tests affected by recent changes and replays cached results for 
 Pest 5 ships eight new validation matchers, all supporting `.not` negation:
 
 <!-- Pest 5 Validation Expectations -->
+
 ```php
 expect('nuno@pestphp.com')->toBeEmail();
 expect('01ARZ3NDEKTSV4RRFFQ69G5FAV')->toBeUlid();
@@ -128,6 +134,7 @@ expect('deadbeef')->toBeHexadecimal();
 Distribute tests across CI shards by execution time rather than count:
 
 <!-- Pest Sharding Example -->
+
 ```shell
 ./vendor/bin/pest --update-shards
 ./vendor/bin/pest --shard=1/4
@@ -149,6 +156,7 @@ Browser tests run in real browsers for full integration testing:
 - Take screenshots or pause tests for debugging.
 
 <!-- Pest Browser Test Example -->
+
 ```php
 it('may reset the password', function () {
     Notification::fake();
@@ -173,6 +181,7 @@ it('may reset the password', function () {
 Quickly validate multiple pages have no JavaScript errors:
 
 <!-- Pest Smoke Testing Example -->
+
 ```php
 $pages = visit(['/', '/about', '/contact']);
 
@@ -186,6 +195,7 @@ Capture and compare screenshots to detect visual changes.
 ### Architecture Testing
 
 <!-- Architecture Test Example -->
+
 ```php
 arch('controllers')
     ->expect('App\Http\Controllers')

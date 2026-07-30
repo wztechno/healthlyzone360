@@ -1,0 +1,50 @@
+{
+    "spike": {
+        "title": "NativeWind styling spike",
+        "subtitle": "Verifies English/Arabic × web/native × light/dark before the design system is built.",
+        "sections": {
+            "colour": "Colour tokens",
+            "typography": "Typography",
+            "spacing": "Spacing and radius",
+            "elevation": "Elevation",
+            "logical": "Logical properties",
+            "nutrition": "Nutrition scale"
+        },
+        "colour": {
+            "description": "Semantic pairs. Each background ships with the foreground that is legible on it."
+        },
+        "typography": {
+            "description": "Inter for Latin, IBM Plex Sans Arabic for Arabic, each with its own line height."
+        },
+        "spacing": {
+            "description": "A 4-point scale and the radius ramp."
+        },
+        "elevation": {
+            "description": "Six levels, rendered from native shadow objects on device and box-shadow on the web."
+        },
+        "logical": {
+            "description": "This row uses only logical utilities (ms, me, ps, pe, start, end, text-start). It must mirror when the direction changes.",
+            "leading": "Leading edge",
+            "trailing": "Trailing edge",
+            "marker": "Marker sits on the leading side"
+        },
+        "nutrition": {
+            "description": "Five stops, each with a pattern so meaning is never carried by colour alone."
+        },
+        "sample": {
+            "latin": "The quick brown fox jumps over the lazy dog",
+            "arabic": "نص تجريبي لعرض شكل الخط العربي",
+            "digits": "1234567890"
+        }
+    },
+    "controls": {
+        "toggleTheme": "Switch theme",
+        "toggleLocale": "Switch language",
+        "currentTheme": "Theme: {{theme}}",
+        "currentLocale": "Language: {{locale}}",
+        "currentDirection": "Direction: {{direction}}"
+    },
+    "swatch": {
+        "contrast": "Contrast {{ratio}}"
+    }
+}

@@ -1,0 +1,50 @@
+{
+    "spike": {
+        "title": "اختبار التنسيق باستخدام NativeWind",
+        "subtitle": "يتحقق من الإنجليزية والعربية × الويب والأجهزة × الفاتح والداكن قبل بناء نظام التصميم.",
+        "sections": {
+            "colour": "رموز الألوان",
+            "typography": "الخطوط",
+            "spacing": "المسافات والاستدارة",
+            "elevation": "الارتفاع والظلال",
+            "logical": "الخصائص المنطقية",
+            "nutrition": "مقياس التغذية"
+        },
+        "colour": {
+            "description": "أزواج دلالية. كل خلفية مصحوبة بلون النص المقروء عليها."
+        },
+        "typography": {
+            "description": "خط Inter للحروف اللاتينية وخط IBM Plex Sans Arabic للعربية، ولكلٍّ ارتفاع سطر خاص به."
+        },
+        "spacing": {
+            "description": "مقياس من أربع نقاط مع تدرج الاستدارة."
+        },
+        "elevation": {
+            "description": "ستة مستويات، تُعرض من كائنات الظل الأصلية على الأجهزة ومن box-shadow على الويب."
+        },
+        "logical": {
+            "description": "يستخدم هذا الصف خصائص منطقية فقط (ms وme وps وpe وstart وend وtext-start). يجب أن ينعكس عند تغيير الاتجاه.",
+            "leading": "الحافة الأمامية",
+            "trailing": "الحافة الخلفية",
+            "marker": "تظهر العلامة على الجانب الأمامي"
+        },
+        "nutrition": {
+            "description": "خمس درجات، لكل منها نمط بصري حتى لا يعتمد المعنى على اللون وحده."
+        },
+        "sample": {
+            "latin": "The quick brown fox jumps over the lazy dog",
+            "arabic": "نص تجريبي لعرض شكل الخط العربي",
+            "digits": "1234567890"
+        }
+    },
+    "controls": {
+        "toggleTheme": "تبديل المظهر",
+        "toggleLocale": "تبديل اللغة",
+        "currentTheme": "المظهر: {{theme}}",
+        "currentLocale": "اللغة: {{locale}}",
+        "currentDirection": "الاتجاه: {{direction}}"
+    },
+    "swatch": {
+        "contrast": "التباين {{ratio}}"
+    }
+}
