@@ -3,13 +3,27 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 168 keys across 5 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 321 keys across 5 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
 /** Keys available in each namespace, unqualified. */
 export interface NamespaceKeys {
   readonly "access":
+    | 'area.auth'
+    | 'area.clinic'
+    | 'area.corporate'
+    | 'area.customer'
+    | 'area.dietitian'
+    | 'area.driver'
+    | 'area.insurance'
+    | 'area.kds'
+    | 'area.kitchen'
+    | 'area.partner'
+    | 'area.patient'
+    | 'area.platform-admin'
+    | 'area.pos'
+    | 'area.public'
     | 'denial.email_unverified.body'
     | 'denial.email_unverified.title'
     | 'denial.entitlement_missing.body'
@@ -25,8 +39,10 @@ export interface NamespaceKeys {
     | 'denial.unauthenticated.body'
     | 'denial.unauthenticated.title'
     | 'forbidden.backToWorkspace'
+    | 'forbidden.missingLabel'
     | 'forbidden.reasonLabel'
     | 'forbidden.signInAgain'
+    | 'forbidden.switchOrganisation'
     | 'forbidden.title'
     | 'mockMode.badge'
     | 'mockMode.description'
@@ -34,11 +50,38 @@ export interface NamespaceKeys {
     | 'notFound.home'
     | 'notFound.title'
     | 'pending.body'
-    | 'pending.title';
+    | 'pending.title'
+    | 'workspaceSelector.current'
+    | 'workspaceSelector.empty'
+    | 'workspaceSelector.emptyBody'
+    | 'workspaceSelector.open'
+    | 'workspaceSelector.subtitle'
+    | 'workspaceSelector.title';
   readonly "auth":
     | 'branchPicker.empty'
+    | 'branchPicker.groupLabel'
+    | 'branchPicker.onlyOne'
+    | 'branchPicker.openLabel'
     | 'branchPicker.subtitle'
     | 'branchPicker.title'
+    | 'devices.current'
+    | 'devices.empty'
+    | 'devices.emptyBody'
+    | 'devices.lastUsed'
+    | 'devices.neverUsed'
+    | 'devices.platform.android'
+    | 'devices.platform.ios'
+    | 'devices.platform.web'
+    | 'devices.revoke'
+    | 'devices.revokeBody'
+    | 'devices.revokeConfirm'
+    | 'devices.revokeLabel'
+    | 'devices.revokeTitle'
+    | 'devices.revoked'
+    | 'devices.subtitle'
+    | 'devices.title'
+    | 'forgotPassword.backToSignIn'
+    | 'forgotPassword.emailLabel'
     | 'forgotPassword.sentBody'
     | 'forgotPassword.sentTitle'
     | 'forgotPassword.submit'
@@ -49,19 +92,57 @@ export interface NamespaceKeys {
     | 'login.failed'
     | 'login.forgotLink'
     | 'login.passwordLabel'
+    | 'login.rateLimited'
     | 'login.registerLink'
     | 'login.registerPrompt'
     | 'login.rememberLabel'
     | 'login.submit'
     | 'login.subtitle'
     | 'login.title'
+    | 'login.twoFactor.back'
+    | 'login.twoFactor.codeHint'
+    | 'login.twoFactor.codeLabel'
+    | 'login.twoFactor.recoveryHint'
+    | 'login.twoFactor.recoveryLabel'
+    | 'login.twoFactor.submit'
+    | 'login.twoFactor.subtitle'
+    | 'login.twoFactor.title'
+    | 'login.twoFactor.useCode'
+    | 'login.twoFactor.useRecovery'
     | 'organisationPicker.branchCount'
     | 'organisationPicker.empty'
     | 'organisationPicker.emptyBody'
+    | 'organisationPicker.noBranches'
+    | 'organisationPicker.onlyOne'
+    | 'organisationPicker.openLabel'
     | 'organisationPicker.pending'
+    | 'organisationPicker.roleLabel'
     | 'organisationPicker.subtitle'
     | 'organisationPicker.suspended'
     | 'organisationPicker.title'
+    | 'profile.account'
+    | 'profile.branch'
+    | 'profile.consents'
+    | 'profile.consentsNone'
+    | 'profile.context'
+    | 'profile.displayName'
+    | 'profile.email'
+    | 'profile.entitlements'
+    | 'profile.locale'
+    | 'profile.memberSince'
+    | 'profile.memberships'
+    | 'profile.noBranch'
+    | 'profile.noContext'
+    | 'profile.none'
+    | 'profile.organisation'
+    | 'profile.permissions'
+    | 'profile.roles'
+    | 'profile.subtitle'
+    | 'profile.timeZone'
+    | 'profile.title'
+    | 'profile.twoFactor'
+    | 'profile.twoFactorDisabled'
+    | 'profile.twoFactorEnabled'
     | 'register.acceptPrivacy'
     | 'register.acceptTerms'
     | 'register.emailLabel'
@@ -71,22 +152,38 @@ export interface NamespaceKeys {
     | 'register.passwordConfirmationLabel'
     | 'register.passwordHint'
     | 'register.passwordLabel'
+    | 'register.privacyLink'
     | 'register.submit'
     | 'register.subtitle'
+    | 'register.termsLink'
     | 'register.title'
     | 'resetPassword.invalidToken'
+    | 'resetPassword.missingLink'
+    | 'resetPassword.missingLinkBody'
     | 'resetPassword.passwordConfirmationLabel'
     | 'resetPassword.passwordLabel'
+    | 'resetPassword.requestNew'
     | 'resetPassword.submit'
     | 'resetPassword.subtitle'
     | 'resetPassword.successBody'
     | 'resetPassword.successTitle'
     | 'resetPassword.title'
+    | 'stepUp.body'
+    | 'stepUp.confirmed'
+    | 'stepUp.passwordLabel'
+    | 'stepUp.submit'
+    | 'stepUp.title'
     | 'verifyEmail.body'
     | 'verifyEmail.checkAgain'
+    | 'verifyEmail.continue'
+    | 'verifyEmail.cooldown'
+    | 'verifyEmail.pendingBody'
+    | 'verifyEmail.pendingTitle'
     | 'verifyEmail.resend'
     | 'verifyEmail.resent'
     | 'verifyEmail.title'
+    | 'verifyEmail.verifiedBody'
+    | 'verifyEmail.verifiedTitle'
     | 'verifyEmail.wrongAddress'
     | 'workspace.devices'
     | 'workspace.profile'
@@ -99,7 +196,11 @@ export interface NamespaceKeys {
     | 'action.cancel'
     | 'action.change'
     | 'action.close'
+    | 'action.confirm'
     | 'action.continue'
+    | 'action.dismiss'
+    | 'action.done'
+    | 'action.goBack'
     | 'action.refresh'
     | 'action.resend'
     | 'action.retry'
@@ -110,6 +211,11 @@ export interface NamespaceKeys {
     | 'action.signUp'
     | 'app.name'
     | 'app.tagline'
+    | 'dev.mockBadge'
+    | 'dev.mockDescription'
+    | 'dev.mockScenario'
+    | 'dev.switchScenario'
+    | 'dev.switchScenarioHint'
     | 'direction.ltr'
     | 'direction.rtl'
     | 'locale.arabic'
@@ -120,9 +226,16 @@ export interface NamespaceKeys {
     | 'locale.reloadNow'
     | 'locale.reloadRequiredBody'
     | 'locale.reloadRequiredTitle'
+    | 'nav.devices'
+    | 'nav.overview'
+    | 'nav.profile'
+    | 'nav.showcase'
+    | 'nav.workspace'
     | 'network.backOnline'
     | 'network.offlineBody'
     | 'network.offlineTitle'
+    | 'network.reconnectingBody'
+    | 'network.reconnectingTitle'
     | 'notifications.count'
     | 'state.empty'
     | 'state.loading'
@@ -138,6 +251,34 @@ export interface NamespaceKeys {
     | 'controls.currentTheme'
     | 'controls.toggleLocale'
     | 'controls.toggleTheme'
+    | 'emptyState.prototypeBadge'
+    | 'emptyState.prototypeBody'
+    | 'passwordInput.hide'
+    | 'passwordInput.show'
+    | 'select.placeholder'
+    | 'shell.openNavigation'
+    | 'shell.primaryNavigation'
+    | 'shell.skipToContent'
+    | 'showcase.dialogBody'
+    | 'showcase.dialogTitle'
+    | 'showcase.drawerTitle'
+    | 'showcase.openDialog'
+    | 'showcase.openDrawer'
+    | 'showcase.sampleError'
+    | 'showcase.sampleHint'
+    | 'showcase.sampleLabel'
+    | 'showcase.sampleOption'
+    | 'showcase.sections.actions'
+    | 'showcase.sections.content'
+    | 'showcase.sections.forms'
+    | 'showcase.sections.overlays'
+    | 'showcase.sections.shell'
+    | 'showcase.sections.status'
+    | 'showcase.sections.typography'
+    | 'showcase.showToast'
+    | 'showcase.subtitle'
+    | 'showcase.title'
+    | 'showcase.toastMessage'
     | 'spike.colour.description'
     | 'spike.elevation.description'
     | 'spike.logical.description'
@@ -160,6 +301,18 @@ export interface NamespaceKeys {
     | 'spike.typography.description'
     | 'swatch.contrast';
   readonly "errors":
+    | 'failure.auth_email_unverified'
+    | 'failure.auth_invalid_credentials'
+    | 'failure.auth_step_up_required'
+    | 'failure.auth_two_factor_required'
+    | 'failure.auth_unauthenticated'
+    | 'failure.context_branch_out_of_scope'
+    | 'failure.context_organisation_forbidden'
+    | 'failure.context_organisation_required'
+    | 'failure.network'
+    | 'failure.rate_limit_exceeded'
+    | 'failure.server'
+    | 'failure.validation_failed'
     | 'generic.body'
     | 'generic.reference'
     | 'generic.retry'
@@ -193,6 +346,20 @@ export const PLURAL_SUFFIXES = ["zero","one","two","few","many","other"] as cons
 
 /** Runtime list, for parity assertions and development tooling. */
 export const TRANSLATION_KEYS: readonly TranslationKey[] = [
+  'access:area.auth',
+  'access:area.clinic',
+  'access:area.corporate',
+  'access:area.customer',
+  'access:area.dietitian',
+  'access:area.driver',
+  'access:area.insurance',
+  'access:area.kds',
+  'access:area.kitchen',
+  'access:area.partner',
+  'access:area.patient',
+  'access:area.platform-admin',
+  'access:area.pos',
+  'access:area.public',
   'access:denial.email_unverified.body',
   'access:denial.email_unverified.title',
   'access:denial.entitlement_missing.body',
@@ -208,8 +375,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:denial.unauthenticated.body',
   'access:denial.unauthenticated.title',
   'access:forbidden.backToWorkspace',
+  'access:forbidden.missingLabel',
   'access:forbidden.reasonLabel',
   'access:forbidden.signInAgain',
+  'access:forbidden.switchOrganisation',
   'access:forbidden.title',
   'access:mockMode.badge',
   'access:mockMode.description',
@@ -218,9 +387,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:notFound.title',
   'access:pending.body',
   'access:pending.title',
+  'access:workspaceSelector.current',
+  'access:workspaceSelector.empty',
+  'access:workspaceSelector.emptyBody',
+  'access:workspaceSelector.open',
+  'access:workspaceSelector.subtitle',
+  'access:workspaceSelector.title',
   'auth:branchPicker.empty',
+  'auth:branchPicker.groupLabel',
+  'auth:branchPicker.onlyOne',
+  'auth:branchPicker.openLabel',
   'auth:branchPicker.subtitle',
   'auth:branchPicker.title',
+  'auth:devices.current',
+  'auth:devices.empty',
+  'auth:devices.emptyBody',
+  'auth:devices.lastUsed',
+  'auth:devices.neverUsed',
+  'auth:devices.platform.android',
+  'auth:devices.platform.ios',
+  'auth:devices.platform.web',
+  'auth:devices.revoke',
+  'auth:devices.revokeBody',
+  'auth:devices.revokeConfirm',
+  'auth:devices.revokeLabel',
+  'auth:devices.revokeTitle',
+  'auth:devices.revoked',
+  'auth:devices.subtitle',
+  'auth:devices.title',
+  'auth:forgotPassword.backToSignIn',
+  'auth:forgotPassword.emailLabel',
   'auth:forgotPassword.sentBody',
   'auth:forgotPassword.sentTitle',
   'auth:forgotPassword.submit',
@@ -231,19 +427,57 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.failed',
   'auth:login.forgotLink',
   'auth:login.passwordLabel',
+  'auth:login.rateLimited',
   'auth:login.registerLink',
   'auth:login.registerPrompt',
   'auth:login.rememberLabel',
   'auth:login.submit',
   'auth:login.subtitle',
   'auth:login.title',
+  'auth:login.twoFactor.back',
+  'auth:login.twoFactor.codeHint',
+  'auth:login.twoFactor.codeLabel',
+  'auth:login.twoFactor.recoveryHint',
+  'auth:login.twoFactor.recoveryLabel',
+  'auth:login.twoFactor.submit',
+  'auth:login.twoFactor.subtitle',
+  'auth:login.twoFactor.title',
+  'auth:login.twoFactor.useCode',
+  'auth:login.twoFactor.useRecovery',
   'auth:organisationPicker.branchCount',
   'auth:organisationPicker.empty',
   'auth:organisationPicker.emptyBody',
+  'auth:organisationPicker.noBranches',
+  'auth:organisationPicker.onlyOne',
+  'auth:organisationPicker.openLabel',
   'auth:organisationPicker.pending',
+  'auth:organisationPicker.roleLabel',
   'auth:organisationPicker.subtitle',
   'auth:organisationPicker.suspended',
   'auth:organisationPicker.title',
+  'auth:profile.account',
+  'auth:profile.branch',
+  'auth:profile.consents',
+  'auth:profile.consentsNone',
+  'auth:profile.context',
+  'auth:profile.displayName',
+  'auth:profile.email',
+  'auth:profile.entitlements',
+  'auth:profile.locale',
+  'auth:profile.memberSince',
+  'auth:profile.memberships',
+  'auth:profile.noBranch',
+  'auth:profile.noContext',
+  'auth:profile.none',
+  'auth:profile.organisation',
+  'auth:profile.permissions',
+  'auth:profile.roles',
+  'auth:profile.subtitle',
+  'auth:profile.timeZone',
+  'auth:profile.title',
+  'auth:profile.twoFactor',
+  'auth:profile.twoFactorDisabled',
+  'auth:profile.twoFactorEnabled',
   'auth:register.acceptPrivacy',
   'auth:register.acceptTerms',
   'auth:register.emailLabel',
@@ -253,22 +487,38 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:register.passwordConfirmationLabel',
   'auth:register.passwordHint',
   'auth:register.passwordLabel',
+  'auth:register.privacyLink',
   'auth:register.submit',
   'auth:register.subtitle',
+  'auth:register.termsLink',
   'auth:register.title',
   'auth:resetPassword.invalidToken',
+  'auth:resetPassword.missingLink',
+  'auth:resetPassword.missingLinkBody',
   'auth:resetPassword.passwordConfirmationLabel',
   'auth:resetPassword.passwordLabel',
+  'auth:resetPassword.requestNew',
   'auth:resetPassword.submit',
   'auth:resetPassword.subtitle',
   'auth:resetPassword.successBody',
   'auth:resetPassword.successTitle',
   'auth:resetPassword.title',
+  'auth:stepUp.body',
+  'auth:stepUp.confirmed',
+  'auth:stepUp.passwordLabel',
+  'auth:stepUp.submit',
+  'auth:stepUp.title',
   'auth:verifyEmail.body',
   'auth:verifyEmail.checkAgain',
+  'auth:verifyEmail.continue',
+  'auth:verifyEmail.cooldown',
+  'auth:verifyEmail.pendingBody',
+  'auth:verifyEmail.pendingTitle',
   'auth:verifyEmail.resend',
   'auth:verifyEmail.resent',
   'auth:verifyEmail.title',
+  'auth:verifyEmail.verifiedBody',
+  'auth:verifyEmail.verifiedTitle',
   'auth:verifyEmail.wrongAddress',
   'auth:workspace.devices',
   'auth:workspace.profile',
@@ -280,7 +530,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.cancel',
   'common:action.change',
   'common:action.close',
+  'common:action.confirm',
   'common:action.continue',
+  'common:action.dismiss',
+  'common:action.done',
+  'common:action.goBack',
   'common:action.refresh',
   'common:action.resend',
   'common:action.retry',
@@ -291,6 +545,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.signUp',
   'common:app.name',
   'common:app.tagline',
+  'common:dev.mockBadge',
+  'common:dev.mockDescription',
+  'common:dev.mockScenario',
+  'common:dev.switchScenario',
+  'common:dev.switchScenarioHint',
   'common:direction.ltr',
   'common:direction.rtl',
   'common:locale.arabic',
@@ -301,9 +560,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:locale.reloadNow',
   'common:locale.reloadRequiredBody',
   'common:locale.reloadRequiredTitle',
+  'common:nav.devices',
+  'common:nav.overview',
+  'common:nav.profile',
+  'common:nav.showcase',
+  'common:nav.workspace',
   'common:network.backOnline',
   'common:network.offlineBody',
   'common:network.offlineTitle',
+  'common:network.reconnectingBody',
+  'common:network.reconnectingTitle',
   'common:notifications.count',
   'common:state.empty',
   'common:state.loading',
@@ -318,6 +584,34 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:controls.currentTheme',
   'designSystem:controls.toggleLocale',
   'designSystem:controls.toggleTheme',
+  'designSystem:emptyState.prototypeBadge',
+  'designSystem:emptyState.prototypeBody',
+  'designSystem:passwordInput.hide',
+  'designSystem:passwordInput.show',
+  'designSystem:select.placeholder',
+  'designSystem:shell.openNavigation',
+  'designSystem:shell.primaryNavigation',
+  'designSystem:shell.skipToContent',
+  'designSystem:showcase.dialogBody',
+  'designSystem:showcase.dialogTitle',
+  'designSystem:showcase.drawerTitle',
+  'designSystem:showcase.openDialog',
+  'designSystem:showcase.openDrawer',
+  'designSystem:showcase.sampleError',
+  'designSystem:showcase.sampleHint',
+  'designSystem:showcase.sampleLabel',
+  'designSystem:showcase.sampleOption',
+  'designSystem:showcase.sections.actions',
+  'designSystem:showcase.sections.content',
+  'designSystem:showcase.sections.forms',
+  'designSystem:showcase.sections.overlays',
+  'designSystem:showcase.sections.shell',
+  'designSystem:showcase.sections.status',
+  'designSystem:showcase.sections.typography',
+  'designSystem:showcase.showToast',
+  'designSystem:showcase.subtitle',
+  'designSystem:showcase.title',
+  'designSystem:showcase.toastMessage',
   'designSystem:spike.colour.description',
   'designSystem:spike.elevation.description',
   'designSystem:spike.logical.description',
@@ -339,6 +633,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:spike.title',
   'designSystem:spike.typography.description',
   'designSystem:swatch.contrast',
+  'errors:failure.auth_email_unverified',
+  'errors:failure.auth_invalid_credentials',
+  'errors:failure.auth_step_up_required',
+  'errors:failure.auth_two_factor_required',
+  'errors:failure.auth_unauthenticated',
+  'errors:failure.context_branch_out_of_scope',
+  'errors:failure.context_organisation_forbidden',
+  'errors:failure.context_organisation_required',
+  'errors:failure.network',
+  'errors:failure.rate_limit_exceeded',
+  'errors:failure.server',
+  'errors:failure.validation_failed',
   'errors:generic.body',
   'errors:generic.reference',
   'errors:generic.retry',

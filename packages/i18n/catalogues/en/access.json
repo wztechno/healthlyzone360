@@ -33,7 +33,9 @@
         "title": "You cannot open this page",
         "reasonLabel": "Reason",
         "backToWorkspace": "Go to your workspace",
-        "signInAgain": "Sign in with a different account"
+        "signInAgain": "Sign in with a different account",
+        "switchOrganisation": "Choose a different organisation",
+        "missingLabel": "Missing"
     },
     "notFound": {
         "title": "Page not found",
@@ -47,5 +49,29 @@
     "mockMode": {
         "badge": "Mock data",
         "description": "This build is reading from mock repositories, not the Healthy360 API."
+    },
+    "area": {
+        "public": "Healthy360",
+        "auth": "Account",
+        "customer": "Home",
+        "patient": "My care",
+        "dietitian": "Dietitian",
+        "clinic": "Clinic",
+        "kitchen": "Kitchen",
+        "pos": "Point of sale",
+        "kds": "Kitchen display",
+        "driver": "Deliveries",
+        "partner": "Partner",
+        "corporate": "Corporate",
+        "insurance": "Insurance",
+        "platform-admin": "Platform administration"
+    },
+    "workspaceSelector": {
+        "title": "Choose where to work",
+        "subtitle": "These are the areas your role at {{organisation}} gives you.",
+        "current": "You are here",
+        "empty": "No areas are available to you here",
+        "emptyBody": "Your role in this organisation does not open any workspace yet. Try another organisation, or ask an administrator.",
+        "open": "Open {{area}}"
     }
 }

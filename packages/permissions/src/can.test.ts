@@ -5,7 +5,7 @@ import { makeAccessState } from './testing/make-access-state.ts';
 
 const state = makeAccessState({
     permissions: ['organisation.view_current', 'branch.manage_current'],
-    entitlements: ['module.clinic', 'module.kitchen'],
+    entitlements: ['feature.multi_branch', 'feature.audit_export'],
 });
 
 describe('can', () => {
@@ -38,9 +38,9 @@ describe('can', () => {
 
 describe('hasEntitlements', () => {
     it('requires every listed entitlement', () => {
-        expect(hasEntitlements(state, 'module.clinic')).toBe(true);
-        expect(hasEntitlements(state, ['module.clinic', 'module.kitchen'])).toBe(true);
-        expect(hasEntitlements(state, ['module.clinic', 'module.pos'])).toBe(false);
+        expect(hasEntitlements(state, 'feature.multi_branch')).toBe(true);
+        expect(hasEntitlements(state, ['feature.multi_branch', 'feature.audit_export'])).toBe(true);
+        expect(hasEntitlements(state, ['feature.multi_branch', 'feature.api_access'])).toBe(false);
         expect(hasEntitlements(state, [])).toBe(true);
     });
 });
@@ -50,7 +50,9 @@ describe('missing* helpers', () => {
         expect(
             missingPermissions(state, ['z.write', 'organisation.view_current', 'a.read']),
         ).toEqual(['z.write', 'a.read']);
-        expect(missingEntitlements(state, ['module.pos', 'module.clinic'])).toEqual(['module.pos']);
+        expect(missingEntitlements(state, ['feature.api_access', 'feature.multi_branch'])).toEqual([
+            'feature.api_access',
+        ]);
     });
 
     it('return an empty array when nothing is missing', () => {

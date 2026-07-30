@@ -1,9 +1,20 @@
+import { ToastProvider } from '@healthy360/design-system';
+import type { Repositories, SessionTokenStore } from '@healthy360/api-client';
+import { QueryClientProvider } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import type { Metrics } from 'react-native-safe-area-context';
-import type { ReactNode } from 'react';
 
+import { createQueryClient } from './data/query-client.ts';
+import { persistCache, restoreCache } from './data/persistence.ts';
+import { AppRepositoryProvider } from './data/repository-provider.tsx';
 import { i18n } from './i18n.ts';
+import { OnlineStatusProvider } from './online/online-status.tsx';
+import { SessionProvider } from './session/session-provider.tsx';
+import { createKeyValueStore } from './session/storage.ts';
 
 export interface AppProvidersProps {
     readonly children: ReactNode;
@@ -13,19 +24,55 @@ export interface AppProvidersProps {
      * metrics that are already known removes both.
      */
     readonly initialMetrics?: Metrics | null | undefined;
+    /** Test seams. Supplying these skips the async repository factory and the shared query client. */
+    readonly repositories?: Repositories | undefined;
+    readonly tokenStore?: SessionTokenStore | undefined;
+    readonly queryClient?: QueryClient | undefined;
+    readonly initialOnline?: boolean | undefined;
 }
 
 /**
- * Providers every route sits inside.
+ * Provider order, outermost first, and why:
  *
- * Phase 5a needs only i18n and safe-area insets. TanStack Query, the access-state provider and the
- * repository factory arrive in Phase 5b, once there is data to fetch and guards to enforce.
+ * 1. `I18nextProvider` — everything below may render copy, including the error paths.
+ * 2. `SafeAreaProvider` — layout metrics are needed before any chrome measures itself.
+ * 3. `QueryClientProvider` — the cache the session lives in.
+ * 4. `OnlineStatusProvider` — bridges connectivity into that client's `onlineManager`, so it sits
+ *    inside the client but outside anything that fetches.
+ * 5. `AppRepositoryProvider` — builds the data layer (async; may fail on the production-mock gate).
+ * 6. `SessionProvider` — reads `me()` through the repositories and projects the access state.
+ * 7. `ToastProvider` — last, so its live regions overlay the application rather than the reverse.
  */
-export function AppProviders({ children, initialMetrics }: AppProvidersProps) {
+export function AppProviders({
+    children,
+    initialMetrics,
+    repositories,
+    tokenStore,
+    queryClient,
+    initialOnline,
+}: AppProvidersProps) {
+    const client = useMemo(() => queryClient ?? createQueryClient(), [queryClient]);
+    const cacheStore = useMemo(() => createKeyValueStore(), []);
+
+    useEffect(() => {
+        // Allow-listed persistence only — nothing under `session` or `devices` may reach disk
+        // (plan §21). `restoreCache` discards anything written by an older cache version.
+        restoreCache(client, cacheStore);
+        return persistCache(client, cacheStore);
+    }, [client, cacheStore]);
+
     return (
         <I18nextProvider i18n={i18n}>
             <SafeAreaProvider initialMetrics={initialMetrics ?? initialWindowMetrics}>
-                {children}
+                <QueryClientProvider client={client}>
+                    <OnlineStatusProvider initialOnline={initialOnline}>
+                        <AppRepositoryProvider repositories={repositories} tokenStore={tokenStore}>
+                            <SessionProvider>
+                                <ToastProvider>{children}</ToastProvider>
+                            </SessionProvider>
+                        </AppRepositoryProvider>
+                    </OnlineStatusProvider>
+                </QueryClientProvider>
             </SafeAreaProvider>
         </I18nextProvider>
     );

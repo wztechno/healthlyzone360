@@ -28,5 +28,19 @@
         "body": "The action could not be completed. You can try again.",
         "retry": "Try again",
         "reference": "Reference: {{id}}"
+    },
+    "failure": {
+        "auth_invalid_credentials": "Those details do not match our records.",
+        "auth_unauthenticated": "Your session has ended. Sign in again to continue.",
+        "auth_email_unverified": "Confirm your email address before continuing.",
+        "auth_two_factor_required": "Enter the code from your authenticator app to finish signing in.",
+        "auth_step_up_required": "Confirm your password to continue.",
+        "context_organisation_required": "Choose an organisation before continuing.",
+        "context_organisation_forbidden": "You are not an active member of that organisation.",
+        "context_branch_out_of_scope": "That branch is outside the sites you can work at.",
+        "validation_failed": "Some of the details need correcting.",
+        "rate_limit_exceeded": "Too many attempts. Try again in {{seconds}} seconds.",
+        "network": "We cannot reach Healthy360. Check your connection and try again.",
+        "server": "Something went wrong on our side. Try again in a moment."
     }
 }

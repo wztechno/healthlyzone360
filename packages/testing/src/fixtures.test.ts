@@ -88,10 +88,10 @@ describe('makeAccessState', () => {
     it('accepts iterables for permissions and entitlements', () => {
         const state = makeAccessState({
             permissions: ['a.read'],
-            entitlements: new Set(['module.x']),
+            entitlements: new Set(['feature.api_access']),
         });
         expect(state.permissions.has('a.read')).toBe(true);
-        expect(state.entitlements.has('module.x')).toBe(true);
+        expect(state.entitlements.has('feature.api_access')).toBe(true);
     });
 
     it('produces states the guard kernel accepts', () => {

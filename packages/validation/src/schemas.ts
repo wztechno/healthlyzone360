@@ -25,14 +25,32 @@ function newPasswordField(t: Translate) {
     });
 }
 
-function confirmPasswordMatches<T extends { password: string; password_confirmation: string }>(
-    schema: z.ZodType<T>,
-    t: Translate,
-) {
+/**
+ * The input generic is carried through deliberately. `z.ZodType<T>` defaults its *input* to
+ * `unknown`, and a schema whose input is `unknown` cannot be handed to React Hook Form — the
+ * resolver requires the values it validates to be an object of form fields. Threading `TIn` keeps
+ * `z.input<>` usable at the call site.
+ */
+function confirmPasswordMatches<
+    TOut extends { password: string; password_confirmation: string },
+    TIn,
+>(schema: z.ZodType<TOut, TIn>, t: Translate) {
     return schema.refine((value) => value.password === value.password_confirmation, {
         error: t(VALIDATION_KEYS.passwordMismatch),
         path: ['password_confirmation'],
     });
+}
+
+/**
+ * A consent checkbox.
+ *
+ * Modelled as `boolean` refined to `true` rather than `z.literal(true)`. Both reject an unticked
+ * box, but the literal's *input* type is `true`, which makes an unchecked default value
+ * un-typeable in a form — and a consent form whose initial state cannot be expressed is a bug
+ * waiting to be cast away.
+ */
+function consentField(t: Translate, key: (typeof VALIDATION_KEYS)[keyof typeof VALIDATION_KEYS]) {
+    return z.boolean({ error: t(key) }).refine((value) => value === true, { error: t(key) });
 }
 
 /** `POST /api/v1/auth/login`. */
@@ -64,8 +82,8 @@ export function makeRegisterSchema(t: Translate) {
             email: emailField(t),
             password: newPasswordField(t),
             password_confirmation: z.string({ error: t(VALIDATION_KEYS.required) }),
-            accept_terms: z.literal(true, { error: t(VALIDATION_KEYS.acceptTerms) }),
-            accept_privacy: z.literal(true, { error: t(VALIDATION_KEYS.acceptPrivacy) }),
+            accept_terms: consentField(t, VALIDATION_KEYS.acceptTerms),
+            accept_privacy: consentField(t, VALIDATION_KEYS.acceptPrivacy),
         }),
         t,
     );

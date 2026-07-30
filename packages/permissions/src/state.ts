@@ -37,7 +37,7 @@ export interface AccessState {
     readonly branch?: AccessBranch | undefined;
     /** Effective permission keys for (user × organisation × branch), e.g. `organisation.view_current`. */
     readonly permissions: ReadonlySet<string>;
-    /** Effective feature entitlement keys, e.g. `module.kitchen`. */
+    /** Effective feature entitlement keys, e.g. `feature.multi_branch` (see `FEATURE_CODES`). */
     readonly entitlements: ReadonlySet<string>;
 }
 

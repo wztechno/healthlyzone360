@@ -17,6 +17,15 @@
         height: 100%;
     }
 
+    /* Tailwind preflight sets ::placeholder to gray-400 (#9ca3af, 2.5:1 on white), which fails
+       WCAG AA and overrides react-native-web's placeholderTextColor. 104 97 90 is neutral.600 —
+       the same value the native TextInput uses — at ~6.1:1 on the base surface. */
+    input::placeholder,
+    textarea::placeholder {
+        color: rgb(104 97 90);
+        opacity: 1;
+    }
+
     /* Per-script typography. `lang` is set before hydration by app/+html.tsx, so the correct family
      and line height apply on first paint rather than after a flash of Latin metrics. */
     html:lang(en),

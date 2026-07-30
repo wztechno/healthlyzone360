@@ -131,7 +131,7 @@ export function makeActiveContext(overrides: Partial<ActiveContext> = {}): Activ
         branchId: FIXTURE_IDS.branch,
         membershipId: FIXTURE_IDS.membership,
         permissions: ['organisation.view_current', 'branch.view_current'],
-        entitlements: ['module.clinic'],
+        entitlements: ['feature.multi_branch'],
         permissionVersion: 1,
         ...overrides,
     };

@@ -5,12 +5,14 @@ export { MODE_ROUTE_AREAS, modeAllows, modesForArea } from './modes.ts';
 
 export {
     ALL_ROUTE_REQUIREMENTS,
+    FEATURE_CODES,
     ROUTE_PATHS,
     ROUTE_REQUIREMENTS,
+    isFeatureCode,
     mergeRequirements,
     requirementForArea,
 } from './requirements.ts';
-export type { RoutePath, RouteRequirement } from './requirements.ts';
+export type { FeatureCode, RoutePath, RouteRequirement } from './requirements.ts';
 
 export { can, hasEntitlements, missingEntitlements, missingPermissions } from './can.ts';
 export type { PermissionMatch } from './can.ts';

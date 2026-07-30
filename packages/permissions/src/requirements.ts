@@ -38,21 +38,55 @@ export const ROUTE_PATHS = {
 
 export type RoutePath = (typeof ROUTE_PATHS)[keyof typeof ROUTE_PATHS];
 
-const AUTHENTICATED_ORG_AREA = {
+/**
+ * Feature entitlement codes the backend actually seeds (`feature_definitions`, plan §7).
+ *
+ * This list is the *whole* Phase 1 entitlement vocabulary. It is exported so that fixtures, the
+ * mock repositories and the entitlement-gate tests all speak the same language as the API instead
+ * of inventing keys the server will never send.
+ */
+export const FEATURE_CODES = [
+    'feature.two_factor_enforcement',
+    'feature.multi_branch',
+    'feature.api_access',
+    'feature.audit_export',
+] as const;
+export type FeatureCode = (typeof FEATURE_CODES)[number];
+
+export function isFeatureCode(value: string): value is FeatureCode {
+    return (FEATURE_CODES as readonly string[]).includes(value);
+}
+
+/**
+ * Consumers hold one *global* Healthy360 identity (plan §9): they are people, not staff of an
+ * organisation, so the consumer-facing areas must not force organisation selection before the
+ * landing screen will render. Individual organisation-bound screens inside them still tighten the
+ * baseline with their own `requiresOrg`.
+ */
+const CONSUMER_AREA = {
     requiresAuth: true,
     requiresVerifiedEmail: true,
+} as const;
+
+/** Staff areas are entered through a server-confirmed organisation membership. */
+const AUTHENTICATED_ORG_AREA = {
+    ...CONSUMER_AREA,
     requiresOrg: true,
 } as const;
 
 /**
  * The per-area baseline registry (plan §17).
  *
- * `public` and `auth` are unguarded beyond the build-mode gate; every other area requires an
- * authenticated, email-verified user in a server-confirmed organisation context. Branch context is
- * required only where an operation is physically bound to a site — kitchen, POS and KDS.
+ * `public` and `auth` are unguarded beyond the build-mode gate. `customer` and `patient` require an
+ * authenticated, email-verified user but **no** organisation context (orchestrator decision D1 —
+ * see `docs/architecture/notes/phase5b-decisions.md`). Every remaining area is a staff area and
+ * additionally requires a server-confirmed organisation context. Branch context is required only
+ * where an operation is physically bound to a site — kitchen, POS and KDS.
  *
- * Entitlement keys mirror `feature_definitions` rows (plan §7) and must be reconciled with the
- * backend feature registry when Phase 4 lands; they are named `module.<area>` for now.
+ * **No area is entitlement-gated in Phase 1** (orchestrator decision D2). The backend seeds four
+ * `feature.*` definitions and none of them maps to "may this area render". The entitlement gate in
+ * `evaluateGates` remains fully implemented and fully tested — with the real `FEATURE_CODES` as
+ * fixtures — so that a route or a screen can opt into one the day a feature genuinely gates an area.
  *
  * Screens may tighten this baseline (never loosen it) by passing their own `RouteRequirement`.
  */
@@ -60,39 +94,20 @@ export const ROUTE_REQUIREMENTS: Readonly<Record<RouteArea, RouteRequirement>> =
     public: { area: 'public' },
     auth: { area: 'auth' },
 
-    customer: { area: 'customer', ...AUTHENTICATED_ORG_AREA },
-    patient: { area: 'patient', ...AUTHENTICATED_ORG_AREA },
+    customer: { area: 'customer', ...CONSUMER_AREA },
+    patient: { area: 'patient', ...CONSUMER_AREA },
 
-    dietitian: {
-        area: 'dietitian',
-        ...AUTHENTICATED_ORG_AREA,
-        entitlements: ['module.dietitian'],
-    },
-    clinic: { area: 'clinic', ...AUTHENTICATED_ORG_AREA, entitlements: ['module.clinic'] },
+    dietitian: { area: 'dietitian', ...AUTHENTICATED_ORG_AREA },
+    clinic: { area: 'clinic', ...AUTHENTICATED_ORG_AREA },
 
-    kitchen: {
-        area: 'kitchen',
-        ...AUTHENTICATED_ORG_AREA,
-        requiresBranch: true,
-        entitlements: ['module.kitchen'],
-    },
-    pos: {
-        area: 'pos',
-        ...AUTHENTICATED_ORG_AREA,
-        requiresBranch: true,
-        entitlements: ['module.pos'],
-    },
-    kds: {
-        area: 'kds',
-        ...AUTHENTICATED_ORG_AREA,
-        requiresBranch: true,
-        entitlements: ['module.kds'],
-    },
+    kitchen: { area: 'kitchen', ...AUTHENTICATED_ORG_AREA, requiresBranch: true },
+    pos: { area: 'pos', ...AUTHENTICATED_ORG_AREA, requiresBranch: true },
+    kds: { area: 'kds', ...AUTHENTICATED_ORG_AREA, requiresBranch: true },
 
-    driver: { area: 'driver', ...AUTHENTICATED_ORG_AREA, entitlements: ['module.delivery'] },
-    partner: { area: 'partner', ...AUTHENTICATED_ORG_AREA, entitlements: ['module.marketplace'] },
-    corporate: { area: 'corporate', ...AUTHENTICATED_ORG_AREA, entitlements: ['module.corporate'] },
-    insurance: { area: 'insurance', ...AUTHENTICATED_ORG_AREA, entitlements: ['module.insurance'] },
+    driver: { area: 'driver', ...AUTHENTICATED_ORG_AREA },
+    partner: { area: 'partner', ...AUTHENTICATED_ORG_AREA },
+    corporate: { area: 'corporate', ...AUTHENTICATED_ORG_AREA },
+    insurance: { area: 'insurance', ...AUTHENTICATED_ORG_AREA },
 
     'platform-admin': {
         area: 'platform-admin',

@@ -46,5 +46,45 @@
     },
     "swatch": {
         "contrast": "Contrast {{ratio}}"
+    },
+    "passwordInput": {
+        "show": "Show password",
+        "hide": "Hide password"
+    },
+    "select": {
+        "placeholder": "Choose an option"
+    },
+    "emptyState": {
+        "prototypeBadge": "Prototype — planned for a later phase",
+        "prototypeBody": "This area is part of the route registry but has no screens yet. It will be built with the module that owns it."
+    },
+    "shell": {
+        "primaryNavigation": "Main navigation",
+        "openNavigation": "Open the main navigation",
+        "skipToContent": "Skip to the main content"
+    },
+    "showcase": {
+        "title": "Design system",
+        "subtitle": "Every Phase 1 component, in English and Arabic, light and dark. This page is the accessibility target.",
+        "sections": {
+            "typography": "Typography and layout",
+            "actions": "Actions",
+            "forms": "Forms",
+            "content": "Content",
+            "status": "Status",
+            "overlays": "Overlays",
+            "shell": "Application shell"
+        },
+        "openDialog": "Open the dialog",
+        "openDrawer": "Open the drawer",
+        "showToast": "Show a toast",
+        "dialogTitle": "Revoke this session?",
+        "dialogBody": "The device will be signed out immediately.",
+        "drawerTitle": "Example drawer",
+        "toastMessage": "That worked.",
+        "sampleLabel": "Sample field",
+        "sampleHint": "A hint that explains the field.",
+        "sampleError": "Something about this value is wrong.",
+        "sampleOption": "Option {{index}}"
     }
 }

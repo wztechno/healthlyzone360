@@ -289,7 +289,7 @@ export const themeLight: ThemeColours = {
     surfaceInverse: '#282522',
     textPrimary: '#282522',
     textSecondary: '#514c47',
-    textDisabled: '#847c70',
+    textDisabled: '#68615a', // neutral.600 - AA (>=4.5:1) on base and raised surfaces
     textInverse: '#faf9f7',
     textOnBrand: '#ffffff',
     borderSubtle: '#e5e1da',
@@ -311,7 +311,7 @@ export const themeDark: ThemeColours = {
     surfaceInverse: '#f2f0ec',
     textPrimary: '#f2f0ec',
     textSecondary: '#c9c3b9',
-    textDisabled: '#847c70',
+    textDisabled: '#a9a195', // neutral.400 - AA on dark surfaces
     textInverse: '#282522',
     textOnBrand: '#0e1d1a',
     borderSubtle: '#393532',

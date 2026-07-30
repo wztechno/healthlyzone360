@@ -16,7 +16,11 @@
         "signOut": "Sign out",
         "signUp": "Create account",
         "resend": "Resend",
-        "refresh": "Refresh"
+        "refresh": "Refresh",
+        "confirm": "Confirm",
+        "dismiss": "Dismiss",
+        "goBack": "Go back",
+        "done": "Done"
     },
     "state": {
         "loading": "Loading…",
@@ -27,6 +31,8 @@
     "network": {
         "offlineTitle": "You are offline",
         "offlineBody": "Some information may be out of date. We will try again when the connection returns.",
+        "reconnectingTitle": "Reconnecting…",
+        "reconnectingBody": "Trying to reach Healthy360 again.",
         "backOnline": "Connection restored"
     },
     "notifications": {
@@ -52,5 +58,19 @@
     "direction": {
         "ltr": "Left to right",
         "rtl": "Right to left"
+    },
+    "nav": {
+        "overview": "Overview",
+        "workspace": "Workspace",
+        "profile": "Profile",
+        "devices": "Devices and sessions",
+        "showcase": "Design system"
+    },
+    "dev": {
+        "mockBadge": "MOCK DATA",
+        "mockScenario": "scenario: {{scenario}}",
+        "mockDescription": "This build reads from in-memory fixtures, not the Healthy360 API.",
+        "switchScenario": "Mock scenario",
+        "switchScenarioHint": "Changing the scenario signs you out and rebuilds the fixture world."
     }
 }

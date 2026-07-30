@@ -12,17 +12,22 @@
         "doctor": "expo-doctor",
         "lint": "eslint . --max-warnings=0",
         "typecheck": "tsc --noEmit",
-        "test": "jest --ci"
+        "test": "jest --ci",
+        "e2e": "playwright test"
     },
     "dependencies": {
         "@expo-google-fonts/ibm-plex-sans-arabic": "^0.4.2",
         "@expo-google-fonts/inter": "^0.4.2",
         "@healthy360/analytics": "workspace:*",
+        "@healthy360/api-client": "workspace:*",
+        "@healthy360/design-system": "workspace:*",
         "@healthy360/design-tokens": "workspace:*",
         "@healthy360/domain-types": "workspace:*",
         "@healthy360/i18n": "workspace:*",
         "@healthy360/permissions": "workspace:*",
         "@healthy360/validation": "workspace:*",
+        "@react-native-community/netinfo": "12.0.1",
+        "@tanstack/react-query": "^5.101.4",
         "expo": "~57.0.9",
         "expo-constants": "~57.0.8",
         "expo-font": "~57.0.1",
@@ -49,7 +54,9 @@
         "zod": "^4.4.3"
     },
     "devDependencies": {
+        "@axe-core/playwright": "^4.12.1",
         "@healthy360/testing": "workspace:*",
+        "@playwright/test": "^1.62.0",
         "@testing-library/react-native": "^14.0.1",
         "@types/jest": "^29.5.14",
         "@types/react": "~19.2.2",

@@ -33,7 +33,7 @@ const FULL_REQUIREMENT: RouteRequirement = {
     requiresVerifiedEmail: true,
     requiresOrg: true,
     requiresBranch: true,
-    entitlements: ['module.kitchen'],
+    entitlements: ['feature.multi_branch'],
     allOf: ['kitchen.view_current'],
 };
 
@@ -45,7 +45,7 @@ function fullyHydrated() {
         emailVerified: true,
         organisation: makeAccessOrganisation(),
         branch: makeAccessBranch(),
-        entitlements: ['module.kitchen'],
+        entitlements: ['feature.multi_branch'],
         permissions: ['kitchen.view_current'],
     });
 }
@@ -206,7 +206,7 @@ describe('every gate × its failure', () => {
                 status: 'deny',
                 gate: 'entitlement',
                 reason: 'entitlement_missing',
-                missing: ['module.kitchen'],
+                missing: ['feature.multi_branch'],
             },
         },
         {
@@ -292,7 +292,7 @@ describe('gate ordering — the earliest failure wins', () => {
                 emailVerified: true,
                 organisation: makeAccessOrganisation(),
                 branch: makeAccessBranch(),
-                entitlements: ['module.kitchen'],
+                entitlements: ['feature.multi_branch'],
             }),
     };
 
@@ -338,7 +338,7 @@ describe('implicit authentication requirement', () => {
         ['requiresVerifiedEmail', { area: 'clinic', requiresVerifiedEmail: true }],
         ['requiresOrg', { area: 'clinic', requiresOrg: true }],
         ['requiresBranch', { area: 'clinic', requiresBranch: true }],
-        ['entitlements', { area: 'clinic', entitlements: ['module.clinic'] }],
+        ['entitlements', { area: 'clinic', entitlements: ['feature.audit_export'] }],
         ['allOf', { area: 'clinic', allOf: ['clinic.view_current'] }],
         ['anyOf', { area: 'clinic', anyOf: ['clinic.view_current'] }],
     ];
@@ -393,23 +393,27 @@ describe('branch-scoped memberships', () => {
 
 describe('entitlement gate', () => {
     it('reports every missing entitlement, not just the first', () => {
-        const state = makeAccessState({ entitlements: ['module.a'] });
+        const state = makeAccessState({ entitlements: ['feature.api_access'] });
         expect(
             evaluateGates(state, {
                 area: 'clinic',
-                entitlements: ['module.a', 'module.b', 'module.c'],
+                entitlements: [
+                    'feature.api_access',
+                    'feature.audit_export',
+                    'feature.multi_branch',
+                ],
             }),
         ).toEqual({
             status: 'deny',
             gate: 'entitlement',
             reason: 'entitlement_missing',
-            missing: ['module.b', 'module.c'],
+            missing: ['feature.audit_export', 'feature.multi_branch'],
         });
     });
 
     it('passes when the state holds a superset', () => {
-        const state = makeAccessState({ entitlements: ['module.a', 'module.b'] });
-        expect(evaluateGates(state, { area: 'clinic', entitlements: ['module.a'] })).toEqual({
+        const state = makeAccessState({ entitlements: ['feature.api_access', 'feature.audit_export'] });
+        expect(evaluateGates(state, { area: 'clinic', entitlements: ['feature.api_access'] })).toEqual({
             status: 'allow',
         });
     });
@@ -501,6 +505,68 @@ describe('evaluateArea against the registry', () => {
             }
         },
     );
+
+    /** Decision D1 — a consumer's global identity is enough for the consumer areas (plan §9). */
+    it.each(['customer', 'patient'] as const)(
+        'lets a verified consumer with no organisation into %s',
+        (area) => {
+            const state = makeAccessState({
+                mode: 'customer',
+                session: 'authenticated',
+                emailVerified: true,
+                organisation: undefined,
+                branch: undefined,
+            });
+            expect(evaluateArea(state, area)).toEqual({ status: 'allow' });
+        },
+    );
+
+    it('still redirects a verified consumer without an organisation away from staff areas', () => {
+        const state = makeAccessState({
+            mode: 'all-dev',
+            session: 'authenticated',
+            emailVerified: true,
+            organisation: undefined,
+        });
+        for (const area of ROUTE_AREAS) {
+            if (['public', 'auth', 'customer', 'patient'].includes(area)) continue;
+            expect(evaluateArea(state, area), area).toEqual({
+                status: 'redirect',
+                gate: 'organisation',
+                href: ROUTE_PATHS.selectOrganisation,
+                reason: 'no_organisation_context',
+            });
+        }
+    });
+
+    it('still demands email verification in the consumer areas', () => {
+        const state = makeAccessState({
+            mode: 'customer',
+            session: 'authenticated',
+            emailVerified: false,
+        });
+        expect(evaluateArea(state, 'customer')).toEqual({
+            status: 'redirect',
+            gate: 'email_verification',
+            href: ROUTE_PATHS.verifyEmail,
+            reason: 'email_unverified',
+        });
+    });
+
+    /** Decision D2 — the registry is entitlement-free; a hydrated state needs no entitlements. */
+    it('admits a fully permitted user holding no entitlements at all into every area', () => {
+        for (const area of ROUTE_AREAS) {
+            const requirement = ROUTE_REQUIREMENTS[area];
+            const state = makeAccessState({
+                mode: 'all-dev',
+                organisation: makeAccessOrganisation(),
+                branch: makeAccessBranch(),
+                entitlements: [],
+                permissions: [...(requirement.allOf ?? []), ...(requirement.anyOf ?? [])],
+            });
+            expect(evaluateArea(state, area), area).toEqual({ status: 'allow' });
+        }
+    });
 
     it('requires a branch for exactly kitchen, pos and kds', () => {
         const branchAreas = ROUTE_AREAS.filter(

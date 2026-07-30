@@ -1,3 +1,5 @@
+import { DEFAULT_MOCK_SCENARIO, isMockScenarioName } from '@healthy360/api-client';
+import type { MockScenarioName } from '@healthy360/api-client';
 import { isAppMode, isDataMode } from '@healthy360/domain-types';
 import type { AppMode, DataMode } from '@healthy360/domain-types';
 import Constants from 'expo-constants';
@@ -32,11 +34,28 @@ export interface AppConfig {
     readonly productionReady: boolean;
     readonly isMockData: boolean;
     readonly isProduction: boolean;
+    /**
+     * The mock world the build starts in. Read from `EXPO_PUBLIC_MOCK_SCENARIO` at build time and
+     * changeable at runtime from the development banner; meaningless when `dataMode` is `api`.
+     */
+    readonly mockScenario: MockScenarioName;
+    /** Development affordances — the scenario switcher, the showcase alias — are gated on this. */
+    readonly isDevelopment: boolean;
 }
 
 const appMode: AppMode = isAppMode(extra.appMode) ? extra.appMode : 'all-dev';
 const appEnv: AppEnv = isAppEnv(extra.appEnv) ? extra.appEnv : 'development';
 const dataMode: DataMode = isDataMode(extra.dataMode) ? extra.dataMode : 'mock';
+
+/**
+ * `EXPO_PUBLIC_*` variables are inlined by Metro at build time, so this is read from
+ * `process.env` directly rather than from `expoConfig.extra` — a value that must survive into a
+ * static export cannot depend on the config object being serialised alongside it.
+ */
+const rawScenario = process.env.EXPO_PUBLIC_MOCK_SCENARIO;
+const mockScenario: MockScenarioName = isMockScenarioName(rawScenario)
+    ? rawScenario
+    : DEFAULT_MOCK_SCENARIO;
 
 export const appConfig: AppConfig = {
     appMode,
@@ -45,4 +64,6 @@ export const appConfig: AppConfig = {
     productionReady: extra.productionReady === true,
     isMockData: dataMode === 'mock',
     isProduction: appEnv === 'production',
+    mockScenario,
+    isDevelopment: appEnv !== 'production',
 };

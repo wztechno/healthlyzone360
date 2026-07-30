@@ -16,7 +16,11 @@
         "signOut": "تسجيل الخروج",
         "signUp": "إنشاء حساب",
         "resend": "إعادة الإرسال",
-        "refresh": "تحديث"
+        "refresh": "تحديث",
+        "confirm": "تأكيد",
+        "dismiss": "تجاهل",
+        "goBack": "رجوع",
+        "done": "تم"
     },
     "state": {
         "loading": "جارٍ التحميل…",
@@ -27,6 +31,8 @@
     "network": {
         "offlineTitle": "أنت غير متصل بالإنترنت",
         "offlineBody": "قد تكون بعض المعلومات غير محدَّثة. سنعيد المحاولة عند عودة الاتصال.",
+        "reconnectingTitle": "جارٍ إعادة الاتصال…",
+        "reconnectingBody": "نحاول الوصول إلى Healthy360 من جديد.",
         "backOnline": "تمت استعادة الاتصال"
     },
     "notifications": {
@@ -56,5 +62,19 @@
     "direction": {
         "ltr": "من اليسار إلى اليمين",
         "rtl": "من اليمين إلى اليسار"
+    },
+    "nav": {
+        "overview": "نظرة عامة",
+        "workspace": "مساحة العمل",
+        "profile": "الملف الشخصي",
+        "devices": "الأجهزة والجلسات",
+        "showcase": "نظام التصميم"
+    },
+    "dev": {
+        "mockBadge": "بيانات وهمية",
+        "mockScenario": "السيناريو: {{scenario}}",
+        "mockDescription": "هذه النسخة تقرأ من بيانات وهمية في الذاكرة وليس من واجهة Healthy360.",
+        "switchScenario": "سيناريو البيانات الوهمية",
+        "switchScenarioHint": "تغيير السيناريو يسجّل خروجك ويعيد بناء البيانات الوهمية."
     }
 }
