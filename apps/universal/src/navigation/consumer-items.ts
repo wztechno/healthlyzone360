@@ -86,8 +86,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/customer/nutrition',
         icon: 'success',
         area: 'customer',
-        status: 'planned',
-        contract: 'GET /api/v1/nutrition/targets/current',
+        status: 'available',
     },
     {
         key: 'virtual-dietitian',
@@ -95,8 +94,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/customer/virtual-dietitian',
         icon: 'info',
         area: 'customer',
-        status: 'planned',
-        contract: 'POST /api/v1/virtual-dietitian/sessions',
+        status: 'available',
     },
     {
         key: 'subscriptions',
@@ -130,8 +128,9 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
 /**
  * The public marketplace's top-level destinations.
  *
- * Same table, same `planned` treatment: meals, plans and the calculator cluster are the catalogue
- * wave's, and until they exist their entries explain themselves rather than leading nowhere.
+ * Same table. Every entry here now resolves: `meals` and `plans` were `planned` until the catalogue
+ * wave built `/meals` and `/plans`, and flipping one `status` field was the whole handoff — which is
+ * what the `planned` mechanism was designed to cost.
  */
 export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
     {
@@ -156,8 +155,7 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/meals',
         icon: 'dot',
         area: 'public',
-        status: 'planned',
-        contract: 'GET /api/v1/marketplace/meals',
+        status: 'available',
     },
     {
         key: 'plans',
@@ -165,8 +163,7 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/plans',
         icon: 'calendar',
         area: 'public',
-        status: 'planned',
-        contract: 'GET /api/v1/marketplace/meal-plans',
+        status: 'available',
     },
     {
         key: 'dietitians',

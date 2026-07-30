@@ -188,7 +188,7 @@ describe('KitchenProfileScreen', () => {
 });
 
 describe('KitchenMenuScreen', () => {
-    it('puts nutrition on the card and opens the meal summary in place', async () => {
+    it('puts nutrition on the card and navigates to the meal record', async () => {
         const id = await firstKitchenId();
 
         await renderScreen(<KitchenMenuScreen kitchenId={id} />, {
@@ -207,11 +207,8 @@ describe('KitchenMenuScreen', () => {
         expect(pressable).toBeTruthy();
         await fireEvent.press(pressable!);
 
-        await waitFor(() => {
-            expect(screen.getByTestId('meal-detail-drawer-handoff')).toBeTruthy();
-        });
-        expect(screen.getByTestId('meal-detail-drawer-allergens')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-drawer-source')).toBeTruthy();
+        // The catalogue wave's `/meals/{meal}` replaced the in-place summary drawer.
+        expect(routerMock.__push).toHaveBeenCalledWith(expect.stringMatching(/^\/meals\//));
     });
 
     it('carries the medical disclaimer, because the cards carry figures', async () => {
@@ -334,15 +331,12 @@ describe('DiscoverScreen', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/kitchens?q=coastal');
     });
 
-    it('explains a catalogue family that is not built yet instead of linking into nothing', async () => {
+    it('links every catalogue family to its real route', async () => {
         await renderScreen(<DiscoverScreen />, { scenario: 'consumer-prototype' });
 
-        await fireEvent.press(screen.getByTestId('discover-planned-meals'));
+        await fireEvent.press(screen.getByTestId('discover-family-meals'));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('prototype-notice')).toBeTruthy();
-        });
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/meals');
+        expect(routerMock.__push).toHaveBeenCalledWith('/meals');
     });
 });
 
@@ -355,17 +349,24 @@ describe('ConsumerHomeScreen', () => {
             signInAs: CONSUMER,
         });
 
+        // Each card resolves through its own query, so each settles independently under real
+        // mock latency - await them all rather than assuming one settles for the rest.
         await waitFor(() => {
             expect(screen.getByTestId('subscription-card-content')).toBeTruthy();
         });
-        expect(screen.getByTestId('nutrition-snapshot-content')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId('nutrition-snapshot-content')).toBeTruthy();
+        });
         expect(screen.getByTestId('nutrition-meter-energy')).toBeTruthy();
         // The fixture week is anchored on a fixed Monday, so the resolved day either carries the
         // generated entries or falls back to the designed empty state. Both are correct answers;
         // silently rendering neither is not.
-        expect(
-            screen.queryByTestId('today-card-entries') ?? screen.queryByTestId('today-card-empty'),
-        ).toBeTruthy();
+        await waitFor(() => {
+            expect(
+                screen.queryByTestId('today-card-entries') ??
+                    screen.queryByTestId('today-card-empty'),
+            ).toBeTruthy();
+        });
         expect(screen.getByTestId('consumer-greeting')).toBeTruthy();
         expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
     });
@@ -409,11 +410,15 @@ describe('navigation descriptors', () => {
 
         expect([...new Set(available)]).toEqual([
             '/customer',
+            '/customer/nutrition',
+            '/customer/virtual-dietitian',
             '/dietitians',
             '/discover',
             '/for-business',
             '/how-it-works',
             '/kitchens',
+            '/meals',
+            '/plans',
             '/profile',
         ]);
     });

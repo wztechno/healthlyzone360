@@ -49,15 +49,15 @@ test.describe('marketplace accessibility (axe)', () => {
         await expect(page.getByTestId('kitchen-menu-grid')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-menu');
 
-        // The open meal drawer, swept since the Drawer's aria-modal-on-roleless-wrapper defect
-        // was fixed at the Wave 2 gate (accessibilityViewIsModal removed from the outer Modal).
+        // The in-place drawer this sweep used to open was replaced by `/meals/{meal}` at the
+        // catalogue wave; the meal record has its own sweep in `catalogue.a11y.spec.ts`, and what
+        // matters here is that the menu card reaches it.
         await page
             .getByTestId('kitchen-menu-grid')
             .locator('[data-testid^="meal-card-"]')
             .first()
             .click();
-        await expect(page.getByTestId('meal-detail-drawer')).toBeVisible();
-        await expectNoSeriousViolations(page, 'kitchen-menu-meal-drawer');
+        await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
     });
 
     test('dietitians', async ({ page }) => {

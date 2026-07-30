@@ -24,14 +24,12 @@ import { formatMoney, nutrientValue } from './format.ts';
  * proposition. Allergens present in the meal are named on the card for the same reason — someone
  * scanning a menu for something they can safely eat should not have to open twelve of them.
  *
- * ## Why pressing it opens a drawer rather than navigating
+ * ## Where pressing it goes
  *
- * The meal catalogue — `/meals/{meal}`, with the full nutrition-facts panel, the ingredient list
- * and the ordering controls — belongs to the catalogue wave. Linking there now would be a link into
- * a page that does not exist, which is a dead control with extra steps. So this wave answers the
- * press in place, with the figures it genuinely has, and says plainly that the full record is
- * coming. When `/meals/{meal}` lands, the drawer's "open full details" control becomes a link and
- * nothing else about this component changes.
+ * Wherever the parent says. Until the catalogue wave landed there was no `/meals/{meal}` to link
+ * to, so the menu answered a press with an in-place drawer; now the record exists, every caller
+ * navigates to it and the drawer is gone. The card itself never knew the difference — `onPress` is
+ * the whole contract, which is why the handoff cost this component nothing but a paragraph.
  */
 export interface MealCardProps {
     readonly meal: MarketplaceMeal;

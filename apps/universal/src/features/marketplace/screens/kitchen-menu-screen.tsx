@@ -1,9 +1,9 @@
 import { Breadcrumbs, Heading, Stack, Text } from '@healthy360/design-system';
-import type { MarketplaceMeal, MealFilter } from '@healthy360/api-client/contracts';
+import type { MealFilter } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import type { MealType } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useKitchenMenuQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
@@ -11,7 +11,6 @@ import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { FilterBar, useMarketplaceFilters } from '../filter-bar.tsx';
 import { CardGrid, CardGridItem } from '../section-header.tsx';
 import { MealCard } from '../meal-card.tsx';
-import { MealDetailDrawer } from '../meal-detail-drawer.tsx';
 import { QueryStates } from '../query-states.tsx';
 
 const MEAL_TYPES: readonly MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -24,8 +23,9 @@ export interface KitchenMenuScreenProps {
 /**
  * A kitchen's consumer menu.
  *
- * Pressing a meal opens the in-place detail drawer rather than navigating to `/meals/{meal}` — see
- * `../meal-detail-drawer.tsx` for why, and for what the catalogue wave replaces.
+ * Pressing a meal navigates to `/meals/{meal}`, the marketplace meal record. That link replaced the
+ * in-place drawer this screen used before the catalogue wave existed: a summary rendered from the
+ * listing was the honest answer while the record did not exist, and is redundant now that it does.
  *
  * The medical disclaimer is on the page and not only in the drawer: the cards themselves carry
  * energy and protein figures, and a figure on screen is a figure that needs its caveat beside it.
@@ -34,7 +34,6 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const filters = useMarketplaceFilters(GROUP_KEYS);
-    const [selected, setSelected] = useState<MarketplaceMeal | null>(null);
 
     const parsed = kitchenId === undefined ? null : KitchenId.safeParse(kitchenId);
     const kitchen = useKitchenQuery(parsed);
@@ -116,7 +115,7 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                             <MealCard
                                 meal={meal}
                                 onPress={() => {
-                                    setSelected(meal);
+                                    router.push(`/meals/${String(meal.id)}` as never);
                                 }}
                             />
                         </CardGridItem>
@@ -125,13 +124,6 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
             </QueryStates>
 
             <MedicalDisclaimer />
-
-            <MealDetailDrawer
-                meal={selected}
-                onClose={() => {
-                    setSelected(null);
-                }}
-            />
         </Stack>
     );
 }

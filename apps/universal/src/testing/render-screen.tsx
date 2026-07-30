@@ -35,6 +35,8 @@ export interface RenderScreenOptions {
     /** Sign this account in before rendering, so the screen starts from a live session. */
     readonly signInAs?: string | undefined;
     readonly initialOnline?: boolean | undefined;
+    /** Mock round-trip in ms. Defaults to 25 so loading frames are deterministically observable. */
+    readonly latencyMs?: number | undefined;
 }
 
 export function createTestQueryClient(): QueryClient {
@@ -53,7 +55,11 @@ export async function renderScreen(
     const tokenStore = createMemoryTokenStore();
     const repositories = createMockRepositories({
         scenario: options.scenario ?? 'multi-org-dietitian',
-        latencyMs: 0,
+        // A small but real latency: at 0 the mock resolves on a microtask, so whether a loading
+        // skeleton is still mounted after `await render(...)` is a race that flakes under
+        // concurrent CPU load (it did). 25 ms keeps the pending frame deterministically
+        // observable while success-path assertions already wait via findBy/waitFor.
+        latencyMs: options.latencyMs ?? 25,
         tokenStore,
     });
 

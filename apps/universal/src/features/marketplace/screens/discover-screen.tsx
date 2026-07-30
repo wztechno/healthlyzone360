@@ -14,7 +14,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDietitiansQuery, useKitchensQuery } from '../../../data/marketplace-hooks.ts';
-import { usePrototypeAction } from '../../../prototype/prototype-action.ts';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
 import { DietitianCard } from '../dietitian-card.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
@@ -28,15 +27,16 @@ import { QueryStates } from '../query-states.tsx';
  * alternative, showing a discovery page with a third of the product missing and no acknowledgement,
  * is worse for a reviewer and worse for a person.
  */
-const PLANNED_FAMILIES: readonly {
+// Every family became a real route at the catalogue wave, so these are links, not notices.
+const CATALOGUE_FAMILIES: readonly {
     readonly key: string;
     readonly icon: IconName;
-    readonly contract: string;
+    readonly href: string;
 }[] = [
-    { key: 'meals', icon: 'dot', contract: 'GET /api/v1/marketplace/meals' },
-    { key: 'plans', icon: 'calendar', contract: 'GET /api/v1/marketplace/meal-plans' },
-    { key: 'diets', icon: 'filter', contract: 'GET /api/v1/marketplace/diets' },
-    { key: 'tools', icon: 'info', contract: 'POST /api/v1/nutrition/calculate-targets' },
+    { key: 'meals', icon: 'dot', href: '/meals' },
+    { key: 'plans', icon: 'calendar', href: '/plans' },
+    { key: 'diets', icon: 'filter', href: '/diets/high-protein' },
+    { key: 'tools', icon: 'info', href: '/tools/calorie-calculator' },
 ];
 
 /**
@@ -50,7 +50,6 @@ const PLANNED_FAMILIES: readonly {
 export function DiscoverScreen() {
     const { t } = useTranslation();
     const router = useRouter();
-    const runPrototypeAction = usePrototypeAction();
     const [term, setTerm] = useState('');
 
     const kitchens = useKitchensQuery({ limit: 4, channels: ['marketplace'] });
@@ -170,19 +169,13 @@ export function DiscoverScreen() {
                     testID="discover-planned-header"
                 />
                 <CardGrid>
-                    {PLANNED_FAMILIES.map((family) => (
+                    {CATALOGUE_FAMILIES.map((family) => (
                         <CardGridItem key={family.key}>
                             <Card
-                                testID={`discover-planned-${family.key}`}
+                                testID={`discover-family-${family.key}`}
                                 padding="md"
-                                tone="sunken"
                                 onPress={() => {
-                                    runPrototypeAction({
-                                        contract: family.contract,
-                                        message: t('marketplace:nav.plannedNotice', {
-                                            label: t(`marketplace:discover.family.${family.key}`),
-                                        }),
-                                    });
+                                    router.push(family.href as never);
                                 }}
                                 accessibilityLabel={t(`marketplace:discover.family.${family.key}`)}
                             >

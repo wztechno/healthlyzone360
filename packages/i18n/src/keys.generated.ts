@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 688 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 1810 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -194,7 +194,352 @@ export interface NamespaceKeys {
   readonly "business":
     | 'title';
   readonly "catalogue":
-    | 'title';
+    | 'common.back'
+    | 'common.listSeparator'
+    | 'common.loading'
+    | 'common.perDay'
+    | 'common.range'
+    | 'common.syntheticData'
+    | 'compare.backToPlans'
+    | 'compare.caption'
+    | 'compare.duration.12w'
+    | 'compare.duration.1w'
+    | 'compare.duration.2w'
+    | 'compare.duration.4w'
+    | 'compare.durationOption'
+    | 'compare.durationOptionNoDiscount'
+    | 'compare.emptyBody'
+    | 'compare.emptyTitle'
+    | 'compare.macroCaveat'
+    | 'compare.openPlan'
+    | 'compare.row.carbohydrate'
+    | 'compare.row.delivery'
+    | 'compare.row.durations'
+    | 'compare.row.energy'
+    | 'compare.row.fat'
+    | 'compare.row.kitchen'
+    | 'compare.row.meals'
+    | 'compare.row.open'
+    | 'compare.row.pricePerDay'
+    | 'compare.row.protein'
+    | 'compare.subtitle'
+    | 'compare.title'
+    | 'diet.browseAll'
+    | 'diet.countsLabel'
+    | 'diet.loading'
+    | 'diet.mealsBody'
+    | 'diet.mealsEmptyBody'
+    | 'diet.mealsEmptyTitle'
+    | 'diet.mealsSeeAll'
+    | 'diet.mealsTitle'
+    | 'diet.notFoundBody'
+    | 'diet.notFoundTitle'
+    | 'diet.plansBody'
+    | 'diet.plansEmptyBody'
+    | 'diet.plansEmptyTitle'
+    | 'diet.plansSeeAll'
+    | 'diet.plansTitle'
+    | 'diet.suitabilityBody'
+    | 'diet.suitabilityTitle'
+    | 'diet.title'
+    | 'facts.amount'
+    | 'facts.basisLabel'
+    | 'facts.calculatedAt'
+    | 'facts.caption'
+    | 'facts.method'
+    | 'facts.notesTitle'
+    | 'facts.nutrient'
+    | 'facts.per100g'
+    | 'facts.per100gUnavailable'
+    | 'facts.perServing'
+    | 'facts.prototypeFlag'
+    | 'facts.recipeVersion'
+    | 'facts.rounding'
+    | 'facts.source'
+    | 'facts.sourceTitle'
+    | 'facts.syntheticNote'
+    | 'facts.title'
+    | 'facts.version'
+    | 'filters.activeCount'
+    | 'filters.carbohydrate'
+    | 'filters.clear'
+    | 'filters.diet'
+    | 'filters.energy'
+    | 'filters.excludeAllergens'
+    | 'filters.excludeAllergensHint'
+    | 'filters.fat'
+    | 'filters.kitchen'
+    | 'filters.mealType'
+    | 'filters.preparationMinutes'
+    | 'filters.price'
+    | 'filters.protein'
+    | 'filters.rangesHint'
+    | 'filters.rangesTitle'
+    | 'filters.unitGrams'
+    | 'filters.unitKcal'
+    | 'filters.unitMinutes'
+    | 'macros.grams'
+    | 'macros.inRange'
+    | 'macros.kilocalories'
+    | 'macros.outOfRange'
+    | 'macros.publishedRange'
+    | 'macros.referenceBody'
+    | 'macros.referenceCitation'
+    | 'macros.referenceTitle'
+    | 'macros.ringLabel'
+    | 'macros.ringValue'
+    | 'macros.title'
+    | 'meal.actionErrorBody'
+    | 'meal.actionErrorTitle'
+    | 'meal.actionsTitle'
+    | 'meal.addToBasket'
+    | 'meal.addToPlan'
+    | 'meal.addedToBasket'
+    | 'meal.addedToPlan'
+    | 'meal.addingToBasket'
+    | 'meal.addingToPlan'
+    | 'meal.allergenItem'
+    | 'meal.allergensDeclared'
+    | 'meal.allergensNone'
+    | 'meal.allergensTitle'
+    | 'meal.availabilityNone'
+    | 'meal.availabilityTitle'
+    | 'meal.availableOn'
+    | 'meal.availableRemaining'
+    | 'meal.b2bAvailable'
+    | 'meal.b2bNoPrice'
+    | 'meal.b2cAvailable'
+    | 'meal.b2cUnavailable'
+    | 'meal.basketSignIn'
+    | 'meal.basketSignInTitle'
+    | 'meal.browseAll'
+    | 'meal.channelsTitle'
+    | 'meal.compositionTitle'
+    | 'meal.cookedBy'
+    | 'meal.dietTagsTitle'
+    | 'meal.imageLabel'
+    | 'meal.ingredientsBody'
+    | 'meal.ingredientsContract'
+    | 'meal.ingredientsTitle'
+    | 'meal.loading'
+    | 'meal.macroEnergy'
+    | 'meal.macroRingCaption'
+    | 'meal.macroValue'
+    | 'meal.macrosTitle'
+    | 'meal.noPlanBody'
+    | 'meal.noPlanBrowse'
+    | 'meal.noPlanHome'
+    | 'meal.noPlanTitle'
+    | 'meal.notFoundBody'
+    | 'meal.notFoundTitle'
+    | 'meal.notRatedYet'
+    | 'meal.openKitchen'
+    | 'meal.orderCutOff'
+    | 'meal.planSignIn'
+    | 'meal.preparationMinutes'
+    | 'meal.priceEach'
+    | 'meal.priceTitle'
+    | 'meal.quotationBody'
+    | 'meal.quotationBusiness'
+    | 'meal.quotationSignIn'
+    | 'meal.quotationTitle'
+    | 'meal.ratingLabel'
+    | 'meal.replaceBody'
+    | 'meal.replaceMeal'
+    | 'meal.replaceTitle'
+    | 'meal.requestQuotation'
+    | 'meal.servingGrams'
+    | 'meal.servingLabel'
+    | 'meal.servingTitle'
+    | 'meal.subscriptionEligible'
+    | 'meal.subscriptionIneligible'
+    | 'meal.unavailableOn'
+    | 'meals.allLoaded'
+    | 'meals.emptyBody'
+    | 'meals.emptyTitle'
+    | 'meals.loadMore'
+    | 'meals.loadingMore'
+    | 'meals.searchLabel'
+    | 'meals.searchPlaceholder'
+    | 'meals.showing'
+    | 'meals.showingUnknownTotal'
+    | 'meals.sort.energy'
+    | 'meals.sort.preparation_time'
+    | 'meals.sort.price'
+    | 'meals.sort.protein'
+    | 'meals.sort.rating'
+    | 'meals.sort.relevance'
+    | 'meals.sortLabel'
+    | 'meals.subtitle'
+    | 'meals.title'
+    | 'nav.calorieCalculator'
+    | 'nav.compare'
+    | 'nav.diets'
+    | 'nav.home'
+    | 'nav.macroCalculator'
+    | 'nav.meals'
+    | 'nav.plans'
+    | 'nav.tools'
+    | 'plan.browseAll'
+    | 'plan.byKitchen'
+    | 'plan.combinationMeals'
+    | 'plan.combinationNoSnacks'
+    | 'plan.combinationSnacks'
+    | 'plan.combinationTitle'
+    | 'plan.configure'
+    | 'plan.configureBody'
+    | 'plan.configureBrowse'
+    | 'plan.configureHome'
+    | 'plan.configureSignIn'
+    | 'plan.configureTitle'
+    | 'plan.deliveryBody'
+    | 'plan.deliveryTitle'
+    | 'plan.deliveryUnpublished'
+    | 'plan.deliveryUnpublishedShort'
+    | 'plan.dietitianBody'
+    | 'plan.dietitianFind'
+    | 'plan.dietitianTitle'
+    | 'plan.durationDiscount'
+    | 'plan.durationNoDiscount'
+    | 'plan.durationTotal'
+    | 'plan.durationsBody'
+    | 'plan.durationsTitle'
+    | 'plan.imageLabel'
+    | 'plan.loading'
+    | 'plan.macroBandLabel'
+    | 'plan.macroRange'
+    | 'plan.macrosBody'
+    | 'plan.macrosTitle'
+    | 'plan.notFoundBody'
+    | 'plan.notFoundTitle'
+    | 'plan.priceBothUnits'
+    | 'plan.pricePerDay'
+    | 'plan.pricePerWeek'
+    | 'plan.priceTitle'
+    | 'plan.sampleMenuBody'
+    | 'plan.sampleMenuEmpty'
+    | 'plan.sampleMenuTitle'
+    | 'plan.variantLabel'
+    | 'plan.variantsBody'
+    | 'plan.variantsTitle'
+    | 'plans.categoryAll'
+    | 'plans.categoryLabel'
+    | 'plans.compareFull'
+    | 'plans.compareHint'
+    | 'plans.compareLabel'
+    | 'plans.compareOpen'
+    | 'plans.compareSelected'
+    | 'plans.durations'
+    | 'plans.emptyBody'
+    | 'plans.emptyTitle'
+    | 'plans.energyBand'
+    | 'plans.fromPrice'
+    | 'plans.mealsPerDay'
+    | 'plans.mealsPerDayNoSnacks'
+    | 'plans.perDayPrice'
+    | 'plans.ratingLabel'
+    | 'plans.subtitle'
+    | 'plans.title'
+    | 'title'
+    | 'tools.activity.extra_active'
+    | 'tools.activity.lightly_active'
+    | 'tools.activity.moderately_active'
+    | 'tools.activity.sedentary'
+    | 'tools.activity.very_active'
+    | 'tools.activityHint.extra_active'
+    | 'tools.activityHint.lightly_active'
+    | 'tools.activityHint.moderately_active'
+    | 'tools.activityHint.sedentary'
+    | 'tools.activityHint.very_active'
+    | 'tools.activityLabel'
+    | 'tools.age'
+    | 'tools.ageUnit'
+    | 'tools.assumptionsTitle'
+    | 'tools.bmrLabel'
+    | 'tools.bodyFat'
+    | 'tools.bodyFatHelp'
+    | 'tools.bodyFatUnit'
+    | 'tools.browseMeals'
+    | 'tools.calculate'
+    | 'tools.calculating'
+    | 'tools.calorieSubtitle'
+    | 'tools.calorieTitle'
+    | 'tools.citationsTitle'
+    | 'tools.dietAny'
+    | 'tools.dietHint'
+    | 'tools.dietLabel'
+    | 'tools.errorTitle'
+    | 'tools.goal.gain_muscle'
+    | 'tools.goal.lose_weight'
+    | 'tools.goal.maintain'
+    | 'tools.goal.recomposition'
+    | 'tools.goalLabel'
+    | 'tools.heightFeet'
+    | 'tools.heightFeetUnit'
+    | 'tools.heightInches'
+    | 'tools.heightInchesUnit'
+    | 'tools.heightMetric'
+    | 'tools.heightUnitMetric'
+    | 'tools.incompleteBody'
+    | 'tools.incompleteTitle'
+    | 'tools.inputsTitle'
+    | 'tools.macroColumn.grams'
+    | 'tools.macroColumn.kilocalories'
+    | 'tools.macroColumn.nutrient'
+    | 'tools.macroColumn.percentage'
+    | 'tools.macroColumn.tolerance'
+    | 'tools.macroGrams'
+    | 'tools.macroKilocalories'
+    | 'tools.macroPercent'
+    | 'tools.macroRingCaption'
+    | 'tools.macroSubtitle'
+    | 'tools.macroTable'
+    | 'tools.macroTitle'
+    | 'tools.macroTolerance'
+    | 'tools.macrosBody'
+    | 'tools.macrosTitle'
+    | 'tools.maintenanceBody'
+    | 'tools.maintenanceLabel'
+    | 'tools.method.katch_mcardle'
+    | 'tools.method.mifflin_st_jeor'
+    | 'tools.method.professional_override'
+    | 'tools.methodBody'
+    | 'tools.methodTitle'
+    | 'tools.nextBody'
+    | 'tools.nextTitle'
+    | 'tools.nutrientRow'
+    | 'tools.nutrientsTitle'
+    | 'tools.otherCalculator'
+    | 'tools.pace.ambitious'
+    | 'tools.pace.gentle'
+    | 'tools.pace.standard'
+    | 'tools.paceLabel'
+    | 'tools.prototypeBody'
+    | 'tools.prototypeFlag'
+    | 'tools.recalculate'
+    | 'tools.register'
+    | 'tools.resultTitle'
+    | 'tools.reviewBody'
+    | 'tools.reviewTitle'
+    | 'tools.sex.female'
+    | 'tools.sex.male'
+    | 'tools.sexHelp'
+    | 'tools.sexLabel'
+    | 'tools.signIn'
+    | 'tools.stepsTitle'
+    | 'tools.targetBody'
+    | 'tools.targetLabel'
+    | 'tools.toleranceBody'
+    | 'tools.toleranceLabel'
+    | 'tools.toleranceValue'
+    | 'tools.unitKcal'
+    | 'tools.units.imperial'
+    | 'tools.units.metric'
+    | 'tools.unitsLabel'
+    | 'tools.weightImperial'
+    | 'tools.weightMetric'
+    | 'tools.weightUnitImperial'
+    | 'tools.weightUnitMetric';
   readonly "commerce":
     | 'title';
   readonly "common":
@@ -702,14 +1047,791 @@ export interface NamespaceKeys {
     | 'weekday.tuesday'
     | 'weekday.wednesday';
   readonly "nutrition":
+    | 'disclaimerContext'
+    | 'editAnswers'
+    | 'empty.action'
+    | 'empty.body'
+    | 'empty.title'
+    | 'energy.kcalPerDay'
+    | 'energy.maintenance'
+    | 'energy.maintenanceDescription'
+    | 'energy.range'
+    | 'energy.restingRate'
+    | 'energy.restingRateDescription'
+    | 'energy.ringCaption'
+    | 'energy.ringLabel'
+    | 'energy.ringValue'
+    | 'energy.target'
+    | 'energy.targetDescription'
+    | 'energy.title'
+    | 'energy.tolerance'
+    | 'energy.toleranceDescription'
+    | 'explanation.assumptions'
+    | 'explanation.citations'
+    | 'explanation.input'
+    | 'explanation.noCitations'
+    | 'explanation.output'
+    | 'explanation.whyThisTarget'
+    | 'inputs.activityLevel'
+    | 'inputs.adjustedEnergy'
+    | 'inputs.adjustmentPercent'
+    | 'inputs.ageYears'
+    | 'inputs.approvedAt'
+    | 'inputs.basalMetabolicRate'
+    | 'inputs.bodyFatPercentage'
+    | 'inputs.dietitianId'
+    | 'inputs.energyOverridden'
+    | 'inputs.fatFraction'
+    | 'inputs.fatFreeMassKilograms'
+    | 'inputs.fatKilocalories'
+    | 'inputs.floor'
+    | 'inputs.goal'
+    | 'inputs.gramsPer1000Kcal'
+    | 'inputs.heightCentimetres'
+    | 'inputs.macrosOverridden'
+    | 'inputs.maintenanceEnergy'
+    | 'inputs.multiplier'
+    | 'inputs.pace'
+    | 'inputs.proteinKilocalories'
+    | 'inputs.proteinPerKilogram'
+    | 'inputs.reason'
+    | 'inputs.sexForCalculation'
+    | 'inputs.targetEnergy'
+    | 'inputs.weightKilograms'
+    | 'macros.atLeast'
+    | 'macros.columnEnergy'
+    | 'macros.columnGrams'
+    | 'macros.columnNutrient'
+    | 'macros.columnPercentage'
+    | 'macros.columnTolerance'
+    | 'macros.grams'
+    | 'macros.kilocalories'
+    | 'macros.lead'
+    | 'macros.meterValue'
+    | 'macros.notApplicable'
+    | 'macros.percentage'
+    | 'macros.range'
+    | 'macros.tableCaption'
+    | 'macros.title'
+    | 'methods.katch_mcardle'
+    | 'methods.mifflin_st_jeor'
+    | 'methods.professional_override'
+    | 'nutrients.carbohydrate'
+    | 'nutrients.energy'
+    | 'nutrients.fat'
+    | 'nutrients.fibre'
+    | 'nutrients.protein'
+    | 'override.absentBadge'
+    | 'override.absentBody'
+    | 'override.badge'
+    | 'override.dietitianPlaceholder'
+    | 'override.energyReplaced'
+    | 'override.energyUnchanged'
+    | 'override.macrosReplaced'
+    | 'override.macrosUnchanged'
+    | 'override.reason'
+    | 'override.who'
+    | 'provenance.approved'
+    | 'provenance.calculatedAt'
+    | 'provenance.engine'
+    | 'provenance.notApproved'
+    | 'provenance.note'
+    | 'recalculate.action'
+    | 'recalculate.errorBody'
+    | 'recalculate.errorTitle'
+    | 'recalculate.hint'
+    | 'review.action'
+    | 'review.errorBody'
+    | 'review.errorTitle'
+    | 'review.hint'
+    | 'review.pendingBody'
+    | 'review.pendingTitle'
+    | 'review.requiredBody'
+    | 'review.requiredTitle'
+    | 'reviewReasons.aggressive_deficit.body'
+    | 'reviewReasons.aggressive_deficit.title'
+    | 'reviewReasons.client_requested_review.body'
+    | 'reviewReasons.client_requested_review.title'
+    | 'reviewReasons.energy_floor_applied.body'
+    | 'reviewReasons.energy_floor_applied.title'
+    | 'reviewReasons.high_body_fat_percentage.body'
+    | 'reviewReasons.high_body_fat_percentage.title'
+    | 'reviewReasons.over_seventy_five.body'
+    | 'reviewReasons.over_seventy_five.title'
+    | 'reviewReasons.safety_critical_restriction.body'
+    | 'reviewReasons.safety_critical_restriction.title'
+    | 'reviewReasons.under_eighteen.body'
+    | 'reviewReasons.under_eighteen.title'
+    | 'reviewReasons.very_high_body_mass_index.body'
+    | 'reviewReasons.very_high_body_mass_index.title'
+    | 'reviewReasons.very_low_body_mass_index.body'
+    | 'reviewReasons.very_low_body_mass_index.title'
+    | 'subtitle'
     | 'title';
   readonly "onboarding":
-    | 'title';
+    | 'activityLevels.extra_active.description'
+    | 'activityLevels.extra_active.label'
+    | 'activityLevels.lightly_active.description'
+    | 'activityLevels.lightly_active.label'
+    | 'activityLevels.moderately_active.description'
+    | 'activityLevels.moderately_active.label'
+    | 'activityLevels.sedentary.description'
+    | 'activityLevels.sedentary.label'
+    | 'activityLevels.very_active.description'
+    | 'activityLevels.very_active.label'
+    | 'allergens.celery'
+    | 'allergens.crustaceans'
+    | 'allergens.egg'
+    | 'allergens.fish'
+    | 'allergens.gluten'
+    | 'allergens.lupin'
+    | 'allergens.milk'
+    | 'allergens.mollusc'
+    | 'allergens.mustard'
+    | 'allergens.peanut'
+    | 'allergens.sesame'
+    | 'allergens.soy'
+    | 'allergens.sulphites'
+    | 'allergens.tree_nut'
+    | 'back'
+    | 'calculationBasis.bodyComposition'
+    | 'calculationBasis.bodyCompositionDetail'
+    | 'calculationBasis.measurements'
+    | 'calculationBasis.measurementsDetail'
+    | 'calculationSex.female'
+    | 'calculationSex.male'
+    | 'cookingSkills.beginner.description'
+    | 'cookingSkills.beginner.label'
+    | 'cookingSkills.confident.description'
+    | 'cookingSkills.confident.label'
+    | 'cookingSkills.experienced.description'
+    | 'cookingSkills.experienced.label'
+    | 'cuisines.coastal'
+    | 'cuisines.contemporary'
+    | 'cuisines.grill'
+    | 'cuisines.home_cooking'
+    | 'cuisines.levantine'
+    | 'cuisines.mediterranean'
+    | 'diets.dairy_free'
+    | 'diets.gluten_free'
+    | 'diets.halal_friendly'
+    | 'diets.high_protein'
+    | 'diets.keto'
+    | 'diets.low_carb'
+    | 'diets.mediterranean'
+    | 'diets.nut_free'
+    | 'diets.omnivore'
+    | 'diets.pescatarian'
+    | 'diets.vegan'
+    | 'diets.vegetarian'
+    | 'disclaimerContext'
+    | 'dislikes.anchovy'
+    | 'dislikes.aubergine'
+    | 'dislikes.beetroot'
+    | 'dislikes.blue_cheese'
+    | 'dislikes.chilli'
+    | 'dislikes.coriander'
+    | 'dislikes.liver'
+    | 'dislikes.mushroom'
+    | 'dislikes.okra'
+    | 'dislikes.olives'
+    | 'finish'
+    | 'goals.gain_muscle.description'
+    | 'goals.gain_muscle.label'
+    | 'goals.lose_weight.description'
+    | 'goals.lose_weight.label'
+    | 'goals.maintain.description'
+    | 'goals.maintain.label'
+    | 'goals.recomposition.description'
+    | 'goals.recomposition.label'
+    | 'intolerances.caffeine'
+    | 'intolerances.fodmap'
+    | 'intolerances.fructose'
+    | 'intolerances.gluten_sensitivity'
+    | 'intolerances.histamine'
+    | 'intolerances.lactose'
+    | 'mealTypes.breakfast'
+    | 'mealTypes.dinner'
+    | 'mealTypes.lunch'
+    | 'mealTypes.snack'
+    | 'medicalTopics.added_sugar'
+    | 'medicalTopics.caffeine_limit'
+    | 'medicalTopics.fluid_balance'
+    | 'medicalTopics.potassium'
+    | 'medicalTopics.purines'
+    | 'medicalTopics.saturated_fat'
+    | 'medicalTopics.sodium'
+    | 'next'
+    | 'observances.fasting_periods'
+    | 'observances.halal_only'
+    | 'observances.kosher_only'
+    | 'observances.no_alcohol'
+    | 'observances.no_beef'
+    | 'observances.no_pork'
+    | 'observances.no_shellfish_observed'
+    | 'paces.ambitious.description'
+    | 'paces.ambitious.label'
+    | 'paces.gentle.description'
+    | 'paces.gentle.label'
+    | 'paces.standard.description'
+    | 'paces.standard.label'
+    | 'preparationModes.home_prepared.description'
+    | 'preparationModes.home_prepared.label'
+    | 'preparationModes.kitchen_prepared.description'
+    | 'preparationModes.kitchen_prepared.label'
+    | 'preparationModes.mixed.description'
+    | 'preparationModes.mixed.label'
+    | 'progressLabel'
+    | 'restrictionAuthority.confirmation'
+    | 'restrictionAuthority.dietitian'
+    | 'restrictionAuthority.nobody'
+    | 'restrictionAuthority.person'
+    | 'restrictionKinds.allergy.description'
+    | 'restrictionKinds.allergy.label'
+    | 'restrictionKinds.dietitian_enforced.description'
+    | 'restrictionKinds.dietitian_enforced.label'
+    | 'restrictionKinds.dislike.description'
+    | 'restrictionKinds.dislike.label'
+    | 'restrictionKinds.intolerance.description'
+    | 'restrictionKinds.intolerance.label'
+    | 'restrictionKinds.preference.description'
+    | 'restrictionKinds.preference.label'
+    | 'restrictionKinds.religious.description'
+    | 'restrictionKinds.religious.label'
+    | 'restrictionKinds.self_declared_medical.description'
+    | 'restrictionKinds.self_declared_medical.label'
+    | 'saveErrorBody'
+    | 'saveErrorTitle'
+    | 'saveRetry'
+    | 'sections.aboutYou'
+    | 'sections.howYouCook'
+    | 'sections.whatYouEat'
+    | 'sections.yourGoal'
+    | 'skip'
+    | 'skipHint'
+    | 'stepLabels.activity'
+    | 'stepLabels.age'
+    | 'stepLabels.allergies'
+    | 'stepLabels.body-fat'
+    | 'stepLabels.budget'
+    | 'stepLabels.calculation-basis'
+    | 'stepLabels.cooking'
+    | 'stepLabels.cuisines'
+    | 'stepLabels.diet'
+    | 'stepLabels.dislikes'
+    | 'stepLabels.goal'
+    | 'stepLabels.height'
+    | 'stepLabels.introduction'
+    | 'stepLabels.meal-times'
+    | 'stepLabels.meals'
+    | 'stepLabels.pace'
+    | 'stepLabels.preparation'
+    | 'stepLabels.restrictions'
+    | 'stepLabels.review'
+    | 'stepLabels.summary'
+    | 'stepLabels.units'
+    | 'stepLabels.weight'
+    | 'steps.activity.guideTitle'
+    | 'steps.activity.label'
+    | 'steps.activity.lead'
+    | 'steps.activity.placeholder'
+    | 'steps.activity.title'
+    | 'steps.age.hint'
+    | 'steps.age.label'
+    | 'steps.age.lead'
+    | 'steps.age.title'
+    | 'steps.allergies.empty'
+    | 'steps.allergies.hint'
+    | 'steps.allergies.intoleranceEmpty'
+    | 'steps.allergies.intoleranceExplainer'
+    | 'steps.allergies.intoleranceLabel'
+    | 'steps.allergies.label'
+    | 'steps.allergies.lead'
+    | 'steps.allergies.severityBody'
+    | 'steps.allergies.severityTitle'
+    | 'steps.allergies.title'
+    | 'steps.bodyFat.hint'
+    | 'steps.bodyFat.label'
+    | 'steps.bodyFat.leadOptional'
+    | 'steps.bodyFat.leadRequired'
+    | 'steps.bodyFat.noBandsBody'
+    | 'steps.bodyFat.noBandsTitle'
+    | 'steps.bodyFat.requiredBody'
+    | 'steps.bodyFat.requiredTitle'
+    | 'steps.bodyFat.skip'
+    | 'steps.bodyFat.skipHint'
+    | 'steps.bodyFat.title'
+    | 'steps.budget.hint'
+    | 'steps.budget.label'
+    | 'steps.budget.lead'
+    | 'steps.budget.noteBody'
+    | 'steps.budget.noteTitle'
+    | 'steps.budget.title'
+    | 'steps.calculationBasis.declinedBody'
+    | 'steps.calculationBasis.declinedTitle'
+    | 'steps.calculationBasis.guideTitle'
+    | 'steps.calculationBasis.lead'
+    | 'steps.calculationBasis.methodLabel'
+    | 'steps.calculationBasis.sexLabel'
+    | 'steps.calculationBasis.title'
+    | 'steps.calculationBasis.whyBody'
+    | 'steps.calculationBasis.whyTitle'
+    | 'steps.cooking.guideTitle'
+    | 'steps.cooking.lead'
+    | 'steps.cooking.minutesHint'
+    | 'steps.cooking.minutesLabel'
+    | 'steps.cooking.skillLabel'
+    | 'steps.cooking.title'
+    | 'steps.cuisines.empty'
+    | 'steps.cuisines.label'
+    | 'steps.cuisines.lead'
+    | 'steps.cuisines.title'
+    | 'steps.diet.distinctionBody'
+    | 'steps.diet.distinctionTitle'
+    | 'steps.diet.hint'
+    | 'steps.diet.label'
+    | 'steps.diet.lead'
+    | 'steps.diet.observanceEmpty'
+    | 'steps.diet.observanceHint'
+    | 'steps.diet.observanceLabel'
+    | 'steps.diet.placeholder'
+    | 'steps.diet.title'
+    | 'steps.dislikes.empty'
+    | 'steps.dislikes.label'
+    | 'steps.dislikes.lead'
+    | 'steps.dislikes.noteBody'
+    | 'steps.dislikes.noteTitle'
+    | 'steps.dislikes.title'
+    | 'steps.goal.guideTitle'
+    | 'steps.goal.label'
+    | 'steps.goal.lead'
+    | 'steps.goal.placeholder'
+    | 'steps.goal.title'
+    | 'steps.height.label'
+    | 'steps.height.lead'
+    | 'steps.height.title'
+    | 'steps.introduction.acknowledge'
+    | 'steps.introduction.lead'
+    | 'steps.introduction.promises.notSaved.body'
+    | 'steps.introduction.promises.notSaved.title'
+    | 'steps.introduction.promises.whatWeAsk.body'
+    | 'steps.introduction.promises.whatWeAsk.title'
+    | 'steps.introduction.promises.whatWeDo.body'
+    | 'steps.introduction.promises.whatWeDo.title'
+    | 'steps.introduction.promises.whatWeDoNot.body'
+    | 'steps.introduction.promises.whatWeDoNot.title'
+    | 'steps.introduction.title'
+    | 'steps.mealTimes.lead'
+    | 'steps.mealTimes.mealHeading'
+    | 'steps.mealTimes.snackHeading'
+    | 'steps.mealTimes.timeLabel'
+    | 'steps.mealTimes.title'
+    | 'steps.mealTimes.typeLabel'
+    | 'steps.meals.lead'
+    | 'steps.meals.mealsLabel'
+    | 'steps.meals.snacksHint'
+    | 'steps.meals.snacksLabel'
+    | 'steps.meals.title'
+    | 'steps.pace.flaggedBody'
+    | 'steps.pace.flaggedTitle'
+    | 'steps.pace.guideTitle'
+    | 'steps.pace.label'
+    | 'steps.pace.lead'
+    | 'steps.pace.safetyBody'
+    | 'steps.pace.safetyTitle'
+    | 'steps.pace.title'
+    | 'steps.preparation.guideTitle'
+    | 'steps.preparation.label'
+    | 'steps.preparation.lead'
+    | 'steps.preparation.title'
+    | 'steps.restrictions.enforcedEmpty'
+    | 'steps.restrictions.enforcedErrorBody'
+    | 'steps.restrictions.enforcedErrorTitle'
+    | 'steps.restrictions.enforcedExplainer'
+    | 'steps.restrictions.enforcedLoading'
+    | 'steps.restrictions.enforcedNoNote'
+    | 'steps.restrictions.enforcedReadOnly'
+    | 'steps.restrictions.lead'
+    | 'steps.restrictions.selfDeclaredEmpty'
+    | 'steps.restrictions.selfDeclaredExplainer'
+    | 'steps.restrictions.selfDeclaredLabel'
+    | 'steps.restrictions.title'
+    | 'steps.review.acknowledge'
+    | 'steps.review.acknowledgeDescription'
+    | 'steps.review.continue'
+    | 'steps.review.continueHint'
+    | 'steps.review.errorBody'
+    | 'steps.review.errorTitle'
+    | 'steps.review.lead'
+    | 'steps.review.reasonFallback'
+    | 'steps.review.reasonsEmpty'
+    | 'steps.review.reasonsTitle'
+    | 'steps.review.requestErrorBody'
+    | 'steps.review.requestErrorTitle'
+    | 'steps.review.requestReview'
+    | 'steps.review.requestedBody'
+    | 'steps.review.requestedTitle'
+    | 'steps.review.title'
+    | 'steps.review.warningBody'
+    | 'steps.review.warningTitle'
+    | 'steps.summary.acknowledge'
+    | 'steps.summary.acknowledgeDescription'
+    | 'steps.summary.ageValue'
+    | 'steps.summary.basisWithSex'
+    | 'steps.summary.bodyFatSkipped'
+    | 'steps.summary.bodyFatValue'
+    | 'steps.summary.budgetValue'
+    | 'steps.summary.columnAnswer'
+    | 'steps.summary.columnEdit'
+    | 'steps.summary.columnQuestion'
+    | 'steps.summary.cookingValue'
+    | 'steps.summary.edit'
+    | 'steps.summary.editHint'
+    | 'steps.summary.heightImperial'
+    | 'steps.summary.heightMetric'
+    | 'steps.summary.lead'
+    | 'steps.summary.mealsValue'
+    | 'steps.summary.noBudget'
+    | 'steps.summary.noneRecorded'
+    | 'steps.summary.previewEmpty'
+    | 'steps.summary.previewErrorBody'
+    | 'steps.summary.previewErrorTitle'
+    | 'steps.summary.previewMaintenance'
+    | 'steps.summary.previewMethod'
+    | 'steps.summary.previewTarget'
+    | 'steps.summary.previewTitle'
+    | 'steps.summary.restrictionsLead'
+    | 'steps.summary.restrictionsTitle'
+    | 'steps.summary.reviewFlag'
+    | 'steps.summary.setByDietitian'
+    | 'steps.summary.title'
+    | 'steps.summary.unanswered'
+    | 'steps.summary.weightImperial'
+    | 'steps.summary.weightMetric'
+    | 'steps.units.lead'
+    | 'steps.units.noteBody'
+    | 'steps.units.noteTitle'
+    | 'steps.units.title'
+    | 'steps.weight.label'
+    | 'steps.weight.lead'
+    | 'steps.weight.title'
+    | 'title'
+    | 'units.centimetres'
+    | 'units.feet'
+    | 'units.imperial'
+    | 'units.inches'
+    | 'units.kilograms'
+    | 'units.metric'
+    | 'units.minutes'
+    | 'units.pounds'
+    | 'units.years'
+    | 'validation.acknowledge'
+    | 'validation.bodyFatNeeded'
+    | 'validation.chooseOne'
+    | 'validation.integer'
+    | 'validation.mealTimesOrder'
+    | 'validation.range'
+    | 'validation.required';
   readonly "planner":
     | 'title';
   readonly "professional":
     | 'title';
   readonly "virtualDietitian":
+    | 'aiNotice.body'
+    | 'aiNotice.title'
+    | 'allergenReminder.body'
+    | 'allergenReminder.title'
+    | 'analysing.considerFour'
+    | 'analysing.considerOne'
+    | 'analysing.considerThree'
+    | 'analysing.considerTwo'
+    | 'analysing.note'
+    | 'analysing.title'
+    | 'approved.approvedAt'
+    | 'approved.approverSynthetic'
+    | 'approved.approverTitle'
+    | 'approved.approverUnknown'
+    | 'approved.body'
+    | 'approved.changedNone'
+    | 'approved.changedTitle'
+    | 'approved.overriddenAt'
+    | 'approved.title'
+    | 'chat.closedBody'
+    | 'chat.closedTitle'
+    | 'chat.emptyBody'
+    | 'chat.emptyTitle'
+    | 'chat.failed'
+    | 'chat.inputLabel'
+    | 'chat.inputPlaceholder'
+    | 'chat.messages'
+    | 'chat.quickRepliesTitle'
+    | 'chat.send'
+    | 'chat.sending'
+    | 'chat.title'
+    | 'collected.count'
+    | 'collected.empty'
+    | 'collected.fields.acceptedTargets'
+    | 'collected.fields.acknowledgedDisclaimer'
+    | 'collected.fields.activityLevel'
+    | 'collected.fields.ageYears'
+    | 'collected.fields.allowSoy'
+    | 'collected.fields.confirmRestrictions'
+    | 'collected.fields.deliveryArea'
+    | 'collected.fields.dislikedIngredient'
+    | 'collected.fields.goal'
+    | 'collected.fields.heightCentimetres'
+    | 'collected.fields.mealsPerDay'
+    | 'collected.fields.pace'
+    | 'collected.fields.preferredKitchens'
+    | 'collected.fields.preparationMode'
+    | 'collected.fields.proteinPreference'
+    | 'collected.fields.snacksPerDay'
+    | 'collected.fields.weeklyBudgetMinorUnits'
+    | 'collected.fields.weightKilograms'
+    | 'collected.no'
+    | 'collected.title'
+    | 'collected.yes'
+    | 'conflict.adjustBody'
+    | 'conflict.adjustTitle'
+    | 'conflict.body'
+    | 'conflict.requiresProfessional'
+    | 'conflict.resolveTitle'
+    | 'conflict.reviewBody'
+    | 'conflict.reviewTitle'
+    | 'conflict.title'
+    | 'conflict.userResolvable'
+    | 'draft.body'
+    | 'draft.mealsPerDay'
+    | 'draft.mix'
+    | 'draft.mixValue'
+    | 'draft.openInPlanner'
+    | 'draft.openInPlannerMessage'
+    | 'draft.planReference'
+    | 'draft.requestFailed'
+    | 'draft.requestReview'
+    | 'draft.requesting'
+    | 'draft.reviewHint'
+    | 'draft.title'
+    | 'entry.isNotOne'
+    | 'entry.isNotThree'
+    | 'entry.isNotTitle'
+    | 'entry.isNotTwo'
+    | 'entry.isOne'
+    | 'entry.isThree'
+    | 'entry.isTitle'
+    | 'entry.isTwo'
+    | 'entry.lead'
+    | 'entry.openSession'
+    | 'entry.sessionsEmptyBody'
+    | 'entry.sessionsEmptyTitle'
+    | 'entry.sessionsTitle'
+    | 'entry.start'
+    | 'entry.startBody'
+    | 'entry.startFailed'
+    | 'entry.startTitle'
+    | 'entry.starting'
+    | 'entry.title'
+    | 'entry.updated'
+    | 'failed.alternativeBody'
+    | 'failed.alternativeTitle'
+    | 'failed.body'
+    | 'failed.retry'
+    | 'failed.retrying'
+    | 'failed.title'
+    | 'interview.askOne'
+    | 'interview.askThree'
+    | 'interview.askTwo'
+    | 'interview.askingTitle'
+    | 'interview.body'
+    | 'interview.title'
+    | 'missing.body'
+    | 'missing.jump'
+    | 'missing.jumpHint'
+    | 'missing.optional'
+    | 'missing.required'
+    | 'missing.title'
+    | 'noMeals.body'
+    | 'noMeals.title'
+    | 'noMeals.whyOne'
+    | 'noMeals.whyThree'
+    | 'noMeals.whyTitle'
+    | 'noMeals.whyTwo'
+    | 'noMeals.widenOne'
+    | 'noMeals.widenThree'
+    | 'noMeals.widenTitle'
+    | 'noMeals.widenTwo'
+    | 'origin.ai'
+    | 'origin.aiShort'
+    | 'origin.dietitian'
+    | 'origin.human'
+    | 'origin.system'
+    | 'origin.user'
+    | 'override.appliedBody'
+    | 'override.appliedTitle'
+    | 'override.applying'
+    | 'override.cancel'
+    | 'override.confirm'
+    | 'override.consequencesBody'
+    | 'override.consequencesTitle'
+    | 'override.dialogDescription'
+    | 'override.dialogTitle'
+    | 'override.energyHint'
+    | 'override.energyInvalid'
+    | 'override.energyLabel'
+    | 'override.failed'
+    | 'override.open'
+    | 'override.reasonHint'
+    | 'override.reasonLabel'
+    | 'override.reasonRequired'
+    | 'quickReplies.analysing.addDislike'
+    | 'quickReplies.analysing.confirmRestrictions'
+    | 'quickReplies.initial_interview.activity'
+    | 'quickReplies.initial_interview.goal'
+    | 'quickReplies.initial_interview.profile'
+    | 'quickReplies.missing_information.budget'
+    | 'quickReplies.missing_information.deliveryArea'
+    | 'quickReplies.no_suitable_meals.allowHome'
+    | 'quickReplies.no_suitable_meals.widenArea'
+    | 'quickReplies.restriction_conflict.allowHome'
+    | 'quickReplies.restriction_conflict.relaxSoy'
+    | 'quickReplies.suggested_meal_structure.confirmLayout'
+    | 'quickReplies.suggested_meal_structure.kitchenLunch'
+    | 'quickReplies.suggested_targets.looksRight'
+    | 'quickReplies.suggested_targets.moreProtein'
+    | 'review.body'
+    | 'review.checkFour'
+    | 'review.checkOne'
+    | 'review.checkThree'
+    | 'review.checkTwo'
+    | 'review.checksTitle'
+    | 'review.queueBody'
+    | 'review.queueTitle'
+    | 'review.requestedAt'
+    | 'review.title'
+    | 'safety.body'
+    | 'safety.contactBody'
+    | 'safety.contactPlaceholder'
+    | 'safety.contactTitle'
+    | 'safety.noActions'
+    | 'safety.title'
+    | 'safetyNotice.allergensTitle'
+    | 'safetyNotice.severity.escalation'
+    | 'safetyNotice.severity.information'
+    | 'safetyNotice.severity.warning'
+    | 'safetyNotice.title'
+    | 'session.announcement'
+    | 'session.back'
+    | 'session.conversationTitle'
+    | 'session.currentState'
+    | 'session.detailTitle'
+    | 'session.disclaimerContext'
+    | 'session.loading'
+    | 'session.notFoundBody'
+    | 'session.notFoundTitle'
+    | 'states.analysing.headline'
+    | 'states.analysing.label'
+    | 'states.analysing.summary'
+    | 'states.draft_generated.headline'
+    | 'states.draft_generated.label'
+    | 'states.draft_generated.summary'
+    | 'states.generation_failed.headline'
+    | 'states.generation_failed.label'
+    | 'states.generation_failed.summary'
+    | 'states.initial_interview.headline'
+    | 'states.initial_interview.label'
+    | 'states.initial_interview.summary'
+    | 'states.missing_information.headline'
+    | 'states.missing_information.label'
+    | 'states.missing_information.summary'
+    | 'states.no_suitable_meals.headline'
+    | 'states.no_suitable_meals.label'
+    | 'states.no_suitable_meals.summary'
+    | 'states.professionally_approved.headline'
+    | 'states.professionally_approved.label'
+    | 'states.professionally_approved.summary'
+    | 'states.restriction_conflict.headline'
+    | 'states.restriction_conflict.label'
+    | 'states.restriction_conflict.summary'
+    | 'states.review_requested.headline'
+    | 'states.review_requested.label'
+    | 'states.review_requested.summary'
+    | 'states.safety_escalation.headline'
+    | 'states.safety_escalation.label'
+    | 'states.safety_escalation.summary'
+    | 'states.suggested_meal_structure.headline'
+    | 'states.suggested_meal_structure.label'
+    | 'states.suggested_meal_structure.summary'
+    | 'states.suggested_targets.headline'
+    | 'states.suggested_targets.label'
+    | 'states.suggested_targets.summary'
+    | 'structure.areaHint'
+    | 'structure.areaLabel'
+    | 'structure.budgetHint'
+    | 'structure.budgetLabel'
+    | 'structure.energyShare'
+    | 'structure.generate'
+    | 'structure.generateFailed'
+    | 'structure.generateHint'
+    | 'structure.generating'
+    | 'structure.kitchensEmpty'
+    | 'structure.kitchensHint'
+    | 'structure.kitchensSelected'
+    | 'structure.kitchensTitle'
+    | 'structure.mealType.breakfast'
+    | 'structure.mealType.dinner'
+    | 'structure.mealType.lunch'
+    | 'structure.mealType.snack'
+    | 'structure.mode.home_prepared'
+    | 'structure.mode.kitchen_prepared'
+    | 'structure.mode.mixed'
+    | 'structure.modeLabel'
+    | 'structure.modeQuestion'
+    | 'structure.noTime'
+    | 'structure.save'
+    | 'structure.saving'
+    | 'structure.slotsTitle'
+    | 'structure.title'
+    | 'targets.accept'
+    | 'targets.acceptFailed'
+    | 'targets.accepted'
+    | 'targets.accepting'
+    | 'targets.acknowledge'
+    | 'targets.acknowledgeRequired'
+    | 'targets.adjust'
+    | 'targets.assumptionsTitle'
+    | 'targets.citationsTitle'
+    | 'targets.continue'
+    | 'targets.decline'
+    | 'targets.declineHint'
+    | 'targets.energyUnit'
+    | 'targets.explanationTitle'
+    | 'targets.macro.carbohydrate'
+    | 'targets.macro.fat'
+    | 'targets.macro.protein'
+    | 'targets.macroFigures'
+    | 'targets.macroShare'
+    | 'targets.macrosTitle'
+    | 'targets.maintenance'
+    | 'targets.methodName.katch_mcardle'
+    | 'targets.methodName.mifflin_st_jeor'
+    | 'targets.methodName.professional_override'
+    | 'targets.methodTitle'
+    | 'targets.prototypeNote'
+    | 'targets.rationaleTitle'
+    | 'targets.stepFormula'
+    | 'targets.stepOutput'
+    | 'targets.target'
+    | 'targets.title'
+    | 'targets.tolerance'
+    | 'targets.yourTarget'
+    | 'timeline.accepted'
+    | 'timeline.approved'
+    | 'timeline.created'
+    | 'timeline.draft'
+    | 'timeline.empty'
+    | 'timeline.overridden'
+    | 'timeline.reviewRequested'
+    | 'timeline.title'
     | 'title';
 }
 
@@ -903,7 +2025,352 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:workspace.switchOrganisation',
   'auth:workspace.title',
   'business:title',
+  'catalogue:common.back',
+  'catalogue:common.listSeparator',
+  'catalogue:common.loading',
+  'catalogue:common.perDay',
+  'catalogue:common.range',
+  'catalogue:common.syntheticData',
+  'catalogue:compare.backToPlans',
+  'catalogue:compare.caption',
+  'catalogue:compare.duration.12w',
+  'catalogue:compare.duration.1w',
+  'catalogue:compare.duration.2w',
+  'catalogue:compare.duration.4w',
+  'catalogue:compare.durationOption',
+  'catalogue:compare.durationOptionNoDiscount',
+  'catalogue:compare.emptyBody',
+  'catalogue:compare.emptyTitle',
+  'catalogue:compare.macroCaveat',
+  'catalogue:compare.openPlan',
+  'catalogue:compare.row.carbohydrate',
+  'catalogue:compare.row.delivery',
+  'catalogue:compare.row.durations',
+  'catalogue:compare.row.energy',
+  'catalogue:compare.row.fat',
+  'catalogue:compare.row.kitchen',
+  'catalogue:compare.row.meals',
+  'catalogue:compare.row.open',
+  'catalogue:compare.row.pricePerDay',
+  'catalogue:compare.row.protein',
+  'catalogue:compare.subtitle',
+  'catalogue:compare.title',
+  'catalogue:diet.browseAll',
+  'catalogue:diet.countsLabel',
+  'catalogue:diet.loading',
+  'catalogue:diet.mealsBody',
+  'catalogue:diet.mealsEmptyBody',
+  'catalogue:diet.mealsEmptyTitle',
+  'catalogue:diet.mealsSeeAll',
+  'catalogue:diet.mealsTitle',
+  'catalogue:diet.notFoundBody',
+  'catalogue:diet.notFoundTitle',
+  'catalogue:diet.plansBody',
+  'catalogue:diet.plansEmptyBody',
+  'catalogue:diet.plansEmptyTitle',
+  'catalogue:diet.plansSeeAll',
+  'catalogue:diet.plansTitle',
+  'catalogue:diet.suitabilityBody',
+  'catalogue:diet.suitabilityTitle',
+  'catalogue:diet.title',
+  'catalogue:facts.amount',
+  'catalogue:facts.basisLabel',
+  'catalogue:facts.calculatedAt',
+  'catalogue:facts.caption',
+  'catalogue:facts.method',
+  'catalogue:facts.notesTitle',
+  'catalogue:facts.nutrient',
+  'catalogue:facts.per100g',
+  'catalogue:facts.per100gUnavailable',
+  'catalogue:facts.perServing',
+  'catalogue:facts.prototypeFlag',
+  'catalogue:facts.recipeVersion',
+  'catalogue:facts.rounding',
+  'catalogue:facts.source',
+  'catalogue:facts.sourceTitle',
+  'catalogue:facts.syntheticNote',
+  'catalogue:facts.title',
+  'catalogue:facts.version',
+  'catalogue:filters.activeCount',
+  'catalogue:filters.carbohydrate',
+  'catalogue:filters.clear',
+  'catalogue:filters.diet',
+  'catalogue:filters.energy',
+  'catalogue:filters.excludeAllergens',
+  'catalogue:filters.excludeAllergensHint',
+  'catalogue:filters.fat',
+  'catalogue:filters.kitchen',
+  'catalogue:filters.mealType',
+  'catalogue:filters.preparationMinutes',
+  'catalogue:filters.price',
+  'catalogue:filters.protein',
+  'catalogue:filters.rangesHint',
+  'catalogue:filters.rangesTitle',
+  'catalogue:filters.unitGrams',
+  'catalogue:filters.unitKcal',
+  'catalogue:filters.unitMinutes',
+  'catalogue:macros.grams',
+  'catalogue:macros.inRange',
+  'catalogue:macros.kilocalories',
+  'catalogue:macros.outOfRange',
+  'catalogue:macros.publishedRange',
+  'catalogue:macros.referenceBody',
+  'catalogue:macros.referenceCitation',
+  'catalogue:macros.referenceTitle',
+  'catalogue:macros.ringLabel',
+  'catalogue:macros.ringValue',
+  'catalogue:macros.title',
+  'catalogue:meal.actionErrorBody',
+  'catalogue:meal.actionErrorTitle',
+  'catalogue:meal.actionsTitle',
+  'catalogue:meal.addToBasket',
+  'catalogue:meal.addToPlan',
+  'catalogue:meal.addedToBasket',
+  'catalogue:meal.addedToPlan',
+  'catalogue:meal.addingToBasket',
+  'catalogue:meal.addingToPlan',
+  'catalogue:meal.allergenItem',
+  'catalogue:meal.allergensDeclared',
+  'catalogue:meal.allergensNone',
+  'catalogue:meal.allergensTitle',
+  'catalogue:meal.availabilityNone',
+  'catalogue:meal.availabilityTitle',
+  'catalogue:meal.availableOn',
+  'catalogue:meal.availableRemaining',
+  'catalogue:meal.b2bAvailable',
+  'catalogue:meal.b2bNoPrice',
+  'catalogue:meal.b2cAvailable',
+  'catalogue:meal.b2cUnavailable',
+  'catalogue:meal.basketSignIn',
+  'catalogue:meal.basketSignInTitle',
+  'catalogue:meal.browseAll',
+  'catalogue:meal.channelsTitle',
+  'catalogue:meal.compositionTitle',
+  'catalogue:meal.cookedBy',
+  'catalogue:meal.dietTagsTitle',
+  'catalogue:meal.imageLabel',
+  'catalogue:meal.ingredientsBody',
+  'catalogue:meal.ingredientsContract',
+  'catalogue:meal.ingredientsTitle',
+  'catalogue:meal.loading',
+  'catalogue:meal.macroEnergy',
+  'catalogue:meal.macroRingCaption',
+  'catalogue:meal.macroValue',
+  'catalogue:meal.macrosTitle',
+  'catalogue:meal.noPlanBody',
+  'catalogue:meal.noPlanBrowse',
+  'catalogue:meal.noPlanHome',
+  'catalogue:meal.noPlanTitle',
+  'catalogue:meal.notFoundBody',
+  'catalogue:meal.notFoundTitle',
+  'catalogue:meal.notRatedYet',
+  'catalogue:meal.openKitchen',
+  'catalogue:meal.orderCutOff',
+  'catalogue:meal.planSignIn',
+  'catalogue:meal.preparationMinutes',
+  'catalogue:meal.priceEach',
+  'catalogue:meal.priceTitle',
+  'catalogue:meal.quotationBody',
+  'catalogue:meal.quotationBusiness',
+  'catalogue:meal.quotationSignIn',
+  'catalogue:meal.quotationTitle',
+  'catalogue:meal.ratingLabel',
+  'catalogue:meal.replaceBody',
+  'catalogue:meal.replaceMeal',
+  'catalogue:meal.replaceTitle',
+  'catalogue:meal.requestQuotation',
+  'catalogue:meal.servingGrams',
+  'catalogue:meal.servingLabel',
+  'catalogue:meal.servingTitle',
+  'catalogue:meal.subscriptionEligible',
+  'catalogue:meal.subscriptionIneligible',
+  'catalogue:meal.unavailableOn',
+  'catalogue:meals.allLoaded',
+  'catalogue:meals.emptyBody',
+  'catalogue:meals.emptyTitle',
+  'catalogue:meals.loadMore',
+  'catalogue:meals.loadingMore',
+  'catalogue:meals.searchLabel',
+  'catalogue:meals.searchPlaceholder',
+  'catalogue:meals.showing',
+  'catalogue:meals.showingUnknownTotal',
+  'catalogue:meals.sort.energy',
+  'catalogue:meals.sort.preparation_time',
+  'catalogue:meals.sort.price',
+  'catalogue:meals.sort.protein',
+  'catalogue:meals.sort.rating',
+  'catalogue:meals.sort.relevance',
+  'catalogue:meals.sortLabel',
+  'catalogue:meals.subtitle',
+  'catalogue:meals.title',
+  'catalogue:nav.calorieCalculator',
+  'catalogue:nav.compare',
+  'catalogue:nav.diets',
+  'catalogue:nav.home',
+  'catalogue:nav.macroCalculator',
+  'catalogue:nav.meals',
+  'catalogue:nav.plans',
+  'catalogue:nav.tools',
+  'catalogue:plan.browseAll',
+  'catalogue:plan.byKitchen',
+  'catalogue:plan.combinationMeals',
+  'catalogue:plan.combinationNoSnacks',
+  'catalogue:plan.combinationSnacks',
+  'catalogue:plan.combinationTitle',
+  'catalogue:plan.configure',
+  'catalogue:plan.configureBody',
+  'catalogue:plan.configureBrowse',
+  'catalogue:plan.configureHome',
+  'catalogue:plan.configureSignIn',
+  'catalogue:plan.configureTitle',
+  'catalogue:plan.deliveryBody',
+  'catalogue:plan.deliveryTitle',
+  'catalogue:plan.deliveryUnpublished',
+  'catalogue:plan.deliveryUnpublishedShort',
+  'catalogue:plan.dietitianBody',
+  'catalogue:plan.dietitianFind',
+  'catalogue:plan.dietitianTitle',
+  'catalogue:plan.durationDiscount',
+  'catalogue:plan.durationNoDiscount',
+  'catalogue:plan.durationTotal',
+  'catalogue:plan.durationsBody',
+  'catalogue:plan.durationsTitle',
+  'catalogue:plan.imageLabel',
+  'catalogue:plan.loading',
+  'catalogue:plan.macroBandLabel',
+  'catalogue:plan.macroRange',
+  'catalogue:plan.macrosBody',
+  'catalogue:plan.macrosTitle',
+  'catalogue:plan.notFoundBody',
+  'catalogue:plan.notFoundTitle',
+  'catalogue:plan.priceBothUnits',
+  'catalogue:plan.pricePerDay',
+  'catalogue:plan.pricePerWeek',
+  'catalogue:plan.priceTitle',
+  'catalogue:plan.sampleMenuBody',
+  'catalogue:plan.sampleMenuEmpty',
+  'catalogue:plan.sampleMenuTitle',
+  'catalogue:plan.variantLabel',
+  'catalogue:plan.variantsBody',
+  'catalogue:plan.variantsTitle',
+  'catalogue:plans.categoryAll',
+  'catalogue:plans.categoryLabel',
+  'catalogue:plans.compareFull',
+  'catalogue:plans.compareHint',
+  'catalogue:plans.compareLabel',
+  'catalogue:plans.compareOpen',
+  'catalogue:plans.compareSelected',
+  'catalogue:plans.durations',
+  'catalogue:plans.emptyBody',
+  'catalogue:plans.emptyTitle',
+  'catalogue:plans.energyBand',
+  'catalogue:plans.fromPrice',
+  'catalogue:plans.mealsPerDay',
+  'catalogue:plans.mealsPerDayNoSnacks',
+  'catalogue:plans.perDayPrice',
+  'catalogue:plans.ratingLabel',
+  'catalogue:plans.subtitle',
+  'catalogue:plans.title',
   'catalogue:title',
+  'catalogue:tools.activity.extra_active',
+  'catalogue:tools.activity.lightly_active',
+  'catalogue:tools.activity.moderately_active',
+  'catalogue:tools.activity.sedentary',
+  'catalogue:tools.activity.very_active',
+  'catalogue:tools.activityHint.extra_active',
+  'catalogue:tools.activityHint.lightly_active',
+  'catalogue:tools.activityHint.moderately_active',
+  'catalogue:tools.activityHint.sedentary',
+  'catalogue:tools.activityHint.very_active',
+  'catalogue:tools.activityLabel',
+  'catalogue:tools.age',
+  'catalogue:tools.ageUnit',
+  'catalogue:tools.assumptionsTitle',
+  'catalogue:tools.bmrLabel',
+  'catalogue:tools.bodyFat',
+  'catalogue:tools.bodyFatHelp',
+  'catalogue:tools.bodyFatUnit',
+  'catalogue:tools.browseMeals',
+  'catalogue:tools.calculate',
+  'catalogue:tools.calculating',
+  'catalogue:tools.calorieSubtitle',
+  'catalogue:tools.calorieTitle',
+  'catalogue:tools.citationsTitle',
+  'catalogue:tools.dietAny',
+  'catalogue:tools.dietHint',
+  'catalogue:tools.dietLabel',
+  'catalogue:tools.errorTitle',
+  'catalogue:tools.goal.gain_muscle',
+  'catalogue:tools.goal.lose_weight',
+  'catalogue:tools.goal.maintain',
+  'catalogue:tools.goal.recomposition',
+  'catalogue:tools.goalLabel',
+  'catalogue:tools.heightFeet',
+  'catalogue:tools.heightFeetUnit',
+  'catalogue:tools.heightInches',
+  'catalogue:tools.heightInchesUnit',
+  'catalogue:tools.heightMetric',
+  'catalogue:tools.heightUnitMetric',
+  'catalogue:tools.incompleteBody',
+  'catalogue:tools.incompleteTitle',
+  'catalogue:tools.inputsTitle',
+  'catalogue:tools.macroColumn.grams',
+  'catalogue:tools.macroColumn.kilocalories',
+  'catalogue:tools.macroColumn.nutrient',
+  'catalogue:tools.macroColumn.percentage',
+  'catalogue:tools.macroColumn.tolerance',
+  'catalogue:tools.macroGrams',
+  'catalogue:tools.macroKilocalories',
+  'catalogue:tools.macroPercent',
+  'catalogue:tools.macroRingCaption',
+  'catalogue:tools.macroSubtitle',
+  'catalogue:tools.macroTable',
+  'catalogue:tools.macroTitle',
+  'catalogue:tools.macroTolerance',
+  'catalogue:tools.macrosBody',
+  'catalogue:tools.macrosTitle',
+  'catalogue:tools.maintenanceBody',
+  'catalogue:tools.maintenanceLabel',
+  'catalogue:tools.method.katch_mcardle',
+  'catalogue:tools.method.mifflin_st_jeor',
+  'catalogue:tools.method.professional_override',
+  'catalogue:tools.methodBody',
+  'catalogue:tools.methodTitle',
+  'catalogue:tools.nextBody',
+  'catalogue:tools.nextTitle',
+  'catalogue:tools.nutrientRow',
+  'catalogue:tools.nutrientsTitle',
+  'catalogue:tools.otherCalculator',
+  'catalogue:tools.pace.ambitious',
+  'catalogue:tools.pace.gentle',
+  'catalogue:tools.pace.standard',
+  'catalogue:tools.paceLabel',
+  'catalogue:tools.prototypeBody',
+  'catalogue:tools.prototypeFlag',
+  'catalogue:tools.recalculate',
+  'catalogue:tools.register',
+  'catalogue:tools.resultTitle',
+  'catalogue:tools.reviewBody',
+  'catalogue:tools.reviewTitle',
+  'catalogue:tools.sex.female',
+  'catalogue:tools.sex.male',
+  'catalogue:tools.sexHelp',
+  'catalogue:tools.sexLabel',
+  'catalogue:tools.signIn',
+  'catalogue:tools.stepsTitle',
+  'catalogue:tools.targetBody',
+  'catalogue:tools.targetLabel',
+  'catalogue:tools.toleranceBody',
+  'catalogue:tools.toleranceLabel',
+  'catalogue:tools.toleranceValue',
+  'catalogue:tools.unitKcal',
+  'catalogue:tools.units.imperial',
+  'catalogue:tools.units.metric',
+  'catalogue:tools.unitsLabel',
+  'catalogue:tools.weightImperial',
+  'catalogue:tools.weightMetric',
+  'catalogue:tools.weightUnitImperial',
+  'catalogue:tools.weightUnitMetric',
   'commerce:title',
   'common:action.back',
   'common:action.cancel',
@@ -1405,10 +2872,787 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:weekday.thursday',
   'marketplace:weekday.tuesday',
   'marketplace:weekday.wednesday',
+  'nutrition:disclaimerContext',
+  'nutrition:editAnswers',
+  'nutrition:empty.action',
+  'nutrition:empty.body',
+  'nutrition:empty.title',
+  'nutrition:energy.kcalPerDay',
+  'nutrition:energy.maintenance',
+  'nutrition:energy.maintenanceDescription',
+  'nutrition:energy.range',
+  'nutrition:energy.restingRate',
+  'nutrition:energy.restingRateDescription',
+  'nutrition:energy.ringCaption',
+  'nutrition:energy.ringLabel',
+  'nutrition:energy.ringValue',
+  'nutrition:energy.target',
+  'nutrition:energy.targetDescription',
+  'nutrition:energy.title',
+  'nutrition:energy.tolerance',
+  'nutrition:energy.toleranceDescription',
+  'nutrition:explanation.assumptions',
+  'nutrition:explanation.citations',
+  'nutrition:explanation.input',
+  'nutrition:explanation.noCitations',
+  'nutrition:explanation.output',
+  'nutrition:explanation.whyThisTarget',
+  'nutrition:inputs.activityLevel',
+  'nutrition:inputs.adjustedEnergy',
+  'nutrition:inputs.adjustmentPercent',
+  'nutrition:inputs.ageYears',
+  'nutrition:inputs.approvedAt',
+  'nutrition:inputs.basalMetabolicRate',
+  'nutrition:inputs.bodyFatPercentage',
+  'nutrition:inputs.dietitianId',
+  'nutrition:inputs.energyOverridden',
+  'nutrition:inputs.fatFraction',
+  'nutrition:inputs.fatFreeMassKilograms',
+  'nutrition:inputs.fatKilocalories',
+  'nutrition:inputs.floor',
+  'nutrition:inputs.goal',
+  'nutrition:inputs.gramsPer1000Kcal',
+  'nutrition:inputs.heightCentimetres',
+  'nutrition:inputs.macrosOverridden',
+  'nutrition:inputs.maintenanceEnergy',
+  'nutrition:inputs.multiplier',
+  'nutrition:inputs.pace',
+  'nutrition:inputs.proteinKilocalories',
+  'nutrition:inputs.proteinPerKilogram',
+  'nutrition:inputs.reason',
+  'nutrition:inputs.sexForCalculation',
+  'nutrition:inputs.targetEnergy',
+  'nutrition:inputs.weightKilograms',
+  'nutrition:macros.atLeast',
+  'nutrition:macros.columnEnergy',
+  'nutrition:macros.columnGrams',
+  'nutrition:macros.columnNutrient',
+  'nutrition:macros.columnPercentage',
+  'nutrition:macros.columnTolerance',
+  'nutrition:macros.grams',
+  'nutrition:macros.kilocalories',
+  'nutrition:macros.lead',
+  'nutrition:macros.meterValue',
+  'nutrition:macros.notApplicable',
+  'nutrition:macros.percentage',
+  'nutrition:macros.range',
+  'nutrition:macros.tableCaption',
+  'nutrition:macros.title',
+  'nutrition:methods.katch_mcardle',
+  'nutrition:methods.mifflin_st_jeor',
+  'nutrition:methods.professional_override',
+  'nutrition:nutrients.carbohydrate',
+  'nutrition:nutrients.energy',
+  'nutrition:nutrients.fat',
+  'nutrition:nutrients.fibre',
+  'nutrition:nutrients.protein',
+  'nutrition:override.absentBadge',
+  'nutrition:override.absentBody',
+  'nutrition:override.badge',
+  'nutrition:override.dietitianPlaceholder',
+  'nutrition:override.energyReplaced',
+  'nutrition:override.energyUnchanged',
+  'nutrition:override.macrosReplaced',
+  'nutrition:override.macrosUnchanged',
+  'nutrition:override.reason',
+  'nutrition:override.who',
+  'nutrition:provenance.approved',
+  'nutrition:provenance.calculatedAt',
+  'nutrition:provenance.engine',
+  'nutrition:provenance.notApproved',
+  'nutrition:provenance.note',
+  'nutrition:recalculate.action',
+  'nutrition:recalculate.errorBody',
+  'nutrition:recalculate.errorTitle',
+  'nutrition:recalculate.hint',
+  'nutrition:review.action',
+  'nutrition:review.errorBody',
+  'nutrition:review.errorTitle',
+  'nutrition:review.hint',
+  'nutrition:review.pendingBody',
+  'nutrition:review.pendingTitle',
+  'nutrition:review.requiredBody',
+  'nutrition:review.requiredTitle',
+  'nutrition:reviewReasons.aggressive_deficit.body',
+  'nutrition:reviewReasons.aggressive_deficit.title',
+  'nutrition:reviewReasons.client_requested_review.body',
+  'nutrition:reviewReasons.client_requested_review.title',
+  'nutrition:reviewReasons.energy_floor_applied.body',
+  'nutrition:reviewReasons.energy_floor_applied.title',
+  'nutrition:reviewReasons.high_body_fat_percentage.body',
+  'nutrition:reviewReasons.high_body_fat_percentage.title',
+  'nutrition:reviewReasons.over_seventy_five.body',
+  'nutrition:reviewReasons.over_seventy_five.title',
+  'nutrition:reviewReasons.safety_critical_restriction.body',
+  'nutrition:reviewReasons.safety_critical_restriction.title',
+  'nutrition:reviewReasons.under_eighteen.body',
+  'nutrition:reviewReasons.under_eighteen.title',
+  'nutrition:reviewReasons.very_high_body_mass_index.body',
+  'nutrition:reviewReasons.very_high_body_mass_index.title',
+  'nutrition:reviewReasons.very_low_body_mass_index.body',
+  'nutrition:reviewReasons.very_low_body_mass_index.title',
+  'nutrition:subtitle',
   'nutrition:title',
+  'onboarding:activityLevels.extra_active.description',
+  'onboarding:activityLevels.extra_active.label',
+  'onboarding:activityLevels.lightly_active.description',
+  'onboarding:activityLevels.lightly_active.label',
+  'onboarding:activityLevels.moderately_active.description',
+  'onboarding:activityLevels.moderately_active.label',
+  'onboarding:activityLevels.sedentary.description',
+  'onboarding:activityLevels.sedentary.label',
+  'onboarding:activityLevels.very_active.description',
+  'onboarding:activityLevels.very_active.label',
+  'onboarding:allergens.celery',
+  'onboarding:allergens.crustaceans',
+  'onboarding:allergens.egg',
+  'onboarding:allergens.fish',
+  'onboarding:allergens.gluten',
+  'onboarding:allergens.lupin',
+  'onboarding:allergens.milk',
+  'onboarding:allergens.mollusc',
+  'onboarding:allergens.mustard',
+  'onboarding:allergens.peanut',
+  'onboarding:allergens.sesame',
+  'onboarding:allergens.soy',
+  'onboarding:allergens.sulphites',
+  'onboarding:allergens.tree_nut',
+  'onboarding:back',
+  'onboarding:calculationBasis.bodyComposition',
+  'onboarding:calculationBasis.bodyCompositionDetail',
+  'onboarding:calculationBasis.measurements',
+  'onboarding:calculationBasis.measurementsDetail',
+  'onboarding:calculationSex.female',
+  'onboarding:calculationSex.male',
+  'onboarding:cookingSkills.beginner.description',
+  'onboarding:cookingSkills.beginner.label',
+  'onboarding:cookingSkills.confident.description',
+  'onboarding:cookingSkills.confident.label',
+  'onboarding:cookingSkills.experienced.description',
+  'onboarding:cookingSkills.experienced.label',
+  'onboarding:cuisines.coastal',
+  'onboarding:cuisines.contemporary',
+  'onboarding:cuisines.grill',
+  'onboarding:cuisines.home_cooking',
+  'onboarding:cuisines.levantine',
+  'onboarding:cuisines.mediterranean',
+  'onboarding:diets.dairy_free',
+  'onboarding:diets.gluten_free',
+  'onboarding:diets.halal_friendly',
+  'onboarding:diets.high_protein',
+  'onboarding:diets.keto',
+  'onboarding:diets.low_carb',
+  'onboarding:diets.mediterranean',
+  'onboarding:diets.nut_free',
+  'onboarding:diets.omnivore',
+  'onboarding:diets.pescatarian',
+  'onboarding:diets.vegan',
+  'onboarding:diets.vegetarian',
+  'onboarding:disclaimerContext',
+  'onboarding:dislikes.anchovy',
+  'onboarding:dislikes.aubergine',
+  'onboarding:dislikes.beetroot',
+  'onboarding:dislikes.blue_cheese',
+  'onboarding:dislikes.chilli',
+  'onboarding:dislikes.coriander',
+  'onboarding:dislikes.liver',
+  'onboarding:dislikes.mushroom',
+  'onboarding:dislikes.okra',
+  'onboarding:dislikes.olives',
+  'onboarding:finish',
+  'onboarding:goals.gain_muscle.description',
+  'onboarding:goals.gain_muscle.label',
+  'onboarding:goals.lose_weight.description',
+  'onboarding:goals.lose_weight.label',
+  'onboarding:goals.maintain.description',
+  'onboarding:goals.maintain.label',
+  'onboarding:goals.recomposition.description',
+  'onboarding:goals.recomposition.label',
+  'onboarding:intolerances.caffeine',
+  'onboarding:intolerances.fodmap',
+  'onboarding:intolerances.fructose',
+  'onboarding:intolerances.gluten_sensitivity',
+  'onboarding:intolerances.histamine',
+  'onboarding:intolerances.lactose',
+  'onboarding:mealTypes.breakfast',
+  'onboarding:mealTypes.dinner',
+  'onboarding:mealTypes.lunch',
+  'onboarding:mealTypes.snack',
+  'onboarding:medicalTopics.added_sugar',
+  'onboarding:medicalTopics.caffeine_limit',
+  'onboarding:medicalTopics.fluid_balance',
+  'onboarding:medicalTopics.potassium',
+  'onboarding:medicalTopics.purines',
+  'onboarding:medicalTopics.saturated_fat',
+  'onboarding:medicalTopics.sodium',
+  'onboarding:next',
+  'onboarding:observances.fasting_periods',
+  'onboarding:observances.halal_only',
+  'onboarding:observances.kosher_only',
+  'onboarding:observances.no_alcohol',
+  'onboarding:observances.no_beef',
+  'onboarding:observances.no_pork',
+  'onboarding:observances.no_shellfish_observed',
+  'onboarding:paces.ambitious.description',
+  'onboarding:paces.ambitious.label',
+  'onboarding:paces.gentle.description',
+  'onboarding:paces.gentle.label',
+  'onboarding:paces.standard.description',
+  'onboarding:paces.standard.label',
+  'onboarding:preparationModes.home_prepared.description',
+  'onboarding:preparationModes.home_prepared.label',
+  'onboarding:preparationModes.kitchen_prepared.description',
+  'onboarding:preparationModes.kitchen_prepared.label',
+  'onboarding:preparationModes.mixed.description',
+  'onboarding:preparationModes.mixed.label',
+  'onboarding:progressLabel',
+  'onboarding:restrictionAuthority.confirmation',
+  'onboarding:restrictionAuthority.dietitian',
+  'onboarding:restrictionAuthority.nobody',
+  'onboarding:restrictionAuthority.person',
+  'onboarding:restrictionKinds.allergy.description',
+  'onboarding:restrictionKinds.allergy.label',
+  'onboarding:restrictionKinds.dietitian_enforced.description',
+  'onboarding:restrictionKinds.dietitian_enforced.label',
+  'onboarding:restrictionKinds.dislike.description',
+  'onboarding:restrictionKinds.dislike.label',
+  'onboarding:restrictionKinds.intolerance.description',
+  'onboarding:restrictionKinds.intolerance.label',
+  'onboarding:restrictionKinds.preference.description',
+  'onboarding:restrictionKinds.preference.label',
+  'onboarding:restrictionKinds.religious.description',
+  'onboarding:restrictionKinds.religious.label',
+  'onboarding:restrictionKinds.self_declared_medical.description',
+  'onboarding:restrictionKinds.self_declared_medical.label',
+  'onboarding:saveErrorBody',
+  'onboarding:saveErrorTitle',
+  'onboarding:saveRetry',
+  'onboarding:sections.aboutYou',
+  'onboarding:sections.howYouCook',
+  'onboarding:sections.whatYouEat',
+  'onboarding:sections.yourGoal',
+  'onboarding:skip',
+  'onboarding:skipHint',
+  'onboarding:stepLabels.activity',
+  'onboarding:stepLabels.age',
+  'onboarding:stepLabels.allergies',
+  'onboarding:stepLabels.body-fat',
+  'onboarding:stepLabels.budget',
+  'onboarding:stepLabels.calculation-basis',
+  'onboarding:stepLabels.cooking',
+  'onboarding:stepLabels.cuisines',
+  'onboarding:stepLabels.diet',
+  'onboarding:stepLabels.dislikes',
+  'onboarding:stepLabels.goal',
+  'onboarding:stepLabels.height',
+  'onboarding:stepLabels.introduction',
+  'onboarding:stepLabels.meal-times',
+  'onboarding:stepLabels.meals',
+  'onboarding:stepLabels.pace',
+  'onboarding:stepLabels.preparation',
+  'onboarding:stepLabels.restrictions',
+  'onboarding:stepLabels.review',
+  'onboarding:stepLabels.summary',
+  'onboarding:stepLabels.units',
+  'onboarding:stepLabels.weight',
+  'onboarding:steps.activity.guideTitle',
+  'onboarding:steps.activity.label',
+  'onboarding:steps.activity.lead',
+  'onboarding:steps.activity.placeholder',
+  'onboarding:steps.activity.title',
+  'onboarding:steps.age.hint',
+  'onboarding:steps.age.label',
+  'onboarding:steps.age.lead',
+  'onboarding:steps.age.title',
+  'onboarding:steps.allergies.empty',
+  'onboarding:steps.allergies.hint',
+  'onboarding:steps.allergies.intoleranceEmpty',
+  'onboarding:steps.allergies.intoleranceExplainer',
+  'onboarding:steps.allergies.intoleranceLabel',
+  'onboarding:steps.allergies.label',
+  'onboarding:steps.allergies.lead',
+  'onboarding:steps.allergies.severityBody',
+  'onboarding:steps.allergies.severityTitle',
+  'onboarding:steps.allergies.title',
+  'onboarding:steps.bodyFat.hint',
+  'onboarding:steps.bodyFat.label',
+  'onboarding:steps.bodyFat.leadOptional',
+  'onboarding:steps.bodyFat.leadRequired',
+  'onboarding:steps.bodyFat.noBandsBody',
+  'onboarding:steps.bodyFat.noBandsTitle',
+  'onboarding:steps.bodyFat.requiredBody',
+  'onboarding:steps.bodyFat.requiredTitle',
+  'onboarding:steps.bodyFat.skip',
+  'onboarding:steps.bodyFat.skipHint',
+  'onboarding:steps.bodyFat.title',
+  'onboarding:steps.budget.hint',
+  'onboarding:steps.budget.label',
+  'onboarding:steps.budget.lead',
+  'onboarding:steps.budget.noteBody',
+  'onboarding:steps.budget.noteTitle',
+  'onboarding:steps.budget.title',
+  'onboarding:steps.calculationBasis.declinedBody',
+  'onboarding:steps.calculationBasis.declinedTitle',
+  'onboarding:steps.calculationBasis.guideTitle',
+  'onboarding:steps.calculationBasis.lead',
+  'onboarding:steps.calculationBasis.methodLabel',
+  'onboarding:steps.calculationBasis.sexLabel',
+  'onboarding:steps.calculationBasis.title',
+  'onboarding:steps.calculationBasis.whyBody',
+  'onboarding:steps.calculationBasis.whyTitle',
+  'onboarding:steps.cooking.guideTitle',
+  'onboarding:steps.cooking.lead',
+  'onboarding:steps.cooking.minutesHint',
+  'onboarding:steps.cooking.minutesLabel',
+  'onboarding:steps.cooking.skillLabel',
+  'onboarding:steps.cooking.title',
+  'onboarding:steps.cuisines.empty',
+  'onboarding:steps.cuisines.label',
+  'onboarding:steps.cuisines.lead',
+  'onboarding:steps.cuisines.title',
+  'onboarding:steps.diet.distinctionBody',
+  'onboarding:steps.diet.distinctionTitle',
+  'onboarding:steps.diet.hint',
+  'onboarding:steps.diet.label',
+  'onboarding:steps.diet.lead',
+  'onboarding:steps.diet.observanceEmpty',
+  'onboarding:steps.diet.observanceHint',
+  'onboarding:steps.diet.observanceLabel',
+  'onboarding:steps.diet.placeholder',
+  'onboarding:steps.diet.title',
+  'onboarding:steps.dislikes.empty',
+  'onboarding:steps.dislikes.label',
+  'onboarding:steps.dislikes.lead',
+  'onboarding:steps.dislikes.noteBody',
+  'onboarding:steps.dislikes.noteTitle',
+  'onboarding:steps.dislikes.title',
+  'onboarding:steps.goal.guideTitle',
+  'onboarding:steps.goal.label',
+  'onboarding:steps.goal.lead',
+  'onboarding:steps.goal.placeholder',
+  'onboarding:steps.goal.title',
+  'onboarding:steps.height.label',
+  'onboarding:steps.height.lead',
+  'onboarding:steps.height.title',
+  'onboarding:steps.introduction.acknowledge',
+  'onboarding:steps.introduction.lead',
+  'onboarding:steps.introduction.promises.notSaved.body',
+  'onboarding:steps.introduction.promises.notSaved.title',
+  'onboarding:steps.introduction.promises.whatWeAsk.body',
+  'onboarding:steps.introduction.promises.whatWeAsk.title',
+  'onboarding:steps.introduction.promises.whatWeDo.body',
+  'onboarding:steps.introduction.promises.whatWeDo.title',
+  'onboarding:steps.introduction.promises.whatWeDoNot.body',
+  'onboarding:steps.introduction.promises.whatWeDoNot.title',
+  'onboarding:steps.introduction.title',
+  'onboarding:steps.mealTimes.lead',
+  'onboarding:steps.mealTimes.mealHeading',
+  'onboarding:steps.mealTimes.snackHeading',
+  'onboarding:steps.mealTimes.timeLabel',
+  'onboarding:steps.mealTimes.title',
+  'onboarding:steps.mealTimes.typeLabel',
+  'onboarding:steps.meals.lead',
+  'onboarding:steps.meals.mealsLabel',
+  'onboarding:steps.meals.snacksHint',
+  'onboarding:steps.meals.snacksLabel',
+  'onboarding:steps.meals.title',
+  'onboarding:steps.pace.flaggedBody',
+  'onboarding:steps.pace.flaggedTitle',
+  'onboarding:steps.pace.guideTitle',
+  'onboarding:steps.pace.label',
+  'onboarding:steps.pace.lead',
+  'onboarding:steps.pace.safetyBody',
+  'onboarding:steps.pace.safetyTitle',
+  'onboarding:steps.pace.title',
+  'onboarding:steps.preparation.guideTitle',
+  'onboarding:steps.preparation.label',
+  'onboarding:steps.preparation.lead',
+  'onboarding:steps.preparation.title',
+  'onboarding:steps.restrictions.enforcedEmpty',
+  'onboarding:steps.restrictions.enforcedErrorBody',
+  'onboarding:steps.restrictions.enforcedErrorTitle',
+  'onboarding:steps.restrictions.enforcedExplainer',
+  'onboarding:steps.restrictions.enforcedLoading',
+  'onboarding:steps.restrictions.enforcedNoNote',
+  'onboarding:steps.restrictions.enforcedReadOnly',
+  'onboarding:steps.restrictions.lead',
+  'onboarding:steps.restrictions.selfDeclaredEmpty',
+  'onboarding:steps.restrictions.selfDeclaredExplainer',
+  'onboarding:steps.restrictions.selfDeclaredLabel',
+  'onboarding:steps.restrictions.title',
+  'onboarding:steps.review.acknowledge',
+  'onboarding:steps.review.acknowledgeDescription',
+  'onboarding:steps.review.continue',
+  'onboarding:steps.review.continueHint',
+  'onboarding:steps.review.errorBody',
+  'onboarding:steps.review.errorTitle',
+  'onboarding:steps.review.lead',
+  'onboarding:steps.review.reasonFallback',
+  'onboarding:steps.review.reasonsEmpty',
+  'onboarding:steps.review.reasonsTitle',
+  'onboarding:steps.review.requestErrorBody',
+  'onboarding:steps.review.requestErrorTitle',
+  'onboarding:steps.review.requestReview',
+  'onboarding:steps.review.requestedBody',
+  'onboarding:steps.review.requestedTitle',
+  'onboarding:steps.review.title',
+  'onboarding:steps.review.warningBody',
+  'onboarding:steps.review.warningTitle',
+  'onboarding:steps.summary.acknowledge',
+  'onboarding:steps.summary.acknowledgeDescription',
+  'onboarding:steps.summary.ageValue',
+  'onboarding:steps.summary.basisWithSex',
+  'onboarding:steps.summary.bodyFatSkipped',
+  'onboarding:steps.summary.bodyFatValue',
+  'onboarding:steps.summary.budgetValue',
+  'onboarding:steps.summary.columnAnswer',
+  'onboarding:steps.summary.columnEdit',
+  'onboarding:steps.summary.columnQuestion',
+  'onboarding:steps.summary.cookingValue',
+  'onboarding:steps.summary.edit',
+  'onboarding:steps.summary.editHint',
+  'onboarding:steps.summary.heightImperial',
+  'onboarding:steps.summary.heightMetric',
+  'onboarding:steps.summary.lead',
+  'onboarding:steps.summary.mealsValue',
+  'onboarding:steps.summary.noBudget',
+  'onboarding:steps.summary.noneRecorded',
+  'onboarding:steps.summary.previewEmpty',
+  'onboarding:steps.summary.previewErrorBody',
+  'onboarding:steps.summary.previewErrorTitle',
+  'onboarding:steps.summary.previewMaintenance',
+  'onboarding:steps.summary.previewMethod',
+  'onboarding:steps.summary.previewTarget',
+  'onboarding:steps.summary.previewTitle',
+  'onboarding:steps.summary.restrictionsLead',
+  'onboarding:steps.summary.restrictionsTitle',
+  'onboarding:steps.summary.reviewFlag',
+  'onboarding:steps.summary.setByDietitian',
+  'onboarding:steps.summary.title',
+  'onboarding:steps.summary.unanswered',
+  'onboarding:steps.summary.weightImperial',
+  'onboarding:steps.summary.weightMetric',
+  'onboarding:steps.units.lead',
+  'onboarding:steps.units.noteBody',
+  'onboarding:steps.units.noteTitle',
+  'onboarding:steps.units.title',
+  'onboarding:steps.weight.label',
+  'onboarding:steps.weight.lead',
+  'onboarding:steps.weight.title',
   'onboarding:title',
+  'onboarding:units.centimetres',
+  'onboarding:units.feet',
+  'onboarding:units.imperial',
+  'onboarding:units.inches',
+  'onboarding:units.kilograms',
+  'onboarding:units.metric',
+  'onboarding:units.minutes',
+  'onboarding:units.pounds',
+  'onboarding:units.years',
+  'onboarding:validation.acknowledge',
+  'onboarding:validation.bodyFatNeeded',
+  'onboarding:validation.chooseOne',
+  'onboarding:validation.integer',
+  'onboarding:validation.mealTimesOrder',
+  'onboarding:validation.range',
+  'onboarding:validation.required',
   'planner:title',
   'professional:title',
+  'virtualDietitian:aiNotice.body',
+  'virtualDietitian:aiNotice.title',
+  'virtualDietitian:allergenReminder.body',
+  'virtualDietitian:allergenReminder.title',
+  'virtualDietitian:analysing.considerFour',
+  'virtualDietitian:analysing.considerOne',
+  'virtualDietitian:analysing.considerThree',
+  'virtualDietitian:analysing.considerTwo',
+  'virtualDietitian:analysing.note',
+  'virtualDietitian:analysing.title',
+  'virtualDietitian:approved.approvedAt',
+  'virtualDietitian:approved.approverSynthetic',
+  'virtualDietitian:approved.approverTitle',
+  'virtualDietitian:approved.approverUnknown',
+  'virtualDietitian:approved.body',
+  'virtualDietitian:approved.changedNone',
+  'virtualDietitian:approved.changedTitle',
+  'virtualDietitian:approved.overriddenAt',
+  'virtualDietitian:approved.title',
+  'virtualDietitian:chat.closedBody',
+  'virtualDietitian:chat.closedTitle',
+  'virtualDietitian:chat.emptyBody',
+  'virtualDietitian:chat.emptyTitle',
+  'virtualDietitian:chat.failed',
+  'virtualDietitian:chat.inputLabel',
+  'virtualDietitian:chat.inputPlaceholder',
+  'virtualDietitian:chat.messages',
+  'virtualDietitian:chat.quickRepliesTitle',
+  'virtualDietitian:chat.send',
+  'virtualDietitian:chat.sending',
+  'virtualDietitian:chat.title',
+  'virtualDietitian:collected.count',
+  'virtualDietitian:collected.empty',
+  'virtualDietitian:collected.fields.acceptedTargets',
+  'virtualDietitian:collected.fields.acknowledgedDisclaimer',
+  'virtualDietitian:collected.fields.activityLevel',
+  'virtualDietitian:collected.fields.ageYears',
+  'virtualDietitian:collected.fields.allowSoy',
+  'virtualDietitian:collected.fields.confirmRestrictions',
+  'virtualDietitian:collected.fields.deliveryArea',
+  'virtualDietitian:collected.fields.dislikedIngredient',
+  'virtualDietitian:collected.fields.goal',
+  'virtualDietitian:collected.fields.heightCentimetres',
+  'virtualDietitian:collected.fields.mealsPerDay',
+  'virtualDietitian:collected.fields.pace',
+  'virtualDietitian:collected.fields.preferredKitchens',
+  'virtualDietitian:collected.fields.preparationMode',
+  'virtualDietitian:collected.fields.proteinPreference',
+  'virtualDietitian:collected.fields.snacksPerDay',
+  'virtualDietitian:collected.fields.weeklyBudgetMinorUnits',
+  'virtualDietitian:collected.fields.weightKilograms',
+  'virtualDietitian:collected.no',
+  'virtualDietitian:collected.title',
+  'virtualDietitian:collected.yes',
+  'virtualDietitian:conflict.adjustBody',
+  'virtualDietitian:conflict.adjustTitle',
+  'virtualDietitian:conflict.body',
+  'virtualDietitian:conflict.requiresProfessional',
+  'virtualDietitian:conflict.resolveTitle',
+  'virtualDietitian:conflict.reviewBody',
+  'virtualDietitian:conflict.reviewTitle',
+  'virtualDietitian:conflict.title',
+  'virtualDietitian:conflict.userResolvable',
+  'virtualDietitian:draft.body',
+  'virtualDietitian:draft.mealsPerDay',
+  'virtualDietitian:draft.mix',
+  'virtualDietitian:draft.mixValue',
+  'virtualDietitian:draft.openInPlanner',
+  'virtualDietitian:draft.openInPlannerMessage',
+  'virtualDietitian:draft.planReference',
+  'virtualDietitian:draft.requestFailed',
+  'virtualDietitian:draft.requestReview',
+  'virtualDietitian:draft.requesting',
+  'virtualDietitian:draft.reviewHint',
+  'virtualDietitian:draft.title',
+  'virtualDietitian:entry.isNotOne',
+  'virtualDietitian:entry.isNotThree',
+  'virtualDietitian:entry.isNotTitle',
+  'virtualDietitian:entry.isNotTwo',
+  'virtualDietitian:entry.isOne',
+  'virtualDietitian:entry.isThree',
+  'virtualDietitian:entry.isTitle',
+  'virtualDietitian:entry.isTwo',
+  'virtualDietitian:entry.lead',
+  'virtualDietitian:entry.openSession',
+  'virtualDietitian:entry.sessionsEmptyBody',
+  'virtualDietitian:entry.sessionsEmptyTitle',
+  'virtualDietitian:entry.sessionsTitle',
+  'virtualDietitian:entry.start',
+  'virtualDietitian:entry.startBody',
+  'virtualDietitian:entry.startFailed',
+  'virtualDietitian:entry.startTitle',
+  'virtualDietitian:entry.starting',
+  'virtualDietitian:entry.title',
+  'virtualDietitian:entry.updated',
+  'virtualDietitian:failed.alternativeBody',
+  'virtualDietitian:failed.alternativeTitle',
+  'virtualDietitian:failed.body',
+  'virtualDietitian:failed.retry',
+  'virtualDietitian:failed.retrying',
+  'virtualDietitian:failed.title',
+  'virtualDietitian:interview.askOne',
+  'virtualDietitian:interview.askThree',
+  'virtualDietitian:interview.askTwo',
+  'virtualDietitian:interview.askingTitle',
+  'virtualDietitian:interview.body',
+  'virtualDietitian:interview.title',
+  'virtualDietitian:missing.body',
+  'virtualDietitian:missing.jump',
+  'virtualDietitian:missing.jumpHint',
+  'virtualDietitian:missing.optional',
+  'virtualDietitian:missing.required',
+  'virtualDietitian:missing.title',
+  'virtualDietitian:noMeals.body',
+  'virtualDietitian:noMeals.title',
+  'virtualDietitian:noMeals.whyOne',
+  'virtualDietitian:noMeals.whyThree',
+  'virtualDietitian:noMeals.whyTitle',
+  'virtualDietitian:noMeals.whyTwo',
+  'virtualDietitian:noMeals.widenOne',
+  'virtualDietitian:noMeals.widenThree',
+  'virtualDietitian:noMeals.widenTitle',
+  'virtualDietitian:noMeals.widenTwo',
+  'virtualDietitian:origin.ai',
+  'virtualDietitian:origin.aiShort',
+  'virtualDietitian:origin.dietitian',
+  'virtualDietitian:origin.human',
+  'virtualDietitian:origin.system',
+  'virtualDietitian:origin.user',
+  'virtualDietitian:override.appliedBody',
+  'virtualDietitian:override.appliedTitle',
+  'virtualDietitian:override.applying',
+  'virtualDietitian:override.cancel',
+  'virtualDietitian:override.confirm',
+  'virtualDietitian:override.consequencesBody',
+  'virtualDietitian:override.consequencesTitle',
+  'virtualDietitian:override.dialogDescription',
+  'virtualDietitian:override.dialogTitle',
+  'virtualDietitian:override.energyHint',
+  'virtualDietitian:override.energyInvalid',
+  'virtualDietitian:override.energyLabel',
+  'virtualDietitian:override.failed',
+  'virtualDietitian:override.open',
+  'virtualDietitian:override.reasonHint',
+  'virtualDietitian:override.reasonLabel',
+  'virtualDietitian:override.reasonRequired',
+  'virtualDietitian:quickReplies.analysing.addDislike',
+  'virtualDietitian:quickReplies.analysing.confirmRestrictions',
+  'virtualDietitian:quickReplies.initial_interview.activity',
+  'virtualDietitian:quickReplies.initial_interview.goal',
+  'virtualDietitian:quickReplies.initial_interview.profile',
+  'virtualDietitian:quickReplies.missing_information.budget',
+  'virtualDietitian:quickReplies.missing_information.deliveryArea',
+  'virtualDietitian:quickReplies.no_suitable_meals.allowHome',
+  'virtualDietitian:quickReplies.no_suitable_meals.widenArea',
+  'virtualDietitian:quickReplies.restriction_conflict.allowHome',
+  'virtualDietitian:quickReplies.restriction_conflict.relaxSoy',
+  'virtualDietitian:quickReplies.suggested_meal_structure.confirmLayout',
+  'virtualDietitian:quickReplies.suggested_meal_structure.kitchenLunch',
+  'virtualDietitian:quickReplies.suggested_targets.looksRight',
+  'virtualDietitian:quickReplies.suggested_targets.moreProtein',
+  'virtualDietitian:review.body',
+  'virtualDietitian:review.checkFour',
+  'virtualDietitian:review.checkOne',
+  'virtualDietitian:review.checkThree',
+  'virtualDietitian:review.checkTwo',
+  'virtualDietitian:review.checksTitle',
+  'virtualDietitian:review.queueBody',
+  'virtualDietitian:review.queueTitle',
+  'virtualDietitian:review.requestedAt',
+  'virtualDietitian:review.title',
+  'virtualDietitian:safety.body',
+  'virtualDietitian:safety.contactBody',
+  'virtualDietitian:safety.contactPlaceholder',
+  'virtualDietitian:safety.contactTitle',
+  'virtualDietitian:safety.noActions',
+  'virtualDietitian:safety.title',
+  'virtualDietitian:safetyNotice.allergensTitle',
+  'virtualDietitian:safetyNotice.severity.escalation',
+  'virtualDietitian:safetyNotice.severity.information',
+  'virtualDietitian:safetyNotice.severity.warning',
+  'virtualDietitian:safetyNotice.title',
+  'virtualDietitian:session.announcement',
+  'virtualDietitian:session.back',
+  'virtualDietitian:session.conversationTitle',
+  'virtualDietitian:session.currentState',
+  'virtualDietitian:session.detailTitle',
+  'virtualDietitian:session.disclaimerContext',
+  'virtualDietitian:session.loading',
+  'virtualDietitian:session.notFoundBody',
+  'virtualDietitian:session.notFoundTitle',
+  'virtualDietitian:states.analysing.headline',
+  'virtualDietitian:states.analysing.label',
+  'virtualDietitian:states.analysing.summary',
+  'virtualDietitian:states.draft_generated.headline',
+  'virtualDietitian:states.draft_generated.label',
+  'virtualDietitian:states.draft_generated.summary',
+  'virtualDietitian:states.generation_failed.headline',
+  'virtualDietitian:states.generation_failed.label',
+  'virtualDietitian:states.generation_failed.summary',
+  'virtualDietitian:states.initial_interview.headline',
+  'virtualDietitian:states.initial_interview.label',
+  'virtualDietitian:states.initial_interview.summary',
+  'virtualDietitian:states.missing_information.headline',
+  'virtualDietitian:states.missing_information.label',
+  'virtualDietitian:states.missing_information.summary',
+  'virtualDietitian:states.no_suitable_meals.headline',
+  'virtualDietitian:states.no_suitable_meals.label',
+  'virtualDietitian:states.no_suitable_meals.summary',
+  'virtualDietitian:states.professionally_approved.headline',
+  'virtualDietitian:states.professionally_approved.label',
+  'virtualDietitian:states.professionally_approved.summary',
+  'virtualDietitian:states.restriction_conflict.headline',
+  'virtualDietitian:states.restriction_conflict.label',
+  'virtualDietitian:states.restriction_conflict.summary',
+  'virtualDietitian:states.review_requested.headline',
+  'virtualDietitian:states.review_requested.label',
+  'virtualDietitian:states.review_requested.summary',
+  'virtualDietitian:states.safety_escalation.headline',
+  'virtualDietitian:states.safety_escalation.label',
+  'virtualDietitian:states.safety_escalation.summary',
+  'virtualDietitian:states.suggested_meal_structure.headline',
+  'virtualDietitian:states.suggested_meal_structure.label',
+  'virtualDietitian:states.suggested_meal_structure.summary',
+  'virtualDietitian:states.suggested_targets.headline',
+  'virtualDietitian:states.suggested_targets.label',
+  'virtualDietitian:states.suggested_targets.summary',
+  'virtualDietitian:structure.areaHint',
+  'virtualDietitian:structure.areaLabel',
+  'virtualDietitian:structure.budgetHint',
+  'virtualDietitian:structure.budgetLabel',
+  'virtualDietitian:structure.energyShare',
+  'virtualDietitian:structure.generate',
+  'virtualDietitian:structure.generateFailed',
+  'virtualDietitian:structure.generateHint',
+  'virtualDietitian:structure.generating',
+  'virtualDietitian:structure.kitchensEmpty',
+  'virtualDietitian:structure.kitchensHint',
+  'virtualDietitian:structure.kitchensSelected',
+  'virtualDietitian:structure.kitchensTitle',
+  'virtualDietitian:structure.mealType.breakfast',
+  'virtualDietitian:structure.mealType.dinner',
+  'virtualDietitian:structure.mealType.lunch',
+  'virtualDietitian:structure.mealType.snack',
+  'virtualDietitian:structure.mode.home_prepared',
+  'virtualDietitian:structure.mode.kitchen_prepared',
+  'virtualDietitian:structure.mode.mixed',
+  'virtualDietitian:structure.modeLabel',
+  'virtualDietitian:structure.modeQuestion',
+  'virtualDietitian:structure.noTime',
+  'virtualDietitian:structure.save',
+  'virtualDietitian:structure.saving',
+  'virtualDietitian:structure.slotsTitle',
+  'virtualDietitian:structure.title',
+  'virtualDietitian:targets.accept',
+  'virtualDietitian:targets.acceptFailed',
+  'virtualDietitian:targets.accepted',
+  'virtualDietitian:targets.accepting',
+  'virtualDietitian:targets.acknowledge',
+  'virtualDietitian:targets.acknowledgeRequired',
+  'virtualDietitian:targets.adjust',
+  'virtualDietitian:targets.assumptionsTitle',
+  'virtualDietitian:targets.citationsTitle',
+  'virtualDietitian:targets.continue',
+  'virtualDietitian:targets.decline',
+  'virtualDietitian:targets.declineHint',
+  'virtualDietitian:targets.energyUnit',
+  'virtualDietitian:targets.explanationTitle',
+  'virtualDietitian:targets.macro.carbohydrate',
+  'virtualDietitian:targets.macro.fat',
+  'virtualDietitian:targets.macro.protein',
+  'virtualDietitian:targets.macroFigures',
+  'virtualDietitian:targets.macroShare',
+  'virtualDietitian:targets.macrosTitle',
+  'virtualDietitian:targets.maintenance',
+  'virtualDietitian:targets.methodName.katch_mcardle',
+  'virtualDietitian:targets.methodName.mifflin_st_jeor',
+  'virtualDietitian:targets.methodName.professional_override',
+  'virtualDietitian:targets.methodTitle',
+  'virtualDietitian:targets.prototypeNote',
+  'virtualDietitian:targets.rationaleTitle',
+  'virtualDietitian:targets.stepFormula',
+  'virtualDietitian:targets.stepOutput',
+  'virtualDietitian:targets.target',
+  'virtualDietitian:targets.title',
+  'virtualDietitian:targets.tolerance',
+  'virtualDietitian:targets.yourTarget',
+  'virtualDietitian:timeline.accepted',
+  'virtualDietitian:timeline.approved',
+  'virtualDietitian:timeline.created',
+  'virtualDietitian:timeline.draft',
+  'virtualDietitian:timeline.empty',
+  'virtualDietitian:timeline.overridden',
+  'virtualDietitian:timeline.reviewRequested',
+  'virtualDietitian:timeline.title',
   'virtualDietitian:title',
 ];
 

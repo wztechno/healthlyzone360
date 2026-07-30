@@ -1,3 +1,513 @@
 {
-    "title": "Set up your plan"
+    "title": "Set up your plan",
+    "progressLabel": "Setting up your plan",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Save and calculate",
+    "skip": "Skip this",
+    "skipHint": "Moves on without recording an answer. You can come back to it later.",
+    "saveErrorTitle": "We could not save your answers",
+    "saveErrorBody": "Nothing was stored and none of your answers were lost. Try again.",
+    "saveRetry": "Try again",
+    "disclaimerContext": "The figures this set-up produces come from a prototype calculator.",
+    "sections": {
+        "aboutYou": "About you",
+        "yourGoal": "Your goal",
+        "whatYouEat": "What you eat",
+        "howYouCook": "How you cook"
+    },
+    "stepLabels": {
+        "introduction": "What this is for",
+        "units": "Measurement units",
+        "age": "Your age",
+        "calculation-basis": "How we estimate",
+        "height": "Your height",
+        "weight": "Your weight",
+        "body-fat": "Body fat",
+        "activity": "Activity level",
+        "goal": "Your goal",
+        "pace": "Your pace",
+        "diet": "How you eat",
+        "allergies": "Allergies",
+        "restrictions": "Medical restrictions",
+        "dislikes": "Things you would rather avoid",
+        "cuisines": "Cuisines you enjoy",
+        "budget": "Weekly budget",
+        "cooking": "Time in the kitchen",
+        "meals": "Meals a day",
+        "meal-times": "When you eat",
+        "preparation": "Who cooks",
+        "summary": "Check your answers",
+        "review": "Before you go on"
+    },
+    "units": {
+        "metric": "Metric",
+        "imperial": "Imperial",
+        "years": "years",
+        "centimetres": "cm",
+        "kilograms": "kg",
+        "feet": "Feet",
+        "inches": "Inches",
+        "pounds": "lb",
+        "minutes": "minutes"
+    },
+    "calculationBasis": {
+        "measurements": "From my measurements",
+        "measurementsDetail": "Uses the Mifflin–St Jeor equation, which reads weight, height, age and one constant chosen by a biological parameter.",
+        "bodyComposition": "From my body composition",
+        "bodyCompositionDetail": "Uses the Katch–McArdle equation, which works from fat-free mass and needs neither height nor a biological parameter. It needs a body-fat percentage."
+    },
+    "calculationSex": {
+        "female": "Female constant",
+        "male": "Male constant"
+    },
+    "activityLevels": {
+        "sedentary": {
+            "label": "Mostly seated",
+            "description": "A desk day, little deliberate exercise, and short walks rather than long ones."
+        },
+        "lightly_active": {
+            "label": "Lightly active",
+            "description": "On your feet for part of the day, or exercise one to three times a week."
+        },
+        "moderately_active": {
+            "label": "Moderately active",
+            "description": "Moving most days, or exercise three to five times a week."
+        },
+        "very_active": {
+            "label": "Very active",
+            "description": "Physical work, or hard exercise six or seven times a week."
+        },
+        "extra_active": {
+            "label": "Extremely active",
+            "description": "Heavy physical work plus training, or two sessions on most days."
+        }
+    },
+    "goals": {
+        "lose_weight": {
+            "label": "Lose weight",
+            "description": "Eat below the energy that would hold you steady, at a rate you choose next."
+        },
+        "maintain": {
+            "label": "Stay where I am",
+            "description": "Eat at the energy that holds your weight steady, and eat better while doing it."
+        },
+        "gain_muscle": {
+            "label": "Build muscle",
+            "description": "Eat above maintenance, with protein set per kilogram of body mass."
+        },
+        "recomposition": {
+            "label": "Change my shape",
+            "description": "Hold close to maintenance with a high protein intake, trading speed for the shape of the change."
+        }
+    },
+    "paces": {
+        "gentle": {
+            "label": "Gentle",
+            "description": "The smallest change the goal supports. Easiest to keep to, and slowest to show."
+        },
+        "standard": {
+            "label": "Steady",
+            "description": "The middle option, and the one most general guidance describes as sustainable."
+        },
+        "ambitious": {
+            "label": "Ambitious",
+            "description": "The largest change this calculator will produce. Harder to keep to, and more likely to need a professional eye."
+        }
+    },
+    "diets": {
+        "omnivore": "Anything",
+        "vegetarian": "Vegetarian",
+        "vegan": "Vegan",
+        "pescatarian": "Pescatarian",
+        "keto": "Ketogenic",
+        "low_carb": "Low carbohydrate",
+        "high_protein": "High protein",
+        "mediterranean": "Mediterranean",
+        "halal_friendly": "Halal friendly",
+        "gluten_free": "Gluten free",
+        "dairy_free": "Dairy free",
+        "nut_free": "Nut free"
+    },
+    "observances": {
+        "no_pork": "No pork or pork derivatives",
+        "no_alcohol": "No alcohol, including in cooking",
+        "halal_only": "Halal only",
+        "kosher_only": "Kosher only",
+        "no_beef": "No beef",
+        "no_shellfish_observed": "No shellfish",
+        "fasting_periods": "I observe fasting periods"
+    },
+    "allergens": {
+        "gluten": "Cereals containing gluten",
+        "crustaceans": "Crustaceans",
+        "egg": "Eggs",
+        "fish": "Fish",
+        "peanut": "Peanuts",
+        "soy": "Soybeans",
+        "milk": "Milk",
+        "tree_nut": "Tree nuts",
+        "celery": "Celery",
+        "mustard": "Mustard",
+        "sesame": "Sesame",
+        "sulphites": "Sulphur dioxide and sulphites",
+        "lupin": "Lupin",
+        "mollusc": "Molluscs"
+    },
+    "intolerances": {
+        "lactose": "Lactose",
+        "gluten_sensitivity": "Gluten, without coeliac disease",
+        "fructose": "Fructose",
+        "histamine": "Histamine",
+        "caffeine": "Caffeine",
+        "fodmap": "Fermentable carbohydrates (FODMAPs)"
+    },
+    "medicalTopics": {
+        "sodium": "Watching salt",
+        "added_sugar": "Watching added sugar",
+        "saturated_fat": "Watching saturated fat",
+        "potassium": "Watching potassium",
+        "purines": "Watching purines",
+        "caffeine_limit": "Limiting caffeine",
+        "fluid_balance": "Watching fluid intake"
+    },
+    "dislikes": {
+        "aubergine": "Aubergine",
+        "coriander": "Coriander",
+        "olives": "Olives",
+        "blue_cheese": "Blue cheese",
+        "liver": "Liver",
+        "okra": "Okra",
+        "beetroot": "Beetroot",
+        "anchovy": "Anchovies",
+        "mushroom": "Mushrooms",
+        "chilli": "Chilli"
+    },
+    "cuisines": {
+        "levantine": "Levantine",
+        "mediterranean": "Mediterranean",
+        "coastal": "Coastal",
+        "home_cooking": "Home cooking",
+        "contemporary": "Contemporary",
+        "grill": "Grill"
+    },
+    "mealTypes": {
+        "breakfast": "Breakfast",
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "snack": "Snack"
+    },
+    "cookingSkills": {
+        "beginner": {
+            "label": "Getting started",
+            "description": "Short recipes with few steps and ingredients you can buy anywhere."
+        },
+        "confident": {
+            "label": "Confident",
+            "description": "Happy with a knife and a pan, and with a recipe that takes half an hour."
+        },
+        "experienced": {
+            "label": "Experienced",
+            "description": "Comfortable with longer methods, several components and unfamiliar ingredients."
+        }
+    },
+    "preparationModes": {
+        "home_prepared": {
+            "label": "I cook at home",
+            "description": "Plans are built from recipes and a grocery list. Nothing is ordered."
+        },
+        "kitchen_prepared": {
+            "label": "A kitchen cooks for me",
+            "description": "Plans are built from meals prepared by kitchens that deliver to you."
+        },
+        "mixed": {
+            "label": "A mixture",
+            "description": "Some meals cooked at home, some delivered — which is what most weeks actually look like."
+        }
+    },
+    "restrictionKinds": {
+        "preference": {
+            "label": "Preference",
+            "description": "A pattern you prefer. It ranks what we suggest and excludes nothing."
+        },
+        "self_declared_medical": {
+            "label": "Something you told us",
+            "description": "A health-related note you recorded yourself. We honour it, and it is one of the things that sends your target for professional review — but we never act on one as a clinical instruction."
+        },
+        "dietitian_enforced": {
+            "label": "Set by your dietitian",
+            "description": "A restriction a qualified professional put in place. Only they can lift it, and it is shown here so you always know it exists."
+        },
+        "allergy": {
+            "label": "Allergy",
+            "description": "Never suggested, never planned, and never overridden — not by you, not by us, and not by a confirmation."
+        },
+        "intolerance": {
+            "label": "Intolerance",
+            "description": "Filtered out by default. Because reactions depend on the amount, you can knowingly allow a particular dish."
+        },
+        "dislike": {
+            "label": "Would rather avoid",
+            "description": "Ranked down rather than excluded. If you ask for it, you get it."
+        },
+        "religious": {
+            "label": "Observance",
+            "description": "Excluded as a matter of observance, not treated as a taste. You may allow a particular dish yourself; nothing else lifts it."
+        }
+    },
+    "restrictionAuthority": {
+        "person": "You can change this",
+        "confirmation": "You can allow it dish by dish",
+        "dietitian": "Only your dietitian can lift this",
+        "nobody": "Nothing lifts this"
+    },
+    "validation": {
+        "required": "Please answer this before going on.",
+        "range": "Enter a number between {{min}} and {{max}}.",
+        "integer": "Enter a whole number.",
+        "chooseOne": "Choose one of the options.",
+        "acknowledge": "Please confirm you have read this before going on.",
+        "bodyFatNeeded": "The body-composition estimate needs a body-fat percentage. Enter one, or go back and choose the estimate from measurements.",
+        "mealTimesOrder": "Your main meals are out of order. Put them in the order you eat them, or change which meal each one is."
+    },
+    "steps": {
+        "introduction": {
+            "title": "What we ask, and what we do with it",
+            "lead": "Setting up takes about five minutes. Before it starts, here is exactly what happens to what you tell us.",
+            "acknowledge": "I have read this and I would like to go on.",
+            "promises": {
+                "whatWeAsk": {
+                    "title": "What we ask for",
+                    "body": "Your age, height, weight and how active you are, so a published equation can estimate your energy needs. Then what you eat, what you cannot eat, and how you like to cook."
+                },
+                "whatWeDo": {
+                    "title": "What we do with it",
+                    "body": "We calculate a daily energy and macronutrient target and show you every step of the arithmetic, with citations. Your answers shape the meals we suggest."
+                },
+                "whatWeDoNot": {
+                    "title": "What we do not do",
+                    "body": "We do not diagnose anything, we do not treat anything, and we do not replace a dietitian or a doctor. Nothing here is medical advice."
+                },
+                "notSaved": {
+                    "title": "This prototype does not save as you go",
+                    "body": "Your answers are held for this session only and stored at the end, when you save. If you close this tab part-way through, you will start again."
+                }
+            }
+        },
+        "units": {
+            "title": "Which units would you like to use?",
+            "lead": "We ask first, so every measurement after this appears in the units you actually think in.",
+            "noteTitle": "Changing your mind is free",
+            "noteBody": "Switching units later converts what you have entered rather than clearing it."
+        },
+        "age": {
+            "title": "How old are you?",
+            "lead": "The energy equation takes a whole number of years, so that is all we ask for.",
+            "label": "Age",
+            "hint": "We ask for years rather than a date of birth because the calculation cannot use a day and a month, and we would rather not hold one."
+        },
+        "calculationBasis": {
+            "title": "How should we estimate your resting energy?",
+            "lead": "There are two published equations. They ask for different things, and one of them does not need a biological parameter at all.",
+            "methodLabel": "Estimate my resting energy",
+            "guideTitle": "What each one uses",
+            "sexLabel": "Which constant should the equation use?",
+            "whyTitle": "Why we are asking this",
+            "whyBody": "The Mifflin–St Jeor equation contains one constant that differs by biological sex: it adds 5 for the male form and subtracts 161 for the female form. This is a calculation input, not a question about who you are, and nothing else in the product reads it. If you would rather not answer it, choose the body-composition estimate instead.",
+            "declinedTitle": "No biological parameter needed",
+            "declinedBody": "The Katch–McArdle equation works from fat-free mass, so we will not ask. One consequence is worth stating: the minimum-intake guard this calculator applies is also chosen by that parameter, so we apply the more cautious of the two — 1,500 kcal a day. You will see it in the working if it ever binds."
+        },
+        "height": {
+            "title": "How tall are you?",
+            "lead": "Used by the Mifflin–St Jeor equation, and to work out a body-mass index for the safety checks.",
+            "label": "Height"
+        },
+        "weight": {
+            "title": "What do you weigh?",
+            "lead": "Used for your resting-energy estimate, and to set your protein target per kilogram of body mass.",
+            "label": "Weight"
+        },
+        "bodyFat": {
+            "title": "Do you know your body-fat percentage?",
+            "leadOptional": "Optional. If you have a recent measurement it unlocks a more precise estimate; if not, skip it and nothing is lost.",
+            "leadRequired": "You asked for the body-composition estimate, so this one is needed.",
+            "label": "Body fat",
+            "hint": "From a scan, callipers or a smart scale — whatever you have.",
+            "requiredTitle": "This is what Katch–McArdle needs",
+            "requiredBody": "Without a percentage the body-composition estimate cannot run. Enter one, or go back a step and choose the estimate from measurements.",
+            "skip": "I do not know it",
+            "skipHint": "We will estimate your resting energy from weight, height and age instead.",
+            "noBandsTitle": "Why we do not offer low, medium and high",
+            "noBandsBody": "A band would have to become a number before the equation could use it, and that number would be one nobody measured — indistinguishable, in the result, from a real measurement. We would rather you skipped it."
+        },
+        "activity": {
+            "title": "How active are you, usually?",
+            "lead": "This describes your habitual week rather than yesterday. It is the input people most often overestimate.",
+            "label": "Activity level",
+            "placeholder": "Choose the closest description",
+            "guideTitle": "What each level means"
+        },
+        "goal": {
+            "title": "What are you trying to do?",
+            "lead": "This decides which direction your target moves from the energy that would hold you steady.",
+            "label": "Goal",
+            "placeholder": "Choose a goal",
+            "guideTitle": "What each goal does to your target"
+        },
+        "pace": {
+            "title": "How quickly?",
+            "lead": "Pace decides how far your target moves from maintenance. Every option here is bounded on purpose.",
+            "label": "Pace",
+            "guideTitle": "What each pace means",
+            "safetyTitle": "Faster is not better",
+            "safetyBody": "This calculator will not produce a deficit larger than a fifth of your maintenance energy, or a surplus larger than about a seventh. Beyond those, the published evidence stops describing the extra change as the kind most people are looking for.",
+            "flaggedTitle": "This combination will be flagged",
+            "flaggedBody": "An ambitious pace with a weight-loss goal is one of the things that sends your target for a professional look. You can still choose it — we will tell you why at the end."
+        },
+        "diet": {
+            "title": "How do you eat?",
+            "lead": "Two questions here, and they are not the same kind of thing.",
+            "label": "The pattern you prefer",
+            "hint": "A preference. It ranks what we suggest and excludes nothing.",
+            "placeholder": "Choose a pattern",
+            "distinctionTitle": "A preference is not a restriction",
+            "distinctionBody": "The pattern above shapes what we put in front of you first. What you tell us below excludes food outright, which is a different promise and one we keep differently.",
+            "observanceLabel": "Anything you do not eat as a matter of observance",
+            "observanceHint": "Honoured as a filter, never traded off against variety or cost. We ask about food, never about belief.",
+            "observanceEmpty": "Nothing recorded."
+        },
+        "allergies": {
+            "title": "Are you allergic to anything?",
+            "lead": "This is the one answer on this journey that nothing can override.",
+            "severityTitle": "How we treat an allergy",
+            "severityBody": "Anything you name here is never suggested, never planned and never offered with a confirm-anyway control. If your allergy is severe, tell any kitchen directly as well: this interface controls what we suggest, not what happens in a kitchen.",
+            "label": "The fourteen declared allergen groups",
+            "hint": "These are the groups food labelling requires to be declared. Anything outside them belongs in the next two steps.",
+            "empty": "No allergies recorded.",
+            "intoleranceExplainer": "An intolerance is not a weak allergy. It usually depends on how much you eat, so we filter these out by default and let you allow a particular dish when you want to.",
+            "intoleranceLabel": "Anything you are intolerant of",
+            "intoleranceEmpty": "No intolerances recorded."
+        },
+        "restrictions": {
+            "title": "Medical and dietitian restrictions",
+            "lead": "Two lists that look alike and behave completely differently. The first is yours; the second is not.",
+            "selfDeclaredExplainer": "Things you have been told to watch, or have decided to watch yourself. We record them, we honour them, and we send your target for a professional look because of them — but we never act on one as a clinical instruction.",
+            "selfDeclaredLabel": "Anything you are watching",
+            "selfDeclaredEmpty": "Nothing recorded.",
+            "enforcedExplainer": "Restrictions a qualified dietitian has put in place for you. They are shown here so you always know what is set and who set it.",
+            "enforcedLoading": "Checking whether a dietitian has set anything…",
+            "enforcedErrorTitle": "We could not check for dietitian restrictions",
+            "enforcedErrorBody": "This does not stop you going on, but it does mean this list may be incomplete. It is worth checking again before you rely on a plan.",
+            "enforcedEmpty": "No dietitian has set a restriction for you.",
+            "enforcedNoNote": "No note was left with this restriction.",
+            "enforcedReadOnly": "You cannot change these here. If one no longer applies, speak to the dietitian who set it."
+        },
+        "dislikes": {
+            "title": "Anything you would rather not eat?",
+            "lead": "Not an allergy and not a restriction — simply things you would rather see less of.",
+            "noteTitle": "This ranks, it does not exclude",
+            "noteBody": "We will suggest these less often. If you deliberately add one to a plan, nothing will argue with you.",
+            "label": "Things to see less of",
+            "empty": "Nothing recorded."
+        },
+        "cuisines": {
+            "title": "Which cuisines do you enjoy?",
+            "lead": "Used to rank what we suggest first. Choosing none simply means no preference.",
+            "label": "Cuisines",
+            "empty": "No preference recorded."
+        },
+        "budget": {
+            "title": "Do you have a weekly food budget?",
+            "lead": "Optional, and a ceiling rather than a target. Leaving it empty means no ceiling at all.",
+            "label": "Weekly budget",
+            "hint": "Roughly what you would like to spend on food in a week.",
+            "noteTitle": "What a budget does",
+            "noteBody": "It is a hard ceiling on what a generated plan may cost, and a preference that pushes cheaper options up the list below it. It never overrides an allergy or a restriction."
+        },
+        "cooking": {
+            "title": "How much time do you have to cook?",
+            "lead": "On a typical day. We would rather suggest something you will actually make.",
+            "minutesLabel": "Time to cook",
+            "minutesHint": "Per day, across all your meals.",
+            "skillLabel": "How comfortable are you in the kitchen?",
+            "guideTitle": "What each level changes"
+        },
+        "meals": {
+            "title": "How many times a day do you eat?",
+            "lead": "Meals and snacks are counted separately, because they are planned differently.",
+            "mealsLabel": "Main meals a day",
+            "snacksLabel": "Snacks a day",
+            "snacksHint": "Zero is a perfectly good answer."
+        },
+        "mealTimes": {
+            "title": "When do you eat?",
+            "lead": "Set the time for each one, and change what kind of meal it is if our guess is wrong.",
+            "mealHeading": "Meal {{number}}",
+            "snackHeading": "Snack {{number}}",
+            "typeLabel": "Kind of meal",
+            "timeLabel": "Time"
+        },
+        "preparation": {
+            "title": "Who is doing the cooking?",
+            "lead": "This decides whether we plan from recipes, from kitchen meals, or from both.",
+            "label": "Preparation",
+            "guideTitle": "What each option plans from"
+        },
+        "summary": {
+            "title": "Check your answers",
+            "lead": "Everything we now believe about how you eat. Change anything that is wrong before we calculate.",
+            "previewTitle": "What this produces",
+            "previewTarget": "{{energy}} kcal a day",
+            "previewMaintenance": "Estimated maintenance: {{energy}} kcal a day",
+            "previewMethod": "Calculated with {{method}}",
+            "previewEmpty": "Answer the remaining steps and your target will appear here.",
+            "previewErrorTitle": "We could not calculate a target",
+            "previewErrorBody": "Your answers are safe. Check the numbers above and try again.",
+            "reviewFlag": "Will be flagged for professional review",
+            "columnQuestion": "Question",
+            "columnAnswer": "Your answer",
+            "columnEdit": "Change",
+            "edit": "Change",
+            "editHint": "Goes back to the step that asked: {{question}}",
+            "restrictionsTitle": "What you can and cannot eat",
+            "restrictionsLead": "Seven different kinds of thing, kept apart because they behave differently. Empty ones are shown too, so you can see what we believe you have not told us.",
+            "noneRecorded": "None recorded",
+            "setByDietitian": "Set by a dietitian, so it cannot be changed here.",
+            "acknowledge": "I understand these are estimates from a prototype calculator, not medical advice.",
+            "acknowledgeDescription": "We record this so it is clear you saw the caveat before accepting a figure.",
+            "unanswered": "Not answered",
+            "ageValue": "{{years}} years",
+            "basisWithSex": "{{basis}}, using the {{sex}}",
+            "heightImperial": "{{feet}} ft {{inches}} in",
+            "heightMetric": "{{centimetres}} cm",
+            "weightImperial": "{{pounds}} lb",
+            "weightMetric": "{{kilograms}} kg",
+            "bodyFatSkipped": "Not supplied",
+            "bodyFatValue": "{{percentage}} %",
+            "noBudget": "No ceiling",
+            "budgetValue": "{{amount}} a week",
+            "cookingValue": "{{minutes}} minutes a day, {{skill}}",
+            "mealsValue": "{{meals}} meals and {{snacks}} snacks"
+        },
+        "review": {
+            "title": "Before you go on",
+            "lead": "Your answers produced a target that we think a qualified person should look at. Here is exactly why.",
+            "warningTitle": "This target has not been reviewed by anyone",
+            "warningBody": "It came from a prototype calculator applying published general-population equations. It knows nothing about medical conditions, medication or pregnancy, and it is not medical advice.",
+            "reasonsTitle": "Why we are asking",
+            "reasonsEmpty": "No specific reason was recorded, which is unusual — treat the figures with the same caution regardless.",
+            "reasonFallback": "One of the safety checks in the calculator was triggered.",
+            "requestReview": "Ask a dietitian to review this",
+            "requestedTitle": "Your request is with a dietitian",
+            "requestedBody": "It is on a professional's queue now. You can carry on using your plan while you wait.",
+            "requestErrorTitle": "We could not send your request",
+            "requestErrorBody": "Nothing was sent. You can try again, or carry on and ask later from your nutrition page.",
+            "acknowledge": "I have read this and I understand these figures have not been reviewed.",
+            "acknowledgeDescription": "Recorded so it is clear you saw the warning rather than passed it.",
+            "continue": "Continue anyway",
+            "continueHint": "Takes you to your targets. The warning stays on that page until a dietitian has reviewed them.",
+            "errorTitle": "We could not load your target",
+            "errorBody": "Your answers were saved. Continue to your nutrition page and the figures should be there."
+        }
+    }
 }

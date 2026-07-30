@@ -36,7 +36,7 @@ test.describe('public marketplace (en)', () => {
         await expect(page.getByTestId('kitchen-card-verdant-kitchen')).toBeVisible();
     });
 
-    test('discover leads to a kitchen, its menu and an in-place meal summary', async ({ page }) => {
+    test('discover leads to a kitchen, its menu and the meal record', async ({ page }) => {
         await page.goto('/discover');
         await expect(page.getByTestId('discover-screen')).toBeVisible();
 
@@ -53,12 +53,12 @@ test.describe('public marketplace (en)', () => {
         await expect(page.getByTestId('kitchen-menu-screen')).toBeVisible();
         await expect(page.getByTestId('kitchen-menu-grid')).toBeVisible();
 
-        // The catalogue wave owns `/meals/{meal}`; until then the summary opens in place rather
-        // than linking into a page that does not exist.
+        // The in-place summary drawer this menu used before the catalogue wave is gone: the card
+        // now navigates to the real record at `/meals/{meal}`.
         await page.locator('[data-testid^="meal-card-"]').first().click();
-        await expect(page.getByTestId('meal-detail-drawer')).toBeVisible();
-        await expect(page.getByTestId('meal-detail-drawer-handoff')).toBeVisible();
-        await expect(page.getByTestId('meal-detail-drawer-allergens')).toBeVisible();
+        await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
+        await expect(page.getByTestId('meal-detail-facts')).toBeVisible();
+        await expect(page.getByTestId('meal-detail-allergens')).toBeVisible();
         await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
     });
 
@@ -127,16 +127,15 @@ test.describe('public marketplace (en)', () => {
         await expect(page.getByTestId('sign-in-screen')).toBeVisible();
     });
 
-    test('a destination a later wave owns explains itself instead of leading nowhere', async ({
-        page,
-    }) => {
+    test('the meal catalogue destination now resolves rather than disclosing', async ({ page }) => {
         await page.goto('/discover');
         await expect(page.getByTestId('discover-screen')).toBeVisible();
 
+        // `meals` was a `planned` descriptor answering with a prototype notice until the catalogue
+        // wave built the route. Flipping one `status` field was the whole handoff.
         await page.getByTestId('marketplace-nav-meals').click();
-        await expect(page.getByTestId('prototype-notice')).toBeVisible();
-        // Still on discover: the control disclosed rather than navigated.
-        await expect(page.getByTestId('discover-screen')).toBeVisible();
+        await expect(page.getByTestId('meals-screen')).toBeVisible();
+        await expect(page.getByTestId('prototype-notice')).toHaveCount(0);
     });
 
     test('the development scenario control swaps the mock world in place', async ({ page }) => {

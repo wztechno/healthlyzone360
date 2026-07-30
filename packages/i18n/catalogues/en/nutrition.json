@@ -1,3 +1,165 @@
 {
-    "title": "Nutrition targets"
+    "title": "Nutrition targets",
+    "subtitle": "What we suggest you eat in a day, and exactly how we arrived at it.",
+    "disclaimerContext": "Every figure on this page comes from a prototype calculator, not from a clinician.",
+    "editAnswers": "Change my answers",
+    "empty": {
+        "title": "You do not have a target yet",
+        "body": "Answer a few questions about you and how you eat, and we will calculate a daily energy and macronutrient target — showing every step of the arithmetic.",
+        "action": "Set up my plan"
+    },
+    "methods": {
+        "mifflin_st_jeor": "the Mifflin–St Jeor equation",
+        "katch_mcardle": "the Katch–McArdle equation",
+        "professional_override": "a dietitian's own figures"
+    },
+    "provenance": {
+        "engine": "Prototype calculator",
+        "approved": "Reviewed by a dietitian",
+        "notApproved": "Not reviewed by a dietitian",
+        "calculatedAt": "Calculated on {{timestamp}}",
+        "note": "Produced by MockNutritionTargetEngine — a prototype that applies published, cited equations. It is not a clinical tool, and the figures it produces are estimates."
+    },
+    "nutrients": {
+        "energy": "Energy",
+        "protein": "Protein",
+        "carbohydrate": "Carbohydrate",
+        "fat": "Fat",
+        "fibre": "Fibre"
+    },
+    "energy": {
+        "title": "Energy",
+        "ringLabel": "Your target as a share of your estimated maintenance energy",
+        "ringValue": "{{value}} kcal · {{percent}} % of maintenance",
+        "ringCaption": "Target against maintenance",
+        "kcalPerDay": "{{value}} kcal a day",
+        "range": "{{min}} to {{max}} kcal",
+        "maintenance": "Estimated maintenance",
+        "maintenanceDescription": "Roughly what you would eat to hold your weight steady.",
+        "target": "Your selected target",
+        "targetDescription": "Maintenance, moved by your goal and the pace you chose.",
+        "tolerance": "Acceptable range",
+        "toleranceDescription": "A day inside this band counts as on target. Nobody hits a figure exactly.",
+        "restingRate": "Resting energy",
+        "restingRateDescription": "What the equation estimates you use at complete rest, before any activity."
+    },
+    "macros": {
+        "title": "Protein, carbohydrate, fat and fibre",
+        "lead": "Grams first, because that is what you can actually count. The percentages are the same figures expressed as a share of your energy target.",
+        "tableCaption": "Daily macronutrient and fibre targets",
+        "columnNutrient": "Nutrient",
+        "columnGrams": "Grams",
+        "columnPercentage": "Share of energy",
+        "columnEnergy": "Energy",
+        "columnTolerance": "Acceptable range",
+        "grams": "{{value}} g",
+        "percentage": "{{value}} %",
+        "kilocalories": "{{value}} kcal",
+        "range": "{{min}} to {{max}} g",
+        "atLeast": "at least {{value}} g",
+        "notApplicable": "—",
+        "meterValue": "{{grams}} g · {{percent}} % of energy"
+    },
+    "override": {
+        "badge": "Replaced by a dietitian",
+        "who": "{{dietitian}} replaced part of this calculation on {{when}}.",
+        "reason": "Their reason: {{reason}}",
+        "energyUnchanged": "The energy target is still the calculated one.",
+        "energyReplaced": "The energy target was replaced with {{value}} kcal a day. The calculation's own working is kept below, so you can see what changed.",
+        "macrosUnchanged": "The macronutrient split is still the calculated one.",
+        "macrosReplaced": "The macronutrient split was replaced entirely. The calculation's own working is kept below, so you can see what changed.",
+        "dietitianPlaceholder": "Your dietitian",
+        "absentBadge": "No professional override",
+        "absentBody": "Every figure on this page is what the calculator produced. Nobody has changed one."
+    },
+    "explanation": {
+        "whyThisTarget": "Why this target?",
+        "assumptions": "What we had to assume",
+        "citations": "Sources",
+        "noCitations": "No published source applied to this calculation.",
+        "input": "{{name}}: {{value}}",
+        "output": "= {{value}} {{unit}}"
+    },
+    "inputs": {
+        "weightKilograms": "Weight (kg)",
+        "heightCentimetres": "Height (cm)",
+        "ageYears": "Age (years)",
+        "sexForCalculation": "Calculation constant",
+        "bodyFatPercentage": "Body fat (%)",
+        "fatFreeMassKilograms": "Fat-free mass (kg)",
+        "basalMetabolicRate": "Resting energy (kcal)",
+        "activityLevel": "Activity level",
+        "multiplier": "Activity factor",
+        "maintenanceEnergy": "Maintenance energy (kcal)",
+        "goal": "Goal",
+        "pace": "Pace",
+        "adjustmentPercent": "Adjustment (%)",
+        "adjustedEnergy": "Adjusted target (kcal)",
+        "floor": "Minimum-intake guard (kcal)",
+        "proteinPerKilogram": "Protein per kilogram (g)",
+        "targetEnergy": "Target energy (kcal)",
+        "fatFraction": "Share of energy from fat",
+        "proteinKilocalories": "Protein energy (kcal)",
+        "fatKilocalories": "Fat energy (kcal)",
+        "gramsPer1000Kcal": "Fibre per 1,000 kcal (g)",
+        "dietitianId": "Dietitian",
+        "approvedAt": "Approved on",
+        "reason": "Reason",
+        "energyOverridden": "Energy replaced",
+        "macrosOverridden": "Macros replaced"
+    },
+    "review": {
+        "action": "Ask a dietitian to review this",
+        "hint": "Sends your target to a qualified professional. You keep using your plan while you wait.",
+        "requiredTitle": "A qualified person should look at this",
+        "requiredBody": "The calculator flagged this target: {{reasons}}. It is an estimate from published general-population equations, and it knows nothing about medical conditions, medication or pregnancy.",
+        "pendingTitle": "Your request is with a dietitian",
+        "pendingBody": "It is on a professional's queue. Nothing about your plan changes while you wait.",
+        "errorTitle": "We could not send your request",
+        "errorBody": "Nothing was sent. Try again in a moment."
+    },
+    "recalculate": {
+        "action": "Recalculate",
+        "hint": "Runs your saved answers through the calculator again. The figures only change if something behind them has.",
+        "errorTitle": "We could not recalculate",
+        "errorBody": "Your saved target is unchanged. Try again in a moment."
+    },
+    "reviewReasons": {
+        "energy_floor_applied": {
+            "title": "The target hit the minimum-intake guard",
+            "body": "Your goal and pace produced a figure below the guard value this calculator uses, so the target was raised to it. That guard is an interface safeguard, not a clinical recommendation, and hitting it is a good reason to speak to somebody qualified."
+        },
+        "aggressive_deficit": {
+            "title": "An ambitious pace with a weight-loss goal",
+            "body": "This is the largest deficit the calculator will produce. It is harder to keep to than a steadier pace, and general guidance is more cautious about it."
+        },
+        "safety_critical_restriction": {
+            "title": "You recorded an allergy or a medical restriction",
+            "body": "A general-population equation cannot account for one. The figures still stand as an estimate; a qualified person can tell you whether they suit your situation."
+        },
+        "under_eighteen": {
+            "title": "You are under eighteen",
+            "body": "The equations behind this estimate were fitted on adults, and energy needs during growth are a different question. This one really should come from a professional."
+        },
+        "over_seventy_five": {
+            "title": "You are over seventy-five",
+            "body": "Resting-energy equations lose accuracy at the ends of their fitted range, and other factors matter more at this age than the arithmetic does."
+        },
+        "very_low_body_mass_index": {
+            "title": "Your body-mass index is very low",
+            "body": "Outside the range these equations were fitted on, the estimate is less reliable — and a target is not the first thing worth discussing."
+        },
+        "very_high_body_mass_index": {
+            "title": "Your body-mass index is very high",
+            "body": "Outside the range these equations were fitted on, the estimate is less reliable. A qualified person can tell you what to do with it."
+        },
+        "high_body_fat_percentage": {
+            "title": "The body-fat percentage you gave is high",
+            "body": "The body-composition equation becomes less reliable here, and a measured figure from a professional would be worth more than an estimate."
+        },
+        "client_requested_review": {
+            "title": "You asked for a review",
+            "body": "A dietitian will look at this target and either approve it or suggest a change."
+        }
+    }
 }

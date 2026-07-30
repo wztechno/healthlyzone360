@@ -1,3 +1,398 @@
 {
-    "title": "Virtual Dietitian"
+    "title": "Virtual Dietitian",
+    "entry": {
+        "title": "Virtual Dietitian",
+        "lead": "An automated assistant that asks about your goals and constraints, then suggests a starting point you can accept, change or hand to a qualified dietitian.",
+        "isTitle": "What this is",
+        "isOne": "A structured interview that collects your goal, your activity, your restrictions, your budget and your delivery area.",
+        "isTwo": "A suggested calorie and macronutrient starting point, with the arithmetic and the assumptions shown.",
+        "isThree": "A draft week you can send to a registered dietitian for review before you follow any of it.",
+        "isNotTitle": "What this is not",
+        "isNotOne": "It is not a clinician. It does not diagnose, treat or prescribe anything.",
+        "isNotTwo": "It is not a substitute for care from a qualified dietitian or doctor, and nothing it says should replace their advice.",
+        "isNotThree": "It is not a language model. Every reply in this prototype is a fixed, written script and no suggestion leaves your device unreviewed.",
+        "startTitle": "Start a session",
+        "startBody": "A new session begins with the interview. Nothing is saved to a plan and nothing is ordered until you ask for it.",
+        "start": "Start a new session",
+        "starting": "Starting…",
+        "startFailed": "The session could not be started. Nothing was changed.",
+        "sessionsTitle": "Your sessions",
+        "sessionsEmptyTitle": "No sessions yet",
+        "sessionsEmptyBody": "Start one above. You can leave a session at any point and come back to it.",
+        "openSession": "Open the session from {{updated}}",
+        "updated": "Updated {{date}}"
+    },
+    "aiNotice": {
+        "title": "Everything suggested here is machine-generated",
+        "body": "Suggestions carry an \"AI-generated suggestion\" label wherever they appear. Anything a person set carries a different label. The two are never shown the same way."
+    },
+    "session": {
+        "back": "Virtual Dietitian",
+        "loading": "Loading the session…",
+        "notFoundTitle": "That session could not be opened",
+        "notFoundBody": "The link may be for a session that does not exist in this prototype world.",
+        "currentState": "Now: {{state}}",
+        "announcement": "The session has moved to: {{state}}. {{summary}}",
+        "disclaimerContext": "This session is an automated assistant, not a consultation.",
+        "conversationTitle": "Conversation",
+        "detailTitle": "This step"
+    },
+    "states": {
+        "initial_interview": {
+            "label": "Interview",
+            "headline": "Tell the assistant what it needs",
+            "summary": "The interview is collecting your goal, your measurements and your constraints."
+        },
+        "analysing": {
+            "label": "Analysing",
+            "headline": "Working through your answers",
+            "summary": "Your answers are being read against your restrictions and your meal times."
+        },
+        "missing_information": {
+            "label": "Missing information",
+            "headline": "Something is still missing",
+            "summary": "One or more answers are needed before anything can be suggested."
+        },
+        "suggested_targets": {
+            "label": "Suggested targets",
+            "headline": "A suggested starting point",
+            "summary": "Calorie and macronutrient figures have been suggested, with the arithmetic shown."
+        },
+        "suggested_meal_structure": {
+            "label": "Suggested meal structure",
+            "headline": "The shape of the day",
+            "summary": "A meal layout has been suggested and your kitchen, budget and delivery preferences can be recorded."
+        },
+        "draft_generated": {
+            "label": "Draft generated",
+            "headline": "A draft week is ready",
+            "summary": "A draft week has been written. Nothing is locked and nothing has been ordered."
+        },
+        "review_requested": {
+            "label": "With a dietitian",
+            "headline": "Sent for professional review",
+            "summary": "A qualified dietitian has been asked to review this plan."
+        },
+        "professionally_approved": {
+            "label": "Approved",
+            "headline": "Reviewed and approved by a dietitian",
+            "summary": "A qualified dietitian has reviewed and approved this plan."
+        },
+        "generation_failed": {
+            "label": "Generation failed",
+            "headline": "The week could not be built",
+            "summary": "Generation failed. Nothing was changed and you can try again."
+        },
+        "restriction_conflict": {
+            "label": "Restrictions conflict",
+            "headline": "Two restrictions cannot both be met",
+            "summary": "Two of your restrictions cannot both be satisfied at this energy target."
+        },
+        "no_suitable_meals": {
+            "label": "No suitable meals",
+            "headline": "Nothing available fits",
+            "summary": "No meals that reach your area fit these restrictions this week."
+        },
+        "safety_escalation": {
+            "label": "Stopped",
+            "headline": "This conversation has stopped",
+            "summary": "This conversation has been handed to a person and no further suggestions will be made."
+        }
+    },
+    "origin": {
+        "ai": "AI-generated suggestion",
+        "aiShort": "AI",
+        "human": "Set by you",
+        "dietitian": "Set by a dietitian",
+        "system": "Standing notice",
+        "user": "You"
+    },
+    "chat": {
+        "title": "Conversation",
+        "messages": "Messages",
+        "inputLabel": "Your reply",
+        "inputPlaceholder": "Type your answer, or pick one of the suggestions above",
+        "send": "Send",
+        "sending": "Sending…",
+        "quickRepliesTitle": "Quick replies",
+        "failed": "That reply could not be sent. Nothing was changed.",
+        "closedTitle": "This step has no reply box",
+        "closedBody": "There is nothing to answer here. The actions above are what moves the session on.",
+        "emptyTitle": "No messages yet",
+        "emptyBody": "The assistant opens every session with the standing disclaimer."
+    },
+    "quickReplies": {
+        "initial_interview": {
+            "profile": "I am 34, 165 cm and 68 kg.",
+            "activity": "I train three times a week, so moderately active.",
+            "goal": "I would like to lose weight steadily, not quickly."
+        },
+        "analysing": {
+            "confirmRestrictions": "Yes — treat the allergy, the intolerance and both limits as fixed.",
+            "addDislike": "Please also leave out aubergine."
+        },
+        "missing_information": {
+            "budget": "About 450 dirhams a week.",
+            "deliveryArea": "Deliveries to Business Bay, please."
+        },
+        "suggested_targets": {
+            "looksRight": "Those figures look reasonable to me.",
+            "moreProtein": "I would prefer a little more protein than that."
+        },
+        "suggested_meal_structure": {
+            "confirmLayout": "Three meals and one snack works for me.",
+            "kitchenLunch": "Lunch from a kitchen, the rest prepared at home."
+        },
+        "restriction_conflict": {
+            "relaxSoy": "Soy is fine — I only wanted to avoid tree nuts.",
+            "allowHome": "I can prepare more meals at home if that helps."
+        },
+        "no_suitable_meals": {
+            "widenArea": "Dubai Marina works for delivery as well.",
+            "allowHome": "Home-prepared meals are fine for most of the week."
+        }
+    },
+    "collected": {
+        "title": "What you have told the assistant",
+        "empty": "Nothing collected yet. Your answers appear here as you give them.",
+        "count_one": "{{count}} answer recorded",
+        "count_other": "{{count}} answers recorded",
+        "fields": {
+            "ageYears": "Age",
+            "heightCentimetres": "Height",
+            "weightKilograms": "Weight",
+            "activityLevel": "Activity",
+            "goal": "Goal",
+            "pace": "Pace",
+            "confirmRestrictions": "Restrictions confirmed",
+            "dislikedIngredient": "Disliked ingredient",
+            "weeklyBudgetMinorUnits": "Weekly budget",
+            "deliveryArea": "Delivery area",
+            "acceptedTargets": "Targets accepted",
+            "proteinPreference": "Protein preference",
+            "mealsPerDay": "Meals per day",
+            "snacksPerDay": "Snacks per day",
+            "preparationMode": "Preparation",
+            "preferredKitchens": "Preferred kitchens",
+            "allowSoy": "Soy allowed",
+            "acknowledgedDisclaimer": "Disclaimer acknowledged"
+        },
+        "yes": "Yes",
+        "no": "No"
+    },
+    "interview": {
+        "title": "The interview",
+        "body": "Answer in your own words, or pick a suggestion. Anything you give can be changed later.",
+        "askingTitle": "What the assistant still wants to know",
+        "askOne": "Your age, height and weight, so a published equation can be used.",
+        "askTwo": "How active you usually are in a normal week.",
+        "askThree": "What you are aiming for, and how quickly."
+    },
+    "analysing": {
+        "title": "What is being considered",
+        "considerOne": "Your stated activity level, goal and pace.",
+        "considerTwo": "Every restriction on your profile, including the ones a dietitian set.",
+        "considerThree": "The meal times you gave and the cooking time you have on a weekday.",
+        "considerFour": "Which kitchens deliver to your area, and what they publish.",
+        "note": "No language model is involved. This step reads your answers against fixed rules."
+    },
+    "missing": {
+        "title": "What is missing",
+        "body": "Each of these can be answered in the reply box. The required ones block a suggestion; the optional ones only narrow it.",
+        "required": "Required",
+        "optional": "Optional",
+        "jump": "Answer this",
+        "jumpHint": "Puts the question in the reply box below"
+    },
+    "targets": {
+        "title": "Suggested targets",
+        "maintenance": "Estimated maintenance energy",
+        "target": "Suggested daily energy",
+        "yourTarget": "Your daily energy",
+        "energyUnit": "kcal",
+        "macrosTitle": "Macronutrients",
+        "macro": {
+            "protein": "Protein",
+            "carbohydrate": "Carbohydrate",
+            "fat": "Fat"
+        },
+        "macroFigures": "{{grams}} g · {{kilocalories}} kcal",
+        "macroShare": "share of energy",
+        "tolerance": "Tolerance {{min}}–{{max}}",
+        "methodTitle": "Calculation method",
+        "methodName": {
+            "mifflin_st_jeor": "Mifflin–St Jeor",
+            "katch_mcardle": "Katch–McArdle",
+            "professional_override": "Set by a professional"
+        },
+        "prototypeNote": "Produced by the prototype calculator from published equations. It is an estimate, not a prescription.",
+        "assumptionsTitle": "What had to be assumed",
+        "rationaleTitle": "Why these figures",
+        "explanationTitle": "Show the arithmetic",
+        "stepFormula": "Formula: {{formula}}",
+        "stepOutput": "Result: {{output}}",
+        "citationsTitle": "Sources",
+        "acknowledge": "I have read the disclaimer above and understand these figures are an estimate.",
+        "acknowledgeRequired": "Tick the acknowledgement to accept these figures.",
+        "accept": "Accept these targets",
+        "accepting": "Recording…",
+        "accepted": "You accepted these targets on {{date}}.",
+        "acceptFailed": "The acceptance could not be recorded. Nothing was changed.",
+        "adjust": "Set my own instead",
+        "decline": "Have a dietitian set these instead",
+        "declineHint": "Sends the session to a qualified dietitian rather than accepting the suggestion.",
+        "continue": "Continue to the meal structure"
+    },
+    "structure": {
+        "title": "Suggested meal structure",
+        "slotsTitle": "The day",
+        "mealType": {
+            "breakfast": "Breakfast",
+            "lunch": "Lunch",
+            "dinner": "Dinner",
+            "snack": "Snack"
+        },
+        "noTime": "No fixed time",
+        "energyShare": "{{percent}}% of the day's energy",
+        "mode": {
+            "home_prepared": "Prepared at home",
+            "kitchen_prepared": "From a kitchen",
+            "mixed": "A mixture"
+        },
+        "modeQuestion": "Home-prepared, kitchen-prepared, or a mixture?",
+        "modeLabel": "Preparation",
+        "kitchensTitle": "Preferred kitchens",
+        "kitchensHint": "Only kitchens that sell through the marketplace are listed. Leave it empty to consider all of them.",
+        "kitchensEmpty": "No marketplace kitchens are available to choose from.",
+        "kitchensSelected_one": "{{count}} kitchen selected",
+        "kitchensSelected_other": "{{count}} kitchens selected",
+        "budgetLabel": "Weekly budget (AED)",
+        "budgetHint": "A ceiling for the week, not a promise to spend it.",
+        "areaLabel": "Delivery area",
+        "areaHint": "Used to rule out kitchens that cannot reach you.",
+        "save": "Record these preferences",
+        "saving": "Recording…",
+        "generate": "Generate a draft week",
+        "generating": "Generating…",
+        "generateHint": "Writes a draft plan. Nothing is ordered and nothing is locked.",
+        "generateFailed": "The draft could not be generated. Nothing was changed."
+    },
+    "draft": {
+        "title": "Draft week",
+        "body": "A draft week has been written from the targets and the meal structure above. Nothing in it is locked, and nothing has been ordered.",
+        "planReference": "Draft plan reference",
+        "mealsPerDay": "Meals a day",
+        "mix": "Preparation",
+        "mixValue": "{{kitchen}} from a kitchen, {{home}} prepared at home",
+        "openInPlanner": "Open in the planner",
+        "openInPlannerMessage": "The planner at /customer/planner is built in a later wave. It will read GET /api/v1/meal-plans/{plan}. Nothing was changed.",
+        "requestReview": "Ask a dietitian to review it",
+        "requesting": "Sending…",
+        "requestFailed": "The review request could not be sent. Nothing was changed.",
+        "reviewHint": "A registered dietitian checks the plan before you follow it. You can keep using the draft in the meantime."
+    },
+    "review": {
+        "title": "With a dietitian",
+        "body": "This plan has been sent to a qualified dietitian. Nothing changes while it waits, and you can keep using the draft.",
+        "requestedAt": "Requested {{date}}",
+        "queueTitle": "Queue position",
+        "queueBody": "This prototype does not model a queue position for the person waiting. No proposed endpoint publishes one; the dietitian-side queue is GET /api/v1/professional/review-queue.",
+        "checksTitle": "What a dietitian checks",
+        "checkOne": "That the energy and protein figures suit what you described, and are safe for you.",
+        "checkTwo": "That every declared allergy and enforced restriction is honoured across the whole week.",
+        "checkThree": "That the meals are varied enough to be followed for more than a few days.",
+        "checkFour": "Anything you asked about in the conversation."
+    },
+    "approved": {
+        "title": "Approved by a dietitian",
+        "body": "A qualified dietitian has reviewed this plan and signed it off. Their name is recorded against the review.",
+        "approvedAt": "Approved {{date}}",
+        "approverTitle": "Reviewed by",
+        "approverUnknown": "The reviewing dietitian is not recorded on this session.",
+        "approverSynthetic": "This professional and their registration are synthetic prototype data.",
+        "changedTitle": "What a person changed",
+        "changedNone": "Nothing was overridden. The dietitian approved the figures as suggested.",
+        "overriddenAt": "Overridden {{date}}"
+    },
+    "failed": {
+        "title": "The week could not be built",
+        "body": "This is a fault on our side, not something you did. Nothing was changed, your answers are intact, and you can try again.",
+        "retry": "Try again",
+        "retrying": "Trying again…",
+        "alternativeTitle": "If it keeps failing",
+        "alternativeBody": "Ask a qualified dietitian to look at the session instead. They can build the week by hand."
+    },
+    "conflict": {
+        "title": "Restrictions conflict",
+        "body": "Two of your restrictions cannot both be satisfied at this energy target. The assistant has stopped rather than quietly dropping one of them.",
+        "requiresProfessional": "Only a dietitian can resolve this",
+        "userResolvable": "You can resolve this yourself",
+        "resolveTitle": "How to resolve it",
+        "adjustTitle": "Adjust a preference",
+        "adjustBody": "Relax something that is a preference rather than a medical restriction, and the assistant will try again.",
+        "reviewTitle": "Ask a dietitian",
+        "reviewBody": "A registered dietitian can decide which restriction gives way. An automated assistant must not."
+    },
+    "noMeals": {
+        "title": "Nothing available fits",
+        "body": "No meals from kitchens that deliver to your area fit these restrictions this week.",
+        "whyTitle": "Why this happens",
+        "whyOne": "Your delivery area is served by few kitchens, and those kitchens publish few matching meals.",
+        "whyTwo": "The restrictions in force exclude most of what is available.",
+        "whyThree": "Kitchen-prepared only leaves nothing to fall back on.",
+        "widenTitle": "What would help",
+        "widenOne": "Widen the delivery area to include a neighbouring one.",
+        "widenTwo": "Allow home-prepared meals for part of the week.",
+        "widenThree": "Raise the weekly budget ceiling if it is currently tight."
+    },
+    "safety": {
+        "title": "This conversation has stopped",
+        "body": "What you have described needs a person, not an automated assistant. No further suggestions will be made in this session, and nothing here has been generated in response to it.",
+        "contactTitle": "Who to contact",
+        "contactBody": "Please speak to your doctor or a qualified dietitian. If you are in immediate danger, contact your local emergency service.",
+        "contactPlaceholder": "This prototype carries no real helpline numbers. A production build would show the services for your country here, verified before release.",
+        "noActions": "Generation, drafting and review actions are deliberately unavailable on this screen."
+    },
+    "safetyNotice": {
+        "title": "Safety notice",
+        "allergensTitle": "Allergens named",
+        "severity": {
+            "information": "Information",
+            "warning": "Warning",
+            "escalation": "Stopped"
+        }
+    },
+    "allergenReminder": {
+        "title": "Check the allergen list on every meal",
+        "body": "Declared allergens are excluded from everything suggested here, but a kitchen can change a recipe. Read the allergen list on any meal before you eat it, including ones you have eaten before."
+    },
+    "override": {
+        "open": "Set my own instead",
+        "dialogTitle": "Set your own targets",
+        "dialogDescription": "This replaces the suggested figures with your own. The suggestion is kept and stays labelled as machine-generated.",
+        "consequencesTitle": "What happens if you do this",
+        "consequencesBody": "Your figures are recorded as set by you, not by the assistant, and no professional has checked them. Meals will be planned against your figures instead. You can still ask a dietitian to review the session afterwards.",
+        "reasonLabel": "Why are you changing it?",
+        "reasonHint": "Recorded on the session so a dietitian can see what you intended.",
+        "reasonRequired": "Give a reason so the change is not anonymous.",
+        "energyLabel": "Your daily energy target (kcal)",
+        "energyHint": "The macronutrient split from the suggestion is kept and rescaled to this figure.",
+        "energyInvalid": "Enter a daily energy figure between 800 and 6000 kcal.",
+        "confirm": "Use my figures",
+        "applying": "Applying…",
+        "cancel": "Cancel",
+        "failed": "The override could not be applied. Nothing was changed.",
+        "appliedTitle": "You replaced the suggested figures",
+        "appliedBody": "These figures were set by a person, not by the assistant."
+    },
+    "timeline": {
+        "title": "What has happened in this session",
+        "created": "Session started",
+        "accepted": "You accepted the suggested targets",
+        "overridden": "The proposal was overridden by a person",
+        "draft": "A draft week was generated",
+        "reviewRequested": "Professional review requested",
+        "approved": "Approved by a dietitian",
+        "empty": "Nothing has been decided yet."
+    }
 }
