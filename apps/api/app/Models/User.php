@@ -10,6 +10,7 @@ use Healthy360\Identity\Models\UserDevice;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Support\Concerns\HasUuidV7Key;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Collection;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * The global Healthy360 identity: one person, one account, many organisation
@@ -45,10 +47,10 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  */
 #[Fillable(['email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasUuidV7Key, Notifiable, TwoFactorAuthenticatable;
+    use HasApiTokens, HasFactory, HasUuidV7Key, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * Get the attributes that should be cast.

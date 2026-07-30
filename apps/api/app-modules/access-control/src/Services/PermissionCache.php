@@ -62,6 +62,20 @@ final class PermissionCache
         return (int) Cache::get(self::VERSION_PREFIX.':'.$organisationId, 0);
     }
 
+    /**
+     * The opaque version stamp returned as `meta.permissions_version`, so a
+     * client can detect that its cached permission set is stale without
+     * understanding how the counters are composed.
+     */
+    public function signature(?string $organisationId): string
+    {
+        return sprintf(
+            '%d.%d',
+            $this->platformVersion(),
+            $organisationId === null ? 0 : $this->organisationVersion($organisationId),
+        );
+    }
+
     public function platformVersion(): int
     {
         return (int) Cache::get(self::PLATFORM_VERSION_KEY, 0);

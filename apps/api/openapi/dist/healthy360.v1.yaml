@@ -1,0 +1,2013 @@
+openapi: 3.1.0
+info:
+  title: Healthy360 Platform API
+  version: 1.0.0
+  summary: Authentication, identity and organisation context for the Healthy360 platform foundation.
+  description: |
+    The authoritative wire contract for the endpoints implemented in the
+    platform foundation (plan §14, `docs/api/conventions.md`).
+
+    **Envelopes.** Every response body is either
+    `{"data": ..., "meta": {...}}` or
+    `{"error": {"code", "message", "details", "correlation_id"}}`. The
+    documented exceptions are `204 No Content` responses, file downloads,
+    streaming responses and the health check at `/up`.
+
+    **Error codes.** `error.code` is stable and machine-readable. Clients
+    branch on the code, never on the message. Within `/api/v1` a code may be
+    added but never renamed or repurposed.
+
+    **Correlation.** The server generates `X-Correlation-Id` for every
+    request and returns it as a header, in `meta.correlation_id` on success
+    and in `error.correlation_id` on failure. A client may send
+    `X-Client-Request-Id`; it is logged and echoed, and is never used as the
+    correlation identifier.
+
+    **Credentials.** First-party clients (the Expo web build) authenticate
+    with a Sanctum cookie session and must send an `Origin` belonging to a
+    configured stateful domain. Native clients exchange credentials for a
+    device-bound personal access token at `POST /auth/token` and send it as a
+    bearer token.
+  license:
+    name: Proprietary
+    url: https://healthy360.com/legal/api-terms
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.healthy360.com
+        description: The API host for the target environment.
+security:
+  - sessionCookie: []
+  - bearerToken: []
+tags:
+  - name: Authentication
+    description: Sessions, tokens, password reset and email verification.
+  - name: Two-factor authentication
+    description: TOTP enrolment, challenge and recovery codes.
+  - name: Current user
+    description: Hydration, workspace selection and device management.
+  - name: Organisations
+    description: Organisation-scoped endpoints, reached with a validated context.
+paths:
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags:
+        - Authentication
+      summary: Create an account
+      description: |
+        Creates the account, the person's profile and a consent grant for each
+        accepted platform consent in one transaction, then sends an email
+        verification link. A first-party caller also receives a session
+        cookie; a native caller follows with `POST /auth/token`.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/XClientPlatform'
+        - $ref: '#/components/parameters/XClientVersion'
+        - $ref: '#/components/parameters/XAppMode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: The account was created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - user
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                data:
+                  user:
+                    id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
+                    email: nour@example.test
+                    email_verified: false
+                    two_factor_enabled: false
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/login:
+    post:
+      operationId: login
+      tags:
+        - Authentication
+      summary: Start a first-party session
+      description: |
+        Authenticates a first-party client and establishes a Sanctum cookie
+        session. The request must carry an `Origin` belonging to a configured
+        stateful domain; a caller without one receives `request.invalid` and
+        should use `POST /auth/token` instead.
+
+        When the account has confirmed two-factor authentication the response
+        is `200` with `two_factor_required: true` and **no** session; the
+        client continues at `POST /auth/two-factor-challenge`.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/XClientPlatform'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/LoginOutcome'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '422':
+          $ref: '#/components/responses/InvalidCredentials'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/logout:
+    post:
+      operationId: logout
+      tags:
+        - Authentication
+      summary: End the first-party session
+      description: |
+        Destroys the session. Native clients revoke their credential with
+        `DELETE /me/devices/{device}` instead.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The session was destroyed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - logged_out
+                    properties:
+                      logged_out:
+                        type: boolean
+                        const: true
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /auth/token:
+    post:
+      operationId: issueDeviceToken
+      tags:
+        - Authentication
+      summary: Exchange credentials for a device-bound token
+      description: |
+        The native credential flow. Registers (or re-registers) the device and
+        returns a Sanctum personal access token. The plaintext token is
+        returned exactly once; only its identifier is stored, on the device
+        record. Re-registering the same device name and platform rotates the
+        token and revokes the previous one.
+
+        Throttling is shared with `POST /auth/login`: five attempts per minute
+        per email address and IP address.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/XClientVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueTokenRequest'
+      responses:
+        '201':
+          description: The token was issued.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - token
+                      - token_type
+                      - user
+                      - device
+                    properties:
+                      token:
+                        type: string
+                        description: The plaintext bearer token. Returned once and never again.
+                        examples:
+                          - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c|4Nx9…
+                      token_type:
+                        type: string
+                        const: Bearer
+                      user:
+                        $ref: '#/components/schemas/User'
+                      device:
+                        $ref: '#/components/schemas/Device'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '403':
+          description: |
+            The account has two-factor authentication enabled and the request
+            carried neither `two_factor_code` nor `recovery_code`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: auth.two_factor_required
+                  message: A two-factor authentication code is required.
+                  details: {}
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '422':
+          description: |
+            The credentials, the two-factor code or the request shape were
+            rejected.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: auth.invalid_credentials
+                  message: These credentials do not match our records.
+                  details: {}
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/forgot-password:
+    post:
+      operationId: requestPasswordResetLink
+      tags:
+        - Authentication
+      summary: Request a password reset link
+      description: |
+        Always answers `202`, whether or not the address has an account: this
+        endpoint must not reveal which addresses are registered. The mailed
+        link points at the client application, which posts the token back to
+        `POST /auth/reset-password`. Limited to three requests per minute per
+        email address.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags:
+        - Authentication
+      summary: Replace a forgotten password
+      description: |
+        No session is established: the client signs in again with the new
+        password, which also proves it was received. An expired, forged or
+        mismatched token is reported against the `token` field so the endpoint
+        cannot be used to probe which accounts exist.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: The password was replaced.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - password_reset
+                    properties:
+                      password_reset:
+                        type: boolean
+                        const: true
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/email/verification-notification:
+    post:
+      operationId: resendEmailVerification
+      tags:
+        - Authentication
+      summary: Resend the email verification link
+      description: |
+        Answers `204` when the address is already verified — a documented
+        envelope exception. Limited to six requests per minute.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '204':
+          description: The address is already verified; nothing was sent.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/verify-email/{id}/{hash}:
+    get:
+      operationId: verifyEmail
+      tags:
+        - Authentication
+      summary: Verify an email address
+      description: |
+        The target of the signed link sent by the platform. Idempotent:
+        following an already-used link returns the same body, because a mail
+        client that pre-fetches the link must not break the flow for the
+        person.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The identifier of the account being verified.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: hash
+          in: path
+          required: true
+          description: SHA-1 of the email address being verified.
+          schema:
+            type: string
+        - name: expires
+          in: query
+          required: false
+          description: Signature expiry, part of the signed link.
+          schema:
+            type: integer
+        - name: signature
+          in: query
+          required: false
+          description: The link signature.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The address is verified.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - email_verified
+                    properties:
+                      email_verified:
+                        type: boolean
+                        const: true
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: The link is invalid, has expired, or belongs to another account.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: auth.invalid_signature
+                  message: This link is invalid or has expired. Please request a new one.
+                  details: {}
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/confirm-password:
+    post:
+      operationId: confirmPassword
+      tags:
+        - Authentication
+      summary: Confirm the current password (step-up)
+      description: |
+        Unlocks the step-up protected endpoints for `timeout_seconds`. The
+        confirmation is bound to the credential that performed it: a session
+        confirmation does not unlock a bearer token, and the reverse.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          $ref: '#/components/responses/PasswordConfirmationStatus'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          $ref: '#/components/responses/InvalidCredentials'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/confirmed-password-status:
+    get:
+      operationId: showPasswordConfirmationStatus
+      tags:
+        - Authentication
+      summary: Whether a step-up protected action may proceed
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/PasswordConfirmationStatus'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/two-factor-challenge:
+    post:
+      operationId: completeTwoFactorChallenge
+      tags:
+        - Two-factor authentication
+      summary: Complete a two-factor sign-in
+      description: |
+        Continues the login that answered `two_factor_required: true`. Supply
+        either `code` (the current TOTP) or `recovery_code`. A recovery code
+        is consumed and replaced. Limited to five attempts per minute.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorChallengeRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/LoginOutcome'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '422':
+          description: The code was rejected, or no sign-in is pending.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: auth.two_factor_invalid
+                  message: The provided two-factor authentication code was invalid.
+                  details:
+                    field: code
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/two-factor-authentication:
+    post:
+      operationId: enableTwoFactorAuthentication
+      tags:
+        - Two-factor authentication
+      summary: Begin two-factor enrolment
+      description: |
+        Generates a secret and eight recovery codes. Two-factor authentication
+        is **not** armed until `POST /auth/confirmed-two-factor-authentication`
+        succeeds, so a person who cannot finish configuring their
+        authenticator is never locked out.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  description: Replace an existing secret rather than reusing it.
+                  default: false
+      responses:
+        '201':
+          $ref: '#/components/responses/TwoFactorStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: disableTwoFactorAuthentication
+      tags:
+        - Two-factor authentication
+      summary: Switch two-factor authentication off
+      description: |
+        Step-up protected: confirm the password at `POST /auth/confirm-password`
+        first, or the request is refused with `auth.step_up_required`.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/TwoFactorStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/confirmed-two-factor-authentication:
+    post:
+      operationId: confirmTwoFactorAuthentication
+      tags:
+        - Two-factor authentication
+      summary: Complete two-factor enrolment
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  description: The current one-time password from the authenticator.
+                  examples:
+                    - '123456'
+      responses:
+        '200':
+          $ref: '#/components/responses/TwoFactorStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/two-factor-qr-code:
+    get:
+      operationId: showTwoFactorQrCode
+      tags:
+        - Two-factor authentication
+      summary: The provisioning QR code
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The QR code for the pending or active secret.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - svg
+                      - url
+                    properties:
+                      svg:
+                        type: string
+                        description: An inline SVG element.
+                      url:
+                        type: string
+                        description: The otpauth:// provisioning URI.
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/two-factor-secret-key:
+    get:
+      operationId: showTwoFactorSecretKey
+      tags:
+        - Two-factor authentication
+      summary: The shared secret
+      description: For authenticator applications that cannot scan a QR code.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The shared secret.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - secret_key
+                    properties:
+                      secret_key:
+                        type: string
+                        examples:
+                          - JBSWY3DPEHPK3PXP
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/two-factor-recovery-codes:
+    get:
+      operationId: listTwoFactorRecoveryCodes
+      tags:
+        - Two-factor authentication
+      summary: The remaining recovery codes
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/RecoveryCodes'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: regenerateTwoFactorRecoveryCodes
+      tags:
+        - Two-factor authentication
+      summary: Replace the recovery codes
+      description: Invalidates every previous recovery code.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '201':
+          $ref: '#/components/responses/RecoveryCodes'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me:
+    get:
+      operationId: showCurrentUser
+      tags:
+        - Current user
+      summary: Hydrate the current user
+      description: |
+        Identity, profile, every workspace the person may act under, the
+        active context with its calculated permissions and entitlements, and
+        any consent still owed.
+
+        The active context comes from `X-Organisation-Id` and `X-Branch-Id`
+        when they are sent, and from the workspace remembered by
+        `PUT /me/context` otherwise. A remembered context that no longer
+        validates yields `active_context: null` rather than an error, so a
+        returning client is never locked out of its own hydration.
+
+        Deliberately reachable before email verification: the client needs
+        this payload to render the "verify your email" state.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationId'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/XAppMode'
+        - $ref: '#/components/parameters/XClientVersion'
+        - $ref: '#/components/parameters/XClientPlatform'
+      responses:
+        '200':
+          description: The current user.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - user
+                      - profile
+                      - memberships
+                      - active_context
+                      - pending_consents
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      profile:
+                        $ref: '#/components/schemas/Profile'
+                      memberships:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Membership'
+                      active_context:
+                        $ref: '#/components/schemas/ActiveContext'
+                      pending_consents:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PendingConsent'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required:
+                          - permissions_version
+                        properties:
+                          permissions_version:
+                            type: string
+                            description: |
+                              An opaque stamp over the platform and
+                              organisation permission-version counters. A
+                              change means a cached permission set is stale.
+                            examples:
+                              - '0.3'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me/memberships:
+    get:
+      operationId: listMemberships
+      tags:
+        - Current user
+      summary: List the workspaces available to the current user
+      description: |
+        The workspace picker's data source: the same collection `/me` embeds,
+        without hydrating a context.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The memberships the person may act under.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Membership'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required:
+                          - count
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me/context:
+    put:
+      operationId: updateActiveContext
+      tags:
+        - Current user
+      summary: Select the active organisation and branch
+      description: |
+        Validated by exactly the same server-side rules the
+        `X-Organisation-Id` and `X-Branch-Id` headers go through, so selection
+        cannot reach a context that a per-request header would reject. The
+        choice is remembered on the profile and returned hydrated.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organisation_id
+              properties:
+                organisation_id:
+                  $ref: '#/components/schemas/Uuid'
+                branch_id:
+                  oneOf:
+                    - $ref: '#/components/schemas/Uuid'
+                    - type: 'null'
+      responses:
+        '200':
+          description: The context was selected.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - active_context
+                    properties:
+                      active_context:
+                        $ref: '#/components/schemas/ActiveContext'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me/devices:
+    get:
+      operationId: listDevices
+      tags:
+        - Current user
+      summary: List the registered devices
+      description: |
+        Active devices, newest first. Revoked devices are history rather than
+        something a client can act on, so they are not listed.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The caller's active devices.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required:
+                          - count
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me/devices/{device}:
+    delete:
+      operationId: revokeDevice
+      tags:
+        - Current user
+      summary: Revoke a device
+      description: |
+        Revokes the device and destroys the credential it carries. Step-up
+        protected: this is how a stolen phone is cut off, so a hijacked
+        session must not be able to perform it. Revoking the device backing
+        the current request is allowed and takes effect immediately.
+
+        A device belonging to somebody else is indistinguishable from one that
+        does not exist: both are `resource.not_found`.
+      parameters:
+        - name: device
+          in: path
+          required: true
+          description: The device identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The device was revoked.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/current:
+    get:
+      operationId: showCurrentOrganisation
+      tags:
+        - Organisations
+      summary: The organisation of the active context
+      description: |
+        Requires `X-Organisation-Id`, an active membership in that
+        organisation, and the `organisation.view_current` permission. Each
+        failure mode carries its own code: `context.organisation_required`
+        (400), `context.organisation_forbidden` (403),
+        `context.branch_out_of_scope` (403) or `authz.permission_denied`
+        (403, with the denying RBAC step in `details.reason`).
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The active organisation and branch.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - organisation
+                      - branch
+                    properties:
+                      organisation:
+                        $ref: '#/components/schemas/Organisation'
+                      branch:
+                        oneOf:
+                          - $ref: '#/components/schemas/Branch'
+                          - type: 'null'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: healthy360_session
+      description: |
+        The Sanctum first-party session cookie, issued by `POST /auth/login`
+        to clients whose `Origin` is a configured stateful domain.
+
+        Before the first state-changing request the client calls
+        `GET /sanctum/csrf-cookie` (outside `/api/v1`, part of the session
+        handshake rather than the resource API) and then sends the
+        `X-XSRF-TOKEN` header taken from the `XSRF-TOKEN` cookie.
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: |
+        A Sanctum personal access token from `POST /auth/token`, bound to a
+        registered device and revocable at `DELETE /me/devices/{device}`.
+  headers:
+    XCorrelationId:
+      description: |
+        The server-generated correlation identifier for this request (UUIDv7).
+        Returned on every response and repeated in the body.
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+  parameters:
+    XOrganisationId:
+      name: X-Organisation-Id
+      in: header
+      required: false
+      description: |
+        The active organisation. Never trusted without server-side validation
+        against an active membership.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    XOrganisationIdRequired:
+      name: X-Organisation-Id
+      in: header
+      required: true
+      description: |
+        The active organisation. Never trusted without server-side validation
+        against an active membership.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    XBranchId:
+      name: X-Branch-Id
+      in: header
+      required: false
+      description: |
+        The active branch. Validated against the membership scope: a
+        branch-scoped membership may only work inside its own branch.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: Locale negotiation. Regional subtags are accepted.
+      schema:
+        type: string
+        examples:
+          - ar-LB
+          - en
+    XClientRequestId:
+      name: X-Client-Request-Id
+      in: header
+      required: false
+      description: |
+        An opaque client-generated identifier for support correlation. Logged
+        and echoed back; never used as the correlation identifier.
+      schema:
+        type: string
+        maxLength: 128
+    XAppMode:
+      name: X-App-Mode
+      in: header
+      required: false
+      description: The build family. Diagnostic only; never an authorisation input.
+      schema:
+        type: string
+        enum:
+          - customer
+          - staff
+          - kiosk
+          - driver
+          - all-dev
+    XClientVersion:
+      name: X-Client-Version
+      in: header
+      required: false
+      description: The client version, for diagnostics and deprecation telemetry.
+      schema:
+        type: string
+        examples:
+          - 1.4.0
+    XClientPlatform:
+      name: X-Client-Platform
+      in: header
+      required: false
+      description: The client platform.
+      schema:
+        type: string
+        enum:
+          - web
+          - ios
+          - android
+  responses:
+    Accepted:
+      description: Accepted for delivery.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - meta
+            properties:
+              data:
+                type: object
+                required:
+                  - sent
+                properties:
+                  sent:
+                    type: boolean
+                    const: true
+              meta:
+                $ref: '#/components/schemas/Meta'
+    LoginOutcome:
+      description: |
+        The sign-in resolved. `two_factor_required: false` means a session now
+        exists; `true` means the client must complete
+        `POST /auth/two-factor-challenge`.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - meta
+            properties:
+              data:
+                type: object
+                required:
+                  - two_factor_required
+                properties:
+                  two_factor_required:
+                    type: boolean
+              meta:
+                $ref: '#/components/schemas/Meta'
+    PasswordConfirmationStatus:
+      description: The step-up state of the calling credential.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - meta
+            properties:
+              data:
+                type: object
+                required:
+                  - confirmed
+                  - timeout_seconds
+                properties:
+                  confirmed:
+                    type: boolean
+                  timeout_seconds:
+                    type: integer
+                    minimum: 0
+                    description: How long a confirmation remains valid.
+              meta:
+                $ref: '#/components/schemas/Meta'
+    TwoFactorStateResponse:
+      description: |
+        The two-factor state of the account. `enabled` means a secret exists;
+        `confirmed` means two-factor authentication is armed and will be
+        demanded at the next sign-in.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - meta
+            properties:
+              data:
+                $ref: '#/components/schemas/TwoFactorState'
+              meta:
+                $ref: '#/components/schemas/Meta'
+    RecoveryCodes:
+      description: Single-use recovery codes.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - meta
+            properties:
+              data:
+                type: object
+                required:
+                  - recovery_codes
+                properties:
+                  recovery_codes:
+                    type: array
+                    items:
+                      type: string
+              meta:
+                $ref: '#/components/schemas/Meta'
+    RequestInvalid:
+      description: |
+        The request could not be processed as sent — typically a session
+        endpoint reached without a first-party `Origin`.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: request.invalid
+              message: This endpoint serves first-party session clients only; native clients must use /api/v1/auth/token.
+              details:
+                required_headers:
+                  - Origin
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    ContextRequired:
+      description: The endpoint is organisation-scoped and no `X-Organisation-Id` was sent.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: context.organisation_required
+              message: An X-Organisation-Id header is required for this endpoint.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    Unauthenticated:
+      description: No usable credential was presented.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: auth.unauthenticated
+              message: Authentication is required for this endpoint.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    EmailUnverified:
+      description: The address has not been verified.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: auth.email_unverified
+              message: Your email address must be verified before you can use this endpoint.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    StepUpRequired:
+      description: |
+        The action is sensitive and needs a recent password confirmation.
+        **HTTP 403, never 423** (plan §13).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: auth.step_up_required
+              message: This action requires you to confirm your password again.
+              details:
+                confirmation_endpoint: /api/v1/auth/confirm-password
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    ContextDenied:
+      description: |
+        The organisation or branch could not be validated for this person. The
+        message never reveals whether the organisation exists.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: context.organisation_forbidden
+              message: You do not have an active membership in the requested organisation.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    ContextOrPermissionDenied:
+      description: |
+        The context was refused (`context.organisation_forbidden`,
+        `context.branch_out_of_scope`) or the membership's roles do not grant
+        the required permission (`authz.permission_denied`, with the denying
+        RBAC step in `details.reason`).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: authz.permission_denied
+              message: You do not have permission to perform this action.
+              details:
+                reason: permission_not_granted
+                permission: organisation.view_current
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    NotFound:
+      description: The resource does not exist, or is not the caller's to see.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.not_found
+              message: The requested resource does not exist.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    InvalidCredentials:
+      description: |
+        The credentials were rejected. Deliberately not a field-level
+        validation error: clients branch on the code.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: auth.invalid_credentials
+              message: These credentials do not match our records.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    ValidationFailed:
+      description: The submitted data is invalid.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: validation.failed
+              message: The submitted data is invalid.
+              details:
+                fields:
+                  email:
+                    - The email field must be a valid email address.
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    TooManyRequests:
+      description: The rate limit for this endpoint was exceeded.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: rate_limit.exceeded
+              message: Too many requests. Please retry later.
+              details:
+                retry_after_seconds: 47
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      description: A UUIDv7 identifier (plan §8).
+      examples:
+        - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
+    Meta:
+      type: object
+      required:
+        - correlation_id
+      properties:
+        correlation_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: true
+      description: |
+        Envelope metadata. Always carries the correlation identifier;
+        collections add `count`, and `/me` adds `permissions_version`.
+    ErrorCode:
+      type: string
+      description: |
+        The stable Healthy360 error vocabulary. Mirrors
+        `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
+      enum:
+        - validation.failed
+        - auth.unauthenticated
+        - auth.invalid_credentials
+        - auth.email_unverified
+        - auth.two_factor_required
+        - auth.two_factor_invalid
+        - auth.step_up_required
+        - auth.csrf_token_mismatch
+        - auth.invalid_signature
+        - context.organisation_required
+        - context.organisation_forbidden
+        - context.branch_out_of_scope
+        - authz.permission_denied
+        - request.invalid
+        - resource.not_found
+        - resource.conflict
+        - rate_limit.exceeded
+        - server.internal_error
+    Error:
+      type: object
+      required:
+        - code
+        - message
+        - details
+        - correlation_id
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: A safe, human-readable summary. Never a stack trace.
+        details:
+          type: object
+          description: |
+            Structured, code-specific detail. `validation.failed` carries a
+            `fields` map of field name to messages; `authz.permission_denied`
+            carries the denying RBAC step; `auth.step_up_required` carries the
+            confirmation endpoint.
+          additionalProperties: true
+        correlation_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+      additionalProperties: false
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - email_verified
+        - two_factor_enabled
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        two_factor_enabled:
+          type: boolean
+          description: True only once enrolment has been confirmed.
+    Profile:
+      description: |
+        Person data for a global identity. Null until a profile exists.
+      oneOf:
+        - type: 'null'
+        - type: object
+          required:
+            - given_name
+            - family_name
+            - preferred_language_code
+            - timezone
+            - numbering_system
+          properties:
+            given_name:
+              type: string
+            family_name:
+              type: string
+            preferred_language_code:
+              type: string
+              minLength: 2
+              maxLength: 2
+              examples:
+                - ar
+            country_code:
+              type:
+                - string
+                - 'null'
+              minLength: 2
+              maxLength: 2
+              examples:
+                - LB
+            timezone:
+              type: string
+              examples:
+                - Asia/Beirut
+            numbering_system:
+              type: string
+              enum:
+                - latn
+                - arab
+            date_of_birth:
+              type:
+                - string
+                - 'null'
+              format: date
+    Organisation:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - type
+        - status
+        - country_code
+        - default_currency_code
+        - default_language_code
+        - capabilities
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          type: string
+          examples:
+            - cedar-clinic
+        name:
+          type: string
+          examples:
+            - Cedar Clinic
+        type:
+          type:
+            - string
+            - 'null'
+          description: The organisation type code.
+          examples:
+            - clinic
+        status:
+          type: string
+          enum:
+            - pending
+            - active
+            - suspended
+            - closed
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        default_currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        default_language_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        capabilities:
+          type: array
+          description: Enabled capability codes.
+          items:
+            type: string
+          examples:
+            - - clinic_services
+    Branch:
+      type: object
+      required:
+        - id
+        - name
+        - city
+        - timezone
+        - status
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        city:
+          type:
+            - string
+            - 'null'
+        timezone:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - closed
+    Membership:
+      type: object
+      required:
+        - id
+        - status
+        - branch_id
+        - joined_at
+        - organisation
+        - roles
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum:
+            - invited
+            - active
+            - suspended
+          description: |
+            Ended memberships are history and are never listed.
+        branch_id:
+          description: Set when the membership is scoped to a single branch.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        joined_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        organisation:
+          $ref: '#/components/schemas/Organisation'
+        roles:
+          type: array
+          description: Assigned role codes.
+          items:
+            type: string
+          examples:
+            - - organisation_owner
+    ActiveContext:
+      description: |
+        The validated working context. Null when nothing valid was claimed.
+      oneOf:
+        - type: 'null'
+        - type: object
+          required:
+            - organisation
+            - branch
+            - membership_id
+            - permissions
+            - entitlements
+          properties:
+            organisation:
+              $ref: '#/components/schemas/Organisation'
+            branch:
+              oneOf:
+                - $ref: '#/components/schemas/Branch'
+                - type: 'null'
+            membership_id:
+              $ref: '#/components/schemas/Uuid'
+            permissions:
+              type: array
+              description: Calculated permission codes, in `domain.action_scope` form.
+              items:
+                type: string
+              examples:
+                - - organisation.view_current
+                  - branch.view_current
+            entitlements:
+              type: array
+              description: Feature codes the organisation is currently entitled to.
+              items:
+                type: string
+    PendingConsent:
+      type: object
+      required:
+        - code
+        - version
+        - purpose
+      properties:
+        code:
+          type: string
+          examples:
+            - consent.health_data_processing
+        version:
+          type: integer
+          minimum: 1
+        purpose:
+          type: string
+          examples:
+            - health_data_processing
+    Device:
+      type: object
+      required:
+        - id
+        - device_name
+        - platform
+        - app_version
+        - last_seen_at
+        - created_at
+        - is_current
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        device_name:
+          type: string
+          examples:
+            - Nadia iPhone
+        platform:
+          type: string
+          enum:
+            - ios
+            - android
+            - web
+        app_version:
+          type:
+            - string
+            - 'null'
+        last_seen_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        is_current:
+          type: boolean
+          description: Whether this device holds the credential making the request.
+    TwoFactorState:
+      type: object
+      required:
+        - enabled
+        - confirmed
+        - confirmed_at
+      properties:
+        enabled:
+          type: boolean
+          description: A secret exists.
+        confirmed:
+          type: boolean
+          description: Enrolment is complete and two-factor authentication is armed.
+        confirmed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - password_confirmation
+        - given_name
+        - family_name
+        - accepts_terms
+        - accepts_privacy
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        password_confirmation:
+          type: string
+          format: password
+        given_name:
+          type: string
+          maxLength: 255
+        family_name:
+          type: string
+          maxLength: 255
+        preferred_language_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: An active platform language. Defaults to `en`.
+        country_code:
+          type:
+            - string
+            - 'null'
+          minLength: 2
+          maxLength: 2
+        timezone:
+          type: string
+          maxLength: 64
+          description: An IANA timezone. Defaults to `UTC`.
+        accepts_terms:
+          type: boolean
+          const: true
+          description: Acceptance of the terms of service. Recorded as a consent grant.
+        accepts_privacy:
+          type: boolean
+          const: true
+          description: Acknowledgement of the privacy notice. Recorded as a consent grant.
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        remember:
+          type: boolean
+          default: false
+    IssueTokenRequest:
+      type: object
+      required:
+        - email
+        - password
+        - device_name
+        - platform
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        device_name:
+          type: string
+          maxLength: 255
+          description: A human-readable device name, shown in device management.
+        platform:
+          type: string
+          enum:
+            - ios
+            - android
+            - web
+        app_version:
+          type:
+            - string
+            - 'null'
+          maxLength: 64
+        two_factor_code:
+          type:
+            - string
+            - 'null'
+          maxLength: 32
+          description: Required when the account has confirmed two-factor authentication.
+        recovery_code:
+          type:
+            - string
+            - 'null'
+          maxLength: 64
+          description: An alternative to `two_factor_code`. Consumed and replaced on use.
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - email
+        - password
+        - password_confirmation
+      properties:
+        token:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        password_confirmation:
+          type: string
+          format: password
+    TwoFactorChallengeRequest:
+      type: object
+      description: Supply either `code` or `recovery_code`.
+      properties:
+        code:
+          type:
+            - string
+            - 'null'
+          description: The current one-time password.
+        recovery_code:
+          type:
+            - string
+            - 'null'
+          description: A single-use recovery code.

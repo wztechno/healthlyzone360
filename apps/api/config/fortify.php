@@ -67,26 +67,28 @@ return [
     | Home Path
     |--------------------------------------------------------------------------
     |
-    | Here you may configure the path where users will get redirected during
-    | authentication or password reset when the operations are successful
-    | and the user is authenticated. You are free to change this value.
+    | Healthy360 is a headless JSON API: no authentication response redirects
+    | anywhere, so this value is never used. It is kept valid rather than
+    | removed because Fortify reads it unconditionally.
     |
     */
 
-    'home' => '/dashboard',
+    'home' => '/',
 
     /*
     |--------------------------------------------------------------------------
     | Fortify Routes Prefix / Subdomain
     |--------------------------------------------------------------------------
     |
-    | Here you may specify which prefix Fortify will assign to all the routes
-    | that it registers with the application. If necessary, you may change
-    | subdomain under which all of the Fortify routes will be available.
+    | Every authentication endpoint lives under /api/v1/auth (plan §13). The
+    | routes themselves are declared in routes/api-v1-auth.php rather than by
+    | Fortify (Fortify::ignoreRoutes() in FortifyServiceProvider), but the
+    | group is registered with this prefix and middleware, so this file stays
+    | the single description of where authentication lives.
     |
     */
 
-    'prefix' => '',
+    'prefix' => 'api/v1/auth',
 
     'domain' => null,
 
@@ -95,28 +97,34 @@ return [
     | Fortify Routes Middleware
     |--------------------------------------------------------------------------
     |
-    | Here you may specify which middleware Fortify will assign to the routes
-    | that it registers with the application. If necessary, you may change
-    | these middleware but typically this provided default is preferred.
+    | The `api` group: correlation identifiers, Sanctum stateful-domain
+    | handling (cookie sessions for first-party origins, bearer tokens
+    | elsewhere) and the global 60/minute API limiter.
     |
     */
 
-    'middleware' => ['web'],
+    'middleware' => ['api'],
 
     /*
     |--------------------------------------------------------------------------
     | Rate Limiting
     |--------------------------------------------------------------------------
     |
-    | By default, Fortify will throttle logins to five requests per minute for
-    | every email and IP address combination. However, if you would like to
-    | specify a custom rate limiter to call then you may specify it here.
+    | Named limiters registered in App\Providers\FortifyServiceProvider.
+    |
+    | `login` is deliberately null: login throttling is performed inside the
+    | authentication pipeline by Fortify's EnsureLoginIsNotThrottled (5/minute
+    | per email + IP), which raises Illuminate\Auth\Events\Lockout so the
+    | attempt is audited. A route-level limiter would count successes too and
+    | would never raise that event.
     |
     */
 
     'limiters' => [
-        'login' => 'login',
+        'login' => null,
         'two-factor' => 'two-factor',
+        'forgot-password' => 'forgot-password',
+        'verification' => 'verification',
     ],
 
     /*

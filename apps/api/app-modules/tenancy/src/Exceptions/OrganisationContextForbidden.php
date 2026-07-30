@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Tenancy\Exceptions;
 
-use Exception;
-use Illuminate\Http\JsonResponse;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 
 /**
  * The declared organisation context could not be validated for the
@@ -13,15 +13,10 @@ use Illuminate\Http\JsonResponse;
  * active). One deliberately indistinct message: the response must not reveal
  * whether the organisation exists.
  */
-class OrganisationContextForbidden extends Exception
+class OrganisationContextForbidden extends ApiException
 {
-    public function render(): JsonResponse
+    public function __construct()
     {
-        return new JsonResponse([
-            'error' => [
-                'code' => 'context.organisation_forbidden',
-                'message' => 'You do not have an active membership in the requested organisation.',
-            ],
-        ], 403);
+        parent::__construct(ErrorCode::ContextOrganisationForbidden);
     }
 }

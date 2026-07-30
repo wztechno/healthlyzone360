@@ -4,22 +4,17 @@ declare(strict_types=1);
 
 namespace Healthy360\Tenancy\Exceptions;
 
-use Exception;
-use Illuminate\Http\JsonResponse;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 
 /**
  * The declared branch context is not an active branch of the selected
  * organisation, or falls outside the authenticated user's membership scope.
  */
-class BranchOutsideMembershipScope extends Exception
+class BranchOutsideMembershipScope extends ApiException
 {
-    public function render(): JsonResponse
+    public function __construct()
     {
-        return new JsonResponse([
-            'error' => [
-                'code' => 'context.branch_out_of_scope',
-                'message' => 'The requested branch is not within your membership scope.',
-            ],
-        ], 403);
+        parent::__construct(ErrorCode::ContextBranchOutOfScope);
     }
 }

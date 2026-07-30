@@ -73,10 +73,17 @@
             "Composer\\Config::disableProcessTimeout",
             "@lint:check",
             "@types:check",
+            "@api:lint",
             "@php artisan test"
         ],
         "types:check": [
             "phpstan analyse"
+        ],
+        "api:lint": [
+            "npx --yes @redocly/cli lint --config openapi/redocly.yaml"
+        ],
+        "api:bundle": [
+            "npx --yes @redocly/cli bundle openapi/healthy360.v1.yaml --config openapi/redocly.yaml -o openapi/dist/healthy360.v1.yaml"
         ],
         "test": [
             "@php artisan config:clear --ansi",

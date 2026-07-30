@@ -18,3 +18,10 @@ Homestead.yaml
 /.vscode
 /.zed
 /.claude
+
+# The bundled OpenAPI document is a committed artefact, not build output: it
+# is the contract clients are generated from and the file CI diffs for drift.
+# The repository-wide `dist/` rule would otherwise swallow it, and a parent
+# rule that excludes a directory cannot be undone file by file — the
+# directory itself has to be re-included.
+!/openapi/dist/

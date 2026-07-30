@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace Healthy360\Tenancy\Http\Middleware;
 
 use Closure;
-use Healthy360\Organisations\Enums\MembershipStatus;
-use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Tenancy\Exceptions\OrganisationContextForbidden;
 use Healthy360\Tenancy\Exceptions\OrganisationContextRequired;
+use Healthy360\Tenancy\Services\ContextValidator;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -19,10 +17,16 @@ use Symfony\Component\HttpFoundation\Response;
  * authenticated user's memberships (alias: org.context). Client-provided
  * identifiers are never trusted without this server-side validation
  * (plan §9). Fails closed on any doubt.
+ *
+ * The validation itself lives in ContextValidator, shared with
+ * PUT /api/v1/me/context.
  */
 class ResolveOrganisationContext
 {
-    public function __construct(private readonly TenantContext $context) {}
+    public function __construct(
+        private readonly TenantContext $context,
+        private readonly ContextValidator $validator,
+    ) {}
 
     /**
      * @param  Closure(Request): Response  $next
@@ -44,21 +48,13 @@ class ResolveOrganisationContext
             throw new OrganisationContextRequired;
         }
 
-        if (! Str::isUuid($organisationId)) {
-            throw new OrganisationContextForbidden;
-        }
+        $membership = $this->validator->membership($user, $organisationId);
 
-        $membership = OrganisationMembership::withoutTenancy()
-            ->where('organisation_id', $organisationId)
-            ->where('user_id', $user->getAuthIdentifier())
-            ->where('status', MembershipStatus::Active)
-            ->first();
-
-        if ($membership === null) {
-            throw new OrganisationContextForbidden;
-        }
-
-        $this->context->setOrganisation((string) $user->getAuthIdentifier(), $organisationId, $membership);
+        $this->context->setOrganisation(
+            (string) $user->getAuthIdentifier(),
+            (string) $membership->organisation_id,
+            $membership,
+        );
 
         return $next($request);
     }

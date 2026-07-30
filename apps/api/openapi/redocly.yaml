@@ -1,0 +1,21 @@
+apis:
+  healthy360@v1:
+    root: healthy360.v1.yaml
+
+extends:
+  - recommended
+
+rules:
+  # The contract rules Healthy360 treats as blocking.
+  struct: error
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-4xx-response: error
+  operation-summary: error
+  path-params-defined: error
+  security-defined: error
+  no-unused-components: error
+
+  # A local development server is listed on purpose: the universal client is
+  # developed against it, and the deployed host is a server variable.
+  no-server-example.com: off

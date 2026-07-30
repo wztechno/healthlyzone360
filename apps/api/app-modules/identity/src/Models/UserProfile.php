@@ -25,6 +25,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $timezone
  * @property string $numbering_system latn | arab (default per OQ-001)
  * @property CarbonImmutable|null $date_of_birth
+ * @property string|null $last_organisation_id remembered workspace; always re-validated
+ * @property string|null $last_branch_id remembered branch; always re-validated
  * @property string|null $created_by
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at

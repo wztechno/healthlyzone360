@@ -21,6 +21,16 @@ return new class extends Migration
             $table->string('timezone')->default('UTC');
             $table->string('numbering_system', 4)->default('latn')->comment('default per OQ-001');
             $table->date('date_of_birth')->nullable();
+
+            // Last-used workspace, remembered so a returning client can be
+            // restored without re-picking. Deliberately plain uuid columns
+            // with no foreign keys: this table is created before
+            // organisations and branches exist, and a stale identifier must
+            // degrade to "no context" rather than block the account. Every
+            // read is re-validated through Tenancy\ContextValidator.
+            $table->uuid('last_organisation_id')->nullable();
+            $table->uuid('last_branch_id')->nullable();
+
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->integer('lock_version')->default(0);
             $table->timestamps();

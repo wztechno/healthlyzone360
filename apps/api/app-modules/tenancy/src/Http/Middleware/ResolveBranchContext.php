@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace Healthy360\Tenancy\Http\Middleware;
 
 use Closure;
-use Healthy360\Organisations\Enums\BranchStatus;
-use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Tenancy\Exceptions\BranchOutsideMembershipScope;
 use Healthy360\Tenancy\Exceptions\OrganisationContextRequired;
+use Healthy360\Tenancy\Services\ContextValidator;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -25,7 +23,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ResolveBranchContext
 {
-    public function __construct(private readonly TenantContext $context) {}
+    public function __construct(
+        private readonly TenantContext $context,
+        private readonly ContextValidator $validator,
+    ) {}
 
     /**
      * @param  Closure(Request): Response  $next
@@ -35,40 +36,17 @@ class ResolveBranchContext
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $this->context->hasOrganisation()) {
+        $membership = $this->context->membership();
+
+        if (! $this->context->hasOrganisation() || $membership === null) {
             throw new OrganisationContextRequired;
         }
 
-        $membershipBranchId = $this->context->membership()?->branch_id;
-        $branchId = $request->header('X-Branch-Id');
+        $branchId = $this->validator->branch($membership, $request->header('X-Branch-Id'));
 
-        if (! is_string($branchId) || trim($branchId) === '') {
-            if ($membershipBranchId !== null) {
-                $this->context->setBranch($membershipBranchId);
-            }
-
-            return $next($request);
+        if ($branchId !== null) {
+            $this->context->setBranch($branchId);
         }
-
-        if (! Str::isUuid($branchId)) {
-            throw new BranchOutsideMembershipScope;
-        }
-
-        if ($membershipBranchId !== null && $membershipBranchId !== $branchId) {
-            throw new BranchOutsideMembershipScope;
-        }
-
-        $branchExists = OrganisationBranch::withoutTenancy()
-            ->whereKey($branchId)
-            ->where('organisation_id', $this->context->organisationId())
-            ->where('status', BranchStatus::Active)
-            ->exists();
-
-        if (! $branchExists) {
-            throw new BranchOutsideMembershipScope;
-        }
-
-        $this->context->setBranch($branchId);
 
         return $next($request);
     }

@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Client Application URL
+    |--------------------------------------------------------------------------
+    |
+    | The universal Expo client. The API is headless, so links mailed to a
+    | person (currently the password-reset link) must open the client rather
+    | than the API. Email verification is the exception: that link is a
+    | signed API route, because the API is what performs the verification.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:8081'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

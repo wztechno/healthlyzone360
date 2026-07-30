@@ -46,4 +46,32 @@ final class FeatureEntitlementChecker
             ? EntitlementDecision::allow()
             : EntitlementDecision::deny(EntitlementDenialReason::EntitlementMissing);
     }
+
+    /**
+     * Every feature code the organisation is currently entitled to, for
+     * hydration into /api/v1/me. Same time and status rules as check().
+     *
+     * @return list<string>
+     */
+    public function entitledCodes(string $organisationId): array
+    {
+        $now = now();
+
+        /** @var list<string> */
+        return FeatureDefinition::query()
+            ->where('is_active', true)
+            ->whereIn('id', FeatureEntitlement::withoutTenancy()
+                ->where('organisation_id', $organisationId)
+                ->whereIn('status', [EntitlementStatus::Enabled, EntitlementStatus::Trial])
+                ->where(function (Builder $query) use ($now): void {
+                    $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
+                })
+                ->where(function (Builder $query) use ($now): void {
+                    $query->whereNull('expires_at')->orWhere('expires_at', '>', $now);
+                })
+                ->select('feature_definition_id'))
+            ->orderBy('code')
+            ->pluck('code')
+            ->all();
+    }
 }

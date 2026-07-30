@@ -40,6 +40,8 @@ erDiagram
         string timezone
         string numbering_system "latn | arab; default per OQ-001"
         date date_of_birth "nullable"
+        uuid last_organisation_id "nullable; remembered workspace, no FK, always re-validated"
+        uuid last_branch_id "nullable; remembered branch, no FK, always re-validated"
         int lock_version
         timestamp created_at
         timestamp updated_at
@@ -328,3 +330,4 @@ erDiagram
 - Column lists are the architectural contract (keys, scoping, stewardship, concurrency); exact nullable/index details are finalised in migrations and must not contradict this document without updating it.
 - Tables named in the RLS representative set (`organisation_branches`, `organisation_memberships`, `roles`, `feature_entitlements`, `consent_grants`, `audit_logs`) are marked "RLS set" (ADR-0007).
 - `users`, reference tables, `permissions` and `feature_definitions` are platform-global and carry no organisation scoping.
+- **Phase 4 change — `user_profiles.last_organisation_id` / `last_branch_id`.** `PUT /api/v1/me/context` remembers the last-used workspace so a returning client can be restored without re-picking, and `GET /api/v1/me` falls back to it when no `X-Organisation-Id` header is sent. The columns are deliberately plain nullable `uuid` with **no foreign keys**: `user_profiles` is created before `organisations` and `organisation_branches` exist, and — more importantly — a stale or now-invalid identifier must degrade to "no context" rather than block the account or cascade a delete into a person's profile. Every read is re-validated through `Healthy360\Tenancy\Services\ContextValidator`, the same validation the context headers go through, so the remembered value is never trusted. Added to the original `create_user_profiles_table` migration in place, pre-release.

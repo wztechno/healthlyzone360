@@ -4,23 +4,18 @@ declare(strict_types=1);
 
 namespace Healthy360\Tenancy\Exceptions;
 
-use Exception;
-use Illuminate\Http\JsonResponse;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 
 /**
  * The route requires an organisation context but no X-Organisation-Id header
- * was supplied. Minimal JSON mapping for now; the full error envelope with
- * correlation identifiers arrives in Phase 4.
+ * was supplied. Rendered as the standard error envelope (400,
+ * context.organisation_required) by the central API exception renderer.
  */
-class OrganisationContextRequired extends Exception
+class OrganisationContextRequired extends ApiException
 {
-    public function render(): JsonResponse
+    public function __construct()
     {
-        return new JsonResponse([
-            'error' => [
-                'code' => 'context.organisation_required',
-                'message' => 'An X-Organisation-Id header is required for this endpoint.',
-            ],
-        ], 400);
+        parent::__construct(ErrorCode::ContextOrganisationRequired);
     }
 }
