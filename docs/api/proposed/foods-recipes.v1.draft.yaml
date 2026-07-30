@@ -1,0 +1,654 @@
+openapi: 3.1.0
+
+info:
+  title: Healthy360 Foods, Recipes, Grocery and Pantry (proposed)
+  version: 0.1.0-draft
+  x-status: draft
+  summary: Proposed endpoints for food search, recipes, the weekly grocery list and the pantry.
+  description: |
+    **DRAFT — NOT IMPLEMENTED.** No route behind this document exists. It is a design artefact for
+    review (Prompt 2, "Recipe and meal detail"), invisible to `scripts/gen-api.mjs` and to the
+    backend CI workflow. The TypeScript counterpart is `FoodRepository` in
+    `packages/api-client/src/contracts/foods.ts`.
+
+    Five concepts are kept apart deliberately, and collapsing any pair of them would make the
+    nutrition provenance unexplainable:
+
+    - an **ingredient** is reference data with per-100 g facts;
+    - a **food** is a searchable entry a person logs;
+    - a **recipe** is our own composition of ingredients, carrying a version;
+    - a **kitchen recipe version** is a kitchen's edit of one, marked by `kitchen_id`;
+    - a **marketplace meal** is a sellable product and lives in the marketplace contract.
+
+    Every figure arrives with its `source`, its `version` and its `calculated_at`, so a synthetic
+    prototype value is displayed as a synthetic prototype value.
+  license:
+    name: Proprietary
+    url: https://healthy360.com/legal/api-terms
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.healthy360.com
+        description: The API host for the target environment.
+
+tags:
+  - name: Foods and recipes
+    description: Food search, recipes, grocery lists and the pantry.
+
+security:
+  - sessionCookie: []
+  - bearerToken: []
+
+paths:
+  /foods:
+    get:
+      operationId: listFoods
+      tags: [Foods and recipes]
+      summary: Search foods
+      description: |
+        The "add food" and logging search. Always query-driven: an unbounded food listing is not
+        useful to anybody and is expensive to serve.
+      security: []
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Cursor'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Limit'
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 120
+        - name: exclude_allergens
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: diet_classifications
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: A page of foods.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Food'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/PaginationMeta'
+              example:
+                data:
+                  - id: food_rolled_oats
+                    name: Rolled oats
+                    brand: null
+                    allergens: [gluten]
+                    source_label: Synthetic prototype data
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                  next_cursor: null
+                  has_more: false
+                  total_count: 1
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /recipes:
+    get:
+      operationId: listRecipes
+      tags: [Foods and recipes]
+      summary: List recipes
+      description: |
+        The recipe catalogue, with the filters the replacement drawer needs. `prefer_pantry_items`
+        ranks recipes by how much of their ingredient list the pantry already covers; it is a
+        ranking signal, never a filter.
+      security: []
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Cursor'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Limit'
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+        - name: meal_types
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [breakfast, lunch, dinner, snack]
+        - name: cuisines
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: exclude_allergens
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: energy_max
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: protein_min
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: total_minutes_max
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: maximum_complexity
+          in: query
+          required: false
+          description: Steps and technique, 1 (assembly) to 5 (involved).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - name: prefer_pantry_items
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: kitchen_id
+          in: query
+          required: false
+          description: Restrict to one kitchen's own recipe versions.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A page of recipes.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/PaginationMeta'
+              example:
+                data:
+                  - id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1b01
+                    version: '1'
+                    name: Chicken and freekeh bowl
+                    slug: chicken-and-freekeh-bowl
+                    servings: 2
+                    preparation_minutes: 15
+                    cooking_minutes: 25
+                    complexity: 2
+                    image_placeholder_id: recipe-freekeh
+                    kitchen_id: null
+                    updated_at: '2026-01-15T09:30:00.000Z'
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                  next_cursor: null
+                  has_more: false
+                  total_count: 20
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /recipes/{recipe}:
+    parameters:
+      - name: recipe
+        in: path
+        required: true
+        description: The recipe.
+        schema:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+    get:
+      operationId: getRecipe
+      tags: [Foods and recipes]
+      summary: Read one recipe
+      description: |
+        The recipe with its ingredient quantities, its steps and its per-recipe, per-serving and
+        per-100 g nutrition. `version` is bumped on every edit: figures computed against an older
+        version are stale and must not be displayed as current.
+      security: []
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The recipe.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Recipe'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1b01
+                  version: '1'
+                  name: Chicken and freekeh bowl
+                  slug: chicken-and-freekeh-bowl
+                  servings: 2
+                  preparation_minutes: 15
+                  cooking_minutes: 25
+                  complexity: 2
+                  image_placeholder_id: recipe-freekeh
+                  kitchen_id: null
+                  updated_at: '2026-01-15T09:30:00.000Z'
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /grocery-lists/{week}:
+    parameters:
+      - name: week
+        in: path
+        required: true
+        description: Monday of the week the list covers, `YYYY-MM-DD`.
+        schema:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+    get:
+      operationId: getGroceryList
+      tags: [Foods and recipes]
+      summary: Read the grocery list for a week
+      description: |
+        Ingredient quantities aggregated across every home-prepared entry in the week, with the
+        pantry already subtracted. `needed_for_recipe_ids` lets the interface explain why an item is
+        on the list.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The grocery list.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/GroceryList'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1a01
+                  week_start: '2026-03-02'
+                  items:
+                    - ingredient_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1901
+                      name: Chicken breast
+                      quantity: 800
+                      unit: g
+                      grams: 800
+                      aisle: Meat
+                      in_pantry: false
+                      needed_for_recipe_ids: ['0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1b01']
+                  generated_at: '2026-01-15T09:30:00.000Z'
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /pantry:
+    get:
+      operationId: getPantry
+      tags: [Foods and recipes]
+      summary: Read the pantry
+      description: |
+        What the person has recorded at home. An empty pantry is a normal state, not an error: the
+        planner treats pantry use as a ranking signal that is simply absent.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The pantry.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Pantry'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  items: []
+                  updated_at: null
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/sessionCookie'
+    bearerToken:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/bearerToken'
+
+  schemas:
+    MeasureUnit:
+      type: string
+      enum: [g, kg, ml, l, piece, slice, portion, cup, tbsp, tsp]
+
+    Food:
+      type: object
+      required: [id, name, source_label]
+      properties:
+        id:
+          type: string
+          description: |
+            A stable food code, not a UUID: foods are reference data shared across tenants.
+          examples: [food_rolled_oats]
+        name:
+          type: string
+        brand:
+          type: [string, 'null']
+        per_100g:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        servings:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/Serving'
+        allergens:
+          type: array
+          items:
+            type: string
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        source_label:
+          type: string
+          description: Provenance shown next to the figures.
+      additionalProperties: false
+
+    IngredientQuantity:
+      type: object
+      required: [ingredient_id, name, quantity, unit, optional]
+      properties:
+        ingredient_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          $ref: '#/components/schemas/MeasureUnit'
+        grams:
+          type: [number, 'null']
+        per_100g:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        allergens:
+          type: array
+          items:
+            type: string
+        optional:
+          type: boolean
+          description: Optional ingredients are excluded from the default roll-up.
+        estimated_cost:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+      additionalProperties: false
+
+    RecipeStep:
+      type: object
+      required: [index, instruction]
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        instruction:
+          type: string
+        minutes:
+          type: [integer, 'null']
+      additionalProperties: false
+
+    Recipe:
+      type: object
+      required:
+        - id
+        - version
+        - name
+        - slug
+        - servings
+        - preparation_minutes
+        - cooking_minutes
+        - complexity
+        - image_placeholder_id
+        - updated_at
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        version:
+          type: string
+          description: Bumped on every edit; older nutrition figures are stale.
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        meal_types:
+          type: array
+          items:
+            type: string
+            enum: [breakfast, lunch, dinner, snack]
+        cuisines:
+          type: array
+          items:
+            type: string
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        allergens:
+          type: array
+          items:
+            type: string
+        servings:
+          type: number
+          minimum: 0.5
+        serving:
+          $ref: '_shared/schemas.yaml#/components/schemas/Serving'
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngredientQuantity'
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeStep'
+        preparation_minutes:
+          type: integer
+          minimum: 0
+        cooking_minutes:
+          type: integer
+          minimum: 0
+        complexity:
+          type: integer
+          minimum: 1
+          maximum: 5
+        per_recipe:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        per_serving:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        per_100g:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+            - type: 'null'
+        estimated_cost:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        image_placeholder_id:
+          type: string
+        kitchen_id:
+          type: [string, 'null']
+          format: uuid
+          description: Set when this is a kitchen's own version rather than the platform's.
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    GroceryListItem:
+      type: object
+      required: [ingredient_id, name, quantity, unit, in_pantry]
+      properties:
+        ingredient_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          $ref: '#/components/schemas/MeasureUnit'
+        grams:
+          type: [number, 'null']
+        aisle:
+          type: [string, 'null']
+        estimated_cost:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        in_pantry:
+          type: boolean
+        needed_for_recipe_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      additionalProperties: false
+
+    GroceryList:
+      type: object
+      required: [id, week_start, items, generated_at]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        week_start:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroceryListItem'
+        estimated_total:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        generated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    PantryItem:
+      type: object
+      required: [ingredient_id, name, quantity, unit, updated_at]
+      properties:
+        ingredient_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          $ref: '#/components/schemas/MeasureUnit'
+        grams:
+          type: [number, 'null']
+        best_before:
+          type: [string, 'null']
+          format: date
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    Pantry:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PantryItem'
+        updated_at:
+          type: [string, 'null']
+          format: date-time
+      additionalProperties: false

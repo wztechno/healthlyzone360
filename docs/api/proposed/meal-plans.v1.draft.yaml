@@ -1,0 +1,669 @@
+openapi: 3.1.0
+
+info:
+  title: Healthy360 Meal Plans (proposed)
+  version: 0.1.0-draft
+  x-status: draft
+  summary: Proposed endpoints for generating, regenerating and editing a personal meal plan.
+  description: |
+    **DRAFT — NOT IMPLEMENTED.** No route behind this document exists. It is a design artefact for
+    review (Prompt 2, "Meal planner"), invisible to `scripts/gen-api.mjs` and to the backend CI
+    workflow. The TypeScript counterpart is `MealPlanRepository` in
+    `packages/api-client/src/contracts/planner.ts`.
+
+    Regeneration appears at three scopes — week, day, entry — as three separate operations rather
+    than one operation with a scope parameter. They are genuinely different: regenerating a week may
+    move meals between days, regenerating an entry may not, and a caller that cannot tell them apart
+    will eventually invoke the wrong one.
+
+    A **locked** entry survives every scope. That is the whole purpose of a lock, so
+    `respect_locks` accepts only `true`; it exists to make the guarantee visible in the contract
+    rather than to offer a way around it.
+
+    The constraint set a generation must satisfy is declared in
+    `packages/nutrition/src/planner/constraints.ts`. Allergies, availability, serving limits,
+    delivery area and the kitchen schedule can be overridden by nobody.
+  license:
+    name: Proprietary
+    url: https://healthy360.com/legal/api-terms
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.healthy360.com
+        description: The API host for the target environment.
+
+tags:
+  - name: Meal plans
+    description: Generation, regeneration, locking, replacement and portion control.
+
+security:
+  - sessionCookie: []
+  - bearerToken: []
+
+paths:
+  /meal-plans/generate:
+    post:
+      operationId: generateMealPlan
+      tags: [Meal plans]
+      summary: Generate a meal plan for a week
+      description: |
+        Builds a week from the person's stored targets and preferences. `422` when the constraint
+        set admits no candidate for a slot; the error detail names the constraint that eliminated
+        it, so the interface can say *why* rather than "no results".
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePlanRequest'
+            example:
+              week_start: '2026-03-02'
+              meals_per_day: 3
+              snacks_per_day: 1
+              preparation_mode: mixed
+      responses:
+        '201':
+          $ref: '#/components/responses/PlanWeek'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /meal-plans/{plan}:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+    get:
+      operationId: getMealPlan
+      tags: [Meal plans]
+      summary: Read a plan week
+      description: The week's entries, its daily and weekly nutrition summaries and its targets.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - name: week_start
+          in: query
+          required: true
+          description: Monday of the week to read.
+          schema:
+            $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlanWeek'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /meal-plans/{plan}/regenerate:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+    post:
+      operationId: regenerateMealPlan
+      tags: [Meal plans]
+      summary: Regenerate a whole week
+      description: |
+        Rebuilds every unlocked entry in the week. Entries may move between days, which is what
+        distinguishes this from regenerating seven days one at a time.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateRequest'
+            example:
+              respect_locks: true
+      responses:
+        '200':
+          $ref: '#/components/responses/PlanWeek'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /meal-plans/{plan}/days/{day}/regenerate:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+      - name: day
+        in: path
+        required: true
+        description: The day to regenerate, `YYYY-MM-DD`.
+        schema:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+    post:
+      operationId: regenerateMealPlanDay
+      tags: [Meal plans]
+      summary: Regenerate one day
+      description: Rebuilds every unlocked entry on the day. Nothing moves to another day.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateRequest'
+            example:
+              respect_locks: true
+              exclude_meal_ids: ['0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01']
+      responses:
+        '200':
+          $ref: '#/components/responses/PlanDay'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /meal-plans/{plan}/entries/{entry}/regenerate:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+      - $ref: '#/components/parameters/EntryId'
+    post:
+      operationId: regenerateMealPlanEntry
+      tags: [Meal plans]
+      summary: Regenerate one entry
+      description: |
+        Replaces a single slot with another candidate of the same meal type and a comparable
+        nutrition profile. `409` when the entry is locked: silently ignoring the lock would be
+        worse than refusing.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateRequest'
+            example:
+              exclude_recipe_ids: ['0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1b01']
+      responses:
+        '200':
+          $ref: '#/components/responses/PlanEntry'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '409':
+          $ref: '_shared/schemas.yaml#/components/responses/Conflict'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /meal-plans/{plan}/entries/{entry}/lock:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+      - $ref: '#/components/parameters/EntryId'
+    post:
+      operationId: lockMealPlanEntry
+      tags: [Meal plans]
+      summary: Lock an entry
+      description: A locked entry is never replaced by any regeneration, at any scope. Idempotent.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlanEntry'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+    delete:
+      operationId: unlockMealPlanEntry
+      tags: [Meal plans]
+      summary: Unlock an entry
+      description: Returns the entry to the regeneration pool. Idempotent.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlanEntry'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+
+  /meal-plans/{plan}/entries/{entry}/replace:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+      - $ref: '#/components/parameters/EntryId'
+    post:
+      operationId: replaceMealPlanEntry
+      tags: [Meal plans]
+      summary: Replace an entry, once or for every future occurrence
+      description: |
+        `mode: once` swaps this slot only; `mode: recurring` swaps every future occurrence of the
+        same entry in the plan, which is why the response is an array.
+
+        `confirmed_warnings` carries the person's explicit confirmation of a `user_confirmed`
+        constraint. It is **never** accepted for an allergy or a dietitian-enforced restriction;
+        those return `422` with the constraint named in `details`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceEntryRequest'
+            example:
+              mode: once
+              kind: kitchen_meal
+              meal_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c02
+      responses:
+        '200':
+          description: The entries that were written.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MealPlanEntry'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  - id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1e01
+                    plan_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d10
+                    date: '2026-03-02'
+                    meal_type: lunch
+                    position: 0
+                    kind: kitchen_meal
+                    label: Herbed chicken and freekeh
+                    portion_factor: 1
+                    locked: false
+                    is_leftover: false
+                    warnings: []
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /meal-plans/{plan}/entries/{entry}/portion:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+      - $ref: '#/components/parameters/EntryId'
+    patch:
+      operationId: adjustMealPlanEntryPortion
+      tags: [Meal plans]
+      summary: Adjust an entry's portion
+      description: |
+        Scales the entry's nutrition and cost by the portion factor. `422` when the factor falls
+        outside what the recipe or the kitchen supports — a meal sold as one sealed portion cannot
+        be planned at 0.6 of one.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustPortionRequest'
+            example:
+              portion_factor: 1.5
+      responses:
+        '200':
+          $ref: '#/components/responses/PlanEntry'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/sessionCookie'
+    bearerToken:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/bearerToken'
+
+  parameters:
+    PlanId:
+      name: plan
+      in: path
+      required: true
+      description: The meal plan.
+      schema:
+        $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+    EntryId:
+      name: entry
+      in: path
+      required: true
+      description: The plan entry.
+      schema:
+        $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+
+  responses:
+    PlanWeek:
+      description: The plan week.
+      headers:
+        X-Correlation-Id:
+          $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, meta]
+            properties:
+              data:
+                $ref: '#/components/schemas/MealPlanWeek'
+              meta:
+                $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+          example:
+            data:
+              plan_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d10
+              state: active
+              week_start: '2026-03-02'
+              days: []
+              targets: []
+              generated_at: '2026-01-15T09:30:00.000Z'
+              updated_at: '2026-01-15T09:30:00.000Z'
+            meta:
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    PlanDay:
+      description: One day of the plan.
+      headers:
+        X-Correlation-Id:
+          $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, meta]
+            properties:
+              data:
+                $ref: '#/components/schemas/MealPlanDay'
+              meta:
+                $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+          example:
+            data:
+              plan_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d10
+              date: '2026-03-02'
+              entries: []
+              targets: []
+            meta:
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    PlanEntry:
+      description: One plan entry.
+      headers:
+        X-Correlation-Id:
+          $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, meta]
+            properties:
+              data:
+                $ref: '#/components/schemas/MealPlanEntry'
+              meta:
+                $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+          example:
+            data:
+              id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1e01
+              plan_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d10
+              date: '2026-03-02'
+              meal_type: lunch
+              position: 0
+              kind: recipe
+              label: Chicken and freekeh bowl
+              portion_factor: 1
+              locked: true
+              is_leftover: false
+              warnings: []
+            meta:
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+  schemas:
+    PlanEntryKind:
+      type: string
+      enum: [food, recipe, kitchen_meal, restaurant]
+
+    GeneratePlanRequest:
+      type: object
+      required: [week_start]
+      properties:
+        week_start:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        meals_per_day:
+          type: integer
+          minimum: 1
+          maximum: 8
+        snacks_per_day:
+          type: integer
+          minimum: 0
+          maximum: 4
+        preparation_mode:
+          type: string
+          enum: [home_prepared, kitchen_prepared, mixed]
+        preferred_kitchen_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        weekly_budget:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        maximum_preparation_minutes:
+          type: integer
+          minimum: 0
+        based_on_plan_id:
+          type: string
+          format: uuid
+      additionalProperties: false
+
+    RegenerateRequest:
+      type: object
+      properties:
+        respect_locks:
+          type: boolean
+          const: true
+          default: true
+          description: |
+            Only `true` is accepted. The field exists to make the guarantee visible in the contract,
+            not to offer a way around it.
+        exclude_meal_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        exclude_recipe_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        note:
+          type: string
+          maxLength: 500
+      additionalProperties: false
+
+    ReplaceEntryRequest:
+      type: object
+      required: [mode, kind]
+      properties:
+        mode:
+          type: string
+          enum: [once, recurring]
+        kind:
+          $ref: '#/components/schemas/PlanEntryKind'
+        recipe_id:
+          type: string
+          format: uuid
+        meal_id:
+          type: string
+          format: uuid
+        restaurant_name:
+          type: string
+          maxLength: 200
+        label:
+          type: string
+          maxLength: 200
+        portion_factor:
+          type: number
+          minimum: 0.1
+          maximum: 10
+        confirmed_warnings:
+          type: array
+          description: |
+            Never accepted for `planner.allergen_conflict` or
+            `planner.dietitian_restriction_conflict`.
+          items:
+            type: string
+      additionalProperties: false
+
+    AdjustPortionRequest:
+      type: object
+      required: [portion_factor]
+      properties:
+        portion_factor:
+          type: number
+          minimum: 0.1
+          maximum: 10
+      additionalProperties: false
+
+    MealPlanEntry:
+      type: object
+      required: [id, plan_id, date, meal_type, position, kind, label, portion_factor, locked]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        plan_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        meal_type:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        position:
+          type: integer
+          minimum: 0
+        kind:
+          $ref: '#/components/schemas/PlanEntryKind'
+        label:
+          type: string
+        recipe_id:
+          type: [string, 'null']
+          format: uuid
+        meal_id:
+          type: [string, 'null']
+          format: uuid
+        kitchen_id:
+          type: [string, 'null']
+          format: uuid
+        restaurant_name:
+          type: [string, 'null']
+        portion_factor:
+          type: number
+        nutrition:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        allergens:
+          type: array
+          items:
+            type: string
+        estimated_cost:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        preparation_minutes:
+          type: [integer, 'null']
+        locked:
+          type: boolean
+        is_leftover:
+          type: boolean
+        leftover_of_entry_id:
+          type: [string, 'null']
+          format: uuid
+        approved_by:
+          type: [string, 'null']
+          format: uuid
+        warnings:
+          type: array
+          description: Constraint codes surfaced on the card, e.g. `planner.energy_out_of_range`.
+          items:
+            type: string
+      additionalProperties: false
+
+    MealPlanDay:
+      type: object
+      required: [plan_id, date, entries, targets]
+      properties:
+        plan_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealPlanEntry'
+        planned:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        targets:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/NutrientTarget'
+      additionalProperties: false
+
+    MealPlanWeek:
+      type: object
+      required: [plan_id, state, week_start, days, targets, updated_at]
+      properties:
+        plan_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        state:
+          type: string
+          enum: [draft, active, archived, template]
+        week_start:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealPlanDay'
+        planned:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        daily_average:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        targets:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/NutrientTarget'
+        generated_at:
+          type: [string, 'null']
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false

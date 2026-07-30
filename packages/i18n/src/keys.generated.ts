@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 321 keys across 5 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 330 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -191,6 +191,12 @@ export interface NamespaceKeys {
     | 'workspace.switchBranch'
     | 'workspace.switchOrganisation'
     | 'workspace.title';
+  readonly "business":
+    | 'title';
+  readonly "catalogue":
+    | 'title';
+  readonly "commerce":
+    | 'title';
   readonly "common":
     | 'action.back'
     | 'action.cancel'
@@ -335,6 +341,18 @@ export interface NamespaceKeys {
     | 'validation.password_min_length'
     | 'validation.password_mismatch'
     | 'validation.required';
+  readonly "marketplace":
+    | 'title';
+  readonly "nutrition":
+    | 'title';
+  readonly "onboarding":
+    | 'title';
+  readonly "planner":
+    | 'title';
+  readonly "professional":
+    | 'title';
+  readonly "virtualDietitian":
+    | 'title';
 }
 
 /** Every key in `namespace:key` form — the shape an unscoped `t()` accepts. */
@@ -526,6 +544,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:workspace.switchBranch',
   'auth:workspace.switchOrganisation',
   'auth:workspace.title',
+  'business:title',
+  'catalogue:title',
+  'commerce:title',
   'common:action.back',
   'common:action.cancel',
   'common:action.change',
@@ -667,6 +688,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
+  'marketplace:title',
+  'nutrition:title',
+  'onboarding:title',
+  'planner:title',
+  'professional:title',
+  'virtualDietitian:title',
 ];
 
 const TRANSLATION_KEY_SET: ReadonlySet<string> = new Set(TRANSLATION_KEYS);

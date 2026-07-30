@@ -1,0 +1,728 @@
+openapi: 3.1.0
+
+info:
+  title: Healthy360 Cart, Checkout Preview and Subscriptions (proposed)
+  version: 0.1.0-draft
+  x-status: draft
+  summary: Proposed endpoints for the cart, priced previews and subscription lifecycle. No payments.
+  description: |
+    **DRAFT — NOT IMPLEMENTED.** No route behind this document exists. It is a design artefact for
+    review (Prompt 2, "Marketplace meal-plan subscription"), invisible to `scripts/gen-api.mjs` and
+    to the backend CI workflow. The TypeScript counterpart is `CommerceRepository` in
+    `packages/api-client/src/contracts/commerce.ts`.
+
+    **Deliberately payment-free.** No operation here accepts a card, a token or a payment-provider
+    reference, and there is no `confirmCheckout`. `POST /checkouts/preview` and
+    `POST /subscriptions/preview` are priced quotations: they reserve nothing and charge nothing,
+    and every preview response carries `payment_deferred: true` to say so on the wire.
+
+    An endpoint that *could* take a payment is an endpoint somebody eventually wires to a live
+    gateway by accident, so the capability is absent rather than disabled.
+  license:
+    name: Proprietary
+    url: https://healthy360.com/legal/api-terms
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.healthy360.com
+        description: The API host for the target environment.
+
+tags:
+  - name: Cart
+    description: The basket and its priced preview.
+  - name: Subscriptions
+    description: Configuring, creating and managing a meal-plan subscription.
+
+security:
+  - sessionCookie: []
+  - bearerToken: []
+
+paths:
+  /carts:
+    post:
+      operationId: createCart
+      tags: [Cart]
+      summary: Create or return the current cart
+      description: |
+        Idempotent for a given session: a caller that already has an open cart receives it rather
+        than a second one.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      responses:
+        '201':
+          $ref: '#/components/responses/CartResponse'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /carts/{cart}/items:
+    parameters:
+      - name: cart
+        in: path
+        required: true
+        description: The cart.
+        schema:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+    post:
+      operationId: addCartItem
+      tags: [Cart]
+      summary: Add a meal to the cart
+      description: |
+        Adds a line, or increases the quantity of an existing one. `422` when the meal is not
+        available on the requested delivery date.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+            example:
+              meal_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01
+              quantity: 2
+              delivery_date: '2026-03-03'
+      responses:
+        '200':
+          $ref: '#/components/responses/CartResponse'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /checkouts/preview:
+    post:
+      operationId: previewCheckout
+      tags: [Cart]
+      summary: Price a checkout without placing it
+      description: |
+        Returns what the cart would cost with the given address and delivery slot. Nothing is
+        reserved and nothing is charged; `payment_deferred` is always `true`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewCheckoutRequest'
+            example:
+              cart_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1f01
+              slot_code: morning
+              delivery_date: '2026-03-03'
+      responses:
+        '200':
+          description: The priced preview.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CheckoutPreview'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  cart_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1f01
+                  lines:
+                    - code: subtotal
+                      label: Subtotal
+                      amount:
+                        amount: 8400
+                        currency: AED
+                  subtotal:
+                    amount: 8400
+                    currency: AED
+                  delivery_fee:
+                    amount: 1500
+                    currency: AED
+                  discount: null
+                  total:
+                    amount: 9900
+                    currency: AED
+                  earliest_delivery_date: '2026-03-03'
+                  warnings: []
+                  payment_deferred: true
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /subscriptions/preview:
+    post:
+      operationId: previewSubscription
+      tags: [Subscriptions]
+      summary: Price a subscription configuration without creating it
+      description: |
+        Returns the weekly price, any duration discount, the delivery dates the configuration
+        produces and any warnings. Creates nothing.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionConfiguration'
+            example:
+              plan_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d01
+              variant_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d02
+              duration: '4w'
+              start_date: '2026-03-02'
+              delivery_weekdays: [1, 2, 3, 4, 5]
+              slot_code: morning
+              address:
+                label: Home
+                line1: 12 Marsa Street
+                area: Jumeirah 1
+                city: Dubai
+                country_code: AE
+              diet_classifications: [high_protein]
+              exclude_allergens: [peanut]
+              selected_meal_ids: []
+      responses:
+        '200':
+          description: The priced preview.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SubscriptionPreview'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  lines: []
+                  weekly_price:
+                    amount: 63000
+                    currency: AED
+                  discount_percent: 10
+                  total:
+                    amount: 226800
+                    currency: AED
+                  first_delivery_date: '2026-03-02'
+                  last_delivery_date: '2026-03-27'
+                  delivery_count: 20
+                  warnings: []
+                  payment_deferred: true
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /subscriptions:
+    post:
+      operationId: createSubscription
+      tags: [Subscriptions]
+      summary: Create a subscription
+      description: |
+        Records the subscription. **No payment is taken and no payment method is attached**; billing
+        is a separate decision for a later phase. `acknowledged_terms` must be `true`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+            example:
+              configuration:
+                plan_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d01
+                variant_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d02
+                duration: '4w'
+                start_date: '2026-03-02'
+                delivery_weekdays: [1, 3, 5]
+                slot_code: morning
+                address:
+                  label: Home
+                  line1: 12 Marsa Street
+                  area: Jumeirah 1
+                  city: Dubai
+                  country_code: AE
+                diet_classifications: []
+                exclude_allergens: []
+                selected_meal_ids: []
+              acknowledged_terms: true
+      responses:
+        '201':
+          $ref: '#/components/responses/SubscriptionResponse'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /subscriptions/{subscription}/pause:
+    parameters:
+      - $ref: '#/components/parameters/SubscriptionId'
+    post:
+      operationId: pauseSubscription
+      tags: [Subscriptions]
+      summary: Pause a subscription
+      description: |
+        Stops deliveries from the next unfulfilled one. Without `until`, the pause lasts until it is
+        resumed. `409` when the subscription is already cancelled or expired.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PauseSubscriptionRequest'
+            example:
+              until: '2026-03-16'
+              reason: Travelling
+      responses:
+        '200':
+          $ref: '#/components/responses/SubscriptionResponse'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '409':
+          $ref: '_shared/schemas.yaml#/components/responses/Conflict'
+
+  /subscriptions/{subscription}/resume:
+    parameters:
+      - $ref: '#/components/parameters/SubscriptionId'
+    post:
+      operationId: resumeSubscription
+      tags: [Subscriptions]
+      summary: Resume a paused subscription
+      description: Returns the subscription to `active` from the next deliverable date.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SubscriptionResponse'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '409':
+          $ref: '_shared/schemas.yaml#/components/responses/Conflict'
+
+  /subscriptions/{subscription}/skip:
+    parameters:
+      - $ref: '#/components/parameters/SubscriptionId'
+    post:
+      operationId: skipSubscriptionDay
+      tags: [Subscriptions]
+      summary: Skip one delivery day
+      description: |
+        Skips a single date without pausing the subscription. `422` when the date is past the
+        kitchen's cut-off for that day — a skip that arrives after the food is cooked is not a skip.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkipDayRequest'
+            example:
+              date: '2026-03-05'
+              reason: Out for lunch
+      responses:
+        '200':
+          $ref: '#/components/responses/SubscriptionResponse'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/sessionCookie'
+    bearerToken:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/bearerToken'
+
+  parameters:
+    SubscriptionId:
+      name: subscription
+      in: path
+      required: true
+      description: The subscription.
+      schema:
+        $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+
+  responses:
+    CartResponse:
+      description: The cart.
+      headers:
+        X-Correlation-Id:
+          $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, meta]
+            properties:
+              data:
+                $ref: '#/components/schemas/Cart'
+              meta:
+                $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+          example:
+            data:
+              id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1f01
+              items: []
+              subtotal:
+                amount: 0
+                currency: AED
+              item_count: 0
+              updated_at: '2026-01-15T09:30:00.000Z'
+            meta:
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    SubscriptionResponse:
+      description: The subscription.
+      headers:
+        X-Correlation-Id:
+          $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, meta]
+            properties:
+              data:
+                $ref: '#/components/schemas/Subscription'
+              meta:
+                $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+          example:
+            data:
+              id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1f10
+              state: active
+              plan_name: Balanced Everyday
+              kitchen_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0
+              weekly_price:
+                amount: 63000
+                currency: AED
+              next_delivery_date: '2026-03-04'
+              skipped_dates: []
+              paused_until: null
+              created_at: '2026-01-15T09:30:00.000Z'
+              updated_at: '2026-01-15T09:30:00.000Z'
+            meta:
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+  schemas:
+    CartItem:
+      type: object
+      required: [id, meal_id, kitchen_id, name, quantity, unit_price, line_total]
+      properties:
+        id:
+          type: string
+        meal_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        kitchen_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unit_price:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        line_total:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        allergens:
+          type: array
+          items:
+            type: string
+        delivery_date:
+          type: [string, 'null']
+          format: date
+      additionalProperties: false
+
+    Cart:
+      type: object
+      required: [id, items, subtotal, item_count, updated_at]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        subtotal:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        item_count:
+          type: integer
+          minimum: 0
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    AddCartItemRequest:
+      type: object
+      required: [meal_id, quantity]
+      properties:
+        meal_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 50
+        delivery_date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+      additionalProperties: false
+
+    PriceLine:
+      type: object
+      required: [code, label, amount]
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        amount:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+      additionalProperties: false
+
+    PreviewCheckoutRequest:
+      type: object
+      required: [cart_id]
+      properties:
+        cart_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        address:
+          $ref: '_shared/schemas.yaml#/components/schemas/DeliveryAddress'
+        slot_code:
+          type: string
+        delivery_date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+      additionalProperties: false
+
+    CheckoutPreview:
+      type: object
+      required: [cart_id, lines, subtotal, total, warnings, payment_deferred]
+      properties:
+        cart_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceLine'
+        subtotal:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        delivery_fee:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        discount:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        total:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        earliest_delivery_date:
+          type: [string, 'null']
+          format: date
+        warnings:
+          type: array
+          items:
+            type: string
+        payment_deferred:
+          type: boolean
+          const: true
+          description: Always true. No payment is taken anywhere in this contract.
+      additionalProperties: false
+
+    SubscriptionConfiguration:
+      type: object
+      required:
+        - plan_id
+        - variant_id
+        - duration
+        - start_date
+        - delivery_weekdays
+        - slot_code
+        - address
+      properties:
+        plan_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        variant_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        duration:
+          type: string
+          enum: ['1w', '2w', '4w', '12w']
+        start_date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        delivery_weekdays:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        slot_code:
+          type: string
+        address:
+          $ref: '_shared/schemas.yaml#/components/schemas/DeliveryAddress'
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        exclude_allergens:
+          type: array
+          items:
+            type: string
+        selected_meal_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      additionalProperties: false
+
+    SubscriptionPreview:
+      type: object
+      required:
+        - lines
+        - weekly_price
+        - discount_percent
+        - total
+        - first_delivery_date
+        - last_delivery_date
+        - delivery_count
+        - warnings
+        - payment_deferred
+      properties:
+        configuration:
+          $ref: '#/components/schemas/SubscriptionConfiguration'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceLine'
+        weekly_price:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        discount_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        total:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        first_delivery_date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        last_delivery_date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        delivery_count:
+          type: integer
+          minimum: 0
+        warnings:
+          type: array
+          items:
+            type: string
+        payment_deferred:
+          type: boolean
+          const: true
+      additionalProperties: false
+
+    CreateSubscriptionRequest:
+      type: object
+      required: [configuration, acknowledged_terms]
+      properties:
+        configuration:
+          $ref: '#/components/schemas/SubscriptionConfiguration'
+        acknowledged_terms:
+          type: boolean
+          const: true
+      additionalProperties: false
+
+    PauseSubscriptionRequest:
+      type: object
+      properties:
+        until:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        reason:
+          type: string
+          maxLength: 500
+      additionalProperties: false
+
+    SkipDayRequest:
+      type: object
+      required: [date]
+      properties:
+        date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        reason:
+          type: string
+          maxLength: 500
+      additionalProperties: false
+
+    Subscription:
+      type: object
+      required: [id, state, plan_name, kitchen_id, weekly_price, skipped_dates, created_at, updated_at]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        state:
+          type: string
+          enum: [draft, active, paused, skipped_today, cancelled, expired]
+        configuration:
+          $ref: '#/components/schemas/SubscriptionConfiguration'
+        plan_name:
+          type: string
+        kitchen_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        weekly_price:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        next_delivery_date:
+          type: [string, 'null']
+          format: date
+        skipped_dates:
+          type: array
+          items:
+            type: string
+            format: date
+        paused_until:
+          type: [string, 'null']
+          format: date
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false

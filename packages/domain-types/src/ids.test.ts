@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    AllergenCode,
     BranchId,
+    CODE_CODECS,
     ID_CODECS,
     InvalidIdentifierError,
+    KitchenId,
+    type MealId,
     OrganisationId,
     UUID_PATTERN,
     UserId,
+    isEntityCode,
     isUuid,
     uuidVersion,
 } from './ids.ts';
@@ -47,15 +52,64 @@ describe('uuidVersion', () => {
 });
 
 describe('identifier codecs', () => {
-    it('exposes one codec per foundation identifier', () => {
-        expect(Object.keys(ID_CODECS).sort()).toEqual([
+    it('exposes the six foundation identifiers', () => {
+        for (const label of [
             'BranchId',
             'DeviceId',
             'MembershipId',
             'OrganisationId',
             'RoleId',
             'UserId',
+        ]) {
+            expect(Object.keys(ID_CODECS)).toContain(label);
+        }
+    });
+
+    it('exposes the twenty-one nutrition, marketplace and commerce identifiers', () => {
+        expect(
+            Object.keys(ID_CODECS)
+                .filter(
+                    (label) =>
+                        ![
+                            'BranchId',
+                            'DeviceId',
+                            'MembershipId',
+                            'OrganisationId',
+                            'RoleId',
+                            'UserId',
+                        ].includes(label),
+                )
+                .sort(),
+        ).toEqual([
+            'CartId',
+            'CorporateProgrammeId',
+            'DeliveryZoneId',
+            'DietitianId',
+            'GroceryListId',
+            'IngredientId',
+            'KitchenBranchId',
+            'KitchenId',
+            'MealId',
+            'MealPlanEntryId',
+            'MealPlanId',
+            'NutritionTargetId',
+            'OrderId',
+            'PlanVariantId',
+            'QuotationId',
+            'RecipeId',
+            'SubscriptionId',
+            'SubscriptionPlanId',
+            'VdMessageId',
+            'VdSessionId',
+            'VolumeTierId',
         ]);
+    });
+
+    it('keeps every codec label unique', () => {
+        const labels = [...Object.values(ID_CODECS), ...Object.values(CODE_CODECS)].map(
+            (codec) => codec.label,
+        );
+        expect(new Set(labels).size).toBe(labels.length);
     });
 
     it.each(Object.entries(ID_CODECS))('%s.parse brands a valid uuid', (label, codec) => {
@@ -94,6 +148,58 @@ describe('identifier codecs', () => {
         const misassigned: OrganisationId = branch;
 
         expect(misassigned).toBe(organisation);
+    });
+
+    it('keeps the new prototype identifiers nominally separate too', () => {
+        const kitchen = KitchenId.parse(UUID_V7);
+
+        // @ts-expect-error a KitchenId is not a MealId
+        const misassigned: MealId = kitchen;
+
+        expect(misassigned).toBe(kitchen);
+    });
+});
+
+describe('code identifiers', () => {
+    it.each(['peanut', 'tree_nut', 'gluten', 'sesame', 'sulphur_dioxide', 'milk'])(
+        'accepts the allergen code %s',
+        (code) => {
+            expect(isEntityCode(code)).toBe(true);
+            expect(AllergenCode.parse(code)).toBe(code);
+        },
+    );
+
+    it.each([
+        ['uppercase', 'Peanut'],
+        ['kebab-case', 'tree-nut'],
+        ['leading underscore', '_gluten'],
+        ['trailing underscore', 'gluten_'],
+        ['double underscore', 'tree__nut'],
+        ['leading digit', '2_milk'],
+        ['single character', 'x'],
+        ['whitespace', 'tree nut'],
+        ['empty', ''],
+    ])('rejects %s', (_label, code) => {
+        expect(isEntityCode(code)).toBe(false);
+        expect(AllergenCode.safeParse(code)).toBeNull();
+    });
+
+    it('rejects a UUID, because an allergen is reference data rather than a row', () => {
+        expect(AllergenCode.safeParse(UUID_V7)).toBeNull();
+    });
+
+    it('throws an InvalidIdentifierError naming the expected shape', () => {
+        expect(() => AllergenCode.parse('Peanut')).toThrow(InvalidIdentifierError);
+        try {
+            AllergenCode.parse('Peanut');
+        } catch (error) {
+            expect((error as Error).message).toContain('AllergenCode');
+            expect((error as Error).message).toContain('lowercase snake_case code');
+        }
+    });
+
+    it('exposes exactly one code codec today', () => {
+        expect(Object.keys(CODE_CODECS)).toEqual(['AllergenCode']);
     });
 });
 

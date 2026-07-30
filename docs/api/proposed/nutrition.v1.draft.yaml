@@ -1,0 +1,493 @@
+openapi: 3.1.0
+
+info:
+  title: Healthy360 Nutrition Targets (proposed)
+  version: 0.1.0-draft
+  x-status: draft
+  summary: Proposed endpoints for calculating, storing and reviewing a person's nutrition targets.
+  description: |
+    **DRAFT — NOT IMPLEMENTED.** No route behind this document exists. It is a design artefact for
+    review, produced alongside the UI prototype (Prompt 2, "Nutrition-target page"), and it is
+    deliberately invisible to `scripts/gen-api.mjs` and to the backend CI workflow.
+
+    The TypeScript counterpart is `NutritionRepository` in
+    `packages/api-client/src/contracts/nutrition.ts`; the arithmetic itself lives in
+    `@healthy360/nutrition`.
+
+    **The figures are not medical advice.** Every result carries `prototype: true`, the method it
+    used, an echo of its inputs, a step-by-step explanation with citations to published equations,
+    and a disclaimer. No competitor's formula is claimed or reproduced: the internal algorithm of
+    any reference product is not observable, and none was inferred.
+  license:
+    name: Proprietary
+    url: https://healthy360.com/legal/api-terms
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.healthy360.com
+        description: The API host for the target environment.
+
+tags:
+  - name: Nutrition targets
+    description: Calculating, storing and reviewing energy and macronutrient targets.
+
+security:
+  - sessionCookie: []
+  - bearerToken: []
+
+paths:
+  /nutrition/calculate-targets:
+    post:
+      operationId: calculateNutritionTargets
+      tags: [Nutrition targets]
+      summary: Calculate nutrition targets
+      description: |
+        A pure calculation: it reads nothing and stores nothing, so the public calorie and macro
+        calculators can call it without a session. The response explains every step.
+      security: []
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XAppMode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NutritionTargetRequest'
+            example:
+              measurement_system: metric
+              age_years: 30
+              sex_for_calculation: female
+              height_centimetres: 165
+              weight_kilograms: 62
+              activity_level: moderately_active
+              goal: lose_weight
+              pace: standard
+      responses:
+        '200':
+          description: The calculated targets, with their explanation.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/NutritionTargetResult'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  prototype: true
+                  method: mifflin_st_jeor
+                  basal_metabolic_rate: 1340
+                  maintenance_energy: 2077
+                  target_energy: 1765
+                  energy_tolerance: { min: 1677, max: 1853 }
+                  macros:
+                    - nutrient_id: protein
+                      grams: 112
+                      kilocalories: 448
+                      percentage_of_energy: 25.4
+                      grams_per_kilogram: 1.8
+                      tolerance: { min: 101, max: 123 }
+                  nutrients:
+                    - nutrient_id: fibre
+                      unit: g
+                      value: 25
+                      tolerance: { min: 25, max: 38 }
+                      basis: per_day
+                      direction: at_least
+                      rationale: Scaled from the target energy at 14 g per 1,000 kcal.
+                  requires_professional_review: false
+                  review_reasons: []
+                  calculated_at: '2026-01-15T09:30:00.000Z'
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /nutrition/targets/current:
+    get:
+      operationId: getCurrentNutritionTargets
+      tags: [Nutrition targets]
+      summary: Read the stored nutrition targets
+      description: |
+        The person's current targets. `data` is `null` before onboarding has produced any, which is
+        a normal state rather than a `404`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The stored targets, or `null` when none have been set.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/StoredNutritionTarget'
+                      - type: 'null'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data: null
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+    put:
+      operationId: updateCurrentNutritionTargets
+      tags: [Nutrition targets]
+      summary: Accept or adjust the nutrition targets
+      description: |
+        Stores the targets a person has accepted. `acknowledged_disclaimer` must be `true`: the
+        product records that the disclaimer was shown before a figure was adopted.
+
+        A `professional_override` is only accepted from a dietitian with an active relationship to
+        the person; from anyone else the request is `403 authz.permission_denied`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNutritionTargetRequest'
+            example:
+              source:
+                measurement_system: metric
+                age_years: 30
+                sex_for_calculation: female
+                height_centimetres: 165
+                weight_kilograms: 62
+                activity_level: moderately_active
+                goal: lose_weight
+                pace: standard
+              acknowledged_disclaimer: true
+      responses:
+        '200':
+          description: The stored targets.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/StoredNutritionTarget'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d40
+                  professionally_approved: false
+                  approved_by: null
+                  approved_at: null
+                  created_at: '2026-01-15T09:30:00.000Z'
+                  updated_at: '2026-01-15T09:30:00.000Z'
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '403':
+          $ref: '_shared/schemas.yaml#/components/responses/Forbidden'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/sessionCookie'
+    bearerToken:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/bearerToken'
+
+  schemas:
+    NutritionTargetRequest:
+      type: object
+      required:
+        - measurement_system
+        - age_years
+        - sex_for_calculation
+        - height_centimetres
+        - weight_kilograms
+        - activity_level
+        - goal
+        - pace
+      description: |
+        Height and weight are always sent in centimetres and kilograms; `measurement_system` only
+        records how the person entered and reads them.
+      properties:
+        measurement_system:
+          type: string
+          enum: [metric, imperial]
+        age_years:
+          type: integer
+          minimum: 1
+          maximum: 120
+        sex_for_calculation:
+          type: string
+          enum: [female, male]
+          description: |
+            Selects a constant in the published equation. It is a calculation input, not a gender
+            identity field, and the onboarding step that collects it says so.
+        height_centimetres:
+          type: number
+          minimum: 50
+          maximum: 260
+        weight_kilograms:
+          type: number
+          minimum: 20
+          maximum: 400
+        body_fat_percentage:
+          type: number
+          minimum: 1
+          maximum: 75
+          description: When supplied, Katch–McArdle is used in place of Mifflin–St Jeor.
+        activity_level:
+          type: string
+          enum: [sedentary, lightly_active, moderately_active, very_active, extra_active]
+        goal:
+          type: string
+          enum: [lose_weight, maintain, gain_muscle, recomposition]
+        pace:
+          type: string
+          enum: [gentle, standard, ambitious]
+        diet:
+          type: string
+        meals_per_day:
+          type: integer
+          minimum: 1
+          maximum: 8
+        constraints:
+          type: array
+          items:
+            $ref: '#/components/schemas/NutritionConstraint'
+        method:
+          type: string
+          enum: [mifflin_st_jeor, katch_mcardle, professional_override]
+      additionalProperties: false
+
+    NutritionConstraint:
+      type: object
+      required: [kind, code, label, severity, source]
+      description: |
+        The seven restriction kinds are kept distinct on purpose. A dislike may be overridden by the
+        person; an allergy may not be overridden by anybody; a dietitian-enforced restriction may
+        only be lifted by the dietitian who set it.
+      properties:
+        kind:
+          type: string
+          enum:
+            - preference
+            - self_declared_medical
+            - dietitian_enforced
+            - allergy
+            - intolerance
+            - dislike
+            - religious
+        code:
+          type: string
+        label:
+          type: string
+        severity:
+          type: string
+          enum: [advisory, strict, critical]
+        source:
+          type: string
+          enum: [user, dietitian, system]
+        note:
+          type: [string, 'null']
+      additionalProperties: false
+
+    ProfessionalOverride:
+      type: object
+      required: [dietitian_id, reason, approved_at]
+      properties:
+        dietitian_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        reason:
+          type: string
+        approved_at:
+          type: string
+          format: date-time
+        energy_kilocalories:
+          type: [number, 'null']
+        macros:
+          type: [array, 'null']
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/MacroTarget'
+      additionalProperties: false
+
+    NutritionTargetExplanationStep:
+      type: object
+      required: [id, title, detail]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        formula:
+          type: [string, 'null']
+        inputs:
+          type: object
+          additionalProperties: true
+        output:
+          type: [number, 'null']
+        unit:
+          type: [string, 'null']
+        citation:
+          type: [string, 'null']
+          description: Full reference for the published source this step follows.
+      additionalProperties: false
+
+    NutritionTargetExplanation:
+      type: object
+      required: [summary, steps, assumptions, citations, disclaimer]
+      properties:
+        summary:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/NutritionTargetExplanationStep'
+        assumptions:
+          type: array
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            type: string
+        disclaimer:
+          type: string
+          description: Fixed wording, rendered beside every target. Never omitted.
+      additionalProperties: false
+
+    NutritionTargetResult:
+      type: object
+      required:
+        - prototype
+        - method
+        - basal_metabolic_rate
+        - maintenance_energy
+        - target_energy
+        - energy_tolerance
+        - macros
+        - nutrients
+        - requires_professional_review
+        - review_reasons
+        - calculated_at
+      properties:
+        id:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+            - type: 'null'
+        prototype:
+          type: boolean
+          const: true
+          description: Always true while these figures come from the prototype engine.
+        method:
+          type: string
+          enum: [mifflin_st_jeor, katch_mcardle, professional_override]
+        request:
+          $ref: '#/components/schemas/NutritionTargetRequest'
+        basal_metabolic_rate:
+          type: number
+        maintenance_energy:
+          type: number
+        target_energy:
+          type: number
+        energy_tolerance:
+          $ref: '_shared/schemas.yaml#/components/schemas/ToleranceRange'
+        macros:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/MacroTarget'
+        nutrients:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/NutrientTarget'
+        explanation:
+          $ref: '#/components/schemas/NutritionTargetExplanation'
+        requires_professional_review:
+          type: boolean
+        review_reasons:
+          type: array
+          items:
+            type: string
+            examples: [energy_floor_applied, aggressive_deficit]
+        override:
+          oneOf:
+            - $ref: '#/components/schemas/ProfessionalOverride'
+            - type: 'null'
+        calculated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    StoredNutritionTarget:
+      type: object
+      required: [id, professionally_approved, created_at, updated_at]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        result:
+          $ref: '#/components/schemas/NutritionTargetResult'
+        professionally_approved:
+          type: boolean
+        approved_by:
+          type: [string, 'null']
+          format: uuid
+        approved_at:
+          type: [string, 'null']
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    UpdateNutritionTargetRequest:
+      type: object
+      required: [source, acknowledged_disclaimer]
+      properties:
+        source:
+          $ref: '#/components/schemas/NutritionTargetRequest'
+        target_energy:
+          type: number
+        professional_override:
+          $ref: '#/components/schemas/ProfessionalOverride'
+        acknowledged_disclaimer:
+          type: boolean
+          const: true
+          description: Records that the disclaimer was shown before the figure was adopted.
+      additionalProperties: false

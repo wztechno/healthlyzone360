@@ -1,0 +1,490 @@
+openapi: 3.1.0
+
+info:
+  title: Healthy360 Virtual Dietitian (proposed)
+  version: 0.1.0-draft
+  x-status: draft
+  summary: Proposed endpoints for the guided Virtual Dietitian interview, draft plan and human review.
+  description: |
+    **DRAFT — NOT IMPLEMENTED.** No route behind this document exists. It is a design artefact for
+    review (Prompt 2, "Virtual dietitian experience"), invisible to `scripts/gen-api.mjs` and to
+    the backend CI workflow. The TypeScript counterpart is `VirtualDietitianRepository` in
+    `packages/api-client/src/contracts/virtual-dietitian.ts`.
+
+    **No language model is connected in this phase.** The contract is shaped so that connecting one
+    later changes nothing above the repository boundary.
+
+    Three properties are load-bearing rather than decorative:
+
+    - every message carries `ai_generated`, and a machine-authored message is labelled in the
+      interface. An AI suggestion that cannot be told apart from a professional's advice is the
+      most damaging thing this feature could ship;
+    - `accepted_at` and `overridden_at` record what the *person* decided, separately from what was
+      proposed;
+    - `state` is one of twelve, four of which are blocked outcomes. Each has a designed screen, so
+      the journey cannot reach a dead end. `safety_escalation` exists so it can stop and hand over.
+
+    The journey never presents itself as a substitute for medical care.
+  license:
+    name: Proprietary
+    url: https://healthy360.com/legal/api-terms
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.healthy360.com
+        description: The API host for the target environment.
+
+tags:
+  - name: Virtual Dietitian
+    description: The guided interview, its proposals, its draft plan and its escalation to a human.
+
+security:
+  - sessionCookie: []
+  - bearerToken: []
+
+paths:
+  /virtual-dietitian/sessions:
+    post:
+      operationId: createVirtualDietitianSession
+      tags: [Virtual Dietitian]
+      summary: Start a Virtual Dietitian session
+      description: |
+        Opens a session in the `initial_interview` state. With `use_profile: true` the interview is
+        seeded from the stored profile and targets rather than starting from nothing.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+            example:
+              preparation_mode: mixed
+              use_profile: true
+      responses:
+        '201':
+          $ref: '#/components/responses/Session'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /virtual-dietitian/sessions/{session}/messages:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      operationId: sendVirtualDietitianMessage
+      tags: [Virtual Dietitian]
+      summary: Send a message to the session
+      description: |
+        Adds the person's turn and returns the whole session, including any machine reply and the
+        updated `missing_information` list. The state may advance to `analysing`,
+        `missing_information`, `suggested_targets` or `suggested_meal_structure`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+            example:
+              body: I would like four meals a day and no shellfish.
+              answers:
+                meals_per_day: 4
+      responses:
+        '200':
+          $ref: '#/components/responses/Session'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+
+  /virtual-dietitian/sessions/{session}/generate-draft:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      operationId: generateVirtualDietitianDraft
+      tags: [Virtual Dietitian]
+      summary: Generate a draft plan from the session
+      description: |
+        Attempts to produce a draft week. Success moves the session to `draft_generated` and sets
+        `draft_plan_id`. Failure is *also* a `200`: `generation_failed`, `restriction_conflict`,
+        `no_suitable_meals` and `safety_escalation` are outcomes of the journey with their own
+        screens, not transport errors, and modelling them as `5xx` would lose the reason.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateDraftRequest'
+            example:
+              week_start: '2026-03-02'
+              preparation_mode: mixed
+              acknowledged_disclaimer: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Session'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /virtual-dietitian/sessions/{session}/request-review:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      operationId: requestVirtualDietitianReview
+      tags: [Virtual Dietitian]
+      summary: Ask a qualified dietitian to review the session
+      description: |
+        Moves the session to `review_requested` and places it on the professional review queue. This
+        is the route out of every blocked state, and the only route to `professionally_approved`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestReviewRequest'
+            example:
+              note: I am not sure the protein target is right for me.
+      responses:
+        '202':
+          $ref: '#/components/responses/Session'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '409':
+          $ref: '_shared/schemas.yaml#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/sessionCookie'
+    bearerToken:
+      $ref: '_shared/schemas.yaml#/components/securitySchemes/bearerToken'
+
+  parameters:
+    SessionId:
+      name: session
+      in: path
+      required: true
+      description: The Virtual Dietitian session.
+      schema:
+        $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+
+  responses:
+    Session:
+      description: The session in its current state.
+      headers:
+        X-Correlation-Id:
+          $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, meta]
+            properties:
+              data:
+                $ref: '#/components/schemas/VirtualDietitianSession'
+              meta:
+                $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+          example:
+            data:
+              id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d91
+              state: suggested_targets
+              messages:
+                - id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d92
+                  origin: assistant
+                  body: Based on what you have told me, here is a starting point.
+                  ai_generated: true
+                  sent_at: '2026-01-15T09:31:00.000Z'
+              missing_information: []
+              conflicts: []
+              safety_notices: []
+              draft_plan_id: null
+              disclaimer: >-
+                These suggestions are generated automatically and are not medical advice. A
+                qualified dietitian can review them for you.
+              created_at: '2026-01-15T09:30:00.000Z'
+              updated_at: '2026-01-15T09:31:00.000Z'
+            meta:
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+  schemas:
+    PreparationMode:
+      type: string
+      enum: [home_prepared, kitchen_prepared, mixed]
+
+    CreateSessionRequest:
+      type: object
+      properties:
+        preparation_mode:
+          $ref: '#/components/schemas/PreparationMode'
+        preferred_kitchen_ids:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        weekly_budget:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        delivery_area:
+          type: string
+          description: So the session can rule out kitchens that cannot reach the person.
+        use_profile:
+          type: boolean
+      additionalProperties: false
+
+    SendMessageRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        answers:
+          type: object
+          description: Structured answers to the questions the session asked.
+          additionalProperties: true
+      additionalProperties: false
+
+    GenerateDraftRequest:
+      type: object
+      required: [week_start, acknowledged_disclaimer]
+      properties:
+        week_start:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        preparation_mode:
+          $ref: '#/components/schemas/PreparationMode'
+        acknowledged_disclaimer:
+          type: boolean
+          const: true
+      additionalProperties: false
+
+    RequestReviewRequest:
+      type: object
+      properties:
+        dietitian_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        note:
+          type: string
+          maxLength: 2000
+      additionalProperties: false
+
+    VirtualDietitianMessage:
+      type: object
+      required: [id, origin, body, ai_generated, sent_at]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        origin:
+          type: string
+          enum: [user, assistant, system, dietitian]
+        body:
+          type: string
+        ai_generated:
+          type: boolean
+          description: True for anything machine-generated. Rendered as a visible label.
+        collected:
+          type: [object, 'null']
+          additionalProperties: true
+        sent_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    MissingInformation:
+      type: object
+      required: [field, question, required]
+      properties:
+        field:
+          type: string
+        question:
+          type: string
+        required:
+          type: boolean
+      additionalProperties: false
+
+    ConstraintConflict:
+      type: object
+      required: [constraint_id, label, explanation, requires_professional]
+      properties:
+        constraint_id:
+          type: string
+          examples: [allergies, dietitian_enforced_restrictions]
+        label:
+          type: string
+        explanation:
+          type: string
+        requires_professional:
+          type: boolean
+      additionalProperties: false
+
+    SafetyNotice:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [information, warning, escalation]
+        message:
+          type: string
+        allergens:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+
+    MealStructureSlot:
+      type: object
+      required: [meal_type, energy_share, preparation_mode]
+      properties:
+        meal_type:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        time:
+          type: [string, 'null']
+          description: '`HH:mm`, the person''s local time.'
+        energy_share:
+          type: number
+          minimum: 0
+          maximum: 1
+        preparation_mode:
+          $ref: '#/components/schemas/PreparationMode'
+      additionalProperties: false
+
+    Proposal:
+      type: object
+      required: [macros, nutrients, meal_structure, rationale, assumptions]
+      properties:
+        macros:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/MacroTarget'
+        nutrients:
+          type: array
+          items:
+            $ref: '_shared/schemas.yaml#/components/schemas/NutrientTarget'
+        meal_structure:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealStructureSlot'
+        rationale:
+          type: array
+          items:
+            type: string
+        assumptions:
+          type: array
+          items:
+            type: string
+        accepted_at:
+          type: [string, 'null']
+          format: date-time
+        overridden_at:
+          type: [string, 'null']
+          format: date-time
+        overridden_by:
+          type: [string, 'null']
+          format: uuid
+      additionalProperties: false
+
+    VirtualDietitianSession:
+      type: object
+      required:
+        - id
+        - state
+        - messages
+        - missing_information
+        - conflicts
+        - safety_notices
+        - disclaimer
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        state:
+          type: string
+          description: |
+            The twelve observable states. Four of them — `generation_failed`,
+            `restriction_conflict`, `no_suitable_meals` and `safety_escalation` — are blocked
+            outcomes, each with its own screen and its own route to a human.
+          enum:
+            - initial_interview
+            - analysing
+            - missing_information
+            - suggested_targets
+            - suggested_meal_structure
+            - draft_generated
+            - review_requested
+            - professionally_approved
+            - generation_failed
+            - restriction_conflict
+            - no_suitable_meals
+            - safety_escalation
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualDietitianMessage'
+        missing_information:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingInformation'
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConstraintConflict'
+        proposal:
+          oneOf:
+            - $ref: '#/components/schemas/Proposal'
+            - type: 'null'
+        safety_notices:
+          type: array
+          items:
+            $ref: '#/components/schemas/SafetyNotice'
+        draft_plan_id:
+          type: [string, 'null']
+          format: uuid
+        review_requested_at:
+          type: [string, 'null']
+          format: date-time
+        reviewed_by:
+          type: [string, 'null']
+          format: uuid
+        approved_at:
+          type: [string, 'null']
+          format: date-time
+        disclaimer:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false

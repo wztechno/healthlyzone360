@@ -1,0 +1,506 @@
+openapi: 3.1.0
+
+info:
+  title: Healthy360 proposed contracts — shared components
+  version: 0.1.0-draft
+  summary: Envelopes, headers, parameters and nutrition schemas shared by the six proposed drafts.
+  x-status: draft
+  description: |
+    This file is a component library, not an API. It is deliberately absent from the `apis` map in
+    `redocly.yaml`: the six drafts `$ref` into it, and the linter reaches it through those
+    references.
+
+    Everything here mirrors `docs/api/conventions.md` and the implemented contract in
+    `apps/api/openapi/healthy360.v1.yaml`. Where a shape already exists there, it is reproduced
+    here rather than reinvented, so that a draft promoted to implementation needs no envelope
+    changes.
+
+paths: {}
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: healthy360_session
+      description: The Sanctum first-party session cookie, as issued by `POST /auth/login`.
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: A Sanctum personal access token from `POST /auth/token`.
+
+  headers:
+    XCorrelationId:
+      description: The server-generated correlation identifier for this request (UUIDv7).
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: Locale negotiation. Regional subtags are accepted.
+      schema:
+        type: string
+        examples: [ar-LB, en]
+    XOrganisationId:
+      name: X-Organisation-Id
+      in: header
+      required: false
+      description: |
+        The active organisation. Never trusted without server-side validation against an active
+        membership.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    XClientRequestId:
+      name: X-Client-Request-Id
+      in: header
+      required: false
+      description: |
+        An opaque client-generated identifier for support correlation. Logged and echoed back;
+        never used as the correlation identifier.
+      schema:
+        type: string
+        maxLength: 128
+    XAppMode:
+      name: X-App-Mode
+      in: header
+      required: false
+      description: The build family. Diagnostic only; never an authorisation input.
+      schema:
+        type: string
+        enum: [customer, staff, kiosk, driver, all-dev]
+    XClientPlatform:
+      name: X-Client-Platform
+      in: header
+      required: false
+      description: The client platform.
+      schema:
+        type: string
+        enum: [web, ios, android]
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        The opaque cursor from `meta.next_cursor` of the previous page. Omitted for the first page.
+        Clients never parse, compare or construct one.
+      schema:
+        type: string
+        maxLength: 512
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size hint. The server may return fewer items; it never returns more.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      description: A UUIDv7 identifier (plan §8).
+      examples: ['0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c']
+
+    IsoDate:
+      type: string
+      format: date
+      description: A calendar date, `YYYY-MM-DD`.
+      examples: ['2026-03-02']
+
+    Meta:
+      type: object
+      required: [correlation_id]
+      properties:
+        correlation_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: true
+      description: Envelope metadata. Always carries the correlation identifier.
+
+    PaginationMeta:
+      type: object
+      required: [correlation_id, next_cursor, has_more]
+      properties:
+        correlation_id:
+          $ref: '#/components/schemas/Uuid'
+        next_cursor:
+          type: [string, 'null']
+          description: Cursor for the next page, or `null` on the last page.
+        has_more:
+          type: boolean
+        total_count:
+          type: [integer, 'null']
+          minimum: 0
+          description: Total matching rows when the server can count them cheaply, `null` otherwise.
+      additionalProperties: true
+
+    ErrorCode:
+      type: string
+      description: |
+        The stable Healthy360 error vocabulary, mirroring `Healthy360\Support\Api\ErrorCode`. A
+        draft may only use codes that already exist; proposing a new code is a separate decision.
+      enum:
+        - validation.failed
+        - auth.unauthenticated
+        - auth.invalid_credentials
+        - auth.email_unverified
+        - auth.two_factor_required
+        - auth.two_factor_invalid
+        - auth.step_up_required
+        - auth.csrf_token_mismatch
+        - auth.invalid_signature
+        - context.organisation_required
+        - context.organisation_forbidden
+        - context.branch_out_of_scope
+        - authz.permission_denied
+        - request.invalid
+        - resource.not_found
+        - resource.conflict
+        - rate_limit.exceeded
+        - server.internal_error
+
+    Error:
+      type: object
+      required: [code, message, details, correlation_id]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: A safe, human-readable summary. Never a stack trace.
+        details:
+          type: object
+          description: Structured, code-specific detail.
+          additionalProperties: true
+        correlation_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+      additionalProperties: false
+
+    Money:
+      type: object
+      required: [amount, currency]
+      description: |
+        An integer number of minor units and its currency. KWD, BHD and OMR have three minor-unit
+        digits; every other supported currency has two.
+      properties:
+        amount:
+          type: integer
+          description: Minor units. `1250` is 12.50 AED, or 1.250 KWD.
+        currency:
+          type: string
+          enum: [AED, SAR, QAR, KWD, BHD, OMR, JOD, EGP, LBP, USD]
+      additionalProperties: false
+
+    ToleranceRange:
+      type: object
+      required: [min, max]
+      properties:
+        min:
+          type: number
+        max:
+          type: number
+      additionalProperties: false
+
+    NutritionSource:
+      type: object
+      required: [kind, label, version, calculated_at]
+      description: |
+        Where a set of figures came from. `synthetic_prototype` is the honest label for everything
+        the prototype ships and is rendered next to the values.
+      properties:
+        kind:
+          type: string
+          enum:
+            - synthetic_prototype
+            - ingredient_derived
+            - laboratory
+            - manufacturer
+            - professional_entry
+        label:
+          type: string
+        version:
+          type: string
+        calculated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    NutritionCalculation:
+      type: object
+      required: [method, basis, calculated_at, prototype, rounding]
+      properties:
+        method:
+          type: string
+        basis:
+          $ref: '#/components/schemas/NutritionBasis'
+        calculated_at:
+          type: string
+          format: date-time
+        prototype:
+          type: boolean
+          description: True while the figures come from the prototype engine.
+        rounding:
+          type: string
+          description: Human-readable description of the rounding applied.
+        notes:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+
+    NutritionBasis:
+      type: string
+      enum: [per_serving, per_100g, per_recipe, per_meal, per_day, per_week]
+
+    NutrientAmount:
+      type: object
+      required: [nutrient_id, unit, value, kind]
+      properties:
+        nutrient_id:
+          type: string
+          examples: [energy, protein, carbohydrate, fat, fibre]
+        unit:
+          type: string
+          enum: [kcal, kJ, g, mg, ug, ml, IU]
+        value:
+          type: number
+        kind:
+          type: string
+          enum: [planned, actual, target]
+        tolerance:
+          oneOf:
+            - $ref: '#/components/schemas/ToleranceRange'
+            - type: 'null'
+      additionalProperties: false
+
+    Serving:
+      type: object
+      required: [label, quantity, unit]
+      properties:
+        label:
+          type: string
+          examples: ['1 bowl']
+        quantity:
+          type: number
+        unit:
+          type: string
+          enum: [g, kg, ml, l, piece, slice, portion, cup, tbsp, tsp]
+        grams:
+          type: [number, 'null']
+        millilitres:
+          type: [number, 'null']
+        household_measure:
+          type: [string, 'null']
+      additionalProperties: false
+
+    NutritionFacts:
+      type: object
+      required: [basis, kind, amounts, source, calculation]
+      properties:
+        basis:
+          $ref: '#/components/schemas/NutritionBasis'
+        kind:
+          type: string
+          enum: [planned, actual, target]
+        serving:
+          oneOf:
+            - $ref: '#/components/schemas/Serving'
+            - type: 'null'
+        total_grams:
+          type: [number, 'null']
+        amounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/NutrientAmount'
+        source:
+          $ref: '#/components/schemas/NutritionSource'
+        calculation:
+          $ref: '#/components/schemas/NutritionCalculation'
+      additionalProperties: false
+
+    MacroTarget:
+      type: object
+      required: [nutrient_id, grams, kilocalories, percentage_of_energy, tolerance]
+      properties:
+        nutrient_id:
+          type: string
+          enum: [protein, carbohydrate, fat]
+        grams:
+          type: number
+        kilocalories:
+          type: number
+        percentage_of_energy:
+          type: number
+        grams_per_kilogram:
+          type: [number, 'null']
+        tolerance:
+          $ref: '#/components/schemas/ToleranceRange'
+      additionalProperties: false
+
+    NutrientTarget:
+      type: object
+      required: [nutrient_id, unit, value, tolerance, basis, direction]
+      properties:
+        nutrient_id:
+          type: string
+        unit:
+          type: string
+          enum: [kcal, kJ, g, mg, ug, ml, IU]
+        value:
+          type: number
+        tolerance:
+          $ref: '#/components/schemas/ToleranceRange'
+        basis:
+          $ref: '#/components/schemas/NutritionBasis'
+        direction:
+          type: string
+          enum: [hit, at_least, at_most]
+        rationale:
+          type: [string, 'null']
+      additionalProperties: false
+
+    DeliveryAddress:
+      type: object
+      required: [label, line1, area, city, country_code]
+      properties:
+        label:
+          type: string
+        line1:
+          type: string
+        line2:
+          type: [string, 'null']
+        area:
+          type: string
+        city:
+          type: string
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        instructions:
+          type: [string, 'null']
+      additionalProperties: false
+
+  responses:
+    Unauthorised:
+      description: No usable credential.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: auth.unauthenticated
+              message: This session is no longer valid.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    Forbidden:
+      description: The caller is authenticated but not permitted to do this.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: authz.permission_denied
+              message: You do not have permission to do that.
+              details:
+                reason: permission_not_granted
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    NotFound:
+      description: The resource does not exist, or is not the caller's to see.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.not_found
+              message: We could not find that.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    Conflict:
+      description: The change conflicts with the current state of the resource.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: That has already changed. Reload and try again.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    ValidationFailed:
+      description: Input failed validation. `details.fields` maps field to messages.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: validation.failed
+              message: Some of the details need correcting.
+              details:
+                fields:
+                  weight_kilograms:
+                    - Enter a weight between 20 and 400 kilograms.
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    TooManyRequests:
+      description: A rate limit was exceeded.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: rate_limit.exceeded
+              message: Too many attempts. Wait a moment and try again.
+              details:
+                retry_after_seconds: 47
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d

@@ -1,0 +1,881 @@
+openapi: 3.1.0
+
+info:
+  title: Healthy360 Marketplace (proposed)
+  version: 0.1.0-draft
+  x-status: draft
+  summary: Proposed read-only endpoints for the public kitchen, meal and meal-plan marketplace.
+  description: |
+    **DRAFT — NOT IMPLEMENTED.** No route behind this document exists. It is a design artefact for
+    review (Prompt 2, "Public marketplace"), invisible to `scripts/gen-api.mjs` and to the backend
+    CI workflow. The TypeScript counterpart is `MarketplaceRepository` in
+    `packages/api-client/src/contracts/marketplace.ts`.
+
+    Every endpoint here is anonymous and read-only, which is why this is the one contract whose
+    responses may be cached across a sign-out.
+
+    **Consumer prices only.** No schema in this document can carry a negotiated contract price, a
+    volume tier or a minimum order quantity; those live in the corporate contract, behind a
+    different repository the consumer screens never reach. Privacy by absence is the version of
+    that rule which survives a refactor.
+
+    Nutrition figures always arrive with their `source` and `calculation`, so a prototype figure is
+    displayed as a prototype figure.
+  license:
+    name: Proprietary
+    url: https://healthy360.com/legal/api-terms
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.healthy360.com
+        description: The API host for the target environment.
+
+tags:
+  - name: Marketplace
+    description: Public discovery of kitchens, meals, subscription plans and dietitians.
+
+security: []
+
+paths:
+  /marketplace/kitchens:
+    get:
+      operationId: listMarketplaceKitchens
+      tags: [Marketplace]
+      summary: List kitchens
+      description: |
+        Kitchens configured for a public channel. `channels` filters on the eight independent sales
+        switches; a consumer client passes `marketplace` or `b2c`.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Cursor'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Limit'
+        - name: query
+          in: query
+          required: false
+          description: Free-text search over the kitchen name and description.
+          schema:
+            type: string
+            maxLength: 120
+        - name: country_code
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+        - name: area
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cuisines
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: channels
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [b2c, b2b, marketplace, pos, subscription, delivery, pickup, corporate]
+      responses:
+        '200':
+          description: A page of kitchens.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Kitchen'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/PaginationMeta'
+              example:
+                data:
+                  - id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0
+                    name: Verdant Kitchen
+                    slug: verdant-kitchen
+                    tagline: Seasonal plates, prepared daily.
+                    country_code: AE
+                    cuisines: [levantine, mediterranean]
+                    rating: 4.6
+                    rating_count: 218
+                    image_placeholder_id: kitchen-verdant
+                    is_verified: true
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                  next_cursor: null
+                  has_more: false
+                  total_count: 6
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /marketplace/kitchens/{kitchen}:
+    parameters:
+      - name: kitchen
+        in: path
+        required: true
+        description: The kitchen.
+        schema:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+    get:
+      operationId: getMarketplaceKitchen
+      tags: [Marketplace]
+      summary: Read one kitchen
+      description: The kitchen profile, with its branches, delivery zones and opening hours.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The kitchen.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Kitchen'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0
+                  name: Verdant Kitchen
+                  slug: verdant-kitchen
+                  tagline: Seasonal plates, prepared daily.
+                  country_code: AE
+                  cuisines: [levantine]
+                  rating: 4.6
+                  rating_count: 218
+                  image_placeholder_id: kitchen-verdant
+                  is_verified: true
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /marketplace/meals:
+    get:
+      operationId: listMarketplaceMeals
+      tags: [Marketplace]
+      summary: List meals
+      description: |
+        The meal catalogue with the full filter set the replacement drawer needs: kitchen, meal
+        type, diet, energy, protein, carbohydrate, fat, price, preparation time and allergens.
+
+        `exclude_allergens` is an exclusion rather than an inclusion on purpose — a person filters
+        by what they must avoid, never by what they may have.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Cursor'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Limit'
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+        - name: kitchen_ids
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: meal_types
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [breakfast, lunch, dinner, snack]
+        - name: diet_classifications
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: exclude_allergens
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              examples: [peanut, gluten]
+        - name: energy_min
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: energy_max
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: protein_min
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: carbohydrate_max
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: fat_max
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: price_max
+          in: query
+          required: false
+          description: Maximum price in minor units.
+          schema:
+            type: integer
+            minimum: 0
+        - name: preparation_minutes_max
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: available_on
+          in: query
+          required: false
+          schema:
+            $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [relevance, price, energy, protein, rating, preparation_time]
+            default: relevance
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: A page of meals.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MarketplaceMeal'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/PaginationMeta'
+              example:
+                data:
+                  - id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01
+                    kitchen_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0
+                    kitchen_name: Verdant Kitchen
+                    name: Herbed chicken and freekeh
+                    slug: herbed-chicken-and-freekeh
+                    description: Grilled chicken, cracked freekeh and a lemon dressing.
+                    meal_types: [lunch, dinner]
+                    allergens: [gluten]
+                    price:
+                      amount: 4200
+                      currency: AED
+                    preparation_minutes: null
+                    image_placeholder_id: meal-freekeh
+                    rating: 4.4
+                    rating_count: 63
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                  next_cursor: eyJpIjo0MH0
+                  has_more: true
+                  total_count: 40
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /marketplace/meals/{meal}:
+    parameters:
+      - name: meal
+        in: path
+        required: true
+        description: The meal.
+        schema:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+    get:
+      operationId: getMarketplaceMeal
+      tags: [Marketplace]
+      summary: Read one meal
+      description: |
+        The meal detail, including its per-serving nutrition facts with their source, version and
+        calculation timestamp, and its availability calendar.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The meal.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MarketplaceMeal'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01
+                  kitchen_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0
+                  kitchen_name: Verdant Kitchen
+                  name: Herbed chicken and freekeh
+                  slug: herbed-chicken-and-freekeh
+                  description: Grilled chicken, cracked freekeh and a lemon dressing.
+                  meal_types: [lunch]
+                  allergens: [gluten]
+                  price:
+                    amount: 4200
+                    currency: AED
+                  preparation_minutes: null
+                  image_placeholder_id: meal-freekeh
+                  rating: 4.4
+                  rating_count: 63
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /marketplace/meal-plans:
+    get:
+      operationId: listMarketplaceMealPlans
+      tags: [Marketplace]
+      summary: List subscription meal plans
+      description: The subscription catalogue, filterable by category, diet, energy band and duration.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Cursor'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Limit'
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+        - name: category_slug
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: kitchen_ids
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: energy_min
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: energy_max
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: duration
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ['1w', '2w', '4w', '12w']
+        - name: meals_per_day
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 8
+      responses:
+        '200':
+          description: A page of subscription plans.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubscriptionPlan'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/PaginationMeta'
+              example:
+                data:
+                  - id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d01
+                    kitchen_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0
+                    name: Balanced Everyday
+                    slug: balanced-everyday
+                    summary: Three meals and a snack, built around a steady energy band.
+                    category_slugs: [balanced]
+                    image_placeholder_id: plan-balanced
+                    rating: 4.5
+                    rating_count: 91
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                  next_cursor: null
+                  has_more: false
+                  total_count: 8
+        '422':
+          $ref: '_shared/schemas.yaml#/components/responses/ValidationFailed'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+  /marketplace/meal-plans/{plan}:
+    parameters:
+      - name: plan
+        in: path
+        required: true
+        description: The subscription plan.
+        schema:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+    get:
+      operationId: getMarketplaceMealPlan
+      tags: [Marketplace]
+      summary: Read one subscription meal plan
+      description: |
+        The plan detail: its variants with their advertised energy and macro bands, its duration
+        options with any discount, and a representative sample menu.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The subscription plan.
+          headers:
+            X-Correlation-Id:
+              $ref: '_shared/schemas.yaml#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SubscriptionPlan'
+                  meta:
+                    $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+              example:
+                data:
+                  id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d01
+                  kitchen_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0
+                  name: Balanced Everyday
+                  slug: balanced-everyday
+                  summary: Three meals and a snack, built around a steady energy band.
+                  category_slugs: [balanced]
+                  image_placeholder_id: plan-balanced
+                  rating: 4.5
+                  rating_count: 91
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+        '404':
+          $ref: '_shared/schemas.yaml#/components/responses/NotFound'
+        '429':
+          $ref: '_shared/schemas.yaml#/components/responses/TooManyRequests'
+
+components:
+  schemas:
+    SalesChannels:
+      type: object
+      description: |
+        The eight independent sales switches. A kitchen that delivers to consumers *and* fulfils
+        corporate contracts is the normal case, so these are switches rather than a single type.
+      required: [b2c, b2b, marketplace, pos, subscription, delivery, pickup, corporate]
+      properties:
+        b2c:
+          type: boolean
+        b2b:
+          type: boolean
+        marketplace:
+          type: boolean
+        pos:
+          type: boolean
+        subscription:
+          type: boolean
+        delivery:
+          type: boolean
+        pickup:
+          type: boolean
+        corporate:
+          type: boolean
+      additionalProperties: false
+
+    DeliveryZone:
+      type: object
+      required: [id, name, area, country_code]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        area:
+          type: string
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        delivery_fee:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        minimum_order:
+          oneOf:
+            - $ref: '_shared/schemas.yaml#/components/schemas/Money'
+            - type: 'null'
+        estimated_minutes:
+          type: [integer, 'null']
+          minimum: 0
+      additionalProperties: false
+
+    OpeningHours:
+      type: object
+      required: [weekday]
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: '`1` is Monday, per ISO 8601.'
+        opens_at:
+          type: [string, 'null']
+        closes_at:
+          type: [string, 'null']
+        order_cut_off_at:
+          type: [string, 'null']
+      additionalProperties: false
+
+    KitchenBranch:
+      type: object
+      required: [id, kitchen_id, name, area, country_code, time_zone, is_active]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        kitchen_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        area:
+          type: string
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        time_zone:
+          type: string
+        delivery_zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryZone'
+        opening_hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpeningHours'
+        supports_pickup:
+          type: boolean
+        is_active:
+          type: boolean
+      additionalProperties: false
+
+    Kitchen:
+      type: object
+      required: [id, name, slug, tagline, country_code, image_placeholder_id, is_verified]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        slug:
+          type: string
+        tagline:
+          type: string
+        description:
+          type: string
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        cuisines:
+          type: array
+          items:
+            type: string
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        channels:
+          $ref: '#/components/schemas/SalesChannels'
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitchenBranch'
+        rating:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 5
+        rating_count:
+          type: integer
+          minimum: 0
+        image_placeholder_id:
+          type: string
+          description: |
+            A generated placeholder identifier, never a remote image URL. The prototype loads no
+            third-party assets.
+        is_verified:
+          type: boolean
+      additionalProperties: false
+
+    MealAvailability:
+      type: object
+      required: [date, available]
+      properties:
+        date:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        available:
+          type: boolean
+        remaining:
+          type: [integer, 'null']
+          minimum: 0
+        order_cut_off_at:
+          type: [string, 'null']
+          format: date-time
+      additionalProperties: false
+
+    MarketplaceMeal:
+      type: object
+      required: [id, kitchen_id, kitchen_name, name, slug, price, image_placeholder_id]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        kitchen_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        kitchen_name:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        meal_types:
+          type: array
+          items:
+            type: string
+            enum: [breakfast, lunch, dinner, snack]
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        cuisines:
+          type: array
+          items:
+            type: string
+        allergens:
+          type: array
+          items:
+            type: string
+        serving:
+          $ref: '_shared/schemas.yaml#/components/schemas/Serving'
+        nutrition:
+          $ref: '_shared/schemas.yaml#/components/schemas/NutritionFacts'
+        price:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+        preparation_minutes:
+          type: [integer, 'null']
+          minimum: 0
+        image_placeholder_id:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealAvailability'
+        channels:
+          $ref: '#/components/schemas/SalesChannels'
+        rating:
+          type: [number, 'null']
+        rating_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    NumericBand:
+      type: object
+      required: [min, max]
+      properties:
+        min:
+          type: number
+        max:
+          type: number
+      additionalProperties: false
+
+    PlanVariant:
+      type: object
+      required: [id, plan_id, name, energy_range, meals_per_day, price_per_week]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        plan_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        energy_range:
+          $ref: '#/components/schemas/NumericBand'
+        protein_range:
+          oneOf:
+            - $ref: '#/components/schemas/NumericBand'
+            - type: 'null'
+        carbohydrate_range:
+          oneOf:
+            - $ref: '#/components/schemas/NumericBand'
+            - type: 'null'
+        fat_range:
+          oneOf:
+            - $ref: '#/components/schemas/NumericBand'
+            - type: 'null'
+        meals_per_day:
+          type: integer
+          minimum: 1
+        snacks_per_day:
+          type: integer
+          minimum: 0
+        price_per_week:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+      additionalProperties: false
+
+    PlanDurationOption:
+      type: object
+      required: [duration, discount_percent, total_price]
+      properties:
+        duration:
+          type: string
+          enum: ['1w', '2w', '4w', '12w']
+        discount_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        total_price:
+          $ref: '_shared/schemas.yaml#/components/schemas/Money'
+      additionalProperties: false
+
+    SubscriptionPlan:
+      type: object
+      required: [id, kitchen_id, name, slug, summary, image_placeholder_id]
+      properties:
+        id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        kitchen_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: string
+        slug:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        category_slugs:
+          type: array
+          items:
+            type: string
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanVariant'
+        durations:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanDurationOption'
+        sample_meal_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        image_placeholder_id:
+          type: string
+        rating:
+          type: [number, 'null']
+        rating_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false

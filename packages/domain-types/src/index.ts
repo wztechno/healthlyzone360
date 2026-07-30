@@ -1,19 +1,46 @@
 export type { Brand, Unbrand } from './brand.ts';
 
 export {
-    BranchId,
-    DeviceId,
+    CODE_CODECS,
+    CODE_PATTERN,
     ID_CODECS,
     InvalidIdentifierError,
-    MembershipId,
-    OrganisationId,
-    RoleId,
     UUID_PATTERN,
-    UserId,
+    isEntityCode,
     isUuid,
     uuidVersion,
 } from './ids.ts';
-export type { IdCodec, IdCodecName } from './ids.ts';
+export {
+    AllergenCode,
+    BranchId,
+    CartId,
+    CorporateProgrammeId,
+    DeliveryZoneId,
+    DeviceId,
+    DietitianId,
+    GroceryListId,
+    IngredientId,
+    KitchenBranchId,
+    KitchenId,
+    MealId,
+    MealPlanEntryId,
+    MealPlanId,
+    MembershipId,
+    NutritionTargetId,
+    OrderId,
+    OrganisationId,
+    PlanVariantId,
+    QuotationId,
+    RecipeId,
+    RoleId,
+    SubscriptionId,
+    SubscriptionPlanId,
+    UserId,
+    VdMessageId,
+    VdSessionId,
+    VolumeTierId,
+} from './ids.ts';
+export type { CodeCodecName, IdCodec, IdCodecName } from './ids.ts';
 
 export {
     APP_MODES,
@@ -48,6 +75,64 @@ export type {
     SessionState,
     TextDirection,
 } from './enums.ts';
+
+export {
+    CURRENCY_CODES,
+    CurrencyMismatchError,
+    InvalidMoneyError,
+    addMoney,
+    isCurrencyCode,
+    isMoney,
+    minorUnitExponent,
+    money,
+} from './money.ts';
+export type { CurrencyCode, Money } from './money.ts';
+
+export {
+    ACTIVITY_LEVELS,
+    DIET_CLASSIFICATIONS,
+    HEALTH_GOALS,
+    MEAL_TYPES,
+    MEASUREMENT_SYSTEMS,
+    NUTRITION_CALCULATION_METHODS,
+    PLAN_DURATIONS,
+    PLAN_DURATION_WEEKS,
+    RESTRICTION_KINDS,
+    SALES_CHANNELS,
+    SUBSCRIPTION_STATES,
+    TARGET_PACES,
+    VD_SESSION_STATES,
+    hasPrivatePricing,
+    isActivityLevel,
+    isDietClassification,
+    isHealthGoal,
+    isLiveSubscriptionState,
+    isMealType,
+    isMeasurementSystem,
+    isNutritionCalculationMethod,
+    isPlanDuration,
+    isRestrictionKind,
+    isSafetyCriticalRestriction,
+    isSalesChannel,
+    isSubscriptionState,
+    isTargetPace,
+    isVdSessionState,
+    isVdUnhappyState,
+} from './nutrition-enums.ts';
+export type {
+    ActivityLevel,
+    DietClassification,
+    HealthGoal,
+    MealType,
+    MeasurementSystem,
+    NutritionCalculationMethod,
+    PlanDuration,
+    RestrictionKind,
+    SalesChannel,
+    SubscriptionState,
+    TargetPace,
+    VdSessionState,
+} from './nutrition-enums.ts';
 
 export type {
     ActiveContext,

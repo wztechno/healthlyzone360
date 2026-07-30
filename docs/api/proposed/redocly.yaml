@@ -1,0 +1,39 @@
+# Lint configuration for the *proposed* contracts.
+#
+# Separate from `apps/api/openapi/redocly.yaml` on purpose. That file governs the implemented
+# contract, is the input to `scripts/gen-api.mjs`, and is linted by `.github/workflows/backend.yml`.
+# Nothing here is generated from, and nothing here reaches, either of those: these documents are
+# design artefacts for review, and a draft must never be able to change the generated client.
+#
+# Run with: pnpm run api:lint:proposed
+
+apis:
+  nutrition@v1-draft:
+    root: nutrition.v1.draft.yaml
+  virtual-dietitian@v1-draft:
+    root: virtual-dietitian.v1.draft.yaml
+  marketplace@v1-draft:
+    root: marketplace.v1.draft.yaml
+  meal-plans@v1-draft:
+    root: meal-plans.v1.draft.yaml
+  foods-recipes@v1-draft:
+    root: foods-recipes.v1.draft.yaml
+  commerce@v1-draft:
+    root: commerce.v1.draft.yaml
+
+extends:
+  - recommended
+
+rules:
+  # The same blocking set the implemented contract is held to.
+  struct: error
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-4xx-response: error
+  operation-summary: error
+  path-params-defined: error
+  security-defined: error
+  no-unused-components: error
+
+  # A local development server is listed on purpose, matching the implemented contract.
+  no-server-example.com: off

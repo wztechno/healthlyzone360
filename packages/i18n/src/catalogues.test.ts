@@ -36,13 +36,22 @@ function placeholders(value: string): string[] {
 }
 
 describe('catalogue structure', () => {
-    it('ships the five declared namespaces for every locale', () => {
+    it('ships every declared namespace for every locale', () => {
         expect([...TRANSLATION_NAMESPACES]).toEqual([
             'common',
             'auth',
             'access',
             'errors',
             'designSystem',
+            'marketplace',
+            'catalogue',
+            'onboarding',
+            'nutrition',
+            'planner',
+            'commerce',
+            'virtualDietitian',
+            'professional',
+            'business',
         ]);
         expect(DEFAULT_NAMESPACE).toBe('common');
         for (const locale of LOCALES) {

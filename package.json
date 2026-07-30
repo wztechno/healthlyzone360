@@ -19,6 +19,7 @@
         "check": "turbo run lint typecheck test",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
+        "api:lint:proposed": "npx --yes @redocly/cli lint --config docs/api/proposed/redocly.yaml",
         "gen:api": "node scripts/gen-api.mjs",
         "gen:api:check": "node scripts/gen-api.mjs --check",
         "gen:pseudo-locale": "node packages/i18n/scripts/generate-pseudo-locale.mjs",
