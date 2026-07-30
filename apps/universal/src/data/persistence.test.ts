@@ -38,7 +38,7 @@ describe('the persistence allow-list', () => {
      * a root is a change a reviewer has to see.
      */
     it('permits exactly the reference root', () => {
-        expect([...PERSISTABLE_QUERY_ROOTS]).toEqual(['reference']);
+        expect([...PERSISTABLE_QUERY_ROOTS]).toEqual(['reference', 'catalogue']);
     });
 
     it.each([

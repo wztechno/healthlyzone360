@@ -6,6 +6,7 @@ import { Modal, Pressable, Text as RNText, View } from 'react-native';
 import { IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { FadeIn } from '../motion/fade-in.tsx';
 
 export interface DialogProps {
     readonly open: boolean;
@@ -53,9 +54,19 @@ export function Dialog({
         <Modal
             visible={open}
             transparent
-            animationType="fade"
+            // animationType 'none' for the same reason as Drawer: react-native-web's
+            // animated modals never fire animationend here, so the dialog role and focus
+            // trap would stay inactive. FadeIn below supplies the entrance.
+            animationType="none"
             onRequestClose={onClose}
-            accessibilityViewIsModal
+            // Names react-native-web's own dialog wrapper (it spreads unrecognised props
+            // onto that element): an active modal without an accessible name is an axe
+            // serious violation (aria-dialog-name). RN's Modal typing does not declare
+            // aria props, hence the cast.
+            {...({ 'aria-labelledby': titleId } as object)}
+            // No accessibilityViewIsModal: react-native-web maps it to aria-modal on this roleless
+            // wrapper (an axe-critical aria-allowed-attr violation). The dialog semantics live on
+            // the panel below; native Modal is already modal to screen readers.
         >
             <View className="flex-1 items-center justify-center p-4">
                 <Pressable
@@ -71,57 +82,59 @@ export function Dialog({
                     className="absolute inset-0 bg-overlay"
                 />
 
-                <View
-                    testID={base}
-                    role="dialog"
-                    aria-modal
-                    aria-labelledby={titleId}
-                    aria-describedby={descriptionId}
-                    className={cx(
-                        'w-full max-w-[480px] flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
-                        className,
-                    )}
-                >
-                    <View className="flex-row items-start gap-3">
-                        <RNText
-                            nativeID={titleId}
-                            testID={`${base}-title`}
-                            accessibilityRole="header"
-                            aria-level={2}
-                            className="flex-1 text-xl font-semibold text-content-primary text-start"
-                        >
-                            {title}
-                        </RNText>
-                        <IconButton
-                            testID={`${base}-close`}
-                            size="sm"
-                            label={t('common:action.close')}
-                            icon={<Icon name="close" />}
-                            onPress={onClose}
-                        />
-                    </View>
-
-                    {description === undefined ? null : (
-                        <RNText
-                            nativeID={descriptionId}
-                            testID={`${base}-description`}
-                            className="text-sm text-content-secondary text-start"
-                        >
-                            {description}
-                        </RNText>
-                    )}
-
-                    {children}
-
-                    {actions === undefined ? null : (
-                        <View
-                            testID={`${base}-actions`}
-                            className="flex-row flex-wrap items-center justify-end gap-2"
-                        >
-                            {actions}
+                <FadeIn className="w-full max-w-[480px]">
+                    <View
+                        testID={base}
+                        role="dialog"
+                        aria-modal
+                        aria-labelledby={titleId}
+                        aria-describedby={descriptionId}
+                        className={cx(
+                            'w-full flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
+                            className,
+                        )}
+                    >
+                        <View className="flex-row items-start gap-3">
+                            <RNText
+                                nativeID={titleId}
+                                testID={`${base}-title`}
+                                accessibilityRole="header"
+                                aria-level={2}
+                                className="flex-1 text-xl font-semibold text-content-primary text-start"
+                            >
+                                {title}
+                            </RNText>
+                            <IconButton
+                                testID={`${base}-close`}
+                                size="sm"
+                                label={t('common:action.close')}
+                                icon={<Icon name="close" />}
+                                onPress={onClose}
+                            />
                         </View>
-                    )}
-                </View>
+
+                        {description === undefined ? null : (
+                            <RNText
+                                nativeID={descriptionId}
+                                testID={`${base}-description`}
+                                className="text-sm text-content-secondary text-start"
+                            >
+                                {description}
+                            </RNText>
+                        )}
+
+                        {children}
+
+                        {actions === undefined ? null : (
+                            <View
+                                testID={`${base}-actions`}
+                                className="flex-row flex-wrap items-center justify-end gap-2"
+                            >
+                                {actions}
+                            </View>
+                        )}
+                    </View>
+                </FadeIn>
             </View>
         </Modal>
     );

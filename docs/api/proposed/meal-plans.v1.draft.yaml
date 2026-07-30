@@ -46,6 +46,40 @@ security:
   - bearerToken: []
 
 paths:
+  /meal-plans:
+    get:
+      operationId: listMealPlans
+      tags: [Meal plans]
+      summary: List the authenticated person's meal plans, newest first
+      description: >-
+        Added at the Prompt 2 Wave 2 gate: every other operation takes a plan identifier the
+        client was assumed to already hold, leaving no discovery path.
+      parameters:
+        - $ref: '_shared/schemas.yaml#/components/parameters/Cursor'
+        - $ref: '_shared/schemas.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A cursor page of meal-plan summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealPlanSummaryPage'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
+  /meal-plans/current:
+    get:
+      operationId: getCurrentMealPlan
+      tags: [Meal plans]
+      summary: The authenticated person's active meal plan, or null when none exists
+      responses:
+        '200':
+          description: The active plan summary, or a null data envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentMealPlanEnvelope'
+        '401':
+          $ref: '_shared/schemas.yaml#/components/responses/Unauthorised'
   /meal-plans/generate:
     post:
       operationId: generateMealPlan
@@ -450,6 +484,45 @@ components:
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
 
   schemas:
+    MealPlanSummary:
+      type: object
+      required: [plan_id, name, state, week_start, updated_at]
+      properties:
+        plan_id:
+          $ref: '_shared/schemas.yaml#/components/schemas/Uuid'
+        name:
+          type: [string, 'null']
+        state:
+          type: string
+          enum: [draft, active, archived]
+        week_start:
+          $ref: '_shared/schemas.yaml#/components/schemas/IsoDate'
+        updated_at:
+          type: string
+          format: date-time
+
+    MealPlanSummaryPage:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealPlanSummary'
+        meta:
+          $ref: '_shared/schemas.yaml#/components/schemas/PaginationMeta'
+
+    CurrentMealPlanEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/MealPlanSummary'
+            - type: 'null'
+        meta:
+          $ref: '_shared/schemas.yaml#/components/schemas/Meta'
+
     PlanEntryKind:
       type: string
       enum: [food, recipe, kitchen_meal, restaurant]

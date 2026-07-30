@@ -233,6 +233,17 @@ export interface MealPlanSummary {
 }
 
 export interface MealPlanRepository {
+    /**
+     * `GET /api/v1/meal-plans` — the person's plans, newest first. Added at the Wave 2 gate:
+     * every other operation takes a `{plan}` the client was assumed to already hold, leaving no
+     * way to discover one (Wave 2 worked around it through the approved Virtual Dietitian
+     * session's draft; Wave 4 must not).
+     */
+    listPlans(request?: CursorPageRequest): Promise<CursorPage<MealPlanSummary>>;
+
+    /** `GET /api/v1/meal-plans/current` — the active plan, or `null` when none exists. */
+    getCurrentPlan(): Promise<MealPlanSummary | null>;
+
     /** `GET /api/v1/meal-plans/{plan}` for a week. `weekStart` is Monday, `YYYY-MM-DD`. */
     getWeek(planId: MealPlanId, weekStart: string): Promise<MealPlanWeek>;
     getDay(planId: MealPlanId, date: string): Promise<MealPlanDay>;

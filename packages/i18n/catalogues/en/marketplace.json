@@ -1,3 +1,396 @@
 {
-    "title": "Marketplace"
+    "title": "Marketplace",
+    "brand": {
+        "name": "Healthy360",
+        "tagline": "Food that fits the plan",
+        "homeLabel": "Healthy360 home"
+    },
+    "common": {
+        "listSeparator": ", "
+    },
+    "nav": {
+        "home": "Home",
+        "discover": "Discover",
+        "kitchens": "Kitchens",
+        "meals": "Meals",
+        "plans": "Plans",
+        "dietitians": "Dietitians",
+        "howItWorks": "How it works",
+        "forBusiness": "For business",
+        "signIn": "Sign in",
+        "register": "Create account",
+        "skipToContent": "Skip to content",
+        "plannedSuffix": "{{label}} (soon)",
+        "plannedNotice": "{{label}} is not built yet. Nothing was changed."
+    },
+    "footer": {
+        "about": "An original meal-planning and kitchen marketplace prototype. Every kitchen, meal, plan and professional shown here is synthetic.",
+        "legalPrototype": "No terms, privacy notice or licence has been published for this prototype, so none is linked. Nothing here is an offer, and no order can be placed."
+    },
+    "prototype": {
+        "badge": "Prototype",
+        "notBuilt": "Not built yet — nothing was changed.",
+        "hint": "This control is part of the prototype and will explain what it would have done.",
+        "noticeTitle": "Prototype surface",
+        "noticeBody": "This page presents how the finished product will work. The data behind it is synthetic and no action taken here reaches a real kitchen, account or payment."
+    },
+    "medicalDisclaimer": {
+        "title": "This is not medical advice",
+        "body": "Figures shown here come from a prototype calculator and a synthetic data set. They are an estimate, and they are not a diagnosis. Speak to a qualified dietitian or doctor before acting on them, particularly if you are managing a health condition, are pregnant, or are feeding a child."
+    },
+    "landing": {
+        "heroTitle": "Eat to a plan you actually chose",
+        "heroBody": "Set a target, see what it means in real food, and fill the week from kitchens that deliver near you — or from your own kitchen. Browse everything before you create an account.",
+        "browseKitchens": "Browse kitchens",
+        "howItWorks": "See how it works",
+        "valueTitle": "What Healthy360 does",
+        "value": {
+            "plan": {
+                "title": "A week you can hold in your head",
+                "body": "One target, one week, and every meal counted against it. Change one thing and the totals move with you."
+            },
+            "kitchens": {
+                "title": "Kitchens that publish their numbers",
+                "body": "Every meal carries its energy, protein and allergens on the card, not three taps away."
+            },
+            "review": {
+                "title": "A qualified person in the loop",
+                "body": "Suggestions are labelled as suggestions. A registered dietitian can review a plan and override anything on it."
+            }
+        },
+        "featuredKitchens": "Kitchens on the marketplace",
+        "featuredKitchensBody": "A few of the kitchens cooking to a published energy and protein figure.",
+        "seeAllKitchens": "See all kitchens",
+        "howItWorksTeaserTitle": "New here?",
+        "howItWorksTeaserBody": "Four steps, from a target to a week of food.",
+        "forBusinessTeaserTitle": "Feeding a team?",
+        "forBusinessTeaserBody": "Corporate, clinic, gym and wholesale programmes.",
+        "authTitle": "Ready to plan your own week?",
+        "authBody": "Creating an account sets your target, keeps your restrictions and remembers what you like."
+    },
+    "discover": {
+        "title": "Discover",
+        "subtitle": "Kitchens, meals and the people who review them.",
+        "searchLabel": "Search kitchens",
+        "searchPlaceholder": "A cuisine, a kitchen, an area",
+        "searchSubmit": "Search",
+        "kitchensTitle": "Kitchens",
+        "kitchensBody": "Cooking for delivery, collection or a weekly subscription.",
+        "dietitiansTitle": "Dietitians",
+        "dietitiansBody": "Registered professionals who review plans and set restrictions.",
+        "comingTitle": "Also on the way",
+        "comingBody": "These parts of the catalogue are being built. Each one explains what it will do.",
+        "family": {
+            "meals": "Individual meals",
+            "plans": "Meal plans",
+            "diets": "Diet categories",
+            "tools": "Calculators"
+        },
+        "familyBody": {
+            "meals": "Every meal on the marketplace, filterable by energy, macros, allergens and price.",
+            "plans": "Subscription plans, side by side, with calorie bands and duration discounts.",
+            "diets": "Browse by the way you eat rather than by the kitchen that cooked it.",
+            "tools": "Work out a calorie and macro target with no account, and see the method."
+        }
+    },
+    "kitchens": {
+        "title": "Kitchens",
+        "subtitle": "Every kitchen here publishes an energy and protein figure for each dish.",
+        "searchLabel": "Search kitchens",
+        "searchPlaceholder": "A cuisine, a kitchen, an area",
+        "cardLabel": "{{kitchen}} — open the kitchen profile",
+        "imageLabel": "Illustration standing in for a photograph of {{kitchen}}",
+        "ratingLabel": "Average rating for {{kitchen}}",
+        "notRatedYet": "Not rated yet",
+        "verified": "Verified",
+        "deliversTo": "Delivers to {{area}}",
+        "deliversToTimed": "Delivers to {{area}} in about {{minutes}} minutes",
+        "emptyTitle": "No kitchens match",
+        "emptyBody": "Try a different cuisine, or clear the filters to see everything on the marketplace."
+    },
+    "kitchen": {
+        "loading": "Loading",
+        "notFoundTitle": "That kitchen is not on the marketplace",
+        "notFoundBody": "It may have been removed, or the link may be wrong. Browse the directory to find another.",
+        "menuTitle": "The menu",
+        "menuBody": "Everything this kitchen currently offers to households, with the nutrition figures on each card.",
+        "viewMenu": "View the menu",
+        "branchesTitle": "Branches",
+        "noBranches": "This kitchen has no published branches.",
+        "branchArea": "{{area}}, {{country}}",
+        "openingHours": "Opening hours",
+        "openBetween": "{{day}}: {{opensAt}} to {{closesAt}}",
+        "closedOn": "{{day}}: closed",
+        "orderCutOff": "Same-day orders close at {{time}}.",
+        "deliveryZones": "Delivery zones",
+        "noDeliveryZones": "This branch does not deliver. Orders are collected.",
+        "zoneMinutes": "about {{minutes}} minutes",
+        "zoneFee": "delivery {{fee}}",
+        "zoneMinimum": "minimum order {{minimum}}"
+    },
+    "menu": {
+        "title": "Menu",
+        "titleFor": "{{kitchen}} menu",
+        "subtitle": "Energy and protein are per serving. Allergens are declared by the kitchen.",
+        "searchLabel": "Search this menu",
+        "searchPlaceholder": "A dish, an ingredient",
+        "cardLabel": "{{meal}} — {{energy}} kilocalories, {{protein}} grams of protein. Open the summary.",
+        "imageLabel": "Illustration standing in for a photograph of {{meal}}",
+        "containsAllergens": "Contains {{allergens}}",
+        "allergensTitle": "Allergens",
+        "noDeclaredAllergens": "The kitchen declares no allergens in this dish.",
+        "perServing": "Per serving ({{serving}})",
+        "preparationMinutes": "{{minutes}} minutes to prepare",
+        "detailTitle": "Meal summary",
+        "fullDetailsTitle": "This is a summary",
+        "fullDetailsBody": "The full record — ingredients, preparation steps, micronutrients, portion control and ordering — arrives with the meal catalogue.",
+        "emptyTitle": "Nothing on this menu matches",
+        "emptyBody": "Try another meal type, or clear the filters to see the whole menu."
+    },
+    "dietitians": {
+        "title": "Dietitians",
+        "subtitle": "Registered professionals who review plans, set restrictions and answer for the figures.",
+        "searchLabel": "Search dietitians",
+        "searchPlaceholder": "A name, a specialism",
+        "seeAll": "See all dietitians",
+        "loading": "Loading",
+        "cardLabel": "{{dietitian}} — open the profile",
+        "ratingLabel": "Average rating for {{dietitian}}",
+        "accepting": "Accepting clients",
+        "notAccepting": "Not accepting clients",
+        "notAcceptingBody": "This dietitian is not taking on new clients at the moment.",
+        "browseOthers": "Browse other dietitians",
+        "speaks": "Speaks {{languages}}",
+        "localeEnglish": "English",
+        "localeArabic": "Arabic",
+        "credentialsTitle": "Credentials",
+        "specialismsTitle": "Specialisms",
+        "syntheticCredentials": "Synthetic record — not a real registration",
+        "syntheticTitle": "This registration is invented",
+        "syntheticBody": "Every professional in this prototype is fictional and every registration number is synthetic. Nothing here should be read as a statement about a real practitioner's licensure.",
+        "consultationTitle": "Consultations",
+        "consultationBody": "A consultation covers your target, your restrictions and a review of the week you are eating. It is a conversation with a qualified person, not an automated report.",
+        "requestConsultation": "Request a consultation",
+        "emptyTitle": "No dietitians match",
+        "emptyBody": "Try a different specialism, or clear the filters to see everybody.",
+        "notFoundTitle": "That profile is not available",
+        "notFoundBody": "The professional may no longer be listed. Browse the directory to find another."
+    },
+    "howItWorks": {
+        "title": "How Healthy360 works",
+        "subtitle": "Four steps, from a target to a week you can cook or order.",
+        "step": {
+            "tell": {
+                "title": "Tell us what has to be true",
+                "body": "Your measurements, how you move, what you are working towards, and everything you cannot or will not eat — allergies, medical restrictions, religious requirements and plain dislikes, each recorded differently because each behaves differently."
+            },
+            "target": {
+                "title": "See a target, and where it came from",
+                "body": "An energy figure and protein, carbohydrate, fat and fibre grams, with the method named and the assumptions listed. It is an estimate, and it says so."
+            },
+            "plan": {
+                "title": "Fill the week",
+                "body": "Lock what you want to keep, regenerate what you do not, swap a meal for one that fits, and watch the day's totals move as you go."
+            },
+            "eat": {
+                "title": "Cook it, or have it delivered",
+                "body": "Every entry is either something you make or something a kitchen brings. Mix the two however suits the week."
+            }
+        },
+        "nextTitle": "Have a look around",
+        "nextBody": "Nothing on the marketplace needs an account.",
+        "meetDietitians": "Meet the dietitians"
+    },
+    "forBusiness": {
+        "title": "Healthy360 for business",
+        "subtitle": "Feeding a workforce, a clinic, a training group or a retail shelf works differently from feeding a household. These programmes are built for that.",
+        "requestQuotation": "Request a quotation",
+        "programmesTitle": "Programmes",
+        "programmesBody": "Four ways organisations buy prepared food from the kitchens on this platform.",
+        "programme": {
+            "corporate": {
+                "title": "Corporate meal programmes",
+                "body": "Subsidised daily meals for staff, with per-employee allowances, site delivery windows and a single monthly account."
+            },
+            "clinic": {
+                "title": "Clinic bulk meals",
+                "body": "Therapeutic and post-operative meal supply for clinics and care settings, specified with a dietitian and delivered against a schedule."
+            },
+            "gym": {
+                "title": "Training and gym packages",
+                "body": "Higher-protein packages sold through a training facility, sized to a member's programme rather than to a generic plan."
+            },
+            "wholesale": {
+                "title": "Wholesale prepared meals",
+                "body": "Prepared meals supplied in volume for onward sale, with agreed specifications, lead times and recurring order lines."
+            }
+        },
+        "termsTitle": "What a business account covers",
+        "termsBody": "The commercial terms an organisation agrees with a kitchen, rather than a list of prices.",
+        "capability": {
+            "minimumOrder": "Minimum order quantity",
+            "volumeTiers": "Volume tiers",
+            "deliverySchedule": "Delivery schedule",
+            "leadTime": "Lead time",
+            "recurringOrders": "Recurring orders",
+            "eligibility": "Account eligibility"
+        },
+        "pricingTitle": "Business pricing is never published",
+        "pricingBody": "Rates depend on volume, specification, delivery pattern and lead time, and are agreed per account. No consumer page carries a business price, and none is shown here.",
+        "prototypeNotice": "This page presents the business programmes. Quotations, contract catalogues and volume pricing live behind a business account and are not part of the public marketplace.",
+        "enquiryTitle": "Quotations need a business account",
+        "enquiryBody": "A quotation is priced against your organisation — volume, specification, sites and delivery pattern — so it is raised from inside a business account rather than from a public page. Sign in if you have one, or create an account and we will take it from there."
+    },
+    "consumer": {
+        "title": "Your Healthy360",
+        "greeting": "Good to see you, {{name}}",
+        "greetingAnonymous": "Your Healthy360",
+        "subtitle": "What you are eating next, how it sits against your target, and what is on its way.",
+        "nav": {
+            "home": "Home",
+            "discover": "Discover",
+            "planner": "Planner",
+            "nutrition": "Nutrition",
+            "virtualDietitian": "Virtual Dietitian",
+            "subscriptions": "Subscriptions",
+            "cart": "Basket",
+            "cartWithCount": "{{label}} ({{items}})",
+            "profile": "Profile"
+        },
+        "resume": {
+            "title": "Pick up where you left off",
+            "body": "You were looking at {{destination}} before you signed in.",
+            "continue": "Continue",
+            "dismiss": "Not now"
+        },
+        "onboarding": {
+            "title": "Let us work out your target",
+            "body": "A few questions about your measurements, how you move and what you cannot eat, and the planner has something to aim at.",
+            "start": "Start setting up"
+        },
+        "today": {
+            "title": "Next up",
+            "forToday": "Today",
+            "forDate": "{{date}}",
+            "locked": "Locked",
+            "emptyTitle": "Nothing planned yet",
+            "emptyBody": "Once a week has been generated, the next meals appear here.",
+            "openPlanner": "Open the planner"
+        },
+        "nutrition": {
+            "title": "Against your target",
+            "emptyTitle": "No target set yet",
+            "emptyBody": "Finish setting up and the day's figures will be measured against your own target rather than a generic one.",
+            "whyThisTarget": "Why this target?"
+        },
+        "subscription": {
+            "title": "Your subscription",
+            "nextDelivery": "Next delivery {{date}}",
+            "noNextDelivery": "No delivery is scheduled at the moment.",
+            "weeklyPrice": "{{price}} per week",
+            "emptyTitle": "No subscription running",
+            "emptyBody": "A subscription delivers on the days you choose, so the week fills itself.",
+            "manage": "Manage subscription"
+        }
+    },
+    "resume": {
+        "thisPage": "the page you were on"
+    },
+    "filters": {
+        "clear": "Clear filters",
+        "cuisine": "Cuisine",
+        "howToGetIt": "How to get it",
+        "mealType": "Meal",
+        "specialism": "Specialism",
+        "availability": "Availability",
+        "resultCount_one": "{{count}} result",
+        "resultCount_other": "{{count}} results"
+    },
+    "nutrition": {
+        "energy": "{{energy}} kcal",
+        "protein": "{{protein}} g protein",
+        "carbohydrate": "{{carbohydrate}} g carbs",
+        "fat": "{{fat}} g fat",
+        "source": "Source: {{source}}"
+    },
+    "nutrients": {
+        "energy": "Energy",
+        "protein": "Protein",
+        "carbohydrate": "Carbohydrate",
+        "fat": "Fat",
+        "fibre": "Fibre",
+        "sugars": "Sugars",
+        "saturated_fat": "Saturated fat",
+        "sodium": "Sodium"
+    },
+    "levels": {
+        "optimal": "On target",
+        "good": "Close",
+        "moderate": "A little off",
+        "high": "Well over",
+        "excessive": "Far over"
+    },
+    "channels": {
+        "b2c": "Households",
+        "b2b": "Business supply",
+        "marketplace": "On the marketplace",
+        "pos": "Over the counter",
+        "subscription": "Subscription",
+        "delivery": "Delivery",
+        "pickup": "Collection",
+        "corporate": "Corporate"
+    },
+    "mealTypes": {
+        "breakfast": "Breakfast",
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "snack": "Snack"
+    },
+    "diets": {
+        "omnivore": "Omnivore",
+        "vegetarian": "Vegetarian",
+        "vegan": "Vegan",
+        "pescatarian": "Pescatarian",
+        "keto": "Keto",
+        "low_carb": "Low carbohydrate",
+        "high_protein": "High protein",
+        "mediterranean": "Mediterranean",
+        "halal_friendly": "Halal friendly",
+        "gluten_free": "Gluten free",
+        "dairy_free": "Dairy free",
+        "nut_free": "Nut free"
+    },
+    "allergens": {
+        "gluten": "Cereals containing gluten",
+        "crustaceans": "Crustaceans",
+        "egg": "Eggs",
+        "fish": "Fish",
+        "peanut": "Peanuts",
+        "soy": "Soybeans",
+        "milk": "Milk",
+        "tree_nut": "Tree nuts",
+        "celery": "Celery",
+        "mustard": "Mustard",
+        "sesame": "Sesame",
+        "sulphites": "Sulphur dioxide and sulphites",
+        "lupin": "Lupin",
+        "mollusc": "Molluscs"
+    },
+    "subscriptionStates": {
+        "draft": "Draft",
+        "active": "Active",
+        "paused": "Paused",
+        "skipped_today": "Skipped today",
+        "cancelled": "Cancelled",
+        "expired": "Expired"
+    },
+    "weekday": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+    }
 }

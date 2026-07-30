@@ -26,6 +26,7 @@
         "@healthy360/design-tokens": "workspace:*",
         "@healthy360/domain-types": "workspace:*",
         "@healthy360/i18n": "workspace:*",
+        "@healthy360/nutrition": "workspace:*",
         "@healthy360/permissions": "workspace:*",
         "@healthy360/validation": "workspace:*",
         "@react-native-community/netinfo": "12.0.1",

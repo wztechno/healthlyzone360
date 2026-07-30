@@ -352,12 +352,28 @@ describe('Drawer — placement', () => {
      * correct physical side with no mirrored geometry at all.
      */
     function orderOf(): readonly string[] {
-        const root = screen.getByTestId('nav').parent;
-        const children = (root?.children ?? []) as readonly {
-            props?: Record<string, unknown>;
-        }[];
-        return children
-            .map((child) => String(child.props?.['testID'] ?? ''))
+        // The panel sits inside a single-child motion wrapper (SlideIn), so climb from the
+        // panel to the first ancestor holding the row/column, then resolve each child's
+        // identity through any wrapper to its first labelled descendant.
+        type Node = { props?: Record<string, unknown>; children?: readonly unknown[] };
+        let container = screen.getByTestId('nav').parent as Node | null;
+        while (container && (container.children ?? []).length < 2) {
+            container = (container as { parent?: Node | null }).parent ?? null;
+        }
+        const firstTestId = (node: Node): string => {
+            const own = String(node.props?.['testID'] ?? '');
+            if (own.length > 0) return own;
+            for (const child of (node.children ?? []) as readonly Node[]) {
+                if (typeof child === 'object' && child !== null) {
+                    const found = firstTestId(child);
+                    if (found.length > 0) return found;
+                }
+            }
+            return '';
+        };
+        return ((container?.children ?? []) as readonly Node[])
+            .filter((child) => typeof child === 'object' && child !== null)
+            .map((child) => firstTestId(child))
             .filter((id) => id.length > 0);
     }
 

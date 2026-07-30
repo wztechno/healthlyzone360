@@ -75,6 +75,8 @@ const DRAFTS = {
     'meal-plans.v1.draft.yaml': {
         title: 'Meal Plans',
         paths: [
+            '/meal-plans',
+            '/meal-plans/current',
             '/meal-plans/generate',
             '/meal-plans/{plan}',
             '/meal-plans/{plan}/regenerate',
@@ -85,6 +87,8 @@ const DRAFTS = {
             '/meal-plans/{plan}/entries/{entry}/portion',
         ],
         operationIds: [
+            'listMealPlans',
+            'getCurrentMealPlan',
             'generateMealPlan',
             'getMealPlan',
             'regenerateMealPlan',
@@ -131,9 +135,9 @@ type DraftFile = keyof typeof DRAFTS;
 
 const DRAFT_FILES = Object.keys(DRAFTS) as readonly DraftFile[];
 
-/** The prompt's list, counted: 33 distinct paths carrying 35 operations. */
-const EXPECTED_PATH_COUNT = 33;
-const EXPECTED_OPERATION_COUNT = 35;
+/** The prompt's 33 paths / 35 operations, plus the two discovery operations added at the Wave 2 gate. */
+const EXPECTED_PATH_COUNT = 35;
+const EXPECTED_OPERATION_COUNT = 37;
 
 function operationIdsIn(content: string): readonly string[] {
     return [...content.matchAll(/^\s+operationId:\s+(\S+)\s*$/gm)].map((match) => match[1]!);
@@ -149,7 +153,7 @@ describe('every promised endpoint exists', () => {
         }
     });
 
-    it('covers all 33 paths from the specification, with none duplicated across drafts', () => {
+    it('covers all 35 paths (33 specified + 2 gate additions), with none duplicated across drafts', () => {
         const all = DRAFT_FILES.flatMap((file) => [...DRAFTS[file].paths]);
         expect(all).toHaveLength(EXPECTED_PATH_COUNT);
         expect(new Set(all).size).toBe(EXPECTED_PATH_COUNT);
@@ -161,7 +165,7 @@ describe('operation identifiers', () => {
         expect(operationIdsIn(read(file))).toEqual([...DRAFTS[file].operationIds]);
     });
 
-    it('declares 35 operations in total', () => {
+    it('declares 37 operations in total', () => {
         const total = DRAFT_FILES.reduce(
             (count, file) => count + operationIdsIn(read(file)).length,
             0,

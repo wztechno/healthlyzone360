@@ -1,12 +1,15 @@
 import { Slot } from 'expo-router';
 
-import { AreaShell } from '../../src/shell/area-shell.tsx';
+import { ConsumerShell } from '../../src/shell/consumer-shell.tsx';
 
-/** The `customer` area. `AreaShell` applies `<Gate area="customer">` and this area's chrome. */
+/**
+ * The `customer` area. `ConsumerShell` applies `<Gate area="customer">` and the consumer chrome —
+ * a sidebar at `lg` and above, bottom tabs below it.
+ */
 export default function CustomerLayout() {
     return (
-        <AreaShell area="customer" testID="customer-shell">
+        <ConsumerShell>
             <Slot />
-        </AreaShell>
+        </ConsumerShell>
     );
 }

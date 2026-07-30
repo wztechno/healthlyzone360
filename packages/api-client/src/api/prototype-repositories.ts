@@ -179,6 +179,8 @@ export const PROTOTYPE_ENDPOINTS = {
     updateCurrentTargets: `PUT ${BASE}/nutrition/targets/current`,
     requestNutritionReview: `POST ${BASE}/nutrition/targets/current/review`,
 
+    listMealPlans: `GET ${BASE}/meal-plans`,
+    getCurrentMealPlan: `GET ${BASE}/meal-plans/current`,
     getWeek: `GET ${BASE}/meal-plans/{plan}`,
     getDay: `GET ${BASE}/meal-plans/{plan}/days/{day}`,
     generate: `POST ${BASE}/meal-plans/generate`,
@@ -300,6 +302,12 @@ export const apiNutritionRepository: NutritionRepository = {
  * ---------------------------------------------------------------------------------------------- */
 
 export const apiMealPlanRepository: MealPlanRepository = {
+    listPlans(_request?: CursorPageRequest): Promise<CursorPage<MealPlanSummary>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.listMealPlans);
+    },
+    getCurrentPlan(): Promise<MealPlanSummary | null> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.getCurrentMealPlan);
+    },
     getWeek(_planId: MealPlanId, _weekStart: string): Promise<MealPlanWeek> {
         return notImplemented(PROTOTYPE_ENDPOINTS.getWeek);
     },

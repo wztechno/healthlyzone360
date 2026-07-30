@@ -1,9 +1,6 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { ConsumerHomeScreen } from '../../src/features/marketplace/screens/consumer-home-screen.tsx';
 
-/**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
- */
+/** `/customer` — the signed-in consumer's home. */
 export default function CustomerIndex() {
-    return <PrototypeScreen area="customer" testID="prototype-customer" />;
+    return <ConsumerHomeScreen />;
 }

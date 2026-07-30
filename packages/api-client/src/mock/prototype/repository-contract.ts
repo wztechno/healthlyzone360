@@ -65,6 +65,8 @@ export const CONTRACT_METHODS: Readonly<Record<RepositoryKey, readonly string[]>
     ],
     nutrition: ['calculateTargets', 'getCurrentTargets', 'updateCurrentTargets', 'requestReview'],
     planner: [
+        'listPlans',
+        'getCurrentPlan',
         'getWeek',
         'getDay',
         'generate',

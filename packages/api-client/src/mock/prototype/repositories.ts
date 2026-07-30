@@ -513,6 +513,17 @@ export function createPrototypeRepositories(
     /* ── planner ───────────────────────────────────────────────────────────────────────────── */
 
     const planner: MealPlanRepository = {
+        async listPlans(request?: CursorPageRequest): Promise<CursorPage<MealPlanSummary>> {
+            await settle();
+            return paginate(store.listPlans(), request);
+        },
+
+        async getCurrentPlan(): Promise<MealPlanSummary | null> {
+            await settle();
+            const [current] = store.listPlans();
+            return current ?? null;
+        },
+
         async getWeek(planId: MealPlanId, weekStart: string): Promise<MealPlanWeek> {
             await settle();
             return store.getWeek(planId, weekStart);

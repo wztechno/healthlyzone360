@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 394 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 688 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -406,7 +406,301 @@ export interface NamespaceKeys {
     | 'validation.password_mismatch'
     | 'validation.required';
   readonly "marketplace":
-    | 'title';
+    | 'allergens.celery'
+    | 'allergens.crustaceans'
+    | 'allergens.egg'
+    | 'allergens.fish'
+    | 'allergens.gluten'
+    | 'allergens.lupin'
+    | 'allergens.milk'
+    | 'allergens.mollusc'
+    | 'allergens.mustard'
+    | 'allergens.peanut'
+    | 'allergens.sesame'
+    | 'allergens.soy'
+    | 'allergens.sulphites'
+    | 'allergens.tree_nut'
+    | 'brand.homeLabel'
+    | 'brand.name'
+    | 'brand.tagline'
+    | 'channels.b2b'
+    | 'channels.b2c'
+    | 'channels.corporate'
+    | 'channels.delivery'
+    | 'channels.marketplace'
+    | 'channels.pickup'
+    | 'channels.pos'
+    | 'channels.subscription'
+    | 'common.listSeparator'
+    | 'consumer.greeting'
+    | 'consumer.greetingAnonymous'
+    | 'consumer.nav.cart'
+    | 'consumer.nav.cartWithCount'
+    | 'consumer.nav.discover'
+    | 'consumer.nav.home'
+    | 'consumer.nav.nutrition'
+    | 'consumer.nav.planner'
+    | 'consumer.nav.profile'
+    | 'consumer.nav.subscriptions'
+    | 'consumer.nav.virtualDietitian'
+    | 'consumer.nutrition.emptyBody'
+    | 'consumer.nutrition.emptyTitle'
+    | 'consumer.nutrition.title'
+    | 'consumer.nutrition.whyThisTarget'
+    | 'consumer.onboarding.body'
+    | 'consumer.onboarding.start'
+    | 'consumer.onboarding.title'
+    | 'consumer.resume.body'
+    | 'consumer.resume.continue'
+    | 'consumer.resume.dismiss'
+    | 'consumer.resume.title'
+    | 'consumer.subscription.emptyBody'
+    | 'consumer.subscription.emptyTitle'
+    | 'consumer.subscription.manage'
+    | 'consumer.subscription.nextDelivery'
+    | 'consumer.subscription.noNextDelivery'
+    | 'consumer.subscription.title'
+    | 'consumer.subscription.weeklyPrice'
+    | 'consumer.subtitle'
+    | 'consumer.title'
+    | 'consumer.today.emptyBody'
+    | 'consumer.today.emptyTitle'
+    | 'consumer.today.forDate'
+    | 'consumer.today.forToday'
+    | 'consumer.today.locked'
+    | 'consumer.today.openPlanner'
+    | 'consumer.today.title'
+    | 'dietitians.accepting'
+    | 'dietitians.browseOthers'
+    | 'dietitians.cardLabel'
+    | 'dietitians.consultationBody'
+    | 'dietitians.consultationTitle'
+    | 'dietitians.credentialsTitle'
+    | 'dietitians.emptyBody'
+    | 'dietitians.emptyTitle'
+    | 'dietitians.loading'
+    | 'dietitians.localeArabic'
+    | 'dietitians.localeEnglish'
+    | 'dietitians.notAccepting'
+    | 'dietitians.notAcceptingBody'
+    | 'dietitians.notFoundBody'
+    | 'dietitians.notFoundTitle'
+    | 'dietitians.ratingLabel'
+    | 'dietitians.requestConsultation'
+    | 'dietitians.searchLabel'
+    | 'dietitians.searchPlaceholder'
+    | 'dietitians.seeAll'
+    | 'dietitians.speaks'
+    | 'dietitians.specialismsTitle'
+    | 'dietitians.subtitle'
+    | 'dietitians.syntheticBody'
+    | 'dietitians.syntheticCredentials'
+    | 'dietitians.syntheticTitle'
+    | 'dietitians.title'
+    | 'diets.dairy_free'
+    | 'diets.gluten_free'
+    | 'diets.halal_friendly'
+    | 'diets.high_protein'
+    | 'diets.keto'
+    | 'diets.low_carb'
+    | 'diets.mediterranean'
+    | 'diets.nut_free'
+    | 'diets.omnivore'
+    | 'diets.pescatarian'
+    | 'diets.vegan'
+    | 'diets.vegetarian'
+    | 'discover.comingBody'
+    | 'discover.comingTitle'
+    | 'discover.dietitiansBody'
+    | 'discover.dietitiansTitle'
+    | 'discover.family.diets'
+    | 'discover.family.meals'
+    | 'discover.family.plans'
+    | 'discover.family.tools'
+    | 'discover.familyBody.diets'
+    | 'discover.familyBody.meals'
+    | 'discover.familyBody.plans'
+    | 'discover.familyBody.tools'
+    | 'discover.kitchensBody'
+    | 'discover.kitchensTitle'
+    | 'discover.searchLabel'
+    | 'discover.searchPlaceholder'
+    | 'discover.searchSubmit'
+    | 'discover.subtitle'
+    | 'discover.title'
+    | 'filters.availability'
+    | 'filters.clear'
+    | 'filters.cuisine'
+    | 'filters.howToGetIt'
+    | 'filters.mealType'
+    | 'filters.resultCount'
+    | 'filters.specialism'
+    | 'footer.about'
+    | 'footer.legalPrototype'
+    | 'forBusiness.capability.deliverySchedule'
+    | 'forBusiness.capability.eligibility'
+    | 'forBusiness.capability.leadTime'
+    | 'forBusiness.capability.minimumOrder'
+    | 'forBusiness.capability.recurringOrders'
+    | 'forBusiness.capability.volumeTiers'
+    | 'forBusiness.enquiryBody'
+    | 'forBusiness.enquiryTitle'
+    | 'forBusiness.pricingBody'
+    | 'forBusiness.pricingTitle'
+    | 'forBusiness.programme.clinic.body'
+    | 'forBusiness.programme.clinic.title'
+    | 'forBusiness.programme.corporate.body'
+    | 'forBusiness.programme.corporate.title'
+    | 'forBusiness.programme.gym.body'
+    | 'forBusiness.programme.gym.title'
+    | 'forBusiness.programme.wholesale.body'
+    | 'forBusiness.programme.wholesale.title'
+    | 'forBusiness.programmesBody'
+    | 'forBusiness.programmesTitle'
+    | 'forBusiness.prototypeNotice'
+    | 'forBusiness.requestQuotation'
+    | 'forBusiness.subtitle'
+    | 'forBusiness.termsBody'
+    | 'forBusiness.termsTitle'
+    | 'forBusiness.title'
+    | 'howItWorks.meetDietitians'
+    | 'howItWorks.nextBody'
+    | 'howItWorks.nextTitle'
+    | 'howItWorks.step.eat.body'
+    | 'howItWorks.step.eat.title'
+    | 'howItWorks.step.plan.body'
+    | 'howItWorks.step.plan.title'
+    | 'howItWorks.step.target.body'
+    | 'howItWorks.step.target.title'
+    | 'howItWorks.step.tell.body'
+    | 'howItWorks.step.tell.title'
+    | 'howItWorks.subtitle'
+    | 'howItWorks.title'
+    | 'kitchen.branchArea'
+    | 'kitchen.branchesTitle'
+    | 'kitchen.closedOn'
+    | 'kitchen.deliveryZones'
+    | 'kitchen.loading'
+    | 'kitchen.menuBody'
+    | 'kitchen.menuTitle'
+    | 'kitchen.noBranches'
+    | 'kitchen.noDeliveryZones'
+    | 'kitchen.notFoundBody'
+    | 'kitchen.notFoundTitle'
+    | 'kitchen.openBetween'
+    | 'kitchen.openingHours'
+    | 'kitchen.orderCutOff'
+    | 'kitchen.viewMenu'
+    | 'kitchen.zoneFee'
+    | 'kitchen.zoneMinimum'
+    | 'kitchen.zoneMinutes'
+    | 'kitchens.cardLabel'
+    | 'kitchens.deliversTo'
+    | 'kitchens.deliversToTimed'
+    | 'kitchens.emptyBody'
+    | 'kitchens.emptyTitle'
+    | 'kitchens.imageLabel'
+    | 'kitchens.notRatedYet'
+    | 'kitchens.ratingLabel'
+    | 'kitchens.searchLabel'
+    | 'kitchens.searchPlaceholder'
+    | 'kitchens.subtitle'
+    | 'kitchens.title'
+    | 'kitchens.verified'
+    | 'landing.authBody'
+    | 'landing.authTitle'
+    | 'landing.browseKitchens'
+    | 'landing.featuredKitchens'
+    | 'landing.featuredKitchensBody'
+    | 'landing.forBusinessTeaserBody'
+    | 'landing.forBusinessTeaserTitle'
+    | 'landing.heroBody'
+    | 'landing.heroTitle'
+    | 'landing.howItWorks'
+    | 'landing.howItWorksTeaserBody'
+    | 'landing.howItWorksTeaserTitle'
+    | 'landing.seeAllKitchens'
+    | 'landing.value.kitchens.body'
+    | 'landing.value.kitchens.title'
+    | 'landing.value.plan.body'
+    | 'landing.value.plan.title'
+    | 'landing.value.review.body'
+    | 'landing.value.review.title'
+    | 'landing.valueTitle'
+    | 'levels.excessive'
+    | 'levels.good'
+    | 'levels.high'
+    | 'levels.moderate'
+    | 'levels.optimal'
+    | 'mealTypes.breakfast'
+    | 'mealTypes.dinner'
+    | 'mealTypes.lunch'
+    | 'mealTypes.snack'
+    | 'medicalDisclaimer.body'
+    | 'medicalDisclaimer.title'
+    | 'menu.allergensTitle'
+    | 'menu.cardLabel'
+    | 'menu.containsAllergens'
+    | 'menu.detailTitle'
+    | 'menu.emptyBody'
+    | 'menu.emptyTitle'
+    | 'menu.fullDetailsBody'
+    | 'menu.fullDetailsTitle'
+    | 'menu.imageLabel'
+    | 'menu.noDeclaredAllergens'
+    | 'menu.perServing'
+    | 'menu.preparationMinutes'
+    | 'menu.searchLabel'
+    | 'menu.searchPlaceholder'
+    | 'menu.subtitle'
+    | 'menu.title'
+    | 'menu.titleFor'
+    | 'nav.dietitians'
+    | 'nav.discover'
+    | 'nav.forBusiness'
+    | 'nav.home'
+    | 'nav.howItWorks'
+    | 'nav.kitchens'
+    | 'nav.meals'
+    | 'nav.plannedNotice'
+    | 'nav.plannedSuffix'
+    | 'nav.plans'
+    | 'nav.register'
+    | 'nav.signIn'
+    | 'nav.skipToContent'
+    | 'nutrients.carbohydrate'
+    | 'nutrients.energy'
+    | 'nutrients.fat'
+    | 'nutrients.fibre'
+    | 'nutrients.protein'
+    | 'nutrients.saturated_fat'
+    | 'nutrients.sodium'
+    | 'nutrients.sugars'
+    | 'nutrition.carbohydrate'
+    | 'nutrition.energy'
+    | 'nutrition.fat'
+    | 'nutrition.protein'
+    | 'nutrition.source'
+    | 'prototype.badge'
+    | 'prototype.hint'
+    | 'prototype.notBuilt'
+    | 'prototype.noticeBody'
+    | 'prototype.noticeTitle'
+    | 'resume.thisPage'
+    | 'subscriptionStates.active'
+    | 'subscriptionStates.cancelled'
+    | 'subscriptionStates.draft'
+    | 'subscriptionStates.expired'
+    | 'subscriptionStates.paused'
+    | 'subscriptionStates.skipped_today'
+    | 'title'
+    | 'weekday.friday'
+    | 'weekday.monday'
+    | 'weekday.saturday'
+    | 'weekday.sunday'
+    | 'weekday.thursday'
+    | 'weekday.tuesday'
+    | 'weekday.wednesday';
   readonly "nutrition":
     | 'title';
   readonly "onboarding":
@@ -816,7 +1110,301 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
+  'marketplace:allergens.celery',
+  'marketplace:allergens.crustaceans',
+  'marketplace:allergens.egg',
+  'marketplace:allergens.fish',
+  'marketplace:allergens.gluten',
+  'marketplace:allergens.lupin',
+  'marketplace:allergens.milk',
+  'marketplace:allergens.mollusc',
+  'marketplace:allergens.mustard',
+  'marketplace:allergens.peanut',
+  'marketplace:allergens.sesame',
+  'marketplace:allergens.soy',
+  'marketplace:allergens.sulphites',
+  'marketplace:allergens.tree_nut',
+  'marketplace:brand.homeLabel',
+  'marketplace:brand.name',
+  'marketplace:brand.tagline',
+  'marketplace:channels.b2b',
+  'marketplace:channels.b2c',
+  'marketplace:channels.corporate',
+  'marketplace:channels.delivery',
+  'marketplace:channels.marketplace',
+  'marketplace:channels.pickup',
+  'marketplace:channels.pos',
+  'marketplace:channels.subscription',
+  'marketplace:common.listSeparator',
+  'marketplace:consumer.greeting',
+  'marketplace:consumer.greetingAnonymous',
+  'marketplace:consumer.nav.cart',
+  'marketplace:consumer.nav.cartWithCount',
+  'marketplace:consumer.nav.discover',
+  'marketplace:consumer.nav.home',
+  'marketplace:consumer.nav.nutrition',
+  'marketplace:consumer.nav.planner',
+  'marketplace:consumer.nav.profile',
+  'marketplace:consumer.nav.subscriptions',
+  'marketplace:consumer.nav.virtualDietitian',
+  'marketplace:consumer.nutrition.emptyBody',
+  'marketplace:consumer.nutrition.emptyTitle',
+  'marketplace:consumer.nutrition.title',
+  'marketplace:consumer.nutrition.whyThisTarget',
+  'marketplace:consumer.onboarding.body',
+  'marketplace:consumer.onboarding.start',
+  'marketplace:consumer.onboarding.title',
+  'marketplace:consumer.resume.body',
+  'marketplace:consumer.resume.continue',
+  'marketplace:consumer.resume.dismiss',
+  'marketplace:consumer.resume.title',
+  'marketplace:consumer.subscription.emptyBody',
+  'marketplace:consumer.subscription.emptyTitle',
+  'marketplace:consumer.subscription.manage',
+  'marketplace:consumer.subscription.nextDelivery',
+  'marketplace:consumer.subscription.noNextDelivery',
+  'marketplace:consumer.subscription.title',
+  'marketplace:consumer.subscription.weeklyPrice',
+  'marketplace:consumer.subtitle',
+  'marketplace:consumer.title',
+  'marketplace:consumer.today.emptyBody',
+  'marketplace:consumer.today.emptyTitle',
+  'marketplace:consumer.today.forDate',
+  'marketplace:consumer.today.forToday',
+  'marketplace:consumer.today.locked',
+  'marketplace:consumer.today.openPlanner',
+  'marketplace:consumer.today.title',
+  'marketplace:dietitians.accepting',
+  'marketplace:dietitians.browseOthers',
+  'marketplace:dietitians.cardLabel',
+  'marketplace:dietitians.consultationBody',
+  'marketplace:dietitians.consultationTitle',
+  'marketplace:dietitians.credentialsTitle',
+  'marketplace:dietitians.emptyBody',
+  'marketplace:dietitians.emptyTitle',
+  'marketplace:dietitians.loading',
+  'marketplace:dietitians.localeArabic',
+  'marketplace:dietitians.localeEnglish',
+  'marketplace:dietitians.notAccepting',
+  'marketplace:dietitians.notAcceptingBody',
+  'marketplace:dietitians.notFoundBody',
+  'marketplace:dietitians.notFoundTitle',
+  'marketplace:dietitians.ratingLabel',
+  'marketplace:dietitians.requestConsultation',
+  'marketplace:dietitians.searchLabel',
+  'marketplace:dietitians.searchPlaceholder',
+  'marketplace:dietitians.seeAll',
+  'marketplace:dietitians.speaks',
+  'marketplace:dietitians.specialismsTitle',
+  'marketplace:dietitians.subtitle',
+  'marketplace:dietitians.syntheticBody',
+  'marketplace:dietitians.syntheticCredentials',
+  'marketplace:dietitians.syntheticTitle',
+  'marketplace:dietitians.title',
+  'marketplace:diets.dairy_free',
+  'marketplace:diets.gluten_free',
+  'marketplace:diets.halal_friendly',
+  'marketplace:diets.high_protein',
+  'marketplace:diets.keto',
+  'marketplace:diets.low_carb',
+  'marketplace:diets.mediterranean',
+  'marketplace:diets.nut_free',
+  'marketplace:diets.omnivore',
+  'marketplace:diets.pescatarian',
+  'marketplace:diets.vegan',
+  'marketplace:diets.vegetarian',
+  'marketplace:discover.comingBody',
+  'marketplace:discover.comingTitle',
+  'marketplace:discover.dietitiansBody',
+  'marketplace:discover.dietitiansTitle',
+  'marketplace:discover.family.diets',
+  'marketplace:discover.family.meals',
+  'marketplace:discover.family.plans',
+  'marketplace:discover.family.tools',
+  'marketplace:discover.familyBody.diets',
+  'marketplace:discover.familyBody.meals',
+  'marketplace:discover.familyBody.plans',
+  'marketplace:discover.familyBody.tools',
+  'marketplace:discover.kitchensBody',
+  'marketplace:discover.kitchensTitle',
+  'marketplace:discover.searchLabel',
+  'marketplace:discover.searchPlaceholder',
+  'marketplace:discover.searchSubmit',
+  'marketplace:discover.subtitle',
+  'marketplace:discover.title',
+  'marketplace:filters.availability',
+  'marketplace:filters.clear',
+  'marketplace:filters.cuisine',
+  'marketplace:filters.howToGetIt',
+  'marketplace:filters.mealType',
+  'marketplace:filters.resultCount',
+  'marketplace:filters.specialism',
+  'marketplace:footer.about',
+  'marketplace:footer.legalPrototype',
+  'marketplace:forBusiness.capability.deliverySchedule',
+  'marketplace:forBusiness.capability.eligibility',
+  'marketplace:forBusiness.capability.leadTime',
+  'marketplace:forBusiness.capability.minimumOrder',
+  'marketplace:forBusiness.capability.recurringOrders',
+  'marketplace:forBusiness.capability.volumeTiers',
+  'marketplace:forBusiness.enquiryBody',
+  'marketplace:forBusiness.enquiryTitle',
+  'marketplace:forBusiness.pricingBody',
+  'marketplace:forBusiness.pricingTitle',
+  'marketplace:forBusiness.programme.clinic.body',
+  'marketplace:forBusiness.programme.clinic.title',
+  'marketplace:forBusiness.programme.corporate.body',
+  'marketplace:forBusiness.programme.corporate.title',
+  'marketplace:forBusiness.programme.gym.body',
+  'marketplace:forBusiness.programme.gym.title',
+  'marketplace:forBusiness.programme.wholesale.body',
+  'marketplace:forBusiness.programme.wholesale.title',
+  'marketplace:forBusiness.programmesBody',
+  'marketplace:forBusiness.programmesTitle',
+  'marketplace:forBusiness.prototypeNotice',
+  'marketplace:forBusiness.requestQuotation',
+  'marketplace:forBusiness.subtitle',
+  'marketplace:forBusiness.termsBody',
+  'marketplace:forBusiness.termsTitle',
+  'marketplace:forBusiness.title',
+  'marketplace:howItWorks.meetDietitians',
+  'marketplace:howItWorks.nextBody',
+  'marketplace:howItWorks.nextTitle',
+  'marketplace:howItWorks.step.eat.body',
+  'marketplace:howItWorks.step.eat.title',
+  'marketplace:howItWorks.step.plan.body',
+  'marketplace:howItWorks.step.plan.title',
+  'marketplace:howItWorks.step.target.body',
+  'marketplace:howItWorks.step.target.title',
+  'marketplace:howItWorks.step.tell.body',
+  'marketplace:howItWorks.step.tell.title',
+  'marketplace:howItWorks.subtitle',
+  'marketplace:howItWorks.title',
+  'marketplace:kitchen.branchArea',
+  'marketplace:kitchen.branchesTitle',
+  'marketplace:kitchen.closedOn',
+  'marketplace:kitchen.deliveryZones',
+  'marketplace:kitchen.loading',
+  'marketplace:kitchen.menuBody',
+  'marketplace:kitchen.menuTitle',
+  'marketplace:kitchen.noBranches',
+  'marketplace:kitchen.noDeliveryZones',
+  'marketplace:kitchen.notFoundBody',
+  'marketplace:kitchen.notFoundTitle',
+  'marketplace:kitchen.openBetween',
+  'marketplace:kitchen.openingHours',
+  'marketplace:kitchen.orderCutOff',
+  'marketplace:kitchen.viewMenu',
+  'marketplace:kitchen.zoneFee',
+  'marketplace:kitchen.zoneMinimum',
+  'marketplace:kitchen.zoneMinutes',
+  'marketplace:kitchens.cardLabel',
+  'marketplace:kitchens.deliversTo',
+  'marketplace:kitchens.deliversToTimed',
+  'marketplace:kitchens.emptyBody',
+  'marketplace:kitchens.emptyTitle',
+  'marketplace:kitchens.imageLabel',
+  'marketplace:kitchens.notRatedYet',
+  'marketplace:kitchens.ratingLabel',
+  'marketplace:kitchens.searchLabel',
+  'marketplace:kitchens.searchPlaceholder',
+  'marketplace:kitchens.subtitle',
+  'marketplace:kitchens.title',
+  'marketplace:kitchens.verified',
+  'marketplace:landing.authBody',
+  'marketplace:landing.authTitle',
+  'marketplace:landing.browseKitchens',
+  'marketplace:landing.featuredKitchens',
+  'marketplace:landing.featuredKitchensBody',
+  'marketplace:landing.forBusinessTeaserBody',
+  'marketplace:landing.forBusinessTeaserTitle',
+  'marketplace:landing.heroBody',
+  'marketplace:landing.heroTitle',
+  'marketplace:landing.howItWorks',
+  'marketplace:landing.howItWorksTeaserBody',
+  'marketplace:landing.howItWorksTeaserTitle',
+  'marketplace:landing.seeAllKitchens',
+  'marketplace:landing.value.kitchens.body',
+  'marketplace:landing.value.kitchens.title',
+  'marketplace:landing.value.plan.body',
+  'marketplace:landing.value.plan.title',
+  'marketplace:landing.value.review.body',
+  'marketplace:landing.value.review.title',
+  'marketplace:landing.valueTitle',
+  'marketplace:levels.excessive',
+  'marketplace:levels.good',
+  'marketplace:levels.high',
+  'marketplace:levels.moderate',
+  'marketplace:levels.optimal',
+  'marketplace:mealTypes.breakfast',
+  'marketplace:mealTypes.dinner',
+  'marketplace:mealTypes.lunch',
+  'marketplace:mealTypes.snack',
+  'marketplace:medicalDisclaimer.body',
+  'marketplace:medicalDisclaimer.title',
+  'marketplace:menu.allergensTitle',
+  'marketplace:menu.cardLabel',
+  'marketplace:menu.containsAllergens',
+  'marketplace:menu.detailTitle',
+  'marketplace:menu.emptyBody',
+  'marketplace:menu.emptyTitle',
+  'marketplace:menu.fullDetailsBody',
+  'marketplace:menu.fullDetailsTitle',
+  'marketplace:menu.imageLabel',
+  'marketplace:menu.noDeclaredAllergens',
+  'marketplace:menu.perServing',
+  'marketplace:menu.preparationMinutes',
+  'marketplace:menu.searchLabel',
+  'marketplace:menu.searchPlaceholder',
+  'marketplace:menu.subtitle',
+  'marketplace:menu.title',
+  'marketplace:menu.titleFor',
+  'marketplace:nav.dietitians',
+  'marketplace:nav.discover',
+  'marketplace:nav.forBusiness',
+  'marketplace:nav.home',
+  'marketplace:nav.howItWorks',
+  'marketplace:nav.kitchens',
+  'marketplace:nav.meals',
+  'marketplace:nav.plannedNotice',
+  'marketplace:nav.plannedSuffix',
+  'marketplace:nav.plans',
+  'marketplace:nav.register',
+  'marketplace:nav.signIn',
+  'marketplace:nav.skipToContent',
+  'marketplace:nutrients.carbohydrate',
+  'marketplace:nutrients.energy',
+  'marketplace:nutrients.fat',
+  'marketplace:nutrients.fibre',
+  'marketplace:nutrients.protein',
+  'marketplace:nutrients.saturated_fat',
+  'marketplace:nutrients.sodium',
+  'marketplace:nutrients.sugars',
+  'marketplace:nutrition.carbohydrate',
+  'marketplace:nutrition.energy',
+  'marketplace:nutrition.fat',
+  'marketplace:nutrition.protein',
+  'marketplace:nutrition.source',
+  'marketplace:prototype.badge',
+  'marketplace:prototype.hint',
+  'marketplace:prototype.notBuilt',
+  'marketplace:prototype.noticeBody',
+  'marketplace:prototype.noticeTitle',
+  'marketplace:resume.thisPage',
+  'marketplace:subscriptionStates.active',
+  'marketplace:subscriptionStates.cancelled',
+  'marketplace:subscriptionStates.draft',
+  'marketplace:subscriptionStates.expired',
+  'marketplace:subscriptionStates.paused',
+  'marketplace:subscriptionStates.skipped_today',
   'marketplace:title',
+  'marketplace:weekday.friday',
+  'marketplace:weekday.monday',
+  'marketplace:weekday.saturday',
+  'marketplace:weekday.sunday',
+  'marketplace:weekday.thursday',
+  'marketplace:weekday.tuesday',
+  'marketplace:weekday.wednesday',
   'nutrition:title',
   'onboarding:title',
   'planner:title',

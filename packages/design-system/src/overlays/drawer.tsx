@@ -6,6 +6,7 @@ import { Modal, Pressable, Text as RNText, View } from 'react-native';
 import { IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { SlideIn } from '../motion/slide-in.tsx';
 
 export const DRAWER_PLACEMENTS = ['start', 'end', 'bottom'] as const;
 export type DrawerPlacement = (typeof DRAWER_PLACEMENTS)[number];
@@ -112,19 +113,31 @@ export function Drawer({
         <Modal
             visible={open}
             transparent
-            animationType="slide"
+            // animationType must be 'none': react-native-web only activates the modal's
+            // dialog role and focus trap from the CSS animationend event, which does not
+            // fire reliably for its built-in animations - leaving an axe-critical roleless
+            // aria-modal wrapper and NO focus containment. The panel animates itself below
+            // with SlideIn, which is also direction-aware where RNW's slide is not.
+            animationType="none"
             onRequestClose={onClose}
-            accessibilityViewIsModal
+            // Names react-native-web's own dialog wrapper (it spreads unrecognised props
+            // onto that element): an active modal without an accessible name is an axe
+            // serious violation (aria-dialog-name). RN's Modal typing does not declare
+            // aria props, hence the cast.
+            {...({ 'aria-labelledby': titleId } as object)}
+            // No accessibilityViewIsModal: react-native-web maps it to aria-modal on this roleless
+            // wrapper (an axe-critical aria-allowed-attr violation). The dialog semantics live on
+            // the panel below; native Modal is already modal to screen readers.
         >
             <View className={bottom ? 'flex-1 flex-col' : 'flex-1 flex-row'}>
                 {placement === 'end' || bottom ? (
                     <>
                         {backdrop}
-                        {panel}
+                        <SlideIn edge={bottom ? 'bottom' : 'end'}>{panel}</SlideIn>
                     </>
                 ) : (
                     <>
-                        {panel}
+                        <SlideIn edge="start">{panel}</SlideIn>
                         {backdrop}
                     </>
                 )}
