@@ -1,0 +1,142 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "infrastructure/docker/postgres/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "infrastructure/docker/postgres/**"
+      - ".github/workflows/backend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/api
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, pgsql, redis
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate composer manifests
+        run: |
+          composer validate --no-check-publish
+          for f in app-modules/*/composer.json; do
+            composer validate --no-check-publish "$f"
+          done
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Pint (format check)
+        run: vendor/bin/pint --test
+
+      - name: Larastan (static analysis, level 7)
+        run: vendor/bin/phpstan analyse --no-progress
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          # phpunit.xml and .env.example use 55432 (a native PostgreSQL
+          # commonly occupies 5432 on developer machines) - CI mirrors it.
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, pgsql, redis
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Create database roles and databases
+        working-directory: .
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55432"
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+        run: bash infrastructure/docker/postgres/init/01-roles-and-databases.sh
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Migration cycle (fresh, full rollback, re-migrate, seed)
+        run: |
+          php artisan migrate:fresh --database=pgsql_migrations --force
+          php artisan migrate:rollback --database=pgsql_migrations --force
+          php artisan migrate --database=pgsql_migrations --seed --force
+
+      - name: Pest (full suite on PostgreSQL)
+        run: php artisan test --compact
+
+      - name: Tenancy and RLS gates (explicit)
+        run: php artisan test --compact --group=rls
+
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Lint OpenAPI 3.1 specification
+        run: npx --yes @redocly/cli lint openapi/healthy360.v1.yaml --config openapi/redocly.yaml
+
+      - name: Bundle and check committed bundle is current
+        run: |
+          npx --yes @redocly/cli bundle openapi/healthy360.v1.yaml --config openapi/redocly.yaml -o openapi/dist/healthy360.v1.yaml
+          git diff --exit-code -- openapi/dist/healthy360.v1.yaml

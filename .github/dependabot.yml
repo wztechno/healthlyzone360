@@ -10,3 +10,37 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: "composer"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 5
+    groups:
+      laravel-first-party:
+        patterns:
+          - "laravel/*"
+      composer-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "laravel/*"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 5
+    groups:
+      expo:
+        patterns:
+          - "expo*"
+          - "react-native*"
+      npm-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "expo*"
+          - "react-native*"
