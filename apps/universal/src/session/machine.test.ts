@@ -1,12 +1,20 @@
 import { createMockRepositories } from '@healthy360/api-client/mock';
 import type { MeResponse } from '@healthy360/api-client';
-import { SESSION_PHASES, buildAccessState, membershipRequiresBranchSelection, resolveSessionPhase, selectableMemberships, toKernelSessionState } from './machine.ts';
+import {
+    SESSION_PHASES,
+    buildAccessState,
+    membershipRequiresBranchSelection,
+    resolveSessionPhase,
+    selectableMemberships,
+    toKernelSessionState,
+} from './machine.ts';
 import type { SessionPhase } from './machine.ts';
 
 /** Signs in against a mock world and returns the real `me()` payload. */
-async function loadMe(scenario: Parameters<typeof createMockRepositories>[0] extends undefined
-    ? never
-    : NonNullable<Parameters<typeof createMockRepositories>[0]>['scenario'],
+async function loadMe(
+    scenario: Parameters<typeof createMockRepositories>[0] extends undefined
+        ? never
+        : NonNullable<Parameters<typeof createMockRepositories>[0]>['scenario'],
     email: string,
 ): Promise<MeResponse> {
     const repositories = createMockRepositories({ scenario, latencyMs: 0 });

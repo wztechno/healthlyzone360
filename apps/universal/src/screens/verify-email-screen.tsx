@@ -81,7 +81,11 @@ export function VerifyEmailScreen() {
     if (verified) {
         return (
             <Stack testID="verify-email-screen" space="lg">
-                <Badge testID="verify-email-verified" tone="success" label={t('auth:verifyEmail.verifiedTitle')} />
+                <Badge
+                    testID="verify-email-verified"
+                    tone="success"
+                    label={t('auth:verifyEmail.verifiedTitle')}
+                />
                 <Heading level={1}>{t('auth:verifyEmail.verifiedTitle')}</Heading>
                 <Text tone="secondary">{t('auth:verifyEmail.verifiedBody')}</Text>
                 <Button

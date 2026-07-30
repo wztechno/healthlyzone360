@@ -39,9 +39,7 @@ describe('Button', () => {
     describe('disabled', () => {
         it('reports itself disabled and does not fire', async () => {
             const onPress = jest.fn();
-            await renderWithI18n(
-                <Button testID="off" label="Save" disabled onPress={onPress} />,
-            );
+            await renderWithI18n(<Button testID="off" label="Save" disabled onPress={onPress} />);
             const node = screen.getByTestId('off');
 
             // React Native's Pressable folds `aria-*` into `accessibilityState`, and
@@ -134,7 +132,12 @@ describe('Button', () => {
 describe('IconButton', () => {
     it('requires a label and uses it as the accessible name', async () => {
         await renderWithI18n(
-            <IconButton testID="close" label="Close" icon={<Icon name="close" />} onPress={jest.fn()} />,
+            <IconButton
+                testID="close"
+                label="Close"
+                icon={<Icon name="close" />}
+                onPress={jest.fn()}
+            />,
         );
         const node = screen.getByTestId('close');
 

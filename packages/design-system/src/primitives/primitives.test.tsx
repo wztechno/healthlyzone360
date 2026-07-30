@@ -14,27 +14,29 @@ describe('Text', () => {
         expect(node.props.className).toContain('text-content-primary');
     });
 
-    it.each(['start', 'end', 'center'] as const)('maps align=%s to a logical utility', async (
-        align,
-    ) => {
-        await renderWithI18n(
-            <Text testID="aligned" align={align}>
-                text
-            </Text>,
-        );
-        expect(screen.getByTestId('aligned').props.className).toContain(`text-${align}`);
-    });
+    it.each(['start', 'end', 'center'] as const)(
+        'maps align=%s to a logical utility',
+        async (align) => {
+            await renderWithI18n(
+                <Text testID="aligned" align={align}>
+                    text
+                </Text>,
+            );
+            expect(screen.getByTestId('aligned').props.className).toContain(`text-${align}`);
+        },
+    );
 
-    it.each(['secondary', 'danger', 'success'] as const)('maps tone=%s to a token class', async (
-        tone,
-    ) => {
-        await renderWithI18n(
-            <Text testID="toned" tone={tone}>
-                text
-            </Text>,
-        );
-        expect(screen.getByTestId('toned').props.className).toMatch(/^text-|\stext-/);
-    });
+    it.each(['secondary', 'danger', 'success'] as const)(
+        'maps tone=%s to a token class',
+        async (tone) => {
+            await renderWithI18n(
+                <Text testID="toned" tone={tone}>
+                    text
+                </Text>,
+            );
+            expect(screen.getByTestId('toned').props.className).toMatch(/^text-|\stext-/);
+        },
+    );
 
     it('appends the caller className last so it can win', async () => {
         await renderWithI18n(

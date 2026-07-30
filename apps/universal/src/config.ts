@@ -1,4 +1,8 @@
-import { DEFAULT_API_BASE_URL, DEFAULT_MOCK_SCENARIO, isMockScenarioName } from '@healthy360/api-client';
+import {
+    DEFAULT_API_BASE_URL,
+    DEFAULT_MOCK_SCENARIO,
+    isMockScenarioName,
+} from '@healthy360/api-client';
 import type { MockScenarioName } from '@healthy360/api-client';
 import { isAppMode, isDataMode } from '@healthy360/domain-types';
 import type { AppMode, DataMode } from '@healthy360/domain-types';

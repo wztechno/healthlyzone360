@@ -62,8 +62,10 @@ describe('ROUTE_REQUIREMENTS registry', () => {
      */
     it('entitlement-gates no area at all', () => {
         for (const requirement of ALL_ROUTE_REQUIREMENTS) {
-            expect(requirement.entitlements ?? [], `${requirement.area} declares entitlements`)
-                .toEqual([]);
+            expect(
+                requirement.entitlements ?? [],
+                `${requirement.area} declares entitlements`,
+            ).toEqual([]);
         }
     });
 });
@@ -91,7 +93,6 @@ describe('FEATURE_CODES', () => {
 });
 
 describe('permission key hygiene', () => {
-
     it('uses domain.action_scope permission keys only (plan §10)', () => {
         for (const requirement of ALL_ROUTE_REQUIREMENTS) {
             for (const key of [...(requirement.allOf ?? []), ...(requirement.anyOf ?? [])]) {

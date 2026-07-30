@@ -71,23 +71,26 @@ describe('scenario inventory', () => {
             expect(scenario.name).toBe(name);
             expect(scenario.summary.length).toBeGreaterThan(0);
             expect(scenario.accounts.length).toBeGreaterThan(0);
-            expect(scenario.accounts.some((a) => a.user.email === scenario.primaryEmail)).toBe(true);
+            expect(scenario.accounts.some((a) => a.user.email === scenario.primaryEmail)).toBe(
+                true,
+            );
         }
     });
 
-    it.each(MOCK_SCENARIO_NAMES)('%s signs its primary account in with the demo password', async (
-        name,
-    ) => {
-        const repositories = make(name);
-        const result = await repositories.auth.login({
-            email: MOCK_SCENARIOS[name].primaryEmail,
-            password: MOCK_PASSWORD,
-        });
-        // The two-factor world stops at the challenge; every other world issues a session.
-        expect(result.status).toBe(
-            name === 'two-factor-user' ? 'two_factor_required' : 'authenticated',
-        );
-    });
+    it.each(MOCK_SCENARIO_NAMES)(
+        '%s signs its primary account in with the demo password',
+        async (name) => {
+            const repositories = make(name);
+            const result = await repositories.auth.login({
+                email: MOCK_SCENARIOS[name].primaryEmail,
+                password: MOCK_PASSWORD,
+            });
+            // The two-factor world stops at the challenge; every other world issues a session.
+            expect(result.status).toBe(
+                name === 'two-factor-user' ? 'two_factor_required' : 'authenticated',
+            );
+        },
+    );
 
     it.each(MOCK_SCENARIO_NAMES)('%s rejects the wrong password', async (name) => {
         const repositories = make(name);
@@ -399,7 +402,10 @@ describe('sessions and tokens', () => {
             () => repositories.session.me(),
             () => repositories.devices.list(),
             () => repositories.auth.verifyEmailStatus(),
-            () => repositories.context.setContext({ organisationId: MOCK_ORGANISATION_IDS.cedarClinic }),
+            () =>
+                repositories.context.setContext({
+                    organisationId: MOCK_ORGANISATION_IDS.cedarClinic,
+                }),
         ]) {
             expect((await failureOf(operation)).code).toBe('auth.unauthenticated');
         }
@@ -426,7 +432,9 @@ describe('sessions and tokens', () => {
         await repositories.auth.logout();
 
         expect(repositories.tokenStore.get()).toBeNull();
-        expect((await failureOf(() => repositories.session.me())).code).toBe('auth.unauthenticated');
+        expect((await failureOf(() => repositories.session.me())).code).toBe(
+            'auth.unauthenticated',
+        );
     });
 
     it('forgets the chosen context on logout', async () => {
@@ -475,18 +483,23 @@ describe('sign-in failure paths', () => {
         const email = MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail;
 
         for (let attempt = 0; attempt < LOGIN_ATTEMPT_LIMIT; attempt += 1) {
-            expect((await failureOf(() => repositories.auth.login({ email, password: 'wrong' }))).code)
-                .toBe('auth.invalid_credentials');
+            expect(
+                (await failureOf(() => repositories.auth.login({ email, password: 'wrong' }))).code,
+            ).toBe('auth.invalid_credentials');
         }
 
-        const failure = await failureOf(() => repositories.auth.login({ email, password: 'wrong' }));
+        const failure = await failureOf(() =>
+            repositories.auth.login({ email, password: 'wrong' }),
+        );
         expect(failure.code).toBe('rate_limit.exceeded');
         if (failure.code !== 'rate_limit.exceeded') throw new Error('unreachable');
         expect(failure.retryAfterSeconds).toBe(LOGIN_RATE_LIMIT_RETRY_AFTER_SECONDS);
 
         // Even the correct password is refused while the limit stands.
-        expect((await failureOf(() => repositories.auth.login({ email, password: MOCK_PASSWORD }))).code)
-            .toBe('rate_limit.exceeded');
+        expect(
+            (await failureOf(() => repositories.auth.login({ email, password: MOCK_PASSWORD })))
+                .code,
+        ).toBe('rate_limit.exceeded');
     });
 
     it('clears the attempt counter once a sign-in succeeds', async () => {
@@ -604,8 +617,10 @@ describe('password reset', () => {
             passwordConfirmation: 'a-brand-new-password',
         });
 
-        expect((await failureOf(() => repositories.auth.login({ email, password: MOCK_PASSWORD }))).code)
-            .toBe('auth.invalid_credentials');
+        expect(
+            (await failureOf(() => repositories.auth.login({ email, password: MOCK_PASSWORD })))
+                .code,
+        ).toBe('auth.invalid_credentials');
         await signIn(repositories, email, 'a-brand-new-password');
     });
 });
@@ -665,8 +680,9 @@ describe('devices and step-up authentication', () => {
         await repositories.auth.confirmPassword({ password: MOCK_PASSWORD });
         clock.advanceSeconds(301);
 
-        expect((await failureOf(() => repositories.devices.revoke(MOCK_DEVICE_IDS.tablet))).code)
-            .toBe('auth.step_up_required');
+        expect(
+            (await failureOf(() => repositories.devices.revoke(MOCK_DEVICE_IDS.tablet))).code,
+        ).toBe('auth.step_up_required');
     });
 
     it('refuses to revoke the session doing the revoking', async () => {
@@ -684,8 +700,9 @@ describe('devices and step-up authentication', () => {
         await repositories.auth.confirmPassword({ password: MOCK_PASSWORD });
         await repositories.devices.revoke(MOCK_DEVICE_IDS.phone);
 
-        expect((await failureOf(() => repositories.devices.revoke(MOCK_DEVICE_IDS.phone))).code)
-            .toBe('validation.failed');
+        expect(
+            (await failureOf(() => repositories.devices.revoke(MOCK_DEVICE_IDS.phone))).code,
+        ).toBe('validation.failed');
     });
 });
 
@@ -709,7 +726,9 @@ describe('two-factor enrolment', () => {
         await signIn(repositories, MOCK_SCENARIOS['single-org-owner'].primaryEmail);
         await repositories.auth.enableTwoFactor();
 
-        const failure = await failureOf(() => repositories.auth.confirmTwoFactor({ code: '999999' }));
+        const failure = await failureOf(() =>
+            repositories.auth.confirmTwoFactor({ code: '999999' }),
+        );
         expect(failure.code).toBe('validation.failed');
     });
 
@@ -717,8 +736,10 @@ describe('two-factor enrolment', () => {
         const repositories = make('single-org-owner');
         await signIn(repositories, MOCK_SCENARIOS['single-org-owner'].primaryEmail);
 
-        expect((await failureOf(() => repositories.auth.confirmTwoFactor({ code: MOCK_TOTP_CODE }))).code)
-            .toBe('server');
+        expect(
+            (await failureOf(() => repositories.auth.confirmTwoFactor({ code: MOCK_TOTP_CODE })))
+                .code,
+        ).toBe('server');
     });
 });
 

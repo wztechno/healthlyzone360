@@ -149,8 +149,18 @@ export function ShowcaseScreen() {
                     ))}
                 </Inline>
                 <Inline space="sm">
-                    <Button testID="showcase-button-loading" loading label="loading" onPress={() => undefined} />
-                    <Button testID="showcase-button-disabled" disabled label="disabled" onPress={() => undefined} />
+                    <Button
+                        testID="showcase-button-loading"
+                        loading
+                        label="loading"
+                        onPress={() => undefined}
+                    />
+                    <Button
+                        testID="showcase-button-disabled"
+                        disabled
+                        label="disabled"
+                        onPress={() => undefined}
+                    />
                     <IconButton
                         testID="showcase-icon-button"
                         label={t('common:action.close')}
@@ -221,7 +231,12 @@ export function ShowcaseScreen() {
                 />
                 <Inline space="sm">
                     {BADGE_TONES.map((tone) => (
-                        <Badge key={tone} testID={`showcase-badge-${tone}`} tone={tone} label={tone} />
+                        <Badge
+                            key={tone}
+                            testID={`showcase-badge-${tone}`}
+                            tone={tone}
+                            label={tone}
+                        />
                     ))}
                 </Inline>
                 <Inline space="sm">

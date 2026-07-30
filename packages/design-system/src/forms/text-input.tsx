@@ -17,11 +17,10 @@ import type { FieldControlProps } from './form-field.tsx';
  * inline style prop is correct — there is no Tailwind utility for it on a `TextInput`.
  */
 
-export interface TextInputFieldProps
-    extends Omit<
-        RNTextInputProps,
-        'className' | 'style' | 'editable' | 'accessibilityLabel' | 'nativeID' | 'onChange'
-    > {
+export interface TextInputFieldProps extends Omit<
+    RNTextInputProps,
+    'className' | 'style' | 'editable' | 'accessibilityLabel' | 'nativeID' | 'onChange'
+> {
     readonly label: string;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;

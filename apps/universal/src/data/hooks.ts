@@ -150,16 +150,11 @@ export function useLogoutMutation(): UseMutationResult<void, unknown, void> {
 export function useForgotPasswordMutation(): UseMutationResult<void, unknown, { email: string }> {
     const repositories = useRepositories();
     return useMutation({
-        mutationFn: (request: { email: string }) =>
-            repositories.auth.requestPasswordReset(request),
+        mutationFn: (request: { email: string }) => repositories.auth.requestPasswordReset(request),
     });
 }
 
-export function useResetPasswordMutation(): UseMutationResult<
-    void,
-    unknown,
-    PasswordResetRequest
-> {
+export function useResetPasswordMutation(): UseMutationResult<void, unknown, PasswordResetRequest> {
     const repositories = useRepositories();
     return useMutation({
         mutationFn: (request: PasswordResetRequest) => repositories.auth.resetPassword(request),

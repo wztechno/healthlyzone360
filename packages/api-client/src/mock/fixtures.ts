@@ -13,12 +13,7 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { PendingConsent } from '../contracts/session.ts';
-import {
-    MOCK_BRANCH_IDS,
-    MOCK_DEVICE_IDS,
-    MOCK_ORGANISATION_IDS,
-    MOCK_ROLE_IDS,
-} from './ids.ts';
+import { MOCK_BRANCH_IDS, MOCK_DEVICE_IDS, MOCK_ORGANISATION_IDS, MOCK_ROLE_IDS } from './ids.ts';
 
 /**
  * The fixture vocabulary the mock scenarios are assembled from.
@@ -84,7 +79,10 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
  * what a consumer with no membership signs in with, and it is why the customer areas need no
  * organisation context (decision D1).
  */
-export const MOCK_GLOBAL_PERMISSIONS: readonly string[] = ['device.manage_own', 'session.revoke_own'];
+export const MOCK_GLOBAL_PERMISSIONS: readonly string[] = [
+    'device.manage_own',
+    'session.revoke_own',
+];
 
 /**
  * Feature entitlements per organisation. Only the four codes the backend actually seeds appear

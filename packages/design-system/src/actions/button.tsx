@@ -52,7 +52,10 @@ const SPINNER_COLOUR: Readonly<Record<ButtonVariant, string>> = {
     danger: '#ffffff',
 };
 
-export interface ButtonProps extends Omit<PressableProps, 'children' | 'className' | 'style' | 'disabled'> {
+export interface ButtonProps extends Omit<
+    PressableProps,
+    'children' | 'className' | 'style' | 'disabled'
+> {
     readonly label: string;
     readonly variant?: ButtonVariant | undefined;
     readonly size?: ButtonSize | undefined;
@@ -132,8 +135,10 @@ export function Button({
     );
 }
 
-export interface IconButtonProps
-    extends Omit<PressableProps, 'children' | 'className' | 'style' | 'disabled' | 'aria-label'> {
+export interface IconButtonProps extends Omit<
+    PressableProps,
+    'children' | 'className' | 'style' | 'disabled' | 'aria-label'
+> {
     /** Required: an icon-only control has no visible text, so this *is* its accessible name. */
     readonly label: string;
     readonly icon: ReactNode;

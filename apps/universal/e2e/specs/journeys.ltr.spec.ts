@@ -63,9 +63,21 @@ test.describe('authentication and context journey (en)', () => {
         await expect(page.getByTestId('register-screen')).toBeVisible();
 
         await page.getByTestId('register-name').locator('input').first().fill('Test Person');
-        await page.getByTestId('register-email').locator('input').first().fill('new.person@example.com');
-        await page.getByTestId('register-password').locator('input').first().fill('a-long-enough-password');
-        await page.getByTestId('register-password-confirmation').locator('input').first().fill('a-long-enough-password');
+        await page
+            .getByTestId('register-email')
+            .locator('input')
+            .first()
+            .fill('new.person@example.com');
+        await page
+            .getByTestId('register-password')
+            .locator('input')
+            .first()
+            .fill('a-long-enough-password');
+        await page
+            .getByTestId('register-password-confirmation')
+            .locator('input')
+            .first()
+            .fill('a-long-enough-password');
         await page.getByTestId('register-accept-terms').click();
         await page.getByTestId('register-accept-privacy').click();
         await page.getByTestId('register-submit').click();

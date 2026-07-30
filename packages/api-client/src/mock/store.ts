@@ -189,16 +189,22 @@ export class MockStore {
 
     // ── authentication ──────────────────────────────────────────────────────────────────────────
 
-    login(email: string, password: string):
+    login(
+        email: string,
+        password: string,
+    ):
         | { readonly kind: 'session'; readonly session: AuthSession }
         | { readonly kind: 'two_factor'; readonly challengeId: string } {
         const normalised = email.trim().toLowerCase();
 
         if (normalised.length === 0 || !EMAIL_SHAPE.test(normalised)) {
             throwFailure(
-                validationFailure({ email: ['Enter a valid email address.'] }, {
-                    correlationId: this.#correlationId('login'),
-                }),
+                validationFailure(
+                    { email: ['Enter a valid email address.'] },
+                    {
+                        correlationId: this.#correlationId('login'),
+                    },
+                ),
             );
         }
 
@@ -318,7 +324,10 @@ export class MockStore {
      * That keeps the "resend → I have confirmed it" journey testable without a mail server.
      */
     verificationStatus(account: MutableAccount): SessionUser {
-        if (account.user.emailVerifiedAt === null && this.#verificationRequested.has(account.user.id)) {
+        if (
+            account.user.emailVerifiedAt === null &&
+            this.#verificationRequested.has(account.user.id)
+        ) {
             account.user = { ...account.user, emailVerifiedAt: MOCK_NOW };
             this.#verificationRequested.delete(account.user.id);
         }
@@ -393,7 +402,9 @@ export class MockStore {
 
     confirmTwoFactor(account: MutableAccount, code: string): void {
         if (!this.#twoFactorSetups.has(account.user.id)) {
-            throwFailure(apiFailure('server', { message: 'Two-factor setup has not been started.' }));
+            throwFailure(
+                apiFailure('server', { message: 'Two-factor setup has not been started.' }),
+            );
         }
         if (code.trim() !== MOCK_TOTP_CODE) {
             throwFailure(validationFailure({ code: ['That code is not correct.'] }));
@@ -448,7 +459,11 @@ export class MockStore {
         if (this.verificationStatus(account).emailVerifiedAt === null) {
             throwFailure(apiFailure('auth.email_unverified'));
         }
-        if (organisationId === null || organisationId === undefined || organisationId.length === 0) {
+        if (
+            organisationId === null ||
+            organisationId === undefined ||
+            organisationId.length === 0
+        ) {
             throwFailure(apiFailure('context.organisation_required'));
         }
 

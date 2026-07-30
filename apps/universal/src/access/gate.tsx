@@ -123,7 +123,10 @@ export function Can({ children, permission, match = 'all', fallback = null }: Ca
     return <>{useCan(permission, match) ? children : fallback}</>;
 }
 
-export function useCan(permission: string | readonly string[], match: 'all' | 'any' = 'all'): boolean {
+export function useCan(
+    permission: string | readonly string[],
+    match: 'all' | 'any' = 'all',
+): boolean {
     const state = useAccessState();
     return can(state, permission, match);
 }

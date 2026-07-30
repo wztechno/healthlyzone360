@@ -21,11 +21,7 @@ export function PrototypeScreen({ area, testID = 'prototype' }: PrototypeScreenP
 
     return (
         <Stack space="lg" className="flex-1 justify-center p-4">
-            <EmptyState
-                testID={testID}
-                variant="prototype"
-                title={t(`access:area.${area}`)}
-            />
+            <EmptyState testID={testID} variant="prototype" title={t(`access:area.${area}`)} />
         </Stack>
     );
 }

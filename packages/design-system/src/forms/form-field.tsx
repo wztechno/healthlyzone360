@@ -65,7 +65,7 @@ export function FormField({
         'aria-labelledby': labelId,
         accessibilityLabel: required ? `${label} ${REQUIRED_MARK}` : label,
         ...(described.length > 0 ? { 'aria-describedby': described.join(' ') } : {}),
-        ...(error ?? hint ? { accessibilityHint: error ?? hint } : {}),
+        ...((error ?? hint) ? { accessibilityHint: error ?? hint } : {}),
         'aria-invalid': error !== undefined,
         'aria-required': required,
         accessibilityState: { disabled },

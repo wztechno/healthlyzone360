@@ -16,7 +16,14 @@ function setViewport(width: number) {
 }
 
 const navigation: readonly NavigationItem[] = [
-    { key: 'overview', label: 'Overview', icon: 'organisation', active: true, onPress: jest.fn(), testID: 'nav-overview' },
+    {
+        key: 'overview',
+        label: 'Overview',
+        icon: 'organisation',
+        active: true,
+        onPress: jest.fn(),
+        testID: 'nav-overview',
+    },
     { key: 'devices', label: 'Devices', icon: 'device', onPress: jest.fn(), testID: 'nav-devices' },
 ];
 
@@ -135,9 +142,7 @@ describe('AppShell — workspace', () => {
             <AppShell
                 testID="shell"
                 variant="workspace"
-                navigation={[
-                    { key: 'devices', label: 'Devices', onPress, testID: 'nav-devices' },
-                ]}
+                navigation={[{ key: 'devices', label: 'Devices', onPress, testID: 'nav-devices' }]}
             >
                 <Text>Body</Text>
             </AppShell>,
@@ -244,15 +249,21 @@ describe('AppShell — driver', () => {
 });
 
 describe('AppShell — direction safety', () => {
-    it.each(APP_SHELL_VARIANTS)('uses no physical direction utility in the %s variant', async (
-        variant,
-    ) => {
-        await renderWithI18n(
-            <AppShell testID="shell" variant={variant} title="Healthy360" navigation={navigation}>
-                <Text>محتوى</Text>
-            </AppShell>,
-            'ar',
-        );
-        assertSubtreeIsLogical(screen.getByTestId('shell'));
-    });
+    it.each(APP_SHELL_VARIANTS)(
+        'uses no physical direction utility in the %s variant',
+        async (variant) => {
+            await renderWithI18n(
+                <AppShell
+                    testID="shell"
+                    variant={variant}
+                    title="Healthy360"
+                    navigation={navigation}
+                >
+                    <Text>محتوى</Text>
+                </AppShell>,
+                'ar',
+            );
+            assertSubtreeIsLogical(screen.getByTestId('shell'));
+        },
+    );
 });

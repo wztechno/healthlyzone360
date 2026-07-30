@@ -265,7 +265,8 @@ export function AppShell({
     );
 
     const sidebarVisible =
-        navigation.length > 0 && (variant === 'rail' || (variant === 'workspace' && wideEnoughForSidebar));
+        navigation.length > 0 &&
+        (variant === 'rail' || (variant === 'workspace' && wideEnoughForSidebar));
 
     return (
         <View testID={testID} className="flex-1 bg-surface-base">

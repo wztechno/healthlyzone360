@@ -61,9 +61,12 @@ describe('failure builders', () => {
     });
 
     it('carries per-field messages on a validation failure', () => {
-        const failure = validationFailure({ email: ['Already registered.'] }, {
-            correlationId: 'corr-1',
-        });
+        const failure = validationFailure(
+            { email: ['Already registered.'] },
+            {
+                correlationId: 'corr-1',
+            },
+        );
         expect(isValidationFailure(failure)).toBe(true);
         if (!isValidationFailure(failure)) throw new Error('unreachable');
         expect(failure.fields['email']).toEqual(['Already registered.']);

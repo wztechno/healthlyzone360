@@ -60,9 +60,7 @@ export function ErrorState({
 
     const body = t(FAILURE_MESSAGE_KEYS[failure.code], {
         defaultValue: failure.message,
-        ...(failure.code === 'rate_limit.exceeded'
-            ? { seconds: failure.retryAfterSeconds }
-            : {}),
+        ...(failure.code === 'rate_limit.exceeded' ? { seconds: failure.retryAfterSeconds } : {}),
     });
 
     return (

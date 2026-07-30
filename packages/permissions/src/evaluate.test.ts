@@ -412,8 +412,12 @@ describe('entitlement gate', () => {
     });
 
     it('passes when the state holds a superset', () => {
-        const state = makeAccessState({ entitlements: ['feature.api_access', 'feature.audit_export'] });
-        expect(evaluateGates(state, { area: 'clinic', entitlements: ['feature.api_access'] })).toEqual({
+        const state = makeAccessState({
+            entitlements: ['feature.api_access', 'feature.audit_export'],
+        });
+        expect(
+            evaluateGates(state, { area: 'clinic', entitlements: ['feature.api_access'] }),
+        ).toEqual({
             status: 'allow',
         });
     });

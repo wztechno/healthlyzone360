@@ -6,7 +6,10 @@ import { createMockRepositories } from './repositories.ts';
 describe('context persistence across me() refetches', () => {
     it('me() returns the context stored by setContext()', async () => {
         const tokenStore = createMemoryTokenStore();
-        const repositories = createMockRepositories({ scenario: 'multi-org-dietitian', tokenStore });
+        const repositories = createMockRepositories({
+            scenario: 'multi-org-dietitian',
+            tokenStore,
+        });
 
         const login = await repositories.auth.login({
             email: 'layla.haddad@cedarclinic.example',

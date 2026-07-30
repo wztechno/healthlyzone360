@@ -21,7 +21,11 @@ export interface ForbiddenScreenProps {
  * Every denial reason maps to a translated title and body (`access:denial.<reason>`); the reason
  * string itself is never shown to a person.
  */
-export function ForbiddenScreen({ reason, missing = [], testID = 'forbidden' }: ForbiddenScreenProps) {
+export function ForbiddenScreen({
+    reason,
+    missing = [],
+    testID = 'forbidden',
+}: ForbiddenScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
 

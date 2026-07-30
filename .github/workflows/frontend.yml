@@ -65,6 +65,9 @@ jobs:
       - name: ESLint
         run: pnpm turbo run lint
 
+      - name: Prettier (format check)
+        run: pnpm run format:check
+
       - name: Vitest (shared packages)
         run: pnpm turbo run test --filter=!universal --filter=!@healthy360/design-system
 

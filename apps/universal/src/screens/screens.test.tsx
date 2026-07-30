@@ -135,7 +135,9 @@ describe('OrganisationPickerScreen', () => {
         // organisation appears twice) and render as a disabled, non-pressable row.
         await waitFor(() => screen.getByTestId('organisation-verdant-kitchen-pending'));
         const pending = screen.getByTestId('organisation-verdant-kitchen-pending');
-        expect(pending.props.accessibilityState?.disabled ?? pending.props.onPress === undefined).toBeTruthy();
+        expect(
+            pending.props.accessibilityState?.disabled ?? pending.props.onPress === undefined,
+        ).toBeTruthy();
     });
 
     it('explains an empty list rather than treating it as a failure', async () => {
@@ -299,7 +301,9 @@ describe('DevicesScreen', () => {
 
 describe('ForbiddenScreen', () => {
     it('translates the denial reason and shows the stable code', async () => {
-        await renderScreen(<ForbiddenScreen reason="permission_missing" missing={['platform.access_admin']} />);
+        await renderScreen(
+            <ForbiddenScreen reason="permission_missing" missing={['platform.access_admin']} />,
+        );
 
         expect(screen.getByTestId('forbidden-reason-title')).toHaveTextContent(
             /You do not have access/,

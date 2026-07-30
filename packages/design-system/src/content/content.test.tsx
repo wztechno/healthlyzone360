@@ -162,16 +162,15 @@ describe('Badge', () => {
         expect(screen.queryByTestId('plain-icon')).toBeNull();
     });
 
-    it.each(NUTRITION_LEVELS)('gives the %s nutrition level a pattern as well as a colour', async (
-        level,
-    ) => {
-        await renderWithI18n(
-            <Badge testID={`n-${level}`} label={level} nutrition={level} />,
-        );
-        const pattern = screen.getByTestId(`n-${level}-pattern`);
-        expect(pattern.props['aria-hidden']).toBe(true);
-        expect(String(pattern.children[0]).length).toBeGreaterThan(0);
-    });
+    it.each(NUTRITION_LEVELS)(
+        'gives the %s nutrition level a pattern as well as a colour',
+        async (level) => {
+            await renderWithI18n(<Badge testID={`n-${level}`} label={level} nutrition={level} />);
+            const pattern = screen.getByTestId(`n-${level}-pattern`);
+            expect(pattern.props['aria-hidden']).toBe(true);
+            expect(String(pattern.children[0]).length).toBeGreaterThan(0);
+        },
+    );
 
     it('gives each nutrition level a distinct number of marks, so the scale is ordinal', async () => {
         const lengths: number[] = [];

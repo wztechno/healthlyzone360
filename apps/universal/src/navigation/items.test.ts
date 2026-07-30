@@ -1,5 +1,9 @@
 import { ROUTE_AREAS } from '@healthy360/domain-types';
-import { makeAccessBranch, makeAccessOrganisation, makeAccessState } from '@healthy360/permissions/testing';
+import {
+    makeAccessBranch,
+    makeAccessOrganisation,
+    makeAccessState,
+} from '@healthy360/permissions/testing';
 
 import {
     WORKSPACE_AREAS,
@@ -10,7 +14,10 @@ import {
     permittedNavigation,
 } from './items.ts';
 
-const hydrated = (permissions: readonly string[], mode: 'all-dev' | 'staff' | 'customer' = 'all-dev') =>
+const hydrated = (
+    permissions: readonly string[],
+    mode: 'all-dev' | 'staff' | 'customer' = 'all-dev',
+) =>
     makeAccessState({
         mode,
         session: 'authenticated',

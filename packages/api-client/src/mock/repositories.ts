@@ -59,9 +59,7 @@ function sleep(ms: number): Promise<void> {
  * Every method awaits the same fixed latency before touching the store, so screens exercise their
  * real loading states rather than resolving synchronously and hiding a missing spinner.
  */
-export function createMockRepositories(
-    options: MockRepositoriesOptions = {},
-): MockRepositories {
+export function createMockRepositories(options: MockRepositoriesOptions = {}): MockRepositories {
     const scenario = resolveScenario(options.scenario ?? DEFAULT_MOCK_SCENARIO);
     const latency = options.latencyMs ?? DEFAULT_MOCK_LATENCY_MS;
     const tokenStore = options.tokenStore ?? createMemoryTokenStore();

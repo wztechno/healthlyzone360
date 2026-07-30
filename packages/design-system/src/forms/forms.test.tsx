@@ -342,9 +342,9 @@ describe('Select', () => {
             />,
         );
         await fireEvent.press(screen.getByTestId('org-trigger'));
-        expect(
-            screen.getByTestId('org-option-verdant').props.accessibilityState,
-        ).toMatchObject({ checked: true });
+        expect(screen.getByTestId('org-option-verdant').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
     });
 
     it('does not choose a disabled option', async () => {

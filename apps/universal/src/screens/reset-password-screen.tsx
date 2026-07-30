@@ -7,7 +7,11 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
-import { PASSWORD_MIN_LENGTH, makeResetPasswordSchema, toFormResolver } from '@healthy360/validation';
+import {
+    PASSWORD_MIN_LENGTH,
+    makeResetPasswordSchema,
+    toFormResolver,
+} from '@healthy360/validation';
 import type { ResetPasswordValues } from '@healthy360/validation';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -136,7 +140,12 @@ export function ResetPasswordScreen() {
 
             {formError === null ? null : (
                 <Card tone="danger" padding="sm">
-                    <Text testID="reset-password-error" tone="danger" role="alert" aria-live="assertive">
+                    <Text
+                        testID="reset-password-error"
+                        tone="danger"
+                        role="alert"
+                        aria-live="assertive"
+                    >
                         {formError}
                     </Text>
                 </Card>

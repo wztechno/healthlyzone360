@@ -6,8 +6,10 @@ import { IconButton } from '../actions/button.tsx';
 import { TextInputField } from './text-input.tsx';
 import type { TextInputFieldProps } from './text-input.tsx';
 
-export interface PasswordInputProps
-    extends Omit<TextInputFieldProps, 'secureTextEntry' | 'trailing'> {
+export interface PasswordInputProps extends Omit<
+    TextInputFieldProps,
+    'secureTextEntry' | 'trailing'
+> {
     /** Offer the reveal toggle. Off for step-up prompts on shared screens. */
     readonly revealable?: boolean | undefined;
 }

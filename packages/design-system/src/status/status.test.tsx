@@ -99,9 +99,7 @@ describe('EmptyState', () => {
 
     describe('prototype variant', () => {
         it('shows the translated prototype badge', async () => {
-            await renderWithI18n(
-                <EmptyState testID="proto" variant="prototype" title="Kitchen" />,
-            );
+            await renderWithI18n(<EmptyState testID="proto" variant="prototype" title="Kitchen" />);
             expect(screen.getByTestId('proto-prototype-badge')).toHaveTextContent(
                 /Prototype — planned for a later phase/,
             );

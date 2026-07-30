@@ -45,8 +45,12 @@ export function ProfileScreen() {
     }
 
     const { user, profile, memberships, activeContext, pendingConsents } = me;
-    const membership = memberships.find((candidate) => candidate.id === activeContext?.membershipId);
-    const branch = membership?.branches.find((candidate) => candidate.id === activeContext?.branchId);
+    const membership = memberships.find(
+        (candidate) => candidate.id === activeContext?.membershipId,
+    );
+    const branch = membership?.branches.find(
+        (candidate) => candidate.id === activeContext?.branchId,
+    );
 
     return (
         <Stack testID="profile-screen" space="lg">
@@ -59,7 +63,11 @@ export function ProfileScreen() {
 
             <Card title={t('auth:profile.account')} padding="md">
                 <Stack space="none">
-                    <Row testID="profile-email" label={t('auth:profile.email')} value={user.email} />
+                    <Row
+                        testID="profile-email"
+                        label={t('auth:profile.email')}
+                        value={user.email}
+                    />
                     <Row
                         testID="profile-display-name"
                         label={t('auth:profile.displayName')}

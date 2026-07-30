@@ -101,7 +101,9 @@ export function BranchPickerScreen() {
                 </Text>
             </Stack>
 
-            {failure === null ? null : <ErrorState testID="branch-picker-error" failure={failure} />}
+            {failure === null ? null : (
+                <ErrorState testID="branch-picker-error" failure={failure} />
+            )}
 
             <Card
                 padding="sm"

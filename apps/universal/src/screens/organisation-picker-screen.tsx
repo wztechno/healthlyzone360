@@ -19,7 +19,9 @@ import { toFailure, useSetContextMutation } from '../data/hooks.ts';
 import { selectableMemberships } from '../session/machine.ts';
 import { useSession } from '../session/session-provider.tsx';
 
-const STATUS_TONE: Readonly<Record<MembershipStatus, 'success' | 'warning' | 'danger' | 'neutral'>> = {
+const STATUS_TONE: Readonly<
+    Record<MembershipStatus, 'success' | 'warning' | 'danger' | 'neutral'>
+> = {
     active: 'success',
     pending: 'warning',
     suspended: 'warning',
@@ -113,7 +115,9 @@ export function OrganisationPickerScreen() {
                 <Text tone="secondary">{t('auth:organisationPicker.subtitle')}</Text>
             </Stack>
 
-            {failure === null ? null : <ErrorState testID="organisation-picker-error" failure={failure} />}
+            {failure === null ? null : (
+                <ErrorState testID="organisation-picker-error" failure={failure} />
+            )}
 
             <Card padding="sm">
                 <Stack space="xs">
@@ -160,7 +164,13 @@ export function OrganisationPickerScreen() {
                                         />
                                     </Inline>
                                 }
-                                {...(active ? { onPress: () => { choose(membership); } } : {})}
+                                {...(active
+                                    ? {
+                                          onPress: () => {
+                                              choose(membership);
+                                          },
+                                      }
+                                    : {})}
                             />
                         );
                     })}
