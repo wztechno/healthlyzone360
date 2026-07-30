@@ -1,27 +1,35 @@
 # 06 — Security, Privacy and Audit
 
-Status: Baseline — Phase 1 (platform foundation). Derived from the authoritative foundation plan (§10–§13, §25). Audit controls, redaction, consent foundation and classification land in execution Phase 6; authentication security lands in execution Phase 4.
+Status: Baseline — Phase 1 (platform foundation). Derived from the authoritative foundation plan (§10–§13, §25). Authentication security landed in execution Phase 4; audit controls, redaction, consent foundation and classification landed in execution Phase 6. Items below are marked **Implemented** or **Deferred** individually — implementation detail for the Phase 6 work is in `notes/rls-implementation.md`.
 
 > **No compliance claim is made.** This document describes technical foundations only. Regulatory validation for each launch market (LB, AE, SA, QA, KW, BH, OM, JO, EG) is a separate workstream with legal counsel; nothing here asserts conformity with any health-data, privacy or consumer law.
 
 ## 1. Data classification
 
-A single data-classification enum is applied to fields, DTOs and audit events so redaction, encryption and purpose-of-use rules key off one concept instead of ad-hoc lists.
+**Implemented — execution Phase 6.** A single data-classification enum is applied to fields, DTOs and audit events so redaction, encryption and purpose-of-use rules key off one concept instead of ad-hoc lists.
 
-| Level (concept — final enum fixed in execution Phase 6) | Examples | Handling |
+The enum is `Healthy360\Support\Enums\DataClassification`; attributes are declared with the repeatable `#[Classified(DataClassification::…, 'column', …)]` attribute, read by `Classified::map()`.
+
+| Level | Examples | Handling |
 | --- | --- | --- |
 | `public` | Country names, published catalogue data | No restriction |
 | `internal` | Organisation configuration | Tenant-scoped access only |
-| `personal` | Name, email, phone, device metadata | Redacted in logs; RBAC-gated |
-| `sensitive_personal` | Health, clinical and consent-related data | Redacted everywhere; purpose-of-use required on access; encryption candidates |
-| `secret` | Passwords, tokens, keys | Never logged, never audited as content, never returned by APIs |
+| `confidential` | Name, email, phone, device metadata | Redacted in logs; RBAC-gated |
+| `special_category` | Health, clinical and consent-related data | Redacted everywhere; purpose-of-use required on access; encryption candidates |
+| `restricted` | Passwords, tokens, keys | Never logged, never audited as content, never returned by APIs |
+
+Declared so far on `App\Models\User`, `Healthy360\Identity\Models\UserProfile` and `Healthy360\Consent\Models\ConsentGrant`.
+
+> **Honest scope.** The vocabulary, the declarations and the reader exist. **Enforcement machinery is deferred**: nothing yet derives redaction, encryption or serialisation rules from a declaration — the redaction processor works from its own key deny-list (§2). Automatic derivation lands with the encryption service implementation (§4).
 
 ## 2. Log redaction and request correlation
 
-* **Central log-redaction processor**: one processor applied to every log channel strips or masks values by classification and by known-sensitive key names. Redaction is not left to individual call sites.
-* **Correlation**: the server generates `X-Correlation-Id` and returns it on every response; clients may send `X-Client-Request-Id`. Both propagate into logs, audit events, error envelopes (`error.correlation_id`) and queued jobs so one user action is traceable end to end.
+* **Central log-redaction processor** — **Implemented (Phase 6)**: `Healthy360\Support\Logging\RedactSensitiveContext` is attached to every log channel (through the `processors` key on `monolog`-driver channels and the `RedactSensitiveLogs` tap elsewhere; the `stack` driver inherits its children's processors). It applies a case-insensitive substring key deny-list, recurses through arrays, objects and exceptions under a depth cap, and scrubs bearer/basic credentials, Sanctum tokens, JWTs and email addresses out of message, context and extra. Redaction is not left to individual call sites.
+* **Correlation** — **Implemented (Phase 4)**: the server generates `X-Correlation-Id` and returns it on every response; clients may send `X-Client-Request-Id`. Both propagate into logs, audit events, error envelopes (`error.correlation_id`) and queued jobs so one user action is traceable end to end.
 
 ## 3. Audit-event contract
+
+**Implemented — execution Phase 4 (authentication events) and Phase 6 (classified-access events, append-only enforcement).** All writes go through `Healthy360\Audit\Services\AuditRecorder`.
 
 ### 3.1 Safe event shape
 
@@ -33,7 +41,7 @@ A single data-classification enum is applied to fields, DTOs and audit events so
 | `organisation_id`, `branch_id` | Tenancy context (RLS-protected — see plan §11) |
 | `action` | Stable verb, e.g. `auth.login_failed`, `membership.role_assigned` |
 | `subject_type`, `subject_id` | What was acted on |
-| `classification` | §1 level of the subject data |
+| `classification` | §1 level of the subject data. Currently recorded inside `metadata` rather than as its own column — promoting it is a one-line migration deferred to the next audit-schema revision |
 | `purpose_of_use` | Required for sensitive accesses (§3.3) |
 | `correlation_id` | Links to request logs |
 | `metadata` | Safe, minimal, structured context only |
@@ -44,7 +52,9 @@ Raw passwords; session or API tokens; medical content; full request bodies; paym
 
 ### 3.3 Purpose-of-use
 
-Accesses to `sensitive_personal` data carry a purpose-of-use value (for example treatment, support, administration — final vocabulary set in execution Phase 6) recorded on the audit event. This is a foundation for later clinical and regulatory work, not a legal control by itself.
+**Implemented — execution Phase 6.** Accesses to classified data carry a purpose-of-use value recorded on the audit event, taken from `Healthy360\Audit\Enums\PurposeOfUse`: `organisation_administration`, `self_service`, `support`, `security_investigation`. `AuditRecorder::recordAccess()` takes the purpose and the classification as **required** arguments, so an access event that cannot say why it happened will not compile. `GET /api/v1/organisations/current` is the exemplar.
+
+Clinical purposes (treatment, care coordination, research) are deliberately absent until the modules that need them exist, together with the regulatory review that makes them meaningful. This is a foundation for later clinical and regulatory work, not a legal control by itself.
 
 ### 3.4 Append-only enforcement
 
@@ -53,7 +63,7 @@ Accesses to `sensitive_personal` data carry a purpose-of-use value (for example 
 * **Benefit**: Tampering requires the migrator/owner role, which the runtime never holds.
 * **Implementation impact**: One grant statement in role setup; RLS also applies to `audit_logs` (plan §11 Phase 1B).
 * **Risk of omission**: A single bug or compromise silently rewrites audit history.
-* **MVP status**: In scope — execution Phase 6.
+* **MVP status**: **Implemented — execution Phase 6.** `REVOKE UPDATE, DELETE ON audit_logs FROM healthy360_app, healthy360_test` is applied by the RLS migration; the model has no `updated_at` and writes go only through the insert-only recorder. RLS on `audit_logs` allows `INSERT WITH CHECK (true)` — an audit event must never be lost because the context was incomplete — and confines `SELECT` to the active organisation. Tests assert that the runtime role receives `permission denied` on both `UPDATE` and `DELETE`.
 
 Audit-log partitioning is **deferred** until volume and retention requirements are confirmed; premature partitioning adds operational cost without data.
 
@@ -64,6 +74,8 @@ Audit-log partitioning is **deferred** until volume and retention requirements a
 | A project-owned encryption service interface, implemented with Laravel's encryption for selected fields chosen by classification | A KMS adapter satisfying the same interface (external key management, rotation). No KMS is provisioned in Phase 1 |
 
 Application code depends on the interface, never on the implementation, so the KMS swap is additive.
+
+> **Status — not yet implemented.** Phase 6 delivered the classification vocabulary this would key off (§1), but no project-owned encryption service interface exists yet. The only field encryption in the codebase is Fortify's own, on `two_factor_secret` and `two_factor_recovery_codes`.
 
 ## 5. Authentication security
 
@@ -86,7 +98,7 @@ Authorisation itself (RBAC decision order, separate concerns with distinct denia
 
 ## 6. Consent foundation
 
-Consent is data with history, not a boolean.
+**Implemented — execution Phase 3 (schema and ledger) and Phase 6 (database enforcement).** Consent is data with history, not a boolean.
 
 * **Versioned definitions** (`consent_definitions`): each consent text/purpose is versioned; a grant always references the exact version accepted.
 * **Grants** (`consent_grants`): record who granted which definition version, when, and in which organisation context.
@@ -99,6 +111,8 @@ stateDiagram-v2
     Withdrawn --> Granted : re-grant (new grant, current vN+m)
 ```
 
+"Withdrawal is never a deletion" is now enforced by the database, not only by convention: `consent_grants` carries an RLS `UPDATE` policy restricted to the data subject — organisation staff may read a grant but never rewrite it — and **no `DELETE` policy at all**, so the application role cannot erase consent history in any context.
+
 Consent checking is a **separate concern** from RBAC with its own denial reason (plan §10); it is not folded into the permission resolver.
 
 ## 7. Honest deferrals
@@ -109,5 +123,9 @@ Consent checking is a **separate concern** from RBAC with its own denial reason 
 | Crypto-shredding | Documented design only — not validated, not implemented |
 | Legal retention schedules | Documented design only, pending per-market regulatory input |
 | Jurisdiction-specific deletion rules | Documented design only, pending per-market regulatory input |
-| KMS-backed key management | Contract defined; implementation deferred (§4) |
+| KMS-backed key management | Contract described; **interface not yet written**, implementation deferred (§4) |
+| Classification-driven enforcement | Vocabulary, declarations and reader implemented; automatic derivation of redaction, encryption and serialisation rules deferred (§1) |
+| `classification` as an audit column | Recorded in `metadata` today; column deferred to the next audit-schema revision (§3.1) |
+| RLS beyond the six representative tables | Deliberate — ADR-0007 incremental strategy; a test asserts the set has not grown by accident |
+| Platform-level audit reading | The application role can read audit rows only inside the active organisation; a cross-tenant administrative pathway is deferred (plan §11) |
 | Regulatory conformity per launch market | Separate workstream — **no claim made in Phase 1** |

@@ -24,12 +24,27 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!--
+            The test suite connects as healthy360_migrator, the schema owner.
+            RefreshDatabase migrates on the *default* connection, and the
+            factories that build two complete tenants per test necessarily
+            write across organisations with no session context, so an
+            RLS-subject default connection would fail those tests closed
+            before they could assert anything. Ownership therefore bypasses
+            RLS in Feature tests — which exercise the application-layer
+            defences — while the database layer is proven explicitly by the
+            `rls` group, which runs its statements under
+            `SET ROLE healthy360_test`. Rationale recorded in
+            docs/architecture/08-testing-and-quality.md §1.5.
+        -->
         <env name="DB_CONNECTION" value="pgsql"/>
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="55432"/>
         <env name="DB_DATABASE" value="healthy360_test"/>
         <env name="DB_USERNAME" value="healthy360_migrator"/>
         <env name="DB_PASSWORD" value="h360_migrator_local"/>
+        <env name="DB_MIGRATIONS_USERNAME" value="healthy360_migrator"/>
+        <env name="DB_MIGRATIONS_PASSWORD" value="h360_migrator_local"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

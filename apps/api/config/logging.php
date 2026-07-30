@@ -1,5 +1,7 @@
 <?php
 
+use Healthy360\Support\Logging\RedactSensitiveContext;
+use Healthy360\Support\Logging\RedactSensitiveLogs;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -48,6 +50,13 @@ return [
     | Available drivers: "single", "daily", "slack", "syslog",
     |                    "errorlog", "monolog", "custom", "stack"
     |
+    | Every channel carries the Healthy360 redaction processor (plan §12):
+    | channels with a dedicated driver take it through the RedactSensitiveLogs
+    | tap, "monolog" driver channels through the "processors" key, which is the
+    | only place Laravel honours it. The "stack" driver inherits the processors
+    | of the channels it aggregates, so it needs no entry of its own. Nothing
+    | reaches a log file without passing through it.
+    |
     */
 
     'channels' => [
@@ -60,6 +69,7 @@ return [
 
         'single' => [
             'driver' => 'single',
+            'tap' => [RedactSensitiveLogs::class],
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
@@ -67,6 +77,7 @@ return [
 
         'daily' => [
             'driver' => 'daily',
+            'tap' => [RedactSensitiveLogs::class],
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
@@ -75,6 +86,7 @@ return [
 
         'slack' => [
             'driver' => 'slack',
+            'tap' => [RedactSensitiveLogs::class],
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
             'username' => env('LOG_SLACK_USERNAME', env('APP_NAME', 'Laravel')),
             'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
@@ -91,7 +103,7 @@ return [
                 'port' => env('PAPERTRAIL_PORT'),
                 'connectionString' => 'tls://'.env('PAPERTRAIL_URL').':'.env('PAPERTRAIL_PORT'),
             ],
-            'processors' => [PsrLogMessageProcessor::class],
+            'processors' => [PsrLogMessageProcessor::class, RedactSensitiveContext::class],
         ],
 
         'stderr' => [
@@ -102,11 +114,12 @@ return [
                 'stream' => 'php://stderr',
             ],
             'formatter' => env('LOG_STDERR_FORMATTER'),
-            'processors' => [PsrLogMessageProcessor::class],
+            'processors' => [PsrLogMessageProcessor::class, RedactSensitiveContext::class],
         ],
 
         'syslog' => [
             'driver' => 'syslog',
+            'tap' => [RedactSensitiveLogs::class],
             'level' => env('LOG_LEVEL', 'debug'),
             'facility' => env('LOG_SYSLOG_FACILITY', LOG_USER),
             'replace_placeholders' => true,
@@ -114,6 +127,7 @@ return [
 
         'errorlog' => [
             'driver' => 'errorlog',
+            'tap' => [RedactSensitiveLogs::class],
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
         ],

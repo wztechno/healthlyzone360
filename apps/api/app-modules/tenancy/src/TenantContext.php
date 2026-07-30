@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Tenancy;
 
+use Closure;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Tenancy\Scopes\OrganisationScope;
 
@@ -12,6 +13,14 @@ use Healthy360\Tenancy\Scopes\OrganisationScope;
  * authenticated user + active organisation membership + active branch where
  * applicable (plan §9). Populated exclusively by the tenancy middleware (or
  * queue-context restoration) — never directly from client input.
+ *
+ * Every mutation notifies a listener registered by TenancyServiceProvider,
+ * which republishes the context to the PostgreSQL session variables the
+ * row-level security policies read. Keeping that on the mutation rather than
+ * on the middleware matters: /api/v1/me resolves its organisation deep inside
+ * a service, long after the middleware stack has run, and the database must
+ * follow the context wherever it is set — otherwise a legitimate read would
+ * fail closed and simply return nothing.
  */
 final class TenantContext
 {
@@ -23,17 +32,47 @@ final class TenantContext
 
     private ?OrganisationMembership $membership = null;
 
+    /** @var (Closure(self): void)|null */
+    private ?Closure $listener = null;
+
+    /**
+     * Register the single change listener. A directly constructed context
+     * (unit tests, value-object use) has none and touches no database.
+     *
+     * @param  Closure(self): void  $listener
+     */
+    public function listen(Closure $listener): void
+    {
+        $this->listener = $listener;
+    }
+
+    /**
+     * The authenticated identity with no organisation selected yet — the
+     * state most authenticated requests are in. Consent grants and a person's
+     * own memberships are readable from it; nothing organisation-scoped is.
+     */
+    public function setUser(string $userId): void
+    {
+        $this->userId = $userId;
+
+        $this->synchronise();
+    }
+
     public function setOrganisation(string $userId, string $organisationId, ?OrganisationMembership $membership = null): void
     {
         $this->userId = $userId;
         $this->organisationId = $organisationId;
         $this->membership = $membership;
         $this->branchId = null;
+
+        $this->synchronise();
     }
 
     public function setBranch(string $branchId): void
     {
         $this->branchId = $branchId;
+
+        $this->synchronise();
     }
 
     public function userId(): ?string
@@ -79,6 +118,8 @@ final class TenantContext
         $this->organisationId = null;
         $this->branchId = null;
         $this->membership = null;
+
+        $this->synchronise();
     }
 
     /**
@@ -102,10 +143,19 @@ final class TenantContext
      */
     public function restore(array $snapshot): void
     {
-        $this->clear();
+        $this->membership = null;
 
         $this->userId = $snapshot['user_id'] ?? null;
         $this->organisationId = $snapshot['organisation_id'] ?? null;
         $this->branchId = $snapshot['branch_id'] ?? null;
+
+        $this->synchronise();
+    }
+
+    private function synchronise(): void
+    {
+        if ($this->listener !== null) {
+            ($this->listener)($this);
+        }
     }
 }

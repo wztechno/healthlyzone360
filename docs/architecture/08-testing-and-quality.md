@@ -37,7 +37,58 @@ The RLS suite must prove, at minimum:
 4. **Reused connections do not leak context**: a pooled/reused connection carries no prior tenant's session variables.
 5. **Migrations need no application-role privileges**: schema changes run entirely under the migrator role.
 
-### 1.5 Explicitly rejected: generic SQL-listener assertion
+Implemented in execution Phase 6 as the Pest group `rls` (`php artisan test --group=rls`), which
+additionally covers: an empty-string context being as closed as an absent one; `WITH CHECK`
+rejection of a cross-organisation insert; `UPDATE`/`DELETE` on `audit_logs` denied at grant level;
+platform template roles readable in any context but never writable; consent readable and withdrawable
+by the data subject only and deletable by nobody; the session reset surviving a job that throws;
+re-publication of context onto a reconnected connection; and an assertion that **exactly** the six
+representative tables carry RLS, so extending the set is a deliberate act with a failing test to
+prompt it.
+
+### 1.5 The dual-role test model (implemented — execution Phase 6)
+
+RLS is enforced against the *current* database role. That creates a genuine tension in a test suite,
+and the resolution is deliberate rather than incidental.
+
+**The problem.** `RefreshDatabase` migrates on the **default** connection, and the tenancy fixtures
+build two complete organisations per test — necessarily writing across organisations with no session
+context resolved. Running the whole suite as an RLS-subject role would fail every one of those
+fixtures closed before a single assertion could run, and would make the suite a test of the
+factories rather than of the application.
+
+**The decision.** Two roles, two jobs:
+
+| Suite | Database role | What it proves |
+| --- | --- | --- |
+| Feature, module and tenancy suites | `healthy360_migrator` (schema owner — bypasses RLS by ownership) | The **application-layer** defences: global scopes, policies, the six-step RBAC decision, context middleware, error envelopes |
+| `rls` group (`app-modules/tenancy/tests/RlsTest.php`, `RlsVerticalSliceTest.php`) | `healthy360_test` via `SET ROLE`, reset in a `finally` | The **database-layer** backstop: the policies themselves, and the vertical slice still working with them in force |
+
+Ownership bypassing RLS in the wider suite is therefore **accepted, not overlooked**. The two layers
+are independent by design (ADR-0007) and are proven independently; a defect that only RLS would
+catch is caught by the `rls` group. `phpunit.xml` records the same rationale beside the credentials.
+
+**How the `rls` group works.** Fixtures are created as the owner — which is exactly how migrations
+and seeders legitimately work — then `SET ROLE healthy360_test` makes the connection a non-owner
+with `NOBYPASSRLS`, so the policies apply precisely as they do to `healthy360_app` in production.
+`RESET ROLE` always runs in a `finally`: leaking the owner role into a later assertion would make a
+passing test meaningless. A `WITH CHECK` violation is provoked inside a nested `DB::transaction()`,
+so the savepoint absorbs the aborted statement and the surrounding `RefreshDatabase` transaction
+survives.
+
+`RlsVerticalSliceTest` drives the **real HTTP stack** under `SET ROLE`, covering registration,
+login, `/api/v1/me`, `PUT /api/v1/me/context` and `GET /api/v1/organisations/current`. That is the
+half of the Phase 6 gate which says RLS must not break the accepted vertical slice, and it is
+confirmed independently against the containerised stack, where the application authenticates as
+`healthy360_app` for real.
+
+**Migrations in tests.** Schema and seed data are always written by the owner. Outside the test
+suite this is the `pgsql_migrations` connection —
+`php artisan migrate --database=pgsql_migrations --seed`, wrapped as `composer db:migrate` /
+`composer db:fresh`. Implementation detail and role provisioning are in
+`notes/rls-implementation.md`.
+
+### 1.6 Explicitly rejected: generic SQL-listener assertion
 
 * **Problem**: A tempting "safety net" is a query listener asserting every SQL statement contains an organisation predicate.
 * **Recommendation**: Do **not** build it (plan §11).

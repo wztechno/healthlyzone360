@@ -8,6 +8,8 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Consent\Database\Factories\ConsentGrantFactory;
 use Healthy360\Consent\Enums\ConsentStatus;
+use Healthy360\Support\Attributes\Classified;
+use Healthy360\Support\Enums\DataClassification;
 use Healthy360\Support\Models\BaseModel;
 use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
 use Healthy360\Tenancy\Contracts\OrganisationScoped;
@@ -29,6 +31,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $channel web | ios | android
  * @property CarbonImmutable|null $created_at
  */
+#[Classified(DataClassification::SpecialCategory, 'user_id', 'consent_definition_id', 'status', 'granted_at', 'withdrawn_at')]
+#[Classified(DataClassification::Internal, 'organisation_id', 'channel')]
 class ConsentGrant extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;

@@ -8,6 +8,7 @@ use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\Exceptions\BranchOutsideMembershipScope;
 use Healthy360\Tenancy\Exceptions\OrganisationContextForbidden;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -21,9 +22,17 @@ use Illuminate\Support\Str;
  *
  * Fails closed: anything unparseable, unknown, inactive or out of scope is a
  * denial, and the denial never reveals whether the organisation exists.
+ *
+ * Validation necessarily runs *before* the context it is validating exists,
+ * so its queries opt out of the ambient scoping in both layers: through
+ * withoutTenancy() at the application layer and through
+ * DatabaseTenantContext::during() at the database layer. Both bypasses are
+ * bounded by an already-proven active membership.
  */
 final class ContextValidator
 {
+    public function __construct(private readonly DatabaseTenantContext $session) {}
+
     /**
      * @throws OrganisationContextForbidden
      */
@@ -83,11 +92,16 @@ final class ContextValidator
             throw new BranchOutsideMembershipScope;
         }
 
-        $exists = OrganisationBranch::withoutTenancy()
+        // The membership is already proven active in this organisation, so
+        // declaring it to the database session for one existence check grants
+        // nothing the caller does not already hold — and without it the RLS
+        // policy would hide the branch and turn a valid selection into
+        // "outside your scope".
+        $exists = $this->session->during(null, (string) $membership->organisation_id, null, fn (): bool => OrganisationBranch::withoutTenancy()
             ->whereKey($claimed)
             ->where('organisation_id', $membership->organisation_id)
             ->where('status', BranchStatus::Active)
-            ->exists();
+            ->exists());
 
         if (! $exists) {
             throw new BranchOutsideMembershipScope;

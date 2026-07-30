@@ -9,6 +9,8 @@ use Carbon\CarbonImmutable;
 use Healthy360\Identity\Database\Factories\UserProfileFactory;
 use Healthy360\ReferenceData\Models\Country;
 use Healthy360\ReferenceData\Models\Language;
+use Healthy360\Support\Attributes\Classified;
+use Healthy360\Support\Enums\DataClassification;
 use Healthy360\Support\Models\BaseModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +34,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
+#[Classified(DataClassification::Confidential, 'given_name', 'family_name', 'date_of_birth', 'country_code', 'timezone')]
+#[Classified(DataClassification::Internal, 'preferred_language_code', 'numbering_system', 'last_organisation_id', 'last_branch_id')]
 class UserProfile extends BaseModel
 {
     /** @use HasFactory<UserProfileFactory> */

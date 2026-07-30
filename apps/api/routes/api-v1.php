@@ -26,9 +26,13 @@ use Illuminate\Support\Facades\Route;
 | Sanctum guard falls back to the `web` guard) and a bearer personal access
 | token. `verified` is Healthy360's JSON email-verification guard.
 |
+| `db.context` publishes the authenticated identity to the PostgreSQL session
+| variables the row-level security policies read, and resets them once the
+| response has been sent (plan §11, ADR-0007).
+|
 */
 
-Route::middleware(['auth:sanctum', 'device.touch'])->group(function (): void {
+Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(function (): void {
     // Deliberately reachable before email verification: the client needs
     // this payload to render the "verify your email" state.
     Route::get('/me', MeController::class)->name('me.show');

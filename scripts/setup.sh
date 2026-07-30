@@ -33,13 +33,16 @@ if ! grep -qE '^APP_KEY=.+' apps/api/.env || grep -qE '^APP_KEY=$' apps/api/.env
 fi
 
 echo "==> Migrating and seeding"
-(cd apps/api && php artisan migrate --seed --force)
+# Schema and seed data are written by healthy360_migrator, the owner role, via
+# the pgsql_migrations connection; the application itself runs as
+# healthy360_app, which is subject to row-level security (ADR-0007).
+(cd apps/api && php artisan migrate --database=pgsql_migrations --seed --force)
 
 echo ""
 echo "Setup complete."
 echo "  API (containerised) : http://localhost:8080  (health: /up)"
 echo "  Mailpit             : http://localhost:8025"
 echo "  Garage S3           : http://localhost:3900"
-echo "  PostgreSQL          : localhost:5432 (db healthy360)"
+echo "  PostgreSQL          : localhost:55432 (db healthy360, app role healthy360_app)"
 echo "  Redis               : localhost:6379"
 echo "  Host dev server     : cd apps/api && php artisan serve"

@@ -9,7 +9,9 @@ use Database\Factories\UserFactory;
 use Healthy360\Identity\Models\UserDevice;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Support\Attributes\Classified;
 use Healthy360\Support\Concerns\HasUuidV7Key;
+use Healthy360\Support\Enums\DataClassification;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -47,6 +49,8 @@ use Laravel\Sanctum\HasApiTokens;
  */
 #[Fillable(['email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Classified(DataClassification::Restricted, 'password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token')]
+#[Classified(DataClassification::Confidential, 'email', 'email_verified_at', 'two_factor_confirmed_at')]
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */

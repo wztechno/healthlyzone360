@@ -41,8 +41,11 @@ if ($envContent -notmatch "(?m)^APP_KEY=.+") {
 }
 
 Write-Host "==> Migrating and seeding"
+# Schema and seed data are written by healthy360_migrator, the owner role, via
+# the pgsql_migrations connection; the application itself runs as
+# healthy360_app, which is subject to row-level security (ADR-0007).
 Push-Location apps/api
-php artisan migrate --seed --force
+php artisan migrate --database=pgsql_migrations --seed --force
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "migrate failed" }
 Pop-Location
 
@@ -51,6 +54,6 @@ Write-Host "Setup complete."
 Write-Host "  API (containerised) : http://localhost:8080  (health: /up)"
 Write-Host "  Mailpit             : http://localhost:8025"
 Write-Host "  Garage S3           : http://localhost:3900"
-Write-Host "  PostgreSQL          : localhost:5432 (db healthy360)"
+Write-Host "  PostgreSQL          : localhost:55432 (db healthy360, app role healthy360_app)"
 Write-Host "  Redis               : localhost:6379"
 Write-Host "  Host dev server     : cd apps/api; php artisan serve"

@@ -11,6 +11,7 @@ use Healthy360\Support\Api\ApiExceptionRenderer;
 use Healthy360\Support\Http\Middleware\AssignCorrelationId;
 use Healthy360\Tenancy\Http\Middleware\ResolveBranchContext;
 use Healthy360\Tenancy\Http\Middleware\ResolveOrganisationContext;
+use Healthy360\Tenancy\Http\Middleware\SetDatabaseTenantContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -47,6 +48,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [AssignCorrelationId::class]);
 
         $middleware->alias([
+            // db.context runs directly after auth:sanctum and publishes the
+            // authenticated identity to the PostgreSQL session variables the
+            // RLS policies read; org.context and branch.context reach the
+            // same session automatically, because TenantContext republishes
+            // itself whenever it changes.
+            'db.context' => SetDatabaseTenantContext::class,
             'org.context' => ResolveOrganisationContext::class,
             'branch.context' => ResolveBranchContext::class,
             'permission' => RequirePermission::class,

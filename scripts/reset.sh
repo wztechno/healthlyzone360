@@ -12,5 +12,7 @@ esac
 docker compose down -v
 docker compose up -d --build --wait
 bash scripts/storage-init.sh
-(cd apps/api && php artisan migrate:fresh --seed --force)
+# Migrations and seeders run as healthy360_migrator (ADR-0007); the runtime
+# healthy360_app role has no DDL rights and is subject to row-level security.
+(cd apps/api && php artisan migrate:fresh --database=pgsql_migrations --seed --force)
 echo "Reset complete."

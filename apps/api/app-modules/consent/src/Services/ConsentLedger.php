@@ -8,6 +8,7 @@ use App\Models\User;
 use Healthy360\Consent\Enums\ConsentStatus;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Consent\Models\ConsentGrant;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Support\Collection;
 
 /**
@@ -19,6 +20,12 @@ use Illuminate\Support\Collection;
  * context resolved, and every query here is already constrained to the
  * authenticated user's own rows — an explicit, auditable cross-tenant path
  * rather than an ambient one.
+ *
+ * The consent_grants row-level security policies key on `app.user_id`
+ * (plan §11), so writes declare the data subject to the database session for
+ * their duration. Registration is why: the first grants a person makes are
+ * written while nobody is authenticated yet, so there is no ambient identity
+ * for the session to have inherited.
  */
 final class ConsentLedger
 {
@@ -30,6 +37,8 @@ final class ConsentLedger
      * @var list<string>
      */
     public const array REGISTRATION_CODES = ['consent.terms', 'consent.privacy'];
+
+    public function __construct(private readonly DatabaseTenantContext $session) {}
 
     /**
      * The newest active version of every consent definition, keyed by code.
@@ -58,37 +67,43 @@ final class ConsentLedger
     {
         $definitions = $this->currentDefinitions();
 
-        foreach ($codes as $code) {
-            $definition = $definitions->get($code);
+        $this->session->asUser((string) $user->getKey(), function () use ($definitions, $codes, $user, $channel): void {
+            foreach ($codes as $code) {
+                $definition = $definitions->get($code);
 
-            if ($definition === null) {
-                continue;
+                if ($definition === null) {
+                    continue;
+                }
+
+                $alreadyGranted = ConsentGrant::withoutTenancy()
+                    ->where('user_id', $user->getKey())
+                    ->where('consent_definition_id', $definition->getKey())
+                    ->where('status', ConsentStatus::Granted)
+                    ->exists();
+
+                if ($alreadyGranted) {
+                    continue;
+                }
+
+                ConsentGrant::withoutTenancy()->create([
+                    'user_id' => $user->getKey(),
+                    'consent_definition_id' => $definition->getKey(),
+                    'organisation_id' => null,
+                    'status' => ConsentStatus::Granted,
+                    'granted_at' => now(),
+                    'channel' => $channel,
+                ]);
             }
-
-            $alreadyGranted = ConsentGrant::withoutTenancy()
-                ->where('user_id', $user->getKey())
-                ->where('consent_definition_id', $definition->getKey())
-                ->where('status', ConsentStatus::Granted)
-                ->exists();
-
-            if ($alreadyGranted) {
-                continue;
-            }
-
-            ConsentGrant::withoutTenancy()->create([
-                'user_id' => $user->getKey(),
-                'consent_definition_id' => $definition->getKey(),
-                'organisation_id' => null,
-                'status' => ConsentStatus::Granted,
-                'granted_at' => now(),
-                'channel' => $channel,
-            ]);
-        }
+        });
     }
 
     /**
      * Active consent definitions the user has not granted at their current
      * version. Surfaced on /api/v1/me so a client can prompt for them.
+     *
+     * No session declaration here: this only ever runs for the authenticated
+     * caller, whose identity db.context has already published, and declaring
+     * it again would drop the organisation setting for the duration.
      *
      * @return list<array{code: string, version: int, purpose: string}>
      */

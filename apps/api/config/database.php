@@ -99,6 +99,33 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        /*
+         * Schema-owning connection (ADR-0007). Migrations and seeders run as
+         * healthy360_migrator, which owns every table and therefore bypasses
+         * row-level security; the default `pgsql` connection above runs as
+         * healthy360_app, which does not. Host, port and database are shared
+         * with `pgsql` on purpose — only the credential differs, so pointing
+         * the application at another database can never leave migrations
+         * behind on the old one.
+         *
+         *   php artisan migrate --database=pgsql_migrations --seed
+         *   composer db:migrate / composer db:fresh
+         */
+        'pgsql_migrations' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_MIGRATIONS_USERNAME', 'healthy360_migrator'),
+            'password' => env('DB_MIGRATIONS_PASSWORD', 'h360_migrator_local'),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
