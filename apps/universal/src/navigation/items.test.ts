@@ -53,22 +53,22 @@ describe('permittedNavigation', () => {
         expect(keys).toEqual(['workspace', 'profile']);
     });
 
-    it('includes the devices entry once session.view_own is granted', () => {
-        const keys = permittedNavigation(hydrated(['session.view_own'])).map((item) => item.key);
+    it('includes the devices entry once device.manage_own is granted', () => {
+        const keys = permittedNavigation(hydrated(['device.manage_own'])).map((item) => item.key);
         expect(keys).toContain('devices');
         expect(keys).not.toContain('showcase');
     });
 
     it('includes the showcase only for a platform administrator', () => {
         const keys = permittedNavigation(
-            hydrated(['session.view_own', 'platform.access_admin']),
+            hydrated(['device.manage_own', 'platform.access_admin']),
         ).map((item) => item.key);
         expect(keys).toEqual(['workspace', 'profile', 'devices', 'showcase']);
     });
 
     it('drops an item whose area is not in the build family, even with the permission', () => {
         const keys = permittedNavigation(
-            hydrated(['session.view_own', 'platform.access_admin'], 'staff'),
+            hydrated(['device.manage_own', 'platform.access_admin'], 'staff'),
         ).map((item) => item.key);
         // `platform-admin` is not compiled into the staff family.
         expect(keys).not.toContain('showcase');

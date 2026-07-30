@@ -1,9 +1,9 @@
 /**
  * `@healthy360/api-client` — the boundary between screens and data (plan §18).
  *
- * Phase 5b ships the *contracts* and a mock implementation. Phase 5c adds the `@hey-api` generated
- * client and the `ApiRepository` behind the same interfaces; nothing above this package changes
- * when it does, which is the entire purpose of the split.
+ * Two implementations sit behind one set of contracts: the fixture world in `./mock` and the real
+ * transport in `./api`, the latter typed by the OpenAPI document through `./generated`. Nothing
+ * above this package can tell them apart, which is the entire purpose of the split.
  */
 export {
     API_FAILURE_CODES,
@@ -51,12 +51,19 @@ export type {
 } from './contracts/index.ts';
 
 export {
-    ApiRepositoriesUnavailableError,
+    MissingApiBaseUrlError,
     MockDataInProductionError,
     REPOSITORY_APP_ENVS,
     createRepositories,
 } from './registry.ts';
-export type { RepositoryAppEnv, RepositoryConfig } from './registry.ts';
+export type { KeyValueStorage, RepositoryAppEnv, RepositoryConfig } from './registry.ts';
+
+/**
+ * The API base URL default, so the application can show what it will talk to. The repositories
+ * themselves stay behind the dynamic import in `createRepositories`.
+ */
+export { DEFAULT_API_BASE_URL } from './api/config.ts';
+export type { ClientPlatform } from './api/config.ts';
 
 /**
  * Scenario metadata is re-exported from the package root because the development banner and the

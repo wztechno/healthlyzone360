@@ -18,5 +18,5 @@
         }
     },
     "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts", ".expo/types/**/*.ts", "expo-env.d.ts"],
-    "exclude": ["node_modules", "dist", ".expo"]
+    "exclude": ["node_modules", "dist", "dist-api", ".expo"]
 }

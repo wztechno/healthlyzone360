@@ -1,11 +1,7 @@
 {
     "$schema": "https://turborepo.com/schema.json",
     "ui": "stream",
-    "globalDependencies": [
-        "tsconfig.base.json",
-        "eslint.config.mjs",
-        ".prettierrc.json"
-    ],
+    "globalDependencies": ["tsconfig.base.json", "eslint.config.mjs", ".prettierrc.json"],
     "globalPassThroughEnv": [
         "APP_MODE",
         "APP_ENV",
@@ -18,74 +14,45 @@
     ],
     "tasks": {
         "topo": {
-            "dependsOn": [
-                "^topo"
-            ]
+            "dependsOn": ["^topo"]
         },
         "build:tokens": {
-            "inputs": [
-                "src/**",
-                "scripts/**"
-            ],
-            "outputs": [
-                "generated/**"
-            ]
+            "inputs": ["src/**", "scripts/**"],
+            "outputs": ["generated/**"]
+        },
+        "//#gen:api": {
+            "inputs": ["apps/api/openapi/dist/healthy360.v1.yaml", "scripts/gen-api.mjs"],
+            "outputs": ["packages/api-client/src/generated/**"]
+        },
+        "//#gen:api:check": {
+            "cache": false
         },
         "lint": {
-            "dependsOn": [
-                "topo"
-            ],
-            "inputs": [
-                "$TURBO_DEFAULT$",
-                "!**/*.md",
-                "../../eslint.config.mjs",
-                "../../tsconfig.base.json"
-            ],
+            "dependsOn": ["topo"],
+            "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "../../eslint.config.mjs", "../../tsconfig.base.json"],
             "outputs": []
         },
         "typecheck": {
-            "dependsOn": [
-                "topo"
-            ],
-            "inputs": [
-                "$TURBO_DEFAULT$",
-                "!**/*.md",
-                "../../tsconfig.base.json"
-            ],
+            "dependsOn": ["topo"],
+            "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "../../tsconfig.base.json"],
             "outputs": []
         },
         "test": {
-            "dependsOn": [
-                "topo"
-            ],
-            "inputs": [
-                "$TURBO_DEFAULT$",
-                "!**/*.md"
-            ],
+            "dependsOn": ["topo"],
+            "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
             "outputs": []
         },
         "build:web": {
-            "dependsOn": [
-                "topo"
-            ],
-            "env": [
-                "APP_MODE",
-                "APP_ENV",
-                "EXPO_PUBLIC_DATA_MODE"
-            ],
-            "outputs": [
-                "dist/**",
-                ".expo/**"
-            ]
+            "dependsOn": ["topo"],
+            "env": ["APP_MODE", "APP_ENV", "EXPO_PUBLIC_DATA_MODE"],
+            "outputs": ["dist/**", ".expo/**"]
         },
         "dev": {
             "cache": false,
             "persistent": true
         },
         "e2e": {
-            "dependsOn": [
-                "build:web"
-            ],
+            "dependsOn": ["build:web"],
             "cache": false
         }
     }

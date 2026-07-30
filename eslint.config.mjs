@@ -51,6 +51,26 @@ const classNameAttributeSelectors = ['className', 'class'].flatMap((attribute) =
     },
 ]);
 
+/**
+ * Generated-code containment (plan §15: "Generated code may only be imported through the API
+ * repository layer").
+ *
+ * `packages/api-client/src/generated/**` is produced by `scripts/gen-api.mjs` from the OpenAPI
+ * document. It is the wire vocabulary — `snake_case`, nullable everywhere, regenerated wholesale on
+ * every contract change. If a screen imported it, a backend field rename would ripple straight into
+ * the UI, and the mock repositories could no longer stand in for the real ones. The exemption for
+ * `src/api/**` is granted in an override below.
+ */
+const GENERATED_CLIENT_IMPORT = {
+    group: [
+        '**/generated/**',
+        '@healthy360/api-client/generated',
+        '@healthy360/api-client/generated/**',
+    ],
+    message:
+        'The generated OpenAPI client may only be imported from packages/api-client/src/api/** (plan §15). Depend on the repository contracts and domain types instead.',
+};
+
 const restrictedImports = {
     patterns: [
         {
@@ -58,6 +78,7 @@ const restrictedImports = {
             message:
                 'Expo Router forks React Navigation internals. Import navigation primitives from `expo-router` instead (dependency-compatibility.md).',
         },
+        GENERATED_CLIENT_IMPORT,
     ],
     paths: [
         {
@@ -74,6 +95,8 @@ export default tseslint.config(
         ignores: [
             '**/node_modules/**',
             '**/dist/**',
+            // The api-mode export the Playwright `acceptance` project serves.
+            '**/dist-api/**',
             '**/build/**',
             '**/.expo/**',
             '**/.turbo/**',
@@ -172,6 +195,34 @@ export default tseslint.config(
         files: ['packages/i18n/**/*.{ts,tsx}'],
         rules: {
             'no-restricted-imports': ['error', { patterns: restrictedImports.patterns }],
+        },
+    },
+
+    // The API repository layer is the single place allowed to import the generated client.
+    {
+        files: ['packages/api-client/src/api/**/*.ts'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    ...restrictedImports,
+                    patterns: restrictedImports.patterns.filter(
+                        (pattern) => pattern !== GENERATED_CLIENT_IMPORT,
+                    ),
+                },
+            ],
+        },
+    },
+
+    // Generated output. It is regenerated wholesale, so lint findings there are the generator's to
+    // fix, not a reviewer's; the file is still typechecked by `tsc` like everything else.
+    {
+        files: ['packages/api-client/src/generated/**/*.ts'],
+        rules: {
+            'no-restricted-imports': 'off',
+            '@typescript-eslint/consistent-type-imports': 'off',
+            '@typescript-eslint/no-explicit-any': 'off',
+            '@typescript-eslint/no-empty-object-type': 'off',
         },
     },
 

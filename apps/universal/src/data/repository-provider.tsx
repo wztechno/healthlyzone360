@@ -1,10 +1,28 @@
 import { createRepositories } from '@healthy360/api-client';
-import type { MockScenarioName, Repositories, SessionTokenStore } from '@healthy360/api-client';
+import type {
+    ClientPlatform,
+    MockScenarioName,
+    Repositories,
+    SessionTokenStore,
+} from '@healthy360/api-client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { Platform } from 'react-native';
 
 import { appConfig } from '../config.ts';
+import { i18n } from '../i18n.ts';
 import { createKeyValueStore, createSessionTokenStore } from '../session/storage.ts';
+
+/** `X-Client-Platform`, and the platform recorded against the device on `POST /auth/token`. */
+const CLIENT_PLATFORM: ClientPlatform =
+    Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
+
+/**
+ * What the device is called in device management. A person recognises "Healthy360 web"; nobody
+ * recognises a token identifier — and re-registering the same name rotates the token rather than
+ * accumulating a device row per sign-in (OpenAPI `/auth/token`).
+ */
+const DEVICE_NAME = `Healthy360 ${CLIENT_PLATFORM}`;
 
 export interface RepositoryContextValue {
     /** `null` until the factory resolves. Every consumer must handle that. */
@@ -83,6 +101,13 @@ export function AppRepositoryProvider({
             scenario,
             tokenStore,
             keyValueStorage: createKeyValueStore(),
+            baseUrl: appConfig.apiUrl,
+            appMode: appConfig.appMode,
+            clientVersion: appConfig.clientVersion,
+            platform: CLIENT_PLATFORM,
+            deviceName: DEVICE_NAME,
+            // Read per request, so switching language changes the next call's `Accept-Language`.
+            locale: () => i18n.resolvedLanguage ?? i18n.language,
         })
             .then((created) => {
                 if (!cancelled) setBuilt({ scenario, repositories: created, error: null });

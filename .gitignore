@@ -24,6 +24,10 @@ coverage/
 # Expo / native
 apps/universal/.expo/
 apps/universal/dist/
+apps/universal/dist-api/
+apps/universal/playwright-report/
+apps/universal/test-results/
+apps/universal/blob-report/
 apps/universal/web-build/
 apps/universal/ios/
 apps/universal/android/

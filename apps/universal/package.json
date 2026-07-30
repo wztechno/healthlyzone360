@@ -9,11 +9,13 @@
         "ios": "expo start --ios",
         "web": "expo start --web",
         "build:web": "expo export -p web",
+        "build:web:api": "expo export -p web --output-dir dist-api --clear",
         "doctor": "expo-doctor",
         "lint": "eslint . --max-warnings=0",
         "typecheck": "tsc --noEmit",
         "test": "jest --ci",
-        "e2e": "playwright test"
+        "e2e": "playwright test",
+        "e2e:acceptance": "playwright test --config playwright.acceptance.config.ts"
     },
     "dependencies": {
         "@expo-google-fonts/ibm-plex-sans-arabic": "^0.4.2",

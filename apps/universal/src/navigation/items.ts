@@ -42,7 +42,7 @@ export const WORKSPACE_NAVIGATION: readonly NavigationDescriptor[] = [
         labelKey: 'common:nav.devices',
         href: '/devices',
         icon: 'device',
-        requiredPermission: 'session.view_own',
+        requiredPermission: 'device.manage_own',
     },
     {
         key: 'showcase',

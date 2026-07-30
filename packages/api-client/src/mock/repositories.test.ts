@@ -243,7 +243,7 @@ describe('customer-no-org', () => {
         expect(me.memberships).toEqual([]);
         expect(me.activeContext).not.toBeNull();
         expect(me.activeContext?.organisationId).toBeNull();
-        expect(me.activeContext?.permissions).toEqual(['session.view_own', 'session.revoke_own']);
+        expect(me.activeContext?.permissions).toEqual(['device.manage_own', 'session.revoke_own']);
         expect(me.activeContext?.entitlements).toEqual([]);
     });
 

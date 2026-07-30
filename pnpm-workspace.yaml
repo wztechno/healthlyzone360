@@ -17,6 +17,13 @@ allowBuilds:
 # The npm registry is slow enough from some networks to trip the 60s default.
 fetchTimeout: 600000
 
+# `pnpm run` re-validates the dependency tree before every script. With the hoisted linker it
+# periodically decides the modules directory needs replacing, and asks for confirmation — which no
+# `turbo run` (or any other non-interactive parent) can give, so the task dies with
+# ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY instead of running. CI is unaffected because CI=true
+# already implies this; the setting simply makes local runs behave the same way.
+confirmModulesPurge: false
+
 # expo-linking pins an older patch of expo-constants, which leaves two copies of a *native* module
 # in the tree — a hard error for a native build and an expo-doctor failure. Both are SDK 57
 # patches, so pinning the newer one is safe.

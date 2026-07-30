@@ -78,7 +78,14 @@ export function ProfileScreen() {
                     <Row
                         testID="profile-member-since"
                         label={t('auth:profile.memberSince')}
-                        value={formatter.formatDate(user.createdAt)}
+                        // `GET /api/v1/me` does not expose an account creation date, so in `api`
+                        // mode this arrives empty. Formatting it anyway would print "Invalid Date"
+                        // at people; "none" is the truth (recorded as a backend follow-up).
+                        value={
+                            user.createdAt === ''
+                                ? t('auth:profile.none')
+                                : formatter.formatDate(user.createdAt)
+                        }
                     />
                 </Stack>
                 <Inline space="xs">

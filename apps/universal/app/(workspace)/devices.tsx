@@ -1,7 +1,7 @@
 import { Gate } from '../../src/access/gate.tsx';
 import { DevicesScreen } from '../../src/screens/devices-screen.tsx';
 
-/** Listing one's own sessions is itself a permission (`session.view_own`). */
+/** Device management is gated on the registered `device.manage_own` permission. */
 export default function Devices() {
     return (
         <Gate
@@ -9,7 +9,7 @@ export default function Devices() {
             requirement={{
                 requiresAuth: true,
                 requiresVerifiedEmail: true,
-                allOf: ['session.view_own'],
+                allOf: ['device.manage_own'],
             }}
         >
             <DevicesScreen />

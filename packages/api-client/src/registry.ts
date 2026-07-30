@@ -1,5 +1,8 @@
-import type { DataMode } from '@healthy360/domain-types';
+import type { AppMode, DataMode } from '@healthy360/domain-types';
 
+import type { ClientPlatform } from './api/config.ts';
+import { DEFAULT_API_BASE_URL } from './api/config.ts';
+import { createMemoryTokenStore } from './contracts/session.ts';
 import type { Repositories, SessionTokenStore } from './contracts/index.ts';
 import type { MockScenarioName } from './mock/scenarios.ts';
 
@@ -26,8 +29,34 @@ export interface RepositoryConfig {
      * (`user_profiles.last_organisation_id`, Phase 4).
      */
     readonly keyValueStorage?: KeyValueStorage | undefined;
-    /** Base URL for the API repositories. Required once `dataMode` is `api` (5c). */
+    /**
+     * Base URL for the API repositories, for example `http://localhost:8080`. Used only when
+     * `dataMode` is `api`; defaults to `DEFAULT_API_BASE_URL` outside production, and is *required*
+     * in production, where guessing `localhost` would be a silent outage.
+     */
     readonly baseUrl?: string | undefined;
+    /** Diagnostic request headers (`X-App-Mode`, `X-Client-Version`, `X-Client-Platform`). */
+    readonly appMode?: AppMode | undefined;
+    readonly clientVersion?: string | undefined;
+    readonly platform?: ClientPlatform | undefined;
+    /** The name this device is listed under in device management. */
+    readonly deviceName?: string | undefined;
+    /** Read per request, so a language change takes effect on the next call. */
+    readonly locale?: (() => string) | undefined;
+}
+
+/** Raised when `dataMode` is `api` in production with no base URL to talk to. */
+export class MissingApiBaseUrlError extends Error {
+    constructor() {
+        super(
+            [
+                'No API base URL is configured.',
+                'Set EXPO_PUBLIC_API_URL to the Healthy360 API origin (for example',
+                'https://api.healthy360.com). A production build must not fall back to localhost.',
+            ].join('\n'),
+        );
+        this.name = 'MissingApiBaseUrlError';
+    }
 }
 
 /**
@@ -53,27 +82,13 @@ export class MockDataInProductionError extends Error {
     }
 }
 
-/** Raised until 5c adds the generated client and the API repository implementations. */
-export class ApiRepositoriesUnavailableError extends Error {
-    constructor() {
-        super(
-            [
-                'The API repositories are not implemented yet.',
-                'Phase 5b ships the repository contracts and the mock implementation only;',
-                'the @hey-api generated client and ApiRepository land in Phase 5c (plan §15).',
-                'Run with EXPO_PUBLIC_DATA_MODE=mock until then.',
-            ].join('\n'),
-        );
-        this.name = 'ApiRepositoriesUnavailableError';
-    }
-}
-
 /**
  * The single place a `Repositories` bundle is created.
  *
- * The mock implementation is behind a dynamic import so a production bundle can tree-shake — or at
- * least code-split — the entire fixture world out of the initial chunk. The async signature exists
- * for that reason alone.
+ * Both implementations are behind dynamic imports, so a production bundle can tree-shake — or at
+ * least code-split — the entire fixture world out of the initial chunk, and a mock-mode
+ * development build never pulls the generated wire types in either. The async signature exists for
+ * that reason alone.
  */
 export async function createRepositories(config: RepositoryConfig): Promise<Repositories> {
     if (config.dataMode === 'mock') {
@@ -112,5 +127,18 @@ export async function createRepositories(config: RepositoryConfig): Promise<Repo
         });
     }
 
-    throw new ApiRepositoriesUnavailableError();
+    const baseUrl = config.baseUrl ?? '';
+    if (baseUrl === '' && config.appEnv === 'production') throw new MissingApiBaseUrlError();
+
+    const { createApiRepositories } = await import('./api/repositories.ts');
+
+    return createApiRepositories({
+        baseUrl: baseUrl === '' ? DEFAULT_API_BASE_URL : baseUrl,
+        tokenStore: config.tokenStore ?? createMemoryTokenStore(),
+        ...(config.appMode === undefined ? {} : { appMode: config.appMode }),
+        ...(config.clientVersion === undefined ? {} : { clientVersion: config.clientVersion }),
+        ...(config.platform === undefined ? {} : { platform: config.platform }),
+        ...(config.deviceName === undefined ? {} : { deviceName: config.deviceName }),
+        ...(config.locale === undefined ? {} : { locale: config.locale }),
+    });
 }

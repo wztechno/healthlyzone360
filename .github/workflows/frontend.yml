@@ -1,0 +1,174 @@
+name: frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/universal/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.base.json"
+      - "eslint.config.mjs"
+      - ".prettierrc.json"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    paths:
+      - "apps/universal/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.base.json"
+      - "eslint.config.mjs"
+      - ".prettierrc.json"
+      - ".github/workflows/frontend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Corepack takes the pnpm version from `packageManager` in package.json; the prompt would block a
+  # non-interactive runner.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+  EXPO_NO_TELEMETRY: "1"
+
+jobs:
+  # ── static analysis, unit tests ────────────────────────────────────────────────────────────────
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript
+        run: pnpm turbo run typecheck
+
+      - name: ESLint
+        run: pnpm turbo run lint
+
+      - name: Vitest (shared packages)
+        run: pnpm turbo run test --filter=!universal --filter=!@healthy360/design-system
+
+      - name: Jest Expo (design system and application)
+        run: pnpm turbo run test --filter=universal --filter=@healthy360/design-system
+
+  # ── Expo configuration and export ──────────────────────────────────────────────────────────────
+  expo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Expo Doctor
+        working-directory: apps/universal
+        run: pnpm run doctor
+
+      - name: Web export — all-dev (mock data)
+        working-directory: apps/universal
+        env:
+          APP_MODE: all-dev
+          APP_ENV: development
+          EXPO_PUBLIC_DATA_MODE: mock
+        run: pnpm run build:web
+
+      # One production-ready family, configured exactly as it would ship: production environment,
+      # API data mode, a real base URL. The host is a placeholder because nothing is fetched — the
+      # export only has to *configure and bundle* under production rules.
+      - name: Web export — customer (production, api data)
+        working-directory: apps/universal
+        env:
+          APP_MODE: customer
+          APP_ENV: production
+          EXPO_PUBLIC_DATA_MODE: api
+          EXPO_PUBLIC_API_URL: https://api.healthy360.invalid
+        run: pnpm run build:web:api
+
+      # Mock-cannot-ship gate #1 (plan §18). The *expected* result is a non-zero exit: if this ever
+      # succeeds, a production build could be created against fixtures.
+      - name: Negative test — production refuses mock data
+        working-directory: apps/universal
+        env:
+          APP_MODE: customer
+          APP_ENV: production
+          EXPO_PUBLIC_DATA_MODE: mock
+        run: |
+          if pnpm exec expo config --type public > /dev/null 2>&1; then
+            echo "::error::expo config succeeded with APP_ENV=production and EXPO_PUBLIC_DATA_MODE=mock. Gate #1 is not holding."
+            exit 1
+          fi
+          echo "Refused, as it must be."
+
+  # ── Playwright against the exported mock build ─────────────────────────────────────────────────
+  #
+  # The `acceptance` project (apps/universal/playwright.acceptance.config.ts) is deliberately NOT
+  # run here: it needs the whole Docker stack — PostgreSQL, Redis, the API and Mailpit — with the
+  # demo tenants seeded. Bringing compose up in CI is the follow-up recorded in the phase report.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium for Playwright
+        working-directory: apps/universal
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Web export (the artefact the suites run against)
+        working-directory: apps/universal
+        env:
+          APP_MODE: all-dev
+          APP_ENV: development
+          EXPO_PUBLIC_DATA_MODE: mock
+        run: pnpm run build:web
+
+      - name: Playwright — web-ltr, web-rtl, a11y
+        working-directory: apps/universal
+        run: pnpm exec playwright test --project=web-ltr --project=web-rtl --project=a11y
+
+      - if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: playwright-report
+          path: apps/universal/playwright-report
+          retention-days: 7

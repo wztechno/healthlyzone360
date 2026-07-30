@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import type { ApiRepositories } from './api/index.ts';
 import { createMemoryTokenStore } from './contracts/index.ts';
 import {
-    ApiRepositoriesUnavailableError,
+    MissingApiBaseUrlError,
     MockDataInProductionError,
     createRepositories,
 } from './registry.ts';
@@ -106,18 +107,46 @@ describe('createRepositories — production refuses mock data', () => {
 
 describe('createRepositories — api mode', () => {
     it.each(['development', 'preview', 'production'] as const)(
-        'is unavailable until Phase 5c in %s',
+        'builds API repositories in %s',
         async (appEnv) => {
-            await expect(
-                createRepositories({ dataMode: 'api', appEnv, baseUrl: 'https://api.example' }),
-            ).rejects.toBeInstanceOf(ApiRepositoriesUnavailableError);
+            const repositories = await createRepositories({
+                dataMode: 'api',
+                appEnv,
+                baseUrl: 'https://api.example',
+            });
+
+            expect(repositories.auth).toBeDefined();
+            expect(repositories.session).toBeDefined();
+            expect(repositories.context).toBeDefined();
+            expect(repositories.devices).toBeDefined();
         },
     );
 
-    it('explains where the implementation is coming from', async () => {
-        const error = await createRepositories({ dataMode: 'api', appEnv: 'development' }).catch(
-            (caught: unknown) => caught,
-        );
-        expect((error as Error).message).toContain('Phase 5c');
+    it('defaults to the local API outside production', async () => {
+        const repositories = (await createRepositories({
+            dataMode: 'api',
+            appEnv: 'development',
+        })) as ApiRepositories;
+
+        expect(repositories.kind).toBe('api');
+    });
+
+    /** Guessing `localhost` in production would be a silent outage, not a convenience. */
+    it('refuses to guess a base URL in production', async () => {
+        await expect(
+            createRepositories({ dataMode: 'api', appEnv: 'production' }),
+        ).rejects.toBeInstanceOf(MissingApiBaseUrlError);
+    });
+
+    it('threads the caller-supplied token store through', async () => {
+        const tokenStore = createMemoryTokenStore('existing-token');
+        const repositories = (await createRepositories({
+            dataMode: 'api',
+            appEnv: 'development',
+            baseUrl: 'https://api.example',
+            tokenStore,
+        })) as ApiRepositories;
+
+        expect(repositories.transport.tokenStore.get()).toBe('existing-token');
     });
 });

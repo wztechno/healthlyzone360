@@ -46,27 +46,27 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
         'membership.view_organisation',
         'membership.invite_organisation',
         'user.manage_organisation',
-        'session.view_own',
+        'device.manage_own',
         'session.revoke_own',
     ],
     clinic_dietitian: [
         'organisation.view_current',
         'branch.view_current',
         'membership.view_organisation',
-        'session.view_own',
+        'device.manage_own',
         'session.revoke_own',
     ],
     clinic_receptionist: [
         'organisation.view_current',
         'branch.view_current',
-        'session.view_own',
+        'device.manage_own',
         'session.revoke_own',
     ],
     kitchen_manager: [
         'organisation.view_current',
         'branch.view_current',
         'branch.manage_current',
-        'session.view_own',
+        'device.manage_own',
         'session.revoke_own',
     ],
     platform_administrator: [
@@ -74,7 +74,7 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
         'organisation.view_current',
         'branch.view_current',
         'membership.view_organisation',
-        'session.view_own',
+        'device.manage_own',
         'session.revoke_own',
     ],
 };
@@ -84,7 +84,7 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
  * what a consumer with no membership signs in with, and it is why the customer areas need no
  * organisation context (decision D1).
  */
-export const MOCK_GLOBAL_PERMISSIONS: readonly string[] = ['session.view_own', 'session.revoke_own'];
+export const MOCK_GLOBAL_PERMISSIONS: readonly string[] = ['device.manage_own', 'session.revoke_own'];
 
 /**
  * Feature entitlements per organisation. Only the four codes the backend actually seeds appear

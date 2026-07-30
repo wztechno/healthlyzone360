@@ -1,6 +1,9 @@
 node_modules/
 vendor/
 dist/
+dist-api/
+playwright-report/
+test-results/
 build/
 coverage/
 .turbo/
@@ -19,4 +22,5 @@ LICENSE
 packages/i18n/catalogues/en-XA/
 packages/i18n/src/keys.generated.ts
 packages/design-tokens/generated/
+packages/api-client/src/generated/
 apps/universal/expo-env.d.ts

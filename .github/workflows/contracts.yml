@@ -1,0 +1,89 @@
+name: contracts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/openapi/**"
+      - "packages/api-client/**"
+      - "scripts/gen-api.mjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/contracts.yml"
+  pull_request:
+    paths:
+      - "apps/api/openapi/**"
+      - "packages/api-client/**"
+      - "scripts/gen-api.mjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/contracts.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
+# The OpenAPI document itself — Redocly lint, and the check that the committed bundle matches its
+# source — is validated in `backend.yml`, next to the code that has to agree with it. This workflow
+# starts from the bundle and guards everything downstream of it.
+jobs:
+  generated-client:
+    name: Generated client is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # `@hey-api/openapi-ts` is pinned exactly, so regenerating from the same bundle must produce
+      # byte-identical output. A diff means either the document changed without the client being
+      # regenerated, or the generated files were edited by hand — both are drift.
+      - name: Regenerate the client from the bundled specification
+        run: pnpm run gen:api
+
+      - name: Fail on drift
+        run: git diff --exit-code -- packages/api-client/src/generated
+
+  fixture-conformance:
+    name: Fixtures conform to the generated schemas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # Recorded API payloads and every mock scenario, validated against the generated Zod schemas,
+      # then mapped forward to prove the two repository implementations agree (plan §18).
+      - name: Vitest — api-client (contracts, mappers, conformance)
+        run: pnpm --filter @healthy360/api-client run test
+
+      - name: TypeScript — the generated client compiles under the repository's strict settings
+        run: pnpm --filter @healthy360/api-client run typecheck

@@ -1,4 +1,4 @@
-import { DEFAULT_MOCK_SCENARIO, isMockScenarioName } from '@healthy360/api-client';
+import { DEFAULT_API_BASE_URL, DEFAULT_MOCK_SCENARIO, isMockScenarioName } from '@healthy360/api-client';
 import type { MockScenarioName } from '@healthy360/api-client';
 import { isAppMode, isDataMode } from '@healthy360/domain-types';
 import type { AppMode, DataMode } from '@healthy360/domain-types';
@@ -41,6 +41,14 @@ export interface AppConfig {
     readonly mockScenario: MockScenarioName;
     /** Development affordances — the scenario switcher, the showcase alias — are gated on this. */
     readonly isDevelopment: boolean;
+    /**
+     * The Healthy360 API origin, read from `EXPO_PUBLIC_API_URL`. Empty when unset, which the
+     * repository factory turns into the local default outside production and into a hard failure
+     * inside it — a production build must never quietly talk to `localhost`.
+     */
+    readonly apiUrl: string;
+    /** Sent as `X-Client-Version`, and recorded against the device on `POST /auth/token`. */
+    readonly clientVersion: string;
 }
 
 const appMode: AppMode = isAppMode(extra.appMode) ? extra.appMode : 'all-dev';
@@ -57,6 +65,16 @@ const mockScenario: MockScenarioName = isMockScenarioName(rawScenario)
     ? rawScenario
     : DEFAULT_MOCK_SCENARIO;
 
+/**
+ * Read the same way and for the same reason: the API origin has to survive into a static export,
+ * so it comes from the inlined `EXPO_PUBLIC_*` variable rather than from `expoConfig.extra`.
+ * Outside production an unset value means "the local stack" (`DEFAULT_API_BASE_URL`).
+ */
+const rawApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim() ?? '';
+const apiUrl = rawApiUrl !== '' ? rawApiUrl : appEnv === 'production' ? '' : DEFAULT_API_BASE_URL;
+
+const clientVersion = (Constants.expoConfig?.version ?? '0.0.0') as string;
+
 export const appConfig: AppConfig = {
     appMode,
     appEnv,
@@ -66,4 +84,6 @@ export const appConfig: AppConfig = {
     isProduction: appEnv === 'production',
     mockScenario,
     isDevelopment: appEnv !== 'production',
+    apiUrl,
+    clientVersion,
 };
