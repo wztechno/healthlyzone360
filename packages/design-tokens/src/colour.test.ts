@@ -237,7 +237,10 @@ describe('theme completeness', () => {
     });
 
     it('inverts overall lightness between themes', () => {
-        expect(relativeLuminance(themes.light.colours.surfaceBase)).toBeGreaterThan(0.8);
+        // The light canvas is a deliberately fresh *sage* tint rather than white (so a page reads
+        // alive, not a flat white sheet), so the floor is 0.7 — still unambiguously light against
+        // the dark theme's < 0.05, which is the inversion this check exists to guard.
+        expect(relativeLuminance(themes.light.colours.surfaceBase)).toBeGreaterThan(0.7);
         expect(relativeLuminance(themes.dark.colours.surfaceBase)).toBeLessThan(0.05);
     });
 });

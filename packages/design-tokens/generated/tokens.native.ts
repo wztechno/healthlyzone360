@@ -10,22 +10,22 @@ export const nativeTokens = {
   "themes": {
     "light": {
       "colours": {
-        "surfaceBase": "#ffffff",
-        "surfaceRaised": "#f9f8f4",
-        "surfaceSunken": "#f0efe9",
+        "surfaceBase": "#d7e6bf",
+        "surfaceRaised": "#ffffff",
+        "surfaceSunken": "#c3d7a3",
         "surfaceInverse": "#262822",
         "textPrimary": "#262822",
         "textSecondary": "#4d4e45",
-        "textDisabled": "#64655a",
+        "textDisabled": "#5c604f",
         "textInverse": "#f9f8f4",
         "textOnBrand": "#ffffff",
-        "borderSubtle": "#e3e2d9",
-        "borderDefault": "#cdccc0",
-        "borderStrong": "#7f7f72",
+        "borderSubtle": "#c1d1a4",
+        "borderDefault": "#a4b389",
+        "borderStrong": "#656b54",
         "focusRing": "#2d6f39",
         "brandSurface": "#2d6f39",
-        "brandSurfaceSubtle": "#d6eed7",
-        "onBrandSurfaceSubtle": "#204627",
+        "brandSurfaceSubtle": "#bde3b2",
+        "onBrandSurfaceSubtle": "#173d23",
         "accentSurface": "#bd481f",
         "onAccentSurface": "#ffffff",
         "overlay": "#17171299"
@@ -38,7 +38,7 @@ export const nativeTokens = {
           "onDefault": "#ffffff",
           "strong": "#194b2d",
           "onStrong": "#ffffff",
-          "border": "#659d7b"
+          "border": "#458060"
         },
         "warning": {
           "subtle": "#fbf1de",
@@ -47,7 +47,7 @@ export const nativeTokens = {
           "onDefault": "#ffffff",
           "strong": "#573a06",
           "onStrong": "#ffffff",
-          "border": "#b48a3a"
+          "border": "#8a691e"
         },
         "danger": {
           "subtle": "#fbeceb",
@@ -56,7 +56,7 @@ export const nativeTokens = {
           "onDefault": "#ffffff",
           "strong": "#761d18",
           "onStrong": "#ffffff",
-          "border": "#d1746c"
+          "border": "#b6534b"
         },
         "info": {
           "subtle": "#e9f0f8",
@@ -65,7 +65,7 @@ export const nativeTokens = {
           "onDefault": "#ffffff",
           "strong": "#1e4062",
           "onStrong": "#ffffff",
-          "border": "#6690bc"
+          "border": "#4874a2"
         }
       },
       "nutrition": {

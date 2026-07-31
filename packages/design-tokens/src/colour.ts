@@ -3,7 +3,9 @@
  *
  * Palette intent: a *fresh leafy-green* brand (garden green — appetising and alive, not clinical),
  * a *warm terracotta* accent that reads as food and warmth, and warm greige neutrals so long
- * reading surfaces feel like paper rather than a spreadsheet. Every semantic role ships as a
+ * reading surfaces feel like paper rather than a spreadsheet. In light mode the page canvas is a
+ * fresh sage tint and cards are lifted to white on top of it, so a screen reads alive and
+ * appetising rather than a flat white sheet. Every semantic role ships as a
  * background plus a matching `on*` foreground, and the pair is contrast-tested (`colour.test.ts`) at
  * WCAG AA for normal text in both themes — the ramps are not decorative, they are the accessibility
  * budget.
@@ -92,7 +94,7 @@ export const semanticLight: Readonly<Record<SemanticRole, SemanticColourSet>> = 
         onDefault: '#ffffff',
         strong: '#194b2d',
         onStrong: '#ffffff',
-        border: '#659d7b',
+        border: '#458060',
     },
     warning: {
         subtle: '#fbf1de',
@@ -101,7 +103,7 @@ export const semanticLight: Readonly<Record<SemanticRole, SemanticColourSet>> = 
         onDefault: '#ffffff',
         strong: '#573a06',
         onStrong: '#ffffff',
-        border: '#b48a3a',
+        border: '#8a691e',
     },
     danger: {
         subtle: '#fbeceb',
@@ -110,7 +112,7 @@ export const semanticLight: Readonly<Record<SemanticRole, SemanticColourSet>> = 
         onDefault: '#ffffff',
         strong: '#761d18',
         onStrong: '#ffffff',
-        border: '#d1746c',
+        border: '#b6534b',
     },
     info: {
         subtle: '#e9f0f8',
@@ -119,7 +121,7 @@ export const semanticLight: Readonly<Record<SemanticRole, SemanticColourSet>> = 
         onDefault: '#ffffff',
         strong: '#1e4062',
         onStrong: '#ffffff',
-        border: '#6690bc',
+        border: '#4874a2',
     },
 };
 
@@ -284,22 +286,22 @@ export interface ThemeColours {
 }
 
 export const themeLight: ThemeColours = {
-    surfaceBase: '#ffffff',
-    surfaceRaised: '#f9f8f4',
-    surfaceSunken: '#f0efe9',
+    surfaceBase: '#d7e6bf', // fresh sage canvas — the page the white cards sit on
+    surfaceRaised: '#ffffff', // cards/top bar lifted to white so they pop off the canvas
+    surfaceSunken: '#c3d7a3',
     surfaceInverse: '#262822',
     textPrimary: '#262822',
     textSecondary: '#4d4e45',
-    textDisabled: '#64655a', // neutral.600 - AA (>=4.5:1) on base and raised surfaces
+    textDisabled: '#5c604f', // darkened greige — AA (>=4.5:1) on the sage canvas and on white
     textInverse: '#f9f8f4',
     textOnBrand: '#ffffff',
-    borderSubtle: '#e3e2d9',
-    borderDefault: '#cdccc0',
-    borderStrong: '#7f7f72',
+    borderSubtle: '#c1d1a4',
+    borderDefault: '#a4b389',
+    borderStrong: '#656b54',
     focusRing: '#2d6f39',
     brandSurface: '#2d6f39',
-    brandSurfaceSubtle: '#d6eed7',
-    onBrandSurfaceSubtle: '#204627',
+    brandSurfaceSubtle: '#bde3b2',
+    onBrandSurfaceSubtle: '#173d23',
     accentSurface: '#bd481f',
     onAccentSurface: '#ffffff',
     overlay: '#17171299',

@@ -159,7 +159,7 @@ describe('renderTokensCss', () => {
     });
 
     it('writes opaque colours as RGB triplets so `<alpha-value>` works', () => {
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-color-surface-base: 255 255 255;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-color-surface-base: 215 230 191;`);
     });
 
     it('zeroes durations under prefers-reduced-motion', () => {
