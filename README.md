@@ -15,7 +15,9 @@ docs/              Architecture documents, ADRs, registers, API conventions
 scripts/           Setup, reset and storage-init scripts (PowerShell + Bash)
 ```
 
-Start with [docs/architecture/00-executive-summary.md](docs/architecture/00-executive-summary.md).
+Start with [docs/project-guide.md](docs/project-guide.md) — what both delivery prompts built and
+a step-by-step local run guide — then
+[docs/architecture/00-executive-summary.md](docs/architecture/00-executive-summary.md).
 Decisions live in [docs/architecture/adr/](docs/architecture/adr/), open items in
 [docs/registers/](docs/registers/).
 
