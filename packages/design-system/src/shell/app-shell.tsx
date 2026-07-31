@@ -212,7 +212,7 @@ export function AppShell({
         <View
             testID={testID === undefined ? undefined : `${testID}-topbar`}
             role="banner"
-            className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2"
+            className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
         >
             {variant === 'workspace' && !wideEnoughForSidebar && navigation.length > 0 ? (
                 <IconButton
@@ -332,7 +332,7 @@ export function AppShell({
                 <View
                     testID={testID === undefined ? undefined : `${testID}-topbar`}
                     role="banner"
-                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2"
+                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
                 >
                     {!wideEnoughForTopNav && navigation.length > 0 ? (
                         <IconButton
