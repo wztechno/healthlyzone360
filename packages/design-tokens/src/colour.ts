@@ -1,11 +1,12 @@
 /**
  * Colour tokens.
  *
- * Palette intent: a *desaturated* teal-green brand (calm and clinical rather than "wellness app
- * neon"), a warm clay accent for emphasis, and warm neutrals so long reading surfaces do not feel
- * cold. Every semantic role ships as a background plus a matching `on*` foreground, and the pair is
- * contrast-tested (`colour.test.ts`) at WCAG AA for normal text in both themes — the ramps are not
- * decorative, they are the accessibility budget.
+ * Palette intent: a *fresh leafy-green* brand (garden green — appetising and alive, not clinical),
+ * a *warm terracotta* accent that reads as food and warmth, and warm greige neutrals so long
+ * reading surfaces feel like paper rather than a spreadsheet. Every semantic role ships as a
+ * background plus a matching `on*` foreground, and the pair is contrast-tested (`colour.test.ts`) at
+ * WCAG AA for normal text in both themes — the ramps are not decorative, they are the accessibility
+ * budget.
  */
 
 export type ColourRamp = Readonly<Record<ColourStop, string>>;
@@ -13,49 +14,49 @@ export type ColourRamp = Readonly<Record<ColourStop, string>>;
 export const COLOUR_STOPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
 export type ColourStop = (typeof COLOUR_STOPS)[number];
 
-/** Brand — desaturated teal-green. */
+/** Brand — fresh leafy green (garden green). */
 export const brand: ColourRamp = {
-    50: '#f1f7f5',
-    100: '#dbeae6',
-    200: '#b8d5ce',
-    300: '#8bb8ae',
-    400: '#5c968b',
-    500: '#3f7a6f',
-    600: '#2f6157',
-    700: '#284e46',
-    800: '#213f39',
-    900: '#1c342f',
-    950: '#0e1d1a',
+    50: '#eef8ee',
+    100: '#d6eed7',
+    200: '#aeddb1',
+    300: '#7fc486',
+    400: '#4fa65a',
+    500: '#3a8a46',
+    600: '#2d6f39',
+    700: '#26592f',
+    800: '#204627',
+    900: '#1a3922',
+    950: '#0c1f12',
 };
 
-/** Accent — warm clay. Used sparingly: highlights, empty-state illustration, focus accents. */
+/** Accent — warm terracotta. Used sparingly: highlights, empty-state illustration, focus accents. */
 export const clay: ColourRamp = {
-    50: '#fdf5f1',
-    100: '#f8e7dd',
-    200: '#efcbb8',
-    300: '#e2a78a',
-    400: '#d07f5c',
-    500: '#b9603d',
-    600: '#9c4c30',
-    700: '#7f3e29',
-    800: '#683425',
-    900: '#562d22',
-    950: '#2e1611',
+    50: '#fdf4ef',
+    100: '#fbe3d6',
+    200: '#f5c6ac',
+    300: '#eea07b',
+    400: '#e5774a',
+    500: '#d65c2c',
+    600: '#bd481f',
+    700: '#99391b',
+    800: '#7c301a',
+    900: '#662a1a',
+    950: '#38130a',
 };
 
-/** Warm neutrals — the surface and text family. */
+/** Warm greige neutrals — the surface and text family. */
 export const neutral: ColourRamp = {
-    50: '#faf9f7',
-    100: '#f2f0ec',
-    200: '#e5e1da',
-    300: '#d0cabf',
-    400: '#a9a195',
-    500: '#847c70',
-    600: '#68615a',
-    700: '#514c47',
-    800: '#393532',
-    900: '#282522',
-    950: '#171514',
+    50: '#f9f8f4',
+    100: '#f0efe9',
+    200: '#e3e2d9',
+    300: '#cdccc0',
+    400: '#a6a698',
+    500: '#7f7f72',
+    600: '#64655a',
+    700: '#4d4e45',
+    800: '#383a33',
+    900: '#262822',
+    950: '#161712',
 };
 
 export const pureWhite = '#ffffff';
@@ -284,45 +285,45 @@ export interface ThemeColours {
 
 export const themeLight: ThemeColours = {
     surfaceBase: '#ffffff',
-    surfaceRaised: '#faf9f7',
-    surfaceSunken: '#f2f0ec',
-    surfaceInverse: '#282522',
-    textPrimary: '#282522',
-    textSecondary: '#514c47',
-    textDisabled: '#68615a', // neutral.600 - AA (>=4.5:1) on base and raised surfaces
-    textInverse: '#faf9f7',
+    surfaceRaised: '#f9f8f4',
+    surfaceSunken: '#f0efe9',
+    surfaceInverse: '#262822',
+    textPrimary: '#262822',
+    textSecondary: '#4d4e45',
+    textDisabled: '#64655a', // neutral.600 - AA (>=4.5:1) on base and raised surfaces
+    textInverse: '#f9f8f4',
     textOnBrand: '#ffffff',
-    borderSubtle: '#e5e1da',
-    borderDefault: '#d0cabf',
-    borderStrong: '#847c70',
-    focusRing: '#2f6157',
-    brandSurface: '#2f6157',
-    brandSurfaceSubtle: '#dbeae6',
-    onBrandSurfaceSubtle: '#213f39',
-    accentSurface: '#9c4c30',
+    borderSubtle: '#e3e2d9',
+    borderDefault: '#cdccc0',
+    borderStrong: '#7f7f72',
+    focusRing: '#2d6f39',
+    brandSurface: '#2d6f39',
+    brandSurfaceSubtle: '#d6eed7',
+    onBrandSurfaceSubtle: '#204627',
+    accentSurface: '#bd481f',
     onAccentSurface: '#ffffff',
-    overlay: '#17151499',
+    overlay: '#17171299',
 };
 
 export const themeDark: ThemeColours = {
-    surfaceBase: '#171514',
-    surfaceRaised: '#211f1d',
-    surfaceSunken: '#0f0e0d',
-    surfaceInverse: '#f2f0ec',
-    textPrimary: '#f2f0ec',
-    textSecondary: '#c9c3b9',
-    textDisabled: '#a9a195', // neutral.400 - AA on dark surfaces
-    textInverse: '#282522',
-    textOnBrand: '#0e1d1a',
-    borderSubtle: '#393532',
-    borderDefault: '#514c47',
-    borderStrong: '#847c70',
-    focusRing: '#8bb8ae',
-    brandSurface: '#8bb8ae',
-    brandSurfaceSubtle: '#213f39',
-    onBrandSurfaceSubtle: '#b8d5ce',
-    accentSurface: '#e2a78a',
-    onAccentSurface: '#2e1611',
+    surfaceBase: '#161712',
+    surfaceRaised: '#211f1b',
+    surfaceSunken: '#100f0c',
+    surfaceInverse: '#f0efe9',
+    textPrimary: '#f0efe9',
+    textSecondary: '#cdccc0',
+    textDisabled: '#a6a698', // neutral.400 - AA on dark surfaces
+    textInverse: '#262822',
+    textOnBrand: '#0c1f12',
+    borderSubtle: '#33302b',
+    borderDefault: '#47443d',
+    borderStrong: '#7f7f72',
+    focusRing: '#7fc486',
+    brandSurface: '#7fc486',
+    brandSurfaceSubtle: '#1a3922',
+    onBrandSurfaceSubtle: '#aeddb1',
+    accentSurface: '#eea07b',
+    onAccentSurface: '#38130a',
     overlay: '#000000b3',
 };
 

@@ -74,7 +74,7 @@ describe('renderTailwindPreset', () => {
     };
 
     it('exposes the raw ramps as literal hex values', () => {
-        expect(preset.theme.extend.colors.brand).toMatchObject({ 600: '#2f6157' });
+        expect(preset.theme.extend.colors.brand).toMatchObject({ 600: '#2d6f39' });
     });
 
     it('routes every theme-dependent colour through a CSS variable', () => {
