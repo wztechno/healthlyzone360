@@ -137,18 +137,22 @@ recorded as OQ-016 – OQ-023.
   onboarding, virtual dietitian, planner, commerce, business, professional, business-privacy,
   responsive, motion, prototype-action sweep and no-external-requests. The 38 visual screenshot
   tests skip pending container baseline capture (below).
-- Visual regression: three projects (`visual`, `visual-rtl`, `visual-dark`), 38 screenshots
-  specified and proven deterministic on-host (38/38 capture + independent 38/38 compare), but
-  **baselines are not yet committed** — capture requires the pinned
-  `mcr.microsoft.com/playwright:v1.62.0-noble` container and Docker needs a one-time elevated
-  start on this machine (OQ-028). Host runs skip explicitly.
+- Visual regression: three projects (`visual`, `visual-rtl`, `visual-dark`), **38 baselines
+  captured from the pinned `mcr.microsoft.com/playwright:v1.62.0-noble` container and verified by
+  an independent container compare run (38/38)**; committed under
+  `e2e/specs/__screenshots__/`. Host-local visual runs still skip explicitly — the container is
+  the only authoritative renderer (D-031).
 - Export/bundle budgets: dist total 8 674 633 B against a 9 975 828 B budget; largest chunk
   3 303 069 B against 3 798 529 B (both = actual + 15 %, enforced by `budget:export` in CI).
 - Foundation regression proof: `git diff --stat b70c80a..HEAD -- apps/api` is empty (no backend
-  change in any Prompt 2 commit) and the full static sweep covers the foundation suites. The
-  **acceptance 7/7 re-run against the live stack is pending**: it needs the Docker compose
-  services, and the local engine requires a one-time elevated start (OQ-028). It must be run and
-  recorded here before Prompt 2 is declared closed.
+  change in any Prompt 2 commit) and the **acceptance suite passes 7/7 against the live stack**
+  (2026-07-31: compose services healthy, container composer install, `migrate:fresh --seed` via
+  the migrator connection, api-mode export, real registration with Mailpit-fetched verification,
+  device revocation through step-up, workspace context, RLS-backed organisation refusal). One
+  transient: the first sequential run immediately after the fresh reseed failed the two
+  device/step-up tests; they passed in isolation and on the full re-run and did not reproduce —
+  consistent with login throttling across the suite's rapid same-account sign-ins, worth watching
+  if it recurs.
 
 ## 11. Accessibility results
 
@@ -176,8 +180,6 @@ targets (OQ-024, product decision).
 
 ## 13. Known gaps
 
-- Visual baselines pending one manual Docker Desktop start (OQ-028); the CI visual job fails
-  until they are committed.
 - Contract gaps OQ-016 – OQ-023 (consumed state, entry mobility/plan-addressable weeks, grocery
   writes, cart quantity + subscription cancel + delivery vocabulary, PriceLine localisation,
   programme discovery/partner resources, quotation lifecycle).
