@@ -1,0 +1,172 @@
+#!/usr/bin/env node
+/**
+ * Export size budgets.
+ *
+ * A web export has no natural size ceiling: nothing fails when a bundle doubles, the pages still
+ * render, the tests still pass, and the only person who finds out is somebody on a slow connection
+ * six months later. A budget is the mechanism that turns that into a build failure on the change
+ * that caused it, while the cause is still one commit wide.
+ *
+ * Two numbers are checked, because they fail differently:
+ *
+ * * **Total bytes** catches accumulation — a fourth font weight, a second copy of a library, an
+ *   asset directory that was never meant to ship.
+ * * **The largest single JavaScript chunk** catches the thing a total cannot see: the entry bundle
+ *   growing while something else shrinks. That chunk is what a first-time visitor waits for before
+ *   anything at all appears, so its size is the one most directly felt.
+ *
+ * ## Where the numbers come from
+ *
+ * Measured from the `all-dev` mock export on 2026-07-31 and given 15 % headroom, which is the room a
+ * wave of new screens needs without a budget rise becoming a weekly ritual:
+ *
+ * | measure            | actual        | ×1.15 → budget |
+ * | ------------------ | ------------- | -------------- |
+ * | total `dist` bytes | 8 674 633     | 9 975 828      |
+ * | largest JS chunk   | 3 303 069     | 3 798 529      |
+ *
+ * The `all-dev` export is deliberately the subject: it carries every area of the application at
+ * once, so it is the largest thing the repository produces and a bound on it bounds every narrower
+ * build. Raising either number is allowed — it is a decision, and this file is where it gets
+ * recorded, with the reason in the commit message.
+ *
+ * Usage: `node scripts/check-export-budget.mjs [--dir dist]`
+ *   exit 0 — within budget
+ *   exit 1 — over budget, or the directory does not exist
+ */
+import { readdir, stat } from 'node:fs/promises';
+import { join, relative, resolve, sep } from 'node:path';
+
+/** Total bytes of the exported directory. */
+export const TOTAL_BUDGET_BYTES = 9_975_828;
+
+/** Bytes of the single largest `.js` file. */
+export const LARGEST_CHUNK_BUDGET_BYTES = 3_798_529;
+
+/** The measurement the budgets were derived from, kept so a report can show the drift. */
+export const BASELINE = {
+    totalBytes: 8_674_633,
+    largestChunkBytes: 3_303_069,
+    measuredOn: '2026-07-31',
+    export: 'APP_MODE=all-dev EXPO_PUBLIC_DATA_MODE=mock expo export -p web',
+};
+
+const args = process.argv.slice(2);
+
+function argValue(name, fallback) {
+    const index = args.indexOf(`--${name}`);
+    return index === -1 ? fallback : (args[index + 1] ?? fallback);
+}
+
+/** Every file under `directory`, with its size. */
+async function collect(directory) {
+    const files = [];
+
+    async function walk(current) {
+        const entries = await readdir(current, { withFileTypes: true });
+        for (const entry of entries) {
+            const path = join(current, entry.name);
+            if (entry.isDirectory()) {
+                await walk(path);
+                continue;
+            }
+            const { size } = await stat(path);
+            files.push({ path, size });
+        }
+    }
+
+    await walk(directory);
+    return files;
+}
+
+function mib(bytes) {
+    return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
+}
+
+/** `9 975 828` — grouped, because a fifteen-digit budget is unreadable as a run of digits. */
+function grouped(bytes) {
+    return bytes.toLocaleString('en-GB').replaceAll(',', ' ');
+}
+
+function line(label, actual, budget) {
+    const percent = ((actual / budget) * 100).toFixed(1);
+    const verdict = actual <= budget ? 'ok' : 'OVER';
+    return (
+        `${label.padEnd(22)} ${grouped(actual).padStart(12)} B (${mib(actual).padStart(9)})  ` +
+        `budget ${grouped(budget).padStart(12)} B  ${percent.padStart(5)} %  ${verdict}`
+    );
+}
+
+async function main() {
+    const directory = resolve(process.cwd(), argValue('dir', 'dist'));
+
+    try {
+        const stats = await stat(directory);
+        if (!stats.isDirectory()) throw new Error('not a directory');
+    } catch {
+        console.error(
+            `check-export-budget: ${directory} does not exist. Run the web export first ` +
+                '(`pnpm run build:web`).',
+        );
+        process.exitCode = 1;
+        return;
+    }
+
+    const files = await collect(directory);
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+
+    const scripts = files
+        .filter((file) => file.path.endsWith('.js'))
+        .sort((left, right) => right.size - left.size);
+
+    if (scripts.length === 0) {
+        console.error(`check-export-budget: no JavaScript found under ${directory}.`);
+        process.exitCode = 1;
+        return;
+    }
+
+    const largest = scripts[0];
+
+    console.log(`Export budget — ${relative(process.cwd(), directory) || directory}`);
+    console.log(`  ${String(files.length)} files, ${String(scripts.length)} JavaScript chunks`);
+    console.log('');
+    console.log(line('total', totalBytes, TOTAL_BUDGET_BYTES));
+    console.log(line('largest JS chunk', largest.size, LARGEST_CHUNK_BUDGET_BYTES));
+    console.log(`  largest chunk: ${relative(directory, largest.path).split(sep).join('/')}`);
+    console.log('');
+    console.log(
+        `  baseline ${BASELINE.measuredOn}: total ${grouped(BASELINE.totalBytes)} B, ` +
+            `largest chunk ${grouped(BASELINE.largestChunkBytes)} B (budgets are +15 %)`,
+    );
+
+    const failures = [];
+    if (totalBytes > TOTAL_BUDGET_BYTES) {
+        failures.push(
+            `total export is ${grouped(totalBytes)} B, over the ${grouped(TOTAL_BUDGET_BYTES)} B ` +
+                `budget by ${grouped(totalBytes - TOTAL_BUDGET_BYTES)} B`,
+        );
+    }
+    if (largest.size > LARGEST_CHUNK_BUDGET_BYTES) {
+        failures.push(
+            `largest JavaScript chunk is ${grouped(largest.size)} B, over the ` +
+                `${grouped(LARGEST_CHUNK_BUDGET_BYTES)} B budget by ` +
+                `${grouped(largest.size - LARGEST_CHUNK_BUDGET_BYTES)} B`,
+        );
+    }
+
+    if (failures.length > 0) {
+        console.error('');
+        for (const failure of failures) console.error(`::error::${failure}`);
+        console.error(
+            'Either reduce the export or raise the budget in ' +
+                'apps/universal/scripts/check-export-budget.mjs, saying why in the commit message.',
+        );
+        process.exitCode = 1;
+        return;
+    }
+
+    console.log('');
+    console.log('Within budget.');
+}
+
+await main();

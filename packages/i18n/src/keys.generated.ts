@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 2446 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 2779 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -192,6 +192,178 @@ export interface NamespaceKeys {
     | 'workspace.switchOrganisation'
     | 'workspace.title';
   readonly "business":
+    | 'builder.back'
+    | 'builder.contactEmail'
+    | 'builder.contactName'
+    | 'builder.contactTitle'
+    | 'builder.deliveryDate'
+    | 'builder.deliveryDateHint'
+    | 'builder.draftNote'
+    | 'builder.emptyBody'
+    | 'builder.emptyTitle'
+    | 'builder.errorBelowMinimum'
+    | 'builder.errorNoLines'
+    | 'builder.errorTitle'
+    | 'builder.home'
+    | 'builder.lineBelowMinimum'
+    | 'builder.lineValue'
+    | 'builder.noTier'
+    | 'builder.notFoundBody'
+    | 'builder.notFoundTitle'
+    | 'builder.note'
+    | 'builder.noteHint'
+    | 'builder.openList'
+    | 'builder.quantityLabel'
+    | 'builder.recurring'
+    | 'builder.recurringHint'
+    | 'builder.rejectedTitle'
+    | 'builder.saveDraft'
+    | 'builder.scopeBody'
+    | 'builder.scopeTitle'
+    | 'builder.submit'
+    | 'builder.successBody'
+    | 'builder.successNote'
+    | 'builder.successTitle'
+    | 'builder.title'
+    | 'builder.valueMixedNote'
+    | 'builder.valueNone'
+    | 'builder.valueNote'
+    | 'builder.valueTitle'
+    | 'builder.valueTotal'
+    | 'catalogue.back'
+    | 'catalogue.buildQuotation'
+    | 'catalogue.clearFilters'
+    | 'catalogue.contractPrice'
+    | 'catalogue.emptyBody'
+    | 'catalogue.emptyTitle'
+    | 'catalogue.kindAll'
+    | 'catalogue.kindLabel'
+    | 'catalogue.leadTime'
+    | 'catalogue.minimum'
+    | 'catalogue.mixedCurrency'
+    | 'catalogue.noCurrency'
+    | 'catalogue.noWeekdays'
+    | 'catalogue.notFoundBody'
+    | 'catalogue.notFoundTitle'
+    | 'catalogue.open'
+    | 'catalogue.privacyBody'
+    | 'catalogue.privacyTitle'
+    | 'catalogue.programmeLoading'
+    | 'catalogue.quote'
+    | 'catalogue.recurring'
+    | 'catalogue.searchLabel'
+    | 'catalogue.singleCurrency'
+    | 'catalogue.title'
+    | 'catalogue.unpriced'
+    | 'catalogue.weekdays'
+    | 'channels.b2b'
+    | 'channels.b2c'
+    | 'channels.corporate'
+    | 'channels.delivery'
+    | 'channels.marketplace'
+    | 'channels.pickup'
+    | 'channels.pos'
+    | 'channels.subscription'
+    | 'common.listSeparator'
+    | 'dashboard.body'
+    | 'dashboard.emptyBody'
+    | 'dashboard.emptyTitle'
+    | 'dashboard.lookupHint'
+    | 'dashboard.lookupLabel'
+    | 'dashboard.lookupOpen'
+    | 'dashboard.lookupTitle'
+    | 'dashboard.noQuotationsBody'
+    | 'dashboard.noQuotationsTitle'
+    | 'dashboard.openQuotations'
+    | 'dashboard.quotationLines'
+    | 'dashboard.quotationsTitle'
+    | 'dashboard.sourceNote'
+    | 'dashboard.title'
+    | 'item.back'
+    | 'item.eligibilityBody'
+    | 'item.eligibilityTitle'
+    | 'item.noTiers'
+    | 'item.notFoundBody'
+    | 'item.notFoundTitle'
+    | 'item.quote'
+    | 'item.recurringOrder'
+    | 'item.tierBetween'
+    | 'item.tierFrom'
+    | 'item.tierLeadTime'
+    | 'item.tierPrice'
+    | 'item.tierRange'
+    | 'item.tiersCaption'
+    | 'item.tiersNote'
+    | 'item.tiersTitle'
+    | 'kinds.bulk_package'
+    | 'kinds.meal'
+    | 'kinds.meal_plan'
+    | 'partner.allKitchens'
+    | 'partner.body'
+    | 'partner.clearKitchen'
+    | 'partner.emptyBody'
+    | 'partner.emptyTitle'
+    | 'partner.kitchenFilter'
+    | 'partner.openSchedule'
+    | 'partner.privacyBody'
+    | 'partner.privacyTitle'
+    | 'partner.quantity'
+    | 'partner.reference'
+    | 'partner.sourceNote'
+    | 'partner.title'
+    | 'programme.active'
+    | 'programme.headcount'
+    | 'programme.inactive'
+    | 'programme.locations'
+    | 'programme.manager'
+    | 'programme.noManager'
+    | 'programme.noSubsidy'
+    | 'programme.openCatalogue'
+    | 'programme.requestQuotation'
+    | 'programme.subsidy'
+    | 'programme.term'
+    | 'programme.termOpen'
+    | 'programme.tiers'
+    | 'programme.tiersLoading'
+    | 'quotationStates.accepted'
+    | 'quotationStates.declined'
+    | 'quotationStates.draft'
+    | 'quotationStates.expired'
+    | 'quotationStates.in_review'
+    | 'quotationStates.quoted'
+    | 'quotationStates.submitted'
+    | 'quotations.accept'
+    | 'quotations.awaitingPrice'
+    | 'quotations.back'
+    | 'quotations.body'
+    | 'quotations.clearFilter'
+    | 'quotations.emptyBody'
+    | 'quotations.emptyFilteredBody'
+    | 'quotations.emptyFilteredTitle'
+    | 'quotations.emptyTitle'
+    | 'quotations.expires'
+    | 'quotations.export'
+    | 'quotations.filterLabel'
+    | 'quotations.filters.all'
+    | 'quotations.filters.closed'
+    | 'quotations.filters.open'
+    | 'quotations.filters.quoted'
+    | 'quotations.home'
+    | 'quotations.line'
+    | 'quotations.linePriced'
+    | 'quotations.oneOff'
+    | 'quotations.raised'
+    | 'quotations.recurring'
+    | 'quotations.title'
+    | 'quotations.total'
+    | 'schedule.back'
+    | 'schedule.body'
+    | 'schedule.derivationBody'
+    | 'schedule.derivationTitle'
+    | 'schedule.emptyBody'
+    | 'schedule.emptyTitle'
+    | 'schedule.line'
+    | 'schedule.title'
     | 'title';
   readonly "catalogue":
     | 'common.back'
@@ -2171,7 +2343,168 @@ export interface NamespaceKeys {
     | 'week.warningsBody'
     | 'week.warningsTitle';
   readonly "professional":
-    | 'title';
+    | 'common.cancel'
+    | 'common.listSeparator'
+    | 'plan.announceNote'
+    | 'plan.approvedEntries'
+    | 'plan.averageEnergy'
+    | 'plan.back'
+    | 'plan.cost'
+    | 'plan.disclaimerContext'
+    | 'plan.emptyBody'
+    | 'plan.emptyTitle'
+    | 'plan.entryAllergens'
+    | 'plan.entryApproved'
+    | 'plan.entryCount'
+    | 'plan.entryKept'
+    | 'plan.entryLeftover'
+    | 'plan.noCost'
+    | 'plan.noEntries'
+    | 'plan.noWarnings'
+    | 'plan.notFoundBody'
+    | 'plan.notFoundTitle'
+    | 'plan.noteFailedTitle'
+    | 'plan.noteHint'
+    | 'plan.noteLabel'
+    | 'plan.noteSave'
+    | 'plan.noteTitle'
+    | 'plan.open'
+    | 'plan.plannedNote'
+    | 'plan.proposedTitle'
+    | 'plan.summaryTitle'
+    | 'plan.title'
+    | 'plan.warningsTitle'
+    | 'plan.week'
+    | 'priorities.routine'
+    | 'priorities.soon'
+    | 'priorities.urgent'
+    | 'queue.body'
+    | 'queue.clearFilters'
+    | 'queue.disclaimerContext'
+    | 'queue.emptyBody'
+    | 'queue.emptyTitle'
+    | 'queue.mineHint'
+    | 'queue.mineLabel'
+    | 'queue.noReasons'
+    | 'queue.open'
+    | 'queue.requested'
+    | 'queue.stateFilters.all'
+    | 'queue.stateFilters.awaiting'
+    | 'queue.stateFilters.decided'
+    | 'queue.stateFilters.in_review'
+    | 'queue.stateLabel'
+    | 'queue.subjectLabel'
+    | 'queue.title'
+    | 'queue.unassigned'
+    | 'reasons.aggressive_deficit'
+    | 'reasons.allergen_exclusion_declared'
+    | 'reasons.energy_floor_applied'
+    | 'reasons.high_body_fat_percentage'
+    | 'reasons.over_seventy_five'
+    | 'reasons.professional_sign_off'
+    | 'reasons.requires_professional_resolution'
+    | 'reasons.restriction_conflict'
+    | 'reasons.safety_critical_restriction'
+    | 'reasons.sodium_ceiling_declared'
+    | 'reasons.under_eighteen'
+    | 'reasons.very_high_body_mass_index'
+    | 'reasons.very_low_body_mass_index'
+    | 'restrictionKinds.allergy'
+    | 'restrictionKinds.dietitian_enforced'
+    | 'restrictionKinds.dislike'
+    | 'restrictionKinds.intolerance'
+    | 'restrictionKinds.preference'
+    | 'restrictionKinds.religious'
+    | 'restrictionKinds.self_declared_medical'
+    | 'restrictions.declaredTitle'
+    | 'restrictions.enforcedBody'
+    | 'restrictions.enforcedTitle'
+    | 'restrictions.none'
+    | 'review.actionsNote'
+    | 'review.actionsTitle'
+    | 'review.announceApproved'
+    | 'review.announceChanges'
+    | 'review.announceNote'
+    | 'review.announceOverride'
+    | 'review.approve'
+    | 'review.approveConfirm'
+    | 'review.approveConsequenceBody'
+    | 'review.approveConsequenceTitle'
+    | 'review.approveDialogBody'
+    | 'review.approveDialogTitle'
+    | 'review.back'
+    | 'review.changesConfirm'
+    | 'review.changesDialogBody'
+    | 'review.changesDialogTitle'
+    | 'review.changesNoteHint'
+    | 'review.changesNoteLabel'
+    | 'review.changesPriorityLabel'
+    | 'review.clientNoteTitle'
+    | 'review.contextTitle'
+    | 'review.disclaimerContext'
+    | 'review.failedTitle'
+    | 'review.noPlan'
+    | 'review.noTarget'
+    | 'review.notFoundBody'
+    | 'review.notFoundTitle'
+    | 'review.noteConfirm'
+    | 'review.noteDialogBody'
+    | 'review.noteDialogTitle'
+    | 'review.noteHint'
+    | 'review.noteLabel'
+    | 'review.overrideConfirm'
+    | 'review.overrideDialogBody'
+    | 'review.overrideDialogTitle'
+    | 'review.overrideEnergyHint'
+    | 'review.overrideEnergyLabel'
+    | 'review.overrideReasonHint'
+    | 'review.overrideReasonLabel'
+    | 'review.reasonsTitle'
+    | 'review.requestChanges'
+    | 'review.setNote'
+    | 'review.setOverride'
+    | 'review.signatureHint'
+    | 'review.signatureLabel'
+    | 'severities.advisory'
+    | 'severities.critical'
+    | 'severities.strict'
+    | 'sources.dietitian'
+    | 'sources.system'
+    | 'sources.user'
+    | 'states.approved'
+    | 'states.awaiting_review'
+    | 'states.changes_requested'
+    | 'states.declined'
+    | 'states.in_review'
+    | 'subjects.meal_plan'
+    | 'subjects.nutrition_target'
+    | 'subjects.virtual_dietitian'
+    | 'target.approved'
+    | 'target.energy'
+    | 'target.grams'
+    | 'target.gramsValue'
+    | 'target.macro'
+    | 'target.macrosCaption'
+    | 'target.maintenance'
+    | 'target.method'
+    | 'target.noMacros'
+    | 'target.noOverride'
+    | 'target.notApproved'
+    | 'target.overrideTitle'
+    | 'target.prototypeBody'
+    | 'target.prototypeTitle'
+    | 'target.share'
+    | 'target.shareValue'
+    | 'target.title'
+    | 'target.tolerance'
+    | 'target.toleranceValue'
+    | 'title'
+    | 'warnings.allergen_conflict'
+    | 'warnings.diet_conflict'
+    | 'warnings.energy_out_of_range'
+    | 'warnings.macros_out_of_range'
+    | 'warnings.over_budget'
+    | 'warnings.prohibited_ingredient';
   readonly "virtualDietitian":
     | 'aiNotice.body'
     | 'aiNotice.title'
@@ -2660,6 +2993,178 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:workspace.switchBranch',
   'auth:workspace.switchOrganisation',
   'auth:workspace.title',
+  'business:builder.back',
+  'business:builder.contactEmail',
+  'business:builder.contactName',
+  'business:builder.contactTitle',
+  'business:builder.deliveryDate',
+  'business:builder.deliveryDateHint',
+  'business:builder.draftNote',
+  'business:builder.emptyBody',
+  'business:builder.emptyTitle',
+  'business:builder.errorBelowMinimum',
+  'business:builder.errorNoLines',
+  'business:builder.errorTitle',
+  'business:builder.home',
+  'business:builder.lineBelowMinimum',
+  'business:builder.lineValue',
+  'business:builder.noTier',
+  'business:builder.notFoundBody',
+  'business:builder.notFoundTitle',
+  'business:builder.note',
+  'business:builder.noteHint',
+  'business:builder.openList',
+  'business:builder.quantityLabel',
+  'business:builder.recurring',
+  'business:builder.recurringHint',
+  'business:builder.rejectedTitle',
+  'business:builder.saveDraft',
+  'business:builder.scopeBody',
+  'business:builder.scopeTitle',
+  'business:builder.submit',
+  'business:builder.successBody',
+  'business:builder.successNote',
+  'business:builder.successTitle',
+  'business:builder.title',
+  'business:builder.valueMixedNote',
+  'business:builder.valueNone',
+  'business:builder.valueNote',
+  'business:builder.valueTitle',
+  'business:builder.valueTotal',
+  'business:catalogue.back',
+  'business:catalogue.buildQuotation',
+  'business:catalogue.clearFilters',
+  'business:catalogue.contractPrice',
+  'business:catalogue.emptyBody',
+  'business:catalogue.emptyTitle',
+  'business:catalogue.kindAll',
+  'business:catalogue.kindLabel',
+  'business:catalogue.leadTime',
+  'business:catalogue.minimum',
+  'business:catalogue.mixedCurrency',
+  'business:catalogue.noCurrency',
+  'business:catalogue.noWeekdays',
+  'business:catalogue.notFoundBody',
+  'business:catalogue.notFoundTitle',
+  'business:catalogue.open',
+  'business:catalogue.privacyBody',
+  'business:catalogue.privacyTitle',
+  'business:catalogue.programmeLoading',
+  'business:catalogue.quote',
+  'business:catalogue.recurring',
+  'business:catalogue.searchLabel',
+  'business:catalogue.singleCurrency',
+  'business:catalogue.title',
+  'business:catalogue.unpriced',
+  'business:catalogue.weekdays',
+  'business:channels.b2b',
+  'business:channels.b2c',
+  'business:channels.corporate',
+  'business:channels.delivery',
+  'business:channels.marketplace',
+  'business:channels.pickup',
+  'business:channels.pos',
+  'business:channels.subscription',
+  'business:common.listSeparator',
+  'business:dashboard.body',
+  'business:dashboard.emptyBody',
+  'business:dashboard.emptyTitle',
+  'business:dashboard.lookupHint',
+  'business:dashboard.lookupLabel',
+  'business:dashboard.lookupOpen',
+  'business:dashboard.lookupTitle',
+  'business:dashboard.noQuotationsBody',
+  'business:dashboard.noQuotationsTitle',
+  'business:dashboard.openQuotations',
+  'business:dashboard.quotationLines',
+  'business:dashboard.quotationsTitle',
+  'business:dashboard.sourceNote',
+  'business:dashboard.title',
+  'business:item.back',
+  'business:item.eligibilityBody',
+  'business:item.eligibilityTitle',
+  'business:item.noTiers',
+  'business:item.notFoundBody',
+  'business:item.notFoundTitle',
+  'business:item.quote',
+  'business:item.recurringOrder',
+  'business:item.tierBetween',
+  'business:item.tierFrom',
+  'business:item.tierLeadTime',
+  'business:item.tierPrice',
+  'business:item.tierRange',
+  'business:item.tiersCaption',
+  'business:item.tiersNote',
+  'business:item.tiersTitle',
+  'business:kinds.bulk_package',
+  'business:kinds.meal',
+  'business:kinds.meal_plan',
+  'business:partner.allKitchens',
+  'business:partner.body',
+  'business:partner.clearKitchen',
+  'business:partner.emptyBody',
+  'business:partner.emptyTitle',
+  'business:partner.kitchenFilter',
+  'business:partner.openSchedule',
+  'business:partner.privacyBody',
+  'business:partner.privacyTitle',
+  'business:partner.quantity',
+  'business:partner.reference',
+  'business:partner.sourceNote',
+  'business:partner.title',
+  'business:programme.active',
+  'business:programme.headcount',
+  'business:programme.inactive',
+  'business:programme.locations',
+  'business:programme.manager',
+  'business:programme.noManager',
+  'business:programme.noSubsidy',
+  'business:programme.openCatalogue',
+  'business:programme.requestQuotation',
+  'business:programme.subsidy',
+  'business:programme.term',
+  'business:programme.termOpen',
+  'business:programme.tiers',
+  'business:programme.tiersLoading',
+  'business:quotationStates.accepted',
+  'business:quotationStates.declined',
+  'business:quotationStates.draft',
+  'business:quotationStates.expired',
+  'business:quotationStates.in_review',
+  'business:quotationStates.quoted',
+  'business:quotationStates.submitted',
+  'business:quotations.accept',
+  'business:quotations.awaitingPrice',
+  'business:quotations.back',
+  'business:quotations.body',
+  'business:quotations.clearFilter',
+  'business:quotations.emptyBody',
+  'business:quotations.emptyFilteredBody',
+  'business:quotations.emptyFilteredTitle',
+  'business:quotations.emptyTitle',
+  'business:quotations.expires',
+  'business:quotations.export',
+  'business:quotations.filterLabel',
+  'business:quotations.filters.all',
+  'business:quotations.filters.closed',
+  'business:quotations.filters.open',
+  'business:quotations.filters.quoted',
+  'business:quotations.home',
+  'business:quotations.line',
+  'business:quotations.linePriced',
+  'business:quotations.oneOff',
+  'business:quotations.raised',
+  'business:quotations.recurring',
+  'business:quotations.title',
+  'business:quotations.total',
+  'business:schedule.back',
+  'business:schedule.body',
+  'business:schedule.derivationBody',
+  'business:schedule.derivationTitle',
+  'business:schedule.emptyBody',
+  'business:schedule.emptyTitle',
+  'business:schedule.line',
+  'business:schedule.title',
   'business:title',
   'catalogue:common.back',
   'catalogue:common.listSeparator',
@@ -4629,7 +5134,168 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:week.title',
   'planner:week.warningsBody',
   'planner:week.warningsTitle',
+  'professional:common.cancel',
+  'professional:common.listSeparator',
+  'professional:plan.announceNote',
+  'professional:plan.approvedEntries',
+  'professional:plan.averageEnergy',
+  'professional:plan.back',
+  'professional:plan.cost',
+  'professional:plan.disclaimerContext',
+  'professional:plan.emptyBody',
+  'professional:plan.emptyTitle',
+  'professional:plan.entryAllergens',
+  'professional:plan.entryApproved',
+  'professional:plan.entryCount',
+  'professional:plan.entryKept',
+  'professional:plan.entryLeftover',
+  'professional:plan.noCost',
+  'professional:plan.noEntries',
+  'professional:plan.noWarnings',
+  'professional:plan.notFoundBody',
+  'professional:plan.notFoundTitle',
+  'professional:plan.noteFailedTitle',
+  'professional:plan.noteHint',
+  'professional:plan.noteLabel',
+  'professional:plan.noteSave',
+  'professional:plan.noteTitle',
+  'professional:plan.open',
+  'professional:plan.plannedNote',
+  'professional:plan.proposedTitle',
+  'professional:plan.summaryTitle',
+  'professional:plan.title',
+  'professional:plan.warningsTitle',
+  'professional:plan.week',
+  'professional:priorities.routine',
+  'professional:priorities.soon',
+  'professional:priorities.urgent',
+  'professional:queue.body',
+  'professional:queue.clearFilters',
+  'professional:queue.disclaimerContext',
+  'professional:queue.emptyBody',
+  'professional:queue.emptyTitle',
+  'professional:queue.mineHint',
+  'professional:queue.mineLabel',
+  'professional:queue.noReasons',
+  'professional:queue.open',
+  'professional:queue.requested',
+  'professional:queue.stateFilters.all',
+  'professional:queue.stateFilters.awaiting',
+  'professional:queue.stateFilters.decided',
+  'professional:queue.stateFilters.in_review',
+  'professional:queue.stateLabel',
+  'professional:queue.subjectLabel',
+  'professional:queue.title',
+  'professional:queue.unassigned',
+  'professional:reasons.aggressive_deficit',
+  'professional:reasons.allergen_exclusion_declared',
+  'professional:reasons.energy_floor_applied',
+  'professional:reasons.high_body_fat_percentage',
+  'professional:reasons.over_seventy_five',
+  'professional:reasons.professional_sign_off',
+  'professional:reasons.requires_professional_resolution',
+  'professional:reasons.restriction_conflict',
+  'professional:reasons.safety_critical_restriction',
+  'professional:reasons.sodium_ceiling_declared',
+  'professional:reasons.under_eighteen',
+  'professional:reasons.very_high_body_mass_index',
+  'professional:reasons.very_low_body_mass_index',
+  'professional:restrictionKinds.allergy',
+  'professional:restrictionKinds.dietitian_enforced',
+  'professional:restrictionKinds.dislike',
+  'professional:restrictionKinds.intolerance',
+  'professional:restrictionKinds.preference',
+  'professional:restrictionKinds.religious',
+  'professional:restrictionKinds.self_declared_medical',
+  'professional:restrictions.declaredTitle',
+  'professional:restrictions.enforcedBody',
+  'professional:restrictions.enforcedTitle',
+  'professional:restrictions.none',
+  'professional:review.actionsNote',
+  'professional:review.actionsTitle',
+  'professional:review.announceApproved',
+  'professional:review.announceChanges',
+  'professional:review.announceNote',
+  'professional:review.announceOverride',
+  'professional:review.approve',
+  'professional:review.approveConfirm',
+  'professional:review.approveConsequenceBody',
+  'professional:review.approveConsequenceTitle',
+  'professional:review.approveDialogBody',
+  'professional:review.approveDialogTitle',
+  'professional:review.back',
+  'professional:review.changesConfirm',
+  'professional:review.changesDialogBody',
+  'professional:review.changesDialogTitle',
+  'professional:review.changesNoteHint',
+  'professional:review.changesNoteLabel',
+  'professional:review.changesPriorityLabel',
+  'professional:review.clientNoteTitle',
+  'professional:review.contextTitle',
+  'professional:review.disclaimerContext',
+  'professional:review.failedTitle',
+  'professional:review.noPlan',
+  'professional:review.noTarget',
+  'professional:review.notFoundBody',
+  'professional:review.notFoundTitle',
+  'professional:review.noteConfirm',
+  'professional:review.noteDialogBody',
+  'professional:review.noteDialogTitle',
+  'professional:review.noteHint',
+  'professional:review.noteLabel',
+  'professional:review.overrideConfirm',
+  'professional:review.overrideDialogBody',
+  'professional:review.overrideDialogTitle',
+  'professional:review.overrideEnergyHint',
+  'professional:review.overrideEnergyLabel',
+  'professional:review.overrideReasonHint',
+  'professional:review.overrideReasonLabel',
+  'professional:review.reasonsTitle',
+  'professional:review.requestChanges',
+  'professional:review.setNote',
+  'professional:review.setOverride',
+  'professional:review.signatureHint',
+  'professional:review.signatureLabel',
+  'professional:severities.advisory',
+  'professional:severities.critical',
+  'professional:severities.strict',
+  'professional:sources.dietitian',
+  'professional:sources.system',
+  'professional:sources.user',
+  'professional:states.approved',
+  'professional:states.awaiting_review',
+  'professional:states.changes_requested',
+  'professional:states.declined',
+  'professional:states.in_review',
+  'professional:subjects.meal_plan',
+  'professional:subjects.nutrition_target',
+  'professional:subjects.virtual_dietitian',
+  'professional:target.approved',
+  'professional:target.energy',
+  'professional:target.grams',
+  'professional:target.gramsValue',
+  'professional:target.macro',
+  'professional:target.macrosCaption',
+  'professional:target.maintenance',
+  'professional:target.method',
+  'professional:target.noMacros',
+  'professional:target.noOverride',
+  'professional:target.notApproved',
+  'professional:target.overrideTitle',
+  'professional:target.prototypeBody',
+  'professional:target.prototypeTitle',
+  'professional:target.share',
+  'professional:target.shareValue',
+  'professional:target.title',
+  'professional:target.tolerance',
+  'professional:target.toleranceValue',
   'professional:title',
+  'professional:warnings.allergen_conflict',
+  'professional:warnings.diet_conflict',
+  'professional:warnings.energy_out_of_range',
+  'professional:warnings.macros_out_of_range',
+  'professional:warnings.over_budget',
+  'professional:warnings.prohibited_ingredient',
   'virtualDietitian:aiNotice.body',
   'virtualDietitian:aiNotice.title',
   'virtualDietitian:allergenReminder.body',

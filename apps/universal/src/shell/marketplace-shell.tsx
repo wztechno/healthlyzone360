@@ -150,8 +150,20 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         </Pressable>
     );
 
+    /*
+     * Two changes from `wrap={false}`, and both are needed — either alone does nothing.
+     *
+     * These three controls are 263 px wide together, which is most of a 320 px phone before the
+     * brand mark has had any. With `wrap={false}` the *document* was 472 px wide inside a 390 px
+     * window at every viewport below `md`, so the whole page drifted sideways under the thumb.
+     *
+     * `wrap` (the `Inline` default, and it says why: unwrapped rows overflow) lets the group use a
+     * second line. `shrink` is what makes that possible at all: React Native Web gives every `View`
+     * `flex-shrink: 0`, so a wrapping row still takes its max-content width and never reaches the
+     * point where wrapping would happen. The pair is the smallest change that makes the top bar fit.
+     */
     const topbarEnd = (
-        <Inline space="xs" wrap={false}>
+        <Inline space="xs" justify="end" className="shrink">
             <Button
                 testID="locale-toggle"
                 size="sm"

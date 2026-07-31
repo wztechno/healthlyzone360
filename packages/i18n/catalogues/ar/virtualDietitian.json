@@ -293,7 +293,7 @@
         "mix": "التحضير",
         "mixValue": "{{kitchen}} من مطبخ، و{{home}} تُحضَّر في المنزل",
         "openInPlanner": "افتح في المخطِّط",
-        "openInPlannerMessage": "المخطِّط على المسار /customer/planner يُبنى في موجة لاحقة، وسيقرأ من GET /api/v1/meal-plans/{plan}. لم يتغيّر أي شيء.",
+        "openInPlannerMessage": "لا يعرض المخطِّط اليوم سوى خطتك الفعّالة. فتح هذه المسودة هناك يحتاج إلى مسارات مخطِّط تُعنوَن بالخطة (GET /api/v1/meal-plans/{plan}). لم يتغيّر أي شيء.",
         "requestReview": "اطلب مراجعة أخصائي تغذية",
         "requesting": "جارٍ الإرسال…",
         "requestFailed": "تعذّر إرسال طلب المراجعة. لم يتغيّر أي شيء.",

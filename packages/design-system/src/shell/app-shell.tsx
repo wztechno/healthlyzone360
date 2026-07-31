@@ -361,7 +361,11 @@ export function AppShell({
                                 testID={testID === undefined ? undefined : `${testID}-navigation`}
                                 role="navigation"
                                 aria-label={t('designSystem:shell.primaryNavigation')}
-                                className="flex-row flex-wrap items-center gap-1"
+                                // `shrink` is load-bearing: react-native-web gives every View
+                                // flex-shrink: 0, so without it the row renders at max-content
+                                // width and overflows the document at 768-1023px instead of
+                                // wrapping (flex-wrap only engages once the box can be narrowed).
+                                className="flex-row flex-wrap items-center gap-1 shrink"
                             >
                                 {navigation.map((item) => (
                                     <Pressable

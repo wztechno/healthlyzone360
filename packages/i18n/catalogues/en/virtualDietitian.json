@@ -285,7 +285,7 @@
         "mix": "Preparation",
         "mixValue": "{{kitchen}} from a kitchen, {{home}} prepared at home",
         "openInPlanner": "Open in the planner",
-        "openInPlannerMessage": "The planner at /customer/planner is built in a later wave. It will read GET /api/v1/meal-plans/{plan}. Nothing was changed.",
+        "openInPlannerMessage": "The planner can only show your active plan today. Opening this draft there needs plan-addressable planner routes (GET /api/v1/meal-plans/{plan}). Nothing was changed.",
         "requestReview": "Ask a dietitian to review it",
         "requesting": "Sending…",
         "requestFailed": "The review request could not be sent. Nothing was changed.",

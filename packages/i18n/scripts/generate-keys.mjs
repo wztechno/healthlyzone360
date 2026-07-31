@@ -14,13 +14,13 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
-  PACKAGE_ROOT,
-  PLURAL_SUFFIXES,
-  REFERENCE_LOCALE,
-  flatten,
-  listNamespaces,
-  readCatalogue,
-  stripPluralSuffix,
+    PACKAGE_ROOT,
+    PLURAL_SUFFIXES,
+    REFERENCE_LOCALE,
+    flatten,
+    listNamespaces,
+    readCatalogue,
+    stripPluralSuffix,
 } from './catalogue-utils.mjs';
 
 const OUTPUT_PATH = join(PACKAGE_ROOT, 'src', 'keys.generated.ts');
@@ -31,26 +31,26 @@ const namespaces = await listNamespaces(REFERENCE_LOCALE);
 const keysByNamespace = new Map();
 
 for (const namespace of namespaces) {
-  const catalogue = await readCatalogue(REFERENCE_LOCALE, namespace);
-  const keys = new Set();
-  for (const key of flatten(catalogue).keys()) {
-    keys.add(stripPluralSuffix(key));
-  }
-  keysByNamespace.set(namespace, [...keys].sort());
+    const catalogue = await readCatalogue(REFERENCE_LOCALE, namespace);
+    const keys = new Set();
+    for (const key of flatten(catalogue).keys()) {
+        keys.add(stripPluralSuffix(key));
+    }
+    keysByNamespace.set(namespace, [...keys].sort());
 }
 
 const union = (values) =>
-  values.length === 0 ? 'never' : values.map((value) => `'${value}'`).join('\n    | ');
+    values.length === 0 ? 'never' : values.map((value) => `'${value}'`).join('\n    | ');
 
 const namespaceEntries = namespaces
-  .map((namespace) => {
-    const keys = keysByNamespace.get(namespace) ?? [];
-    return `  readonly ${JSON.stringify(namespace)}:\n    | ${union(keys)};`;
-  })
-  .join('\n');
+    .map((namespace) => {
+        const keys = keysByNamespace.get(namespace) ?? [];
+        return `  readonly ${JSON.stringify(namespace)}:\n    | ${union(keys)};`;
+    })
+    .join('\n');
 
 const qualifiedKeys = namespaces.flatMap((namespace) =>
-  (keysByNamespace.get(namespace) ?? []).map((key) => `${namespace}:${key}`),
+    (keysByNamespace.get(namespace) ?? []).map((key) => `${namespace}:${key}`),
 );
 
 const runtimeList = qualifiedKeys.map((key) => `  '${key}',`).join('\n');
@@ -63,7 +63,7 @@ const contents = `/*
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
  * ${total} keys across ${namespaces.length} namespaces. Plural variants (${PLURAL_SUFFIXES.join(
-   ', ',
+     ', ',
  )})
  * are collapsed to their base key, because that is the key t() is called with.
  */
@@ -96,21 +96,21 @@ const check = process.argv.includes('--check');
 
 let existing = null;
 try {
-  existing = await readFile(OUTPUT_PATH, 'utf8');
+    existing = await readFile(OUTPUT_PATH, 'utf8');
 } catch {
-  // First run: the generated file does not exist yet.
+    // First run: the generated file does not exist yet.
 }
 
 if (existing === contents) {
-  console.log(`unchanged  src/keys.generated.ts (${total} keys)`);
-  process.exit(0);
+    console.log(`unchanged  src/keys.generated.ts (${total} keys)`);
+    process.exit(0);
 }
 
 if (check) {
-  console.error(
-    'DRIFT      src/keys.generated.ts is out of date. Run: pnpm --filter @healthy360/i18n gen:keys',
-  );
-  process.exit(1);
+    console.error(
+        'DRIFT      src/keys.generated.ts is out of date. Run: pnpm --filter @healthy360/i18n gen:keys',
+    );
+    process.exit(1);
 }
 
 await writeFile(OUTPUT_PATH, contents, 'utf8');

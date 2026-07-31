@@ -13,7 +13,7 @@ pnpm-lock.yaml
 # Owned by other workstreams — formatting them here would create cross-agent churn.
 apps/api/
 infrastructure/
-scripts/
+/scripts/
 docs/
 .github/
 README.md

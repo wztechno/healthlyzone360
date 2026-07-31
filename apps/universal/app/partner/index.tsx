@@ -1,9 +1,6 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { PartnerCommitmentsScreen } from '../../src/features/business/screens/partner-commitments-screen.tsx';
 
-/**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
- */
+/** `/partner` — what a supplier has been asked to make, and for whom. No buyer prices, by design. */
 export default function PartnerIndex() {
-    return <PrototypeScreen area="partner" testID="prototype-partner" />;
+    return <PartnerCommitmentsScreen />;
 }

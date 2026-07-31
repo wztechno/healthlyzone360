@@ -104,6 +104,13 @@ jobs:
           EXPO_PUBLIC_DATA_MODE: mock
         run: pnpm run build:web
 
+      # Size budgets, checked on the `all-dev` export because it carries every area of the
+      # application at once and is therefore a bound on every narrower build. The numbers and their
+      # derivation live in the script.
+      - name: Export size budgets
+        working-directory: apps/universal
+        run: pnpm run budget:export
+
       # One production-ready family, configured exactly as it would ship: production environment,
       # API data mode, a real base URL. The host is a placeholder because nothing is fetched — the
       # export only has to *configure and bundle* under production rules.
@@ -174,4 +181,56 @@ jobs:
         with:
           name: playwright-report
           path: apps/universal/playwright-report
+          retention-days: 7
+
+  # ── Visual regression, from the one machine allowed to have an opinion ─────────────────────────
+  #
+  # A screenshot baseline is a claim about how glyphs are rasterised, and that claim is only true on
+  # the machine that made it. So the 38 committed baselines are captured and compared **only** inside
+  # `mcr.microsoft.com/playwright:v1.62.0-noble`, pinned by tag, and the visual projects skip
+  # anywhere else (see apps/universal/e2e/specs/visual-pages.ts).
+  #
+  # The container is started with `docker run` rather than the job-level `container:` key, so that
+  # this is character-for-character the command a developer runs locally through the repository's
+  # `e2e:visual` script. A CI-only invocation is a CI-only failure mode.
+  #
+  # Everything except the browser runs on the host: the install and the export need pnpm and Expo,
+  # and the runner is Linux too, so the mounted `node_modules` is usable from inside the image.
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Web export (the artefact the baselines describe)
+        working-directory: apps/universal
+        env:
+          APP_MODE: all-dev
+          APP_ENV: development
+          EXPO_PUBLIC_DATA_MODE: mock
+        run: pnpm run build:web
+
+      - name: Playwright — visual, visual-rtl, visual-dark (pinned container)
+        run: pnpm run e2e:visual
+
+      # The report carries the expected/actual/diff triptych for every failed comparison, which is
+      # the only useful thing to look at when a baseline breaks.
+      - if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: playwright-visual-report
+          path: |
+            apps/universal/playwright-report
+            apps/universal/test-results
           retention-days: 7

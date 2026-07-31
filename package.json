@@ -25,7 +25,9 @@
         "gen:pseudo-locale": "node packages/i18n/scripts/generate-pseudo-locale.mjs",
         "gen:i18n-keys": "node packages/i18n/scripts/generate-keys.mjs",
         "i18n:check": "node packages/i18n/scripts/check-catalogues.mjs",
-        "e2e": "turbo run e2e"
+        "e2e": "turbo run e2e",
+        "e2e:visual": "docker run --rm -v ./:/work -w /work/apps/universal -e PLAYWRIGHT_VISUAL=1 -e CI=true mcr.microsoft.com/playwright:v1.62.0-noble npx playwright test --project=visual --project=visual-rtl --project=visual-dark",
+        "e2e:visual:update": "docker run --rm -v ./:/work -w /work/apps/universal -e PLAYWRIGHT_VISUAL=1 -e CI=true mcr.microsoft.com/playwright:v1.62.0-noble npx playwright test --project=visual --project=visual-rtl --project=visual-dark --update-snapshots"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

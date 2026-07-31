@@ -36,7 +36,13 @@ export interface PrototypeActionOptions {
 }
 
 export const PROTOTYPE_NOTICE_TEST_ID = 'prototype-notice';
-/** Every prototype control carries this, so one Playwright sweep can press all of them. */
+/**
+ * Applied by `PrototypeButton`, so a Playwright sweep can press every button-shaped prototype
+ * control. It does NOT reach prototype controls hosted by other primitives — the planner week's
+ * share and export are `ActionSheet` rows carrying only their own test ids — so the sweep spec
+ * (`prototype-actions.ltr.spec.ts`) additionally names those explicitly. If you add a prototype
+ * control that is not a `PrototypeButton`, add it to that spec's pinned list.
+ */
 export const PROTOTYPE_ACTION_TEST_ID = 'prototype-action';
 
 export type PrototypeActionRunner = (options: PrototypeActionOptions) => void;

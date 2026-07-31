@@ -261,9 +261,10 @@ function DraftPanel({ session, actions }: StatePanelProps) {
                     onPress={actions.onRequestReview}
                 />
                 {/*
-                 * The planner at `/customer/planner` is a later wave's route and reads
-                 * `GET /api/v1/meal-plans/{plan}`. A link to it would land on "not found", so the
-                 * control discloses the destination and the contract instead (plan §5).
+                 * The planner exists, but its week routes are not plan-addressable: it can only
+                 * show the active plan, never this draft (open question OQ: plan-scoped planner
+                 * routes + an accept-draft operation). Until both exist a link would show the
+                 * wrong plan, so the control discloses the missing contract instead (plan §5).
                  */}
                 <PrototypeButton
                     label={t('virtualDietitian:draft.openInPlanner')}

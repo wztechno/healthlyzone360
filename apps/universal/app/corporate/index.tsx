@@ -1,9 +1,6 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { CorporateDashboardScreen } from '../../src/features/business/screens/corporate-dashboard-screen.tsx';
 
-/**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
- */
+/** `/corporate` — the programmes this account buys through, and what is outstanding on each. */
 export default function CorporateIndex() {
-    return <PrototypeScreen area="corporate" testID="prototype-corporate" />;
+    return <CorporateDashboardScreen />;
 }

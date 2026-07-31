@@ -20,9 +20,9 @@ const generatorsUrl = pathToFileURL(join(packageRoot, 'src', 'generators', 'inde
 const { renderTailwindPreset, renderTokensCss, renderTokensNative } = await import(generatorsUrl);
 
 const artefacts = [
-  ['generated/tailwind-preset.cjs', renderTailwindPreset()],
-  ['generated/tokens.css', renderTokensCss()],
-  ['generated/tokens.native.ts', renderTokensNative()],
+    ['generated/tailwind-preset.cjs', renderTailwindPreset()],
+    ['generated/tokens.css', renderTokensCss()],
+    ['generated/tokens.native.ts', renderTokensNative()],
 ];
 
 const check = process.argv.includes('--check');
@@ -31,32 +31,32 @@ let changed = 0;
 await mkdir(join(packageRoot, 'generated'), { recursive: true });
 
 for (const [relativePath, contents] of artefacts) {
-  const absolutePath = join(packageRoot, relativePath);
-  let existing = null;
-  try {
-    existing = await readFile(absolutePath, 'utf8');
-  } catch {
-    // First run: the artefact does not exist yet.
-  }
+    const absolutePath = join(packageRoot, relativePath);
+    let existing = null;
+    try {
+        existing = await readFile(absolutePath, 'utf8');
+    } catch {
+        // First run: the artefact does not exist yet.
+    }
 
-  if (existing === contents) {
-    console.log(`unchanged  ${relativePath}`);
-    continue;
-  }
+    if (existing === contents) {
+        console.log(`unchanged  ${relativePath}`);
+        continue;
+    }
 
-  changed += 1;
-  if (check) {
-    console.error(`DRIFT      ${relativePath}`);
-    continue;
-  }
+    changed += 1;
+    if (check) {
+        console.error(`DRIFT      ${relativePath}`);
+        continue;
+    }
 
-  await writeFile(absolutePath, contents, 'utf8');
-  console.log(`written    ${relativePath}`);
+    await writeFile(absolutePath, contents, 'utf8');
+    console.log(`written    ${relativePath}`);
 }
 
 if (check && changed > 0) {
-  console.error(
-    `\n${changed} generated file(s) are out of date. Run: pnpm --filter @healthy360/design-tokens build:tokens`,
-  );
-  process.exit(1);
+    console.error(
+        `\n${changed} generated file(s) are out of date. Run: pnpm --filter @healthy360/design-tokens build:tokens`,
+    );
+    process.exit(1);
 }

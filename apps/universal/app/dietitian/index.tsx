@@ -1,9 +1,6 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { ReviewQueueScreen } from '../../src/features/professional/screens/review-queue-screen.tsx';
 
-/**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
- */
+/** `/dietitian` — everything waiting for a professional decision. */
 export default function DietitianIndex() {
-    return <PrototypeScreen area="dietitian" testID="prototype-dietitian" />;
+    return <ReviewQueueScreen />;
 }

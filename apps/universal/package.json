@@ -15,7 +15,8 @@
         "typecheck": "tsc --noEmit",
         "test": "jest --ci",
         "e2e": "playwright test",
-        "e2e:acceptance": "playwright test --config playwright.acceptance.config.ts"
+        "e2e:acceptance": "playwright test --config playwright.acceptance.config.ts",
+        "budget:export": "node scripts/check-export-budget.mjs"
     },
     "dependencies": {
         "@expo-google-fonts/ibm-plex-sans-arabic": "^0.4.2",
