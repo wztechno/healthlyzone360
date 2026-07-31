@@ -47,8 +47,8 @@ const LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
 
 const SPINNER_COLOUR: Readonly<Record<ButtonVariant, string>> = {
     primary: '#ffffff',
-    secondary: '#3a8a46',
-    ghost: '#3a8a46',
+    secondary: '#4e8a37',
+    ghost: '#4e8a37',
     danger: '#ffffff',
 };
 

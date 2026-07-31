@@ -74,7 +74,7 @@ describe('renderTailwindPreset', () => {
     };
 
     it('exposes the raw ramps as literal hex values', () => {
-        expect(preset.theme.extend.colors.brand).toMatchObject({ 600: '#2d6f39' });
+        expect(preset.theme.extend.colors.brand).toMatchObject({ 600: '#2c6533' });
     });
 
     it('routes every theme-dependent colour through a CSS variable', () => {
@@ -159,7 +159,7 @@ describe('renderTokensCss', () => {
     });
 
     it('writes opaque colours as RGB triplets so `<alpha-value>` works', () => {
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-color-surface-base: 215 230 191;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-color-surface-base: 247 245 239;`);
     });
 
     it('zeroes durations under prefers-reduced-motion', () => {

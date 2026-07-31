@@ -87,9 +87,7 @@ export function Rating({
                                   ? 'dot'
                                   : 'dotOutline'
                         }
-                        className={
-                            index < filled ? 'text-content-primary' : 'text-content-secondary'
-                        }
+                        className={index < filled ? 'text-rating' : 'text-content-secondary'}
                     />
                 ))}
             </View>

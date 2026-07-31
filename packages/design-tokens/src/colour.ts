@@ -1,14 +1,13 @@
 /**
  * Colour tokens.
  *
- * Palette intent: a *fresh leafy-green* brand (garden green — appetising and alive, not clinical),
- * a *warm terracotta* accent that reads as food and warmth, and warm greige neutrals so long
- * reading surfaces feel like paper rather than a spreadsheet. In light mode the page canvas is a
- * fresh sage tint and cards are lifted to white on top of it, so a screen reads alive and
- * appetising rather than a flat white sheet. Every semantic role ships as a
- * background plus a matching `on*` foreground, and the pair is contrast-tested (`colour.test.ts`) at
- * WCAG AA for normal text in both themes — the ramps are not decorative, they are the accessibility
- * budget.
+ * Palette intent: an *editorial nutrition-marketplace* look. A **deep-forest** brand carries the
+ * primary actions and navigation; **green is an accent, not a wash**, so the light page is a
+ * **warm cream** with white cards lifted on top of it. A **fresh lime** (`brand.300`) is the bright
+ * accent, **soft green** the panel tint, **terracotta** the appetite accent, and **gold** is
+ * reserved for one job — the rating stars. Every semantic role ships as a background plus a matching
+ * `on*` foreground, and the pair is contrast-tested (`colour.test.ts`) at WCAG AA for normal text in
+ * both themes — the ramps are not decorative, they are the accessibility budget.
  */
 
 export type ColourRamp = Readonly<Record<ColourStop, string>>;
@@ -16,49 +15,49 @@ export type ColourRamp = Readonly<Record<ColourStop, string>>;
 export const COLOUR_STOPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
 export type ColourStop = (typeof COLOUR_STOPS)[number];
 
-/** Brand — fresh leafy green (garden green). */
+/** Brand — deep-forest green, with a fresh lime at the light end (`300`, the fresh-green accent). */
 export const brand: ColourRamp = {
-    50: '#eef8ee',
-    100: '#d6eed7',
-    200: '#aeddb1',
-    300: '#7fc486',
-    400: '#4fa65a',
-    500: '#3a8a46',
-    600: '#2d6f39',
-    700: '#26592f',
-    800: '#204627',
-    900: '#1a3922',
-    950: '#0c1f12',
+    50: '#f3f8eb',
+    100: '#e4f1d2',
+    200: '#c9e6a9',
+    300: '#a8d672',
+    400: '#79b451',
+    500: '#4e8a37',
+    600: '#2c6533',
+    700: '#174c3c',
+    800: '#143f31',
+    900: '#103328',
+    950: '#08160f',
 };
 
-/** Accent — warm terracotta. Used sparingly: highlights, empty-state illustration, focus accents. */
+/** Accent — warm terracotta (appetite). `400` is the bright appetite accent; `600` is text-safe. */
 export const clay: ColourRamp = {
-    50: '#fdf4ef',
-    100: '#fbe3d6',
-    200: '#f5c6ac',
-    300: '#eea07b',
-    400: '#e5774a',
-    500: '#d65c2c',
-    600: '#bd481f',
-    700: '#99391b',
-    800: '#7c301a',
-    900: '#662a1a',
-    950: '#38130a',
+    50: '#fdf3ee',
+    100: '#fbe0d3',
+    200: '#f5c2ab',
+    300: '#ef9f7b',
+    400: '#e9784a',
+    500: '#cf5a2d',
+    600: '#ac4a26',
+    700: '#8c3d22',
+    800: '#72331f',
+    900: '#5e2c1e',
+    950: '#331410',
 };
 
-/** Warm greige neutrals — the surface and text family. */
+/** Cool green-grey neutrals — borders and text (the warm-cream page surface is a per-theme role). */
 export const neutral: ColourRamp = {
-    50: '#f9f8f4',
-    100: '#f0efe9',
-    200: '#e3e2d9',
-    300: '#cdccc0',
-    400: '#a6a698',
-    500: '#7f7f72',
-    600: '#64655a',
-    700: '#4d4e45',
-    800: '#383a33',
-    900: '#262822',
-    950: '#161712',
+    50: '#f6f7f3',
+    100: '#ecefe8',
+    200: '#dde3dd',
+    300: '#c4ccc2',
+    400: '#99a298',
+    500: '#66706b',
+    600: '#515a54',
+    700: '#3f4741',
+    800: '#2b322d',
+    900: '#18221e',
+    950: '#0d130f',
 };
 
 export const pureWhite = '#ffffff';
@@ -282,50 +281,54 @@ export interface ThemeColours {
     readonly onBrandSurfaceSubtle: string;
     readonly accentSurface: string;
     readonly onAccentSurface: string;
+    /** Gold, for Rating stars — the one place a warm point-of-emphasis colour earns its keep. */
+    readonly ratingStar: string;
     readonly overlay: string;
 }
 
 export const themeLight: ThemeColours = {
-    surfaceBase: '#d7e6bf', // fresh sage canvas — the page the white cards sit on
-    surfaceRaised: '#ffffff', // cards/top bar lifted to white so they pop off the canvas
-    surfaceSunken: '#c3d7a3',
-    surfaceInverse: '#262822',
-    textPrimary: '#262822',
-    textSecondary: '#4d4e45',
-    textDisabled: '#5c604f', // darkened greige — AA (>=4.5:1) on the sage canvas and on white
-    textInverse: '#f9f8f4',
+    surfaceBase: '#f7f5ef', // warm-cream page canvas — green is an accent here, not a wash
+    surfaceRaised: '#ffffff', // cards and the top bar sit white on the cream page
+    surfaceSunken: '#f1f2ea',
+    surfaceInverse: '#18221e',
+    textPrimary: '#18221e',
+    textSecondary: '#636c67', // ~#66706b, nudged so neutral secondary text clears AA on danger/info-subtle panels too
+    textDisabled: '#6b746e',
+    textInverse: '#f7f5ef',
     textOnBrand: '#ffffff',
-    borderSubtle: '#c1d1a4',
-    borderDefault: '#a4b389',
-    borderStrong: '#656b54',
-    focusRing: '#2d6f39',
-    brandSurface: '#2d6f39',
-    brandSurfaceSubtle: '#bde3b2',
-    onBrandSurfaceSubtle: '#173d23',
-    accentSurface: '#bd481f',
+    borderSubtle: '#e7e9e2',
+    borderDefault: '#d5dcd4',
+    borderStrong: '#767f79',
+    focusRing: '#174c3c',
+    brandSurface: '#174c3c', // deep forest — primary buttons, active nav
+    brandSurfaceSubtle: '#eaf4df', // soft green — panels, active pill
+    onBrandSurfaceSubtle: '#1c5031',
+    accentSurface: '#ac4a26', // terracotta, white-text-safe
     onAccentSurface: '#ffffff',
-    overlay: '#17171299',
+    ratingStar: '#b57d0d', // gold, AA on cream and white
+    overlay: '#18221ecc',
 };
 
 export const themeDark: ThemeColours = {
-    surfaceBase: '#161712',
-    surfaceRaised: '#211f1b',
-    surfaceSunken: '#100f0c',
-    surfaceInverse: '#f0efe9',
-    textPrimary: '#f0efe9',
-    textSecondary: '#cdccc0',
-    textDisabled: '#a6a698', // neutral.400 - AA on dark surfaces
-    textInverse: '#262822',
-    textOnBrand: '#0c1f12',
-    borderSubtle: '#33302b',
-    borderDefault: '#47443d',
-    borderStrong: '#7f7f72',
-    focusRing: '#7fc486',
-    brandSurface: '#7fc486',
-    brandSurfaceSubtle: '#1a3922',
-    onBrandSurfaceSubtle: '#aeddb1',
-    accentSurface: '#eea07b',
-    onAccentSurface: '#38130a',
+    surfaceBase: '#14160f',
+    surfaceRaised: '#1f2018',
+    surfaceSunken: '#0e0f09',
+    surfaceInverse: '#f6f7f3',
+    textPrimary: '#f2f4ea',
+    textSecondary: '#c6ccbf',
+    textDisabled: '#99a298',
+    textInverse: '#18221e',
+    textOnBrand: '#08160f',
+    borderSubtle: '#31352a',
+    borderDefault: '#454b3d',
+    borderStrong: '#767f79',
+    focusRing: '#a8d672',
+    brandSurface: '#a8d672', // fresh lime reads as the brand on dark surfaces
+    brandSurfaceSubtle: '#153a2c',
+    onBrandSurfaceSubtle: '#bde3a6',
+    accentSurface: '#ef9f7b',
+    onAccentSurface: '#331410',
+    ratingStar: '#d99614', // gold, brighter for dark surfaces
     overlay: '#000000b3',
 };
 

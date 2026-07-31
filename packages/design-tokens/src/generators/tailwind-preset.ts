@@ -51,6 +51,7 @@ function colours(): Record<string, unknown> {
     };
 
     result['overlay'] = variableReference('overlay');
+    result['rating'] = variableReference('rating-star');
 
     for (const role of SEMANTIC_ROLES) {
         result[role] = {

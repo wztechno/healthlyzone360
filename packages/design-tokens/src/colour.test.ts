@@ -81,6 +81,14 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
             pairs.push([theme, `textPrimary/${surface}`, c.textPrimary, c[surface]]);
             pairs.push([theme, `textSecondary/${surface}`, c.textSecondary, c[surface]]);
         }
+        // Neutral body text also lands on the semantic *subtle* panels — a danger callout with a
+        // secondary-tone line, a forbidden page painted on danger-subtle — so those pairs are part
+        // of the budget too. A secondary token light enough to clear only the surfaces is not enough.
+        for (const role of SEMANTIC_ROLES) {
+            const subtle = themes[theme].semantic[role].subtle;
+            pairs.push([theme, `textPrimary/${role}-subtle`, c.textPrimary, subtle]);
+            pairs.push([theme, `textSecondary/${role}-subtle`, c.textSecondary, subtle]);
+        }
         pairs.push([theme, 'textInverse/surfaceInverse', c.textInverse, c.surfaceInverse]);
         pairs.push([theme, 'textOnBrand/brandSurface', c.textOnBrand, c.brandSurface]);
         pairs.push([
@@ -237,10 +245,7 @@ describe('theme completeness', () => {
     });
 
     it('inverts overall lightness between themes', () => {
-        // The light canvas is a deliberately fresh *sage* tint rather than white (so a page reads
-        // alive, not a flat white sheet), so the floor is 0.7 — still unambiguously light against
-        // the dark theme's < 0.05, which is the inversion this check exists to guard.
-        expect(relativeLuminance(themes.light.colours.surfaceBase)).toBeGreaterThan(0.7);
+        expect(relativeLuminance(themes.light.colours.surfaceBase)).toBeGreaterThan(0.8);
         expect(relativeLuminance(themes.dark.colours.surfaceBase)).toBeLessThan(0.05);
     });
 });
