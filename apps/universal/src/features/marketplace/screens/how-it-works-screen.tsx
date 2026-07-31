@@ -3,6 +3,7 @@ import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { SectionHeader } from '../section-header.tsx';
 
@@ -54,6 +55,14 @@ export function HowItWorksScreen() {
                         padding="md"
                         tone="raised"
                     >
+                        <EntityImage
+                            source={resolveMarketingImage(`how-it-works/${step.key}.tile`)}
+                            decorative
+                            seed={`how-${step.key}`}
+                            label={t(`marketplace:howItWorks.step.${step.key}.title`)}
+                            aspect="wide"
+                            className="mb-3"
+                        />
                         <Inline space="md" align="start">
                             <Stack
                                 space="none"

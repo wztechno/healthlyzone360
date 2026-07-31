@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
 import { QueryStates } from '../query-states.tsx';
@@ -41,6 +42,14 @@ export function PublicLandingScreen() {
     return (
         <Stack space="xl" testID="landing-screen">
             <Stack space="md" testID="landing-hero">
+                <EntityImage
+                    source={resolveMarketingImage('landing/hero.hero')}
+                    decorative
+                    seed="landing-hero"
+                    label={t('marketplace:landing.heroTitle')}
+                    aspect="wide"
+                    className="max-h-[280px]"
+                />
                 <Heading level={1} testID="landing-title">
                     {t('marketplace:landing.heroTitle')}
                 </Heading>

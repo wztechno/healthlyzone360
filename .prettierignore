@@ -24,3 +24,4 @@ packages/i18n/src/keys.generated.ts
 packages/design-tokens/generated/
 packages/api-client/src/generated/
 apps/universal/expo-env.d.ts
+apps/universal/src/media/image-manifest.generated.ts

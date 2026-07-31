@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { PrototypeDialog } from '../../../prototype/prototype-dialog.tsx';
 import { PrototypeNotice } from '../../../prototype/prototype-notice.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
@@ -73,6 +74,14 @@ export function ForBusinessScreen() {
     return (
         <Stack space="xl" testID="for-business-screen">
             <Stack space="sm">
+                <EntityImage
+                    source={resolveMarketingImage('for-business/hero.hero')}
+                    decorative
+                    seed="for-business-hero"
+                    label={t('marketplace:forBusiness.title')}
+                    aspect="wide"
+                    className="max-h-[280px]"
+                />
                 <Heading level={1} testID="for-business-title">
                     {t('marketplace:forBusiness.title')}
                 </Heading>
@@ -104,6 +113,17 @@ export function ForBusinessScreen() {
                                 tone="raised"
                             >
                                 <Stack space="xs">
+                                    <EntityImage
+                                        source={resolveMarketingImage(
+                                            `for-business/${programme.key}.tile`,
+                                        )}
+                                        decorative
+                                        seed={`for-business-${programme.key}`}
+                                        label={t(
+                                            `marketplace:forBusiness.programme.${programme.key}.title`,
+                                        )}
+                                        aspect="wide"
+                                    />
                                     <Icon
                                         name={programme.icon}
                                         size="lg"

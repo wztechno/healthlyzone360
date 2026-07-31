@@ -4,7 +4,6 @@ import {
     Card,
     Checkbox,
     Chip,
-    ImagePlaceholder,
     Inline,
     Rating,
     Stack,
@@ -14,6 +13,7 @@ import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
+import { EntityImage } from '../../media/entity-image.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 
 /**
@@ -67,8 +67,10 @@ export function PlanCard({ plan, onOpen, comparison, testID }: PlanCardProps) {
 
     return (
         <Card testID={resolvedTestID} padding="none" tone="raised">
-            <ImagePlaceholder
+            <EntityImage
                 testID={`${resolvedTestID}-image`}
+                assetId={plan.imagePlaceholderId}
+                variant="card"
                 seed={plan.slug}
                 label={t('catalogue:plan.imageLabel', { plan: plan.name })}
                 aspect="wide"

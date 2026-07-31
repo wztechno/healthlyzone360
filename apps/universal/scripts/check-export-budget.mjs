@@ -17,13 +17,18 @@
  *
  * ## Where the numbers come from
  *
- * Measured from the `all-dev` mock export on 2026-07-31 and given 15 % headroom, which is the room a
- * wave of new screens needs without a budget rise becoming a weekly ritual:
+ * Re-measured from the `all-dev` mock export on 2026-07-31 after the visual-theme + licensed-imagery
+ * pass (D-035), which bundles ~7.5 MiB of WebP photography into `dist/assets`: the total roughly
+ * doubled while the largest JS chunk barely moved, because the added payload is images, not code.
+ * Given 15 % headroom, which is the room a wave of new screens needs without a budget rise becoming a
+ * weekly ritual:
  *
  * | measure            | actual        | ×1.15 → budget |
  * | ------------------ | ------------- | -------------- |
- * | total `dist` bytes | 8 674 633     | 9 975 828      |
- * | largest JS chunk   | 3 303 069     | 3 798 529      |
+ * | total `dist` bytes | 16 623 352    | 19 116 855     |
+ * | largest JS chunk   |  3 348 102    |  3 850 317     |
+ *
+ * The previous baseline (pre-imagery) was 8 674 633 B total / 3 303 069 B chunk.
  *
  * The `all-dev` export is deliberately the subject: it carries every area of the application at
  * once, so it is the largest thing the repository produces and a bound on it bounds every narrower
@@ -38,15 +43,15 @@ import { readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 
 /** Total bytes of the exported directory. */
-export const TOTAL_BUDGET_BYTES = 9_975_828;
+export const TOTAL_BUDGET_BYTES = 19_116_855;
 
 /** Bytes of the single largest `.js` file. */
-export const LARGEST_CHUNK_BUDGET_BYTES = 3_798_529;
+export const LARGEST_CHUNK_BUDGET_BYTES = 3_850_317;
 
 /** The measurement the budgets were derived from, kept so a report can show the drift. */
 export const BASELINE = {
-    totalBytes: 8_674_633,
-    largestChunkBytes: 3_303_069,
+    totalBytes: 16_623_352,
+    largestChunkBytes: 3_348_102,
     measuredOn: '2026-07-31',
     export: 'APP_MODE=all-dev EXPO_PUBLIC_DATA_MODE=mock expo export -p web',
 };

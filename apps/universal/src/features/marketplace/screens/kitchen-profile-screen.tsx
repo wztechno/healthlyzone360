@@ -6,12 +6,13 @@ import {
     Card,
     Chip,
     Heading,
-    ImagePlaceholder,
     Inline,
     Rating,
     Stack,
     Text,
 } from '@healthy360/design-system';
+
+import { EntityImage } from '../../../media/entity-image.tsx';
 import type { KitchenBranch, OpeningHours } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
@@ -153,8 +154,10 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
             >
                 {kitchen === undefined ? null : (
                     <Stack space="lg">
-                        <ImagePlaceholder
+                        <EntityImage
                             testID="kitchen-image"
+                            assetId={kitchen.imagePlaceholderId}
+                            variant="detail"
                             seed={kitchen.slug}
                             label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
                             aspect="wide"

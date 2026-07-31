@@ -1,15 +1,8 @@
-import {
-    Badge,
-    Card,
-    Chip,
-    ImagePlaceholder,
-    Inline,
-    Rating,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Badge, Card, Chip, Inline, Rating, Stack, Text } from '@healthy360/design-system';
 import type { Kitchen } from '@healthy360/api-client/contracts';
 import { useTranslation } from 'react-i18next';
+
+import { EntityImage } from '../../media/entity-image.tsx';
 
 /**
  * One kitchen, as it appears in a list.
@@ -51,8 +44,10 @@ export function KitchenCard({ kitchen, onPress, testID }: KitchenCardProps) {
             onPress={onPress}
             accessibilityLabel={t('marketplace:kitchens.cardLabel', { kitchen: kitchen.name })}
         >
-            <ImagePlaceholder
+            <EntityImage
                 testID={`${resolvedTestID}-image`}
+                assetId={kitchen.imagePlaceholderId}
+                variant="card"
                 seed={kitchen.slug}
                 label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
                 aspect="wide"

@@ -6,7 +6,6 @@ import {
     Chip,
     EmptyState,
     Heading,
-    ImagePlaceholder,
     Inline,
     NumberStepper,
     Select,
@@ -16,6 +15,8 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
+
+import { EntityImage } from '../../../media/entity-image.tsx';
 import { RecipeId } from '@healthy360/domain-types';
 import type { MealType } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -173,8 +174,10 @@ export function RecipeDetailScreen({ recipeId }: RecipeDetailScreenProps) {
                 >
                     {item === undefined ? null : (
                         <Stack space="lg">
-                            <ImagePlaceholder
+                            <EntityImage
                                 testID="recipe-detail-image"
+                                assetId={item.imagePlaceholderId}
+                                variant="detail"
                                 seed={item.slug}
                                 label={t('planner:recipe.imageLabel', { recipe: item.name })}
                                 aspect="wide"

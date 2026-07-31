@@ -1,6 +1,8 @@
-import { Avatar, Badge, Card, Chip, Inline, Rating, Stack, Text } from '@healthy360/design-system';
+import { Badge, Card, Chip, Inline, Rating, Stack, Text } from '@healthy360/design-system';
 import type { Dietitian } from '@healthy360/api-client/contracts';
 import { useTranslation } from 'react-i18next';
+
+import { EntityAvatar } from '../../media/entity-image.tsx';
 
 const LOCALE_LABEL_KEY: Readonly<Record<string, string>> = {
     en: 'marketplace:dietitians.localeEnglish',
@@ -41,8 +43,9 @@ export function DietitianCard({ dietitian, onPress, testID }: DietitianCardProps
         >
             <Stack space="sm">
                 <Inline space="sm" align="center">
-                    <Avatar
+                    <EntityAvatar
                         testID={`${resolvedTestID}-avatar`}
+                        assetId={dietitian.imagePlaceholderId}
                         name={dietitian.displayName}
                         seed={String(dietitian.id)}
                         size="lg"

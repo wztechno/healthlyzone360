@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDietitiansQuery, useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
 import { DietitianCard } from '../dietitian-card.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
@@ -180,6 +181,15 @@ export function DiscoverScreen() {
                                 accessibilityLabel={t(`marketplace:discover.family.${family.key}`)}
                             >
                                 <Stack space="xs">
+                                    <EntityImage
+                                        source={resolveMarketingImage(
+                                            `discover/${family.key}.tile`,
+                                        )}
+                                        decorative
+                                        seed={`discover-${family.key}`}
+                                        label={t(`marketplace:discover.family.${family.key}`)}
+                                        aspect="wide"
+                                    />
                                     <Icon
                                         name={family.icon}
                                         size="lg"

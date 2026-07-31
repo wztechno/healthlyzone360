@@ -7,7 +7,6 @@ import {
     Chip,
     EmptyState,
     Heading,
-    ImagePlaceholder,
     Inline,
     MeterBar,
     Rating,
@@ -15,6 +14,8 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
+
+import { EntityImage } from '../../../media/entity-image.tsx';
 import type { PlanVariant, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -169,8 +170,10 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                 >
                     {item === undefined || selected === undefined ? null : (
                         <Stack space="lg">
-                            <ImagePlaceholder
+                            <EntityImage
                                 testID="plan-detail-image"
+                                assetId={item.imagePlaceholderId}
+                                variant="detail"
                                 seed={item.slug}
                                 label={t('catalogue:plan.imageLabel', { plan: item.name })}
                                 aspect="wide"

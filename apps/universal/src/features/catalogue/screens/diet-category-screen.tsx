@@ -16,6 +16,7 @@ import {
     useMealsQuery,
     usePlansQuery,
 } from '../../../data/catalogue-hooks.ts';
+import { EntityImage } from '../../../media/entity-image.tsx';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useFormatter } from '@healthy360/i18n';
 import { MealCard } from '../../marketplace/meal-card.tsx';
@@ -116,6 +117,15 @@ export function DietCategoryScreen({ slug }: DietCategoryScreenProps) {
                 {item === null ? null : (
                     <Stack space="lg">
                         <Stack space="xs">
+                            <EntityImage
+                                assetId={item.imagePlaceholderId}
+                                variant="detail"
+                                decorative
+                                seed={`diet-${item.slug}`}
+                                label={item.name}
+                                aspect="wide"
+                                className="max-h-[240px]"
+                            />
                             <Heading level={1} testID="diet-category-name">
                                 {item.name}
                             </Heading>

@@ -1,15 +1,9 @@
-import {
-    Badge,
-    Card,
-    Chip,
-    ImagePlaceholder,
-    Inline,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Badge, Card, Chip, Inline, Stack, Text } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+
+import { EntityImage } from '../../media/entity-image.tsx';
 
 import { formatMoney, nutrientValue } from './format.ts';
 
@@ -57,8 +51,10 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
                 protein,
             })}
         >
-            <ImagePlaceholder
+            <EntityImage
                 testID={`${resolvedTestID}-image`}
+                assetId={meal.imagePlaceholderId}
+                variant="card"
                 seed={meal.slug}
                 label={t('marketplace:menu.imageLabel', { meal: meal.name })}
                 aspect="wide"

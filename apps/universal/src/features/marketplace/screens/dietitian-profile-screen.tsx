@@ -1,5 +1,4 @@
 import {
-    Avatar,
     Badge,
     Breadcrumbs,
     Button,
@@ -17,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useDietitianQuery } from '../../../data/marketplace-hooks.ts';
+import { EntityAvatar } from '../../../media/entity-image.tsx';
 import { PrototypeButton } from '../../../prototype/prototype-notice.tsx';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { QueryStates } from '../query-states.tsx';
@@ -85,8 +85,9 @@ export function DietitianProfileScreen({ dietitianId }: DietitianProfileScreenPr
                 {dietitian === undefined ? null : (
                     <Stack space="lg">
                         <Inline space="md" align="center" wrap>
-                            <Avatar
+                            <EntityAvatar
                                 testID="dietitian-avatar"
+                                assetId={dietitian.imagePlaceholderId}
                                 name={dietitian.displayName}
                                 seed={String(dietitian.id)}
                                 size="xl"

@@ -8,13 +8,14 @@ import {
     Chip,
     EmptyState,
     Heading,
-    ImagePlaceholder,
     Inline,
     Rating,
     Stack,
     Text,
     useToast,
 } from '@healthy360/design-system';
+
+import { EntityImage } from '../../../media/entity-image.tsx';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -218,8 +219,10 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                 >
                     {item === undefined ? null : (
                         <Stack space="lg">
-                            <ImagePlaceholder
+                            <EntityImage
                                 testID="meal-detail-image"
+                                assetId={item.imagePlaceholderId}
+                                variant="detail"
                                 seed={item.slug}
                                 label={t('catalogue:meal.imageLabel', { meal: item.name })}
                                 aspect="wide"

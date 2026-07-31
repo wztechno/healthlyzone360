@@ -102,6 +102,8 @@ export default tseslint.config(
             '**/.turbo/**',
             '**/coverage/**',
             '**/expo-env.d.ts',
+            // Generated wholesale by scripts/build-image-manifest.mjs; still typechecked by tsc.
+            'apps/universal/src/media/image-manifest.generated.ts',
             'apps/api/**',
             'infrastructure/**',
             'scripts/**',
