@@ -286,20 +286,34 @@ Optionally run the API on the host instead of nginx: `cd apps/api && php artisan
 ### 5.2 First-time frontend setup
 
 ```bash
-corepack enable
 pnpm install
 ```
+
+If `pnpm` is not on your PATH yet, enable it via corepack **from an elevated shell** (it writes
+shims into `C:\Program Files\nodejs`, so a normal shell gets `EPERM`):
+
+```bash
+corepack enable
+```
+
+If `pnpm --version` already answers, skip corepack entirely. Ignore pnpm's "update available"
+banner — the repo pins `pnpm@11.15.1` through the `packageManager` field.
 
 ### 5.3 Run the app in MOCK mode (the Prompt 2 prototype — no backend needed)
 
 This is the mode that showcases everything from Prompt 2:
 
+```powershell
+# Windows PowerShell (env vars are set with $env:, not VAR=value prefixes)
+cd apps/universal
+$env:EXPO_PUBLIC_DATA_MODE='mock'; $env:APP_MODE='all-dev'; npx expo start --web --clear
+```
+
 ```bash
+# Git Bash / WSL / macOS / Linux
 cd apps/universal
 EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo start --web --clear
 ```
-
-(PowerShell: `$env:EXPO_PUBLIC_DATA_MODE='mock'; $env:APP_MODE='all-dev'; npx expo start --web --clear`)
 
 - Opens on <http://localhost:8081>. **Always pass `--clear`** — Metro inlines `EXPO_PUBLIC_*`
   variables at build time and caches them, so a stale cache silently serves the wrong mode.
@@ -320,8 +334,14 @@ EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo start --web --clear
 
 ### 5.4 Run the app in API mode (the implemented foundation, against the live backend)
 
+```powershell
+# Windows PowerShell — stack must be up (5.1)
+cd apps/universal
+$env:EXPO_PUBLIC_DATA_MODE='api'; $env:EXPO_PUBLIC_API_URL='http://localhost:8080'; $env:APP_MODE='all-dev'; npx expo start --web --clear
+```
+
 ```bash
-# stack must be up (5.1)
+# Git Bash / WSL / macOS / Linux — stack must be up (5.1)
 cd apps/universal
 EXPO_PUBLIC_DATA_MODE=api EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo start --web --clear
 ```
@@ -351,20 +371,37 @@ pnpm run gen:api:check
 
 End-to-end (mock world — export once, then run; the config serves `dist/` on port 4173):
 
-```bash
+```powershell
+# Windows PowerShell
 cd apps/universal
-EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo export -p web --clear
+$env:EXPO_PUBLIC_DATA_MODE='mock'; $env:APP_MODE='all-dev'; npx expo export -p web --clear
 npx playwright test                                 # 254 tests; 38 visual skip on the host
 npx playwright test e2e/specs/planner.ltr.spec.ts   # one file while iterating
 ```
 
+```bash
+# Git Bash / WSL / macOS / Linux
+cd apps/universal
+EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo export -p web --clear
+npx playwright test
+```
+
 Acceptance (the live-API proof — stack must be up):
 
+```powershell
+# Windows PowerShell
+cd apps/api; php artisan migrate:fresh --database=pgsql_migrations --seed --force
+cd ../universal
+$env:EXPO_PUBLIC_DATA_MODE='api'; $env:APP_MODE='all-dev'; pnpm run build:web:api
+pnpm run e2e:acceptance                             # 7 tests against http://localhost:8080
+```
+
 ```bash
+# Git Bash / WSL / macOS / Linux
 cd apps/api && php artisan migrate:fresh --database=pgsql_migrations --seed --force
 cd ../universal
 EXPO_PUBLIC_DATA_MODE=api APP_MODE=all-dev pnpm run build:web:api
-pnpm run e2e:acceptance                             # 7 tests against http://localhost:8080
+pnpm run e2e:acceptance
 ```
 
 Visual regression (Docker required; run from **PowerShell at the repo root** — see 5.7):
@@ -395,6 +432,8 @@ docker compose up -d --wait        # daily start (setup is one-time)
 | Visual tests "skipped" locally | By design (D-031): baselines are only valid from the pinned Linux container; the scripts above run it for you. |
 | Acceptance devices tests fail on the first run after a fresh reseed | Observed once; passed on re-run and in isolation — consistent with login throttling across rapid same-account sign-ins. Re-run before investigating. |
 | Migrations fail with permission errors | You ran them as the runtime role. Always migrate via the migrator connection: `php artisan migrate --database=pgsql_migrations`. |
+| `VAR=value command` → "not recognized as the name of a cmdlet" | That is bash syntax and you are in PowerShell. Use the PowerShell variants above: `$env:VAR='value'; command`. |
+| `corepack enable` → `EPERM ... C:\Program Files\nodejs\pnpx` | Needs an elevated shell — but if `pnpm --version` already works you don't need corepack at all. |
 
 ---
 
