@@ -77,8 +77,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/customer/planner',
         icon: 'calendar',
         area: 'customer',
-        status: 'planned',
-        contract: 'GET /api/v1/meal-plans/{plan}',
+        status: 'available',
     },
     {
         key: 'nutrition',
@@ -102,8 +101,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/customer/subscriptions',
         icon: 'refresh',
         area: 'customer',
-        status: 'planned',
-        contract: 'GET /api/v1/subscriptions',
+        status: 'available',
     },
     {
         key: 'cart',
@@ -111,8 +109,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/customer/cart',
         icon: 'plus',
         area: 'customer',
-        status: 'planned',
-        contract: 'POST /api/v1/carts',
+        status: 'available',
         badge: 'cart',
     },
     {

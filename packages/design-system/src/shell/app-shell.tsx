@@ -138,49 +138,61 @@ export function AppShell({
 
     // One bottom bar, shared by `driver` and `consumer`. Extracted rather than duplicated so the
     // two can never drift into two subtly different tab semantics.
+    //
+    // Two elements, not one: the bar is a navigation landmark *and* the row of tabs is a tablist.
+    // They cannot be the same element — `role` and `accessibilityRole` on one `View` do not compose,
+    // the DOM keeps whichever wins, and the loser takes the other with it. When `navigation` won,
+    // every `role="tab"` below sat with no `tablist` ancestor, which is an axe-critical
+    // `aria-required-parent` finding on every phone-width screen in the consumer area.
     const tabBar = (
         <View
-            testID={testID === undefined ? undefined : `${testID}-tabs`}
             role="navigation"
-            accessibilityRole="tablist"
             aria-label={t('designSystem:shell.primaryNavigation')}
-            className="flex-row border-t border-stroke-subtle bg-surface-raised"
+            className="border-t border-stroke-subtle bg-surface-raised"
         >
-            {navigation.map((item) => (
-                <Pressable
-                    key={item.key}
-                    testID={item.testID}
-                    role="tab"
-                    accessibilityRole="tab"
-                    accessibilityLabel={item.label}
-                    accessibilityState={{ selected: item.active === true }}
-                    aria-selected={item.active === true}
-                    focusable
-                    onPress={item.onPress}
-                    className="min-h-touch flex-1 items-center justify-center gap-0.5 py-2"
-                >
-                    {item.icon === undefined ? null : (
-                        <Icon
-                            name={item.icon}
-                            className={
-                                item.active === true
-                                    ? 'text-content-on-brand-subtle'
-                                    : 'text-content-secondary'
-                            }
-                        />
-                    )}
-                    <RNText
-                        className={cx(
-                            'text-xs',
-                            item.active === true
-                                ? 'text-content-on-brand-subtle font-medium'
-                                : 'text-content-secondary',
-                        )}
+            <View
+                testID={testID === undefined ? undefined : `${testID}-tabs`}
+                role="tablist"
+                accessibilityRole="tablist"
+                aria-label={t('designSystem:shell.primaryNavigation')}
+                className="flex-row"
+            >
+                {navigation.map((item) => (
+                    <Pressable
+                        key={item.key}
+                        testID={item.testID}
+                        role="tab"
+                        accessibilityRole="tab"
+                        accessibilityLabel={item.label}
+                        accessibilityState={{ selected: item.active === true }}
+                        aria-selected={item.active === true}
+                        focusable
+                        onPress={item.onPress}
+                        className="min-h-touch flex-1 items-center justify-center gap-0.5 py-2"
                     >
-                        {item.label}
-                    </RNText>
-                </Pressable>
-            ))}
+                        {item.icon === undefined ? null : (
+                            <Icon
+                                name={item.icon}
+                                className={
+                                    item.active === true
+                                        ? 'text-content-on-brand-subtle'
+                                        : 'text-content-secondary'
+                                }
+                            />
+                        )}
+                        <RNText
+                            className={cx(
+                                'text-xs',
+                                item.active === true
+                                    ? 'text-content-on-brand-subtle font-medium'
+                                    : 'text-content-secondary',
+                            )}
+                        >
+                            {item.label}
+                        </RNText>
+                    </Pressable>
+                ))}
+            </View>
         </View>
     );
 

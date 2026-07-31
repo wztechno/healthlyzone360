@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 1810 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 2446 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -387,11 +387,7 @@ export interface NamespaceKeys {
     | 'plan.combinationSnacks'
     | 'plan.combinationTitle'
     | 'plan.configure'
-    | 'plan.configureBody'
-    | 'plan.configureBrowse'
-    | 'plan.configureHome'
     | 'plan.configureSignIn'
-    | 'plan.configureTitle'
     | 'plan.deliveryBody'
     | 'plan.deliveryTitle'
     | 'plan.deliveryUnpublished'
@@ -541,7 +537,313 @@ export interface NamespaceKeys {
     | 'tools.weightUnitImperial'
     | 'tools.weightUnitMetric';
   readonly "commerce":
-    | 'title';
+    | 'address.area'
+    | 'address.areaHint'
+    | 'address.city'
+    | 'address.cityHint'
+    | 'address.countryCode'
+    | 'address.countryCodeHint'
+    | 'address.instructions'
+    | 'address.instructionsHint'
+    | 'address.label'
+    | 'address.labelHint'
+    | 'address.line1'
+    | 'address.line1Hint'
+    | 'address.line2'
+    | 'address.line2Hint'
+    | 'address.notStored'
+    | 'cart.allergenBody'
+    | 'cart.allergenTitle'
+    | 'cart.body'
+    | 'cart.browse'
+    | 'cart.checkout'
+    | 'cart.count'
+    | 'cart.delivery'
+    | 'cart.deliveryFree'
+    | 'cart.emptyBody'
+    | 'cart.emptyTitle'
+    | 'cart.priceCaption'
+    | 'cart.quantityLabel'
+    | 'cart.remove'
+    | 'cart.removeHint'
+    | 'cart.subtotal'
+    | 'cart.summaryEmpty'
+    | 'cart.summaryTitle'
+    | 'cart.title'
+    | 'cart.total'
+    | 'cart.unitPrice'
+    | 'cart.updateFailedTitle'
+    | 'cart.viewMeal'
+    | 'checkout.addressBody'
+    | 'checkout.addressTitle'
+    | 'checkout.body'
+    | 'checkout.committedSlot'
+    | 'checkout.dateHint'
+    | 'checkout.dateLabel'
+    | 'checkout.earliest'
+    | 'checkout.edit'
+    | 'checkout.emptyBody'
+    | 'checkout.emptyTitle'
+    | 'checkout.placeOrder'
+    | 'checkout.placeOrderHint'
+    | 'checkout.priceAfterReview'
+    | 'checkout.priceBeforeReview'
+    | 'checkout.prototypeNotice'
+    | 'checkout.review'
+    | 'checkout.slotTitle'
+    | 'checkout.slotWindow'
+    | 'checkout.successBody'
+    | 'checkout.successCart'
+    | 'checkout.successPriceCaption'
+    | 'checkout.successPrototypeBody'
+    | 'checkout.successPrototypeTitle'
+    | 'checkout.successSubscriptions'
+    | 'checkout.successSummaryTitle'
+    | 'checkout.successTitle'
+    | 'checkout.summaryTitle'
+    | 'checkout.title'
+    | 'common.cancel'
+    | 'common.listSeparator'
+    | 'common.noPayment'
+    | 'configurator.allergyDisclaimerContext'
+    | 'configurator.back'
+    | 'configurator.body'
+    | 'configurator.browsePlans'
+    | 'configurator.checks.acknowledgeDescription'
+    | 'configurator.checks.acknowledgeLabel'
+    | 'configurator.checks.allergens'
+    | 'configurator.checks.areaServedBody'
+    | 'configurator.checks.areaServedTitle'
+    | 'configurator.checks.areaUnknownBody'
+    | 'configurator.checks.areaUnknownTitle'
+    | 'configurator.checks.areaUnservedBody'
+    | 'configurator.checks.areaUnservedTitle'
+    | 'configurator.checks.body'
+    | 'configurator.checks.noAllergens'
+    | 'configurator.checks.relaxedBody'
+    | 'configurator.checks.relaxedTitle'
+    | 'configurator.checks.title'
+    | 'configurator.combination.body'
+    | 'configurator.combination.couplingBody'
+    | 'configurator.combination.couplingTitle'
+    | 'configurator.combination.label'
+    | 'configurator.combination.meals'
+    | 'configurator.combination.noSnacks'
+    | 'configurator.combination.option'
+    | 'configurator.combination.snacks'
+    | 'configurator.confirm.acknowledgeDescription'
+    | 'configurator.confirm.acknowledgeLabel'
+    | 'configurator.confirm.body'
+    | 'configurator.confirm.deliveries'
+    | 'configurator.confirm.termsBody'
+    | 'configurator.confirm.termsTitle'
+    | 'configurator.confirm.title'
+    | 'configurator.confirm.total'
+    | 'configurator.create'
+    | 'configurator.createFailedTitle'
+    | 'configurator.delivery.addressTitle'
+    | 'configurator.delivery.slotTitle'
+    | 'configurator.delivery.startHint'
+    | 'configurator.delivery.startLabel'
+    | 'configurator.delivery.useNextAllowed'
+    | 'configurator.delivery.weekdaysBody'
+    | 'configurator.delivery.weekdaysLimited'
+    | 'configurator.delivery.weekdaysLoading'
+    | 'configurator.delivery.weekdaysTitle'
+    | 'configurator.dietary.addedBody'
+    | 'configurator.dietary.addedTitle'
+    | 'configurator.dietary.allergensBody'
+    | 'configurator.dietary.allergensLoading'
+    | 'configurator.dietary.allergensNone'
+    | 'configurator.dietary.allergensTitle'
+    | 'configurator.dietary.dietsBody'
+    | 'configurator.dietary.dietsTitle'
+    | 'configurator.dietary.relaxedBody'
+    | 'configurator.dietary.relaxedTitle'
+    | 'configurator.disclaimerContext'
+    | 'configurator.duration.body'
+    | 'configurator.duration.caveat'
+    | 'configurator.duration.discount'
+    | 'configurator.duration.noDiscount'
+    | 'configurator.duration.optionLabel'
+    | 'configurator.duration.saving'
+    | 'configurator.duration.selected'
+    | 'configurator.duration.total'
+    | 'configurator.issues.address'
+    | 'configurator.issues.areaUnserved'
+    | 'configurator.issues.checks'
+    | 'configurator.issues.deliveryDayUnavailable'
+    | 'configurator.issues.duration'
+    | 'configurator.issues.noDeliveryDays'
+    | 'configurator.issues.slot'
+    | 'configurator.issues.startDate'
+    | 'configurator.issues.startTooSoon'
+    | 'configurator.issues.startWeekday'
+    | 'configurator.issues.terms'
+    | 'configurator.issues.variant'
+    | 'configurator.issuesTitle'
+    | 'configurator.meals.body'
+    | 'configurator.meals.fromPlan'
+    | 'configurator.meals.noDates'
+    | 'configurator.meals.noteLoading'
+    | 'configurator.meals.noteStatic'
+    | 'configurator.meals.noteSwappable'
+    | 'configurator.meals.noteTitle'
+    | 'configurator.meals.selectLabel'
+    | 'configurator.meals.unknown'
+    | 'configurator.next'
+    | 'configurator.notFoundBody'
+    | 'configurator.notFoundTitle'
+    | 'configurator.plan.band'
+    | 'configurator.plan.macroCaveat'
+    | 'configurator.plan.macroRange'
+    | 'configurator.plan.macrosTitle'
+    | 'configurator.plan.variantLabel'
+    | 'configurator.plan.weeklyPrice'
+    | 'configurator.position'
+    | 'configurator.previewEmptyBody'
+    | 'configurator.previewEmptyTitle'
+    | 'configurator.priceLater'
+    | 'configurator.progressLabel'
+    | 'configurator.steps.combination'
+    | 'configurator.steps.confirm'
+    | 'configurator.steps.delivery'
+    | 'configurator.steps.dietary'
+    | 'configurator.steps.duration'
+    | 'configurator.steps.meals'
+    | 'configurator.steps.plan'
+    | 'configurator.steps.summary'
+    | 'configurator.successBody'
+    | 'configurator.successList'
+    | 'configurator.successNoPayment'
+    | 'configurator.successOpen'
+    | 'configurator.successTitle'
+    | 'configurator.summary.address'
+    | 'configurator.summary.allergens'
+    | 'configurator.summary.checksBody'
+    | 'configurator.summary.checksTitle'
+    | 'configurator.summary.configTitle'
+    | 'configurator.summary.days'
+    | 'configurator.summary.discount'
+    | 'configurator.summary.duration'
+    | 'configurator.summary.gross'
+    | 'configurator.summary.perDelivery'
+    | 'configurator.summary.perDeliveryNote'
+    | 'configurator.summary.plan'
+    | 'configurator.summary.priceCaption'
+    | 'configurator.summary.priceTitle'
+    | 'configurator.summary.slot'
+    | 'configurator.summary.total'
+    | 'configurator.summary.weekly'
+    | 'configurator.summary.window'
+    | 'configurator.summary.windowValue'
+    | 'configurator.title'
+    | 'durations.12w'
+    | 'durations.1w'
+    | 'durations.2w'
+    | 'durations.4w'
+    | 'slots.evening'
+    | 'slots.midday'
+    | 'slots.morning'
+    | 'states.active'
+    | 'states.cancelled'
+    | 'states.draft'
+    | 'states.expired'
+    | 'states.paused'
+    | 'states.skipped_today'
+    | 'subscription.actionFailedTitle'
+    | 'subscription.actionsNote'
+    | 'subscription.actionsTitle'
+    | 'subscription.addressConfirm'
+    | 'subscription.addressDialogBody'
+    | 'subscription.addressDialogTitle'
+    | 'subscription.backToList'
+    | 'subscription.changeAddress'
+    | 'subscription.changeSlot'
+    | 'subscription.configCaption'
+    | 'subscription.configTitle'
+    | 'subscription.created'
+    | 'subscription.noSkippedDates'
+    | 'subscription.notFoundBody'
+    | 'subscription.notFoundTitle'
+    | 'subscription.pause'
+    | 'subscription.pauseConfirm'
+    | 'subscription.pauseConsequenceOpen'
+    | 'subscription.pauseConsequenceTitle'
+    | 'subscription.pauseConsequenceUntil'
+    | 'subscription.pauseDialogBody'
+    | 'subscription.pauseDialogTitle'
+    | 'subscription.pauseUntilHint'
+    | 'subscription.pauseUntilLabel'
+    | 'subscription.pausedUntilBadge'
+    | 'subscription.readOnly.active'
+    | 'subscription.readOnly.cancelled'
+    | 'subscription.readOnly.draft'
+    | 'subscription.readOnly.expired'
+    | 'subscription.readOnly.paused'
+    | 'subscription.readOnly.skipped_today'
+    | 'subscription.readOnlyTitle'
+    | 'subscription.resume'
+    | 'subscription.resumeConfirm'
+    | 'subscription.resumeDialogBody'
+    | 'subscription.resumeDialogTitle'
+    | 'subscription.rows.address'
+    | 'subscription.rows.allergens'
+    | 'subscription.rows.days'
+    | 'subscription.rows.duration'
+    | 'subscription.rows.field'
+    | 'subscription.rows.plan'
+    | 'subscription.rows.slot'
+    | 'subscription.rows.start'
+    | 'subscription.rows.value'
+    | 'subscription.skip'
+    | 'subscription.skipConfirm'
+    | 'subscription.skipConsequenceBody'
+    | 'subscription.skipConsequenceTitle'
+    | 'subscription.skipDialogBody'
+    | 'subscription.skipDialogDated'
+    | 'subscription.skipDialogTitle'
+    | 'subscription.skipSheetBody'
+    | 'subscription.skipSheetTitle'
+    | 'subscription.skippedBadge'
+    | 'subscription.slotConfirm'
+    | 'subscription.slotDaysNote'
+    | 'subscription.slotDaysTitle'
+    | 'subscription.slotDialogBody'
+    | 'subscription.slotDialogTitle'
+    | 'subscription.stateSince'
+    | 'subscription.timelineNote'
+    | 'subscription.timelineTitle'
+    | 'subscriptions.body'
+    | 'subscriptions.browse'
+    | 'subscriptions.clearFilter'
+    | 'subscriptions.emptyBody'
+    | 'subscriptions.emptyFilteredBody'
+    | 'subscriptions.emptyFilteredTitle'
+    | 'subscriptions.emptyTitle'
+    | 'subscriptions.filterLabel'
+    | 'subscriptions.filters.all'
+    | 'subscriptions.filters.ended'
+    | 'subscriptions.filters.live'
+    | 'subscriptions.filters.paused'
+    | 'subscriptions.newHint'
+    | 'subscriptions.nextDelivery'
+    | 'subscriptions.noNextDelivery'
+    | 'subscriptions.open'
+    | 'subscriptions.rowSummary'
+    | 'subscriptions.title'
+    | 'subscriptions.weeklyPrice'
+    | 'title'
+    | 'validation.countryCode'
+    | 'validation.required'
+    | 'validation.tooLong'
+    | 'warnings.checkout_empty_cart'
+    | 'warnings.planner_allergen_conflict'
+    | 'warnings.subscription_delivery_day_unavailable'
+    | 'warnings.subscription_no_delivery_days'
+    | 'warnings.subscription_unknown_slot'
+    | 'warnings.title'
+    | 'warnings.unknown';
   readonly "common":
     | 'action.back'
     | 'action.cancel'
@@ -1533,7 +1835,341 @@ export interface NamespaceKeys {
     | 'validation.range'
     | 'validation.required';
   readonly "planner":
-    | 'title';
+    | 'add.addAction'
+    | 'add.errorBody'
+    | 'add.errorTitle'
+    | 'add.foodPrompt'
+    | 'add.gramsHint'
+    | 'add.gramsLabel'
+    | 'add.kindFood'
+    | 'add.kindKitchenMeal'
+    | 'add.kindLabel'
+    | 'add.kindRecipe'
+    | 'add.kindRestaurant'
+    | 'add.mealTypeLabel'
+    | 'add.noFoodsBody'
+    | 'add.noFoodsTitle'
+    | 'add.noMealsBody'
+    | 'add.noMealsTitle'
+    | 'add.noRecipesBody'
+    | 'add.noRecipesTitle'
+    | 'add.per100g'
+    | 'add.perServing'
+    | 'add.restaurantDishHint'
+    | 'add.restaurantDishLabel'
+    | 'add.restaurantHint'
+    | 'add.restaurantSubmit'
+    | 'add.restaurantVenueLabel'
+    | 'add.restaurantVenuePlaceholder'
+    | 'add.search.food'
+    | 'add.search.kitchen_meal'
+    | 'add.search.recipe'
+    | 'add.search.restaurant'
+    | 'add.searchPlaceholder'
+    | 'add.title'
+    | 'announce.added'
+    | 'announce.dayRegenerated'
+    | 'announce.duplicated'
+    | 'announce.entryRegenerated'
+    | 'announce.locked'
+    | 'announce.notesSaved'
+    | 'announce.portion'
+    | 'announce.removed'
+    | 'announce.repeated'
+    | 'announce.repeatedLeftover'
+    | 'announce.replaced'
+    | 'announce.replacedRecurring'
+    | 'announce.templateSaved'
+    | 'announce.unlocked'
+    | 'announce.weekGenerated'
+    | 'announce.weekRegenerated'
+    | 'badges.dietitian_approved'
+    | 'badges.food'
+    | 'badges.home_prepared'
+    | 'badges.kitchen'
+    | 'badges.kitchenNamed'
+    | 'badges.leftover'
+    | 'badges.locked'
+    | 'badges.restaurant'
+    | 'card.actionErrorBody'
+    | 'card.actionErrorTitle'
+    | 'card.costUnknown'
+    | 'card.lock'
+    | 'card.lockedState'
+    | 'card.menu'
+    | 'card.nutritionLine'
+    | 'card.openMeal'
+    | 'card.openRecipe'
+    | 'card.portionHint'
+    | 'card.portionLabel'
+    | 'card.preparationMinutes'
+    | 'card.regenerate'
+    | 'card.regenerateHint'
+    | 'card.regenerateLockedHint'
+    | 'card.remove'
+    | 'card.removeHint'
+    | 'card.repeat'
+    | 'card.repeatBody'
+    | 'card.repeatConfirm'
+    | 'card.repeatDayLabel'
+    | 'card.repeatHint'
+    | 'card.repeatLeftoverHint'
+    | 'card.repeatLeftoverLabel'
+    | 'card.repeatTitle'
+    | 'card.replace'
+    | 'card.replaceHint'
+    | 'card.slot'
+    | 'card.unlock'
+    | 'card.unlockedState'
+    | 'card.working'
+    | 'common.cancel'
+    | 'common.listSeparator'
+    | 'common.unitGrams'
+    | 'common.unitKcal'
+    | 'common.unitMinutes'
+    | 'cost.allPriced'
+    | 'cost.someUnpriced'
+    | 'cost.unknown'
+    | 'day.addEntry'
+    | 'day.backToWeek'
+    | 'day.costTitle'
+    | 'day.emptyBody'
+    | 'day.emptySlot'
+    | 'day.emptyTitle'
+    | 'day.notFoundBody'
+    | 'day.notFoundTitle'
+    | 'day.regenerate'
+    | 'day.regenerateBody'
+    | 'day.regenerateConfirm'
+    | 'day.regenerateLocksSurvive'
+    | 'day.regenerateTitle'
+    | 'day.summaryTitle'
+    | 'day.today'
+    | 'day.warningsBody'
+    | 'day.warningsTitle'
+    | 'difference.allergensIntroducedBody'
+    | 'difference.allergensIntroducedTitle'
+    | 'difference.allergensRemoved'
+    | 'difference.allergensSame'
+    | 'difference.cost'
+    | 'difference.costUnknown'
+    | 'difference.less'
+    | 'difference.line'
+    | 'difference.more'
+    | 'difference.nutritionTitle'
+    | 'difference.same'
+    | 'grocery.backToPlanner'
+    | 'grocery.backToWeek'
+    | 'grocery.bestBefore'
+    | 'grocery.derivationBody'
+    | 'grocery.derivationTitle'
+    | 'grocery.emptyBody'
+    | 'grocery.emptyTitle'
+    | 'grocery.haveAlready'
+    | 'grocery.inPantry'
+    | 'grocery.localNote'
+    | 'grocery.neededFor'
+    | 'grocery.notFoundBody'
+    | 'grocery.notFoundTitle'
+    | 'grocery.outstanding'
+    | 'grocery.pantryBody'
+    | 'grocery.pantryEmptyBody'
+    | 'grocery.pantryEmptyTitle'
+    | 'grocery.pantryTitle'
+    | 'grocery.print'
+    | 'grocery.quantity'
+    | 'grocery.range'
+    | 'grocery.title'
+    | 'grocery.totalTitle'
+    | 'grocery.unsortedAisle'
+    | 'history.actions.day_regenerated'
+    | 'history.actions.entry_added'
+    | 'history.actions.entry_locked'
+    | 'history.actions.entry_regenerated'
+    | 'history.actions.entry_removed'
+    | 'history.actions.entry_replaced'
+    | 'history.actions.entry_unlocked'
+    | 'history.actions.generated'
+    | 'history.actions.meal_repeated'
+    | 'history.actions.notes_updated'
+    | 'history.actions.portion_adjusted'
+    | 'history.actions.professionally_approved'
+    | 'history.actions.week_regenerated'
+    | 'history.actorCustomer'
+    | 'history.actorDietitian'
+    | 'history.actorSystem'
+    | 'history.allLoaded'
+    | 'history.emptyBody'
+    | 'history.emptyTitle'
+    | 'history.intro'
+    | 'history.loadMore'
+    | 'history.loadingMore'
+    | 'history.title'
+    | 'index.noPlanBody'
+    | 'index.noPlanTitle'
+    | 'index.openWeek'
+    | 'index.resolvingBody'
+    | 'index.resolvingTitle'
+    | 'index.startOnboarding'
+    | 'index.startVirtualDietitian'
+    | 'notes.customerHint'
+    | 'notes.customerLabel'
+    | 'notes.dietitianTitle'
+    | 'notes.errorBody'
+    | 'notes.errorTitle'
+    | 'notes.neverSaved'
+    | 'notes.noDietitianNote'
+    | 'notes.save'
+    | 'notes.saving'
+    | 'notes.survivesRegeneration'
+    | 'notes.title'
+    | 'notes.updatedAt'
+    | 'recipe.addDay'
+    | 'recipe.addErrorBody'
+    | 'recipe.addErrorTitle'
+    | 'recipe.addTitle'
+    | 'recipe.addToPlan'
+    | 'recipe.addedToPlan'
+    | 'recipe.adding'
+    | 'recipe.allergensTitle'
+    | 'recipe.attribution'
+    | 'recipe.backToPlanner'
+    | 'recipe.calculatedAt'
+    | 'recipe.complexity'
+    | 'recipe.dietTagsTitle'
+    | 'recipe.estimatedCost'
+    | 'recipe.factsTitle'
+    | 'recipe.imageLabel'
+    | 'recipe.ingredientColumn'
+    | 'recipe.ingredientQuantity'
+    | 'recipe.ingredientsCaption'
+    | 'recipe.ingredientsTitle'
+    | 'recipe.noPlan'
+    | 'recipe.notFoundBody'
+    | 'recipe.notFoundTitle'
+    | 'recipe.nutritionVersion'
+    | 'recipe.optionalIngredient'
+    | 'recipe.portionEnergy'
+    | 'recipe.portionHint'
+    | 'recipe.portionLabel'
+    | 'recipe.provenanceTitle'
+    | 'recipe.quantityColumn'
+    | 'recipe.recipeVersion'
+    | 'recipe.servingGrams'
+    | 'recipe.servingLabel'
+    | 'recipe.servingTitle'
+    | 'recipe.staleBody'
+    | 'recipe.staleTitle'
+    | 'recipe.stepMinutes'
+    | 'recipe.stepNumber'
+    | 'recipe.stepsTitle'
+    | 'recipe.totalMinutes'
+    | 'replace.clearFilters'
+    | 'replace.compatibility.check'
+    | 'replace.compatibility.conflict'
+    | 'replace.compatibility.fits'
+    | 'replace.currentBody'
+    | 'replace.currentTitle'
+    | 'replace.emptyBody'
+    | 'replace.emptyTitle'
+    | 'replace.errorBody'
+    | 'replace.errorTitle'
+    | 'replace.filterAllergens'
+    | 'replace.filterAllergensHint'
+    | 'replace.filterDiet'
+    | 'replace.filterKitchen'
+    | 'replace.filterMealType'
+    | 'replace.fromKitchen'
+    | 'replace.homePrepared'
+    | 'replace.modeLabel'
+    | 'replace.modeOnce'
+    | 'replace.modeOnceExplanation'
+    | 'replace.modeOnceHint'
+    | 'replace.modeRecurring'
+    | 'replace.modeRecurringExplanation'
+    | 'replace.modeRecurringHint'
+    | 'replace.rangeCarbohydrate'
+    | 'replace.rangeEnergy'
+    | 'replace.rangeFat'
+    | 'replace.rangePreparation'
+    | 'replace.rangePrice'
+    | 'replace.rangeProtein'
+    | 'replace.reasons.dayEnergyOutOfRange'
+    | 'replace.reasons.newAllergens'
+    | 'replace.reasons.otherMealType'
+    | 'replace.replaceOnce'
+    | 'replace.replaceRecurring'
+    | 'replace.searchLabel'
+    | 'replace.searchPlaceholder'
+    | 'replace.sourceLabel'
+    | 'replace.sourceMeals'
+    | 'replace.sourceRecipes'
+    | 'replace.title'
+    | 'replace.titleFor'
+    | 'summary.actualPresent'
+    | 'summary.energyCaption'
+    | 'summary.energyRingLabel'
+    | 'summary.meterValue'
+    | 'summary.noActual'
+    | 'summary.noTargets'
+    | 'summary.plannedBasis'
+    | 'summary.tolerance'
+    | 'title'
+    | 'warnings.allergenBody'
+    | 'warnings.allergenTitle'
+    | 'warnings.codes.diet_conflict'
+    | 'warnings.codes.energy_out_of_range'
+    | 'warnings.codes.macros_out_of_range'
+    | 'warnings.codes.over_budget'
+    | 'warnings.codes.prohibited_ingredient'
+    | 'warnings.nutritionFallback'
+    | 'warnings.nutritionTitle'
+    | 'week.actionDuplicate'
+    | 'week.actionDuplicateHint'
+    | 'week.actionExport'
+    | 'week.actionExportHint'
+    | 'week.actionHistory'
+    | 'week.actionHistoryHint'
+    | 'week.actionNotes'
+    | 'week.actionNotesHint'
+    | 'week.actionShare'
+    | 'week.actionShareHint'
+    | 'week.actionTemplate'
+    | 'week.actionTemplateHint'
+    | 'week.costTitle'
+    | 'week.duplicateBody'
+    | 'week.duplicateConfirm'
+    | 'week.duplicateTitle'
+    | 'week.duplicateWeekLabel'
+    | 'week.emptyBody'
+    | 'week.emptyDay'
+    | 'week.emptySlot'
+    | 'week.emptyTitle'
+    | 'week.generate'
+    | 'week.generating'
+    | 'week.gridLabel'
+    | 'week.groceryList'
+    | 'week.next'
+    | 'week.notFoundBody'
+    | 'week.notFoundTitle'
+    | 'week.openCurrent'
+    | 'week.openDay'
+    | 'week.planActions'
+    | 'week.previous'
+    | 'week.range'
+    | 'week.regenerate'
+    | 'week.regenerateBody'
+    | 'week.regenerateConfirm'
+    | 'week.regenerateLocksSurvive'
+    | 'week.regenerateTitle'
+    | 'week.summaryTitle'
+    | 'week.templateBody'
+    | 'week.templateConfirm'
+    | 'week.templateNameLabel'
+    | 'week.templateTitle'
+    | 'week.title'
+    | 'week.warningsBody'
+    | 'week.warningsTitle';
   readonly "professional":
     | 'title';
   readonly "virtualDietitian":
@@ -2218,11 +2854,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.combinationSnacks',
   'catalogue:plan.combinationTitle',
   'catalogue:plan.configure',
-  'catalogue:plan.configureBody',
-  'catalogue:plan.configureBrowse',
-  'catalogue:plan.configureHome',
   'catalogue:plan.configureSignIn',
-  'catalogue:plan.configureTitle',
   'catalogue:plan.deliveryBody',
   'catalogue:plan.deliveryTitle',
   'catalogue:plan.deliveryUnpublished',
@@ -2371,7 +3003,313 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:tools.weightMetric',
   'catalogue:tools.weightUnitImperial',
   'catalogue:tools.weightUnitMetric',
+  'commerce:address.area',
+  'commerce:address.areaHint',
+  'commerce:address.city',
+  'commerce:address.cityHint',
+  'commerce:address.countryCode',
+  'commerce:address.countryCodeHint',
+  'commerce:address.instructions',
+  'commerce:address.instructionsHint',
+  'commerce:address.label',
+  'commerce:address.labelHint',
+  'commerce:address.line1',
+  'commerce:address.line1Hint',
+  'commerce:address.line2',
+  'commerce:address.line2Hint',
+  'commerce:address.notStored',
+  'commerce:cart.allergenBody',
+  'commerce:cart.allergenTitle',
+  'commerce:cart.body',
+  'commerce:cart.browse',
+  'commerce:cart.checkout',
+  'commerce:cart.count',
+  'commerce:cart.delivery',
+  'commerce:cart.deliveryFree',
+  'commerce:cart.emptyBody',
+  'commerce:cart.emptyTitle',
+  'commerce:cart.priceCaption',
+  'commerce:cart.quantityLabel',
+  'commerce:cart.remove',
+  'commerce:cart.removeHint',
+  'commerce:cart.subtotal',
+  'commerce:cart.summaryEmpty',
+  'commerce:cart.summaryTitle',
+  'commerce:cart.title',
+  'commerce:cart.total',
+  'commerce:cart.unitPrice',
+  'commerce:cart.updateFailedTitle',
+  'commerce:cart.viewMeal',
+  'commerce:checkout.addressBody',
+  'commerce:checkout.addressTitle',
+  'commerce:checkout.body',
+  'commerce:checkout.committedSlot',
+  'commerce:checkout.dateHint',
+  'commerce:checkout.dateLabel',
+  'commerce:checkout.earliest',
+  'commerce:checkout.edit',
+  'commerce:checkout.emptyBody',
+  'commerce:checkout.emptyTitle',
+  'commerce:checkout.placeOrder',
+  'commerce:checkout.placeOrderHint',
+  'commerce:checkout.priceAfterReview',
+  'commerce:checkout.priceBeforeReview',
+  'commerce:checkout.prototypeNotice',
+  'commerce:checkout.review',
+  'commerce:checkout.slotTitle',
+  'commerce:checkout.slotWindow',
+  'commerce:checkout.successBody',
+  'commerce:checkout.successCart',
+  'commerce:checkout.successPriceCaption',
+  'commerce:checkout.successPrototypeBody',
+  'commerce:checkout.successPrototypeTitle',
+  'commerce:checkout.successSubscriptions',
+  'commerce:checkout.successSummaryTitle',
+  'commerce:checkout.successTitle',
+  'commerce:checkout.summaryTitle',
+  'commerce:checkout.title',
+  'commerce:common.cancel',
+  'commerce:common.listSeparator',
+  'commerce:common.noPayment',
+  'commerce:configurator.allergyDisclaimerContext',
+  'commerce:configurator.back',
+  'commerce:configurator.body',
+  'commerce:configurator.browsePlans',
+  'commerce:configurator.checks.acknowledgeDescription',
+  'commerce:configurator.checks.acknowledgeLabel',
+  'commerce:configurator.checks.allergens',
+  'commerce:configurator.checks.areaServedBody',
+  'commerce:configurator.checks.areaServedTitle',
+  'commerce:configurator.checks.areaUnknownBody',
+  'commerce:configurator.checks.areaUnknownTitle',
+  'commerce:configurator.checks.areaUnservedBody',
+  'commerce:configurator.checks.areaUnservedTitle',
+  'commerce:configurator.checks.body',
+  'commerce:configurator.checks.noAllergens',
+  'commerce:configurator.checks.relaxedBody',
+  'commerce:configurator.checks.relaxedTitle',
+  'commerce:configurator.checks.title',
+  'commerce:configurator.combination.body',
+  'commerce:configurator.combination.couplingBody',
+  'commerce:configurator.combination.couplingTitle',
+  'commerce:configurator.combination.label',
+  'commerce:configurator.combination.meals',
+  'commerce:configurator.combination.noSnacks',
+  'commerce:configurator.combination.option',
+  'commerce:configurator.combination.snacks',
+  'commerce:configurator.confirm.acknowledgeDescription',
+  'commerce:configurator.confirm.acknowledgeLabel',
+  'commerce:configurator.confirm.body',
+  'commerce:configurator.confirm.deliveries',
+  'commerce:configurator.confirm.termsBody',
+  'commerce:configurator.confirm.termsTitle',
+  'commerce:configurator.confirm.title',
+  'commerce:configurator.confirm.total',
+  'commerce:configurator.create',
+  'commerce:configurator.createFailedTitle',
+  'commerce:configurator.delivery.addressTitle',
+  'commerce:configurator.delivery.slotTitle',
+  'commerce:configurator.delivery.startHint',
+  'commerce:configurator.delivery.startLabel',
+  'commerce:configurator.delivery.useNextAllowed',
+  'commerce:configurator.delivery.weekdaysBody',
+  'commerce:configurator.delivery.weekdaysLimited',
+  'commerce:configurator.delivery.weekdaysLoading',
+  'commerce:configurator.delivery.weekdaysTitle',
+  'commerce:configurator.dietary.addedBody',
+  'commerce:configurator.dietary.addedTitle',
+  'commerce:configurator.dietary.allergensBody',
+  'commerce:configurator.dietary.allergensLoading',
+  'commerce:configurator.dietary.allergensNone',
+  'commerce:configurator.dietary.allergensTitle',
+  'commerce:configurator.dietary.dietsBody',
+  'commerce:configurator.dietary.dietsTitle',
+  'commerce:configurator.dietary.relaxedBody',
+  'commerce:configurator.dietary.relaxedTitle',
+  'commerce:configurator.disclaimerContext',
+  'commerce:configurator.duration.body',
+  'commerce:configurator.duration.caveat',
+  'commerce:configurator.duration.discount',
+  'commerce:configurator.duration.noDiscount',
+  'commerce:configurator.duration.optionLabel',
+  'commerce:configurator.duration.saving',
+  'commerce:configurator.duration.selected',
+  'commerce:configurator.duration.total',
+  'commerce:configurator.issues.address',
+  'commerce:configurator.issues.areaUnserved',
+  'commerce:configurator.issues.checks',
+  'commerce:configurator.issues.deliveryDayUnavailable',
+  'commerce:configurator.issues.duration',
+  'commerce:configurator.issues.noDeliveryDays',
+  'commerce:configurator.issues.slot',
+  'commerce:configurator.issues.startDate',
+  'commerce:configurator.issues.startTooSoon',
+  'commerce:configurator.issues.startWeekday',
+  'commerce:configurator.issues.terms',
+  'commerce:configurator.issues.variant',
+  'commerce:configurator.issuesTitle',
+  'commerce:configurator.meals.body',
+  'commerce:configurator.meals.fromPlan',
+  'commerce:configurator.meals.noDates',
+  'commerce:configurator.meals.noteLoading',
+  'commerce:configurator.meals.noteStatic',
+  'commerce:configurator.meals.noteSwappable',
+  'commerce:configurator.meals.noteTitle',
+  'commerce:configurator.meals.selectLabel',
+  'commerce:configurator.meals.unknown',
+  'commerce:configurator.next',
+  'commerce:configurator.notFoundBody',
+  'commerce:configurator.notFoundTitle',
+  'commerce:configurator.plan.band',
+  'commerce:configurator.plan.macroCaveat',
+  'commerce:configurator.plan.macroRange',
+  'commerce:configurator.plan.macrosTitle',
+  'commerce:configurator.plan.variantLabel',
+  'commerce:configurator.plan.weeklyPrice',
+  'commerce:configurator.position',
+  'commerce:configurator.previewEmptyBody',
+  'commerce:configurator.previewEmptyTitle',
+  'commerce:configurator.priceLater',
+  'commerce:configurator.progressLabel',
+  'commerce:configurator.steps.combination',
+  'commerce:configurator.steps.confirm',
+  'commerce:configurator.steps.delivery',
+  'commerce:configurator.steps.dietary',
+  'commerce:configurator.steps.duration',
+  'commerce:configurator.steps.meals',
+  'commerce:configurator.steps.plan',
+  'commerce:configurator.steps.summary',
+  'commerce:configurator.successBody',
+  'commerce:configurator.successList',
+  'commerce:configurator.successNoPayment',
+  'commerce:configurator.successOpen',
+  'commerce:configurator.successTitle',
+  'commerce:configurator.summary.address',
+  'commerce:configurator.summary.allergens',
+  'commerce:configurator.summary.checksBody',
+  'commerce:configurator.summary.checksTitle',
+  'commerce:configurator.summary.configTitle',
+  'commerce:configurator.summary.days',
+  'commerce:configurator.summary.discount',
+  'commerce:configurator.summary.duration',
+  'commerce:configurator.summary.gross',
+  'commerce:configurator.summary.perDelivery',
+  'commerce:configurator.summary.perDeliveryNote',
+  'commerce:configurator.summary.plan',
+  'commerce:configurator.summary.priceCaption',
+  'commerce:configurator.summary.priceTitle',
+  'commerce:configurator.summary.slot',
+  'commerce:configurator.summary.total',
+  'commerce:configurator.summary.weekly',
+  'commerce:configurator.summary.window',
+  'commerce:configurator.summary.windowValue',
+  'commerce:configurator.title',
+  'commerce:durations.12w',
+  'commerce:durations.1w',
+  'commerce:durations.2w',
+  'commerce:durations.4w',
+  'commerce:slots.evening',
+  'commerce:slots.midday',
+  'commerce:slots.morning',
+  'commerce:states.active',
+  'commerce:states.cancelled',
+  'commerce:states.draft',
+  'commerce:states.expired',
+  'commerce:states.paused',
+  'commerce:states.skipped_today',
+  'commerce:subscription.actionFailedTitle',
+  'commerce:subscription.actionsNote',
+  'commerce:subscription.actionsTitle',
+  'commerce:subscription.addressConfirm',
+  'commerce:subscription.addressDialogBody',
+  'commerce:subscription.addressDialogTitle',
+  'commerce:subscription.backToList',
+  'commerce:subscription.changeAddress',
+  'commerce:subscription.changeSlot',
+  'commerce:subscription.configCaption',
+  'commerce:subscription.configTitle',
+  'commerce:subscription.created',
+  'commerce:subscription.noSkippedDates',
+  'commerce:subscription.notFoundBody',
+  'commerce:subscription.notFoundTitle',
+  'commerce:subscription.pause',
+  'commerce:subscription.pauseConfirm',
+  'commerce:subscription.pauseConsequenceOpen',
+  'commerce:subscription.pauseConsequenceTitle',
+  'commerce:subscription.pauseConsequenceUntil',
+  'commerce:subscription.pauseDialogBody',
+  'commerce:subscription.pauseDialogTitle',
+  'commerce:subscription.pauseUntilHint',
+  'commerce:subscription.pauseUntilLabel',
+  'commerce:subscription.pausedUntilBadge',
+  'commerce:subscription.readOnly.active',
+  'commerce:subscription.readOnly.cancelled',
+  'commerce:subscription.readOnly.draft',
+  'commerce:subscription.readOnly.expired',
+  'commerce:subscription.readOnly.paused',
+  'commerce:subscription.readOnly.skipped_today',
+  'commerce:subscription.readOnlyTitle',
+  'commerce:subscription.resume',
+  'commerce:subscription.resumeConfirm',
+  'commerce:subscription.resumeDialogBody',
+  'commerce:subscription.resumeDialogTitle',
+  'commerce:subscription.rows.address',
+  'commerce:subscription.rows.allergens',
+  'commerce:subscription.rows.days',
+  'commerce:subscription.rows.duration',
+  'commerce:subscription.rows.field',
+  'commerce:subscription.rows.plan',
+  'commerce:subscription.rows.slot',
+  'commerce:subscription.rows.start',
+  'commerce:subscription.rows.value',
+  'commerce:subscription.skip',
+  'commerce:subscription.skipConfirm',
+  'commerce:subscription.skipConsequenceBody',
+  'commerce:subscription.skipConsequenceTitle',
+  'commerce:subscription.skipDialogBody',
+  'commerce:subscription.skipDialogDated',
+  'commerce:subscription.skipDialogTitle',
+  'commerce:subscription.skipSheetBody',
+  'commerce:subscription.skipSheetTitle',
+  'commerce:subscription.skippedBadge',
+  'commerce:subscription.slotConfirm',
+  'commerce:subscription.slotDaysNote',
+  'commerce:subscription.slotDaysTitle',
+  'commerce:subscription.slotDialogBody',
+  'commerce:subscription.slotDialogTitle',
+  'commerce:subscription.stateSince',
+  'commerce:subscription.timelineNote',
+  'commerce:subscription.timelineTitle',
+  'commerce:subscriptions.body',
+  'commerce:subscriptions.browse',
+  'commerce:subscriptions.clearFilter',
+  'commerce:subscriptions.emptyBody',
+  'commerce:subscriptions.emptyFilteredBody',
+  'commerce:subscriptions.emptyFilteredTitle',
+  'commerce:subscriptions.emptyTitle',
+  'commerce:subscriptions.filterLabel',
+  'commerce:subscriptions.filters.all',
+  'commerce:subscriptions.filters.ended',
+  'commerce:subscriptions.filters.live',
+  'commerce:subscriptions.filters.paused',
+  'commerce:subscriptions.newHint',
+  'commerce:subscriptions.nextDelivery',
+  'commerce:subscriptions.noNextDelivery',
+  'commerce:subscriptions.open',
+  'commerce:subscriptions.rowSummary',
+  'commerce:subscriptions.title',
+  'commerce:subscriptions.weeklyPrice',
   'commerce:title',
+  'commerce:validation.countryCode',
+  'commerce:validation.required',
+  'commerce:validation.tooLong',
+  'commerce:warnings.checkout_empty_cart',
+  'commerce:warnings.planner_allergen_conflict',
+  'commerce:warnings.subscription_delivery_day_unavailable',
+  'commerce:warnings.subscription_no_delivery_days',
+  'commerce:warnings.subscription_unknown_slot',
+  'commerce:warnings.title',
+  'commerce:warnings.unknown',
   'common:action.back',
   'common:action.cancel',
   'common:action.change',
@@ -3356,7 +4294,341 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'onboarding:validation.mealTimesOrder',
   'onboarding:validation.range',
   'onboarding:validation.required',
+  'planner:add.addAction',
+  'planner:add.errorBody',
+  'planner:add.errorTitle',
+  'planner:add.foodPrompt',
+  'planner:add.gramsHint',
+  'planner:add.gramsLabel',
+  'planner:add.kindFood',
+  'planner:add.kindKitchenMeal',
+  'planner:add.kindLabel',
+  'planner:add.kindRecipe',
+  'planner:add.kindRestaurant',
+  'planner:add.mealTypeLabel',
+  'planner:add.noFoodsBody',
+  'planner:add.noFoodsTitle',
+  'planner:add.noMealsBody',
+  'planner:add.noMealsTitle',
+  'planner:add.noRecipesBody',
+  'planner:add.noRecipesTitle',
+  'planner:add.per100g',
+  'planner:add.perServing',
+  'planner:add.restaurantDishHint',
+  'planner:add.restaurantDishLabel',
+  'planner:add.restaurantHint',
+  'planner:add.restaurantSubmit',
+  'planner:add.restaurantVenueLabel',
+  'planner:add.restaurantVenuePlaceholder',
+  'planner:add.search.food',
+  'planner:add.search.kitchen_meal',
+  'planner:add.search.recipe',
+  'planner:add.search.restaurant',
+  'planner:add.searchPlaceholder',
+  'planner:add.title',
+  'planner:announce.added',
+  'planner:announce.dayRegenerated',
+  'planner:announce.duplicated',
+  'planner:announce.entryRegenerated',
+  'planner:announce.locked',
+  'planner:announce.notesSaved',
+  'planner:announce.portion',
+  'planner:announce.removed',
+  'planner:announce.repeated',
+  'planner:announce.repeatedLeftover',
+  'planner:announce.replaced',
+  'planner:announce.replacedRecurring',
+  'planner:announce.templateSaved',
+  'planner:announce.unlocked',
+  'planner:announce.weekGenerated',
+  'planner:announce.weekRegenerated',
+  'planner:badges.dietitian_approved',
+  'planner:badges.food',
+  'planner:badges.home_prepared',
+  'planner:badges.kitchen',
+  'planner:badges.kitchenNamed',
+  'planner:badges.leftover',
+  'planner:badges.locked',
+  'planner:badges.restaurant',
+  'planner:card.actionErrorBody',
+  'planner:card.actionErrorTitle',
+  'planner:card.costUnknown',
+  'planner:card.lock',
+  'planner:card.lockedState',
+  'planner:card.menu',
+  'planner:card.nutritionLine',
+  'planner:card.openMeal',
+  'planner:card.openRecipe',
+  'planner:card.portionHint',
+  'planner:card.portionLabel',
+  'planner:card.preparationMinutes',
+  'planner:card.regenerate',
+  'planner:card.regenerateHint',
+  'planner:card.regenerateLockedHint',
+  'planner:card.remove',
+  'planner:card.removeHint',
+  'planner:card.repeat',
+  'planner:card.repeatBody',
+  'planner:card.repeatConfirm',
+  'planner:card.repeatDayLabel',
+  'planner:card.repeatHint',
+  'planner:card.repeatLeftoverHint',
+  'planner:card.repeatLeftoverLabel',
+  'planner:card.repeatTitle',
+  'planner:card.replace',
+  'planner:card.replaceHint',
+  'planner:card.slot',
+  'planner:card.unlock',
+  'planner:card.unlockedState',
+  'planner:card.working',
+  'planner:common.cancel',
+  'planner:common.listSeparator',
+  'planner:common.unitGrams',
+  'planner:common.unitKcal',
+  'planner:common.unitMinutes',
+  'planner:cost.allPriced',
+  'planner:cost.someUnpriced',
+  'planner:cost.unknown',
+  'planner:day.addEntry',
+  'planner:day.backToWeek',
+  'planner:day.costTitle',
+  'planner:day.emptyBody',
+  'planner:day.emptySlot',
+  'planner:day.emptyTitle',
+  'planner:day.notFoundBody',
+  'planner:day.notFoundTitle',
+  'planner:day.regenerate',
+  'planner:day.regenerateBody',
+  'planner:day.regenerateConfirm',
+  'planner:day.regenerateLocksSurvive',
+  'planner:day.regenerateTitle',
+  'planner:day.summaryTitle',
+  'planner:day.today',
+  'planner:day.warningsBody',
+  'planner:day.warningsTitle',
+  'planner:difference.allergensIntroducedBody',
+  'planner:difference.allergensIntroducedTitle',
+  'planner:difference.allergensRemoved',
+  'planner:difference.allergensSame',
+  'planner:difference.cost',
+  'planner:difference.costUnknown',
+  'planner:difference.less',
+  'planner:difference.line',
+  'planner:difference.more',
+  'planner:difference.nutritionTitle',
+  'planner:difference.same',
+  'planner:grocery.backToPlanner',
+  'planner:grocery.backToWeek',
+  'planner:grocery.bestBefore',
+  'planner:grocery.derivationBody',
+  'planner:grocery.derivationTitle',
+  'planner:grocery.emptyBody',
+  'planner:grocery.emptyTitle',
+  'planner:grocery.haveAlready',
+  'planner:grocery.inPantry',
+  'planner:grocery.localNote',
+  'planner:grocery.neededFor',
+  'planner:grocery.notFoundBody',
+  'planner:grocery.notFoundTitle',
+  'planner:grocery.outstanding',
+  'planner:grocery.pantryBody',
+  'planner:grocery.pantryEmptyBody',
+  'planner:grocery.pantryEmptyTitle',
+  'planner:grocery.pantryTitle',
+  'planner:grocery.print',
+  'planner:grocery.quantity',
+  'planner:grocery.range',
+  'planner:grocery.title',
+  'planner:grocery.totalTitle',
+  'planner:grocery.unsortedAisle',
+  'planner:history.actions.day_regenerated',
+  'planner:history.actions.entry_added',
+  'planner:history.actions.entry_locked',
+  'planner:history.actions.entry_regenerated',
+  'planner:history.actions.entry_removed',
+  'planner:history.actions.entry_replaced',
+  'planner:history.actions.entry_unlocked',
+  'planner:history.actions.generated',
+  'planner:history.actions.meal_repeated',
+  'planner:history.actions.notes_updated',
+  'planner:history.actions.portion_adjusted',
+  'planner:history.actions.professionally_approved',
+  'planner:history.actions.week_regenerated',
+  'planner:history.actorCustomer',
+  'planner:history.actorDietitian',
+  'planner:history.actorSystem',
+  'planner:history.allLoaded',
+  'planner:history.emptyBody',
+  'planner:history.emptyTitle',
+  'planner:history.intro',
+  'planner:history.loadMore',
+  'planner:history.loadingMore',
+  'planner:history.title',
+  'planner:index.noPlanBody',
+  'planner:index.noPlanTitle',
+  'planner:index.openWeek',
+  'planner:index.resolvingBody',
+  'planner:index.resolvingTitle',
+  'planner:index.startOnboarding',
+  'planner:index.startVirtualDietitian',
+  'planner:notes.customerHint',
+  'planner:notes.customerLabel',
+  'planner:notes.dietitianTitle',
+  'planner:notes.errorBody',
+  'planner:notes.errorTitle',
+  'planner:notes.neverSaved',
+  'planner:notes.noDietitianNote',
+  'planner:notes.save',
+  'planner:notes.saving',
+  'planner:notes.survivesRegeneration',
+  'planner:notes.title',
+  'planner:notes.updatedAt',
+  'planner:recipe.addDay',
+  'planner:recipe.addErrorBody',
+  'planner:recipe.addErrorTitle',
+  'planner:recipe.addTitle',
+  'planner:recipe.addToPlan',
+  'planner:recipe.addedToPlan',
+  'planner:recipe.adding',
+  'planner:recipe.allergensTitle',
+  'planner:recipe.attribution',
+  'planner:recipe.backToPlanner',
+  'planner:recipe.calculatedAt',
+  'planner:recipe.complexity',
+  'planner:recipe.dietTagsTitle',
+  'planner:recipe.estimatedCost',
+  'planner:recipe.factsTitle',
+  'planner:recipe.imageLabel',
+  'planner:recipe.ingredientColumn',
+  'planner:recipe.ingredientQuantity',
+  'planner:recipe.ingredientsCaption',
+  'planner:recipe.ingredientsTitle',
+  'planner:recipe.noPlan',
+  'planner:recipe.notFoundBody',
+  'planner:recipe.notFoundTitle',
+  'planner:recipe.nutritionVersion',
+  'planner:recipe.optionalIngredient',
+  'planner:recipe.portionEnergy',
+  'planner:recipe.portionHint',
+  'planner:recipe.portionLabel',
+  'planner:recipe.provenanceTitle',
+  'planner:recipe.quantityColumn',
+  'planner:recipe.recipeVersion',
+  'planner:recipe.servingGrams',
+  'planner:recipe.servingLabel',
+  'planner:recipe.servingTitle',
+  'planner:recipe.staleBody',
+  'planner:recipe.staleTitle',
+  'planner:recipe.stepMinutes',
+  'planner:recipe.stepNumber',
+  'planner:recipe.stepsTitle',
+  'planner:recipe.totalMinutes',
+  'planner:replace.clearFilters',
+  'planner:replace.compatibility.check',
+  'planner:replace.compatibility.conflict',
+  'planner:replace.compatibility.fits',
+  'planner:replace.currentBody',
+  'planner:replace.currentTitle',
+  'planner:replace.emptyBody',
+  'planner:replace.emptyTitle',
+  'planner:replace.errorBody',
+  'planner:replace.errorTitle',
+  'planner:replace.filterAllergens',
+  'planner:replace.filterAllergensHint',
+  'planner:replace.filterDiet',
+  'planner:replace.filterKitchen',
+  'planner:replace.filterMealType',
+  'planner:replace.fromKitchen',
+  'planner:replace.homePrepared',
+  'planner:replace.modeLabel',
+  'planner:replace.modeOnce',
+  'planner:replace.modeOnceExplanation',
+  'planner:replace.modeOnceHint',
+  'planner:replace.modeRecurring',
+  'planner:replace.modeRecurringExplanation',
+  'planner:replace.modeRecurringHint',
+  'planner:replace.rangeCarbohydrate',
+  'planner:replace.rangeEnergy',
+  'planner:replace.rangeFat',
+  'planner:replace.rangePreparation',
+  'planner:replace.rangePrice',
+  'planner:replace.rangeProtein',
+  'planner:replace.reasons.dayEnergyOutOfRange',
+  'planner:replace.reasons.newAllergens',
+  'planner:replace.reasons.otherMealType',
+  'planner:replace.replaceOnce',
+  'planner:replace.replaceRecurring',
+  'planner:replace.searchLabel',
+  'planner:replace.searchPlaceholder',
+  'planner:replace.sourceLabel',
+  'planner:replace.sourceMeals',
+  'planner:replace.sourceRecipes',
+  'planner:replace.title',
+  'planner:replace.titleFor',
+  'planner:summary.actualPresent',
+  'planner:summary.energyCaption',
+  'planner:summary.energyRingLabel',
+  'planner:summary.meterValue',
+  'planner:summary.noActual',
+  'planner:summary.noTargets',
+  'planner:summary.plannedBasis',
+  'planner:summary.tolerance',
   'planner:title',
+  'planner:warnings.allergenBody',
+  'planner:warnings.allergenTitle',
+  'planner:warnings.codes.diet_conflict',
+  'planner:warnings.codes.energy_out_of_range',
+  'planner:warnings.codes.macros_out_of_range',
+  'planner:warnings.codes.over_budget',
+  'planner:warnings.codes.prohibited_ingredient',
+  'planner:warnings.nutritionFallback',
+  'planner:warnings.nutritionTitle',
+  'planner:week.actionDuplicate',
+  'planner:week.actionDuplicateHint',
+  'planner:week.actionExport',
+  'planner:week.actionExportHint',
+  'planner:week.actionHistory',
+  'planner:week.actionHistoryHint',
+  'planner:week.actionNotes',
+  'planner:week.actionNotesHint',
+  'planner:week.actionShare',
+  'planner:week.actionShareHint',
+  'planner:week.actionTemplate',
+  'planner:week.actionTemplateHint',
+  'planner:week.costTitle',
+  'planner:week.duplicateBody',
+  'planner:week.duplicateConfirm',
+  'planner:week.duplicateTitle',
+  'planner:week.duplicateWeekLabel',
+  'planner:week.emptyBody',
+  'planner:week.emptyDay',
+  'planner:week.emptySlot',
+  'planner:week.emptyTitle',
+  'planner:week.generate',
+  'planner:week.generating',
+  'planner:week.gridLabel',
+  'planner:week.groceryList',
+  'planner:week.next',
+  'planner:week.notFoundBody',
+  'planner:week.notFoundTitle',
+  'planner:week.openCurrent',
+  'planner:week.openDay',
+  'planner:week.planActions',
+  'planner:week.previous',
+  'planner:week.range',
+  'planner:week.regenerate',
+  'planner:week.regenerateBody',
+  'planner:week.regenerateConfirm',
+  'planner:week.regenerateLocksSurvive',
+  'planner:week.regenerateTitle',
+  'planner:week.summaryTitle',
+  'planner:week.templateBody',
+  'planner:week.templateConfirm',
+  'planner:week.templateNameLabel',
+  'planner:week.templateTitle',
+  'planner:week.title',
+  'planner:week.warningsBody',
+  'planner:week.warningsTitle',
   'professional:title',
   'virtualDietitian:aiNotice.body',
   'virtualDietitian:aiNotice.title',

@@ -24,7 +24,6 @@ import { useTranslation } from 'react-i18next';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
-import { PrototypeDialog } from '../../../prototype/index.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -53,11 +52,13 @@ import { MealCard } from '../../marketplace/meal-card.tsx';
  *
  * ## The call to action
  *
- * `/customer/subscriptions/new` does not exist in this build, so a signed-in press cannot navigate
- * to it. Rather than a link into "not found", the press opens the prototype dialog naming the
- * proposed endpoint and the route, and offers two destinations that do resolve — the same
- * visible-but-locked treatment the navigation descriptors use (doc 17, MKT-04). An anonymous
- * visitor gets a real navigation to sign-in, because that step is genuinely next for them.
+ * A signed-in press goes straight to `/customer/subscriptions/new`, carrying both the plan and the
+ * variant the person was looking at — so the configurator opens on the calorie band they chose here
+ * rather than resetting to the advertised one. An anonymous visitor gets a real navigation to
+ * sign-in with the page recorded, so the plan is one press away once they are back.
+ *
+ * Until the commerce wave landed, this control opened a prototype dialog naming the endpoint it was
+ * waiting on. Replacing it was the whole handoff: one branch, and the notice is gone.
  */
 export interface PlanDetailScreenProps {
     readonly planId: string | undefined;
@@ -88,7 +89,6 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
     const kitchen = useKitchenQuery(item?.kitchenId ?? null);
 
     const [variantId, setVariantId] = useState<string | null>(null);
-    const [configureOpen, setConfigureOpen] = useState(false);
 
     // The middle variant is the advertised one, so it is what an unopened page should be showing.
     const selected: PlanVariant | undefined =
@@ -441,7 +441,9 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                         }
                                         onPress={() => {
                                             if (signedIn) {
-                                                setConfigureOpen(true);
+                                                router.push(
+                                                    `/customer/subscriptions/new?plan=${String(item.id)}&variant=${String(selected.id)}` as never,
+                                                );
                                                 return;
                                             }
                                             recordResumeIntent({
@@ -460,38 +462,6 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                     )}
                 </QueryStates>
             )}
-
-            <PrototypeDialog
-                testID="plan-detail-configure-dialog"
-                open={configureOpen}
-                onClose={() => {
-                    setConfigureOpen(false);
-                }}
-                title={t('catalogue:plan.configureTitle')}
-                description={t('catalogue:plan.configureBody')}
-                contract="POST /api/v1/subscriptions/preview → /customer/subscriptions/new"
-                actions={
-                    <>
-                        <Button
-                            testID="plan-detail-configure-browse"
-                            variant="secondary"
-                            label={t('catalogue:plan.configureBrowse')}
-                            onPress={() => {
-                                setConfigureOpen(false);
-                                router.push('/plans');
-                            }}
-                        />
-                        <Button
-                            testID="plan-detail-configure-home"
-                            label={t('catalogue:plan.configureHome')}
-                            onPress={() => {
-                                setConfigureOpen(false);
-                                router.push('/customer');
-                            }}
-                        />
-                    </>
-                }
-            />
         </Stack>
     );
 }

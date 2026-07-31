@@ -291,11 +291,13 @@ describe('DevicesScreen', () => {
         await fireEvent.changeText(screen.getByTestId('step-up-password-input'), 'password');
         await fireEvent.press(screen.getByTestId('step-up-submit'));
 
-        // No second press of "Revoke": the intent was already expressed.
+        // No second press of "Revoke": the intent was already expressed. The world change is
+        // the durable fact; the toast auto-dismisses, so it is asserted inside the SAME retry
+        // window rather than afterwards (outside, worker contention loses the race - it did).
         await waitFor(async () => {
             expect(await repositories.devices.list()).toHaveLength(2);
+            expect(screen.getByTestId('device-revoked-toast')).toBeTruthy();
         });
-        expect(screen.getByTestId('device-revoked-toast')).toBeTruthy();
     });
 });
 

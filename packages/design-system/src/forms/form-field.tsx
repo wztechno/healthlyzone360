@@ -4,6 +4,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { FieldLabel } from './field-label';
 
 /**
  * The accessibility props a `FormField` hands to whatever control it wraps.
@@ -73,19 +74,20 @@ export function FormField({
 
     return (
         <View testID={testID} className={cx('flex-col gap-1', className)}>
-            <RNText
-                nativeID={labelId}
-                testID={testID === undefined ? undefined : `${testID}-label`}
-                className={cx(
-                    'text-sm font-medium text-start',
-                    disabled ? 'text-content-disabled' : 'text-content-primary',
-                )}
-            >
-                {label}
-                {required ? (
-                    <RNText className="text-danger-strong">{` ${REQUIRED_MARK}`}</RNText>
-                ) : null}
-            </RNText>
+            {/*
+             * The label is an element in its own right, and on the web it is a real `<label
+             * for="…">`. `aria-labelledby` alone reads as "labelled by a hidden thing" to axe the
+             * moment the label scrolls out of view, which is how a correctly labelled field ends up
+             * reported as `label-title-only`.
+             */}
+            <FieldLabel
+                id={labelId}
+                htmlFor={base}
+                text={label}
+                disabled={disabled}
+                {...(required ? { requiredMark: REQUIRED_MARK } : {})}
+                {...(testID === undefined ? {} : { testID: `${testID}-label` })}
+            />
 
             {hint === undefined ? null : (
                 <RNText

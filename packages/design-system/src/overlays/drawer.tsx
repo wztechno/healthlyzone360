@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, Text as RNText, View } from 'react-native';
+import { Modal, Pressable, Text as RNText, ScrollView, View } from 'react-native';
 
 import { IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
@@ -38,6 +38,22 @@ export interface DrawerProps {
  * properties, whereas flex source order behaves identically on both.
  *
  * `bottom` is the same trick rotated: a `flex-col` with the backdrop above the panel.
+ *
+ * ## The size bound is in viewport units, not per cent
+ *
+ * The panel is wrapped by `SlideIn`, whose box is whatever the panel asks for. A percentage bound
+ * therefore resolves against the panel's own wrapper: `max-w-[95%]` meant 95 % *of the panel*,
+ * which inset it from the edge it is attached to by exactly 5 % and left a strip of backdrop
+ * showing down the trailing edge. `vw`/`vh` resolve against the screen on both platforms, which is
+ * what every caller means, and they do not depend on an ancestor having a definite size.
+ *
+ * ## The body scrolls
+ *
+ * A drawer holds a form, a filter set or an action list, and any of them can be taller than the
+ * screen. Without a scroller the overflow is simply unreachable — the last actions of a sheet end
+ * up underneath its own footer, and no amount of page scrolling brings them back, because the panel
+ * is inside a fixed modal. So the content is a `ScrollView`, the header and footer stay put, and
+ * the panel shrinks to its own bound instead of growing past it.
  */
 export function Drawer({
     open,
@@ -62,9 +78,8 @@ export function Drawer({
             aria-modal
             aria-labelledby={titleId}
             className={cx(
-                bottom
-                    ? 'max-h-[85%] w-full flex-col gap-2 rounded-t-2xl bg-surface-raised shadow-elevation-4'
-                    : 'h-full w-[300px] max-w-[85%] flex-col gap-2 bg-surface-raised shadow-elevation-4',
+                'min-h-0 shrink flex-col gap-2 bg-surface-raised shadow-elevation-4',
+                bottom ? 'max-h-[85vh] w-full rounded-t-2xl' : 'h-full w-[300px] max-w-[85vw]',
                 className,
             )}
         >
@@ -87,9 +102,13 @@ export function Drawer({
                 />
             </View>
 
-            <View testID={`${base}-content`} className="flex-1 p-2">
+            <ScrollView
+                testID={`${base}-content`}
+                className="min-h-0 shrink"
+                contentContainerClassName="p-2"
+            >
                 {children}
-            </View>
+            </ScrollView>
 
             {footer === undefined ? null : (
                 <View className="border-t border-stroke-subtle p-4">{footer}</View>

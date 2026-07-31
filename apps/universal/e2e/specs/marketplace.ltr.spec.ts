@@ -176,7 +176,7 @@ test.describe('consumer home (en)', () => {
         await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
     });
 
-    test('the consumer navigation marks what is not built yet and discloses on press', async ({
+    test('the consumer navigation reaches the planner now that every destination is built', async ({
         page,
     }) => {
         await signIn(page);
@@ -186,9 +186,10 @@ test.describe('consumer home (en)', () => {
         await page.goto('/customer');
         await expect(page.getByTestId('consumer-home-screen')).toBeVisible();
 
+        // Wave 4 completed the consumer surface: a press navigates rather than explains.
         await expect(page.getByTestId('consumer-nav-home')).toBeVisible();
         await page.getByTestId('consumer-nav-planner').click();
-        await expect(page.getByTestId('prototype-notice')).toBeVisible();
-        await expect(page.getByTestId('consumer-home-screen')).toBeVisible();
+        await expect(page.getByTestId('planner-week-screen')).toBeVisible();
+        await expect(page.getByTestId('prototype-notice')).not.toBeVisible();
     });
 });

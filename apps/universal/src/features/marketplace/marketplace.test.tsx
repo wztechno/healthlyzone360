@@ -410,7 +410,10 @@ describe('navigation descriptors', () => {
 
         expect([...new Set(available)]).toEqual([
             '/customer',
+            '/customer/cart',
             '/customer/nutrition',
+            '/customer/planner',
+            '/customer/subscriptions',
             '/customer/virtual-dietitian',
             '/dietitians',
             '/discover',
@@ -431,7 +434,12 @@ describe('navigation descriptors', () => {
 });
 
 describe('ConsumerShell', () => {
-    it('marks the destinations that are not built yet, and answers a press honestly', async () => {
+    it('navigates every destination for real now that all consumer routes exist', async () => {
+        // Wave 4 completed the consumer surface: no planned destinations remain, so a press
+        // must navigate rather than explain. (The honest-press behaviour for planned entries
+        // is still covered by the descriptor contract test above should one ever return.)
+        expect(CONSUMER_NAVIGATION.every((item) => item.status === 'available')).toBe(true);
+
         await renderScreen(
             <ConsumerShell unguarded>
                 <></>
@@ -440,13 +448,10 @@ describe('ConsumerShell', () => {
         );
 
         expect(screen.getByTestId('consumer-nav-home')).toBeTruthy();
-        expect(screen.getByTestId('consumer-nav-planner')).toBeTruthy();
 
         await fireEvent.press(screen.getByTestId('consumer-nav-planner'));
-        await waitFor(() => {
-            expect(screen.getByTestId('prototype-notice')).toBeTruthy();
-        });
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/customer/planner');
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/planner');
+        expect(screen.queryByTestId('prototype-notice')).toBeNull();
     });
 });
 

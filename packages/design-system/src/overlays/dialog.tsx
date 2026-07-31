@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, Text as RNText, View } from 'react-native';
+import { Modal, Pressable, Text as RNText, ScrollView, View } from 'react-native';
 
 import { IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
@@ -32,6 +32,15 @@ export interface DialogProps {
  *
  * `aria-modal` plus `aria-labelledby`/`aria-describedby` are set explicitly rather than left to the
  * platform, because native has no equivalent and the two would otherwise diverge.
+ *
+ * ## The dialog never grows past the screen
+ *
+ * A confirmation with a form in it — a delivery address, a repeat picker — is easily taller than a
+ * short viewport, and a centred surface that overflows loses **both** ends: the title above and,
+ * far worse, the confirming button below. Nothing scrolls it back, because the surface is inside a
+ * fixed modal rather than in the page. So the surface is bounded by the screen and its body — the
+ * description and the caller's children — is the part that scrolls; the title row and the actions
+ * are always on screen, which is the property a confirmation depends on.
  */
 export function Dialog({
     open,
@@ -89,8 +98,11 @@ export function Dialog({
                         aria-modal
                         aria-labelledby={titleId}
                         aria-describedby={descriptionId}
+                        // `max-h` in viewport units, not per cent: the animating wrapper's box is
+                        // whatever this panel asks for, so a percentage would resolve against the
+                        // panel itself and bound nothing at all.
                         className={cx(
-                            'w-full flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
+                            'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
                             className,
                         )}
                     >
@@ -113,17 +125,23 @@ export function Dialog({
                             />
                         </View>
 
-                        {description === undefined ? null : (
-                            <RNText
-                                nativeID={descriptionId}
-                                testID={`${base}-description`}
-                                className="text-sm text-content-secondary text-start"
-                            >
-                                {description}
-                            </RNText>
-                        )}
+                        <ScrollView
+                            testID={`${base}-body`}
+                            className="min-h-0 shrink"
+                            contentContainerClassName="flex-col gap-4"
+                        >
+                            {description === undefined ? null : (
+                                <RNText
+                                    nativeID={descriptionId}
+                                    testID={`${base}-description`}
+                                    className="text-sm text-content-secondary text-start"
+                                >
+                                    {description}
+                                </RNText>
+                            )}
 
-                        {children}
+                            {children}
+                        </ScrollView>
 
                         {actions === undefined ? null : (
                             <View

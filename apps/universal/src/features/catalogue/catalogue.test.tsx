@@ -569,7 +569,7 @@ describe('PlanDetailScreen', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/sign-in');
     });
 
-    it('names the endpoint and the route it is waiting on for a signed-in visitor', async () => {
+    it('opens the configurator on the chosen variant for a signed-in visitor', async () => {
         const [id] = await firstPlanIds(1);
         await renderScreen(<PlanDetailScreen planId={id} />, {
             scenario: 'consumer-prototype',
@@ -579,11 +579,11 @@ describe('PlanDetailScreen', () => {
         await waitFor(() => screen.getByTestId('plan-detail-configure'));
         await fireEvent.press(screen.getByTestId('plan-detail-configure'));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('plan-detail-configure-dialog')).toBeTruthy();
-        });
-        await fireEvent.press(screen.getByTestId('plan-detail-configure-browse'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/plans');
+        // Both parameters travel: the plan, and the calorie band the person was actually looking
+        // at. Carrying only the plan would silently reset them to the advertised variant.
+        const [href] = routerMock.__push.mock.calls.at(-1) ?? [];
+        expect(String(href)).toContain(`/customer/subscriptions/new?plan=${id ?? ''}`);
+        expect(String(href)).toContain('&variant=');
     });
 
     it('reports a failure rather than an empty page when the plan is unknown', async () => {
