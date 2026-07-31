@@ -30,6 +30,9 @@ jest.mock('expo-router', () => {
     };
 });
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const routerMock = require('expo-router') as { __replace: jest.Mock; __push: jest.Mock };
+
 describe('SignInScreen', () => {
     it('validates before it ever reaches the repository', async () => {
         await renderScreen(<SignInScreen />);
@@ -149,6 +152,11 @@ describe('OrganisationPickerScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('organisation-picker-empty')).toBeTruthy();
         });
+
+        // The copy offers "continue with your personal account", so a control must actually do
+        // that — a promise in body text with no way to act on it is a dead end.
+        await fireEvent.press(screen.getByTestId('organisation-picker-continue-personal'));
+        expect(routerMock.__replace).toHaveBeenCalledWith('/customer');
     });
 
     it('auto-skips when there is exactly one active membership', async () => {

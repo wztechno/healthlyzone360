@@ -1,4 +1,4 @@
-import { createRepositories } from '@healthy360/api-client';
+import { createRepositories, MOCK_SCENARIO_NAMES } from '@healthy360/api-client';
 import type {
     ClientPlatform,
     MockScenarioName,
@@ -52,6 +52,40 @@ export interface RepositoryProviderProps {
 }
 
 /**
+ * Where the development scenario choice survives a reload.
+ *
+ * `sessionStorage`, deliberately: the choice belongs to the tab, so a reload (or a typed URL —
+ * which is a full document load) keeps the world a person put themselves in, while a fresh tab
+ * still starts at the build's default. Without this, following any absolute link after switching
+ * scenarios rebooted the default world, invalidated the session, and bounced the person to
+ * sign-in — correct by the letter of "switching worlds signs you out", but baffling in practice.
+ *
+ * Stored values are untrusted: anything not in `MOCK_SCENARIO_NAMES` is ignored. Native has no
+ * `sessionStorage`, hence the guarded access — there the choice remains per-launch state.
+ */
+const SCENARIO_STORAGE_KEY = 'h360.dev.mock-scenario';
+
+function readPersistedScenario(): MockScenarioName | null {
+    if (appConfig.dataMode !== 'mock') return null;
+    try {
+        const stored = globalThis.sessionStorage?.getItem(SCENARIO_STORAGE_KEY) ?? null;
+        return stored !== null && (MOCK_SCENARIO_NAMES as readonly string[]).includes(stored)
+            ? (stored as MockScenarioName)
+            : null;
+    } catch {
+        return null;
+    }
+}
+
+function persistScenario(next: MockScenarioName): void {
+    try {
+        globalThis.sessionStorage?.setItem(SCENARIO_STORAGE_KEY, next);
+    } catch {
+        // Storage being unavailable (native, privacy mode) only costs reload persistence.
+    }
+}
+
+/**
  * Builds the repository bundle once and hands it to the tree.
  *
  * The factory is asynchronous because the mock implementation is behind a dynamic import, which is
@@ -71,7 +105,7 @@ export function AppRepositoryProvider({
     );
 
     const [scenario, setScenario] = useState<MockScenarioName>(
-        initialScenario ?? appConfig.mockScenario,
+        initialScenario ?? readPersistedScenario() ?? appConfig.mockScenario,
     );
 
     /**
@@ -81,7 +115,7 @@ export function AppRepositoryProvider({
      * it is precisely the cascading-render pattern `react-hooks/set-state-in-effect` rejects.
      */
     const [built, setBuilt] = useState<BuiltRepositories>(() => ({
-        scenario: initialScenario ?? appConfig.mockScenario,
+        scenario: initialScenario ?? readPersistedScenario() ?? appConfig.mockScenario,
         repositories: injected ?? null,
         error: null,
     }));
@@ -130,6 +164,7 @@ export function AppRepositoryProvider({
         (next: MockScenarioName) => {
             // Switching worlds invalidates the session that belonged to the old one.
             tokenStore.clear();
+            persistScenario(next);
             setScenario(next);
         },
         [tokenStore],

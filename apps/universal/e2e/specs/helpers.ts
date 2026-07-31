@@ -26,11 +26,17 @@ export const CONSUMER_EMAIL = 'nour.saleh@example.com';
  * 1. **It clears the session token.** A world swap invalidates the account that belonged to the old
  *    world, so this must run *before* signing in — calling it on a guarded screen signs the person
  *    out and the gate redirects.
- * 2. **It does not survive a reload.** The scenario is React state, not storage, so the chosen world
- *    lasts exactly as long as the document. Everything after this call has to be client-side
- *    navigation; a `page.goto` puts the build's default scenario back.
+ * 2. **It survives a reload within the same tab, and only there.** The choice is written to
+ *    `sessionStorage`, so a `page.goto` after this call keeps the chosen world; a fresh browser
+ *    context (every Playwright test) still starts at the build's default scenario. Specs written
+ *    before persistence use client-side navigation exclusively, which remains correct.
  */
 export async function selectScenario(page: Page, scenario: string) {
+    // The scenario switcher is tucked behind a toggle in the compact dev banner; expand it first.
+    const toggle = page.getByTestId('dev-banner-toggle');
+    if ((await toggle.count()) > 0) {
+        await toggle.click();
+    }
     await expect(page.getByTestId('dev-scenario')).toBeVisible();
     await page.getByTestId('dev-scenario-trigger').click();
     await page.getByTestId(`dev-scenario-option-${scenario}`).click();

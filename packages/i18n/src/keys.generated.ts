@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 2779 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 2780 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -111,6 +111,7 @@ export interface NamespaceKeys {
     | 'login.twoFactor.useRecovery'
     | 'organisationPicker.branchCount'
     | 'organisationPicker.empty'
+    | 'organisationPicker.emptyAction'
     | 'organisationPicker.emptyBody'
     | 'organisationPicker.noBranches'
     | 'organisationPicker.onlyOne'
@@ -2913,6 +2914,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.twoFactor.useRecovery',
   'auth:organisationPicker.branchCount',
   'auth:organisationPicker.empty',
+  'auth:organisationPicker.emptyAction',
   'auth:organisationPicker.emptyBody',
   'auth:organisationPicker.noBranches',
   'auth:organisationPicker.onlyOne',

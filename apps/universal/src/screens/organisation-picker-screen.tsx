@@ -1,5 +1,6 @@
 import {
     Badge,
+    Button,
     Card,
     EmptyState,
     ErrorState,
@@ -88,6 +89,16 @@ export function OrganisationPickerScreen() {
                     testID="organisation-picker-empty"
                     title={t('auth:organisationPicker.empty')}
                     body={t('auth:organisationPicker.emptyBody')}
+                    actions={
+                        <Button
+                            testID="organisation-picker-continue-personal"
+                            variant="primary"
+                            label={t('auth:organisationPicker.emptyAction')}
+                            onPress={() => {
+                                router.replace('/customer');
+                            }}
+                        />
+                    }
                 />
             </Stack>
         );
