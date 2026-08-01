@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 2780 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 2824 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -591,24 +591,68 @@ export interface NamespaceKeys {
     | 'plan.variantLabel'
     | 'plan.variantsBody'
     | 'plan.variantsTitle'
+    | 'plans.bandsLabel'
+    | 'plans.byKitchen'
+    | 'plans.calorie.higher'
+    | 'plans.calorie.lighter'
+    | 'plans.calorie.moderate'
+    | 'plans.calorieFilter'
     | 'plans.categoryAll'
     | 'plans.categoryLabel'
+    | 'plans.compareClear'
+    | 'plans.compareEmpty'
     | 'plans.compareFull'
     | 'plans.compareHint'
     | 'plans.compareLabel'
     | 'plans.compareOpen'
+    | 'plans.compareRemove'
     | 'plans.compareSelected'
+    | 'plans.compareTitle'
+    | 'plans.compareTrayLabel'
+    | 'plans.ctaBody'
+    | 'plans.ctaPrimary'
+    | 'plans.ctaSecondary'
+    | 'plans.ctaTitle'
+    | 'plans.durationNoDiscount'
+    | 'plans.durationSaves'
+    | 'plans.durationShort.12w'
+    | 'plans.durationShort.1w'
+    | 'plans.durationShort.2w'
+    | 'plans.durationShort.4w'
+    | 'plans.durationTotal'
     | 'plans.durations'
+    | 'plans.durationsFor'
+    | 'plans.durationsLabel'
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyBand'
+    | 'plans.eyebrow'
     | 'plans.fromPrice'
+    | 'plans.heroHowItWorks'
+    | 'plans.heroSpeakToDietitian'
+    | 'plans.kitchenCount'
+    | 'plans.kitchenFilter'
     | 'plans.mealsPerDay'
     | 'plans.mealsPerDayNoSnacks'
+    | 'plans.methodologyTitle'
     | 'plans.perDayPrice'
+    | 'plans.perWeekSuffix'
+    | 'plans.priceFrom'
     | 'plans.ratingLabel'
+    | 'plans.resultSummary'
+    | 'plans.searchLabel'
+    | 'plans.searchPlaceholder'
+    | 'plans.sort.priceLowHigh'
+    | 'plans.sort.ratingHighLow'
+    | 'plans.sort.recommended'
+    | 'plans.sortLabel'
     | 'plans.subtitle'
     | 'plans.title'
+    | 'plans.trust.flexible'
+    | 'plans.trust.kitchens'
+    | 'plans.trust.reviewed'
+    | 'plans.viewPlan'
+    | 'plans.viewPlanNamed'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -3392,24 +3436,68 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.variantLabel',
   'catalogue:plan.variantsBody',
   'catalogue:plan.variantsTitle',
+  'catalogue:plans.bandsLabel',
+  'catalogue:plans.byKitchen',
+  'catalogue:plans.calorie.higher',
+  'catalogue:plans.calorie.lighter',
+  'catalogue:plans.calorie.moderate',
+  'catalogue:plans.calorieFilter',
   'catalogue:plans.categoryAll',
   'catalogue:plans.categoryLabel',
+  'catalogue:plans.compareClear',
+  'catalogue:plans.compareEmpty',
   'catalogue:plans.compareFull',
   'catalogue:plans.compareHint',
   'catalogue:plans.compareLabel',
   'catalogue:plans.compareOpen',
+  'catalogue:plans.compareRemove',
   'catalogue:plans.compareSelected',
+  'catalogue:plans.compareTitle',
+  'catalogue:plans.compareTrayLabel',
+  'catalogue:plans.ctaBody',
+  'catalogue:plans.ctaPrimary',
+  'catalogue:plans.ctaSecondary',
+  'catalogue:plans.ctaTitle',
+  'catalogue:plans.durationNoDiscount',
+  'catalogue:plans.durationSaves',
+  'catalogue:plans.durationShort.12w',
+  'catalogue:plans.durationShort.1w',
+  'catalogue:plans.durationShort.2w',
+  'catalogue:plans.durationShort.4w',
+  'catalogue:plans.durationTotal',
   'catalogue:plans.durations',
+  'catalogue:plans.durationsFor',
+  'catalogue:plans.durationsLabel',
   'catalogue:plans.emptyBody',
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
+  'catalogue:plans.eyebrow',
   'catalogue:plans.fromPrice',
+  'catalogue:plans.heroHowItWorks',
+  'catalogue:plans.heroSpeakToDietitian',
+  'catalogue:plans.kitchenCount',
+  'catalogue:plans.kitchenFilter',
   'catalogue:plans.mealsPerDay',
   'catalogue:plans.mealsPerDayNoSnacks',
+  'catalogue:plans.methodologyTitle',
   'catalogue:plans.perDayPrice',
+  'catalogue:plans.perWeekSuffix',
+  'catalogue:plans.priceFrom',
   'catalogue:plans.ratingLabel',
+  'catalogue:plans.resultSummary',
+  'catalogue:plans.searchLabel',
+  'catalogue:plans.searchPlaceholder',
+  'catalogue:plans.sort.priceLowHigh',
+  'catalogue:plans.sort.ratingHighLow',
+  'catalogue:plans.sort.recommended',
+  'catalogue:plans.sortLabel',
   'catalogue:plans.subtitle',
   'catalogue:plans.title',
+  'catalogue:plans.trust.flexible',
+  'catalogue:plans.trust.kitchens',
+  'catalogue:plans.trust.reviewed',
+  'catalogue:plans.viewPlan',
+  'catalogue:plans.viewPlanNamed',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',

@@ -16,6 +16,13 @@ import {
 import { MACRO_DISTRIBUTION_RANGES, macroDistributionLevel } from './macro-rings.tsx';
 import { toTargetRequest, DEFAULT_CALCULATOR_INPUTS } from './calculator-fields.tsx';
 import { toMealFilter } from './meal-filters.tsx';
+import {
+    cheapestVariant,
+    distinctKitchenIds,
+    isPlanSort,
+    sortPlans,
+    toPlanFilter,
+} from './plan-catalogue.ts';
 import { CalorieCalculatorScreen } from './screens/calorie-calculator-screen.tsx';
 import { DietCategoryScreen } from './screens/diet-category-screen.tsx';
 import { MacroCalculatorScreen } from './screens/macro-calculator-screen.tsx';
@@ -203,6 +210,65 @@ describe('meal filter construction', () => {
             ranges: { ...base.ranges, energy: { min: 400, max: null } },
         });
         expect(filter.energy).toEqual({ min: 400 });
+    });
+});
+
+describe('plan filter construction', () => {
+    const base = { query: '', category: 'all', kitchenIds: [], calorie: undefined } as const;
+
+    it('omits every axis that says nothing, so the query key stays stable', () => {
+        expect(toPlanFilter(base)).toEqual({});
+    });
+
+    it('maps each axis to its real PlanFilter field, and trims the query', () => {
+        expect(toPlanFilter({ ...base, query: '  strength  ' })).toEqual({ query: 'strength' });
+        expect(toPlanFilter({ ...base, category: 'high-protein' })).toEqual({
+            categorySlug: 'high-protein',
+        });
+        expect(toPlanFilter({ ...base, kitchenIds: ['k1', 'k2'] })).toEqual({
+            kitchenIds: ['k1', 'k2'],
+        });
+        expect(toPlanFilter({ ...base, calorie: 'lighter' })).toEqual({ energy: { max: 1600 } });
+        expect(toPlanFilter({ ...base, calorie: 'higher' })).toEqual({ energy: { min: 2200 } });
+    });
+
+    it('ignores an unknown calorie preset rather than inventing a range', () => {
+        expect(toPlanFilter({ ...base, calorie: 'nonsense' })).toEqual({});
+    });
+});
+
+describe('plan sort and facets', () => {
+    it('recognises only the three real sorts', () => {
+        expect(isPlanSort('recommended')).toBe(true);
+        expect(isPlanSort('priceLowHigh')).toBe(true);
+        expect(isPlanSort('ratingHighLow')).toBe(true);
+        expect(isPlanSort('nope')).toBe(false);
+        expect(isPlanSort(undefined)).toBe(false);
+    });
+
+    it('leaves the repository order untouched for "recommended", and orders by the real fields', async () => {
+        const plans = (await scratch.marketplace.listPlans({ limit: 20 })).items;
+
+        // "Recommended" is the catalogue's own order — returned as-is, not a re-sorted copy.
+        expect(sortPlans(plans, 'recommended')).toBe(plans);
+
+        const prices = sortPlans(plans, 'priceLowHigh').map(
+            (plan) => cheapestVariant(plan)!.pricePerWeek.amount,
+        );
+        expect([...prices]).toEqual([...prices].sort((left, right) => left - right));
+
+        const ratings = sortPlans(plans, 'ratingHighLow').map((plan) => plan.rating ?? -1);
+        expect([...ratings]).toEqual([...ratings].sort((left, right) => right - left));
+    });
+
+    it('lists only the kitchens that own a plan, without duplicates', async () => {
+        const plans = (await scratch.marketplace.listPlans({ limit: 20 })).items;
+        const ids = distinctKitchenIds(plans);
+
+        expect(new Set(ids).size).toBe(ids.length);
+        // Four kitchens publish plans, of the six on the marketplace — the facet must not offer
+        // the two that would only ever return the empty state.
+        expect(ids.length).toBe(4);
     });
 });
 
