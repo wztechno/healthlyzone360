@@ -1,6 +1,6 @@
 # 02 — Module Boundaries
 
-> Status: Phase 1 architecture baseline. No module code exists yet; module implementation begins in Phase 3. Table-to-module ownership below follows the grouping in the foundation plan's database scope.
+> Status: living architecture document. The eleven active platform modules are implemented; kitchen-programme modules land phase by phase per the Order-Kitchen master plan. Table-to-module ownership below follows the grouping in the foundation plan's database scope.
 
 ## Rules
 
@@ -9,7 +9,21 @@
 3. Future modules are recorded in the module registry as documentation only — **no empty directories, no speculative classes, no premature tables**.
 4. A package or module contains a working implementation, a concrete interface used by another package, or a clearly documented deferred contract — never scaffolding for its own sake.
 
-## The 11 foundation modules
+## Status vocabulary
+
+Every entry in `docs/architecture/module-registry.yaml` carries exactly one status (master plan v2 §4.1). The architecture test `apps/api/app-modules/support/tests/ModuleRegistryTest.php` enforces the column on the right.
+
+| Status | Meaning | May hold code |
+|---|---|---|
+| `planned` | Documented intent only — no directory, no classes, no migrations, no routes | No |
+| `foundation` | Schema and internal management exist; the customer-facing lifecycle may still be incomplete | Yes |
+| `active` | The declared capability is complete through an approved API or UI surface | Yes |
+| `deprecated` | Superseded; still present, no new consumers | Decided when the first module reaches it |
+| `retired` | Withdrawn; the entry survives so the name is never reused | No |
+
+`active` permits code, it does not require it: **Localisation** and **PlatformAdministration** are registry-only entries whose declared capability is the entry itself, and they stay registry-only. A status change and the architecture test that enforces it land in the **same commit**, always.
+
+## The 11 active platform modules
 
 All public contracts listed are Planned (Phase 3 unless noted); they are the *only* surface other modules may consume.
 
@@ -73,8 +87,8 @@ flowchart BT
 
 ## Future modules — registry entries only
 
-The following ~26 modules are documented in the module registry (`docs/registers/`) and in the future roadmap (`09-future-module-roadmap.md`). They receive **registry entries and documentation only** — no directories, no classes, no migrations — until each is genuinely required and separately designed:
+The following 28 modules are documented in the module registry (`docs/architecture/module-registry.yaml`) and in the future roadmap (`09-future-module-roadmap.md`). They receive **registry entries and documentation only** — no directories, no classes, no migrations — until each is genuinely required and separately designed:
 
-Nutrition, Ingredients, Allergens, Recipes, MealPlanning, Kitchens, Inventory, Procurement, Production, QualityControl, Marketplace, Catalogues, Pricing, B2B, Cart, Orders, Subscriptions, Payments, Accounting, POS, KitchenDisplay, Delivery, ClinicalRecords, Appointments, Reporting, ArtificialIntelligence.
+Nutrition, Ingredients, Allergens, Recipes, MealPlanning, Kitchens, Inventory, Procurement, Production, QualityControl, Marketplace, Catalogues, Pricing, Customers, Verification, B2B, Cart, Orders, Subscriptions, Payments, Accounting, POS, KitchenDisplay, Delivery, ClinicalRecords, Appointments, Reporting, ArtificialIntelligence.
 
 Kitchen and commercial permissions likewise remain registry proposals until those modules are implemented.

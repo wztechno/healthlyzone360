@@ -5,9 +5,20 @@ declare(strict_types=1);
 namespace Healthy360\AccessControl\Services;
 
 /**
- * The seeded foundation permission catalogue and platform template roles.
+ * The seeded permission catalogue and platform template roles.
+ *
+ * The catalogue is split in two (master plan v2 §4.16). Organisation
+ * permissions are the ones a tenant may hold: everything scoped to the current
+ * organisation or to the caller's own records. Platform permissions are the
+ * ones only a platform operator may hold — tenant lifecycle, cross-tenant
+ * review, reference-data governance. Template roles for organisations are built
+ * exclusively from the organisation set, so no organisation role, not even
+ * `organisation_owner`, can ever acquire a platform code by inheriting "all
+ * permissions". `PermissionRegistryTest` is the regression proof.
+ *
  * Kitchen and commercial permissions remain registry proposals until those
- * modules are implemented (plan §10).
+ * modules are implemented (plan §10); each phase introduces only the codes its
+ * own endpoints raise.
  */
 final class PermissionRegistry
 {
@@ -17,11 +28,24 @@ final class PermissionRegistry
     public const string CODE_FORMAT = '/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/';
 
     /**
-     * The foundation permission set, keyed by code.
+     * The registered permission set — organisation codes then platform codes,
+     * keyed by code. This is what the seeder writes and what a Gate ability is
+     * matched against.
      *
      * @return array<string, array{domain: string, description: string}>
      */
     public static function foundationPermissions(): array
+    {
+        return [...self::organisationPermissions(), ...self::platformPermissions()];
+    }
+
+    /**
+     * Permissions an organisation may hold: organisation-scoped or own-scoped.
+     * Organisation template roles are assembled from this set and nothing else.
+     *
+     * @return array<string, array{domain: string, description: string}>
+     */
+    public static function organisationPermissions(): array
     {
         return [
             'organisation.view_current' => ['domain' => 'organisation', 'description' => 'View the current organisation'],
@@ -48,6 +72,19 @@ final class PermissionRegistry
     }
 
     /**
+     * Permissions only a platform operator may hold. Deliberately empty: the
+     * foundation exposes no platform-operator surface, and every phase adds
+     * only the codes its own endpoints raise. A code added here is unreachable
+     * from any organisation template role by construction.
+     *
+     * @return array<string, array{domain: string, description: string}>
+     */
+    public static function platformPermissions(): array
+    {
+        return [];
+    }
+
+    /**
      * @return list<string>
      */
     public static function codes(): array
@@ -65,14 +102,19 @@ final class PermissionRegistry
     }
 
     /**
-     * Platform template roles (organisation_id NULL, is_system true), keyed
-     * by role code.
+     * Platform-defined template roles for organisations (organisation_id NULL,
+     * is_system true), keyed by role code.
+     *
+     * Every role here is organisation-scoped and is therefore built from
+     * `organisationPermissions()`, never from the full catalogue: the owner of
+     * an organisation holds every permission an organisation has, which is not
+     * the same thing as every permission that exists.
      *
      * @return array<string, array{name_en: string, name_ar: string, permissions: list<string>}>
      */
     public static function templateRoles(): array
     {
-        $all = self::codes();
+        $all = array_keys(self::organisationPermissions());
 
         $ownScope = [
             'session.revoke_own',

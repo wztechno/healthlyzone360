@@ -99,6 +99,33 @@ Separated authorisation concerns (context, entitlement, consent, relationship, s
 
 A confirmation is bound to the credential that performed it — the session for cookie clients, the personal access token for bearer clients — and lapses after `auth.password_timeout` seconds. `GET /api/v1/auth/confirmed-password-status` reports the current state.
 
+## Optimistic concurrency (`If-Match`)
+
+A management endpoint that serves a lock-versioned resource returns the current version as its validator: `ETag: "<lock_version>"` on the single-resource GET. A write to such a resource requires `If-Match` carrying the value the client last read.
+
+- **Match** — the write proceeds and the response carries the new `ETag`.
+- **Mismatch** — `409 resource.conflict`. Somebody changed the resource since it was read; the client re-reads and decides, rather than retrying blindly over another author's work.
+- **Absent** — HTTP **428**, with a dedicated code introduced alongside the first endpoint that can raise it (phase K1). A code is never added to the vocabulary before an endpoint raises it, so the `If-Match` row in the header table above stays literally true until then.
+
+The header applies only to resources that carry `lock_version`. A resource without one has no concurrency contract and is not sent `If-Match`.
+
+## Idempotent commands (`Idempotency-Key`)
+
+A command endpoint marked idempotent in OpenAPI accepts an `Idempotency-Key`. The middleware over the existing `idempotency_keys` table gives it exactly these semantics:
+
+- The key is scoped per endpoint and per caller, and is stored with a **fingerprint** of the request.
+- A repeat with the same key and the same fingerprint **replays the original response envelope**, status included. The command does not run twice.
+- A repeat with the same key and a **different** fingerprint is a client error and answers `409`, with a dedicated code introduced alongside the first endpoint that can raise it (phase C1).
+- The client attaches a key deliberately, on the endpoints that document one. It is never attached automatically to every mutation, and never inferred server-side.
+
+Until C1 no implemented endpoint accepts the header, so the `Idempotency-Key` row in the header table above also stays literally true until then.
+
+## Lifecycle transitions
+
+A change of lifecycle state is a **POST to a sub-resource action** — `POST …/publish`, `POST …/retire`, `POST …/approve` — never a `PATCH` carrying a `status` field.
+
+Each action has its own permission and its own audit action, so "may edit this record" and "may publish it" are separately grantable and separately auditable, and the set of legal transitions lives in the routing table instead of in validation rules on a free-form field.
+
 ## Implemented endpoints
 
 The full set as implemented in Phase 4. `openapi/healthy360.v1.yaml` is authoritative for shapes.

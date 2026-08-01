@@ -1,80 +1,104 @@
 # Healthy360 module registry (machine-readable)
 #
-# Consumed by architecture tests. Rules (plan §6):
-#   - Only modules with status "foundation" may have code, migrations or routes.
-#   - Modules with status "planned" MUST NOT have directories, classes or migrations.
+# Consumed by the architecture test
+# (apps/api/app-modules/support/tests/ModuleRegistryTest.php).
+#
+# Status vocabulary (master plan v2 §4.1):
+#   - planned     — documented intent only. No directory, no classes, no
+#                   migrations, no routes.
+#   - foundation  — schema and internal management exist; the customer-facing
+#                   lifecycle may still be incomplete. Code is allowed.
+#   - active      — the declared capability is complete through an approved API
+#                   or UI surface. Code is allowed.
+#   - deprecated  — superseded; still present, no new consumers.
+#   - retired     — withdrawn; the entry survives so the name is never reused.
+#
+# Rules (plan §6, master plan v2 §4.1):
+#   - Only modules with status "foundation" or "active" may have code,
+#     migrations or routes. Modules with status "planned" MUST NOT have
+#     directories, classes or migrations.
+#   - "active" permits code, it does not require it: Localisation and
+#     PlatformAdministration are registry-only entries whose declared capability
+#     is the entry itself, and they stay registry-only.
+#   - A status change and the architecture test that enforces it land in the
+#     same commit, always.
 #   - depends_on for planned modules is indicative future coupling, reviewed at
 #     that module's design time; it is not a licence to import anything today.
+#     A module that may hold code never depends on one that may not.
 #   - Kitchen and commercial permissions remain registry proposals until their
 #     modules are implemented (plan §10).
 
 version: 1
-updated: "2026-07-30"
+updated: "2026-08-02"
 
 modules:
-  # ── Implemented foundation modules (phase 1) ──────────────────────────────
+  # ── Active platform modules (phase 1) ─────────────────────────────────────
   - name: Support
-    status: foundation
+    status: active
     phase: 1
     description: Cross-cutting primitives — UUIDv7 identifier service, base classes, shared contracts; also the InterNACHI Modular spike module.
     depends_on: []
 
   - name: ReferenceData
-    status: foundation
+    status: active
     phase: 1
     description: Countries, currencies, languages and measurement units with ISO-code keys; launch-market activation flags.
     depends_on: [Support]
 
+  # Registry-only entry — the declared capability is the entry itself; locale
+  # negotiation ships inside the application. No module directory, by design.
   - name: Localisation
-    status: foundation
+    status: active
     phase: 1
     description: Locale resolution, translation infrastructure, direction (RTL/LTR) and numbering-system configuration.
     depends_on: [Support, ReferenceData]
 
   - name: Identity
-    status: foundation
+    status: active
     phase: 1
     description: Users, profiles, devices; registration, verification, credentials, 2FA and session/device management via Fortify + Sanctum.
     depends_on: [Support, ReferenceData]
 
   - name: Organisations
-    status: foundation
+    status: active
     phase: 1
     description: Organisation types, organisations, capabilities, branches and memberships.
     depends_on: [Support, ReferenceData, Identity]
 
   - name: Tenancy
-    status: foundation
+    status: active
     phase: 1
     description: Organisation/branch context middleware, context validation, query scoping and (incrementally) RLS session context.
     depends_on: [Support, Organisations]
 
   - name: AccessControl
-    status: foundation
+    status: active
     phase: 1
     description: Roles, permissions, membership-role assignment, permission calculation and caching with version-counter invalidation.
     depends_on: [Support, Organisations, Tenancy]
 
   - name: Features
-    status: foundation
+    status: active
     phase: 1
     description: Feature definitions, per-organisation entitlements and subscription scaffolding; entitlement checks separate from RBAC.
     depends_on: [Support, Organisations]
 
   - name: Consent
-    status: foundation
+    status: active
     phase: 1
     description: Consent definitions (versioned) and consent grants; evaluated separately from RBAC with distinct denial reasons.
     depends_on: [Support, Identity, Organisations]
 
   - name: Audit
-    status: foundation
+    status: active
     phase: 1
     description: Append-only audit logs, correlation IDs, redaction processor, data-classification enum, purpose-of-use capture, idempotency keys.
     depends_on: [Support, Identity, Tenancy]
 
+  # Registry-only entry — the declared capability is the entry itself. No module
+  # directory, by design; a platform surface arrives with the phase that needs it.
   - name: PlatformAdministration
-    status: foundation
+    status: active
     phase: 1
     description: Platform-level administration surface (tenant lifecycle, reference-data management); no broadly privileged runtime DB role.
     depends_on: [Support, Organisations, AccessControl, Features, Audit]
@@ -95,10 +119,12 @@ modules:
     description: Allergen identification, dietary classifications and special-instruction flags.
     depends_on: [Ingredients]
 
+  # Nutrition edge dropped (master plan v2 §5): no nutrition data exists in the
+  # Phase-1 sources, so recipes cannot depend on it. The edge returns with N1.
   - name: Recipes
     status: planned
     description: Recipe creation, versioning, costing and nutrition-label generation.
-    depends_on: [Ingredients, Allergens, Nutrition]
+    depends_on: [Ingredients, Allergens]
 
   - name: MealPlanning
     status: planned
@@ -138,17 +164,29 @@ modules:
   - name: Catalogues
     status: planned
     description: Product and service listings with availability and configuration.
-    depends_on: [Organisations]
+    depends_on: [Organisations, Recipes, Ingredients]
 
   - name: Pricing
     status: planned
     description: Price lists, currencies, commission structures and premium listings.
     depends_on: [Catalogues, ReferenceData]
 
+  # Owned by phase J1 (master plan v2 §5) — no code until then.
+  - name: Customers
+    status: planned
+    description: Customer accounts (D2C, B2B and guest shapes), contact points, addresses, health profiles, allergen declarations, food exclusions and dietary requirements.
+    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent]
+
+  # Owned by phase J1 (master plan v2 §5) — no code until then.
+  - name: Verification
+    status: planned
+    description: One-time-passcode challenges and their channel drivers (email, SMS, WhatsApp) for contact verification and step-up.
+    depends_on: [Support, Identity, Audit]
+
   - name: B2B
     status: planned
     description: Corporate wellness and insurer arrangements — enrolment, eligibility validation, corporate/insurer billing.
-    depends_on: [Organisations, Catalogues, Pricing, Consent]
+    depends_on: [Organisations, Catalogues, Pricing, Consent, Customers]
 
   - name: Cart
     status: planned
@@ -185,10 +223,13 @@ modules:
     description: KDS ticket flow for production stations; shell/prototype build mode until hardware known.
     depends_on: [Production, Orders]
 
+  # Orders edge dropped (master plan v2 §5): delivery zones, areas and windows
+  # are configuration that precedes any delivery job, and K1.7 builds them
+  # before Orders exists. The Orders edge returns with F1's delivery operations.
   - name: Delivery
     status: planned
     description: Delivery zones, provider integration, driver allocation, tracking, proof of delivery and failed-delivery handling.
-    depends_on: [Orders]
+    depends_on: [Organisations, ReferenceData]
 
   - name: ClinicalRecords
     status: planned

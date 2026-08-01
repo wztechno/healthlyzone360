@@ -34,3 +34,29 @@ The 23 foundation tables (Plan §7) with data classification and PII flags. Clas
 - Tenant-owned tables carry `organisation_id` (and `branch_id` where applicable), `created_by`, timestamps; `lock_version` where optimistic concurrency matters.
 - Retention periods and deletion/anonymisation rules are **not yet decided** (OQ-002); crypto-shredding and jurisdiction-specific deletion remain documented designs (Plan §12).
 - Deferred tables (tax, integrations, webhooks, billing, commissions, settlements, kitchen, nutrition, clinical) may appear in future ERDs but are not migrated in this phase.
+
+## Data loading — three mechanisms, and only three (D-046)
+
+Every row that reaches a database arrives by one of these, and the mechanism is stated wherever data is described:
+
+1. **Platform reference seeders** — committed to the repository, non-confidential, production-safe: allergen classes, measurement units, the delivery-area gazetteer, currencies, countries, languages and other controlled vocabularies.
+2. **Synthetic fixtures** — committed, demo and test only, and labelled synthetic on screen. They contain **no real formulations, costs or supplier terms**; a synthetic nutrition or cost figure is never promoted to production data.
+3. **Private tenant importer** — an artisan command reading confidential source data from an out-of-repo path supplied at run time, with a manifest and sha256 checksums, a dry-run mode, created/skipped/failed counts, unresolved-alias, data-quality, allergen-review and quarantine reports, insert-if-absent semantics so operator edits are never overwritten, idempotent re-runs, environment allowlisting and an audited execution record.
+
+**Confidential source data is never committed to this repository in any form** — not as a seeder, not as a JSON fixture, not as a test resource, and not behind an environment guard. A local-only guard on a committed file still commits the file.
+
+## Isolation strategy vocabulary (D-047)
+
+Every table added from phase K1 onwards names **exactly one** strategy in its register row. The vocabulary is closed; "application scoped" is not a member of it:
+
+| Strategy | Meaning |
+|---|---|
+| `platform-public-ref` | Platform-owned reference data, readable by everyone, written only by a platform operator |
+| `org-rls` | Tenant data protected by a PostgreSQL row-level-security policy on `organisation_id` |
+| `user-owner-rls` / `customer-owner-rls` | Rows owned by one person or one customer account, protected by an owner-matching policy |
+| `join-rls-parent` | Child rows reached only through an RLS-protected parent — FK cascade plus a denormalised organisation id so the policy can be evaluated directly |
+| `platform-only` | Reachable only through an explicit platform-operator permission; no tenant read path exists |
+| `capability-token` | Rows reachable only by presenting an opaque, capability-limited token issued by a service (guest sessions and the rows they reach) |
+| `append-only-ledger` | Insert-only, with `UPDATE` and `DELETE` revoked from the application role |
+
+The twenty-three foundation rows above predate the vocabulary; each is annotated when its isolation next changes. RLS tests run under the non-owner role (`rls` group, `SET ROLE`) and extend in every phase that adds a policy.

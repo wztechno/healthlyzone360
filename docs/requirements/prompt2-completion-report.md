@@ -2,7 +2,7 @@
 
 Date: 2026-07-31 · Scope: Prompt 2 (reference research + mock-first UI prototype + proposed API
 contracts). Baseline: the Phase 1 foundation completion report
-(`docs/requirements/completion-report.md`). Commits: Wave 0 `dbaf740` → Wave 5 (this commit).
+(`docs/requirements/foundation-completion-report.md`). Commits: Wave 0 `dbaf740` → Wave 5 (this commit).
 
 The prototype is a **presentation of proposed behaviour, not an implemented product**: every screen
 runs against the in-memory `PrototypeStore` behind the repository boundary, the proposed API

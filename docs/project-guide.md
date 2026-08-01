@@ -441,8 +441,8 @@ docker compose up -d --wait        # daily start (setup is one-time)
 
 - `docs/architecture/00-executive-summary.md` — start here for architecture.
 - `docs/architecture/adr/` — the twelve ADRs (RLS, tenancy, auth, spec-first API, ...).
-- `docs/requirements/completion-report.md` — Prompt 1 completion report.
+- `docs/requirements/foundation-completion-report.md` — Prompt 1 (Phase 1 foundation) completion report.
 - `docs/requirements/prompt2-completion-report.md` — Prompt 2, all fourteen mandated sections.
 - `docs/reference-research/` — the research corpus (00 scope → 17 recommendations).
 - `docs/api/proposed/` — the draft contracts the backend phase would implement.
-- `docs/registers/` — decisions (D-001–033), open questions (OQ-001–028), risks, assumptions.
+- `docs/registers/` — decisions (D-001–053), open questions (OQ-001–040), risks, assumptions.

@@ -53,10 +53,10 @@ npx --yes @redocly/cli preview-docs docs/api/proposed/marketplace.v1.draft.yaml 
 | `nutrition.v1.draft.yaml` | Calculating, storing and reviewing nutrition targets | 2 / 3 |
 | `virtual-dietitian.v1.draft.yaml` | The guided interview, its draft plan and its escalation to a human | 4 / 4 |
 | `marketplace.v1.draft.yaml` | Public kitchen, meal and meal-plan discovery | 6 / 6 |
-| `meal-plans.v1.draft.yaml` | Generation, regeneration, locking, replacement, portions | 8 / 9 |
+| `meal-plans.v1.draft.yaml` | Generation, regeneration, locking, replacement, portions | 10 / 11 |
 | `foods-recipes.v1.draft.yaml` | Food search, recipes, grocery list, pantry | 5 / 5 |
 | `commerce.v1.draft.yaml` | Cart, priced previews, subscription lifecycle | 8 / 8 |
-| **Total** | | **33 / 35** |
+| **Total** | | **35 / 37** |
 
 Each draft names its TypeScript counterpart in `packages/api-client/src/contracts/`. The two are
 maintained together: the repository interface is what the screens compile against, and the draft is
