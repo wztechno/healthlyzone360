@@ -1,6 +1,7 @@
 import type { Locale } from '@healthy360/domain-types';
 
 import arAccess from '../catalogues/ar/access.json';
+import arAccount from '../catalogues/ar/account.json';
 import arAuth from '../catalogues/ar/auth.json';
 import arBusiness from '../catalogues/ar/business.json';
 import arCatalogue from '../catalogues/ar/catalogue.json';
@@ -16,6 +17,7 @@ import arPlanner from '../catalogues/ar/planner.json';
 import arProfessional from '../catalogues/ar/professional.json';
 import arVirtualDietitian from '../catalogues/ar/virtualDietitian.json';
 import enAccess from '../catalogues/en/access.json';
+import enAccount from '../catalogues/en/account.json';
 import enAuth from '../catalogues/en/auth.json';
 import enBusiness from '../catalogues/en/business.json';
 import enCatalogue from '../catalogues/en/catalogue.json';
@@ -44,6 +46,11 @@ import enVirtualDietitian from '../catalogues/en/virtualDietitian.json';
  * `kitchen` is the fifteenth, reserved by K1 on exactly the same terms: the kitchen workspace is
  * several slices, each of which would otherwise add its own import line here.
  *
+ * `account` is the sixteenth, reserved by J1. The D2C account area is a checklist, contacts,
+ * addresses, an allergy declaration and a consent list — five slices that would otherwise queue up
+ * to edit this one file. The one-time-code copy is deliberately *not* here: it lives in `auth`,
+ * because the same panel serves the guest and B2B journeys that have no account at all.
+ *
  * **Adding a namespace** is four edits and two commands: create `catalogues/en/<name>.json` and
  * `catalogues/ar/<name>.json`, add the two imports above, add the name to the list below *and* to
  * both resource maps, then run `pnpm gen:i18n-keys` and `pnpm gen:pseudo-locale`. `pnpm i18n:check`
@@ -66,6 +73,7 @@ export const TRANSLATION_NAMESPACES = [
     'professional',
     'business',
     'kitchen',
+    'account',
 ] as const;
 export type TranslationNamespace = (typeof TRANSLATION_NAMESPACES)[number];
 
@@ -89,6 +97,7 @@ export const enResources = {
     professional: enProfessional,
     business: enBusiness,
     kitchen: enKitchen,
+    account: enAccount,
 } as const;
 
 export const arResources = {
@@ -107,6 +116,7 @@ export const arResources = {
     professional: arProfessional,
     business: arBusiness,
     kitchen: arKitchen,
+    account: arAccount,
 } as const;
 
 export const resources: Readonly<Record<Locale, CatalogueBundle>> = {

@@ -1,0 +1,125 @@
+{
+    "title": "Your account",
+    "subtitle": "Everything Healthy360 needs before your first order, and everything you can change afterwards.",
+    "lifecycle": {
+        "provisional": "Setup unfinished",
+        "active": "Active",
+        "suspended": "Suspended",
+        "closing": "Closing",
+        "closed": "Closed"
+    },
+    "checklist": {
+        "title": "Finish setting up",
+        "subtitle": "A few things are still needed. You can do them in any order.",
+        "done": "Done",
+        "todo": "Not done yet",
+        "required": "Needed to activate",
+        "optional": "Optional",
+        "canActivate": "Everything needed is in place.",
+        "cannotActivate": "A few required steps are still outstanding.",
+        "blocked": "Cannot be done yet: {{reason}}",
+        "steps": {
+            "verify_email": {
+                "title": "Confirm your email address",
+                "body": "We use it for order confirmations and for signing you in."
+            },
+            "verify_phone": {
+                "title": "Confirm your mobile number",
+                "body": "So a driver can reach you on the day."
+            },
+            "add_address": {
+                "title": "Add a delivery address",
+                "body": "Choose the area you are in — we only deliver to areas on the list."
+            },
+            "dietary_profile": {
+                "title": "Tell us what you cannot eat",
+                "body": "Allergies and dietary needs, so meals can be filtered for you."
+            },
+            "consents": {
+                "title": "Review your permissions",
+                "body": "What you agree to, and what you can decline."
+            }
+        }
+    },
+    "contacts": {
+        "title": "Email and phone",
+        "subtitle": "Where we reach you. Each one is confirmed with a code before we use it.",
+        "emailLabel": "Email address",
+        "phoneLabel": "Mobile number",
+        "add": "Add",
+        "addEmail": "Add an email address",
+        "addPhone": "Add a mobile number",
+        "verify": "Confirm this",
+        "verified": "Confirmed",
+        "unverified": "Not confirmed",
+        "primary": "Main",
+        "makePrimary": "Make this the main one",
+        "remove": "Remove",
+        "removeTitle": "Remove this contact?",
+        "removeBody": "{{contact}} will no longer be used for anything.",
+        "loginEmail": "Sign-in address",
+        "loginEmailNote": "This is the address you sign in with, so it cannot be removed here.",
+        "empty": "Nothing added yet",
+        "emptyBody": "Add an address or a number so we can reach you."
+    },
+    "addresses": {
+        "title": "Delivery addresses",
+        "subtitle": "Where your orders go.",
+        "add": "Add an address",
+        "edit": "Edit address",
+        "remove": "Remove address",
+        "labelLabel": "Name for this address",
+        "labelPlaceholder": "Home",
+        "areaLabel": "Area",
+        "areaHint": "Only areas we deliver to are listed.",
+        "line1Label": "Street",
+        "line2Label": "More detail",
+        "buildingLabel": "Building",
+        "floorLabel": "Floor or apartment",
+        "notesLabel": "Directions for the driver",
+        "notesHint": "Anything that helps someone find you. Not part of the address.",
+        "default": "Default",
+        "makeDefault": "Use this by default",
+        "save": "Save address",
+        "empty": "No addresses yet",
+        "emptyBody": "Add one so we know where to deliver."
+    },
+    "dietary": {
+        "title": "Allergies and diet",
+        "subtitle": "This is the record everything else reads from — the meal builder and your plans both start here.",
+        "storeOfRecord": "Changing this here changes it everywhere.",
+        "allergensTitle": "Allergies",
+        "allergensEmpty": "Nothing declared",
+        "addAllergen": "Add an allergy",
+        "allergenLabel": "Allergen",
+        "severityLabel": "How strictly should we avoid it?",
+        "severity": {
+            "avoidance": "I would rather avoid it",
+            "intolerance": "It disagrees with me",
+            "allergy": "I am allergic"
+        },
+        "severityHint": "Only a declared allergy removes a meal outright.",
+        "noteLabel": "Anything we should know",
+        "dietsTitle": "Diet",
+        "dietsSubtitle": "Vegetarian, halal, and anything else that shapes what you are shown.",
+        "exclusionsTitle": "Ingredients to leave out",
+        "exclusionsSubtitle": "Things you simply do not want, for reasons that are not an allergy.",
+        "save": "Save",
+        "saved": "Saved."
+    },
+    "consents": {
+        "title": "Permissions",
+        "subtitle": "What you have agreed to. You can change the optional ones whenever you like.",
+        "required": "Required",
+        "optional": "Optional",
+        "granted": "Agreed",
+        "notGranted": "Not agreed",
+        "withdrawn": "Withdrawn",
+        "grant": "Agree",
+        "withdraw": "Withdraw",
+        "version": "Version {{version}}",
+        "grantedOn": "Agreed on {{date}}",
+        "withdrawnOn": "Withdrawn on {{date}}",
+        "requiredNote": "This one is needed to use Healthy360 at all."
+    }
+}

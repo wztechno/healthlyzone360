@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 3840 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 3966 keys across 16 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -57,6 +57,104 @@ export interface NamespaceKeys {
     | 'workspaceSelector.open'
     | 'workspaceSelector.subtitle'
     | 'workspaceSelector.title';
+  readonly "account":
+    | 'addresses.add'
+    | 'addresses.areaHint'
+    | 'addresses.areaLabel'
+    | 'addresses.buildingLabel'
+    | 'addresses.default'
+    | 'addresses.edit'
+    | 'addresses.empty'
+    | 'addresses.emptyBody'
+    | 'addresses.floorLabel'
+    | 'addresses.labelLabel'
+    | 'addresses.labelPlaceholder'
+    | 'addresses.line1Label'
+    | 'addresses.line2Label'
+    | 'addresses.makeDefault'
+    | 'addresses.notesHint'
+    | 'addresses.notesLabel'
+    | 'addresses.remove'
+    | 'addresses.save'
+    | 'addresses.subtitle'
+    | 'addresses.title'
+    | 'checklist.blocked'
+    | 'checklist.canActivate'
+    | 'checklist.cannotActivate'
+    | 'checklist.done'
+    | 'checklist.optional'
+    | 'checklist.required'
+    | 'checklist.steps.add_address.body'
+    | 'checklist.steps.add_address.title'
+    | 'checklist.steps.consents.body'
+    | 'checklist.steps.consents.title'
+    | 'checklist.steps.dietary_profile.body'
+    | 'checklist.steps.dietary_profile.title'
+    | 'checklist.steps.verify_email.body'
+    | 'checklist.steps.verify_email.title'
+    | 'checklist.steps.verify_phone.body'
+    | 'checklist.steps.verify_phone.title'
+    | 'checklist.subtitle'
+    | 'checklist.title'
+    | 'checklist.todo'
+    | 'consents.grant'
+    | 'consents.granted'
+    | 'consents.grantedOn'
+    | 'consents.notGranted'
+    | 'consents.optional'
+    | 'consents.required'
+    | 'consents.requiredNote'
+    | 'consents.subtitle'
+    | 'consents.title'
+    | 'consents.version'
+    | 'consents.withdraw'
+    | 'consents.withdrawn'
+    | 'consents.withdrawnOn'
+    | 'contacts.add'
+    | 'contacts.addEmail'
+    | 'contacts.addPhone'
+    | 'contacts.emailLabel'
+    | 'contacts.empty'
+    | 'contacts.emptyBody'
+    | 'contacts.loginEmail'
+    | 'contacts.loginEmailNote'
+    | 'contacts.makePrimary'
+    | 'contacts.phoneLabel'
+    | 'contacts.primary'
+    | 'contacts.remove'
+    | 'contacts.removeBody'
+    | 'contacts.removeTitle'
+    | 'contacts.subtitle'
+    | 'contacts.title'
+    | 'contacts.unverified'
+    | 'contacts.verified'
+    | 'contacts.verify'
+    | 'dietary.addAllergen'
+    | 'dietary.allergenLabel'
+    | 'dietary.allergensEmpty'
+    | 'dietary.allergensTitle'
+    | 'dietary.dietsSubtitle'
+    | 'dietary.dietsTitle'
+    | 'dietary.exclusionsSubtitle'
+    | 'dietary.exclusionsTitle'
+    | 'dietary.noteLabel'
+    | 'dietary.save'
+    | 'dietary.saved'
+    | 'dietary.severity.allergy'
+    | 'dietary.severity.avoidance'
+    | 'dietary.severity.intolerance'
+    | 'dietary.severityHint'
+    | 'dietary.severityLabel'
+    | 'dietary.storeOfRecord'
+    | 'dietary.subtitle'
+    | 'dietary.title'
+    | 'lifecycle.active'
+    | 'lifecycle.closed'
+    | 'lifecycle.closing'
+    | 'lifecycle.provisional'
+    | 'lifecycle.suspended'
+    | 'subtitle'
+    | 'title';
   readonly "auth":
     | 'branchPicker.empty'
     | 'branchPicker.groupLabel'
@@ -121,6 +219,30 @@ export interface NamespaceKeys {
     | 'organisationPicker.subtitle'
     | 'organisationPicker.suspended'
     | 'organisationPicker.title'
+    | 'otp.attemptsRemaining'
+    | 'otp.body'
+    | 'otp.channelSimulated'
+    | 'otp.channelSwitch'
+    | 'otp.channels.email'
+    | 'otp.channels.sms'
+    | 'otp.channels.whatsapp'
+    | 'otp.codeHint'
+    | 'otp.codeLabel'
+    | 'otp.errors.channelUnavailable'
+    | 'otp.errors.cooldown'
+    | 'otp.errors.expired'
+    | 'otp.errors.invalid'
+    | 'otp.errors.locked'
+    | 'otp.expiredBody'
+    | 'otp.expiredTitle'
+    | 'otp.lockedBody'
+    | 'otp.lockedTitle'
+    | 'otp.resend'
+    | 'otp.resendIn'
+    | 'otp.resent'
+    | 'otp.sendVia'
+    | 'otp.submit'
+    | 'otp.title'
     | 'profile.account'
     | 'profile.branch'
     | 'profile.consents'
@@ -1255,6 +1377,11 @@ export interface NamespaceKeys {
     | 'failure.context_organisation_forbidden'
     | 'failure.context_organisation_required'
     | 'failure.network'
+    | 'failure.otp_attempts_exceeded'
+    | 'failure.otp_channel_unavailable'
+    | 'failure.otp_cooldown_active'
+    | 'failure.otp_expired'
+    | 'failure.otp_invalid'
     | 'failure.prototype_not_implemented'
     | 'failure.rate_limit_exceeded'
     | 'failure.request_precondition_required'
@@ -3922,6 +4049,103 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:workspaceSelector.open',
   'access:workspaceSelector.subtitle',
   'access:workspaceSelector.title',
+  'account:addresses.add',
+  'account:addresses.areaHint',
+  'account:addresses.areaLabel',
+  'account:addresses.buildingLabel',
+  'account:addresses.default',
+  'account:addresses.edit',
+  'account:addresses.empty',
+  'account:addresses.emptyBody',
+  'account:addresses.floorLabel',
+  'account:addresses.labelLabel',
+  'account:addresses.labelPlaceholder',
+  'account:addresses.line1Label',
+  'account:addresses.line2Label',
+  'account:addresses.makeDefault',
+  'account:addresses.notesHint',
+  'account:addresses.notesLabel',
+  'account:addresses.remove',
+  'account:addresses.save',
+  'account:addresses.subtitle',
+  'account:addresses.title',
+  'account:checklist.blocked',
+  'account:checklist.canActivate',
+  'account:checklist.cannotActivate',
+  'account:checklist.done',
+  'account:checklist.optional',
+  'account:checklist.required',
+  'account:checklist.steps.add_address.body',
+  'account:checklist.steps.add_address.title',
+  'account:checklist.steps.consents.body',
+  'account:checklist.steps.consents.title',
+  'account:checklist.steps.dietary_profile.body',
+  'account:checklist.steps.dietary_profile.title',
+  'account:checklist.steps.verify_email.body',
+  'account:checklist.steps.verify_email.title',
+  'account:checklist.steps.verify_phone.body',
+  'account:checklist.steps.verify_phone.title',
+  'account:checklist.subtitle',
+  'account:checklist.title',
+  'account:checklist.todo',
+  'account:consents.grant',
+  'account:consents.granted',
+  'account:consents.grantedOn',
+  'account:consents.notGranted',
+  'account:consents.optional',
+  'account:consents.required',
+  'account:consents.requiredNote',
+  'account:consents.subtitle',
+  'account:consents.title',
+  'account:consents.version',
+  'account:consents.withdraw',
+  'account:consents.withdrawn',
+  'account:consents.withdrawnOn',
+  'account:contacts.add',
+  'account:contacts.addEmail',
+  'account:contacts.addPhone',
+  'account:contacts.emailLabel',
+  'account:contacts.empty',
+  'account:contacts.emptyBody',
+  'account:contacts.loginEmail',
+  'account:contacts.loginEmailNote',
+  'account:contacts.makePrimary',
+  'account:contacts.phoneLabel',
+  'account:contacts.primary',
+  'account:contacts.remove',
+  'account:contacts.removeBody',
+  'account:contacts.removeTitle',
+  'account:contacts.subtitle',
+  'account:contacts.title',
+  'account:contacts.unverified',
+  'account:contacts.verified',
+  'account:contacts.verify',
+  'account:dietary.addAllergen',
+  'account:dietary.allergenLabel',
+  'account:dietary.allergensEmpty',
+  'account:dietary.allergensTitle',
+  'account:dietary.dietsSubtitle',
+  'account:dietary.dietsTitle',
+  'account:dietary.exclusionsSubtitle',
+  'account:dietary.exclusionsTitle',
+  'account:dietary.noteLabel',
+  'account:dietary.save',
+  'account:dietary.saved',
+  'account:dietary.severity.allergy',
+  'account:dietary.severity.avoidance',
+  'account:dietary.severity.intolerance',
+  'account:dietary.severityHint',
+  'account:dietary.severityLabel',
+  'account:dietary.storeOfRecord',
+  'account:dietary.subtitle',
+  'account:dietary.title',
+  'account:lifecycle.active',
+  'account:lifecycle.closed',
+  'account:lifecycle.closing',
+  'account:lifecycle.provisional',
+  'account:lifecycle.suspended',
+  'account:subtitle',
+  'account:title',
   'auth:branchPicker.empty',
   'auth:branchPicker.groupLabel',
   'auth:branchPicker.onlyOne',
@@ -3985,6 +4209,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:organisationPicker.subtitle',
   'auth:organisationPicker.suspended',
   'auth:organisationPicker.title',
+  'auth:otp.attemptsRemaining',
+  'auth:otp.body',
+  'auth:otp.channelSimulated',
+  'auth:otp.channelSwitch',
+  'auth:otp.channels.email',
+  'auth:otp.channels.sms',
+  'auth:otp.channels.whatsapp',
+  'auth:otp.codeHint',
+  'auth:otp.codeLabel',
+  'auth:otp.errors.channelUnavailable',
+  'auth:otp.errors.cooldown',
+  'auth:otp.errors.expired',
+  'auth:otp.errors.invalid',
+  'auth:otp.errors.locked',
+  'auth:otp.expiredBody',
+  'auth:otp.expiredTitle',
+  'auth:otp.lockedBody',
+  'auth:otp.lockedTitle',
+  'auth:otp.resend',
+  'auth:otp.resendIn',
+  'auth:otp.resent',
+  'auth:otp.sendVia',
+  'auth:otp.submit',
+  'auth:otp.title',
   'auth:profile.account',
   'auth:profile.branch',
   'auth:profile.consents',
@@ -5113,6 +5361,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.context_organisation_forbidden',
   'errors:failure.context_organisation_required',
   'errors:failure.network',
+  'errors:failure.otp_attempts_exceeded',
+  'errors:failure.otp_channel_unavailable',
+  'errors:failure.otp_cooldown_active',
+  'errors:failure.otp_expired',
+  'errors:failure.otp_invalid',
   'errors:failure.prototype_not_implemented',
   'errors:failure.rate_limit_exceeded',
   'errors:failure.request_precondition_required',

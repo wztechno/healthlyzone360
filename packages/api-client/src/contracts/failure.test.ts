@@ -12,8 +12,15 @@ import {
     isAutoRetryable,
     isConflictFailure,
     isPermissionDeniedFailure,
+    isOtpCooldownFailure,
+    isOtpFailure,
+    isOtpInvalidFailure,
+    isOtpLockedFailure,
     isRateLimitFailure,
     isValidationFailure,
+    otpCooldownFailure,
+    otpInvalidFailure,
+    otpLockedFailure,
     permissionDeniedFailure,
     rateLimitFailure,
     throwFailure,
@@ -37,6 +44,11 @@ describe('the failure vocabulary', () => {
             'request.precondition_required',
             'validation.failed',
             'rate_limit.exceeded',
+            'otp.invalid',
+            'otp.expired',
+            'otp.cooldown_active',
+            'otp.attempts_exceeded',
+            'otp.channel_unavailable',
             'network',
             'server',
             'prototype.not_implemented',
@@ -129,6 +141,46 @@ describe('failure builders', () => {
         expect(failure.permission).toBe('catalogue.publish_organisation');
         expect(failure.reason).toBe('membership roles do not carry the code');
         expect(failure.retryable).toBe(false);
+    });
+
+    /**
+     * The three structured OTP rejections. Each is asserted for the *one* field a panel cannot
+     * draw itself: how many tries are left, how long the wait is, and what to do instead of waiting.
+     */
+    it('carries the remaining attempts on a wrong code', () => {
+        const failure = otpInvalidFailure(2);
+        expect(isOtpFailure(failure)).toBe(true);
+        expect(isOtpInvalidFailure(failure)).toBe(true);
+        if (!isOtpInvalidFailure(failure)) throw new Error('unreachable');
+        expect(failure.attemptsRemaining).toBe(2);
+        expect(failure.retryable).toBe(false);
+    });
+
+    it('carries the wait on an active cooldown, distinct from a rate limit', () => {
+        const failure = otpCooldownFailure(45);
+        expect(isOtpCooldownFailure(failure)).toBe(true);
+        expect(isRateLimitFailure(failure)).toBe(false);
+        if (!isOtpCooldownFailure(failure)) throw new Error('unreachable');
+        expect(failure.retryAfterSeconds).toBe(45);
+    });
+
+    /** An empty channel list is a statement, not a missing field: "there is nothing else to try". */
+    it('carries the lockout end and the escape channels, including none at all', () => {
+        const failure = otpLockedFailure('2026-08-02T10:05:00.000Z', ['sms']);
+        expect(isOtpLockedFailure(failure)).toBe(true);
+        if (!isOtpLockedFailure(failure)) throw new Error('unreachable');
+        expect(failure.lockedUntil).toBe('2026-08-02T10:05:00.000Z');
+        expect(failure.availableChannels).toEqual(['sms']);
+
+        const stranded = otpLockedFailure('2026-08-02T10:05:00.000Z', []);
+        if (!isOtpLockedFailure(stranded)) throw new Error('unreachable');
+        expect(stranded.availableChannels).toEqual([]);
+    });
+
+    it('treats otp.expired and otp.channel_unavailable as plain failures', () => {
+        expect(isOtpFailure(apiFailure('otp.expired'))).toBe(true);
+        expect(isOtpFailure(apiFailure('otp.channel_unavailable'))).toBe(true);
+        expect(isOtpFailure(apiFailure('server'))).toBe(false);
     });
 
     it('lets a caller mark a normally fatal failure retryable', () => {

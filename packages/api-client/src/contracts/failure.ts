@@ -1,3 +1,7 @@
+import type { IsoDateTime } from '@healthy360/domain-types';
+
+import type { OtpChannel } from './verification.ts';
+
 /**
  * The failure contract every repository — mock today, generated-OpenAPI-backed in 5c — speaks.
  *
@@ -45,6 +49,32 @@
  * the backend enum gains it with K1's first lock-versioned endpoint (plan §4.17, additive within
  * v1). It is declared here anyway because the mock repositories raise it today, and the whole point
  * of this union is that the mock and the API reject with identical codes.
+ *
+ * ## The five OTP codes (J1)
+ *
+ * A one-time-code panel is the densest error surface in the product: five rejections, each of which
+ * has to change what the panel *shows and offers*, and none of which is "something went wrong".
+ * Projecting them onto `validation.failed` — the obvious shortcut, since a wrong code is a wrong
+ * field — would lose exactly the structured detail the screen needs:
+ *
+ * - **`otp.invalid`** — the code was wrong. `attemptsRemaining` is the number *after* this attempt,
+ *   authored by the server. The panel says how many tries are left; a client that decremented its
+ *   own copy would disagree with the server the moment two tabs raced.
+ * - **`otp.expired`** — the challenge timed out (300 s). The panel flips to an expired state whose
+ *   only affordance is "send a new code"; retrying the same code is meaningless.
+ * - **`otp.cooldown_active`** — a resend arrived inside the 45 s window. Distinct from
+ *   `rate_limit.exceeded` because it is *expected* traffic on a normal journey, not abuse: the panel
+ *   disables the resend button and counts down instead of showing an error.
+ * - **`otp.attempts_exceeded`** — the lockout. Carries `lockedUntil` **and** `availableChannels`,
+ *   because a lockout screen that cannot say when it lifts and cannot offer another channel is a
+ *   dead end. Both are the server's answer.
+ * - **`otp.channel_unavailable`** — the requested channel cannot be used (no verified number, or a
+ *   channel with no real driver in this environment). The panel removes the channel rather than
+ *   letting the person press it again.
+ *
+ * None of the five is in the *current* generated `ErrorCode` union either; the backend enum gains
+ * them with J1's OTP endpoints (additive within v1). They are declared here now because the mock
+ * repositories raise them today.
  */
 export const API_FAILURE_CODES = [
     'auth.invalid_credentials',
@@ -61,6 +91,11 @@ export const API_FAILURE_CODES = [
     'request.precondition_required',
     'validation.failed',
     'rate_limit.exceeded',
+    'otp.invalid',
+    'otp.expired',
+    'otp.cooldown_active',
+    'otp.attempts_exceeded',
+    'otp.channel_unavailable',
     'network',
     'server',
     'prototype.not_implemented',
@@ -85,7 +120,13 @@ interface ApiFailureBase {
 /** Codes whose failure carries nothing beyond the three base fields. */
 type SimpleFailureCode = Exclude<
     ApiFailureCode,
-    'validation.failed' | 'rate_limit.exceeded' | 'resource.conflict' | 'authz.permission_denied'
+    | 'validation.failed'
+    | 'rate_limit.exceeded'
+    | 'resource.conflict'
+    | 'authz.permission_denied'
+    | 'otp.invalid'
+    | 'otp.cooldown_active'
+    | 'otp.attempts_exceeded'
 >;
 
 export type ApiFailure =
@@ -118,6 +159,29 @@ export type ApiFailure =
           readonly permission: string;
           /** The denying RBAC step, verbatim from `details.reason`. */
           readonly reason: string;
+      })
+    | (ApiFailureBase & {
+          readonly code: 'otp.invalid';
+          /** Tries left **after** this rejection. Zero means the next wrong code locks the account. */
+          readonly attemptsRemaining: number;
+      })
+    | (ApiFailureBase & {
+          readonly code: 'otp.cooldown_active';
+          /** Seconds until another send is accepted. Seeds the panel's countdown. */
+          readonly retryAfterSeconds: number;
+      })
+    | (ApiFailureBase & {
+          readonly code: 'otp.attempts_exceeded';
+          /** When the lockout lifts. Shown, not merely counted down from. */
+          readonly lockedUntil: IsoDateTime;
+          /**
+           * Channels the person may switch to instead of waiting.
+           *
+           * Required rather than optional, and possibly empty: "there is no other channel" is a
+           * real answer the screen must be able to state, and it is not the same as "the server did
+           * not say".
+           */
+          readonly availableChannels: readonly OtpChannel[];
       });
 
 /** Codes where retrying the same request unchanged is pointless or harmful. */
@@ -138,6 +202,15 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'request.precondition_required',
     'validation.failed',
     'rate_limit.exceeded',
+    // The same wrong code stays wrong, an expired challenge does not un-expire, a cooldown does not
+    // end sooner because it was asked twice, and a lockout is the point. Every one of the five needs
+    // a *person* to do something different — enter another code, ask for a new one, wait, or switch
+    // channel — so an automatic retry would only burn an attempt.
+    'otp.invalid',
+    'otp.expired',
+    'otp.cooldown_active',
+    'otp.attempts_exceeded',
+    'otp.channel_unavailable',
     // Retrying cannot conjure an endpoint that has not been built.
     'prototype.not_implemented',
 ]);
@@ -191,6 +264,11 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'request.precondition_required': 'This change was sent without the version it was based on.',
     'validation.failed': 'Some of the details need correcting.',
     'rate_limit.exceeded': 'Too many attempts. Wait a moment and try again.',
+    'otp.invalid': 'That code is not right.',
+    'otp.expired': 'That code has expired.',
+    'otp.cooldown_active': 'Another code cannot be sent quite yet.',
+    'otp.attempts_exceeded': 'Too many incorrect codes. This is locked for a while.',
+    'otp.channel_unavailable': 'A code cannot be sent that way.',
     network: 'Healthy360 could not be reached.',
     server: 'Something went wrong on our side.',
     'prototype.not_implemented':
@@ -277,6 +355,62 @@ export function permissionDeniedFailure(
     };
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * The OTP builders (J1).
+ *
+ * Three of the five codes carry structured detail and so need a builder each; `otp.expired` and
+ * `otp.channel_unavailable` are plain and go through `apiFailure`.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** A wrong code. `attemptsRemaining` is what is left *after* this rejection. */
+export function otpInvalidFailure(
+    attemptsRemaining: number,
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code: 'otp.invalid',
+        attemptsRemaining,
+        message: options.message ?? FALLBACK_MESSAGES['otp.invalid'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/** A resend inside the cooldown window. Seeds the panel's countdown rather than an error banner. */
+export function otpCooldownFailure(
+    retryAfterSeconds: number,
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code: 'otp.cooldown_active',
+        retryAfterSeconds,
+        message: options.message ?? FALLBACK_MESSAGES['otp.cooldown_active'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/**
+ * The lockout.
+ *
+ * `availableChannels` is passed explicitly even when empty, because an empty list is a statement —
+ * "there is nothing else to try" — and the screen has to be able to make it.
+ */
+export function otpLockedFailure(
+    lockedUntil: IsoDateTime,
+    availableChannels: readonly OtpChannel[],
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code: 'otp.attempts_exceeded',
+        lockedUntil,
+        availableChannels,
+        message: options.message ?? FALLBACK_MESSAGES['otp.attempts_exceeded'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
 /** Narrows anything caught in a `catch` or handed to a query error boundary. */
 export function asApiFailure(error: unknown): ApiFailure | null {
     if (error instanceof ApiError) return error.failure;
@@ -312,6 +446,31 @@ export function isPermissionDeniedFailure(
     failure: ApiFailure,
 ): failure is Extract<ApiFailure, { code: 'authz.permission_denied' }> {
     return failure.code === 'authz.permission_denied';
+}
+
+/** Every `otp.*` code, so a panel can ask "is this mine?" before reaching for the matrix. */
+export function isOtpFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: `otp.${string}` }> {
+    return failure.code.startsWith('otp.');
+}
+
+export function isOtpInvalidFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: 'otp.invalid' }> {
+    return failure.code === 'otp.invalid';
+}
+
+export function isOtpCooldownFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: 'otp.cooldown_active' }> {
+    return failure.code === 'otp.cooldown_active';
+}
+
+export function isOtpLockedFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: 'otp.attempts_exceeded' }> {
+    return failure.code === 'otp.attempts_exceeded';
 }
 
 /**

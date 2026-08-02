@@ -28,6 +28,15 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'request.precondition_required': 'errors:failure.request_precondition_required',
     'validation.failed': 'errors:failure.validation_failed',
     'rate_limit.exceeded': 'errors:failure.rate_limit_exceeded',
+    // The five OTP codes (J1). A one-time-code panel renders its own copy from
+    // `features/verification/otp-errors.ts`, because it can say *how many tries are left* and
+    // *what to do instead*. These entries are the last resort for anywhere else an OTP rejection
+    // surfaces — a generic error boundary — and they are worded without the counts they lack.
+    'otp.invalid': 'errors:failure.otp_invalid',
+    'otp.expired': 'errors:failure.otp_expired',
+    'otp.cooldown_active': 'errors:failure.otp_cooldown_active',
+    'otp.attempts_exceeded': 'errors:failure.otp_attempts_exceeded',
+    'otp.channel_unavailable': 'errors:failure.otp_channel_unavailable',
     // Raised by every prototype API repository. The record is exhaustive over `ApiFailure['code']`,
     // so a new failure code cannot be added upstream without this table being updated — which is
     // exactly the point of typing it that way.

@@ -44,6 +44,11 @@
         "request_precondition_required": "This change was sent without the version it was based on, so it was not saved. Reload the record and try again.",
         "validation_failed": "Some of the details need correcting.",
         "rate_limit_exceeded": "Too many attempts. Try again in {{seconds}} seconds.",
+        "otp_invalid": "That code is not right. Check the message and try again.",
+        "otp_expired": "That code has expired. Ask for a new one.",
+        "otp_cooldown_active": "A new code cannot be sent yet. Wait a moment and try again.",
+        "otp_attempts_exceeded": "Too many incorrect codes. Verification is locked for a short while.",
+        "otp_channel_unavailable": "A code cannot be sent that way. Choose another option.",
         "network": "We cannot reach Healthy360. Check your connection and try again.",
         "server": "Something went wrong on our side. Try again in a moment.",
         "prototype_not_implemented": "This part of Healthy360 is not built yet. Nothing was changed."

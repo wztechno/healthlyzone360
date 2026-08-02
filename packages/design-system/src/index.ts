@@ -75,6 +75,8 @@ export { TextInputField, inputFrameClassName } from './forms/text-input.tsx';
 export type { TextInputFieldProps } from './forms/text-input.tsx';
 export { PasswordInput } from './forms/password-input.tsx';
 export type { PasswordInputProps } from './forms/password-input.tsx';
+export { OtpInput, normaliseOtpDigits } from './forms/otp-input.tsx';
+export type { OtpInputProps } from './forms/otp-input.tsx';
 export { Checkbox } from './forms/checkbox.tsx';
 export type { CheckboxProps } from './forms/checkbox.tsx';
 export { Select } from './forms/select.tsx';

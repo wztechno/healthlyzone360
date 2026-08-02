@@ -57,7 +57,7 @@ async function signIn(
 }
 
 describe('scenario inventory', () => {
-    it('exposes exactly the eight named worlds, each self-labelled', () => {
+    it('exposes exactly the nine named worlds, each self-labelled', () => {
         expect([...MOCK_SCENARIO_NAMES]).toEqual([
             'multi-org-dietitian',
             'single-org-owner',
@@ -68,6 +68,8 @@ describe('scenario inventory', () => {
             // Prompt 2: the same consumer account, before and after onboarding.
             'consumer-prototype',
             'consumer-onboarding',
+            // J1: the same person again, partway through setting the account up.
+            'consumer-account-setup',
         ]);
         for (const name of MOCK_SCENARIO_NAMES) {
             const scenario = MOCK_SCENARIOS[name];

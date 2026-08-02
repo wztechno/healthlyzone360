@@ -32,6 +32,7 @@ export const MOCK_SCENARIO_NAMES = [
     'platform-admin',
     'consumer-prototype',
     'consumer-onboarding',
+    'consumer-account-setup',
 ] as const;
 export type MockScenarioName = (typeof MOCK_SCENARIO_NAMES)[number];
 
@@ -266,6 +267,23 @@ const consumerOnboarding: MockScenario = {
     accounts: [account(consumer, [])],
 };
 
+/**
+ * The J1 world: the same person, partway through setting their account up.
+ *
+ * The sign-in address is confirmed, a mobile number has been added but not verified, there is no
+ * address on file, no dietary profile, and the four required consents are outstanding. What differs
+ * from the other consumer scenarios is again not the account but the world behind it — here
+ * `./account/store.ts`, whose seed is deliberately unfinished so that every checklist row has
+ * something to say and the OTP panel has something real to verify.
+ */
+const consumerAccountSetup: MockScenario = {
+    name: 'consumer-account-setup',
+    summary:
+        'Nour Saleh partway through D2C setup — email confirmed, phone unverified, no address and consents outstanding.',
+    primaryEmail: consumer.email,
+    accounts: [account(consumer, [])],
+};
+
 export const MOCK_SCENARIOS: Readonly<Record<MockScenarioName, MockScenario>> = {
     'multi-org-dietitian': multiOrgDietitian,
     'single-org-owner': singleOrgOwner,
@@ -275,6 +293,7 @@ export const MOCK_SCENARIOS: Readonly<Record<MockScenarioName, MockScenario>> = 
     'platform-admin': platformAdministrator,
     'consumer-prototype': consumerPrototype,
     'consumer-onboarding': consumerOnboarding,
+    'consumer-account-setup': consumerAccountSetup,
 };
 
 export function resolveScenario(name: string | null | undefined): MockScenario {

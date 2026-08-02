@@ -76,3 +76,35 @@ export type {
     PrototypeRepositoryBundle,
     PrototypeStoreOptions,
 } from './prototype/index.ts';
+
+/**
+ * The J1 account-and-verification world.
+ *
+ * `MOCK_OTP_CODE` is re-exported here — and only here, not from the package root — because the only
+ * things that need it are the mock world's own tests and the Playwright specs that drive the OTP
+ * panel. A screen never types a code for itself.
+ */
+export {
+    ACCOUNT_ID_BANDS,
+    ACCOUNT_ID_PREFIX,
+    AccountMockStore,
+    DEFAULT_ACCOUNT_MOCK_LATENCY_MS,
+    MOCK_OTP_CODE,
+    OTP_CODE_LENGTH,
+    OTP_EXPIRY_SECONDS,
+    OTP_LOCKOUT_SECONDS,
+    OTP_MAX_ATTEMPTS,
+    OTP_MAX_RESENDS,
+    OTP_REPEAT_LOCKOUT_SECONDS,
+    OTP_RESEND_COOLDOWN_SECONDS,
+    SEED_CONSENTS,
+    SEED_CONTACTS,
+    SEED_SERVICE_AREAS,
+    SIMULATED_CHANNELS,
+    createAccountMockRepositories,
+} from './account/index.ts';
+export type {
+    AccountMockRepositories,
+    AccountMockRepositoriesOptions,
+    AccountMockStoreOptions,
+} from './account/index.ts';

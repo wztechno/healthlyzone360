@@ -33,6 +33,7 @@ import {
     NUTRITION_LEVELS,
     NumberStepper,
     OfflineIndicator,
+    OtpInput,
     PageTransition,
     PasswordInput,
     Popover,
@@ -132,6 +133,7 @@ export function ShowcaseScreen() {
     const [sortKey, setSortKey] = useState<NutrientSortKey>('name');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [text, setText] = useState('');
+    const [otp, setOtp] = useState('');
     const [tab, setTab] = useState('overview');
     const [segment, setSegment] = useState('overview');
     const [portion, setPortion] = useState<number | null>(2);
@@ -324,6 +326,20 @@ export function ShowcaseScreen() {
                         label={t('auth:login.passwordLabel')}
                         value=""
                         onChangeText={() => undefined}
+                    />
+                    {/*
+                     * One field, not six boxes: platform autofill hands a one-time code to a single
+                     * control, and six labelled controls read as six things to do. Shown live so
+                     * the Arabic pass proves an Arabic-Indic code arrives as ASCII digits.
+                     */}
+                    <OtpInput
+                        testID="showcase-otp"
+                        id="showcase-otp"
+                        label={t('auth:otp.codeLabel')}
+                        hint={t('auth:otp.codeHint')}
+                        value={otp}
+                        length={6}
+                        onChangeText={setOtp}
                     />
                     <Checkbox
                         testID="showcase-checkbox"
