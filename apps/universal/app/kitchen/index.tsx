@@ -1,9 +1,11 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { KitchenHomeScreen } from '../../src/features/kitchen-admin/screens/kitchen-home-screen.tsx';
 
 /**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
+ * `/kitchen` — the kitchen workspace hub (phase K1).
+ *
+ * The card grid is driven by `features/kitchen-admin/entity-registry.ts`, so the slices that follow
+ * add a registry entry rather than editing this route.
  */
 export default function KitchenIndex() {
-    return <PrototypeScreen area="kitchen" testID="prototype-kitchen" />;
+    return <KitchenHomeScreen />;
 }

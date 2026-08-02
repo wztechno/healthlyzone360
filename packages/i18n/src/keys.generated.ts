@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 2840 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 3042 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1285,7 +1285,209 @@ export interface NamespaceKeys {
     | 'validation.password_mismatch'
     | 'validation.required';
   readonly "kitchen":
-    | 'title';
+    | 'a11y.aliasAdded'
+    | 'a11y.listUpdated'
+    | 'a11y.mappingAdded'
+    | 'a11y.mappingRemoved'
+    | 'aliases.add'
+    | 'aliases.count'
+    | 'aliases.description'
+    | 'aliases.duplicate'
+    | 'aliases.empty'
+    | 'aliases.inputLabel'
+    | 'aliases.inputPlaceholder'
+    | 'aliases.remove'
+    | 'aliases.removedToast'
+    | 'aliases.title'
+    | 'allergens.addRow'
+    | 'allergens.chooseClass'
+    | 'allergens.classLabel'
+    | 'allergens.classPlaceholder'
+    | 'allergens.classesError'
+    | 'allergens.containmentLabel'
+    | 'allergens.description'
+    | 'allergens.duplicateClass'
+    | 'allergens.empty'
+    | 'allergens.emptyHint'
+    | 'allergens.evidenceHint'
+    | 'allergens.evidenceLabel'
+    | 'allergens.marketScopeAll'
+    | 'allergens.marketScopeHint'
+    | 'allergens.marketScopeLabel'
+    | 'allergens.platformBaseline'
+    | 'allergens.platformBaselineHint'
+    | 'allergens.quarantineBody'
+    | 'allergens.quarantineTitle'
+    | 'allergens.remove'
+    | 'allergens.rowTitle'
+    | 'allergens.safetyBody'
+    | 'allergens.safetyTitle'
+    | 'allergens.save'
+    | 'allergens.saveBlocked'
+    | 'allergens.saveError'
+    | 'allergens.savedToast'
+    | 'allergens.title'
+    | 'allergens.upgradeOnlyContainment'
+    | 'allergens.upgradeOnlyVerification'
+    | 'allergens.verificationLabel'
+    | 'bilingual.arabicHint'
+    | 'bilingual.arabicLabel'
+    | 'bilingual.copyFromEnglish'
+    | 'bilingual.englishHint'
+    | 'bilingual.englishLabel'
+    | 'bilingual.missingArabic'
+    | 'bilingual.missingArabicHint'
+    | 'classes.count'
+    | 'classes.emptyBody'
+    | 'classes.emptyTitle'
+    | 'classes.errorTitle'
+    | 'classes.governanceBody'
+    | 'classes.governanceTitle'
+    | 'classes.inactive'
+    | 'classes.marketsLabel'
+    | 'classes.noMarkets'
+    | 'classes.referenceLabel'
+    | 'classes.severe'
+    | 'classes.subtitle'
+    | 'classes.thresholdAny'
+    | 'classes.thresholdLabel'
+    | 'classes.thresholdValue'
+    | 'classes.title'
+    | 'common.add'
+    | 'common.back'
+    | 'common.cancel'
+    | 'common.discard'
+    | 'common.listSeparator'
+    | 'common.notRecorded'
+    | 'common.optional'
+    | 'common.remove'
+    | 'common.save'
+    | 'common.saveDraft'
+    | 'common.saving'
+    | 'common.undo'
+    | 'conflict.body'
+    | 'conflict.keepEditing'
+    | 'conflict.reload'
+    | 'conflict.title'
+    | 'containment.contains'
+    | 'containment.mayContain'
+    | 'editor.archive'
+    | 'editor.archiveBody'
+    | 'editor.archiveConfirm'
+    | 'editor.archiveTitle'
+    | 'editor.backToList'
+    | 'editor.categoryRequired'
+    | 'editor.createTitle'
+    | 'editor.createdToast'
+    | 'editor.editTitle'
+    | 'editor.lastUpdated'
+    | 'editor.lastUpdatedBy'
+    | 'editor.lastUpdatedBySeed'
+    | 'editor.loadErrorTitle'
+    | 'editor.nameRequired'
+    | 'editor.neverSaved'
+    | 'editor.notFoundBody'
+    | 'editor.notFoundTitle'
+    | 'editor.saveError'
+    | 'editor.savedToast'
+    | 'editor.sectionAliases'
+    | 'editor.sectionAllergens'
+    | 'editor.sectionClassification'
+    | 'editor.sectionDetails'
+    | 'editor.sectionNotes'
+    | 'editor.unsaved'
+    | 'families.allergenClasses.description'
+    | 'families.allergenClasses.name'
+    | 'families.ingredients.description'
+    | 'families.ingredients.name'
+    | 'fields.category'
+    | 'fields.categoryHint'
+    | 'fields.categoryPlaceholder'
+    | 'fields.name'
+    | 'fields.notes'
+    | 'fields.notesHint'
+    | 'fields.reference'
+    | 'fields.referenceHint'
+    | 'fields.unit'
+    | 'fields.unitHint'
+    | 'hub.countUnavailable'
+    | 'hub.draftCount'
+    | 'hub.emptyBody'
+    | 'hub.emptyTitle'
+    | 'hub.errorTitle'
+    | 'hub.itemCount'
+    | 'hub.open'
+    | 'hub.quarantineCount'
+    | 'hub.referenceOnly'
+    | 'hub.subtitle'
+    | 'hub.title'
+    | 'list.actionHeader'
+    | 'list.allLoaded'
+    | 'list.archive'
+    | 'list.archiveFailed'
+    | 'list.archivedToast'
+    | 'list.caption'
+    | 'list.columnAllergens'
+    | 'list.columnCategory'
+    | 'list.columnName'
+    | 'list.columnStatus'
+    | 'list.columnUpdated'
+    | 'list.emptyBody'
+    | 'list.emptyTitle'
+    | 'list.filteredEmptyBody'
+    | 'list.filteredEmptyTitle'
+    | 'list.loadMore'
+    | 'list.loadingMore'
+    | 'list.missingArabic'
+    | 'list.missingArabicHint'
+    | 'list.noAllergens'
+    | 'list.noCategory'
+    | 'list.open'
+    | 'list.subtitle'
+    | 'list.title'
+    | 'list.updatedBy'
+    | 'list.updatedBySeed'
+    | 'status.all'
+    | 'status.draft'
+    | 'status.label'
+    | 'status.operational.active'
+    | 'status.operational.archived'
+    | 'status.operational.inactive'
+    | 'status.published'
+    | 'status.retired'
+    | 'status.reviewRequired'
+    | 'title'
+    | 'toolbar.categoryAll'
+    | 'toolbar.categoryLabel'
+    | 'toolbar.clearFilters'
+    | 'toolbar.create'
+    | 'toolbar.resultCount'
+    | 'toolbar.searchLabel'
+    | 'toolbar.searchPlaceholder'
+    | 'toolbar.statusLabel'
+    | 'units.cup'
+    | 'units.dimensionCount'
+    | 'units.dimensionMass'
+    | 'units.dimensionServing'
+    | 'units.dimensionVolume'
+    | 'units.g'
+    | 'units.kg'
+    | 'units.l'
+    | 'units.ml'
+    | 'units.piece'
+    | 'units.portion'
+    | 'units.slice'
+    | 'units.tbsp'
+    | 'units.tsp'
+    | 'unsaved.body'
+    | 'unsaved.browserPrompt'
+    | 'unsaved.discard'
+    | 'unsaved.keepEditing'
+    | 'unsaved.title'
+    | 'verification.laboratoryTested'
+    | 'verification.operatorConfirmed'
+    | 'verification.supplierDeclared'
+    | 'verification.unverified';
   readonly "marketplace":
     | 'allergens.celery'
     | 'allergens.crustaceans'
@@ -4142,7 +4344,209 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
+  'kitchen:a11y.aliasAdded',
+  'kitchen:a11y.listUpdated',
+  'kitchen:a11y.mappingAdded',
+  'kitchen:a11y.mappingRemoved',
+  'kitchen:aliases.add',
+  'kitchen:aliases.count',
+  'kitchen:aliases.description',
+  'kitchen:aliases.duplicate',
+  'kitchen:aliases.empty',
+  'kitchen:aliases.inputLabel',
+  'kitchen:aliases.inputPlaceholder',
+  'kitchen:aliases.remove',
+  'kitchen:aliases.removedToast',
+  'kitchen:aliases.title',
+  'kitchen:allergens.addRow',
+  'kitchen:allergens.chooseClass',
+  'kitchen:allergens.classLabel',
+  'kitchen:allergens.classPlaceholder',
+  'kitchen:allergens.classesError',
+  'kitchen:allergens.containmentLabel',
+  'kitchen:allergens.description',
+  'kitchen:allergens.duplicateClass',
+  'kitchen:allergens.empty',
+  'kitchen:allergens.emptyHint',
+  'kitchen:allergens.evidenceHint',
+  'kitchen:allergens.evidenceLabel',
+  'kitchen:allergens.marketScopeAll',
+  'kitchen:allergens.marketScopeHint',
+  'kitchen:allergens.marketScopeLabel',
+  'kitchen:allergens.platformBaseline',
+  'kitchen:allergens.platformBaselineHint',
+  'kitchen:allergens.quarantineBody',
+  'kitchen:allergens.quarantineTitle',
+  'kitchen:allergens.remove',
+  'kitchen:allergens.rowTitle',
+  'kitchen:allergens.safetyBody',
+  'kitchen:allergens.safetyTitle',
+  'kitchen:allergens.save',
+  'kitchen:allergens.saveBlocked',
+  'kitchen:allergens.saveError',
+  'kitchen:allergens.savedToast',
+  'kitchen:allergens.title',
+  'kitchen:allergens.upgradeOnlyContainment',
+  'kitchen:allergens.upgradeOnlyVerification',
+  'kitchen:allergens.verificationLabel',
+  'kitchen:bilingual.arabicHint',
+  'kitchen:bilingual.arabicLabel',
+  'kitchen:bilingual.copyFromEnglish',
+  'kitchen:bilingual.englishHint',
+  'kitchen:bilingual.englishLabel',
+  'kitchen:bilingual.missingArabic',
+  'kitchen:bilingual.missingArabicHint',
+  'kitchen:classes.count',
+  'kitchen:classes.emptyBody',
+  'kitchen:classes.emptyTitle',
+  'kitchen:classes.errorTitle',
+  'kitchen:classes.governanceBody',
+  'kitchen:classes.governanceTitle',
+  'kitchen:classes.inactive',
+  'kitchen:classes.marketsLabel',
+  'kitchen:classes.noMarkets',
+  'kitchen:classes.referenceLabel',
+  'kitchen:classes.severe',
+  'kitchen:classes.subtitle',
+  'kitchen:classes.thresholdAny',
+  'kitchen:classes.thresholdLabel',
+  'kitchen:classes.thresholdValue',
+  'kitchen:classes.title',
+  'kitchen:common.add',
+  'kitchen:common.back',
+  'kitchen:common.cancel',
+  'kitchen:common.discard',
+  'kitchen:common.listSeparator',
+  'kitchen:common.notRecorded',
+  'kitchen:common.optional',
+  'kitchen:common.remove',
+  'kitchen:common.save',
+  'kitchen:common.saveDraft',
+  'kitchen:common.saving',
+  'kitchen:common.undo',
+  'kitchen:conflict.body',
+  'kitchen:conflict.keepEditing',
+  'kitchen:conflict.reload',
+  'kitchen:conflict.title',
+  'kitchen:containment.contains',
+  'kitchen:containment.mayContain',
+  'kitchen:editor.archive',
+  'kitchen:editor.archiveBody',
+  'kitchen:editor.archiveConfirm',
+  'kitchen:editor.archiveTitle',
+  'kitchen:editor.backToList',
+  'kitchen:editor.categoryRequired',
+  'kitchen:editor.createTitle',
+  'kitchen:editor.createdToast',
+  'kitchen:editor.editTitle',
+  'kitchen:editor.lastUpdated',
+  'kitchen:editor.lastUpdatedBy',
+  'kitchen:editor.lastUpdatedBySeed',
+  'kitchen:editor.loadErrorTitle',
+  'kitchen:editor.nameRequired',
+  'kitchen:editor.neverSaved',
+  'kitchen:editor.notFoundBody',
+  'kitchen:editor.notFoundTitle',
+  'kitchen:editor.saveError',
+  'kitchen:editor.savedToast',
+  'kitchen:editor.sectionAliases',
+  'kitchen:editor.sectionAllergens',
+  'kitchen:editor.sectionClassification',
+  'kitchen:editor.sectionDetails',
+  'kitchen:editor.sectionNotes',
+  'kitchen:editor.unsaved',
+  'kitchen:families.allergenClasses.description',
+  'kitchen:families.allergenClasses.name',
+  'kitchen:families.ingredients.description',
+  'kitchen:families.ingredients.name',
+  'kitchen:fields.category',
+  'kitchen:fields.categoryHint',
+  'kitchen:fields.categoryPlaceholder',
+  'kitchen:fields.name',
+  'kitchen:fields.notes',
+  'kitchen:fields.notesHint',
+  'kitchen:fields.reference',
+  'kitchen:fields.referenceHint',
+  'kitchen:fields.unit',
+  'kitchen:fields.unitHint',
+  'kitchen:hub.countUnavailable',
+  'kitchen:hub.draftCount',
+  'kitchen:hub.emptyBody',
+  'kitchen:hub.emptyTitle',
+  'kitchen:hub.errorTitle',
+  'kitchen:hub.itemCount',
+  'kitchen:hub.open',
+  'kitchen:hub.quarantineCount',
+  'kitchen:hub.referenceOnly',
+  'kitchen:hub.subtitle',
+  'kitchen:hub.title',
+  'kitchen:list.actionHeader',
+  'kitchen:list.allLoaded',
+  'kitchen:list.archive',
+  'kitchen:list.archiveFailed',
+  'kitchen:list.archivedToast',
+  'kitchen:list.caption',
+  'kitchen:list.columnAllergens',
+  'kitchen:list.columnCategory',
+  'kitchen:list.columnName',
+  'kitchen:list.columnStatus',
+  'kitchen:list.columnUpdated',
+  'kitchen:list.emptyBody',
+  'kitchen:list.emptyTitle',
+  'kitchen:list.filteredEmptyBody',
+  'kitchen:list.filteredEmptyTitle',
+  'kitchen:list.loadMore',
+  'kitchen:list.loadingMore',
+  'kitchen:list.missingArabic',
+  'kitchen:list.missingArabicHint',
+  'kitchen:list.noAllergens',
+  'kitchen:list.noCategory',
+  'kitchen:list.open',
+  'kitchen:list.subtitle',
+  'kitchen:list.title',
+  'kitchen:list.updatedBy',
+  'kitchen:list.updatedBySeed',
+  'kitchen:status.all',
+  'kitchen:status.draft',
+  'kitchen:status.label',
+  'kitchen:status.operational.active',
+  'kitchen:status.operational.archived',
+  'kitchen:status.operational.inactive',
+  'kitchen:status.published',
+  'kitchen:status.retired',
+  'kitchen:status.reviewRequired',
   'kitchen:title',
+  'kitchen:toolbar.categoryAll',
+  'kitchen:toolbar.categoryLabel',
+  'kitchen:toolbar.clearFilters',
+  'kitchen:toolbar.create',
+  'kitchen:toolbar.resultCount',
+  'kitchen:toolbar.searchLabel',
+  'kitchen:toolbar.searchPlaceholder',
+  'kitchen:toolbar.statusLabel',
+  'kitchen:units.cup',
+  'kitchen:units.dimensionCount',
+  'kitchen:units.dimensionMass',
+  'kitchen:units.dimensionServing',
+  'kitchen:units.dimensionVolume',
+  'kitchen:units.g',
+  'kitchen:units.kg',
+  'kitchen:units.l',
+  'kitchen:units.ml',
+  'kitchen:units.piece',
+  'kitchen:units.portion',
+  'kitchen:units.slice',
+  'kitchen:units.tbsp',
+  'kitchen:units.tsp',
+  'kitchen:unsaved.body',
+  'kitchen:unsaved.browserPrompt',
+  'kitchen:unsaved.discard',
+  'kitchen:unsaved.keepEditing',
+  'kitchen:unsaved.title',
+  'kitchen:verification.laboratoryTested',
+  'kitchen:verification.operatorConfirmed',
+  'kitchen:verification.supplierDeclared',
+  'kitchen:verification.unverified',
   'marketplace:allergens.celery',
   'marketplace:allergens.crustaceans',
   'marketplace:allergens.egg',

@@ -57,10 +57,21 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
         'device.manage_own',
         'session.revoke_own',
     ],
+    /**
+     * The kitchen workspace role (K1).
+     *
+     * `catalogue.view_organisation` / `catalogue.manage_organisation` are the first two codes of the
+     * phase's `catalogue.*_organisation` set (master plan, phase K1 "Permissions"). They are granted
+     * on this role rather than on a bespoke one because Verdant Kitchen's manager is exactly the
+     * person the kitchen admin area is for, and inventing a second kitchen role would make the mock
+     * world disagree with the backend template roles it mirrors.
+     */
     kitchen_manager: [
         'organisation.view_current',
         'branch.view_current',
         'branch.manage_current',
+        'catalogue.view_organisation',
+        'catalogue.manage_organisation',
         'device.manage_own',
         'session.revoke_own',
     ],

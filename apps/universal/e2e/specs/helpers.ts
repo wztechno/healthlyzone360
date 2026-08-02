@@ -44,6 +44,20 @@ export async function selectScenario(page: Page, scenario: string) {
 }
 
 /**
+ * The kitchen half of the default scenario: Verdant Kitchen, where the dietitian holds the
+ * `kitchen_manager` role.
+ *
+ * No branch step, and that is the server's doing rather than an omission: the membership has exactly
+ * one branch, so `setContext` applies it and the branch picker auto-skips (`mock/store.ts`). The
+ * journey therefore goes organisation picker → workspace selector.
+ */
+export async function selectVerdantKitchenContext(page: Page) {
+    await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
+    await page.getByTestId('organisation-verdant-kitchen').click();
+    await expect(page.getByTestId('workspace-selector-screen')).toBeVisible();
+}
+
+/**
  * Complete the context journey for the default scenario: Cedar Clinic (two branches, so the
  * branch picker shows) then the Hamra branch, landing on the workspace selector.
  */

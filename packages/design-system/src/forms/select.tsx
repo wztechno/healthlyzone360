@@ -6,6 +6,7 @@ import { Icon } from '../icons/icon.tsx';
 import { IconButton } from '../actions/button.tsx';
 import { cx } from '../internal/class-names.ts';
 import { descriptionProps } from '../internal/a11y.ts';
+import { REQUIRED_MARK } from './form-field.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
 
 export interface SelectOption<T extends string = string> {
@@ -89,6 +90,9 @@ export function Select<T extends string = string>({
     const [query, setQuery] = useState('');
     const selected = options.find((option) => option.value === value) ?? null;
     const displayText = selected?.label ?? placeholder ?? t('designSystem:select.placeholder');
+    const accessibleName = required
+        ? `${label} ${REQUIRED_MARK}: ${displayText}`
+        : `${label}: ${displayText}`;
 
     const needle = query.trim().toLocaleLowerCase();
     const filtering = searchable && needle.length > 0;
@@ -133,12 +137,17 @@ export function Select<T extends string = string>({
                 accessibilityRole="button"
                 aria-haspopup="dialog"
                 aria-expanded={open}
-                accessibilityLabel={`${label}: ${displayText}`}
-                aria-label={`${label}: ${displayText}`}
+                accessibilityLabel={accessibleName}
+                aria-label={accessibleName}
                 aria-labelledby={labelId}
                 {...descriptionProps([hintId, errorId], error ?? hint)}
                 aria-invalid={error !== undefined}
-                aria-required={required}
+                /*
+                 * No `aria-required` here. The trigger is a `button`, and ARIA 1.2 does not support
+                 * `aria-required` on that role — axe reports it as an `aria-allowed-attr` critical.
+                 * Required-ness travels the way `FormField` sends it instead: the visible `*` beside
+                 * the label, and the same mark inside the accessible name above.
+                 */
                 accessibilityState={{ disabled, expanded: open }}
                 aria-disabled={disabled}
                 focusable={!disabled}
@@ -180,7 +189,17 @@ export function Select<T extends string = string>({
                 </View>
             )}
 
-            <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
+            <Modal
+                visible={open}
+                transparent
+                animationType="fade"
+                onRequestClose={close}
+                // Names react-native-web's own dialog wrapper, exactly as `Dialog` does: it spreads
+                // unrecognised props onto that element, and an active modal without an accessible
+                // name is an axe serious violation (`aria-dialog-name`). RN's Modal typing does not
+                // declare aria props, hence the cast.
+                {...({ 'aria-labelledby': `${base}-dialog-title` } as object)}
+            >
                 <View className="flex-1 items-center justify-center bg-overlay p-4">
                     <View
                         testID={testID === undefined ? undefined : `${testID}-list`}
