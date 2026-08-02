@@ -66,6 +66,30 @@ async function openFirstRecipe(page: Page) {
     await expect(page.getByTestId('kitchen-recipe-editor-screen')).toBeVisible();
 }
 
+async function openProducts(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-products-open').click();
+    await expect(page.getByTestId('kitchen-products-table')).toBeVisible();
+}
+
+async function openFirstProduct(page: Page) {
+    await openProducts(page);
+    await page.locator('[data-testid^="kitchen-product-"][data-testid$="-open"]').first().click();
+    await expect(page.getByTestId('kitchen-product-editor-screen')).toBeVisible();
+}
+
+async function openMeals(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-meals-open').click();
+    await expect(page.getByTestId('kitchen-meals-table')).toBeVisible();
+}
+
+async function openFirstMeal(page: Page) {
+    await openMeals(page);
+    await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();
+    await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
+}
+
 test.describe('kitchen workspace accessibility (axe)', () => {
     test('the workspace hub', async ({ page }) => {
         await openKitchen(page);
@@ -168,6 +192,86 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.getByTestId('kitchen-recipe-publish').click();
         await expect(page.getByTestId('kitchen-recipe-publish-dialog')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-recipe-publish-dialog');
+    });
+
+    test('the product list', async ({ page }) => {
+        await openProducts(page);
+        await expectNoSeriousViolations(page, 'kitchen-products');
+    });
+
+    /**
+     * The product editor is swept twice — as it lands, then with a pack row carrying a refusal.
+     * The second state is where the risk is: a repeated row's error has to be associated with the
+     * field inside *that* row rather than with the first one on the page, and an error attached to
+     * the wrong control is invisible until it exists.
+     */
+    test('the product editor, and the editor after a duplicate pack code', async ({ page }) => {
+        await openFirstProduct(page);
+        await expectNoSeriousViolations(page, 'kitchen-product-editor');
+
+        const existing = await page
+            .locator(
+                '[data-testid^="kitchen-product-pack-editor-row-"][data-testid$="-code-input"]',
+            )
+            .first()
+            .inputValue();
+
+        await page.getByTestId('kitchen-product-packs-add').click();
+        const added = 'kitchen-product-pack-editor-row-pack-1';
+        await page.getByTestId(`${added}-code`).locator('input').first().fill(existing);
+        await expect(page.getByTestId(`${added}-code-error`)).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-product-editor-refused');
+    });
+
+    test('the product archive confirmation', async ({ page }) => {
+        await openFirstProduct(page);
+        await page.getByTestId('kitchen-product-archive').click();
+        await expect(page.getByTestId('kitchen-product-archive-dialog')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-product-archive-dialog');
+    });
+
+    test('the meal list', async ({ page }) => {
+        await openMeals(page);
+        await expectNoSeriousViolations(page, 'kitchen-meals');
+    });
+
+    /**
+     * The meal editor carries two multi-select chip groups, a raised confidential panel and the
+     * availability rows — each of which is a labelled control inside a repeated card, which is where
+     * a name goes missing without anybody seeing it.
+     */
+    test('the meal editor, and the editor with an availability row open', async ({ page }) => {
+        await openFirstMeal(page);
+        await expectNoSeriousViolations(page, 'kitchen-meal-editor');
+
+        await page.getByTestId('kitchen-meal-availability-add').click();
+        await expect(page.getByTestId('kitchen-meal-availability-editor-row-day-1')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-meal-editor-availability');
+    });
+
+    test('the meal publish confirmation, where the consequence is stated before it is agreed', async ({
+        page,
+    }) => {
+        await openMeals(page);
+        await page.getByTestId('kitchen-meals-toolbar-create').click();
+        await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
+
+        await page.getByTestId('kitchen-meal-name-en-input').fill('Charred aubergine bowl');
+        await page.getByTestId('kitchen-meal-editor-screen-save').click();
+        await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible();
+
+        await page.getByTestId('kitchen-meal-publish').click();
+        await expect(page.getByTestId('kitchen-meal-publish-dialog')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-meal-publish-dialog');
+    });
+
+    test('the withdraw confirmation, which removes a meal from every consumer surface', async ({
+        page,
+    }) => {
+        await openFirstMeal(page);
+        await page.getByTestId('kitchen-meal-retire').click();
+        await expect(page.getByTestId('kitchen-meal-retire-dialog')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-meal-retire-dialog');
     });
 
     test('the allergen class reference', async ({ page }) => {

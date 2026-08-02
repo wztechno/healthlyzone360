@@ -63,6 +63,10 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await expect(page.getByTestId('kitchen-family-allergen-classes-name')).toContainText(
             ARABIC_SCRIPT,
         );
+        await expect(page.getByTestId('kitchen-family-products-name')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-family-meals-description')).toContainText(
+            ARABIC_SCRIPT,
+        );
     });
 
     test('translates the list, its filters and its column headers', async ({ page }) => {
@@ -187,6 +191,104 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         // The document is right-to-left; the English half is not, and the Arabic half is.
         await expect(english).toHaveCSS('direction', 'ltr');
         await expect(arabic).toHaveCSS('direction', 'rtl');
+    });
+
+    /**
+     * The product editor holds the same three directions the recipe editor does, plus a bilingual
+     * *pack label* — which is the one bilingual field in this workspace that sits inside a repeated
+     * row, and therefore the easiest one to render with the wrong direction without noticing.
+     */
+    test('pins each half of a bilingual pack label to its own writing direction', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-products-open').click();
+        await expect(page.getByTestId('kitchen-products-table')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-products-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-products-table-columnheader-name')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        await page
+            .locator('[data-testid^="kitchen-product-"][data-testid$="-open"]')
+            .first()
+            .click();
+        await expect(page.getByTestId('kitchen-product-editor-screen')).toBeVisible();
+
+        const english = page.getByTestId('kitchen-product-name-en-input');
+        const arabic = page.getByTestId('kitchen-product-name-ar-input');
+        await expect(english).toHaveCSS('direction', 'ltr');
+        await expect(arabic).toHaveCSS('direction', 'rtl');
+
+        const packLabel = page
+            .locator(
+                '[data-testid^="kitchen-product-pack-editor-row-"][data-testid$="-label-en-input"]',
+            )
+            .first();
+        const packLabelArabic = page
+            .locator(
+                '[data-testid^="kitchen-product-pack-editor-row-"][data-testid$="-label-ar-input"]',
+            )
+            .first();
+        await expect(packLabel).toBeVisible();
+        await expect(packLabel).toHaveCSS('direction', 'ltr');
+        await expect(packLabelArabic).toHaveCSS('direction', 'rtl');
+
+        // A pack code is an identity a price points at, not copy: it stays in Latin either way.
+        const code = page
+            .locator(
+                '[data-testid^="kitchen-product-pack-editor-row-"][data-testid$="-code-input"]',
+            )
+            .first();
+        await expect(code).toHaveValue(/^[A-Z0-9_-]+$/);
+
+        // And the table must stay inside itself in this direction too.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
+
+    /**
+     * The meal editor's own direction trap: a portion factor is a *number* on its way to a decimal
+     * column, so it stays in Latin digits while everything around it is Arabic — and the publication
+     * dialog, which is the one place a consequence has to be readable before it is agreed to.
+     */
+    test('keeps the portion in Latin digits and states the publication consequence in Arabic', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-meals-open').click();
+        await expect(page.getByTestId('kitchen-meals-table')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-meals-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-meals-toolbar-create')).toContainText(ARABIC_SCRIPT);
+
+        await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();
+        await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
+
+        const english = page.getByTestId('kitchen-meal-name-en-input');
+        const arabic = page.getByTestId('kitchen-meal-name-ar-input');
+        await expect(english).toHaveCSS('direction', 'ltr');
+        await expect(arabic).toHaveCSS('direction', 'rtl');
+
+        const portion = page.getByTestId('kitchen-meal-portion').locator('input').first();
+        await expect(portion).toHaveValue(/^[0-9.]+$/);
+        await portion.fill('1.5');
+        await expect(portion).toHaveValue('1.5');
+
+        // The confidential panel is translated, and still says what it is.
+        await expect(page.getByTestId('kitchen-meal-confidential-badge')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // A published meal offers withdrawal; the consequence dialog is the thing that must read.
+        await page.getByTestId('kitchen-meal-retire').click();
+        await expect(page.getByTestId('kitchen-meal-retire-dialog')).toBeVisible();
+        await expect(page.getByTestId('kitchen-meal-retire-consequence')).toContainText(
+            ARABIC_SCRIPT,
+        );
     });
 
     test('translates the allergen reference, keeping the codes verbatim', async ({ page }) => {

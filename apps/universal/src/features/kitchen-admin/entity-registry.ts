@@ -12,8 +12,8 @@ import type { AccessState } from '@healthy360/permissions';
  * offered when the screen behind it would actually open.
  *
  * **This registry grows one entry per K1 slice.** K1.1 lands ingredients and the allergen-class
- * reference; recipes, products, price lists, meals, plans, zones and branch operating data append
- * here as their slices land, and nothing else about the hub changes when they do.
+ * reference, K1.2 recipes, K1.4 products and meals; price lists, plans, zones and branch operating
+ * data append here as their slices land, and nothing else about the hub changes when they do.
  */
 
 /**
@@ -25,6 +25,10 @@ import type { AccessState } from '@healthy360/permissions';
  * gating the recipe family on them today would hide a whole slice behind a permission nothing can
  * issue. The recipe surfaces therefore reuse the catalogue pair, and the reconciliation pass that
  * lands the real codes changes this file and nothing else — which is the reason the registry exists.
+ *
+ * The same holds for the product and meal families landed by K1.4: the plan's permission set names
+ * `catalogue.*` codes finer than this pair — publication of a meal is a distinct grant from renaming
+ * one — and none of them is issuable in this world yet. Two constants, one reconciliation.
  */
 export const CATALOGUE_VIEW_PERMISSION = 'catalogue.view_organisation';
 export const CATALOGUE_MANAGE_PERMISSION = 'catalogue.manage_organisation';
@@ -76,6 +80,36 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         href: '/kitchen/recipes',
         // See the note on the permission constants: `recipe.*` exists server-side and nothing in
         // this world can grant it yet.
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'products',
+        kind: 'managed',
+        nameKey: 'kitchen:families.products.name',
+        descriptionKey: 'kitchen:families.products.description',
+        // `▭`, a rectangle — a pack seen face on. The icon set is a table of typographic glyphs
+        // with no box, carton or bag in it, so this is the closest honest reading; the glyph is
+        // registered under the name `device` because that is the other place a rectangle was
+        // wanted first, not because a product is a device. A real icon set retires the compromise.
+        icon: 'device',
+        href: '/kitchen/products',
+        // See the note on the permission constants: no `product.*` code exists that this world can
+        // grant, so the product surfaces reuse the catalogue pair with the rest of K1.
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'meals',
+        kind: 'managed',
+        nameKey: 'kitchen:families.meals.name',
+        descriptionKey: 'kitchen:families.meals.description',
+        // `◉`, a filled disc inside a ring — a plate seen from above. Same compromise as the
+        // product glyph: the character is registered as `eye`, which is also the confidential
+        // badge's icon elsewhere in this workspace. The two never appear together, and the label
+        // beside the card is what carries the meaning; a food glyph is a design-system change.
+        icon: 'eye',
+        href: '/kitchen/meals',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },

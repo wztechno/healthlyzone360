@@ -1,24 +1,40 @@
 import type {
     AllergenClass,
     CreateIngredientRequest,
+    CreateMealRequest,
+    CreateProductRequest,
     CreateRecipeRequest,
     CursorPage,
     IngredientAdmin,
     IngredientAdminFilter,
     LockedRequest,
+    MealAdmin,
+    MealAdminFilter,
+    ProductAdmin,
+    ProductAdminFilter,
     RecipeAdmin,
     RecipeAdminFilter,
     RecipeAdminSummary,
     RecipeRollupDraft,
     RecipeRollupPreview,
+    SetChannelAvailabilityRequest,
     SetIngredientAllergensRequest,
+    SetMealAvailabilityRequest,
     SetRecipeLinesRequest,
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     UpdateIngredientRequest,
+    UpdateMealRequest,
+    UpdateProductRequest,
     UpdateRecipeRequest,
 } from '@healthy360/api-client/contracts';
-import type { IngredientId, KitchenId, RecipeId } from '@healthy360/domain-types';
+import type {
+    IngredientId,
+    KitchenId,
+    MealId,
+    ProductId,
+    RecipeId,
+} from '@healthy360/domain-types';
 import {
     keepPreviousData,
     useInfiniteQuery,
@@ -100,6 +116,27 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *    filters on {@link useRecipeKitchensQuery} — derived from the rows in use, exactly as the
  *    ingredient categories are, and backed by a real `RecipeAdminFilter.kitchenId` — rather than on
  *    a taxonomy the contract has never published.
+ *
+ * ## Four more, on the product and meal half (K1.4)
+ *
+ * 6. **A product has no publication action.** `ProductAdmin.meta` carries the full
+ *    `PublishableStatus`, and `KitchenAdminRepository` publishes `archiveProduct` and nothing else:
+ *    no `publishProduct`, no `retireProduct`. So a product moves *out* of visibility from this
+ *    workspace and never into it, and no hook here pretends otherwise. The screens render the status
+ *    they are given and offer archive alone; when the publication actions land, they join this file
+ *    beside {@link usePublishMealMutation} and the editor grows one button.
+ * 7. **A meal's channel availability is readable and not writable.** `MealAdmin.channelAvailability`
+ *    is on the read shape, but `setProductChannelAvailability` is a *product* method and the contract
+ *    has no meal counterpart. The meal editor therefore shows the channels as a fact and puts the
+ *    editor on the product, which is the only place a setter exists.
+ * 8. **Neither family has a category resource**, exactly as the ingredients do not.
+ *    {@link useProductCategoriesQuery} derives the vocabulary from the codes in use, with the same
+ *    honest limitation the ingredient one documents. Meals have no category at all; their second axis
+ *    is `MealAdminFilter.mealTypes`, which is a closed platform enum and needs no derivation.
+ * 9. **A meal's diet classifications and allergens are answered from its recipe.** The contract
+ *    accepts `dietClassifications` on the meal write and returns `allergens` frozen from the recipe
+ *    version; there is no allergen setter and no per-meal provenance beyond `recipeId` /
+ *    `recipeVersionId`. The editor writes the one and displays the other, and says which is which.
  */
 
 export { toFailure } from './hooks.ts';
@@ -474,10 +511,20 @@ export function useRecipeKitchensQuery(): UseQueryResult<readonly RecipeKitchen[
     });
 }
 
-/** What the recipes hub card reports. `published` is the one a kitchen actually acts on. */
-export interface RecipeFamilySummary extends FamilySummary {
+/**
+ * What a hub card reports for a family whose records have a publication state.
+ *
+ * `published` is the number a kitchen actually acts on: "eleven published, two drafts, one awaiting
+ * review" is the state of the menu, which is the question a workspace home is asked. Shared by
+ * recipes, products and meals rather than declared three times, because the shape is one shape and
+ * three copies of it drift.
+ */
+export interface PublishedFamilySummary extends FamilySummary {
     readonly published: number | null;
 }
+
+/** What the recipes hub card reports. */
+export type RecipeFamilySummary = PublishedFamilySummary;
 
 /**
  * The recipe counts behind the hub card, in one query.
@@ -721,6 +768,458 @@ export function useRetireRecipeMutation(): UseMutationResult<
     return useMutation({
         mutationFn: ({ recipeId, request }: RecipeLifecycleVariables) =>
             repositories.kitchenAdmin.retireRecipe(recipeId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/* ── products ────────────────────────────────────────────────────────────────────────────────── */
+
+export type ProductsInfiniteResult = UseInfiniteQueryResult<
+    InfiniteData<CursorPage<ProductAdmin>, string | undefined>,
+    Error
+>;
+
+/** The accumulated products across every page fetched so far. */
+export function productsFromPages(
+    pages: readonly CursorPage<ProductAdmin>[] | undefined,
+): readonly ProductAdmin[] {
+    return (pages ?? []).flatMap((page) => page.items);
+}
+
+/** Total matching products when the repository can count them; `null` when it cannot. */
+export function productTotalFromPages(
+    pages: readonly CursorPage<ProductAdmin>[] | undefined,
+): number | null {
+    return pages?.[0]?.totalCount ?? null;
+}
+
+export function useProductsQuery(
+    filter?: Omit<ProductAdminFilter, 'cursor'>,
+    enabled = true,
+): ProductsInfiniteResult {
+    const { repositories } = useRepositoryContext();
+
+    return useInfiniteQuery({
+        queryKey: queryKeys.kitchenAdmin.products(filter),
+        enabled: enabled && repositories !== null,
+        initialPageParam: undefined as string | undefined,
+        queryFn: ({ pageParam }) => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listProducts({
+                ...filter,
+                ...(pageParam === undefined ? {} : { cursor: pageParam }),
+            });
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+}
+
+/**
+ * One product.
+ *
+ * Unlike the recipe list, the product list needs no per-row detail request: `listProducts` answers
+ * with the whole {@link ProductAdmin}, packs, channels and all, so every column the list renders is
+ * already in the page it fetched.
+ */
+export function useProductQuery(productId: ProductId | null): UseQueryResult<ProductAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.product(productId ?? ('' as ProductId)),
+        enabled: repositories !== null && productId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (productId === null) throw new Error('No product identifier.');
+            return repositories.kitchenAdmin.getProduct(productId);
+        },
+    });
+}
+
+/** One product category the kitchen actually uses, with how many rows carry it. */
+export interface ProductCategory {
+    readonly code: string;
+    readonly count: number;
+}
+
+/**
+ * The product category vocabulary, derived from the codes in use.
+ *
+ * Same gap and the same honest limitation as {@link useIngredientCategoriesQuery}: no category
+ * resource on the contract, one unfiltered page rather than every page, and a code nobody has
+ * assigned yet is invisible. `ProductAdminFilter.categoryCode` is a real filter parameter, so
+ * narrowing by the value it produces is a server concern already.
+ */
+export function useProductCategoriesQuery(): UseQueryResult<readonly ProductCategory[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.products({ derive: 'categories' }),
+        enabled: repositories !== null,
+        queryFn: async (): Promise<readonly ProductCategory[]> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const page = await repositories.kitchenAdmin.listProducts({ limit: 100 });
+            const counts = new Map<string, number>();
+            for (const row of page.items) {
+                counts.set(row.categoryCode, (counts.get(row.categoryCode) ?? 0) + 1);
+            }
+            return [...counts.entries()]
+                .map(([code, count]) => ({ code, count }))
+                .sort((left, right) => left.code.localeCompare(right.code));
+        },
+    });
+}
+
+/** The product counts behind the hub card, in one query. Four `limit: 1` listings, folded. */
+export function useProductSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.products({ derive: 'summary' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<PublishedFamilySummary> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const [all, published, drafts, quarantined] = await Promise.all([
+                repositories.kitchenAdmin.listProducts({ limit: 1 }),
+                repositories.kitchenAdmin.listProducts({ limit: 1, statuses: ['published'] }),
+                repositories.kitchenAdmin.listProducts({ limit: 1, statuses: ['draft'] }),
+                repositories.kitchenAdmin.listProducts({
+                    limit: 1,
+                    statuses: ['review_required'],
+                }),
+            ]);
+            return {
+                total: all.totalCount,
+                published: published.totalCount,
+                drafts: drafts.totalCount,
+                quarantined: quarantined.totalCount,
+            };
+        },
+    });
+}
+
+/* ── product writes ──────────────────────────────────────────────────────────────────────────── */
+
+/** Writes the record into its detail entry and invalidates the workspace root. */
+function useProductWriteEffects(): (product: ProductAdmin) => void {
+    const queryClient = useQueryClient();
+
+    return (product: ProductAdmin) => {
+        queryClient.setQueryData(queryKeys.kitchenAdmin.product(product.id), product);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+    };
+}
+
+export function useCreateProductMutation(): UseMutationResult<
+    ProductAdmin,
+    unknown,
+    CreateProductRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useProductWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreateProductRequest) =>
+            repositories.kitchenAdmin.createProduct(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface UpdateProductVariables {
+    readonly productId: ProductId;
+    readonly request: UpdateProductRequest;
+}
+
+/**
+ * Product fields, and the whole pack-variant set with them.
+ *
+ * One request covers both because `UpdateProductRequest` does: `packVariants` replaces the list
+ * wholesale, exactly as the recipe setters replace their rows, so array order *is* pack order and
+ * there is no position vocabulary to keep in step.
+ */
+export function useUpdateProductMutation(): UseMutationResult<
+    ProductAdmin,
+    unknown,
+    UpdateProductVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useProductWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productId, request }: UpdateProductVariables) =>
+            repositories.kitchenAdmin.updateProduct(productId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface ArchiveProductVariables {
+    readonly productId: ProductId;
+    readonly request: LockedRequest;
+}
+
+/**
+ * Archives the product.
+ *
+ * The contract's only lifecycle action for this family (see the module note): it retires the row, and
+ * nothing is deleted, because price-list entries and order history still point at it.
+ */
+export function useArchiveProductMutation(): UseMutationResult<
+    ProductAdmin,
+    unknown,
+    ArchiveProductVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useProductWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productId, request }: ArchiveProductVariables) =>
+            repositories.kitchenAdmin.archiveProduct(productId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface SetProductChannelAvailabilityVariables {
+    readonly productId: ProductId;
+    readonly request: SetChannelAvailabilityRequest;
+}
+
+/**
+ * Replaces the whole channel-availability set.
+ *
+ * Its own method rather than a field on the update, because the contract makes it one: which routes
+ * to market a product is sold through is a commercial decision with its own permission and its own
+ * audit action server-side, and folding it into a rename would make that impossible to enforce.
+ */
+export function useSetProductChannelAvailabilityMutation(): UseMutationResult<
+    ProductAdmin,
+    unknown,
+    SetProductChannelAvailabilityVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useProductWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productId, request }: SetProductChannelAvailabilityVariables) =>
+            repositories.kitchenAdmin.setProductChannelAvailability(productId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/* ── meals ───────────────────────────────────────────────────────────────────────────────────── */
+
+export type AdminMealsInfiniteResult = UseInfiniteQueryResult<
+    InfiniteData<CursorPage<MealAdmin>, string | undefined>,
+    Error
+>;
+
+/** The accumulated meals across every page fetched so far. */
+export function mealsFromPages(
+    pages: readonly CursorPage<MealAdmin>[] | undefined,
+): readonly MealAdmin[] {
+    return (pages ?? []).flatMap((page) => page.items);
+}
+
+/** Total matching meals when the repository can count them; `null` when it cannot. */
+export function mealTotalFromPages(
+    pages: readonly CursorPage<MealAdmin>[] | undefined,
+): number | null {
+    return pages?.[0]?.totalCount ?? null;
+}
+
+/**
+ * The kitchen's meals.
+ *
+ * Named `useAdminMealsQuery` rather than `useMealsQuery` because `./catalogue-hooks.ts` already owns
+ * that name for the *consumer* listing, and the two are deliberately different things: this one
+ * answers with `MealAdmin` — both languages, the margin, the publication state — and the other with
+ * the published `MarketplaceMeal` a shopper sees. They read the same store, which is exactly why
+ * their names must not be confusable at a call site.
+ */
+export function useAdminMealsQuery(
+    filter?: Omit<MealAdminFilter, 'cursor'>,
+    enabled = true,
+): AdminMealsInfiniteResult {
+    const { repositories } = useRepositoryContext();
+
+    return useInfiniteQuery({
+        queryKey: queryKeys.kitchenAdmin.meals(filter),
+        enabled: enabled && repositories !== null,
+        initialPageParam: undefined as string | undefined,
+        queryFn: ({ pageParam }) => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listMeals({
+                ...filter,
+                ...(pageParam === undefined ? {} : { cursor: pageParam }),
+            });
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+}
+
+/** One meal, as its kitchen sees it. Nullable identifier for the reason every detail hook here is. */
+export function useAdminMealQuery(mealId: MealId | null): UseQueryResult<MealAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.meal(mealId ?? ('' as MealId)),
+        enabled: repositories !== null && mealId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (mealId === null) throw new Error('No meal identifier.');
+            return repositories.kitchenAdmin.getMeal(mealId);
+        },
+    });
+}
+
+/** The meal counts behind the hub card, in one query. */
+export function useMealSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.meals({ derive: 'summary' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<PublishedFamilySummary> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const [all, published, drafts, quarantined] = await Promise.all([
+                repositories.kitchenAdmin.listMeals({ limit: 1 }),
+                repositories.kitchenAdmin.listMeals({ limit: 1, statuses: ['published'] }),
+                repositories.kitchenAdmin.listMeals({ limit: 1, statuses: ['draft'] }),
+                repositories.kitchenAdmin.listMeals({ limit: 1, statuses: ['review_required'] }),
+            ]);
+            return {
+                total: all.totalCount,
+                published: published.totalCount,
+                drafts: drafts.totalCount,
+                quarantined: quarantined.totalCount,
+            };
+        },
+    });
+}
+
+/* ── meal writes ─────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Writes the record into its detail entry and invalidates the workspace root.
+ *
+ * The meal half needs the root invalidation most of all: publishing a meal adds a row to the
+ * *consumer* marketplace listing the same store answers, and retiring one removes it. A narrower
+ * invalidation would leave a shopper's cached menu disagreeing with the kitchen that owns it.
+ */
+function useMealWriteEffects(): (meal: MealAdmin) => void {
+    const queryClient = useQueryClient();
+
+    return (meal: MealAdmin) => {
+        queryClient.setQueryData(queryKeys.kitchenAdmin.meal(meal.id), meal);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        // The consumer roots read the same catalogue. Publication is the one write in this
+        // workspace whose effect is visible outside it, so the marketplace cache is told.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.catalogue.all() });
+    };
+}
+
+export function useCreateMealMutation(): UseMutationResult<MealAdmin, unknown, CreateMealRequest> {
+    const repositories = useRepositories();
+    const onWritten = useMealWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreateMealRequest) => repositories.kitchenAdmin.createMeal(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface UpdateMealVariables {
+    readonly mealId: MealId;
+    readonly request: UpdateMealRequest;
+}
+
+export function useUpdateMealMutation(): UseMutationResult<
+    MealAdmin,
+    unknown,
+    UpdateMealVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useMealWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ mealId, request }: UpdateMealVariables) =>
+            repositories.kitchenAdmin.updateMeal(mealId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface MealLifecycleVariables {
+    readonly mealId: MealId;
+    readonly request: LockedRequest;
+}
+
+/**
+ * Publishes the meal.
+ *
+ * The one write in this workspace whose effect a shopper can see: after it, the meal is in
+ * `marketplace.listMeals` and on its own public page. Refused structurally from `review_required`
+ * (plan §4.7) — the store answers `validation.failed` on `status`, because a quarantine is a fact
+ * about the record rather than about the person pressing the button.
+ */
+export function usePublishMealMutation(): UseMutationResult<
+    MealAdmin,
+    unknown,
+    MealLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useMealWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ mealId, request }: MealLifecycleVariables) =>
+            repositories.kitchenAdmin.publishMeal(mealId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * Retires the meal.
+ *
+ * The contract has no `archiveMeal`: retiring *is* the archive, it removes the meal from every
+ * consumer read, and nothing is deleted because order history and price-list entries still point at
+ * it.
+ */
+export function useRetireMealMutation(): UseMutationResult<
+    MealAdmin,
+    unknown,
+    MealLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useMealWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ mealId, request }: MealLifecycleVariables) =>
+            repositories.kitchenAdmin.retireMeal(mealId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface SetMealAvailabilityVariables {
+    readonly mealId: MealId;
+    readonly request: SetMealAvailabilityRequest;
+}
+
+/**
+ * Replaces the whole availability calendar.
+ *
+ * Wholesale, and **by calendar date** — `MealAvailabilityDay` carries a `YYYY-MM-DD`, not a weekday
+ * and not a slot. That is what the contract models and it is what the editor renders: a kitchen says
+ * "the twelfth, forty portions, orders close at 18:00", and a weekly rule that this contract cannot
+ * express would be a control writing something the server has no column for.
+ */
+export function useSetMealAvailabilityMutation(): UseMutationResult<
+    MealAdmin,
+    unknown,
+    SetMealAvailabilityVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useMealWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ mealId, request }: SetMealAvailabilityVariables) =>
+            repositories.kitchenAdmin.setMealAvailability(mealId, request),
         onSuccess: onWritten,
     });
 }

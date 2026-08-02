@@ -3,7 +3,6 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Icon,
     Inline,
     Select,
@@ -17,7 +16,6 @@ import { useLocale } from '@healthy360/i18n';
 import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BilingualField } from './bilingual-field.tsx';
@@ -30,26 +28,16 @@ import {
     unitKey,
     unitsInDimension,
 } from './format.ts';
+import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The three ordered-row editors of a recipe version: its lines, its outputs and its method.
  *
- * They live in one module because they share three mechanics that must not drift apart, and three
- * copies of "move a row" is how they would:
- *
- * 1. **Keys are stable and are never the array index.** A row keeps its identity across a move, a
- *    removal and an undo, so React keeps its input state and a screen reader keeps its focus. The
- *    *line number* a person reads is computed from the row's position in the current array — which
- *    is what "line 3" means — and never from a key or a stored ordinal.
- * 2. **Reordering is two buttons and an announcement, not a drag.** The design system has no
- *    accessible drag-and-drop and inventing one here would exclude every keyboard and screen-reader
- *    user from the one operation this editor is *for*. Move up / Move down work on every input
- *    device, and a `role="status"` region says where the row landed — "Tahini, moved to position 2
- *    of 5" — because a silent reorder is invisible to somebody who cannot see the list jump.
- * 3. **Removal is immediate and reversible.** No confirmation dialog: a line is cheap to retype and
- *    a modal on every removal makes a six-line recipe unbearable to edit. An undo control appears
- *    instead, restoring the row *to its old position* rather than appending it, which is the
- *    difference between an undo and a re-add.
+ * They live in one module because they are one screen's three lists. The mechanics they share with
+ * every other ordered-row editor in this workspace — stable keys, move buttons with a live-region
+ * announcement, an undo that restores a row to its own position — belong to `./row-editor-shell.tsx`
+ * and are documented there, so K1.4's pack-variant and availability editors behave identically
+ * rather than approximately.
  *
  * ## Duplicates are legal
  *
@@ -57,119 +45,6 @@ import {
  * twice — once for the pan, once to finish — is describing two things, the schema has no unique
  * constraint per ingredient, and an editor that merged them would silently change the recipe.
  */
-
-/* ------------------------------------------------------------------------------------------------
- * Shared shell
- * ---------------------------------------------------------------------------------------------- */
-
-interface RowShellProps {
-    readonly testID: string;
-    readonly title: string;
-    readonly position: number;
-    readonly total: number;
-    readonly canManage: boolean;
-    readonly onMove: (to: number) => void;
-    readonly onRemove: () => void;
-    readonly badge?: ReactNode | undefined;
-    readonly children: ReactNode;
-}
-
-function RowShell({
-    testID,
-    title,
-    position,
-    total,
-    canManage,
-    onMove,
-    onRemove,
-    badge,
-    children,
-}: RowShellProps) {
-    const { t } = useTranslation();
-
-    return (
-        <Card testID={testID} padding="sm">
-            <Stack space="sm">
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Inline space="sm" align="center" wrap>
-                        <Text variant="label" testID={`${testID}-position`}>
-                            {title}
-                        </Text>
-                        {badge}
-                    </Inline>
-
-                    {canManage ? (
-                        <Inline space="xs" wrap justify="end">
-                            <Button
-                                testID={`${testID}-move-up`}
-                                size="sm"
-                                variant="ghost"
-                                label={t('kitchen:recipes.moveUp')}
-                                disabled={position <= 1}
-                                onPress={() => {
-                                    onMove(position - 2);
-                                }}
-                            />
-                            <Button
-                                testID={`${testID}-move-down`}
-                                size="sm"
-                                variant="ghost"
-                                label={t('kitchen:recipes.moveDown')}
-                                disabled={position >= total}
-                                onPress={() => {
-                                    onMove(position);
-                                }}
-                            />
-                            <Button
-                                testID={`${testID}-remove`}
-                                size="sm"
-                                variant="ghost"
-                                label={t('kitchen:recipes.removeRow')}
-                                onPress={onRemove}
-                            />
-                        </Inline>
-                    ) : null}
-                </Inline>
-
-                {children}
-            </Stack>
-        </Card>
-    );
-}
-
-/** The live region every row editor announces moves through. Polite: a move is not an emergency. */
-function RowAnnouncer({ message, testID }: { readonly message: string; readonly testID: string }) {
-    return (
-        <Text testID={testID} role="status" aria-live="polite" variant="caption" tone="secondary">
-            {message}
-        </Text>
-    );
-}
-
-interface UndoBarProps {
-    readonly label: string;
-    readonly onUndo: () => void;
-    readonly testID: string;
-}
-
-function UndoBar({ label, onUndo, testID }: UndoBarProps) {
-    const { t } = useTranslation();
-
-    return (
-        <Inline space="sm" align="center" wrap>
-            <Text testID={`${testID}-removed`} variant="caption">
-                {label}
-            </Text>
-            <Button
-                testID={`${testID}-undo`}
-                size="sm"
-                variant="ghost"
-                label={t('kitchen:common.undo')}
-                onPress={onUndo}
-            />
-        </Inline>
-    );
-}
 
 /* ------------------------------------------------------------------------------------------------
  * Option lists
@@ -267,7 +142,7 @@ export function RecipeLineEditor({
         if (next === rows) return;
         onChange(next);
         setAnnouncement(
-            t('kitchen:recipes.movedAnnouncement', {
+            t('kitchen:rows.movedAnnouncement', {
                 name: nameOf(rows[from]!),
                 position: to + 1,
                 total: rows.length,
@@ -588,7 +463,7 @@ export function RecipeOutputEditor({
                                 if (next === rows) return;
                                 onChange(next);
                                 setAnnouncement(
-                                    t('kitchen:recipes.movedAnnouncement', {
+                                    t('kitchen:rows.movedAnnouncement', {
                                         name: nameOf(row),
                                         position: to + 1,
                                         total: rows.length,
@@ -770,7 +645,7 @@ export function RecipeStepEditor({ rows, onChange, canManage, nextKey, testID }:
                                 if (next === rows) return;
                                 onChange(next);
                                 setAnnouncement(
-                                    t('kitchen:recipes.movedAnnouncement', {
+                                    t('kitchen:rows.movedAnnouncement', {
                                         name: t('kitchen:recipes.stepNumber', { number: position }),
                                         position: to + 1,
                                         total: rows.length,

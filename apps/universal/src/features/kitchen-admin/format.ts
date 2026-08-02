@@ -3,9 +3,11 @@ import type {
     AllergenVerification,
     CostAmount,
     LocalisedText,
+    ProductPackVariant,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
+import type { DietClassification, MealType, SalesChannel } from '@healthy360/domain-types';
 import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
 
@@ -270,6 +272,98 @@ export function parseQuantity(value: string): number | null {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
+/* ── products and meals (K1.4) ───────────────────────────────────────────────────────────────── */
+
+/** Statuses the product list filter offers, in lifecycle order. */
+export const PRODUCT_STATUS_FILTERS: readonly PublishableStatus[] = [
+    'draft',
+    'review_required',
+    'published',
+    'retired',
+];
+
+/** Statuses the meal list filter offers, in lifecycle order. */
+export const MEAL_STATUS_FILTERS: readonly PublishableStatus[] = [
+    'draft',
+    'review_required',
+    'published',
+    'retired',
+];
+
+/**
+ * The three shared vocabularies, translated where they were first translated.
+ *
+ * Sales channels, meal types and diet classifications are **not** kitchen words — they are the
+ * platform's enums (`@healthy360/domain-types`), already rendered on the marketplace, and a second
+ * set of keys under `kitchen:` would be two translations of one vocabulary that drift the first time
+ * somebody edits only one of them. The kitchen workspace therefore borrows `marketplace:` for these
+ * three and owns none of them. Everything genuinely administrative — pack labels, availability
+ * wording, publication consequences — stays in `kitchen:`.
+ */
+export function channelKey(channel: SalesChannel): string {
+    return `marketplace:channels.${channel}`;
+}
+
+export function mealTypeKey(mealType: MealType): string {
+    return `marketplace:mealTypes.${mealType}`;
+}
+
+export function dietClassificationKey(diet: DietClassification): string {
+    return `marketplace:diets.${diet}`;
+}
+
+/** The channels a record is *currently* available on, in the platform's enum order. */
+export function availableChannels(
+    availability: readonly { readonly channel: SalesChannel; readonly isAvailable: boolean }[],
+): readonly SalesChannel[] {
+    return availability.filter((entry) => entry.isAvailable).map((entry) => entry.channel);
+}
+
+/**
+ * The default pack of a product — the first one.
+ *
+ * `ProductPackVariant` carries no `isDefault` flag, so array position is the only ordering the
+ * contract publishes, and "the first pack" is what a list column can honestly call the default. The
+ * editor's move controls are what a person uses to change which one that is; inventing a flag the
+ * server would ignore would make the control a lie.
+ */
+export function defaultPackVariant(
+    packVariants: readonly ProductPackVariant[],
+): ProductPackVariant | null {
+    return packVariants[0] ?? null;
+}
+
+/**
+ * `HH:mm` on a 24-hour clock, or `null`.
+ *
+ * The contract's cut-off is branch-local wall-clock time, not an instant: a kitchen that stops taking
+ * Tuesday's orders at 18:00 means 18:00 wherever it is, and turning that into a timestamp here would
+ * bake this browser's offset into the kitchen's own rule.
+ */
+export function parseClockTime(value: string): string | null {
+    const trimmed = value.trim();
+    const match = /^(\d{1,2}):(\d{2})$/.exec(trimmed);
+    if (match === null) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (hours > 23 || minutes > 59) return null;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+/**
+ * A whole, non-negative count typed into a field.
+ *
+ * Separate from {@link parseQuantity} because the things it parses are counts rather than measures:
+ * units per pack, portions remaining. `2.5` bottles in a tray is not a smaller tray, it is a typo,
+ * and accepting it would put a fraction into an integer column.
+ */
+export function parseWholeNumber(value: string): number | null {
+    const trimmed = value.trim();
+    if (trimmed === '' || !/^\d+$/.test(trimmed)) return null;
+    const parsed = Number(trimmed);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */
 
 /** The test id of one ingredient row's open control, so a spec need not rebuild the string. */
@@ -280,4 +374,14 @@ export function ingredientRowTestId(ingredientId: string): string {
 /** The test id prefix of one recipe row. Same contract as the ingredient one. */
 export function recipeRowTestId(recipeId: string): string {
     return `kitchen-recipe-${recipeId}`;
+}
+
+/** The test id prefix of one product row. */
+export function productRowTestId(productId: string): string {
+    return `kitchen-product-${productId}`;
+}
+
+/** The test id prefix of one meal row. */
+export function mealRowTestId(mealId: string): string {
+    return `kitchen-meal-${mealId}`;
 }

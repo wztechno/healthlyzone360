@@ -1217,6 +1217,25 @@ export class KitchenCatalogueStore {
             throwFailure(apiFailure('server', { message: 'This world has no meals to model.' }));
         }
 
+        /*
+         * A new meal's allergen label is its *own* — derived from the recipe it is built from, or
+         * empty when it is built from none. The template is a shape to copy, and copying another
+         * dish's declaration onto a new one would publish a food-safety claim nobody made about it.
+         * `recipeVersionId` is recorded for the same reason: it is the provenance the admin editor
+         * renders beside the label, and a permanent `null` would make that line always say "nothing
+         * has been derived" while the codes beside it said otherwise.
+         *
+         * The rest of the projection — nutrition, price, serving, image, channels — is still the
+         * template's, and is honest only in the weak sense that this is a synthetic demo world.
+         * Those fields are non-nullable on `MarketplaceMeal`, so making them the new meal's own
+         * needs the derivation the fixture builder does at seed time, not a patch here.
+         */
+        const linkedRecipe =
+            request.recipeId === undefined
+                ? null
+                : (this.#recipes.get(String(request.recipeId)) ?? null);
+        const linkedVersion = linkedRecipe === null ? null : this.#version(linkedRecipe);
+
         const row: StoredMeal = {
             id,
             meta: {
@@ -1229,7 +1248,7 @@ export class KitchenCatalogueStore {
             description: request.description,
             kitchenId: template.kitchenId,
             recipeId: request.recipeId ?? null,
-            recipeVersionId: null,
+            recipeVersionId: linkedVersion?.id ?? null,
             portionFactor: request.portionFactor ?? 1,
             channelAvailability: [],
             availability: [],
@@ -1243,6 +1262,16 @@ export class KitchenCatalogueStore {
                 mealTypes: request.mealTypes ?? template.consumer.mealTypes,
                 dietClassifications:
                     request.dietClassifications ?? template.consumer.dietClassifications,
+                allergens:
+                    linkedVersion === null
+                        ? []
+                        : [
+                              ...new Set(
+                                  linkedVersion.allergens.map(
+                                      (declaration) => declaration.allergenCode,
+                                  ),
+                              ),
+                          ],
                 availability: [],
                 rating: null,
                 ratingCount: 0,

@@ -14,12 +14,17 @@ import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { UseQueryResult } from '@tanstack/react-query';
+
 import { Gate } from '../../../access/gate.tsx';
 import {
     useAllergenClassesQuery,
     useIngredientSummaryQuery,
+    useMealSummaryQuery,
+    useProductSummaryQuery,
     useRecipeSummaryQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
+import type { PublishedFamilySummary } from '../../../data/kitchen-admin-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
 import type { EntityFamily } from '../entity-registry.ts';
@@ -133,17 +138,25 @@ function IngredientsCard({ family }: { readonly family: EntityFamily }) {
 }
 
 /**
- * The recipe book's card.
+ * A card for any family whose records have a publication state — recipes, products, meals.
  *
- * It counts *published* recipes rather than only totals and drafts, because a recipe's publication
- * state is what a consumer surface reads: "eleven published, two drafts, one awaiting review" is the
- * state of the menu, which is the question this card is asked. The quarantine badge is hidden at
- * zero for the reason the ingredient card hides its own — a badge reading "none awaiting review" is
- * a permanent, meaningless piece of furniture.
+ * It counts *published* records rather than only totals and drafts, because publication state is
+ * what a consumer surface reads: "eleven published, two drafts, one awaiting review" is the state of
+ * the menu, which is the question this card is asked. The quarantine badge is hidden at zero for the
+ * reason the ingredient card hides its own — a badge reading "none awaiting review" is a permanent,
+ * meaningless piece of furniture.
+ *
+ * Written once and given the summary rather than choosing its own hook: three families ask the same
+ * four questions, and three copies of this would be three places for a badge to go missing.
  */
-function RecipesCard({ family }: { readonly family: EntityFamily }) {
+function PublishedFamilyCard({
+    family,
+    summary,
+}: {
+    readonly family: EntityFamily;
+    readonly summary: UseQueryResult<PublishedFamilySummary>;
+}) {
     const { t } = useTranslation();
-    const summary = useRecipeSummaryQuery();
     const testID = `kitchen-family-${family.key}`;
 
     return (
@@ -240,6 +253,17 @@ export function KitchenHomeScreen() {
     const state = useAccessState();
     const families = permittedFamilies(state);
 
+    /*
+     * The three publication summaries are read here rather than inside the cards, because a card
+     * that chose its own hook could not be shared between three families — and a hook cannot be
+     * called conditionally from inside the map. They are cheap: four `limit: 1` listings each,
+     * deduplicated by the query cache, and only fetched for families this role may open at all.
+     */
+    const permitted = new Set(families.map((family) => family.key));
+    const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'));
+    const productSummary = useProductSummaryQuery(permitted.has('products'));
+    const mealSummary = useMealSummaryQuery(permitted.has('meals'));
+
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
             <Stack space="lg" testID="kitchen-home-screen">
@@ -271,7 +295,31 @@ export function KitchenHomeScreen() {
                                 return <IngredientsCard key={family.key} family={family} />;
                             }
                             if (family.key === 'recipes') {
-                                return <RecipesCard key={family.key} family={family} />;
+                                return (
+                                    <PublishedFamilyCard
+                                        key={family.key}
+                                        family={family}
+                                        summary={recipeSummary}
+                                    />
+                                );
+                            }
+                            if (family.key === 'products') {
+                                return (
+                                    <PublishedFamilyCard
+                                        key={family.key}
+                                        family={family}
+                                        summary={productSummary}
+                                    />
+                                );
+                            }
+                            if (family.key === 'meals') {
+                                return (
+                                    <PublishedFamilyCard
+                                        key={family.key}
+                                        family={family}
+                                        summary={mealSummary}
+                                    />
+                                );
                             }
                             if (family.key === 'allergen-classes') {
                                 return <AllergenClassesCard key={family.key} family={family} />;
