@@ -2121,6 +2121,121 @@ export function useBranchOperatingQuery(
     });
 }
 
+/* ── the publication review queue (K1.8) ─────────────────────────────────────────────────────── */
+
+/**
+ * How many rows per family the queue fetches.
+ *
+ * A review queue that paged would be answering the wrong question: "is anything blocked?" has to be
+ * answerable in one glance, and a second page hides exactly the row somebody has not looked at. So
+ * one page per family, and {@link ReviewQueueSources.truncated} says out loud when a family filled
+ * it rather than pretending the answer is complete. Fifty is chosen over the hundred the gazetteer
+ * uses because six families at a hundred is six hundred admin records on one screen, which is a list
+ * nobody reads either.
+ */
+const REVIEW_PAGE_SIZE = 50;
+
+/**
+ * The rows the queue is built from, still in contract shapes.
+ *
+ * This module deliberately stops here rather than returning a finished queue: deciding *why* a row
+ * needs review is presentation logic, it belongs beside the screen that renders it
+ * (`features/kitchen-admin/review-queue.ts`), and a data module that imported a feature would invert
+ * this codebase's one dependency direction. The shape is structurally the feature's `ReviewSources`,
+ * so `buildReviewQueue(sources)` takes it unchanged.
+ */
+export interface ReviewQueueSources {
+    readonly ingredients: readonly IngredientAdmin[];
+    readonly quarantinedRecipes: readonly RecipeAdminSummary[];
+    readonly staleRecipes: readonly RecipeAdminSummary[];
+    readonly products: readonly ProductAdmin[];
+    readonly meals: readonly MealAdmin[];
+    readonly plans: readonly PlanAdmin[];
+    readonly priceLists: readonly PriceListAdmin[];
+    /** True when some family filled its page, so more rows exist than the queue is showing. */
+    readonly truncated: boolean;
+}
+
+/**
+ * Everything awaiting review, across every family that can hold something, in one query.
+ *
+ * ## Seven listings, one cache entry, two readers
+ *
+ * The hub's "Needs review" card and the `/kitchen/review` screen ask the same question, so they call
+ * this same hook and share one cache entry (`queryKeys.kitchenAdmin.review()` takes no parameters
+ * for exactly that reason). Opening the queue from the hub therefore costs nothing, and the card can
+ * lead with a number it did not have to guess.
+ *
+ * They are folded into one `queryFn` rather than composed from seven hooks for the reason every
+ * summary above gives: a card and a screen can each render one pending state, one error and one
+ * `refetch`, and seven independent queries would give them seven of each — including the state where
+ * five families have answered and the total on screen is wrong.
+ *
+ * ## Why the filters are what they are
+ *
+ * Every listing is **narrowed server-side**, so this is seven requests and not a scan of the
+ * catalogue. `statuses: ['review_required']` is a real filter on five of the six families;
+ * `staleOnly` is a real filter on recipes. Price lists are the exception and have to be read whole:
+ * the `CHECK` violation the queue reports (`isPriceEntryConsistent`) has no filter on
+ * `PriceListAdminFilter`, and the listing already returns every entry of every list, so evaluating
+ * it here costs one request rather than one per list. A `?inconsistentOnly=true` on the endpoint
+ * would remove that asymmetry and this note with it.
+ *
+ * @param enabled `false` while the reader holds no catalogue permission — the hub passes it.
+ */
+export function useReviewQueueQuery(enabled = true): UseQueryResult<ReviewQueueSources> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.review(),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<ReviewQueueSources> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const limit = REVIEW_PAGE_SIZE;
+            const quarantine = { limit, statuses: ['review_required'] as const };
+
+            const [
+                ingredients,
+                quarantinedRecipes,
+                staleRecipes,
+                products,
+                meals,
+                plans,
+                priceLists,
+            ] = await Promise.all([
+                repositories.kitchenAdmin.listIngredients({ ...quarantine }),
+                repositories.kitchenAdmin.listRecipes({ ...quarantine }),
+                repositories.kitchenAdmin.listRecipes({ limit, staleOnly: true }),
+                repositories.kitchenAdmin.listProducts({ ...quarantine }),
+                repositories.kitchenAdmin.listMeals({ ...quarantine }),
+                repositories.kitchenAdmin.listPlans({ ...quarantine }),
+                repositories.kitchenAdmin.listPriceLists({ limit }),
+            ]);
+
+            const pages = [
+                ingredients,
+                quarantinedRecipes,
+                staleRecipes,
+                products,
+                meals,
+                plans,
+                priceLists,
+            ];
+
+            return {
+                ingredients: ingredients.items,
+                quarantinedRecipes: quarantinedRecipes.items,
+                staleRecipes: staleRecipes.items,
+                products: products.items,
+                meals: meals.items,
+                plans: plans.items,
+                priceLists: priceLists.items,
+                truncated: pages.some((page) => page.nextCursor !== null),
+            };
+        },
+    });
+}
+
 export interface SetBranchOperatingVariables {
     readonly branchId: KitchenBranchId;
     readonly request: SetBranchOperatingRequest;

@@ -161,6 +161,28 @@ async function firstZoneBase(page: Page): Promise<string> {
     return testId.slice(0, testId.length - '-open'.length);
 }
 
+async function openReview(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-review-open').click();
+    await expect(page.getByTestId('kitchen-review-screen')).toBeVisible();
+}
+
+/**
+ * The `kitchen-review-ingredients-{id}` prefix of the first quarantined ingredient in the queue.
+ *
+ * Anchored on the *quarantine reason* rather than on the row itself, because that is the row this
+ * journey is about: the seeded stand-in for the source data's burghul/pita contradiction.
+ */
+async function firstQuarantinedRow(page: Page): Promise<string> {
+    const reason = page
+        .locator('[data-testid^="kitchen-review-ingredients-"][data-testid$="-reason-quarantined"]')
+        .first();
+    await expect(reason).toBeVisible();
+    const testId = await reason.getAttribute('data-testid');
+    if (testId === null) throw new Error('The review row carries no test id.');
+    return testId.slice(0, testId.length - '-reason-quarantined'.length);
+}
+
 /** The first weekday row of the branch-hours editor that is currently open for trade. */
 async function firstOpenDayRow(page: Page): Promise<string> {
     for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
@@ -186,6 +208,7 @@ test.describe('kitchen workspace (en)', () => {
     test('shows only the families this role may open, with real counts', async ({ page }) => {
         await openKitchen(page);
 
+        await expect(page.getByTestId('kitchen-family-review')).toBeVisible();
         await expect(page.getByTestId('kitchen-family-ingredients')).toBeVisible();
         await expect(page.getByTestId('kitchen-family-recipes')).toBeVisible();
         await expect(page.getByTestId('kitchen-family-products')).toBeVisible();
@@ -1014,6 +1037,84 @@ test.describe('kitchen workspace (en)', () => {
         // blocks the save rather than being rounded into the column.
         await fee.fill('12.505');
         await expect(page.getByTestId('kitchen-zone-editor-screen-save')).toBeDisabled();
+    });
+
+    /* ── the review queue (K1.8) ─────────────────────────────────────────────────────────────── */
+
+    /**
+     * The spine of the slice, and the one journey in this file that starts with a *question* rather
+     * than a family: sign in, see from the hub that something is blocked, open the queue, read why,
+     * and follow the row into the editor that can fix it.
+     *
+     * The record it lands on is the seeded stand-in for the source data's burghul/pita allergen
+     * contradiction — a row whose sheet declares no allergen while the same file's key files it
+     * under gluten. Everything about this journey exists because a quarantine that only shows up if
+     * somebody happens to open the right family is a quarantine that gets published around.
+     */
+    test('surfaces the quarantined record from the hub and follows it into its editor', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+
+        // The hub leads with the number, and separates "blocked" from "unfinished".
+        await expect(page.getByTestId('kitchen-family-review-total')).toContainText('review');
+        await expect(page.getByTestId('kitchen-family-review-blocked')).toContainText('blocked');
+
+        await page.getByTestId('kitchen-family-review-open').click();
+        await expect(page.getByTestId('kitchen-review-screen')).toBeVisible();
+
+        // The summary states the size of the job and how much of it is refused outright.
+        await expect(page.getByTestId('kitchen-review-summary')).toContainText(
+            'cannot be published',
+        );
+
+        // The ingredient section exists because something is in it; a family with nothing to
+        // report gets no heading at all.
+        await expect(page.getByTestId('kitchen-review-section-ingredients')).toBeVisible();
+        await expect(page.getByTestId('kitchen-review-section-ingredients-count')).toContainText(
+            'record',
+        );
+
+        const row = await firstQuarantinedRow(page);
+        await expect(page.getByTestId(`${row}-name`)).toBeVisible();
+        await expect(page.getByTestId(`${row}-reason-quarantined`)).toContainText('Quarantined');
+        await expect(page.getByTestId(`${row}-status`)).toContainText('Awaiting review');
+        // Provenance: this row came out of the import rather than from whoever last signed in.
+        await expect(page.getByTestId(`${row}-updated`)).toContainText('import');
+
+        // The deep link opens the ingredient's own editor, and the editor states the quarantine
+        // *on arrival* — not only after a mapping save has just caused one.
+        await page.getByTestId(`${row}-open`).click();
+        await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredient-quarantine')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredient-editor-screen-status')).toContainText(
+            'Awaiting review',
+        );
+        // The reviewer's evidence: the note that says what the two contradicting statements were.
+        await expect(page.getByTestId('kitchen-ingredient-notes-input')).toHaveValue(/gluten/);
+    });
+
+    /**
+     * The queue states its own scope, which is the difference between a review screen and a claim.
+     *
+     * `KitchenAdminRepository` publishes no readiness verdict, so what "needs review" means here is
+     * derived from what the contract does say — and three parts of the workspace genuinely cannot be
+     * checked at all. Printing both lists is what makes a green queue trustworthy.
+     */
+    test('says what it checked and what it could not, rather than implying it checked everything', async ({
+        page,
+    }) => {
+        await openReview(page);
+
+        await expect(page.getByTestId('kitchen-review-scope')).toContainText(
+            'allergen quarantines',
+        );
+        await expect(page.getByTestId('kitchen-review-not-checked')).toContainText(
+            'delivery zones and opening hours',
+        );
+        // Nothing is written from this screen: the fix happens where the lock version lives.
+        await expect(page.getByTestId('kitchen-review-publish')).toHaveCount(0);
+        await expect(page.getByTestId('kitchen-review-resolve')).toHaveCount(0);
     });
 
     /**

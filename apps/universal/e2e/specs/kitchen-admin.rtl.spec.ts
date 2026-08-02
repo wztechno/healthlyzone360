@@ -534,6 +534,53 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await expect(page.getByTestId('kitchen-branch-hours-timezone')).not.toContainText(/[٠-٩]/);
     });
 
+    /**
+     * The review queue in Arabic (K1.8).
+     *
+     * The queue is the one screen whose whole content is *derived copy* — every reason on every row
+     * is a code this interface translates, not a sentence a server wrote — so an untranslated
+     * catalogue shows up here as English chips on an Arabic page and nowhere else. The record names
+     * inside those rows are the opposite case: they are bilingual data, and the ones the seed ships
+     * are untranslated by construction (`untranslated()` mirrors English into `ar`), so they are
+     * deliberately *not* asserted to be Arabic. Confusing the two is how a queue ends up "fixed" by
+     * translating the data.
+     */
+    test('translates the review queue’s reasons and scope, and mirrors it', async ({ page }) => {
+        await openKitchen(page);
+
+        await expect(page.getByTestId('kitchen-family-review-name')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-family-review-total')).toContainText(ARABIC_SCRIPT);
+
+        await page.getByTestId('kitchen-family-review-open').click();
+        await expect(page.getByTestId('kitchen-review-screen')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-review-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-review-subtitle')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-review-summary')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-review-section-ingredients-title')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // The reason chip is the derived copy this screen is made of, and the row's control with it.
+        const reason = page
+            .locator(
+                '[data-testid^="kitchen-review-ingredients-"][data-testid$="-reason-quarantined"]',
+            )
+            .first();
+        await expect(reason).toBeVisible();
+        await expect(reason).toContainText(ARABIC_SCRIPT);
+
+        // Both scope statements read, because an untranslated "what was checked" is worse than none.
+        await expect(page.getByTestId('kitchen-review-scope')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-review-not-checked')).toContainText(ARABIC_SCRIPT);
+
+        // The queue must stay inside itself: nothing here pushes the document sideways.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
+
     test('translates the allergen reference, keeping the codes verbatim', async ({ page }) => {
         await openKitchen(page);
         await page.getByTestId('kitchen-family-allergen-classes-open').click();

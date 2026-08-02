@@ -1117,6 +1117,16 @@ export function createPrototypeRepositories(
                 if (filter?.kitchenId !== undefined && row.kitchenId !== filter.kitchenId) {
                     return false;
                 }
+                // `staleOnly` was declared on the contract and ignored here, so a caller asking for
+                // "recipes whose figures are out of date" was handed the whole book. The flag lives
+                // on the current *version*, which a summary does not carry — see
+                // `KitchenCatalogueStore.isRecipeDerivationStale`.
+                if (
+                    filter?.staleOnly === true &&
+                    !store.kitchenCatalogue.isRecipeDerivationStale(row.id)
+                ) {
+                    return false;
+                }
                 return true;
             });
             return paginate(matched, filter);

@@ -18,8 +18,9 @@
  *
  * The rule, so the next slice does not have to rediscover it: **one chunk per route area, not one
  * per screen.** K1.6's plan list and plan editor were added to this file and to two thin routes;
- * K1.7's zone list, zone editor and branch-hours screen the same way. Nothing else changed either
- * time, and the chunk absorbed them.
+ * K1.7's zone list, zone editor and branch-hours screen the same way; K1.8's review queue is one
+ * more line here and one more thin route. Nothing else changed any of those times, and the chunk
+ * absorbed them.
  */
 
 export { AllergenClassesScreen } from './allergen-classes-screen.tsx';
@@ -39,3 +40,4 @@ export { ProductEditScreen } from './product-edit-screen.tsx';
 export { ProductsScreen } from './products-screen.tsx';
 export { RecipeEditScreen } from './recipe-edit-screen.tsx';
 export { RecipesScreen } from './recipes-screen.tsx';
+export { ReviewScreen } from './review-screen.tsx';

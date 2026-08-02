@@ -300,6 +300,16 @@ export const queryKeys = {
 
         branchOperating: (branchId: KitchenBranchId) =>
             ['kitchenAdmin', 'branch-operating', branchId] as const,
+
+        /**
+         * The publication review queue (K1.8) — one entry for the whole workbench.
+         *
+         * Deliberately parameterless. The queue is an aggregate over six families, and the hub card
+         * and the `/kitchen/review` screen ask for exactly the same aggregate: giving it one key
+         * means opening the queue from the hub costs nothing, and that a write anywhere in the
+         * workspace invalidates it along with everything else under the root prefix.
+         */
+        review: () => ['kitchenAdmin', 'review'] as const,
     },
 } as const;
 

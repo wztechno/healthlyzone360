@@ -68,7 +68,46 @@
         "branchOperating": {
             "name": "Opening hours",
             "description": "When this branch trades, and the last moment it will take an order for today."
+        },
+        "review": {
+            "name": "Needs review",
+            "description": "Everything holding the catalogue back: records nothing can publish, and records that are not finished."
         }
+    },
+    "review": {
+        "title": "Needs review",
+        "subtitle": "What is stopping this catalogue from going out, across every family that can hold something back.",
+        "summaryTitle_one": "{{count}} record needs review",
+        "summaryTitle_other": "{{count}} records need review",
+        "summaryBlocked_one": "One of them cannot be published at all until the reason is resolved.",
+        "summaryBlocked_other": "{{count}} of them cannot be published at all until the reasons are resolved.",
+        "summaryUnblocked": "None of them is blocked outright — this is work to finish, not a wall.",
+        "sectionCount_one": "{{count}} record",
+        "sectionCount_other": "{{count}} records",
+        "open": "Open the record",
+        "updatedBy": "Last changed {{when}} by {{name}}",
+        "updatedBySeed": "Last changed {{when}} by the import",
+        "reasonQuarantined": "Quarantined — publication refused",
+        "reasonDerivationStale": "Figures out of date since the last change",
+        "reasonInconsistentPrices_one": "{{count}} price entry breaks the amount rule",
+        "reasonInconsistentPrices_other": "{{count}} price entries break the amount rule",
+        "reasonUnverifiedAllergens_one": "{{count}} allergen mapping is unverified",
+        "reasonUnverifiedAllergens_other": "{{count}} allergen mappings are unverified",
+        "reasonMissingTranslation": "One language of the name is still empty",
+        "reasonDataQuality_one": "{{count}} import finding is unresolved",
+        "reasonDataQuality_other": "{{count}} import findings are unresolved",
+        "clearTitle": "Nothing is waiting for review",
+        "clearBody": "No record in this kitchen is quarantined, out of date, or missing something that would stop it being published.",
+        "clearBadge": "All clear",
+        "waitingCount_one": "{{count}} needs review",
+        "waitingCount_other": "{{count}} need review",
+        "blockedCount_one": "{{count}} blocked",
+        "blockedCount_other": "{{count}} blocked",
+        "scope": "Checked: allergen quarantines, out-of-date recipe figures, price entries that break the amount rule, unverified allergen mappings, unresolved import findings, and names missing a language.",
+        "notChecked": "Not checked here: delivery zones and opening hours, which have no publication state to hold anything back, and the allergen classes, which the platform owns.",
+        "truncatedTitle": "More records match than are shown",
+        "truncatedBody": "At least one family filled the page this queue reads. Open that family and filter it by status to see the rest.",
+        "errorTitle": "The review queue could not be loaded"
     },
     "status": {
         "label": "Status",

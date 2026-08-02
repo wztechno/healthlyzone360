@@ -38,6 +38,7 @@ import {
     PROTOTYPE_PLANS,
     PROTOTYPE_RECIPES,
     deliveryWeekdaysFor,
+    makeIngredient,
     recipeByKey,
 } from './fixtures/index.ts';
 import {
@@ -66,12 +67,20 @@ import {
  *   produce a dish that is sold as a meal. Under the `recipe_version_outputs` model (plan §4.2) an
  *   ingredient nobody makes simply has no output row, so seeding an empty list is the accurate
  *   answer rather than a gap. `setRecipeOutputs` is what puts one there.
- * - **No quarantined rows.** Every seeded record is `published`, which is what keeps the consumer
- *   surfaces byte-identical. `review_required` is reachable — an allergen mapping that contradicts
- *   a published recipe puts a row there — but nothing starts in it.
  * - **No confirmed retail prices.** The synthetic products below have never been priced by anybody,
  *   so their entries are placeholders with `null` amounts, which is precisely the state the imported
  *   GreenLife product list will arrive in.
+ *
+ * ## The one row that does not start published (K1.8)
+ *
+ * Exactly one seeded record is `review_required`: {@link buildQuarantinedIngredient}, a
+ * clearly-labelled synthetic stand-in for the source data's burghul/pita contradiction (plan §2 data
+ * rules, appendix A R1). It exists so the review queue at `/kitchen/review` has something to show
+ * without
+ * anybody having to reproduce the contradiction by hand first, and it is invisible to every consumer
+ * surface for the reason every unpublished row is: `consumerIngredients()` filters on `published`.
+ * No fixture, no recipe, no meal and no price entry references it, so the consumer projections stay
+ * byte-identical to what they were before it existed.
  */
 
 const SEED_META = {
@@ -175,29 +184,102 @@ function categoryCodeFor(label: string): string {
 }
 
 function buildIngredients(): readonly StoredIngredient[] {
-    return PROTOTYPE_INGREDIENTS.map((ingredient, index) => ({
-        id: ingredient.id,
-        meta: { ...SEED_META },
-        name: untranslated(ingredient.name),
-        reference: `IG-${String(index + 1).padStart(3, '0')}`,
-        categoryCode: categoryCodeFor(ingredient.aisle),
-        measurementUnit: 'g' as const,
-        costPer100g: costFromMoney(ingredient.costPer100g),
-        allergens: ingredient.allergens.map((code) => ({
-            allergenCode: code,
-            containment: 'contains' as const,
-            marketScope: [],
-            // The fixture facts came from a supplier-style specification, not a laboratory.
-            verification: 'supplier_declared' as const,
-            sourceNote: null,
+    return [
+        ...PROTOTYPE_INGREDIENTS.map((ingredient, index) => ({
+            id: ingredient.id,
+            meta: { ...SEED_META },
+            name: untranslated(ingredient.name),
+            reference: `IG-${String(index + 1).padStart(3, '0')}`,
+            categoryCode: categoryCodeFor(ingredient.aisle),
+            measurementUnit: 'g' as const,
+            costPer100g: costFromMoney(ingredient.costPer100g),
+            allergens: ingredient.allergens.map((code) => ({
+                allergenCode: code,
+                containment: 'contains' as const,
+                marketScope: [],
+                // The fixture facts came from a supplier-style specification, not a laboratory.
+                verification: 'supplier_declared' as const,
+                sourceNote: null,
+            })),
+            aliases: [],
+            notes: null,
+            // Every seeded row is the shared platform library; a kitchen owns only what it creates
+            // or forks, which is the distinction the `ownedOnly` filter reads.
+            organisationId: null,
+            consumer: ingredient,
         })),
-        aliases: [],
-        notes: null,
-        // Every seeded row is the shared platform library; a kitchen owns only what it creates or
-        // forks, which is the distinction the `ownedOnly` filter reads.
+        buildQuarantinedIngredient(),
+    ];
+}
+
+/**
+ * The ordinal the quarantine sample takes.
+ *
+ * `0x7f` — the last ordinal below {@link PROTOTYPE_RUNTIME_ORDINAL_START}, and far above every
+ * fixture ordinal (the table has 66 rows). An identifier ending `…a07f` therefore says "seeded, and
+ * not one of the sixty-six" without a lookup, which is the whole point of the band scheme.
+ */
+const QUARANTINE_SAMPLE_ORDINAL = 0x7f;
+
+/**
+ * The source data's allergen contradiction, as one clearly-synthetic row.
+ *
+ * The GreenLife material tags burghul and pita "no allergens" on sheets whose own key files both
+ * under gluten (appendix A, R1). The programme's rule is that such a row **quarantines** rather than
+ * warns (plan §4.7): it carries no allergen mapping, it sits in `review_required`, and nothing
+ * publishes it until a person decides which of the two statements is true.
+ *
+ * Three deliberate properties, each of which a reviewer should be able to check at a glance:
+ *
+ * 1. **It is labelled synthetic in its own name.** Nobody can mistake it for imported tenant data,
+ *    which is the rule the whole importer design exists to keep (plan §4.11).
+ * 2. **Nothing points at it.** No recipe line, no meal, no price entry — so removing it later is a
+ *    one-line deletion rather than a cascade, and no consumer projection changes shape.
+ * 3. **It is not the alphabetically first ingredient.** The browser specs anchor on the first row of
+ *    the sorted list; a sample that stole that position would silently retarget six of them.
+ */
+function buildQuarantinedIngredient(): StoredIngredient {
+    const consumer = makeIngredient(
+        [
+            'synthetic_import_review_pita',
+            'Pita bread (synthetic import-review sample)',
+            'vegan',
+            'Bakery',
+            275,
+            9.1,
+            55.7,
+            1.2,
+            2.2,
+            1.6,
+            0.2,
+            536,
+            // Empty on purpose: this row *is* the contradiction. The source sheet declares no
+            // allergen while its own key files the product under gluten.
+            [],
+            95,
+        ],
+        QUARANTINE_SAMPLE_ORDINAL,
+    );
+
+    return {
+        id: consumer.id,
+        meta: { ...SEED_META, status: 'review_required' },
+        name: untranslated(consumer.name),
+        reference: 'IG-REVIEW-SAMPLE',
+        categoryCode: categoryCodeFor(consumer.aisle),
+        measurementUnit: 'g',
+        costPer100g: costFromMoney(consumer.costPer100g),
+        allergens: [],
+        aliases: ['Khubz', 'Arabic bread'],
+        notes:
+            'Quarantined on import: the source technical sheet declares no allergen for this ' +
+            'product, while the same file’s own allergen key files it under gluten (ALG-01). ' +
+            'Both statements cannot be true, so nothing publishes it until a person decides ' +
+            'which is. Synthetic sample — it stands for the burghul and pita rows in the ' +
+            'GreenLife material and carries none of their data.',
         organisationId: null,
-        consumer: ingredient,
-    }));
+        consumer,
+    };
 }
 
 /* ------------------------------------------------------------------------------------------------

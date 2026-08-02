@@ -12,6 +12,7 @@ import {
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -27,6 +28,7 @@ import {
     usePriceListSummaryQuery,
     useProductSummaryQuery,
     useRecipeSummaryQuery,
+    useReviewQueueQuery,
     useZoneSummaryQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { PublishedFamilySummary } from '../../../data/kitchen-admin-hooks.ts';
@@ -34,6 +36,7 @@ import { useAccessState } from '../../../session/session-provider.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
 import { WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
 import type { EntityFamily } from '../entity-registry.ts';
+import { buildReviewQueue } from '../review-queue.ts';
 
 /**
  * `/kitchen` — the workspace hub.
@@ -277,6 +280,79 @@ function BranchOperatingCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
+/**
+ * The "Needs review" card — the only one that counts records it does not own.
+ *
+ * It reads {@link useReviewQueueQuery}, which is the *same* cache entry `/kitchen/review` renders
+ * from, so the card's number and the queue's number are one number by construction and opening the
+ * queue from here costs no request at all. That sharing is the whole reason the hook takes no
+ * parameters (`data/query-keys.ts`).
+ *
+ * Two badges rather than one: **blocked** is what a kitchen has to act on — a record publication is
+ * refused outright — and the total is the size of the job. A single figure would merge "one
+ * quarantined allergen determination" into "nine records that still need an Arabic name", which are
+ * not the same morning. The blocked badge is hidden at zero for the reason every other quarantine
+ * badge on this hub is: a permanent "0 blocked" is furniture. The total badge is *not* hidden at
+ * zero, because "all clear" is the one thing this card exists to be able to say.
+ */
+function ReviewCard({ family }: { readonly family: EntityFamily }) {
+    const { t } = useTranslation();
+    const sources = useReviewQueueQuery();
+    const testID = `kitchen-family-${family.key}`;
+
+    const data = sources.data;
+    const queue = useMemo(
+        () =>
+            data === undefined
+                ? null
+                : buildReviewQueue({
+                      ingredients: data.ingredients,
+                      quarantinedRecipes: data.quarantinedRecipes,
+                      staleRecipes: data.staleRecipes,
+                      products: data.products,
+                      meals: data.meals,
+                      plans: data.plans,
+                      priceLists: data.priceLists,
+                  }),
+        [data],
+    );
+
+    return (
+        <FamilyCardShell family={family} testID={testID}>
+            {sources.isPending ? (
+                <Skeleton
+                    testID={`${testID}-loading`}
+                    heightClassName="h-6"
+                    widthClassName="w-1/2"
+                />
+            ) : (
+                <Inline space="xs" wrap testID={`${testID}-counts`}>
+                    <Badge
+                        testID={`${testID}-total`}
+                        tone={queue === null || queue.total === 0 ? 'success' : 'warning'}
+                        icon={queue === null || queue.total === 0 ? 'check' : 'warning'}
+                        label={
+                            queue === null
+                                ? t('kitchen:hub.countUnavailable')
+                                : queue.total === 0
+                                  ? t('kitchen:review.clearBadge')
+                                  : t('kitchen:review.waitingCount', { count: queue.total })
+                        }
+                    />
+                    {queue === null || queue.blocked === 0 ? null : (
+                        <Badge
+                            testID={`${testID}-blocked`}
+                            tone="danger"
+                            icon="warning"
+                            label={t('kitchen:review.blockedCount', { count: queue.blocked })}
+                        />
+                    )}
+                </Inline>
+            )}
+        </FamilyCardShell>
+    );
+}
+
 function AllergenClassesCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const classes = useAllergenClassesQuery();
@@ -359,6 +435,9 @@ export function KitchenHomeScreen() {
                          * links correctly and claims no numbers.
                          */}
                         {families.map((family) => {
+                            if (family.key === 'review') {
+                                return <ReviewCard key={family.key} family={family} />;
+                            }
                             if (family.key === 'ingredients') {
                                 return <IngredientsCard key={family.key} family={family} />;
                             }

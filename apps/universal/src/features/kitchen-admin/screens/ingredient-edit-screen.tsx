@@ -228,9 +228,21 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
     const [aliasError, setAliasError] = useState<string | null>(null);
     const [removedAlias, setRemovedAlias] = useState<string | null>(null);
     const [showArchive, setShowArchive] = useState(false);
-    const [quarantined, setQuarantined] = useState(false);
 
     const data = record.data;
+
+    /**
+     * Whether this record is in the stored quarantine — read from the record, not remembered.
+     *
+     * It used to be `useState`, set only in the mapping save's `onSuccess`, which meant an
+     * ingredient that *arrived* quarantined showed no banner at all: reload the page, or follow the
+     * deep link the K1.8 review queue offers, and the one fact the screen most needed to state was
+     * silently absent. Every other editor in this workspace already derives it this way (recipes,
+     * products, meals, plans, price lists); this is the odd one out being brought into line. The
+     * mutation writes its answer straight into the detail cache entry, so the banner still appears
+     * in the same frame a save quarantines the row.
+     */
+    const quarantined = record.data?.meta.status === 'review_required';
     /**
      * The version every write is based on, read from the cache at save time rather than held in
      * state. A mutation writes its answer into the detail entry, so this is always the newest
@@ -272,7 +284,6 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
         setRowsDirty(false);
         setDetailsKey(null);
         setRowsKey(null);
-        setQuarantined(false);
         guard.markClean();
         void record.refetch();
     }, [guard, record]);
@@ -464,7 +475,6 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
             {
                 onSuccess: (saved) => {
                     settle(detailsDirty, false);
-                    setQuarantined(saved.meta.status === 'review_required');
                     toast.show({
                         testID: 'kitchen-ingredient-mapping-saved-toast',
                         tone: saved.meta.status === 'review_required' ? 'warning' : 'success',

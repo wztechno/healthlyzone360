@@ -13,7 +13,16 @@ import type { AccessState } from '@healthy360/permissions';
  *
  * **This registry grows one entry per K1 slice.** K1.1 lands ingredients and the allergen-class
  * reference, K1.2 recipes, K1.4 products and meals, K1.5 price lists, K1.6 plans, K1.7 delivery
- * zones and branch operating data — and nothing else about the hub changes when they do.
+ * zones and branch operating data, K1.8 the review queue — and nothing else about the hub changes
+ * when they do.
+ *
+ * ## Why the review queue is first, and is an entry here at all
+ *
+ * It is listed before every family because it is the only card that answers "what should I do
+ * *now*?" — everything below it answers "where do I go?". And it is a registry entry rather than a
+ * banner bolted onto the hub because the hub's grid is data-driven precisely so that a new surface
+ * costs one object: the card, its permission gate and its heading all come from this row, exactly as
+ * the seven families' do.
  *
  * ## Why the delivery slice is two cards and not one
  *
@@ -51,8 +60,15 @@ export const CATALOGUE_MANAGE_PERMISSION = 'catalogue.manage_organisation';
  * `managed` families are counted from their own listing and can carry a draft badge; `reference`
  * families are platform data a kitchen only reads, so a draft count would be meaningless and the
  * card says "reference" instead of inventing one.
+ *
+ * `workbench` is neither, and K1.8 added it for the one entry that needed it. The review queue is
+ * not a family of records — it is a **view across six of them**, it has no listing of its own, no
+ * create control and no lifecycle. Filing it as `managed` would have promised a draft count it
+ * cannot have; filing it as `reference` would have called a work queue read-only reference data.
+ * The registry stays the single source of "what is in this workspace" either way, which is the whole
+ * reason the third value is cheaper than a special case in the hub.
  */
-export const ENTITY_KINDS = ['managed', 'reference'] as const;
+export const ENTITY_KINDS = ['managed', 'reference', 'workbench'] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
 export interface EntityFamily {
@@ -71,6 +87,27 @@ export interface EntityFamily {
 }
 
 export const ENTITY_FAMILIES: readonly EntityFamily[] = [
+    {
+        key: 'review',
+        kind: 'workbench',
+        nameKey: 'kitchen:families.review.name',
+        descriptionKey: 'kitchen:families.review.description',
+        // `⌕`, the magnifier — an inspection, which is literally what this card opens. Every other
+        // card in this workspace records the same compromise (the icon set is a table of typographic
+        // characters), and this one has a sharper constraint than most: `⚠` would have been the
+        // obvious reading, and it is already the allergen-class card's glyph. Two cards wearing the
+        // same warning sign, one meaning "the fourteen regulatory classes" and the other meaning
+        // "these records are blocked", would be worse than a magnifier.
+        icon: 'search',
+        href: '/kitchen/review',
+        // Deliberately the *view* permission and not the manage one: a person who may read the
+        // catalogue may see what is blocking it, and resolving a blocker is gated by the editor the
+        // row links into rather than by the queue that names it (plan §4.7, K1.8).
+        permission: CATALOGUE_VIEW_PERMISSION,
+        // Nothing is written from the queue. Every fix happens in the family's own editor, which is
+        // where the lock version, the unsaved guard and the publish confirmation already live.
+        managePermission: null,
+    },
     {
         key: 'ingredients',
         kind: 'managed',

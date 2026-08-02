@@ -584,6 +584,17 @@ export class KitchenCatalogueStore {
         return [...this.#recipes.values()].map((recipe) => this.#recipeSummary(recipe));
     }
 
+    /**
+     * Whether a recipe's current version needs re-deriving.
+     *
+     * Exposed so `RecipeAdminFilter.staleOnly` can be honoured by the repository: `derivationStale`
+     * lives on the *version* and `RecipeAdminSummary` carries no version detail, so a filter written
+     * over the summary alone had nothing to read and silently matched everything.
+     */
+    isRecipeDerivationStale(recipeId: RecipeId): boolean {
+        return this.#version(this.#recipe(recipeId)).derivationStale;
+    }
+
     getRecipe(recipeId: RecipeId): RecipeAdmin {
         return this.#recipeAdmin(this.#recipe(recipeId));
     }

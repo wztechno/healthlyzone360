@@ -57,16 +57,43 @@ describe('the seeded catalogue', () => {
         expect(catalogue.kitchens()).toEqual([...PROTOTYPE_KITCHENS]);
     });
 
-    it('publishes every seeded row, so nothing starts hidden', () => {
+    /**
+     * Everything is published except the one row that exists to be unpublished.
+     *
+     * K1.8 seeds a single `review_required` ingredient — the synthetic stand-in for the source
+     * data's burghul/pita allergen contradiction — so the review queue has something real to show.
+     * It is asserted by name here rather than by allowing `review_required` anywhere in the set,
+     * because "a second quarantined row appeared" is exactly the regression this test should catch.
+     */
+    it('publishes every seeded row bar the one quarantine sample', () => {
         const catalogue = store();
         const statuses = new Set<PublishableStatus>();
-        for (const row of catalogue.listIngredients()) statuses.add(row.meta.status);
         for (const row of catalogue.listRecipes()) statuses.add(row.meta.status);
         for (const row of catalogue.listMeals()) statuses.add(row.meta.status);
         for (const row of catalogue.listPlans()) statuses.add(row.meta.status);
         for (const row of catalogue.listZones()) statuses.add(row.meta.status);
 
         expect([...statuses]).toEqual(['published']);
+
+        const quarantined = catalogue
+            .listIngredients()
+            .filter((row) => row.meta.status !== 'published');
+        expect(quarantined).toHaveLength(1);
+        expect(quarantined[0]?.meta.status).toBe('review_required');
+        expect(quarantined[0]?.name.en).toContain('synthetic');
+        // No mapping at all is the contradiction itself, and the note is what a reviewer reads.
+        expect(quarantined[0]?.allergens).toEqual([]);
+        expect(quarantined[0]?.notes).toContain('gluten');
+    });
+
+    it('keeps the quarantine sample off every consumer surface', () => {
+        const catalogue = store();
+        const ids = new Set(catalogue.consumerIngredients().map((row) => String(row.id)));
+        const quarantined = catalogue
+            .listIngredients()
+            .filter((row) => row.meta.status === 'review_required');
+
+        for (const row of quarantined) expect(ids.has(String(row.id))).toBe(false);
     });
 
     it('carries the fourteen allergen classes with their regulatory metadata', () => {
@@ -149,6 +176,34 @@ describe('optimistic locking', () => {
     it('answers resource.not_found for a row this world does not have', () => {
         const missing = prototypeId('ingredient', 0xfe) as never;
         expect(failureOf(() => store().getIngredient(missing))?.code).toBe('resource.not_found');
+    });
+});
+
+describe('the recipe listing filters', () => {
+    /**
+     * `RecipeAdminFilter.staleOnly` was declared on the contract and ignored by the repository, so
+     * "recipes whose figures are out of date" answered with the whole book. The K1.8 review queue is
+     * its first caller, and a queue that reported twenty stale recipes in a world with none would be
+     * worse than no queue at all.
+     */
+    it('answers staleOnly from the version flag rather than matching everything', async () => {
+        const catalogue = store();
+        const { kitchenAdmin } = createPrototypeRepositories();
+
+        const all = await kitchenAdmin.listRecipes({ limit: 100 });
+        expect(all.items.length).toBeGreaterThan(0);
+
+        /*
+         * Nothing in this world sets `derivationStale`. Every setter recomputes the roll-up in the
+         * same call and clears the flag, so a stale version is a state only a *server* that defers
+         * derivation to a job can produce (the allergen-recompute job, plan K1.8). The honest
+         * answer is therefore "none", and the point of this assertion is that it is no longer
+         * "all twenty".
+         */
+        expect(all.items.every((row) => !catalogue.isRecipeDerivationStale(row.id))).toBe(true);
+
+        const stale = await kitchenAdmin.listRecipes({ limit: 100, staleOnly: true });
+        expect(stale.items).toEqual([]);
     });
 });
 

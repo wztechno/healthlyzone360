@@ -135,6 +135,12 @@ async function openFirstPlan(page: Page) {
     await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();
 }
 
+async function openReview(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-review-open').click();
+    await expect(page.getByTestId('kitchen-review-screen')).toBeVisible();
+}
+
 test.describe('kitchen workspace accessibility (axe)', () => {
     test('the workspace hub', async ({ page }) => {
         await openKitchen(page);
@@ -546,5 +552,55 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.setViewportSize({ width: 390, height: 844 });
         await openZones(page);
         await expectNoSeriousViolations(page, 'kitchen-zones-narrow');
+    });
+
+    /* ── the review queue (K1.8) ─────────────────────────────────────────────────────────────── */
+
+    /**
+     * The review queue, swept with rows in it.
+     *
+     * Two risks live here and nowhere else in this workspace. The summary is a `role="alert"`
+     * callout that arrives *after* the data does — a live region announcing a food-safety blocker,
+     * which has to have a name and a role rather than only a colour. And every row carries a stack
+     * of reason badges whose meaning must not be colour alone: a red "quarantined" chip and an amber
+     * "unverified" chip are the same shape to somebody who cannot tell them apart, which is why
+     * `Badge` pairs every tone with a glyph and why this sweep keeps the pairing honest.
+     */
+    test('the review queue, with its summary and its reason chips', async ({ page }) => {
+        await openReview(page);
+        await expect(page.getByTestId('kitchen-review-sections')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-review');
+    });
+
+    /**
+     * The same queue at phone width, where the row cards stack and the reason chips wrap.
+     *
+     * Wrapping is where a chip group most often loses its relationship to the row above it, and a
+     * scrolling region with nothing focusable inside is the serious finding the allergen-class page
+     * already documents — this screen's rows each carry a control, so the sweep proves it stays that
+     * way at the width where the layout changes most.
+     */
+    test('the same queue on a phone', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openReview(page);
+        await expect(page.getByTestId('kitchen-review-sections')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-review-narrow');
+    });
+
+    /**
+     * The ingredient editor reached *from* the queue, which is the state K1.8 added.
+     *
+     * The banner is a `role="alert"` that is present on first paint rather than announced by an
+     * interaction, and the record beneath it is a full form. An alert rendered above a form is
+     * exactly where a heading order or a landmark relationship goes wrong unnoticed.
+     */
+    test('the record editor a queue row opens, with its quarantine banner', async ({ page }) => {
+        await openReview(page);
+        await page
+            .locator('[data-testid^="kitchen-review-ingredients-"][data-testid$="-open"]')
+            .first()
+            .click();
+        await expect(page.getByTestId('kitchen-ingredient-quarantine')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-review-quarantined-editor');
     });
 });

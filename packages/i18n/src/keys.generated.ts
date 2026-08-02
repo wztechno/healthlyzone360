@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 3813 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 3840 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1498,6 +1498,8 @@ export interface NamespaceKeys {
     | 'families.products.name'
     | 'families.recipes.description'
     | 'families.recipes.name'
+    | 'families.review.description'
+    | 'families.review.name'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -2086,6 +2088,31 @@ export interface NamespaceKeys {
     | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
+    | 'review.blockedCount'
+    | 'review.clearBadge'
+    | 'review.clearBody'
+    | 'review.clearTitle'
+    | 'review.errorTitle'
+    | 'review.notChecked'
+    | 'review.open'
+    | 'review.reasonDataQuality'
+    | 'review.reasonDerivationStale'
+    | 'review.reasonInconsistentPrices'
+    | 'review.reasonMissingTranslation'
+    | 'review.reasonQuarantined'
+    | 'review.reasonUnverifiedAllergens'
+    | 'review.scope'
+    | 'review.sectionCount'
+    | 'review.subtitle'
+    | 'review.summaryBlocked'
+    | 'review.summaryTitle'
+    | 'review.summaryUnblocked'
+    | 'review.title'
+    | 'review.truncatedBody'
+    | 'review.truncatedTitle'
+    | 'review.updatedBy'
+    | 'review.updatedBySeed'
+    | 'review.waitingCount'
     | 'rollup.allergenFrom'
     | 'rollup.allergenNoSources'
     | 'rollup.allergenProvenanceHint'
@@ -5328,6 +5355,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.products.name',
   'kitchen:families.recipes.description',
   'kitchen:families.recipes.name',
+  'kitchen:families.review.description',
+  'kitchen:families.review.name',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -5916,6 +5945,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
+  'kitchen:review.blockedCount',
+  'kitchen:review.clearBadge',
+  'kitchen:review.clearBody',
+  'kitchen:review.clearTitle',
+  'kitchen:review.errorTitle',
+  'kitchen:review.notChecked',
+  'kitchen:review.open',
+  'kitchen:review.reasonDataQuality',
+  'kitchen:review.reasonDerivationStale',
+  'kitchen:review.reasonInconsistentPrices',
+  'kitchen:review.reasonMissingTranslation',
+  'kitchen:review.reasonQuarantined',
+  'kitchen:review.reasonUnverifiedAllergens',
+  'kitchen:review.scope',
+  'kitchen:review.sectionCount',
+  'kitchen:review.subtitle',
+  'kitchen:review.summaryBlocked',
+  'kitchen:review.summaryTitle',
+  'kitchen:review.summaryUnblocked',
+  'kitchen:review.title',
+  'kitchen:review.truncatedBody',
+  'kitchen:review.truncatedTitle',
+  'kitchen:review.updatedBy',
+  'kitchen:review.updatedBySeed',
+  'kitchen:review.waitingCount',
   'kitchen:rollup.allergenFrom',
   'kitchen:rollup.allergenNoSources',
   'kitchen:rollup.allergenProvenanceHint',
