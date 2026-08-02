@@ -46,9 +46,23 @@ enum OtpPurpose: string
      * `OtpService` refuses the rest rather than letting a caller quietly issue
      * a challenge for a journey nobody has built, which would produce a
      * verified step-up that no consumer knows how to honour.
+     *
+     * The list grows one phase at a time and only when the consumer lands with
+     * it. G1 adds the two guest purposes because it is the phase that builds
+     * their journeys: `GuestSessionService` issues `guest_order` to promote a
+     * session to `place_order`, and `GuestDeletionService` issues
+     * `guest_deletion` to prove an erasure request before anything is erased.
+     *
+     * The consumers are named in prose rather than through `@see`, because a
+     * docblock reference to a Customers class is an import waiting to happen and
+     * the dependency edge runs Customers → Verification, never the reverse.
      */
     public function isIssuable(): bool
     {
-        return $this === self::ContactVerification;
+        return in_array($this, [
+            self::ContactVerification,
+            self::GuestOrder,
+            self::GuestDeletion,
+        ], true);
     }
 }

@@ -50,6 +50,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $anonymised_at
  * @property CarbonImmutable|null $last_activity_at
  * @property CarbonImmutable|null $provisional_expires_at
+ * @property CarbonImmutable|null $guest_expires_at
+ * @property CarbonImmutable|null $converted_at
  * @property string|null $created_by
  * @property string|null $updated_by
  * @property int $lock_version
@@ -82,6 +84,12 @@ class CustomerAccount extends BaseModel
             'anonymised_at' => 'datetime',
             'last_activity_at' => 'datetime',
             'provisional_expires_at' => 'datetime',
+            // G1. Cast rather than left raw so a consumer asking
+            // `$account->guest_expires_at?->isPast()` gets a date rather than a
+            // string it has to parse — the two windows on this row must be
+            // readable the same way.
+            'guest_expires_at' => 'datetime',
+            'converted_at' => 'datetime',
             'lock_version' => 'integer',
         ];
     }
