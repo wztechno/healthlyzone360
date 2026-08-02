@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 3480 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 3655 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1434,6 +1434,8 @@ export interface NamespaceKeys {
     | 'families.ingredients.name'
     | 'families.meals.description'
     | 'families.meals.name'
+    | 'families.plans.description'
+    | 'families.plans.name'
     | 'families.priceLists.description'
     | 'families.priceLists.name'
     | 'families.products.description'
@@ -1559,6 +1561,179 @@ export interface NamespaceKeys {
     | 'meals.typeFilterLabel'
     | 'meals.viewPublic'
     | 'meals.visibleToConsumers'
+    | 'plans.addCombination'
+    | 'plans.addDuration'
+    | 'plans.backToList'
+    | 'plans.bandAddAction'
+    | 'plans.bandAddBody'
+    | 'plans.bandAddIncomplete'
+    | 'plans.bandAddReady'
+    | 'plans.bandAddTitle'
+    | 'plans.bandRange'
+    | 'plans.blockDurations'
+    | 'plans.blockInconsistentDurations'
+    | 'plans.blockName'
+    | 'plans.blockNoConfirmedPrice'
+    | 'plans.blockSummary'
+    | 'plans.blockUnsaved'
+    | 'plans.blockVariants'
+    | 'plans.caption'
+    | 'plans.categoriesHint'
+    | 'plans.categoriesLabel'
+    | 'plans.categoriesNone'
+    | 'plans.categoryAddAction'
+    | 'plans.categoryAddHint'
+    | 'plans.categoryAddLabel'
+    | 'plans.cellLabel'
+    | 'plans.cellNotSold'
+    | 'plans.cellRemoved'
+    | 'plans.cellSold'
+    | 'plans.cellVariantCount'
+    | 'plans.columnDurations'
+    | 'plans.columnName'
+    | 'plans.columnPrices'
+    | 'plans.columnVariants'
+    | 'plans.combinationAvailableHint'
+    | 'plans.combinationAvailableLabel'
+    | 'plans.combinationCodeDuplicate'
+    | 'plans.combinationCodeHint'
+    | 'plans.combinationCodeLabel'
+    | 'plans.combinationCodeRequired'
+    | 'plans.combinationCount'
+    | 'plans.combinationLabelLabel'
+    | 'plans.combinationLabelRequired'
+    | 'plans.combinationNumber'
+    | 'plans.combinationRemoved'
+    | 'plans.combinationUnavailable'
+    | 'plans.combinationsEmpty'
+    | 'plans.combinationsHelp'
+    | 'plans.combinationsSavedToast'
+    | 'plans.confirmedPriceCount'
+    | 'plans.coordinateHint'
+    | 'plans.coverage'
+    | 'plans.create'
+    | 'plans.createFirst'
+    | 'plans.createTitle'
+    | 'plans.createdToast'
+    | 'plans.cutOffHint'
+    | 'plans.cutOffLabel'
+    | 'plans.cutOffRequired'
+    | 'plans.cutOffUnit'
+    | 'plans.dayCount'
+    | 'plans.dayCountList'
+    | 'plans.daysAbsentHint'
+    | 'plans.daysHint'
+    | 'plans.daysLabel'
+    | 'plans.daysRequired'
+    | 'plans.daysUnit'
+    | 'plans.descriptionLabel'
+    | 'plans.dietsLabel'
+    | 'plans.discountHint'
+    | 'plans.discountInvalid'
+    | 'plans.discountLabel'
+    | 'plans.discountNotSet'
+    | 'plans.discountNotSetExplainer'
+    | 'plans.discountSetExplainer'
+    | 'plans.discountUnit'
+    | 'plans.discountValue'
+    | 'plans.discountZeroExplainer'
+    | 'plans.durationCount'
+    | 'plans.durationDuplicate'
+    | 'plans.durationNumber'
+    | 'plans.durationRemoved'
+    | 'plans.durationsEmpty'
+    | 'plans.durationsHelp'
+    | 'plans.durationsSaveError'
+    | 'plans.durationsSavedToast'
+    | 'plans.editTitle'
+    | 'plans.emptyBody'
+    | 'plans.emptyTitle'
+    | 'plans.energyMaxLabel'
+    | 'plans.energyMinLabel'
+    | 'plans.energyRequired'
+    | 'plans.energyReversed'
+    | 'plans.energyUnit'
+    | 'plans.filteredEmptyBody'
+    | 'plans.filteredEmptyTitle'
+    | 'plans.inactiveCount'
+    | 'plans.inconsistentDurationCount'
+    | 'plans.kindFixedDays'
+    | 'plans.kindLabel'
+    | 'plans.kindOneOff'
+    | 'plans.loadErrorTitle'
+    | 'plans.matrixCaption'
+    | 'plans.matrixEmpty'
+    | 'plans.matrixHelp'
+    | 'plans.matrixRowHeader'
+    | 'plans.matrixSaveError'
+    | 'plans.mealsPerDayLabel'
+    | 'plans.nameRequired'
+    | 'plans.newVariantName'
+    | 'plans.noDurations'
+    | 'plans.noFixedDurations'
+    | 'plans.noVariants'
+    | 'plans.notFoundBody'
+    | 'plans.notFoundTitle'
+    | 'plans.oneOffCount'
+    | 'plans.openPriceLists'
+    | 'plans.placeholderPriceCount'
+    | 'plans.pricesHelp'
+    | 'plans.pricesPending'
+    | 'plans.publishBlockedTitle'
+    | 'plans.publishBody'
+    | 'plans.publishConsequence'
+    | 'plans.publishPricesBody'
+    | 'plans.publishPricesTitle'
+    | 'plans.publishRefusedPriceTitle'
+    | 'plans.publishTitle'
+    | 'plans.publishedBody'
+    | 'plans.publishedTitle'
+    | 'plans.publishedToast'
+    | 'plans.resultCount'
+    | 'plans.retire'
+    | 'plans.retireBody'
+    | 'plans.retireConfirm'
+    | 'plans.retireConsequence'
+    | 'plans.retireTitle'
+    | 'plans.retiredBody'
+    | 'plans.retiredTitle'
+    | 'plans.retiredToast'
+    | 'plans.rowUndeclared'
+    | 'plans.saveCombinations'
+    | 'plans.saveDurations'
+    | 'plans.saveVariants'
+    | 'plans.sectionCombinations'
+    | 'plans.sectionDetails'
+    | 'plans.sectionDurations'
+    | 'plans.sectionMatrix'
+    | 'plans.sectionPrices'
+    | 'plans.servingsRequired'
+    | 'plans.servingsSummary'
+    | 'plans.snacksPerDayLabel'
+    | 'plans.subtitle'
+    | 'plans.summaryLabel'
+    | 'plans.title'
+    | 'plans.undecidedDiscountCount'
+    | 'plans.unnamedCombination'
+    | 'plans.unnamedDuration'
+    | 'plans.unnamedVariant'
+    | 'plans.unpricedCount'
+    | 'plans.variantActive'
+    | 'plans.variantActiveHint'
+    | 'plans.variantActiveLabel'
+    | 'plans.variantCount'
+    | 'plans.variantInactive'
+    | 'plans.variantNameLabel'
+    | 'plans.variantNameRequired'
+    | 'plans.variantNumber'
+    | 'plans.variantRemoved'
+    | 'plans.variantsEmpty'
+    | 'plans.variantsHelp'
+    | 'plans.variantsSavedToast'
+    | 'plans.variantsTitle'
+    | 'plans.viewPublic'
+    | 'plans.weekdaysHint'
+    | 'plans.weekdaysLabel'
     | 'priceLists.addEntry'
     | 'priceLists.agreementBadge'
     | 'priceLists.amountDisabledHint'
@@ -4931,6 +5106,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
   'kitchen:families.meals.name',
+  'kitchen:families.plans.description',
+  'kitchen:families.plans.name',
   'kitchen:families.priceLists.description',
   'kitchen:families.priceLists.name',
   'kitchen:families.products.description',
@@ -5056,6 +5233,179 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.typeFilterLabel',
   'kitchen:meals.viewPublic',
   'kitchen:meals.visibleToConsumers',
+  'kitchen:plans.addCombination',
+  'kitchen:plans.addDuration',
+  'kitchen:plans.backToList',
+  'kitchen:plans.bandAddAction',
+  'kitchen:plans.bandAddBody',
+  'kitchen:plans.bandAddIncomplete',
+  'kitchen:plans.bandAddReady',
+  'kitchen:plans.bandAddTitle',
+  'kitchen:plans.bandRange',
+  'kitchen:plans.blockDurations',
+  'kitchen:plans.blockInconsistentDurations',
+  'kitchen:plans.blockName',
+  'kitchen:plans.blockNoConfirmedPrice',
+  'kitchen:plans.blockSummary',
+  'kitchen:plans.blockUnsaved',
+  'kitchen:plans.blockVariants',
+  'kitchen:plans.caption',
+  'kitchen:plans.categoriesHint',
+  'kitchen:plans.categoriesLabel',
+  'kitchen:plans.categoriesNone',
+  'kitchen:plans.categoryAddAction',
+  'kitchen:plans.categoryAddHint',
+  'kitchen:plans.categoryAddLabel',
+  'kitchen:plans.cellLabel',
+  'kitchen:plans.cellNotSold',
+  'kitchen:plans.cellRemoved',
+  'kitchen:plans.cellSold',
+  'kitchen:plans.cellVariantCount',
+  'kitchen:plans.columnDurations',
+  'kitchen:plans.columnName',
+  'kitchen:plans.columnPrices',
+  'kitchen:plans.columnVariants',
+  'kitchen:plans.combinationAvailableHint',
+  'kitchen:plans.combinationAvailableLabel',
+  'kitchen:plans.combinationCodeDuplicate',
+  'kitchen:plans.combinationCodeHint',
+  'kitchen:plans.combinationCodeLabel',
+  'kitchen:plans.combinationCodeRequired',
+  'kitchen:plans.combinationCount',
+  'kitchen:plans.combinationLabelLabel',
+  'kitchen:plans.combinationLabelRequired',
+  'kitchen:plans.combinationNumber',
+  'kitchen:plans.combinationRemoved',
+  'kitchen:plans.combinationUnavailable',
+  'kitchen:plans.combinationsEmpty',
+  'kitchen:plans.combinationsHelp',
+  'kitchen:plans.combinationsSavedToast',
+  'kitchen:plans.confirmedPriceCount',
+  'kitchen:plans.coordinateHint',
+  'kitchen:plans.coverage',
+  'kitchen:plans.create',
+  'kitchen:plans.createFirst',
+  'kitchen:plans.createTitle',
+  'kitchen:plans.createdToast',
+  'kitchen:plans.cutOffHint',
+  'kitchen:plans.cutOffLabel',
+  'kitchen:plans.cutOffRequired',
+  'kitchen:plans.cutOffUnit',
+  'kitchen:plans.dayCount',
+  'kitchen:plans.dayCountList',
+  'kitchen:plans.daysAbsentHint',
+  'kitchen:plans.daysHint',
+  'kitchen:plans.daysLabel',
+  'kitchen:plans.daysRequired',
+  'kitchen:plans.daysUnit',
+  'kitchen:plans.descriptionLabel',
+  'kitchen:plans.dietsLabel',
+  'kitchen:plans.discountHint',
+  'kitchen:plans.discountInvalid',
+  'kitchen:plans.discountLabel',
+  'kitchen:plans.discountNotSet',
+  'kitchen:plans.discountNotSetExplainer',
+  'kitchen:plans.discountSetExplainer',
+  'kitchen:plans.discountUnit',
+  'kitchen:plans.discountValue',
+  'kitchen:plans.discountZeroExplainer',
+  'kitchen:plans.durationCount',
+  'kitchen:plans.durationDuplicate',
+  'kitchen:plans.durationNumber',
+  'kitchen:plans.durationRemoved',
+  'kitchen:plans.durationsEmpty',
+  'kitchen:plans.durationsHelp',
+  'kitchen:plans.durationsSaveError',
+  'kitchen:plans.durationsSavedToast',
+  'kitchen:plans.editTitle',
+  'kitchen:plans.emptyBody',
+  'kitchen:plans.emptyTitle',
+  'kitchen:plans.energyMaxLabel',
+  'kitchen:plans.energyMinLabel',
+  'kitchen:plans.energyRequired',
+  'kitchen:plans.energyReversed',
+  'kitchen:plans.energyUnit',
+  'kitchen:plans.filteredEmptyBody',
+  'kitchen:plans.filteredEmptyTitle',
+  'kitchen:plans.inactiveCount',
+  'kitchen:plans.inconsistentDurationCount',
+  'kitchen:plans.kindFixedDays',
+  'kitchen:plans.kindLabel',
+  'kitchen:plans.kindOneOff',
+  'kitchen:plans.loadErrorTitle',
+  'kitchen:plans.matrixCaption',
+  'kitchen:plans.matrixEmpty',
+  'kitchen:plans.matrixHelp',
+  'kitchen:plans.matrixRowHeader',
+  'kitchen:plans.matrixSaveError',
+  'kitchen:plans.mealsPerDayLabel',
+  'kitchen:plans.nameRequired',
+  'kitchen:plans.newVariantName',
+  'kitchen:plans.noDurations',
+  'kitchen:plans.noFixedDurations',
+  'kitchen:plans.noVariants',
+  'kitchen:plans.notFoundBody',
+  'kitchen:plans.notFoundTitle',
+  'kitchen:plans.oneOffCount',
+  'kitchen:plans.openPriceLists',
+  'kitchen:plans.placeholderPriceCount',
+  'kitchen:plans.pricesHelp',
+  'kitchen:plans.pricesPending',
+  'kitchen:plans.publishBlockedTitle',
+  'kitchen:plans.publishBody',
+  'kitchen:plans.publishConsequence',
+  'kitchen:plans.publishPricesBody',
+  'kitchen:plans.publishPricesTitle',
+  'kitchen:plans.publishRefusedPriceTitle',
+  'kitchen:plans.publishTitle',
+  'kitchen:plans.publishedBody',
+  'kitchen:plans.publishedTitle',
+  'kitchen:plans.publishedToast',
+  'kitchen:plans.resultCount',
+  'kitchen:plans.retire',
+  'kitchen:plans.retireBody',
+  'kitchen:plans.retireConfirm',
+  'kitchen:plans.retireConsequence',
+  'kitchen:plans.retireTitle',
+  'kitchen:plans.retiredBody',
+  'kitchen:plans.retiredTitle',
+  'kitchen:plans.retiredToast',
+  'kitchen:plans.rowUndeclared',
+  'kitchen:plans.saveCombinations',
+  'kitchen:plans.saveDurations',
+  'kitchen:plans.saveVariants',
+  'kitchen:plans.sectionCombinations',
+  'kitchen:plans.sectionDetails',
+  'kitchen:plans.sectionDurations',
+  'kitchen:plans.sectionMatrix',
+  'kitchen:plans.sectionPrices',
+  'kitchen:plans.servingsRequired',
+  'kitchen:plans.servingsSummary',
+  'kitchen:plans.snacksPerDayLabel',
+  'kitchen:plans.subtitle',
+  'kitchen:plans.summaryLabel',
+  'kitchen:plans.title',
+  'kitchen:plans.undecidedDiscountCount',
+  'kitchen:plans.unnamedCombination',
+  'kitchen:plans.unnamedDuration',
+  'kitchen:plans.unnamedVariant',
+  'kitchen:plans.unpricedCount',
+  'kitchen:plans.variantActive',
+  'kitchen:plans.variantActiveHint',
+  'kitchen:plans.variantActiveLabel',
+  'kitchen:plans.variantCount',
+  'kitchen:plans.variantInactive',
+  'kitchen:plans.variantNameLabel',
+  'kitchen:plans.variantNameRequired',
+  'kitchen:plans.variantNumber',
+  'kitchen:plans.variantRemoved',
+  'kitchen:plans.variantsEmpty',
+  'kitchen:plans.variantsHelp',
+  'kitchen:plans.variantsSavedToast',
+  'kitchen:plans.variantsTitle',
+  'kitchen:plans.viewPublic',
+  'kitchen:plans.weekdaysHint',
+  'kitchen:plans.weekdaysLabel',
   'kitchen:priceLists.addEntry',
   'kitchen:priceLists.agreementBadge',
   'kitchen:priceLists.amountDisabledHint',

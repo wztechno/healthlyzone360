@@ -21,6 +21,7 @@ import {
     useAllergenClassesQuery,
     useIngredientSummaryQuery,
     useMealSummaryQuery,
+    usePlanSummaryQuery,
     usePriceListSummaryQuery,
     useProductSummaryQuery,
     useRecipeSummaryQuery,
@@ -265,6 +266,7 @@ export function KitchenHomeScreen() {
     const productSummary = useProductSummaryQuery(permitted.has('products'));
     const mealSummary = useMealSummaryQuery(permitted.has('meals'));
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
+    const planSummary = usePlanSummaryQuery(permitted.has('plans'));
 
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
@@ -329,6 +331,15 @@ export function KitchenHomeScreen() {
                                         key={family.key}
                                         family={family}
                                         summary={priceListSummary}
+                                    />
+                                );
+                            }
+                            if (family.key === 'plans') {
+                                return (
+                                    <PublishedFamilyCard
+                                        key={family.key}
+                                        family={family}
+                                        summary={planSummary}
                                     />
                                 );
                             }

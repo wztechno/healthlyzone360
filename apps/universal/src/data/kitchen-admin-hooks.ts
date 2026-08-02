@@ -2,6 +2,7 @@ import type {
     AllergenClass,
     CreateIngredientRequest,
     CreateMealRequest,
+    CreatePlanRequest,
     CreateProductRequest,
     CreateRecipeRequest,
     CursorPage,
@@ -24,12 +25,16 @@ import type {
     SetChannelAvailabilityRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
+    SetPlanCombinationsRequest,
+    SetPlanDurationsRequest,
+    SetPlanVariantsRequest,
     SetPriceListEntriesRequest,
     SetRecipeLinesRequest,
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     UpdateIngredientRequest,
     UpdateMealRequest,
+    UpdatePlanRequest,
     UpdateProductRequest,
     UpdateRecipeRequest,
 } from '@healthy360/api-client/contracts';
@@ -40,6 +45,7 @@ import type {
     PriceListId,
     ProductId,
     RecipeId,
+    SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import {
     keepPreviousData,
@@ -1133,6 +1139,8 @@ export function usePriceListSummaryQuery(enabled = true): UseQueryResult<PriceLi
     });
 }
 
+/* ── plans (K1.6) ────────────────────────────────────────────────────────────────────────────── */
+
 export type AdminPlansInfiniteResult = UseInfiniteQueryResult<
     InfiniteData<CursorPage<PlanAdmin>, string | undefined>,
     Error
@@ -1145,15 +1153,19 @@ export function plansFromPages(
     return (pages ?? []).flatMap((page) => page.items);
 }
 
+/** Total matching plans when the repository can count them; `null` when it cannot. */
+export function planTotalFromPages(
+    pages: readonly CursorPage<PlanAdmin>[] | undefined,
+): number | null {
+    return pages?.[0]?.totalCount ?? null;
+}
+
 /**
  * The kitchen's subscription plans.
  *
- * **A reader, and only a reader, at this slice.** The plans family — its combination, band and
- * duration matrices — is K1.6's, and none of `setPlanVariants` / `setPlanDurations` /
- * `setPlanCombinations` / `publishPlan` is wrapped here yet. This exists because a price list prices
- * *plans and their variants* (`CatalogueItemRef`), so the price editor's item picker cannot be built
- * without being able to list them. When K1.6 lands, it adds the writers beside this and moves the
- * hook into its own section; nothing about the price editor changes.
+ * Landed by K1.5 as a *reader* — a price list prices plans and their variants
+ * (`CatalogueItemRef`), so the price editor's item picker needed the listing before the plan family
+ * had an editor. K1.6 adds the writers below it and nothing about the price editor changed.
  */
 export function useAdminPlansQuery(
     filter?: Omit<PlanAdminFilter, 'cursor'>,
@@ -1173,6 +1185,217 @@ export function useAdminPlansQuery(
             });
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+}
+
+/** One plan, as its kitchen sees it. Nullable identifier for the reason every detail hook here is. */
+export function useAdminPlanQuery(planId: SubscriptionPlanId | null): UseQueryResult<PlanAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.plan(planId ?? ('' as SubscriptionPlanId)),
+        enabled: repositories !== null && planId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (planId === null) throw new Error('No plan identifier.');
+            return repositories.kitchenAdmin.getPlan(planId);
+        },
+    });
+}
+
+/** The plan counts behind the hub card, in one query. Four `limit: 1` listings, folded. */
+export function usePlanSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.plans({ derive: 'summary' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<PublishedFamilySummary> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const [all, published, drafts, quarantined] = await Promise.all([
+                repositories.kitchenAdmin.listPlans({ limit: 1 }),
+                repositories.kitchenAdmin.listPlans({ limit: 1, statuses: ['published'] }),
+                repositories.kitchenAdmin.listPlans({ limit: 1, statuses: ['draft'] }),
+                repositories.kitchenAdmin.listPlans({ limit: 1, statuses: ['review_required'] }),
+            ]);
+            return {
+                total: all.totalCount,
+                published: published.totalCount,
+                drafts: drafts.totalCount,
+                quarantined: quarantined.totalCount,
+            };
+        },
+    });
+}
+
+/* ── plan writes ─────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Writes the record into its detail entry and invalidates the workspace root *and* the catalogue.
+ *
+ * The catalogue invalidation is the same rule the meal writes follow and for the same reason:
+ * `publishPlan` puts a plan on the consumer plans listing that this world answers from the same
+ * store, and `retirePlan` takes it away. A narrower invalidation would leave a shopper's cached plan
+ * catalogue disagreeing with the kitchen that owns it.
+ */
+function usePlanWriteEffects(): (plan: PlanAdmin) => void {
+    const queryClient = useQueryClient();
+
+    return (plan: PlanAdmin) => {
+        queryClient.setQueryData(queryKeys.kitchenAdmin.plan(plan.id), plan);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.catalogue.all() });
+    };
+}
+
+export function useCreatePlanMutation(): UseMutationResult<PlanAdmin, unknown, CreatePlanRequest> {
+    const repositories = useRepositories();
+    const onWritten = usePlanWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreatePlanRequest) => repositories.kitchenAdmin.createPlan(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface UpdatePlanVariables {
+    readonly planId: SubscriptionPlanId;
+    readonly request: UpdatePlanRequest;
+}
+
+export function useUpdatePlanMutation(): UseMutationResult<
+    PlanAdmin,
+    unknown,
+    UpdatePlanVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePlanWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ planId, request }: UpdatePlanVariables) =>
+            repositories.kitchenAdmin.updatePlan(planId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface SetPlanVariantsVariables {
+    readonly planId: SubscriptionPlanId;
+    readonly request: SetPlanVariantsRequest;
+}
+
+/**
+ * Replaces the whole variant set.
+ *
+ * Wholesale, like every setter in this contract, which is exactly what makes the matrix editor
+ * expressible: a cell that stops existing is a variant *absent from the array*, not a delete call.
+ * A variant the caller sends with `id: null` is minted server-side and comes back with one.
+ */
+export function useSetPlanVariantsMutation(): UseMutationResult<
+    PlanAdmin,
+    unknown,
+    SetPlanVariantsVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePlanWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ planId, request }: SetPlanVariantsVariables) =>
+            repositories.kitchenAdmin.setPlanVariants(planId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface SetPlanDurationsVariables {
+    readonly planId: SubscriptionPlanId;
+    readonly request: SetPlanDurationsRequest;
+}
+
+/**
+ * Replaces the whole duration set.
+ *
+ * The store re-checks `isPlanDurationConsistent` on the way in and answers `validation.failed` on
+ * `durations` for a row that breaks it. The editor therefore never relies on that — it blocks the
+ * save and marks the offending row — but the server refusing it as well is what makes the rule true
+ * rather than merely enforced by a screen.
+ */
+export function useSetPlanDurationsMutation(): UseMutationResult<
+    PlanAdmin,
+    unknown,
+    SetPlanDurationsVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePlanWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ planId, request }: SetPlanDurationsVariables) =>
+            repositories.kitchenAdmin.setPlanDurations(planId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface SetPlanCombinationsVariables {
+    readonly planId: SubscriptionPlanId;
+    readonly request: SetPlanCombinationsRequest;
+}
+
+/** Replaces the whole combination set — the rows of the variant matrix. */
+export function useSetPlanCombinationsMutation(): UseMutationResult<
+    PlanAdmin,
+    unknown,
+    SetPlanCombinationsVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePlanWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ planId, request }: SetPlanCombinationsVariables) =>
+            repositories.kitchenAdmin.setPlanCombinations(planId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface PlanLifecycleVariables {
+    readonly planId: SubscriptionPlanId;
+    readonly request: LockedRequest;
+}
+
+/**
+ * Publishes the plan.
+ *
+ * Refused two ways, and the editor renders both beside its own button. A quarantined plan is
+ * `validation.failed` on `status` (plan §4.7). A plan with no *confirmed* price anywhere in this
+ * kitchen's price lists is `validation.failed` on `price` — the mock store checks exactly that
+ * (`mock/prototype/catalogue-store.ts`), because publishing a plan priced only by placeholders
+ * would advertise a number nobody has decided (plan §2.4, §3 #15).
+ */
+export function usePublishPlanMutation(): UseMutationResult<
+    PlanAdmin,
+    unknown,
+    PlanLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePlanWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ planId, request }: PlanLifecycleVariables) =>
+            repositories.kitchenAdmin.publishPlan(planId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Withdraws the plan from every consumer surface. Nothing is deleted. */
+export function useRetirePlanMutation(): UseMutationResult<
+    PlanAdmin,
+    unknown,
+    PlanLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePlanWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ planId, request }: PlanLifecycleVariables) =>
+            repositories.kitchenAdmin.retirePlan(planId, request),
+        onSuccess: onWritten,
     });
 }
 

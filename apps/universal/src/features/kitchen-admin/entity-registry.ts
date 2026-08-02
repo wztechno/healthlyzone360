@@ -131,6 +131,27 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        key: 'plans',
+        kind: 'managed',
+        nameKey: 'kitchen:families.plans.name',
+        descriptionKey: 'kitchen:families.plans.description',
+        // `▤`, the ruled sheet — the same glyph the recipe family carries, and the sharpest
+        // instance yet of the compromise those cards already record: the icon set is a table of
+        // typographic characters with no grid, calendar-of-deliveries or matrix glyph in it, and
+        // every other character in it is either taken by another card or would say something
+        // untrue (`⟳` reads as a reload control, `◈` is the organisation switcher's own mark).
+        // A plan is a ruled table of configurations and a schedule of deliveries, so this is the
+        // closest honest reading; the label beside the card is what separates it from the recipe
+        // book, and a real icon set retires the compromise for both.
+        icon: 'calendar',
+        href: '/kitchen/plans',
+        // See the note on the permission constants: the plan names `subscription_plan.*` codes
+        // server-side and nothing in this world can grant one, so K1.6 reuses the catalogue pair
+        // with the rest of K1 and the reconciliation pass changes this file alone.
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'allergen-classes',
         kind: 'reference',
         nameKey: 'kitchen:families.allergenClasses.name',

@@ -353,6 +353,86 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await expect(page.getByTestId(`${row}-no-amount`)).toContainText(ARABIC_SCRIPT);
     });
 
+    /**
+     * The plan editor in Arabic, which holds the workspace's two hardest direction rules at once.
+     *
+     * The **day count and the discount are numbers on their way to integer columns**, so they stay
+     * in Latin digits in a right-to-left document — the same rule the recipe quantity and the price
+     * amount follow, and the one that would make round-tripping a 20-day commitment depend on the
+     * interface language if it were broken. The **configuration name** is a bilingual field inside a
+     * repeated card, so each half has to follow its own language rather than the interface's.
+     *
+     * And the discount carries the distinction this slice exists to protect: an empty field is "not
+     * set" and a typed `0` is "earns nothing". The badge has to say which, in Arabic.
+     */
+    test('keeps a duration in Latin digits and says whether a discount is undecided', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-plans-open').click();
+        await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-plans-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-plans-subtitle')).toContainText(ARABIC_SCRIPT);
+
+        // The table must stay inside itself: a matrix is the easiest place to push a document
+        // sideways, and the responsive research is explicit that it must not reach the document.
+        const listOverflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(listOverflow).toBeLessThanOrEqual(1);
+
+        await page.locator('[data-testid^="kitchen-plan-"][data-testid$="-open"]').first().click();
+        await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-plan-matrix-grid')).toBeVisible();
+
+        // The matrix is a table, and it stays inside itself here too.
+        const gridOverflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(gridOverflow).toBeLessThanOrEqual(1);
+
+        const first = page
+            .locator('[data-testid^="kitchen-plan-duration-rows-row-seed-duration-0-"]')
+            .first();
+        const testId = await first.getAttribute('data-testid');
+        if (testId === null) throw new Error('The duration row carries no test id.');
+
+        // Latin digits, in an Arabic interface: the value is on its way to an integer column.
+        const days = page.getByTestId(`${testId}-days-input`);
+        await expect(days).toHaveValue(/^[0-9]+$/);
+        await days.fill('20');
+        await expect(days).toHaveValue('20');
+
+        const discount = page.getByTestId(`${testId}-discount-input`);
+        await expect(discount).toHaveValue(/^[0-9]*$/);
+        await discount.fill('15');
+        await expect(discount).toHaveValue('15');
+        await expect(page.getByTestId(`${testId}-badge`)).toContainText('15');
+
+        // Emptying it is "not set", not "no discount" — and the row says so in Arabic.
+        await discount.fill('');
+        await expect(page.getByTestId(`${testId}-badge`)).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId(`${testId}-discount-state`)).toContainText(ARABIC_SCRIPT);
+
+        // The kind control is translated, and the rule it enforces is not language-dependent.
+        await page.getByTestId(`${testId}-kind-one_off`).click();
+        await expect(page.getByTestId(`${testId}-days-input`)).toHaveCount(0);
+        await expect(page.getByTestId(`${testId}-days-absent`)).toContainText(ARABIC_SCRIPT);
+
+        // A configuration name is bilingual inside a repeated card: each half keeps its own
+        // direction, which is invisible in English and makes the form unusable here if wrong.
+        const english = page
+            .locator('[data-testid^="kitchen-plan-variants-row-"][data-testid$="-name-en-input"]')
+            .first();
+        const arabic = page
+            .locator('[data-testid^="kitchen-plan-variants-row-"][data-testid$="-name-ar-input"]')
+            .first();
+        await expect(english).toBeVisible();
+        await expect(english).toHaveCSS('direction', 'ltr');
+        await expect(arabic).toHaveCSS('direction', 'rtl');
+    });
+
     test('translates the allergen reference, keeping the codes verbatim', async ({ page }) => {
         await openKitchen(page);
         await page.getByTestId('kitchen-family-allergen-classes-open').click();

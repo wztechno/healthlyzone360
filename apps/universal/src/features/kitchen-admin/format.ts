@@ -1,10 +1,13 @@
-import { isPriceEntryConsistent } from '@healthy360/api-client/contracts';
+import { isPlanDurationConsistent, isPriceEntryConsistent } from '@healthy360/api-client/contracts';
 import type {
     AllergenContainment,
     AllergenVerification,
     CatalogueItemRef,
     CostAmount,
     LocalisedText,
+    PlanDurationAdmin,
+    PlanDurationKind,
+    PlanVariantAdmin,
     PriceListEntry,
     PriceStatus,
     ProductPackVariant,
@@ -549,6 +552,218 @@ export function parseMinorAmount(value: string, currency: CurrencyCode): number 
     return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+/* ── subscription plans (K1.6) ───────────────────────────────────────────────────────────────── */
+
+/** Statuses the plan list filter offers, in lifecycle order. */
+export const PLAN_STATUS_FILTERS: readonly PublishableStatus[] = [
+    'draft',
+    'review_required',
+    'published',
+    'retired',
+];
+
+const DURATION_KIND_KEYS: Readonly<Record<PlanDurationKind, string>> = {
+    one_off: 'kitchen:plans.kindOneOff',
+    fixed_days: 'kitchen:plans.kindFixedDays',
+};
+
+export function durationKindKey(kind: PlanDurationKind): string {
+    return DURATION_KIND_KEYS[kind];
+}
+
+/** How a plan's duration set breaks down. Rendered on the list row and inside the publish dialog. */
+export interface PlanDurationSummary {
+    readonly total: number;
+    readonly oneOff: number;
+    readonly fixedDays: number;
+    /** The distinct day counts offered, ascending. `one_off` contributes none. */
+    readonly dayCounts: readonly number[];
+    /** Rows whose discount is still `null` — undecided, which is not the same as zero. */
+    readonly undecidedDiscounts: number;
+    /** Rows breaking {@link isPlanDurationConsistent} — the migration's `CHECK`, on screen. */
+    readonly inconsistent: number;
+}
+
+export function summarisePlanDurations(
+    durations: readonly PlanDurationAdmin[],
+): PlanDurationSummary {
+    let oneOff = 0;
+    let fixedDays = 0;
+    let undecidedDiscounts = 0;
+    let inconsistent = 0;
+    const days = new Set<number>();
+
+    for (const duration of durations) {
+        if (duration.kind === 'one_off') oneOff += 1;
+        else {
+            fixedDays += 1;
+            if (duration.days !== null) days.add(duration.days);
+        }
+        if (duration.discountPercent === null) undecidedDiscounts += 1;
+        if (!isPlanDurationConsistent(duration)) inconsistent += 1;
+    }
+
+    return {
+        total: durations.length,
+        oneOff,
+        fixedDays,
+        dayCounts: [...days].sort((left, right) => left - right),
+        undecidedDiscounts,
+        inconsistent,
+    };
+}
+
+/**
+ * How much of a plan's combination × energy-band matrix actually exists.
+ *
+ * `cells` is the size of the grid the editor draws and `filled` the number of cells with at least
+ * one variant in them, because **variant existence *is* the availability matrix** (appendix D): a
+ * combination a plan does not sell at a band is not a row with a flag, it is a variant that is not
+ * there. A plan with three combinations and three bands has nine cells; the seeded prototype plans
+ * fill three of them, and saying "3 variants" without saying "of 9 cells" would hide that.
+ */
+export interface PlanMatrixSummary {
+    readonly variants: number;
+    readonly activeVariants: number;
+    readonly combinations: number;
+    readonly bands: number;
+    readonly cells: number;
+    readonly filled: number;
+}
+
+/** A stable identity for an energy band. Two variants share a column exactly when this matches. */
+export function energyBandKey(band: { readonly min: number; readonly max: number }): string {
+    return `${String(band.min)}-${String(band.max)}`;
+}
+
+/**
+ * A stable identity for the meals/snacks pair a combination and a variant are joined by.
+ *
+ * The contract gives `PlanCombination` a kitchen-set `code` and gives `PlanVariantAdmin` no
+ * reference to one at all — a variant carries `mealsPerDay` and `snacksPerDay` directly. So this
+ * pair, and nothing else, is what says which row of the matrix a variant sits in. Inventing a
+ * `combinationCode` on the variant would be a field the server has never published.
+ */
+export function combinationKey(shape: {
+    readonly mealsPerDay: number;
+    readonly snacksPerDay: number;
+}): string {
+    return `${String(shape.mealsPerDay)}m${String(shape.snacksPerDay)}s`;
+}
+
+/** The least a variant has to be for the grid to place it — see {@link summarisePlanMatrix}. */
+export interface MatrixPlacement {
+    readonly mealsPerDay: number;
+    readonly snacksPerDay: number;
+    readonly energyBand: { readonly min: number; readonly max: number };
+    /** Absent counts as active: `PlanVariantInput` leaves it optional and the server defaults it. */
+    readonly isActive?: boolean | undefined;
+}
+
+/**
+ * Structurally typed rather than taking a `PlanAdmin`, so the *editor* can summarise what it is
+ * about to save (`PlanVariantInput`, whose `id` is nullable and whose `isActive` is optional) with
+ * the same function the list summarises what the server holds. Two summaries that could disagree
+ * would be two answers to "how much of this plan exists".
+ */
+export function summarisePlanMatrix(plan: {
+    readonly variants: readonly MatrixPlacement[];
+    readonly combinations: readonly {
+        readonly mealsPerDay: number;
+        readonly snacksPerDay: number;
+    }[];
+}): PlanMatrixSummary {
+    const bands = new Set(plan.variants.map((variant) => energyBandKey(variant.energyBand)));
+    const rows = new Set(plan.combinations.map((combination) => combinationKey(combination)));
+    // A variant whose shape matches no declared combination still occupies a row of the grid — the
+    // editor draws it as an extra row rather than hiding a variant that exists.
+    for (const variant of plan.variants) rows.add(combinationKey(variant));
+
+    const filled = new Set(
+        plan.variants.map(
+            (variant) => `${combinationKey(variant)}|${energyBandKey(variant.energyBand)}`,
+        ),
+    );
+
+    return {
+        variants: plan.variants.length,
+        activeVariants: plan.variants.filter((variant) => variant.isActive !== false).length,
+        combinations: plan.combinations.length,
+        bands: bands.size,
+        cells: rows.size * bands.size,
+        filled: filled.size,
+    };
+}
+
+/**
+ * How much of a plan carries a price, derived from the kitchen's price lists.
+ *
+ * **`PlanAdmin` carries no price at all**, and that is deliberate: a price belongs to a price list,
+ * effective-dated, in one currency, and duplicating it onto the plan would create a second answer to
+ * "what does this cost?". So this reads the lists — the same place `publishPlan` reads them — and
+ * counts the plan's own priceable references: the plan itself (`variantId: null`) plus one per
+ * variant, exactly the arms `CatalogueItemRef` publishes.
+ *
+ * A reference is `confirmed` only when some entry both says `confirmed` and carries an amount, which
+ * is the single condition the store's publish gate applies. Everything else is honest about *why*
+ * there is no number: a placeholder is undecided, a market-priced row is decided every morning, and
+ * an unpriced reference is one no list mentions at all.
+ */
+export interface PlanPriceCoverage {
+    readonly references: number;
+    readonly confirmed: number;
+    readonly placeholder: number;
+    readonly marketPriced: number;
+    readonly unpriced: number;
+}
+
+export function summarisePlanPrices(
+    plan: { readonly id: string; readonly variants: readonly PlanVariantAdmin[] },
+    priceLists: readonly { readonly entries: readonly PriceListEntry[] }[],
+): PlanPriceCoverage {
+    const references: string[] = ['', ...plan.variants.map((variant) => String(variant.id))];
+    const found = new Map<string, Set<PriceStatus>>(
+        references.map((reference) => [reference, new Set<PriceStatus>()]),
+    );
+
+    for (const list of priceLists) {
+        for (const entry of list.entries) {
+            if (entry.item.kind !== 'plan') continue;
+            if (String(entry.item.planId) !== plan.id) continue;
+            const reference = entry.item.variantId === null ? '' : String(entry.item.variantId);
+            const statuses = found.get(reference);
+            if (statuses === undefined) continue;
+            // A confirmed entry with no amount is inconsistent, and the publish gate ignores it.
+            if (entry.priceStatus === 'confirmed' && entry.amountMinor === null) continue;
+            statuses.add(entry.priceStatus);
+        }
+    }
+
+    let confirmed = 0;
+    let placeholder = 0;
+    let marketPriced = 0;
+    let unpriced = 0;
+
+    for (const statuses of found.values()) {
+        if (statuses.has('confirmed')) confirmed += 1;
+        else if (statuses.has('placeholder')) placeholder += 1;
+        else if (statuses.has('market_priced')) marketPriced += 1;
+        else unpriced += 1;
+    }
+
+    return { references: references.length, confirmed, placeholder, marketPriced, unpriced };
+}
+
+/*
+ * There is no `parseDurationDays` or `parseDiscountPercent` here, deliberately.
+ *
+ * Every numeric field in the plan editor is a `NumberStepper`, which hands back `number | null`
+ * rather than a string — so the "half-typed value" problem the recipe and price editors solve with
+ * string drafts and a parser does not arise, and the `null` the stepper already means is exactly the
+ * `null` a duration's discount has to preserve. Adding parsers nothing calls would be a second,
+ * divergent definition of the same rules.
+ */
+
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */
 
 /** The test id of one ingredient row's open control, so a spec need not rebuild the string. */
@@ -574,4 +789,9 @@ export function mealRowTestId(mealId: string): string {
 /** The test id prefix of one price-list row. */
 export function priceListRowTestId(priceListId: string): string {
     return `kitchen-price-list-${priceListId}`;
+}
+
+/** The test id prefix of one plan row. */
+export function planRowTestId(planId: string): string {
+    return `kitchen-plan-${planId}`;
 }

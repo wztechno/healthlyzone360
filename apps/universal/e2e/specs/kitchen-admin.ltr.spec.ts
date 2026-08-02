@@ -129,6 +129,34 @@ async function firstEntryRow(page: Page): Promise<string> {
     return testId.slice(0, testId.length - '-status-label'.length);
 }
 
+async function openPlans(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-plans-open').click();
+    await expect(page.getByTestId('kitchen-plans-screen')).toBeVisible();
+    await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
+}
+
+/** The `kitchen-plan-{id}` prefix of the first plan row. */
+async function firstPlanBase(page: Page): Promise<string> {
+    const control = page.locator('[data-testid^="kitchen-plan-"][data-testid$="-open"]').first();
+    await expect(control).toBeVisible();
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The plan row carries no test id.');
+    return testId.slice(0, testId.length - '-open'.length);
+}
+
+/** The test id of the duration row this session just added, whatever ordinal it took. */
+async function addedDurationRow(page: Page): Promise<string> {
+    const row = page
+        .locator('[data-testid^="kitchen-plan-duration-rows-row-duration-"]')
+        .filter({ hasNot: page.locator('[data-testid*="seed-duration"]') })
+        .first();
+    await expect(row).toBeVisible();
+    const testId = await row.getAttribute('data-testid');
+    if (testId === null) throw new Error('The duration row carries no test id.');
+    return testId;
+}
+
 test.describe('kitchen workspace (en)', () => {
     test('shows only the families this role may open, with real counts', async ({ page }) => {
         await openKitchen(page);
@@ -752,5 +780,143 @@ test.describe('kitchen workspace (en)', () => {
             .first();
         await expect(badge).toBeVisible();
         await expect(badge).toContainText('Agreement');
+    });
+
+    /* ── plans (K1.6) ────────────────────────────────────────────────────────────────────────── */
+
+    test('lists plans by how finished they are, not by how many there are', async ({ page }) => {
+        await openPlans(page);
+
+        const base = await firstPlanBase(page);
+        // Coverage rather than a count: three configurations across a six-cell grid is not a
+        // finished plan, and a column showing only "3" would say that it was.
+        await expect(page.getByTestId(`${base}-variants-coverage`)).toContainText('cells sold');
+        await expect(page.getByTestId(`${base}-durations-days`)).toBeVisible();
+        // The price column is derived from the price lists, which is where a plan price lives.
+        await expect(page.getByTestId(`${base}-prices-confirmed`)).toContainText('confirmed');
+        await expect(page.getByTestId(`${base}-status`)).toBeVisible();
+        await expect(page.getByTestId('kitchen-plans-toolbar-result-summary')).toContainText(
+            'match',
+        );
+    });
+
+    /**
+     * The spine of the slice: switch a cell of the matrix on, add a 20-day commitment, save both,
+     * and read the change back off the list.
+     *
+     * Every step goes through `KitchenAdminRepository` into the mutable store. The 20 days are the
+     * point of the `duration_kind` model (plan §4.3) — the consumer contract's `1w | 2w | 4w | 12w`
+     * union could not express them at all — and the cell is the point of the matrix: a configuration
+     * that exists *is* the availability, so switching one on is the whole write.
+     */
+    test('switches a cell on, adds a 20-day commitment, and the list reads both back', async ({
+        page,
+    }) => {
+        await openPlans(page);
+
+        const base = await firstPlanBase(page);
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-plan-matrix-grid')).toBeVisible();
+
+        const coverage = page.getByTestId('kitchen-plan-matrix-coverage');
+        const before = (await coverage.textContent()) ?? '';
+
+        // A cell nothing is sold in. The grid draws it precisely so it can be switched on.
+        const empty = page
+            .locator(
+                '[data-testid^="kitchen-plan-matrix-grid-cell-"][data-testid$="-control"][aria-checked="false"]',
+            )
+            .first();
+        await expect(empty).toBeVisible();
+        await empty.click();
+
+        await expect(coverage).not.toHaveText(before);
+        // Editing arms the guard, which is the visible half of the unsaved-changes contract.
+        await expect(page.getByTestId('kitchen-plan-editor-screen-dirty')).toBeVisible();
+
+        await page.getByTestId('kitchen-plan-variants-save').click();
+        await expect(page.getByTestId('kitchen-plan-variants-saved-toast')).toBeVisible();
+
+        // …and the 20-day commitment, which is the duration model's whole reason for existing.
+        await page.getByTestId('kitchen-plan-durations-add').click();
+        const row = await addedDurationRow(page);
+        await page.getByTestId(`${row}-days-input`).fill('20');
+        // Its discount is undecided rather than zero, and the row says which of the two it is.
+        await expect(page.getByTestId(`${row}-discount-state`)).toContainText('not as zero');
+
+        await page.getByTestId('kitchen-plan-durations-save').click();
+        await expect(page.getByTestId('kitchen-plan-durations-saved-toast')).toBeVisible();
+
+        await page.getByTestId('kitchen-plan-editor-screen-back').click();
+        await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
+        await expect(page.getByTestId(`${base}-durations-days`)).toContainText('20');
+        await expect(page.getByTestId(`${base}-variants-coverage`)).not.toHaveText(before);
+    });
+
+    /**
+     * The `CHECK`, driven through the controls.
+     *
+     * A one-off duration has no day count and a fixed-days one has a positive count. Switching the
+     * kind has to clear the count *and take the field away* in one gesture — the same removal the
+     * price editor's amount field makes, for the same two reasons — and switching back has to block
+     * the save until a number exists.
+     */
+    test('takes the day field away when a duration becomes a one-off', async ({ page }) => {
+        await openPlans(page);
+        const base = await firstPlanBase(page);
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-plan-duration-rows')).toBeVisible();
+
+        const first = page
+            .locator('[data-testid^="kitchen-plan-duration-rows-row-seed-duration-0-"]')
+            .first();
+        const testId = await first.getAttribute('data-testid');
+        if (testId === null) throw new Error('The duration row carries no test id.');
+
+        await expect(page.getByTestId(`${testId}-days-input`)).not.toHaveValue('');
+
+        await page.getByTestId(`${testId}-kind-one_off`).click();
+        await expect(page.getByTestId(`${testId}-days-input`)).toHaveCount(0);
+        await expect(page.getByTestId(`${testId}-days-absent`)).toContainText('not zero, none');
+
+        await page.getByTestId(`${testId}-kind-fixed_days`).click();
+        await expect(page.getByTestId(`${testId}-days-input`)).toHaveValue('');
+        await expect(page.getByTestId('kitchen-plan-durations-save')).toBeDisabled();
+
+        await page.getByTestId(`${testId}-days-input`).fill('40');
+        await expect(page.getByTestId('kitchen-plan-durations-save')).toBeEnabled();
+    });
+
+    /**
+     * A publish attempt on a plan that is not ready, which is the state every imported plan lands
+     * in: no configurations, no durations and no confirmed price. The dialog states each reason
+     * *before* the button is pressed, from the same price lists the server checks.
+     */
+    test('refuses to publish a plan that sells nothing and is priced by nothing', async ({
+        page,
+    }) => {
+        await openPlans(page);
+
+        await page.getByTestId('kitchen-plans-toolbar-create').click();
+        await expect(page.getByTestId('kitchen-plan-editor-screen-title')).toContainText(
+            'New plan',
+        );
+        // Nothing below the details is offered until the record exists to hang a write on.
+        await expect(page.getByTestId('kitchen-plan-matrix-unavailable')).toBeVisible();
+
+        await page.getByTestId('kitchen-plan-name-en-input').fill('Autumn reset');
+        await page.getByTestId('kitchen-plan-name-ar-input').fill('إعادة ضبط الخريف');
+        await page.getByTestId('kitchen-plan-editor-screen-save').click();
+        await expect(page.getByTestId('kitchen-plan-created-toast')).toContainText('draft');
+        await expect(page.getByTestId('kitchen-plan-editor-screen-status')).toContainText('Draft');
+
+        await page.getByTestId('kitchen-plan-publish').click();
+        await expect(page.getByTestId('kitchen-plan-publish-dialog')).toBeVisible();
+        await expect(page.getByTestId('kitchen-plan-publish-blocked')).toContainText('sells');
+        await expect(page.getByTestId('kitchen-plan-publish-blocked')).toContainText(
+            'confirmed price',
+        );
+        await expect(page.getByTestId('kitchen-plan-publish-confirm')).toBeDisabled();
     });
 });

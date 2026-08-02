@@ -17,7 +17,8 @@
  * still never downloads a price-list editor.
  *
  * The rule, so the next slice does not have to rediscover it: **one chunk per route area, not one
- * per screen.** A K1.6 plan editor is added to this file and to a thin route; nothing else changes.
+ * per screen.** K1.6's plan list and plan editor were added to this file and to two thin routes;
+ * nothing else changed, and the chunk absorbed them.
  */
 
 export { AllergenClassesScreen } from './allergen-classes-screen.tsx';
@@ -26,6 +27,8 @@ export { IngredientsScreen } from './ingredients-screen.tsx';
 export { KitchenHomeScreen } from './kitchen-home-screen.tsx';
 export { MealEditScreen } from './meal-edit-screen.tsx';
 export { MealsScreen } from './meals-screen.tsx';
+export { PlanEditScreen } from './plan-edit-screen.tsx';
+export { PlansScreen } from './plans-screen.tsx';
 export { PriceListEditScreen } from './price-list-edit-screen.tsx';
 export { PriceListsScreen } from './price-lists-screen.tsx';
 export { ProductEditScreen } from './product-edit-screen.tsx';

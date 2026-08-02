@@ -105,6 +105,18 @@ async function openFirstPriceList(page: Page) {
     await expect(page.getByTestId('kitchen-price-list-editor-screen')).toBeVisible();
 }
 
+async function openPlans(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-plans-open').click();
+    await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
+}
+
+async function openFirstPlan(page: Page) {
+    await openPlans(page);
+    await page.locator('[data-testid^="kitchen-plan-"][data-testid$="-open"]').first().click();
+    await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();
+}
+
 test.describe('kitchen workspace accessibility (axe)', () => {
     test('the workspace hub', async ({ page }) => {
         await openKitchen(page);
@@ -350,5 +362,74 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.getByTestId('kitchen-price-list-publish').click();
         await expect(page.getByTestId('kitchen-price-list-publish-dialog')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-price-list-publish-dialog');
+    });
+
+    /* ── plans (K1.6) ────────────────────────────────────────────────────────────────────────── */
+
+    test('the plan list', async ({ page }) => {
+        await openPlans(page);
+        await expectNoSeriousViolations(page, 'kitchen-plans');
+    });
+
+    /**
+     * The plan editor is the most structurally demanding screen in the workspace, and the matrix is
+     * why: a grid of checkboxes is meaningless to somebody who cannot see which row and which column
+     * a cell is in. It is a real ARIA table — `columnheader` and `rowheader` cells, named by its
+     * caption — and each cell additionally carries the whole sentence as its own accessible name, so
+     * both readings work. This sweep is what holds that: a bare `View` grid would pass a glance and
+     * fail here.
+     */
+    test('the plan editor, with its matrix, its rows and its duration cards', async ({ page }) => {
+        await openFirstPlan(page);
+        await expect(page.getByTestId('kitchen-plan-matrix-grid')).toBeVisible();
+        await expect(page.getByTestId('kitchen-plan-duration-rows')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-plan-editor');
+    });
+
+    /**
+     * The same editor with a one-off duration, where the day field is *removed* rather than greyed.
+     *
+     * That removal is not a style preference: a `readOnly` `TextInput` at the design system's
+     * disabled opacity contrasts 4.07:1 against the sunken surface, and `readonly` — unlike
+     * `disabled` — is an active control axe holds to 4.5:1. The price editor's amount field found
+     * that first (K1.5); this is the same pattern, swept to keep it that way.
+     */
+    test('the plan editor with a one-off duration, whose day field is gone rather than greyed', async ({
+        page,
+    }) => {
+        await openFirstPlan(page);
+        const first = page
+            .locator('[data-testid^="kitchen-plan-duration-rows-row-seed-duration-0-"]')
+            .first();
+        const testId = await first.getAttribute('data-testid');
+        if (testId === null) throw new Error('The duration row carries no test id.');
+
+        await page.getByTestId(`${testId}-kind-one_off`).click();
+        await expect(page.getByTestId(`${testId}-days-absent`)).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-plan-editor-one-off');
+    });
+
+    test('the same matrix on a phone, where the table becomes stacked cards', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openFirstPlan(page);
+        await expect(page.getByTestId('kitchen-plan-matrix-grid')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-plan-editor-narrow');
+    });
+
+    test('the plan publish confirmation, where every refusal is stated before it is agreed', async ({
+        page,
+    }) => {
+        await openPlans(page);
+        await page.getByTestId('kitchen-plans-toolbar-create').click();
+        await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();
+
+        await page.getByTestId('kitchen-plan-name-en-input').fill('Autumn reset');
+        await page.getByTestId('kitchen-plan-editor-screen-save').click();
+        await expect(page.getByTestId('kitchen-plan-publish')).toBeVisible();
+
+        await page.getByTestId('kitchen-plan-publish').click();
+        await expect(page.getByTestId('kitchen-plan-publish-dialog')).toBeVisible();
+        await expect(page.getByTestId('kitchen-plan-publish-blocked')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-plan-publish-dialog');
     });
 });
