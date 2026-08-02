@@ -155,6 +155,22 @@ tags:
       A **closed day is a row**; a day nobody has configured is an absent one.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
+  - name: Marketplace
+    description: |
+      The consumer's anonymous, read-only view of the catalogue: kitchens with
+      their branches, delivery zones and operating weeks; published meals with
+      their allergens, price and ordering calendar; published subscription
+      plans.
+
+      **Consumer prices only.** No schema in this family can carry a negotiated
+      contract price, a volume tier or a minimum order quantity — those live
+      behind the pricing endpoints, which no anonymous caller reaches. Privacy
+      by absence is the version of that rule which survives a refactor, and it
+      is enforced structurally: the public price resolver may only consult
+      channel kinds the domain declares non-private.
+
+      **Read-only, and permanently so.** What a customer *does* — a cart, an
+      order, a subscription — belongs to later phases and to their own tables.
 paths:
   /auth/register:
     post:
@@ -6523,6 +6539,384 @@ paths:
           $ref: '#/components/responses/RequestInvalid'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /marketplace/kitchens:
+    get:
+      operationId: listMarketplaceKitchens
+      tags:
+        - Marketplace
+      summary: List kitchens
+      security: []
+      description: |
+        **Anonymous.** Every active kitchen with at least one open branch,
+        cursor-paginated. A marketplace a person has to sign in to browse is not
+        a marketplace.
+
+        A kitchen appears when three things are true: its organisation type is
+        `kitchen`, its own status is `active`, and it has at least one active
+        branch. A suspended kitchen is **absent** rather than greyed out, and a
+        kitchen with no open location has no calendar to offer.
+
+        Served through a public projection (master plan v2 4.8). Several fields
+        the consumer contract asks for have no column behind them and carry an
+        honest empty value rather than an invented one: `tagline` and
+        `description` are empty strings (the platform stores no marketing copy),
+        `cuisines` is empty, `rating` is `null` with `rating_count: 0` (no
+        reviews exist), and `is_verified` is `false` (there is no verification
+        module yet, so the platform has verified nobody). `diet_classifications`
+        **is** real: it is derived from the kitchen's own published meals.
+
+        `name` is the organisation's single registered name and is *not*
+        localised - a business name is not translated. Delivery-zone and area
+        names are, and carry one server-chosen language, never both columns.
+
+        `meta.unsupported_filters` names any parameter the caller sent that this
+        deployment stores no data for, so a silently ignored filter is
+        impossible.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Free text over the kitchen name.
+          schema:
+            type: string
+            maxLength: 120
+        - name: country_code
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+        - name: area
+          in: query
+          required: false
+          description: |
+            A platform delivery-area `code` from `GET /reference/delivery-areas`.
+            Matches kitchens whose **active** zones claim that area, so a kitchen
+            that has paused a zone stops appearing for it while keeping the claim.
+          schema:
+            type: string
+            maxLength: 60
+        - name: channels
+          in: query
+          required: false
+          description: |
+            Comma-separated consumer switches. `subscription`, `delivery` and
+            `pickup` have no stored channel kind behind them and therefore match
+            no kitchen - see `MarketplaceSalesChannels`.
+          schema:
+            type: string
+            examples:
+              - b2c,marketplace
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of kitchens.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketplaceKitchensEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /marketplace/kitchens/{kitchen}:
+    get:
+      operationId: getMarketplaceKitchen
+      tags:
+        - Marketplace
+      summary: Read one kitchen
+      security: []
+      description: |
+        **Anonymous.** One kitchen, with its branches, their active delivery
+        zones and their operating weeks.
+
+        `{kitchen}` accepts the identifier or the slug. A kitchen that is
+        suspended, has no active branch, or is not a kitchen answers
+        `404 resource.not_found` - the same answer an identifier that never
+        existed gets, because telling an anonymous caller which organisations
+        exist and what the platform has done to them is nobody's business but the
+        tenant's.
+      parameters:
+        - $ref: '#/components/parameters/MarketplaceKitchenPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MarketplaceKitchen'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /marketplace/meals:
+    get:
+      operationId: listMarketplaceMeals
+      tags:
+        - Marketplace
+      summary: List meals
+      security: []
+      description: |
+        **Anonymous.** Published meals, offered through a consumer channel,
+        carrying a confirmed price.
+
+        **An unpriced meal is absent.** A placeholder row and a market-priced row
+        resolve to no price at all, and the consumer contract has no shape for a
+        meal without one: rendering `0` would be a lie, and a nullable price
+        would push "we do not know what this costs" onto a surface with no way to
+        act on it. The kitchen sees the difference on its own readiness screen.
+
+        **Prices come only from consumer channels.** The resolver is restricted
+        to channel kinds the domain declares non-private, so a negotiated
+        wholesale, corporate or insurance tariff - and any volume tier on one -
+        is structurally unreachable here rather than merely unrequested.
+
+        `exclude_allergens` is an exclusion rather than an inclusion on purpose:
+        a person filters by what they must avoid. It is applied over the derived
+        allergen list at **both** containment levels, so a dish a kitchen cannot
+        rule an allergen out of is excluded along with the ones that certainly
+        contain it.
+
+        **`nutrition` and `serving` are `null` on every meal, and that is a
+        deliberate deviation from the proposed draft.** The platform has no
+        authoritative nutrition source; inventing per-serving figures for
+        somebody choosing food for a medical reason is the one thing this
+        programme will not do. Phase N1 owns nutrition and is gated on a real
+        source arriving.
+
+        `meal_types`, `cuisines`, `preparation_minutes` and the ratings have no
+        column behind them and carry honest empties.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Free text over both name and both description columns.
+          schema:
+            type: string
+            maxLength: 120
+        - name: kitchen_ids
+          in: query
+          required: false
+          description: Comma-separated kitchen identifiers.
+          schema:
+            type: string
+        - name: diet_classifications
+          in: query
+          required: false
+          description: |
+            Comma-separated classification codes. Meals must carry **every** one:
+            a person ticking vegan and gluten-free is stating two requirements.
+          schema:
+            type: string
+        - name: exclude_allergens
+          in: query
+          required: false
+          description: Comma-separated allergen codes. Meals carrying any of them are excluded.
+          schema:
+            type: string
+            examples:
+              - peanut,gluten
+        - name: price_max
+          in: query
+          required: false
+          description: Maximum price in minor units of the meal's own currency.
+          schema:
+            type: integer
+            minimum: 0
+        - name: available_on
+          in: query
+          required: false
+          description: |
+            Only meals orderable on this date. A date outside the published
+            fortnight matches nothing: the kitchen has not said.
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of meals.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketplaceMealsEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /marketplace/meals/{meal}:
+    get:
+      operationId: getMarketplaceMeal
+      tags:
+        - Marketplace
+      summary: Read one meal
+      security: []
+      description: |
+        **Anonymous.** One meal, with its derived allergen declaration and the
+        fortnight of dates it can be ordered for.
+
+        `{meal}` accepts the identifier or the slug. An unpriced, unpublished,
+        retired or quarantined meal answers `404 resource.not_found`: a meal
+        nobody has priced is not on sale, and a detail page for one would have to
+        invent a price or show a gap where the buy button goes.
+      parameters:
+        - $ref: '#/components/parameters/MarketplaceMealPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The meal.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MarketplaceMeal'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /marketplace/meal-plans:
+    get:
+      operationId: listMarketplaceMealPlans
+      tags:
+        - Marketplace
+      summary: List subscription plans
+      security: []
+      description: |
+        **Anonymous.** Published subscription plans of active kitchens.
+
+        **An empty page is the expected answer today, and it is the correct
+        one.** The imported real-kitchen world is entirely draft by design, and
+        the demonstration plan is deliberately left unpublishable - one
+        configuration carries no confirmed price, which is exactly what the plan
+        publish gate refuses. Consumer plan pages therefore remain mock-backed
+        after M1; this endpoint exists so that a kitchen finishing a plan makes
+        it appear without another phase.
+
+        Unlike a meal, a plan is not additionally gated on a channel-availability
+        row: its own publish gate is the stronger statement, and a weaker second
+        gate the publish path never asks for would hide a plan its kitchen had
+        fully prepared.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+        - name: kitchen_ids
+          in: query
+          required: false
+          description: Comma-separated kitchen identifiers.
+          schema:
+            type: string
+        - name: duration
+          in: query
+          required: false
+          description: A kitchen's own duration `code`, as published in `durations`.
+          schema:
+            type: string
+            maxLength: 60
+        - name: meals_per_day
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of subscription plans.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketplacePlansEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /marketplace/meal-plans/{plan}:
+    get:
+      operationId: getMarketplaceMealPlan
+      tags:
+        - Marketplace
+      summary: Read one subscription plan
+      security: []
+      description: |
+        **Anonymous.** One published plan: its terms, the configurations a
+        customer can buy and the runs those configurations are offered for.
+
+        `{plan}` accepts the identifier or the slug. A configuration with no
+        confirmed weekly price is **absent from `variants`** rather than listed
+        without one.
+      parameters:
+        - $ref: '#/components/parameters/MarketplacePlanPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The subscription plan.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MarketplacePlan'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     sessionCookie:
@@ -6682,6 +7076,30 @@ components:
         minimum: 1
         maximum: 100
         default: 25
+    MarketplaceKitchenPath:
+      name: kitchen
+      in: path
+      required: true
+      description: The kitchen's identifier or its slug.
+      schema:
+        type: string
+        maxLength: 160
+    MarketplaceMealPath:
+      name: meal
+      in: path
+      required: true
+      description: The meal's identifier or its slug.
+      schema:
+        type: string
+        maxLength: 160
+    MarketplacePlanPath:
+      name: plan
+      in: path
+      required: true
+      description: The subscription plan's identifier or its slug.
+      schema:
+        type: string
+        maxLength: 160
     IngredientPath:
       name: ingredient
       in: path
@@ -12201,6 +12619,627 @@ components:
         is_active:
           type: boolean
       additionalProperties: false
+    MarketplaceMoney:
+      type: object
+      description: |
+        An integer number of minor units and its currency code. `4200` with
+        `AED` is 42.00 AED. Amounts are never formatted server-side and never
+        travel without their currency (master plan v2 §4.4).
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+      additionalProperties: false
+    MarketplaceSalesChannels:
+      type: object
+      description: |
+        The eight consumer switches, derived from the kitchen's **active**
+        sales channels. The platform stores six channel *kinds*, and the
+        mapping is: `b2c_web` sets `b2c`, `b2b` sets `b2b`, `pos` sets `pos`,
+        `marketplace` sets `marketplace`, `corporate` sets `corporate`, and
+        `insurance` sets nothing (there is no consumer switch for it, and
+        mapping it onto `corporate` would tell a diner that a kitchen with an
+        insurer agreement takes corporate orders).
+
+        **`subscription`, `delivery` and `pickup` are always `false`.** That is
+        a statement rather than an omission: `subscription` is a property of
+        what is sold, not of a route to market, and no column anywhere records a
+        delivery or pickup arrangement. Deriving them from something adjacent —
+        "it has a delivery zone, so it delivers" — would publish an inference as
+        a fact on the one surface where a customer acts on it.
+      required:
+        - b2c
+        - b2b
+        - marketplace
+        - pos
+        - subscription
+        - delivery
+        - pickup
+        - corporate
+      properties:
+        b2c:
+          type: boolean
+        b2b:
+          type: boolean
+        marketplace:
+          type: boolean
+        pos:
+          type: boolean
+        subscription:
+          type: boolean
+        delivery:
+          type: boolean
+        pickup:
+          type: boolean
+        corporate:
+          type: boolean
+      additionalProperties: false
+    MarketplaceDeliveryZone:
+      type: object
+      description: |
+        One kitchen's published terms for reaching a set of places. The fee and
+        the minimum are what the kitchen *charges*, never what the food costs
+        it — which is why they are publishable at all.
+      required:
+        - id
+        - name
+        - area
+        - country_code
+        - delivery_fee
+        - minimum_order
+        - estimated_minutes
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          description: Localised. One server-chosen language, never both columns.
+        area:
+          type: string
+          description: |
+            The zone's claimed areas, localised and joined in the locale's own
+            punctuation. The consumer contract carries a single free-form label
+            while a zone claims a set, and publishing only the first would tell a
+            customer in one place that a zone covers another.
+        country_code:
+          type: string
+          maxLength: 2
+        delivery_fee:
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceMoney'
+            - type: 'null'
+        minimum_order:
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceMoney'
+            - type: 'null'
+        estimated_minutes:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+      additionalProperties: false
+    MarketplaceOpeningHours:
+      type: object
+      description: |
+        One configured day. A closed day is a **row with no times**, not a
+        missing one: "we are shut on Friday" and "nobody has filled in Friday"
+        are different facts, and only the days a kitchen has configured appear.
+      required:
+        - weekday
+        - opens_at
+        - closes_at
+        - order_cut_off_at
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: '`1` is Monday, per ISO 8601.'
+        opens_at:
+          type:
+            - string
+            - 'null'
+          description: '`HH:MM`, in the branch''s own timezone.'
+        closes_at:
+          type:
+            - string
+            - 'null'
+        order_cut_off_at:
+          type:
+            - string
+            - 'null'
+          description: Last time an order for that same day is accepted.
+      additionalProperties: false
+    MarketplaceBranch:
+      type: object
+      required:
+        - id
+        - kitchen_id
+        - name
+        - area
+        - country_code
+        - time_zone
+        - delivery_zones
+        - opening_hours
+        - supports_pickup
+        - is_active
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kitchen_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        area:
+          type: string
+          description: |
+            The branch's city. The street address is deliberately not published:
+            it is where a kitchen takes deliveries, and printing it beside an
+            opening time turns a discovery page into a directory of unstaffed
+            back doors.
+        country_code:
+          type: string
+          maxLength: 2
+        time_zone:
+          type: string
+        delivery_zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceDeliveryZone'
+        opening_hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceOpeningHours'
+        supports_pickup:
+          type: boolean
+          description: |
+            Always `false`. No column records a pickup arrangement anywhere in
+            the platform, and an honest constant beats a guess.
+        is_active:
+          type: boolean
+      additionalProperties: false
+    MarketplaceKitchen:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - tagline
+        - description
+        - country_code
+        - cuisines
+        - diet_classifications
+        - channels
+        - branches
+        - rating
+        - rating_count
+        - image_placeholder_id
+        - is_verified
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          description: The registered organisation name. Not localised — a business name is not translated.
+        slug:
+          type: string
+        tagline:
+          type: string
+          description: Always empty; the platform stores no marketing copy.
+        description:
+          type: string
+          description: Always empty; the platform stores no marketing copy.
+        country_code:
+          type: string
+          maxLength: 2
+        cuisines:
+          type: array
+          description: Always empty; nothing records how a kitchen cooks.
+          items:
+            type: string
+        diet_classifications:
+          type: array
+          description: Derived from the kitchen's own published meals.
+          items:
+            type: string
+        channels:
+          $ref: '#/components/schemas/MarketplaceSalesChannels'
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceBranch'
+        rating:
+          type:
+            - number
+            - 'null'
+          description: Always null; no reviews exist.
+        rating_count:
+          type: integer
+          minimum: 0
+        image_placeholder_id:
+          type: string
+          description: |
+            A generated placeholder identifier (`kitchen-<slug>`), never a remote
+            image URL. The clients load no third-party assets.
+        is_verified:
+          type: boolean
+          description: |
+            Always `false`. There is no verification module yet, so the platform
+            has verified nobody — which is the fact rather than a placeholder.
+      additionalProperties: false
+    MarketplaceAvailability:
+      type: object
+      description: |
+        One day of the fourteen-day ordering calendar, derived from the
+        branches' operating weeks and cut-offs. A day is orderable when at least
+        one active branch is open on it and that branch's cut-off has not
+        passed; a day nobody has configured is not orderable.
+      required:
+        - date
+        - available
+        - remaining
+        - order_cut_off_at
+      properties:
+        date:
+          type: string
+          format: date
+        available:
+          type: boolean
+        remaining:
+          type:
+            - integer
+            - 'null'
+          description: Always null — the platform stores no stock counts, and a zero would say sold out.
+        order_cut_off_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    MarketplaceMeal:
+      type: object
+      required:
+        - id
+        - kitchen_id
+        - kitchen_name
+        - name
+        - slug
+        - description
+        - meal_types
+        - diet_classifications
+        - cuisines
+        - allergens
+        - serving
+        - nutrition
+        - price
+        - preparation_minutes
+        - image_placeholder_id
+        - availability
+        - channels
+        - rating
+        - rating_count
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kitchen_id:
+          $ref: '#/components/schemas/Uuid'
+        kitchen_name:
+          type: string
+        name:
+          type: string
+          description: Localised. One server-chosen language, never both columns.
+        slug:
+          type: string
+        description:
+          type: string
+        meal_types:
+          type: array
+          description: |
+            Always empty. Nothing on a catalogue item records whether a dish is a
+            breakfast or a dinner; a kitchen selling a lunch box and a breakfast
+            box sells two items.
+          items:
+            type: string
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        cuisines:
+          type: array
+          items:
+            type: string
+        allergens:
+          type: array
+          description: |
+            Derived from the published recipe version's frozen label, or from the
+            meal's own ingredient list. Carries **both** containment levels:
+            dropping "may contain" would let a filter for "no peanuts" return a
+            dish made where peanuts cannot be ruled out.
+          items:
+            $ref: '#/components/schemas/AllergenCode'
+        serving:
+          type: 'null'
+          description: |
+            Always null. See `nutrition` — the platform records no serving size
+            because it records no per-serving figures to attach one to.
+        nutrition:
+          type: 'null'
+          description: |
+            **Always null, and a deliberate deviation from the proposed draft**,
+            which typed this as a required facts object. The platform has no
+            authoritative nutrition source. Emitting plausible figures would put
+            invented numbers in front of somebody choosing food for a medical
+            reason, and zeroes would be worse — a zero is a claim. Phase N1 owns
+            nutrition and is gated on a real source arriving.
+        price:
+          $ref: '#/components/schemas/MarketplaceMoney'
+        preparation_minutes:
+          type:
+            - integer
+            - 'null'
+          description: Always null; no column records how long a dish takes to make.
+        image_placeholder_id:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceAvailability'
+        channels:
+          $ref: '#/components/schemas/MarketplaceSalesChannels'
+        rating:
+          type:
+            - number
+            - 'null'
+        rating_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    MarketplaceEnergyBand:
+      type: object
+      required:
+        - min
+        - max
+      properties:
+        min:
+          type: integer
+        max:
+          type: integer
+      additionalProperties: false
+    MarketplacePlanVariant:
+      type: object
+      required:
+        - id
+        - plan_id
+        - name
+        - energy_range
+        - protein_range
+        - carbohydrate_range
+        - fat_range
+        - meals_per_day
+        - snacks_per_day
+        - price_per_week
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        plan_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        energy_range:
+          description: |
+            A calorie **bracket**, never a per-person target: a single number
+            would imply an energy calculation this programme does not do. Null
+            when the configuration names no band.
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceEnergyBand'
+            - type: 'null'
+        protein_range:
+          type: 'null'
+        carbohydrate_range:
+          type: 'null'
+        fat_range:
+          type: 'null'
+        meals_per_day:
+          type: integer
+          minimum: 1
+        snacks_per_day:
+          type: integer
+          minimum: 0
+        price_per_week:
+          description: |
+            Derived from the confirmed price on the basis the plan declares:
+            `per_week` unchanged, `per_day` multiplied by seven. A plan priced as
+            a `total` has no weekly figure and its configurations are omitted
+            rather than divided into one nobody quoted.
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceMoney'
+            - type: 'null'
+      additionalProperties: false
+    MarketplacePlanDuration:
+      type: object
+      description: |
+        **A documented widening of the proposed draft** (master plan v2 §4.3,
+        amending OD-3). The draft typed a duration as one of `1w`, `2w`, `4w`,
+        `12w`. The platform stores an explicit `kind` (`one_off` or
+        `fixed_days`) and a nullable number of days, precisely so that
+        "not a subscription, just one order" stops being a magic zero a per-day
+        calculation divides by — and real kitchen runs of 5, 20, 40 and 60 days
+        are not expressible in the draft's enumeration at all.
+      required:
+        - code
+        - name
+        - kind
+        - days
+        - discount_percent
+        - total_price
+      properties:
+        code:
+          type: string
+          description: The kitchen's own duration code.
+        name:
+          type: string
+          description: Localised.
+        kind:
+          type: string
+          enum:
+            - one_off
+            - fixed_days
+        days:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          description: Null exactly when `kind` is `one_off`.
+        discount_percent:
+          type:
+            - string
+            - 'null'
+          description: |
+            A decimal string, or null. Null means **nobody has stated a
+            discount**, which is a different fact from stating there is none —
+            and null again when two configurations state different ones, because
+            a plan page showing "10% off" when only one configuration gets it
+            would be a price claim the kitchen did not make.
+        total_price:
+          description: |
+            The whole-run price, and null unless every number in it was agreed:
+            a confirmed per-day price and a fixed number of days. Rounded
+            half-up to the minor unit once, at the end.
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceMoney'
+            - type: 'null'
+      additionalProperties: false
+    MarketplacePlan:
+      type: object
+      required:
+        - id
+        - kitchen_id
+        - name
+        - slug
+        - summary
+        - description
+        - category_slugs
+        - diet_classifications
+        - variants
+        - durations
+        - sample_meal_ids
+        - image_placeholder_id
+        - rating
+        - rating_count
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kitchen_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        slug:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        category_slugs:
+          type: array
+          description: Always empty; nothing groups plans into marketing categories.
+          items:
+            type: string
+        diet_classifications:
+          type: array
+          items:
+            type: string
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplacePlanVariant'
+        durations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplacePlanDuration'
+        sample_meal_ids:
+          type: array
+          description: |
+            Always empty. No table links a plan to the meals a representative
+            week would contain, and assembling one from the catalogue would be
+            the system writing a menu.
+          items:
+            $ref: '#/components/schemas/Uuid'
+        image_placeholder_id:
+          type: string
+        rating:
+          type:
+            - number
+            - 'null'
+        rating_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    MarketplaceListMeta:
+      allOf:
+        - $ref: '#/components/schemas/PaginationMeta'
+        - type: object
+          required:
+            - locale
+            - unsupported_filters
+          properties:
+            locale:
+              type: string
+              enum:
+                - en
+                - ar
+              description: The locale the localised fields were rendered in.
+            unsupported_filters:
+              type: array
+              description: |
+                Parameters the caller sent that this deployment stores no data
+                for. They had no effect and are named rather than ignored: a
+                person who filters to "under 500 kcal" and is shown everything
+                has been told a falsehood by omission.
+              items:
+                type: string
+    MarketplaceKitchensEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceKitchen'
+        meta:
+          $ref: '#/components/schemas/MarketplaceListMeta'
+    MarketplaceMealsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceMeal'
+        meta:
+          $ref: '#/components/schemas/MarketplaceListMeta'
+    MarketplacePlansEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplacePlan'
+        meta:
+          $ref: '#/components/schemas/MarketplaceListMeta'
     PublicDeliveryArea:
       type: object
       required:

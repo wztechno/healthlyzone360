@@ -5,7 +5,6 @@ import type {
     DietitianId,
     IngredientId,
     KitchenBranchId,
-    KitchenId,
     MealId,
     MealPlanEntryId,
     MealPlanId,
@@ -108,11 +107,7 @@ import type {
     DietCategory,
     Dietitian,
     DietitianFilter,
-    Kitchen,
-    KitchenFilter,
-    MarketplaceMeal,
     MarketplaceRepository,
-    MealFilter,
     PlanFilter,
     SubscriptionPlan,
 } from '../contracts/marketplace.ts';
@@ -205,7 +200,7 @@ const BASE = '/api/v1';
  * The message names the endpoint it *would* have called, so the development-only contract line the
  * app renders beside `prototype.not_implemented` has something true to show.
  */
-function notImplemented(endpoint: string): Promise<never> {
+export function notImplemented(endpoint: string): Promise<never> {
     return Promise.reject(
         new ApiError(
             apiFailure('prototype.not_implemented', {
@@ -219,10 +214,16 @@ function notImplemented(endpoint: string): Promise<never> {
 
 /** Every endpoint a stub names, so the test can assert the set rather than trust each string. */
 export const PROTOTYPE_ENDPOINTS = {
-    listKitchens: `GET ${BASE}/marketplace/kitchens`,
-    getKitchen: `GET ${BASE}/marketplace/kitchens/{kitchen}`,
-    listMeals: `GET ${BASE}/marketplace/meals`,
-    getMeal: `GET ${BASE}/marketplace/meals/{meal}`,
+    /**
+     * **Marketplace kitchens and meals are gone from this table (M1)** — deliberately, and the
+     * absence is the record. `listKitchens`, `getKitchen`, `listMeals` and `getMeal` are served by
+     * real endpoints and implemented in `./marketplace-repository.ts`; this table is the ledger of
+     * what is *still* a prototype, so an entry that outlived its stub would make the ledger a lie.
+     *
+     * The five that remain are not oversights. `listPlans`/`getPlan` have a backend that correctly
+     * answers "no plan is publishable yet", and switching the plan pages onto it would replace a
+     * working catalogue with an empty state. Dietitians and diet categories have no backend at all.
+     */
     listPlans: `GET ${BASE}/marketplace/meal-plans`,
     getPlan: `GET ${BASE}/marketplace/meal-plans/{plan}`,
     listDietitians: `GET ${BASE}/marketplace/dietitians`,
@@ -370,22 +371,20 @@ export const PROTOTYPE_ENDPOINTS = {
 } as const;
 
 /* ------------------------------------------------------------------------------------------------
- * Marketplace
+ * Marketplace — the part of it that is still a prototype
+ *
+ * Four of the nine methods moved to `./marketplace-repository.ts` in M1, where they call real
+ * endpoints. What is left is the five that still have nothing behind them, typed as a subset so the
+ * compiler stops this object from silently claiming to be a whole `MarketplaceRepository` again.
  * ---------------------------------------------------------------------------------------------- */
 
-export const apiMarketplaceRepository: MarketplaceRepository = {
-    listKitchens(_filter?: KitchenFilter): Promise<CursorPage<Kitchen>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.listKitchens);
-    },
-    getKitchen(_kitchenId: KitchenId): Promise<Kitchen> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.getKitchen);
-    },
-    listMeals(_filter?: MealFilter): Promise<CursorPage<MarketplaceMeal>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.listMeals);
-    },
-    getMeal(_mealId: MealId): Promise<MarketplaceMeal> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.getMeal);
-    },
+/** The still-unimplemented half of {@link MarketplaceRepository}. */
+export type PrototypeMarketplaceRepository = Pick<
+    MarketplaceRepository,
+    'listPlans' | 'getPlan' | 'listDietitians' | 'getDietitian' | 'listDietCategories'
+>;
+
+export const apiMarketplacePrototypeRepository: PrototypeMarketplaceRepository = {
     listPlans(_filter?: PlanFilter): Promise<CursorPage<SubscriptionPlan>> {
         return notImplemented(PROTOTYPE_ENDPOINTS.listPlans);
     },
@@ -892,9 +891,14 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 };
 
-/** The nine, as one bundle, for `createApiRepositories` to spread. */
+/**
+ * The still-unimplemented repositories, as one bundle for `createApiRepositories` to spread.
+ *
+ * **Eight, not nine.** `marketplace` left this bundle in M1: half of it is real, so a bundle that
+ * still carried it would be describing the surface as unimplemented when it is not.
+ * `createApiRepositories` builds the marketplace repository from the transport instead.
+ */
 export const API_PROTOTYPE_REPOSITORIES = {
-    marketplace: apiMarketplaceRepository,
     nutrition: apiNutritionRepository,
     planner: apiMealPlanRepository,
     foods: apiFoodRepository,

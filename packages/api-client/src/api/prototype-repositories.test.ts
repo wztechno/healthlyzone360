@@ -4,25 +4,55 @@ import { describe, expect, it } from 'vitest';
 
 import { asApiFailure } from '../contracts/failure.ts';
 import { createMemoryTokenStore } from '../contracts/session.ts';
+import type { MarketplaceRepository } from '../contracts/marketplace.ts';
 import { describeRepositoryContract } from '../mock/prototype/repository-contract.ts';
 import {
     API_PROTOTYPE_REPOSITORIES,
     PROTOTYPE_ENDPOINTS,
-    apiMarketplaceRepository,
+    apiMarketplacePrototypeRepository,
+    notImplemented,
 } from './prototype-repositories.ts';
 import { createApiRepositories } from './repositories.ts';
 
 /**
- * The API bundle, run against the same contract as the mock.
+ * The still-unimplemented API surface, run against the same contract as the mock.
  *
- * Everything here rejects, and that is the point: the eight Prompt 2 contracts describe endpoints
- * that do not exist. What is being asserted is that the *surface* is identical, that every method
- * fails in the same, nameable way, and that the fixture world has not crept into the api-mode chunk.
+ * Everything here rejects, and that is the point: these contracts describe endpoints that do not
+ * exist. What is being asserted is that the *surface* is identical, that every method fails in the
+ * same, nameable way, and that the fixture world has not crept into the api-mode chunk.
+ *
+ * **The marketplace needs a stand-in, and the stand-in is the interesting part.** Four of its nine
+ * methods are real since M1 (`listKitchens`, `getKitchen`, `listMeals`, `getMeal`); their behaviour
+ * is proven in `marketplace-conformance.test.ts`, against a stubbed transport, with real payloads.
+ * They are therefore not in the production bundle any more, and they cannot be — a bundle of
+ * rejections that still carried them would describe the surface as unimplemented when it is not.
+ *
+ * What the shared contract helper still buys, and what this stand-in exists to keep, is the **drift
+ * check**: it walks all nine marketplace methods and fails if the contract grows one nobody
+ * implemented. Wiring the still-prototype five to their real stubs and the switched four to a local
+ * rejection keeps that check running over the whole contract while the production code stays
+ * honest about which half is which.
  */
+const MARKETPLACE_SURFACE: MarketplaceRepository = {
+    ...apiMarketplacePrototypeRepository,
+    listKitchens: () => notImplemented(SWITCHED_ENDPOINTS.listKitchens),
+    getKitchen: () => notImplemented(SWITCHED_ENDPOINTS.getKitchen),
+    listMeals: () => notImplemented(SWITCHED_ENDPOINTS.listMeals),
+    getMeal: () => notImplemented(SWITCHED_ENDPOINTS.getMeal),
+};
+
+/** The four the ledger no longer lists, named here only so the surface check has something to say. */
+const SWITCHED_ENDPOINTS = {
+    listKitchens: 'GET /api/v1/marketplace/kitchens',
+    getKitchen: 'GET /api/v1/marketplace/kitchens/{kitchen}',
+    listMeals: 'GET /api/v1/marketplace/meals',
+    getMeal: 'GET /api/v1/marketplace/meals/{meal}',
+} as const;
+
 describeRepositoryContract({
     name: 'api bundle',
     mode: 'api',
-    create: () => API_PROTOTYPE_REPOSITORIES,
+    create: () => ({ ...API_PROTOTYPE_REPOSITORIES, marketplace: MARKETPLACE_SURFACE }),
 });
 
 describe('the api bundle exposes the prototype repositories', () => {
@@ -32,7 +62,12 @@ describe('the api bundle exposes the prototype repositories', () => {
             tokenStore: createMemoryTokenStore(),
         });
 
-        expect(repositories.marketplace).toBe(API_PROTOTYPE_REPOSITORIES.marketplace);
+        // The marketplace is built per bundle now — it holds the transport — so it is deliberately
+        // *not* the shared rejection object the other eight still are.
+        expect(repositories.marketplace).toBeDefined();
+        expect(repositories.marketplace).not.toBe(
+            (API_PROTOTYPE_REPOSITORIES as Record<string, unknown>).marketplace,
+        );
         expect(repositories.nutrition).toBe(API_PROTOTYPE_REPOSITORIES.nutrition);
         expect(repositories.planner).toBe(API_PROTOTYPE_REPOSITORIES.planner);
         expect(repositories.foods).toBe(API_PROTOTYPE_REPOSITORIES.foods);
@@ -76,15 +111,35 @@ describe('the api bundle exposes the prototype repositories', () => {
         // Captured rather than discarded: an unawaited rejected promise is an unhandled rejection,
         // which is exactly the failure mode this assertion is about.
         const started: Promise<unknown>[] = [];
-        expect(() => started.push(apiMarketplaceRepository.listKitchens())).not.toThrow();
+        expect(() => started.push(apiMarketplacePrototypeRepository.listPlans())).not.toThrow();
         await expect(started[0]).rejects.toBeInstanceOf(Error);
     });
 
     it('names the endpoint it would have called', async () => {
-        const failure = await apiMarketplaceRepository
-            .listKitchens()
+        const failure = await apiMarketplacePrototypeRepository
+            .listPlans()
             .then(() => null, asApiFailure);
-        expect(failure?.message).toContain(PROTOTYPE_ENDPOINTS.listKitchens);
+        expect(failure?.message).toContain(PROTOTYPE_ENDPOINTS.listPlans);
+    });
+
+    /**
+     * The ledger rule (master plan v2 §7): an entry is deleted only once the endpoint is real, the
+     * document describes it, the client is generated and the repository is implemented. M1 did that
+     * for kitchens and meals, so their entries must be gone — an entry that outlived its stub would
+     * make `PROTOTYPE_ENDPOINTS` a list of things that *are* implemented.
+     */
+    it('no longer lists the marketplace families M1 switched', () => {
+        const table = PROTOTYPE_ENDPOINTS as Record<string, string | undefined>;
+
+        expect(table.listKitchens).toBeUndefined();
+        expect(table.getKitchen).toBeUndefined();
+        expect(table.listMeals).toBeUndefined();
+        expect(table.getMeal).toBeUndefined();
+
+        // And the five that are genuinely still prototypes are still listed.
+        expect(table.listPlans).toBe('GET /api/v1/marketplace/meal-plans');
+        expect(table.listDietitians).toBe('GET /api/v1/marketplace/dietitians');
+        expect(table.listDietCategories).toBe('GET /api/v1/marketplace/diet-categories');
     });
 
     it('gives every endpoint in the table a distinct method and verb', () => {

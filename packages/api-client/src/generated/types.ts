@@ -2540,6 +2540,364 @@ export type AdminDeliveryArea = {
 };
 
 /**
+ * An integer number of minor units and its currency code. `4200` with
+ * `AED` is 42.00 AED. Amounts are never formatted server-side and never
+ * travel without their currency (master plan v2 §4.4).
+ *
+ */
+export type MarketplaceMoney = {
+    amount: number;
+    currency: string;
+};
+
+/**
+ * The eight consumer switches, derived from the kitchen's **active**
+ * sales channels. The platform stores six channel *kinds*, and the
+ * mapping is: `b2c_web` sets `b2c`, `b2b` sets `b2b`, `pos` sets `pos`,
+ * `marketplace` sets `marketplace`, `corporate` sets `corporate`, and
+ * `insurance` sets nothing (there is no consumer switch for it, and
+ * mapping it onto `corporate` would tell a diner that a kitchen with an
+ * insurer agreement takes corporate orders).
+ *
+ * **`subscription`, `delivery` and `pickup` are always `false`.** That is
+ * a statement rather than an omission: `subscription` is a property of
+ * what is sold, not of a route to market, and no column anywhere records a
+ * delivery or pickup arrangement. Deriving them from something adjacent —
+ * "it has a delivery zone, so it delivers" — would publish an inference as
+ * a fact on the one surface where a customer acts on it.
+ *
+ */
+export type MarketplaceSalesChannels = {
+    b2c: boolean;
+    b2b: boolean;
+    marketplace: boolean;
+    pos: boolean;
+    subscription: boolean;
+    delivery: boolean;
+    pickup: boolean;
+    corporate: boolean;
+};
+
+/**
+ * One kitchen's published terms for reaching a set of places. The fee and
+ * the minimum are what the kitchen *charges*, never what the food costs
+ * it — which is why they are publishable at all.
+ *
+ */
+export type MarketplaceDeliveryZone = {
+    id: Uuid;
+    /**
+     * Localised. One server-chosen language, never both columns.
+     */
+    name: string;
+    /**
+     * The zone's claimed areas, localised and joined in the locale's own
+     * punctuation. The consumer contract carries a single free-form label
+     * while a zone claims a set, and publishing only the first would tell a
+     * customer in one place that a zone covers another.
+     *
+     */
+    area: string;
+    country_code: string;
+    delivery_fee: MarketplaceMoney | null;
+    minimum_order: MarketplaceMoney | null;
+    estimated_minutes: number | null;
+};
+
+/**
+ * One configured day. A closed day is a **row with no times**, not a
+ * missing one: "we are shut on Friday" and "nobody has filled in Friday"
+ * are different facts, and only the days a kitchen has configured appear.
+ *
+ */
+export type MarketplaceOpeningHours = {
+    /**
+     * `1` is Monday, per ISO 8601.
+     */
+    weekday: number;
+    /**
+     * `HH:MM`, in the branch's own timezone.
+     */
+    opens_at: string | null;
+    closes_at: string | null;
+    /**
+     * Last time an order for that same day is accepted.
+     */
+    order_cut_off_at: string | null;
+};
+
+export type MarketplaceBranch = {
+    id: Uuid;
+    kitchen_id: Uuid;
+    name: string;
+    /**
+     * The branch's city. The street address is deliberately not published:
+     * it is where a kitchen takes deliveries, and printing it beside an
+     * opening time turns a discovery page into a directory of unstaffed
+     * back doors.
+     *
+     */
+    area: string;
+    country_code: string;
+    time_zone: string;
+    delivery_zones: Array<MarketplaceDeliveryZone>;
+    opening_hours: Array<MarketplaceOpeningHours>;
+    /**
+     * Always `false`. No column records a pickup arrangement anywhere in
+     * the platform, and an honest constant beats a guess.
+     *
+     */
+    supports_pickup: boolean;
+    is_active: boolean;
+};
+
+export type MarketplaceKitchen = {
+    id: Uuid;
+    /**
+     * The registered organisation name. Not localised — a business name is not translated.
+     */
+    name: string;
+    slug: string;
+    /**
+     * Always empty; the platform stores no marketing copy.
+     */
+    tagline: string;
+    /**
+     * Always empty; the platform stores no marketing copy.
+     */
+    description: string;
+    country_code: string;
+    /**
+     * Always empty; nothing records how a kitchen cooks.
+     */
+    cuisines: Array<string>;
+    /**
+     * Derived from the kitchen's own published meals.
+     */
+    diet_classifications: Array<string>;
+    channels: MarketplaceSalesChannels;
+    branches: Array<MarketplaceBranch>;
+    /**
+     * Always null; no reviews exist.
+     */
+    rating: number | null;
+    rating_count: number;
+    /**
+     * A generated placeholder identifier (`kitchen-<slug>`), never a remote
+     * image URL. The clients load no third-party assets.
+     *
+     */
+    image_placeholder_id: string;
+    /**
+     * Always `false`. There is no verification module yet, so the platform
+     * has verified nobody — which is the fact rather than a placeholder.
+     *
+     */
+    is_verified: boolean;
+};
+
+/**
+ * One day of the fourteen-day ordering calendar, derived from the
+ * branches' operating weeks and cut-offs. A day is orderable when at least
+ * one active branch is open on it and that branch's cut-off has not
+ * passed; a day nobody has configured is not orderable.
+ *
+ */
+export type MarketplaceAvailability = {
+    date: string;
+    available: boolean;
+    /**
+     * Always null — the platform stores no stock counts, and a zero would say sold out.
+     */
+    remaining: number | null;
+    order_cut_off_at: string | null;
+};
+
+export type MarketplaceMeal = {
+    id: Uuid;
+    kitchen_id: Uuid;
+    kitchen_name: string;
+    /**
+     * Localised. One server-chosen language, never both columns.
+     */
+    name: string;
+    slug: string;
+    description: string;
+    /**
+     * Always empty. Nothing on a catalogue item records whether a dish is a
+     * breakfast or a dinner; a kitchen selling a lunch box and a breakfast
+     * box sells two items.
+     *
+     */
+    meal_types: Array<string>;
+    diet_classifications: Array<string>;
+    cuisines: Array<string>;
+    /**
+     * Derived from the published recipe version's frozen label, or from the
+     * meal's own ingredient list. Carries **both** containment levels:
+     * dropping "may contain" would let a filter for "no peanuts" return a
+     * dish made where peanuts cannot be ruled out.
+     *
+     */
+    allergens: Array<AllergenCode>;
+    /**
+     * Always null. See `nutrition` — the platform records no serving size
+     * because it records no per-serving figures to attach one to.
+     *
+     */
+    serving: null;
+    /**
+     * **Always null, and a deliberate deviation from the proposed draft**,
+     * which typed this as a required facts object. The platform has no
+     * authoritative nutrition source. Emitting plausible figures would put
+     * invented numbers in front of somebody choosing food for a medical
+     * reason, and zeroes would be worse — a zero is a claim. Phase N1 owns
+     * nutrition and is gated on a real source arriving.
+     *
+     */
+    nutrition: null;
+    price: MarketplaceMoney;
+    /**
+     * Always null; no column records how long a dish takes to make.
+     */
+    preparation_minutes: number | null;
+    image_placeholder_id: string;
+    availability: Array<MarketplaceAvailability>;
+    channels: MarketplaceSalesChannels;
+    rating: number | null;
+    rating_count: number;
+};
+
+export type MarketplaceEnergyBand = {
+    min: number;
+    max: number;
+};
+
+export type MarketplacePlanVariant = {
+    id: Uuid;
+    plan_id: Uuid;
+    name: string;
+    /**
+     * A calorie **bracket**, never a per-person target: a single number
+     * would imply an energy calculation this programme does not do. Null
+     * when the configuration names no band.
+     *
+     */
+    energy_range: MarketplaceEnergyBand | null;
+    protein_range: null;
+    carbohydrate_range: null;
+    fat_range: null;
+    meals_per_day: number;
+    snacks_per_day: number;
+    /**
+     * Derived from the confirmed price on the basis the plan declares:
+     * `per_week` unchanged, `per_day` multiplied by seven. A plan priced as
+     * a `total` has no weekly figure and its configurations are omitted
+     * rather than divided into one nobody quoted.
+     *
+     */
+    price_per_week: MarketplaceMoney | null;
+};
+
+/**
+ * **A documented widening of the proposed draft** (master plan v2 §4.3,
+ * amending OD-3). The draft typed a duration as one of `1w`, `2w`, `4w`,
+ * `12w`. The platform stores an explicit `kind` (`one_off` or
+ * `fixed_days`) and a nullable number of days, precisely so that
+ * "not a subscription, just one order" stops being a magic zero a per-day
+ * calculation divides by — and real kitchen runs of 5, 20, 40 and 60 days
+ * are not expressible in the draft's enumeration at all.
+ *
+ */
+export type MarketplacePlanDuration = {
+    /**
+     * The kitchen's own duration code.
+     */
+    code: string;
+    /**
+     * Localised.
+     */
+    name: string;
+    kind: 'one_off' | 'fixed_days';
+    /**
+     * Null exactly when `kind` is `one_off`.
+     */
+    days: number | null;
+    /**
+     * A decimal string, or null. Null means **nobody has stated a
+     * discount**, which is a different fact from stating there is none —
+     * and null again when two configurations state different ones, because
+     * a plan page showing "10% off" when only one configuration gets it
+     * would be a price claim the kitchen did not make.
+     *
+     */
+    discount_percent: string | null;
+    /**
+     * The whole-run price, and null unless every number in it was agreed:
+     * a confirmed per-day price and a fixed number of days. Rounded
+     * half-up to the minor unit once, at the end.
+     *
+     */
+    total_price: MarketplaceMoney | null;
+};
+
+export type MarketplacePlan = {
+    id: Uuid;
+    kitchen_id: Uuid;
+    name: string;
+    slug: string;
+    summary: string;
+    description: string;
+    /**
+     * Always empty; nothing groups plans into marketing categories.
+     */
+    category_slugs: Array<string>;
+    diet_classifications: Array<string>;
+    variants: Array<MarketplacePlanVariant>;
+    durations: Array<MarketplacePlanDuration>;
+    /**
+     * Always empty. No table links a plan to the meals a representative
+     * week would contain, and assembling one from the catalogue would be
+     * the system writing a menu.
+     *
+     */
+    sample_meal_ids: Array<Uuid>;
+    image_placeholder_id: string;
+    rating: number | null;
+    rating_count: number;
+};
+
+export type MarketplaceListMeta = PaginationMeta & {
+    /**
+     * The locale the localised fields were rendered in.
+     */
+    locale: 'en' | 'ar';
+    /**
+     * Parameters the caller sent that this deployment stores no data
+     * for. They had no effect and are named rather than ignored: a
+     * person who filters to "under 500 kcal" and is shown everything
+     * has been told a falsehood by omission.
+     *
+     */
+    unsupported_filters: Array<string>;
+};
+
+export type MarketplaceKitchensEnvelope = {
+    data: Array<MarketplaceKitchen>;
+    meta: MarketplaceListMeta;
+};
+
+export type MarketplaceMealsEnvelope = {
+    data: Array<MarketplaceMeal>;
+    meta: MarketplaceListMeta;
+};
+
+export type MarketplacePlansEnvelope = {
+    data: Array<MarketplacePlan>;
+    meta: MarketplaceListMeta;
+};
+
+/**
  * The public projection: **one** server-localised `name`, never both
  * language columns.
  *
@@ -2874,6 +3232,21 @@ export type Cursor = string;
  * Page size.
  */
 export type CursorLimit = number;
+
+/**
+ * The kitchen's identifier or its slug.
+ */
+export type MarketplaceKitchenPath = string;
+
+/**
+ * The meal's identifier or its slug.
+ */
+export type MarketplaceMealPath = string;
+
+/**
+ * The subscription plan's identifier or its slug.
+ */
+export type MarketplacePlanPath = string;
 
 /**
  * The ingredient identifier.
@@ -11356,3 +11729,372 @@ export type ListDeliveryAreasResponses = {
 };
 
 export type ListDeliveryAreasResponse = ListDeliveryAreasResponses[keyof ListDeliveryAreasResponses];
+
+export type ListMarketplaceKitchensData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Free text over the kitchen name.
+         */
+        query?: string;
+        country_code?: string;
+        /**
+         * A platform delivery-area `code` from `GET /reference/delivery-areas`.
+         * Matches kitchens whose **active** zones claim that area, so a kitchen
+         * that has paused a zone stops appearing for it while keeping the claim.
+         *
+         */
+        area?: string;
+        /**
+         * Comma-separated consumer switches. `subscription`, `delivery` and
+         * `pickup` have no stored channel kind behind them and therefore match
+         * no kitchen - see `MarketplaceSalesChannels`.
+         *
+         */
+        channels?: string;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Page size.
+         */
+        limit?: number;
+    };
+    url: '/marketplace/kitchens';
+};
+
+export type ListMarketplaceKitchensErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMarketplaceKitchensError = ListMarketplaceKitchensErrors[keyof ListMarketplaceKitchensErrors];
+
+export type ListMarketplaceKitchensResponses = {
+    /**
+     * A page of kitchens.
+     */
+    200: MarketplaceKitchensEnvelope;
+};
+
+export type ListMarketplaceKitchensResponse = ListMarketplaceKitchensResponses[keyof ListMarketplaceKitchensResponses];
+
+export type GetMarketplaceKitchenData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The kitchen's identifier or its slug.
+         */
+        kitchen: string;
+    };
+    query?: never;
+    url: '/marketplace/kitchens/{kitchen}';
+};
+
+export type GetMarketplaceKitchenErrors = {
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetMarketplaceKitchenError = GetMarketplaceKitchenErrors[keyof GetMarketplaceKitchenErrors];
+
+export type GetMarketplaceKitchenResponses = {
+    /**
+     * The kitchen.
+     */
+    200: {
+        data: MarketplaceKitchen;
+        meta: Meta;
+    };
+};
+
+export type GetMarketplaceKitchenResponse = GetMarketplaceKitchenResponses[keyof GetMarketplaceKitchenResponses];
+
+export type ListMarketplaceMealsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Free text over both name and both description columns.
+         */
+        query?: string;
+        /**
+         * Comma-separated kitchen identifiers.
+         */
+        kitchen_ids?: string;
+        /**
+         * Comma-separated classification codes. Meals must carry **every** one:
+         * a person ticking vegan and gluten-free is stating two requirements.
+         *
+         */
+        diet_classifications?: string;
+        /**
+         * Comma-separated allergen codes. Meals carrying any of them are excluded.
+         */
+        exclude_allergens?: string;
+        /**
+         * Maximum price in minor units of the meal's own currency.
+         */
+        price_max?: number;
+        /**
+         * Only meals orderable on this date. A date outside the published
+         * fortnight matches nothing: the kitchen has not said.
+         *
+         */
+        available_on?: string;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Page size.
+         */
+        limit?: number;
+    };
+    url: '/marketplace/meals';
+};
+
+export type ListMarketplaceMealsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMarketplaceMealsError = ListMarketplaceMealsErrors[keyof ListMarketplaceMealsErrors];
+
+export type ListMarketplaceMealsResponses = {
+    /**
+     * A page of meals.
+     */
+    200: MarketplaceMealsEnvelope;
+};
+
+export type ListMarketplaceMealsResponse = ListMarketplaceMealsResponses[keyof ListMarketplaceMealsResponses];
+
+export type GetMarketplaceMealData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The meal's identifier or its slug.
+         */
+        meal: string;
+    };
+    query?: never;
+    url: '/marketplace/meals/{meal}';
+};
+
+export type GetMarketplaceMealErrors = {
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetMarketplaceMealError = GetMarketplaceMealErrors[keyof GetMarketplaceMealErrors];
+
+export type GetMarketplaceMealResponses = {
+    /**
+     * The meal.
+     */
+    200: {
+        data: MarketplaceMeal;
+        meta: Meta;
+    };
+};
+
+export type GetMarketplaceMealResponse = GetMarketplaceMealResponses[keyof GetMarketplaceMealResponses];
+
+export type ListMarketplaceMealPlansData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        query?: string;
+        /**
+         * Comma-separated kitchen identifiers.
+         */
+        kitchen_ids?: string;
+        /**
+         * A kitchen's own duration `code`, as published in `durations`.
+         */
+        duration?: string;
+        meals_per_day?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Page size.
+         */
+        limit?: number;
+    };
+    url: '/marketplace/meal-plans';
+};
+
+export type ListMarketplaceMealPlansErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMarketplaceMealPlansError = ListMarketplaceMealPlansErrors[keyof ListMarketplaceMealPlansErrors];
+
+export type ListMarketplaceMealPlansResponses = {
+    /**
+     * A page of subscription plans.
+     */
+    200: MarketplacePlansEnvelope;
+};
+
+export type ListMarketplaceMealPlansResponse = ListMarketplaceMealPlansResponses[keyof ListMarketplaceMealPlansResponses];
+
+export type GetMarketplaceMealPlanData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription plan's identifier or its slug.
+         */
+        plan: string;
+    };
+    query?: never;
+    url: '/marketplace/meal-plans/{plan}';
+};
+
+export type GetMarketplaceMealPlanErrors = {
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetMarketplaceMealPlanError = GetMarketplaceMealPlanErrors[keyof GetMarketplaceMealPlanErrors];
+
+export type GetMarketplaceMealPlanResponses = {
+    /**
+     * The subscription plan.
+     */
+    200: {
+        data: MarketplacePlan;
+        meta: Meta;
+    };
+};
+
+export type GetMarketplaceMealPlanResponse = GetMarketplaceMealPlanResponses[keyof GetMarketplaceMealPlanResponses];

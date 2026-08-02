@@ -68,6 +68,12 @@ use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
+use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
+use Healthy360\Kitchens\Http\Controllers\PublicKitchenShowController;
+use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
+use Healthy360\Kitchens\Http\Controllers\PublicMealPlanIndexController;
+use Healthy360\Kitchens\Http\Controllers\PublicMealPlanShowController;
+use Healthy360\Kitchens\Http\Controllers\PublicMealShowController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
@@ -711,3 +717,51 @@ Route::get('/reference/diet-classifications', PublicDietClassificationIndexContr
 // — area codes are unique within a country, not across the platform.
 Route::get('/reference/delivery-areas', PublicDeliveryAreaIndexController::class)
     ->name('reference.delivery-areas.index');
+
+/*
+|--------------------------------------------------------------------------
+| Public marketplace (M1)
+|--------------------------------------------------------------------------
+|
+| The consumer's read-only view of the catalogue: kitchens with their branches,
+| delivery zones and operating weeks; published meals with their allergens,
+| price and ordering calendar; published subscription plans.
+|
+| Anonymous, for the reason the public vocabularies above are: a marketplace a
+| person has to sign in to browse is not a marketplace. Rate limiting is the
+| `api` group's (60/min per IP for an anonymous caller).
+|
+| **Read-only, and structurally so.** There is no writer here and there will not
+| be one: what a customer *does* — a cart, an order, a subscription — is C1 and
+| S1, against their own tables and their own permissions. This family serves
+| projections of rows other surfaces own.
+|
+| Every response goes through a PublicProjection presenter (master plan v2
+| §4.8). No cost, margin, supplier, recipe line, cost snapshot, data-quality
+| note, review reason or internal price-list identifier is representable in any
+| shape these routes can return, and a Pest sweep asserts that across the whole
+| anonymous surface with a seeded distinctive cost literal.
+|
+| `{kitchen}`, `{meal}` and `{plan}` accept an identifier or the row's own
+| stable slug, the same convention the kitchen-admin routes use: a client that
+| walked the list holds one, a human holding a link holds the other.
+|
+*/
+Route::get('/marketplace/kitchens', PublicKitchenIndexController::class)
+    ->name('marketplace.kitchens.index');
+Route::get('/marketplace/kitchens/{kitchen}', PublicKitchenShowController::class)
+    ->name('marketplace.kitchens.show');
+
+Route::get('/marketplace/meals', PublicMealIndexController::class)
+    ->name('marketplace.meals.index');
+Route::get('/marketplace/meals/{meal}', PublicMealShowController::class)
+    ->name('marketplace.meals.show');
+
+// `meal-plans`, not `plans`: the consumer contract's path, and the one word that
+// keeps a subscription plan distinguishable from a meal plan a dietitian writes
+// (the planner's `/meal-plans` under an authenticated prefix is N1's, and the
+// two never share a route because they never share a table).
+Route::get('/marketplace/meal-plans', PublicMealPlanIndexController::class)
+    ->name('marketplace.meal-plans.index');
+Route::get('/marketplace/meal-plans/{plan}', PublicMealPlanShowController::class)
+    ->name('marketplace.meal-plans.show');

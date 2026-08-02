@@ -35,6 +35,7 @@ import type {
 } from '../generated/types.ts';
 import type { ApiClientConfig } from './config.ts';
 import { generateRequestId } from './config.ts';
+import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { API_PROTOTYPE_REPOSITORIES } from './prototype-repositories.ts';
 import {
     createBranchDirectory,
@@ -434,8 +435,10 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         },
     };
 
-    // The eight Prompt 2 repositories are stateless rejections (`./prototype-repositories.ts`), so
-    // they are one shared object rather than eight closures built per bundle.
+    // The remaining eight Prompt 2 repositories are stateless rejections
+    // (`./prototype-repositories.ts`), so they are one shared object rather than eight closures
+    // built per bundle. The marketplace is not among them any more: kitchens and meals are real
+    // endpoints (M1), so it needs the transport and is built per bundle like the foundation four.
     return {
         kind: 'api',
         transport,
@@ -443,6 +446,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         session,
         context,
         devices,
+        marketplace: createApiMarketplaceRepository(transport),
         ...API_PROTOTYPE_REPOSITORIES,
     };
 }

@@ -319,14 +319,16 @@ modules:
     depends_on: [Organisations, Catalogues, Pricing, Consent, Customers]
 
   - name: Cart
-    status: planned
-    description: Basket, address validation and checkout preparation.
-    depends_on: [Catalogues, Pricing]
+    status: foundation
+    phase: 2
+    description: Persisted single-kitchen baskets — one open cart per customer per channel, lines validated on the way in by a server-side price probe that refuses unpublished, unoffered, unpriced and cross-currency articles, and a daily sweep that closes stale baskets without deleting them. Holds no amount of any kind; the probe establishes orderability and its price is deliberately discarded.
+    depends_on: [Support, Organisations, Tenancy, Audit, Catalogues, Pricing, Customers]
 
   - name: Orders
-    status: planned
-    description: Order capture, status tracking and fulfilment orchestration across kitchens and delivery.
-    depends_on: [Cart, Kitchens]
+    status: foundation
+    phase: 2
+    description: Order capture — placement that reprices every line authoritatively, snapshots the commercial half of each article and the delivery address, resolves the zone fee and the branch cut-off, and refuses in one answer carrying every reason; the placed/confirmed/fulfilled/cancelled state machine; service-level idempotency over the shared key table; cash on delivery only, with no payment column of any kind. Fulfilment orchestration and delivery operations arrive with F1.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Kitchens, Cart]
 
   - name: Subscriptions
     status: planned

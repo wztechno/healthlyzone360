@@ -1893,6 +1893,214 @@ export const zAdminDeliveryArea = z.object({
 });
 
 /**
+ * An integer number of minor units and its currency code. `4200` with
+ * `AED` is 42.00 AED. Amounts are never formatted server-side and never
+ * travel without their currency (master plan v2 §4.4).
+ *
+ */
+export const zMarketplaceMoney = z.object({
+    amount: z.int().gte(0),
+    currency: z.string().length(3)
+});
+
+/**
+ * The eight consumer switches, derived from the kitchen's **active**
+ * sales channels. The platform stores six channel *kinds*, and the
+ * mapping is: `b2c_web` sets `b2c`, `b2b` sets `b2b`, `pos` sets `pos`,
+ * `marketplace` sets `marketplace`, `corporate` sets `corporate`, and
+ * `insurance` sets nothing (there is no consumer switch for it, and
+ * mapping it onto `corporate` would tell a diner that a kitchen with an
+ * insurer agreement takes corporate orders).
+ *
+ * **`subscription`, `delivery` and `pickup` are always `false`.** That is
+ * a statement rather than an omission: `subscription` is a property of
+ * what is sold, not of a route to market, and no column anywhere records a
+ * delivery or pickup arrangement. Deriving them from something adjacent —
+ * "it has a delivery zone, so it delivers" — would publish an inference as
+ * a fact on the one surface where a customer acts on it.
+ *
+ */
+export const zMarketplaceSalesChannels = z.object({
+    b2c: z.boolean(),
+    b2b: z.boolean(),
+    marketplace: z.boolean(),
+    pos: z.boolean(),
+    subscription: z.boolean(),
+    delivery: z.boolean(),
+    pickup: z.boolean(),
+    corporate: z.boolean()
+});
+
+/**
+ * One kitchen's published terms for reaching a set of places. The fee and
+ * the minimum are what the kitchen *charges*, never what the food costs
+ * it — which is why they are publishable at all.
+ *
+ */
+export const zMarketplaceDeliveryZone = z.object({
+    id: zUuid,
+    name: z.string(),
+    area: z.string(),
+    country_code: z.string().max(2),
+    delivery_fee: zMarketplaceMoney.nullable(),
+    minimum_order: zMarketplaceMoney.nullable(),
+    estimated_minutes: z.int().gte(0).nullable()
+});
+
+/**
+ * One configured day. A closed day is a **row with no times**, not a
+ * missing one: "we are shut on Friday" and "nobody has filled in Friday"
+ * are different facts, and only the days a kitchen has configured appear.
+ *
+ */
+export const zMarketplaceOpeningHours = z.object({
+    weekday: z.int().gte(1).lte(7),
+    opens_at: z.string().nullable(),
+    closes_at: z.string().nullable(),
+    order_cut_off_at: z.string().nullable()
+});
+
+export const zMarketplaceBranch = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    name: z.string(),
+    area: z.string(),
+    country_code: z.string().max(2),
+    time_zone: z.string(),
+    delivery_zones: z.array(zMarketplaceDeliveryZone),
+    opening_hours: z.array(zMarketplaceOpeningHours),
+    supports_pickup: z.boolean(),
+    is_active: z.boolean()
+});
+
+export const zMarketplaceKitchen = z.object({
+    id: zUuid,
+    name: z.string(),
+    slug: z.string(),
+    tagline: z.string(),
+    description: z.string(),
+    country_code: z.string().max(2),
+    cuisines: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    channels: zMarketplaceSalesChannels,
+    branches: z.array(zMarketplaceBranch),
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0),
+    image_placeholder_id: z.string(),
+    is_verified: z.boolean()
+});
+
+/**
+ * One day of the fourteen-day ordering calendar, derived from the
+ * branches' operating weeks and cut-offs. A day is orderable when at least
+ * one active branch is open on it and that branch's cut-off has not
+ * passed; a day nobody has configured is not orderable.
+ *
+ */
+export const zMarketplaceAvailability = z.object({
+    date: z.iso.date(),
+    available: z.boolean(),
+    remaining: z.int().nullable(),
+    order_cut_off_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zMarketplaceMeal = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    kitchen_name: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    description: z.string(),
+    meal_types: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    cuisines: z.array(z.string()),
+    allergens: z.array(zAllergenCode),
+    serving: z.null(),
+    nutrition: z.null(),
+    price: zMarketplaceMoney,
+    preparation_minutes: z.int().nullable(),
+    image_placeholder_id: z.string(),
+    availability: z.array(zMarketplaceAvailability),
+    channels: zMarketplaceSalesChannels,
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplaceEnergyBand = z.object({
+    min: z.int(),
+    max: z.int()
+});
+
+export const zMarketplacePlanVariant = z.object({
+    id: zUuid,
+    plan_id: zUuid,
+    name: z.string(),
+    energy_range: zMarketplaceEnergyBand.nullable(),
+    protein_range: z.null(),
+    carbohydrate_range: z.null(),
+    fat_range: z.null(),
+    meals_per_day: z.int().gte(1),
+    snacks_per_day: z.int().gte(0),
+    price_per_week: zMarketplaceMoney.nullable()
+});
+
+/**
+ * **A documented widening of the proposed draft** (master plan v2 §4.3,
+ * amending OD-3). The draft typed a duration as one of `1w`, `2w`, `4w`,
+ * `12w`. The platform stores an explicit `kind` (`one_off` or
+ * `fixed_days`) and a nullable number of days, precisely so that
+ * "not a subscription, just one order" stops being a magic zero a per-day
+ * calculation divides by — and real kitchen runs of 5, 20, 40 and 60 days
+ * are not expressible in the draft's enumeration at all.
+ *
+ */
+export const zMarketplacePlanDuration = z.object({
+    code: z.string(),
+    name: z.string(),
+    kind: z.enum(['one_off', 'fixed_days']),
+    days: z.int().gte(1).nullable(),
+    discount_percent: z.string().nullable(),
+    total_price: zMarketplaceMoney.nullable()
+});
+
+export const zMarketplacePlan = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+    description: z.string(),
+    category_slugs: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    variants: z.array(zMarketplacePlanVariant),
+    durations: z.array(zMarketplacePlanDuration),
+    sample_meal_ids: z.array(zUuid),
+    image_placeholder_id: z.string(),
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplaceListMeta = zPaginationMeta.and(z.object({
+    locale: z.enum(['en', 'ar']),
+    unsupported_filters: z.array(z.string())
+}));
+
+export const zMarketplaceKitchensEnvelope = z.object({
+    data: z.array(zMarketplaceKitchen),
+    meta: zMarketplaceListMeta
+});
+
+export const zMarketplaceMealsEnvelope = z.object({
+    data: z.array(zMarketplaceMeal),
+    meta: zMarketplaceListMeta
+});
+
+export const zMarketplacePlansEnvelope = z.object({
+    data: z.array(zMarketplacePlan),
+    meta: zMarketplaceListMeta
+});
+
+/**
  * The public projection: **one** server-localised `name`, never both
  * language columns.
  *
@@ -2146,6 +2354,21 @@ export const zCursor = z.string().max(200);
  * Page size.
  */
 export const zCursorLimit = z.int().gte(1).lte(100).default(25);
+
+/**
+ * The kitchen's identifier or its slug.
+ */
+export const zMarketplaceKitchenPath = z.string().max(160);
+
+/**
+ * The meal's identifier or its slug.
+ */
+export const zMarketplaceMealPath = z.string().max(160);
+
+/**
+ * The subscription plan's identifier or its slug.
+ */
+export const zMarketplacePlanPath = z.string().max(160);
 
 /**
  * The ingredient identifier.
@@ -4390,3 +4613,113 @@ export const zListDeliveryAreasQuery = z.object({
  * A page of delivery areas, localised.
  */
 export const zListDeliveryAreasResponse = zPublicDeliveryAreasEnvelope;
+
+export const zListMarketplaceKitchensHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMarketplaceKitchensQuery = z.object({
+    query: z.string().max(120).optional(),
+    country_code: z.string().length(2).optional(),
+    area: z.string().max(60).optional(),
+    channels: z.string().optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of kitchens.
+ */
+export const zListMarketplaceKitchensResponse = zMarketplaceKitchensEnvelope;
+
+export const zGetMarketplaceKitchenHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMarketplaceKitchenPath = z.object({
+    kitchen: z.string().max(160)
+});
+
+/**
+ * The kitchen.
+ */
+export const zGetMarketplaceKitchenResponse = z.object({
+    data: zMarketplaceKitchen,
+    meta: zMeta
+});
+
+export const zListMarketplaceMealsHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMarketplaceMealsQuery = z.object({
+    query: z.string().max(120).optional(),
+    kitchen_ids: z.string().optional(),
+    diet_classifications: z.string().optional(),
+    exclude_allergens: z.string().optional(),
+    price_max: z.int().gte(0).optional(),
+    available_on: z.iso.date().optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of meals.
+ */
+export const zListMarketplaceMealsResponse = zMarketplaceMealsEnvelope;
+
+export const zGetMarketplaceMealHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMarketplaceMealPath = z.object({
+    meal: z.string().max(160)
+});
+
+/**
+ * The meal.
+ */
+export const zGetMarketplaceMealResponse = z.object({
+    data: zMarketplaceMeal,
+    meta: zMeta
+});
+
+export const zListMarketplaceMealPlansHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMarketplaceMealPlansQuery = z.object({
+    query: z.string().max(120).optional(),
+    kitchen_ids: z.string().optional(),
+    duration: z.string().max(60).optional(),
+    meals_per_day: z.int().gte(1).optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of subscription plans.
+ */
+export const zListMarketplaceMealPlansResponse = zMarketplacePlansEnvelope;
+
+export const zGetMarketplaceMealPlanHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMarketplaceMealPlanPath = z.object({
+    plan: z.string().max(160)
+});
+
+/**
+ * The subscription plan.
+ */
+export const zGetMarketplaceMealPlanResponse = z.object({
+    data: zMarketplacePlan,
+    meta: zMeta
+});
