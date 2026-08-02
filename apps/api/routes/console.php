@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Healthy360\B2b\Jobs\PurgeExpiredInvitations;
+use Healthy360\B2b\Jobs\PurgeExpiredKycDocuments;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
 use Healthy360\Verification\Jobs\PurgeExpiredOtpChallenges;
 use Illuminate\Support\Facades\Schedule;
@@ -59,5 +61,37 @@ Schedule::job(new PurgeAbandonedProvisionalAccounts)
     ->dailyAt('03:00')
     ->timezone('UTC')
     ->name('customers:purge-abandoned-provisional-accounts')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| B1 — two retention sweeps for the B2B onboarding data.
+|
+| Weekly at 04:15 UTC on Sunday. KYC retention is measured in years
+| (`b2b.kyc.retention_days`, a placeholder pending OQ-029, never a legal
+| period), so nothing here is urgent and a daily run would mostly find nothing.
+| Sunday early morning because the job deletes objects from the private bucket
+| one at a time and the bucket is quietest then. Offset from the 03:00 customer
+| sweep rather than sharing the hour: two cluster-wide deletion passes running
+| together make a slow bucket look like a broken one.
+*/
+Schedule::job(new PurgeExpiredKycDocuments)
+    ->weeklyOn(0, '04:15')
+    ->timezone('UTC')
+    ->name('b2b:purge-expired-kyc-documents')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| B1 — daily at 04:45 UTC. An expired, never-accepted invitation is an email
+| address held for no remaining purpose; accepted and revoked rows survive
+| because they are the trail of who was let into an organisation. The thirty-day
+| grace is so "we sent it and it lapsed" stays answerable for a month, not
+| caution about the token, which stopped working when it expired.
+*/
+Schedule::job(new PurgeExpiredInvitations)
+    ->dailyAt('04:45')
+    ->timezone('UTC')
+    ->name('b2b:purge-expired-invitations')
     ->withoutOverlapping()
     ->onOneServer();

@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/b2b",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\B2b\\": "src/",
+			"Healthy360\\B2b\\Tests\\": "tests/",
+			"Healthy360\\B2b\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\B2b\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\B2b\\Providers\\B2bServiceProvider"
+			]
+		}
+	}
+}

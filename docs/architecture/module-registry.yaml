@@ -314,7 +314,7 @@ modules:
     depends_on: [Support, Identity, ReferenceData, Audit]
 
   - name: B2B
-    status: planned
+    status: foundation
     description: Corporate wellness and insurer arrangements — enrolment, eligibility validation, corporate/insurer billing.
     depends_on: [Organisations, Catalogues, Pricing, Consent, Customers]
 
