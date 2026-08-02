@@ -8,6 +8,7 @@ import arCommerce from '../catalogues/ar/commerce.json';
 import arCommon from '../catalogues/ar/common.json';
 import arDesignSystem from '../catalogues/ar/designSystem.json';
 import arErrors from '../catalogues/ar/errors.json';
+import arKitchen from '../catalogues/ar/kitchen.json';
 import arMarketplace from '../catalogues/ar/marketplace.json';
 import arNutrition from '../catalogues/ar/nutrition.json';
 import arOnboarding from '../catalogues/ar/onboarding.json';
@@ -22,6 +23,7 @@ import enCommerce from '../catalogues/en/commerce.json';
 import enCommon from '../catalogues/en/common.json';
 import enDesignSystem from '../catalogues/en/designSystem.json';
 import enErrors from '../catalogues/en/errors.json';
+import enKitchen from '../catalogues/en/kitchen.json';
 import enMarketplace from '../catalogues/en/marketplace.json';
 import enNutrition from '../catalogues/en/nutrition.json';
 import enOnboarding from '../catalogues/en/onboarding.json';
@@ -38,6 +40,15 @@ import enVirtualDietitian from '../catalogues/en/virtualDietitian.json';
  * chokepoint that several parallel workstreams would otherwise all need to edit, and reserving the
  * namespaces up front is what stops nine simultaneous edits to one import block. Each new
  * catalogue currently holds a single `title` key; the wave that builds the screens fills it in.
+ *
+ * `kitchen` is the fifteenth, reserved by K1 on exactly the same terms: the kitchen workspace is
+ * several slices, each of which would otherwise add its own import line here.
+ *
+ * **Adding a namespace** is four edits and two commands: create `catalogues/en/<name>.json` and
+ * `catalogues/ar/<name>.json`, add the two imports above, add the name to the list below *and* to
+ * both resource maps, then run `pnpm gen:i18n-keys` and `pnpm gen:pseudo-locale`. `pnpm i18n:check`
+ * discovers namespaces from the English directory, so a file added without a registration here is
+ * checked but unreachable — and `catalogues.test.ts` pins the list so that cannot pass unnoticed.
  */
 export const TRANSLATION_NAMESPACES = [
     'common',
@@ -54,6 +65,7 @@ export const TRANSLATION_NAMESPACES = [
     'virtualDietitian',
     'professional',
     'business',
+    'kitchen',
 ] as const;
 export type TranslationNamespace = (typeof TRANSLATION_NAMESPACES)[number];
 
@@ -76,6 +88,7 @@ export const enResources = {
     virtualDietitian: enVirtualDietitian,
     professional: enProfessional,
     business: enBusiness,
+    kitchen: enKitchen,
 } as const;
 
 export const arResources = {
@@ -93,6 +106,7 @@ export const arResources = {
     virtualDietitian: arVirtualDietitian,
     professional: arProfessional,
     business: arBusiness,
+    kitchen: arKitchen,
 } as const;
 
 export const resources: Readonly<Record<Locale, CatalogueBundle>> = {

@@ -1,6 +1,7 @@
 import {
     CartId,
     CorporateProgrammeId,
+    DeliveryWindowId,
     DeliveryZoneId,
     DietitianId,
     GroceryListId,
@@ -14,8 +15,12 @@ import {
     OrderId,
     OrganisationId,
     PlanVariantId,
+    PriceListId,
+    ProductId,
     QuotationId,
     RecipeId,
+    RecipeVersionId,
+    ServiceAreaId,
     SubscriptionId,
     SubscriptionPlanId,
     VdMessageId,
@@ -62,6 +67,19 @@ export const PROTOTYPE_ID_BANDS = {
     corporateProgramme: '60',
     quotation: '61',
     volumeTier: '62',
+
+    /**
+     * Kitchen-management bands (K1).
+     *
+     * `recipeVersion` sits beside `recipe` and `product`/`priceList` beside `meal`, so a band read
+     * off a failing assertion still says which part of the world it came from. `serviceArea` and
+     * `deliveryWindow` join the delivery bands for the same reason.
+     */
+    recipeVersion: 'b1',
+    product: 'c1',
+    priceList: 'c2',
+    deliveryWindow: 'f3',
+    serviceArea: 'f4',
 } as const;
 
 export type PrototypeIdBand = keyof typeof PROTOTYPE_ID_BANDS;
@@ -145,6 +163,16 @@ export const quotationIdAt = (ordinal: number): QuotationId =>
     QuotationId.unsafe(prototypeId('quotation', ordinal));
 export const volumeTierIdAt = (ordinal: number): VolumeTierId =>
     VolumeTierId.unsafe(prototypeId('volumeTier', ordinal));
+export const recipeVersionIdAt = (ordinal: number): RecipeVersionId =>
+    RecipeVersionId.unsafe(prototypeId('recipeVersion', ordinal));
+export const productIdAt = (ordinal: number): ProductId =>
+    ProductId.unsafe(prototypeId('product', ordinal));
+export const priceListIdAt = (ordinal: number): PriceListId =>
+    PriceListId.unsafe(prototypeId('priceList', ordinal));
+export const deliveryWindowIdAt = (ordinal: number): DeliveryWindowId =>
+    DeliveryWindowId.unsafe(prototypeId('deliveryWindow', ordinal));
+export const serviceAreaIdAt = (ordinal: number): ServiceAreaId =>
+    ServiceAreaId.unsafe(prototypeId('serviceArea', ordinal));
 
 /**
  * Where the store starts minting identifiers for rows a *person* creates — an added planner entry,
@@ -155,6 +183,22 @@ export const volumeTierIdAt = (ordinal: number): VolumeTierId =>
  * test" by looking at the identifier.
  */
 export const PROTOTYPE_RUNTIME_ORDINAL_START = 0x80;
+
+/**
+ * The bands a kitchen-management row is minted in.
+ *
+ * Named as a set so a test can assert that every one of them respects
+ * {@link PROTOTYPE_RUNTIME_ORDINAL_START} for rows a *person* created — the property that lets a
+ * failing admin test say "this ingredient came out of the seed" or "this ingredient was created by
+ * the interaction under test" from the identifier alone, with no lookup.
+ */
+export const KITCHEN_ADMIN_ID_BANDS: readonly PrototypeIdBand[] = [
+    'recipeVersion',
+    'product',
+    'priceList',
+    'deliveryWindow',
+    'serviceArea',
+];
 
 /**
  * Buyer organisations for the corporate programmes.

@@ -46,6 +46,9 @@ describe('the persistence allow-list', () => {
         [queryKeys.devices(), false],
         [queryKeys.emailVerification(), false],
         [queryKeys.locales(), true],
+        // Purchase costs and margins on a tablet several people sign into (K1).
+        [queryKeys.kitchenAdmin.all(), false],
+        [queryKeys.kitchenAdmin.ingredients(), false],
     ] as const)('classifies %s as persistable=%s', (key, expected) => {
         expect(isPersistableQueryKey(key)).toBe(expected);
     });

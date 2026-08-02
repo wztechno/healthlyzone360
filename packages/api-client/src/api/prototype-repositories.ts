@@ -1,11 +1,16 @@
 import type {
     CartId,
     CorporateProgrammeId,
+    DeliveryZoneId,
     DietitianId,
+    IngredientId,
+    KitchenBranchId,
     KitchenId,
     MealId,
     MealPlanEntryId,
     MealPlanId,
+    PriceListId,
+    ProductId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
@@ -49,6 +54,56 @@ import type {
     Recipe,
     RecipeFilter,
 } from '../contracts/foods.ts';
+import type {
+    AllergenClass,
+    BranchOperating,
+    CreateDeliveryZoneRequest,
+    CreateIngredientRequest,
+    CreateMealRequest,
+    CreatePlanRequest,
+    CreateProductRequest,
+    CreateRecipeRequest,
+    DeliveryZoneAdmin,
+    DeliveryZoneAdminFilter,
+    IngredientAdmin,
+    IngredientAdminFilter,
+    KitchenAdminRepository,
+    LockedRequest,
+    MealAdmin,
+    MealAdminFilter,
+    PlanAdmin,
+    PlanAdminFilter,
+    PriceListAdmin,
+    PriceListAdminFilter,
+    ProductAdmin,
+    ProductAdminFilter,
+    RecipeAdmin,
+    RecipeAdminFilter,
+    RecipeAdminSummary,
+    RecipeRollupDraft,
+    RecipeRollupPreview,
+    ServiceArea,
+    ServiceAreaFilter,
+    SetBranchOperatingRequest,
+    SetChannelAvailabilityRequest,
+    SetDeliveryWindowsRequest,
+    SetIngredientAllergensRequest,
+    SetMealAvailabilityRequest,
+    SetPlanCombinationsRequest,
+    SetPlanDurationsRequest,
+    SetPlanVariantsRequest,
+    SetPriceListEntriesRequest,
+    SetRecipeLinesRequest,
+    SetRecipeOutputsRequest,
+    SetRecipeStepsRequest,
+    SetZoneAreasRequest,
+    UpdateDeliveryZoneRequest,
+    UpdateIngredientRequest,
+    UpdateMealRequest,
+    UpdatePlanRequest,
+    UpdateProductRequest,
+    UpdateRecipeRequest,
+} from '../contracts/kitchen-admin.ts';
 import type {
     DietCategory,
     Dietitian,
@@ -111,7 +166,7 @@ import type {
 } from '../contracts/virtual-dietitian.ts';
 
 /**
- * The API side of the eight Prompt 2 contracts — **written out, method by method, and rejecting**.
+ * The API side of the nine proposed contracts — **written out, method by method, and rejecting**.
  *
  * None of these endpoints exists. They are proposed drafts in `docs/api/proposed/` and nothing
  * serves them, so there is no honest implementation to write. What there *is* is a choice about how
@@ -242,6 +297,76 @@ export const PROTOTYPE_ENDPOINTS = {
     getClientPlan: `GET ${BASE}/professional/clients/{client}/meal-plans/{plan}`,
     setDietitianNote: `PUT ${BASE}/professional/meal-plans/{plan}/note`,
     setOverride: `PUT ${BASE}/professional/clients/{client}/nutrition-target`,
+
+    /**
+     * Kitchen management (K1). Two families: platform reference under `/reference/`, which a
+     * kitchen only ever reads, and the tenant catalogue under `/catalogue/`, which it owns.
+     *
+     * The keys carry an `admin` prefix because this table is flat and several names — `listMeals`,
+     * `getPlan`, `getRecipe` — already belong to a consumer endpoint that means something else.
+     * Lifecycle actions are `POST …/publish`, never a status field on the `PATCH` (plan §4.15).
+     */
+    adminListAllergenClasses: `GET ${BASE}/reference/allergen-classes`,
+    adminListServiceAreas: `GET ${BASE}/reference/service-areas`,
+
+    adminListIngredients: `GET ${BASE}/catalogue/ingredients`,
+    adminGetIngredient: `GET ${BASE}/catalogue/ingredients/{ingredient}`,
+    adminCreateIngredient: `POST ${BASE}/catalogue/ingredients`,
+    adminUpdateIngredient: `PATCH ${BASE}/catalogue/ingredients/{ingredient}`,
+    adminArchiveIngredient: `POST ${BASE}/catalogue/ingredients/{ingredient}/archive`,
+    adminSetIngredientAllergens: `PUT ${BASE}/catalogue/ingredients/{ingredient}/allergens`,
+
+    adminListRecipes: `GET ${BASE}/catalogue/recipes`,
+    adminGetRecipe: `GET ${BASE}/catalogue/recipes/{recipe}`,
+    adminCreateRecipe: `POST ${BASE}/catalogue/recipes`,
+    adminUpdateRecipe: `PATCH ${BASE}/catalogue/recipes/{recipe}`,
+    adminSetRecipeLines: `PUT ${BASE}/catalogue/recipes/{recipe}/lines`,
+    adminSetRecipeSteps: `PUT ${BASE}/catalogue/recipes/{recipe}/steps`,
+    adminSetRecipeOutputs: `PUT ${BASE}/catalogue/recipes/{recipe}/outputs`,
+    adminPreviewRecipeRollup: `POST ${BASE}/catalogue/recipes/roll-up-preview`,
+    adminPublishRecipe: `POST ${BASE}/catalogue/recipes/{recipe}/publish`,
+    adminRetireRecipe: `POST ${BASE}/catalogue/recipes/{recipe}/retire`,
+
+    adminListProducts: `GET ${BASE}/catalogue/products`,
+    adminGetProduct: `GET ${BASE}/catalogue/products/{product}`,
+    adminCreateProduct: `POST ${BASE}/catalogue/products`,
+    adminUpdateProduct: `PATCH ${BASE}/catalogue/products/{product}`,
+    adminArchiveProduct: `POST ${BASE}/catalogue/products/{product}/archive`,
+    adminSetProductChannelAvailability: `PUT ${BASE}/catalogue/products/{product}/channels`,
+
+    adminListPriceLists: `GET ${BASE}/catalogue/price-lists`,
+    adminGetPriceList: `GET ${BASE}/catalogue/price-lists/{price_list}`,
+    adminSetPriceListEntries: `PUT ${BASE}/catalogue/price-lists/{price_list}/entries`,
+    adminPublishPriceList: `POST ${BASE}/catalogue/price-lists/{price_list}/publish`,
+
+    adminListMeals: `GET ${BASE}/catalogue/meals`,
+    adminGetMeal: `GET ${BASE}/catalogue/meals/{meal}`,
+    adminCreateMeal: `POST ${BASE}/catalogue/meals`,
+    adminUpdateMeal: `PATCH ${BASE}/catalogue/meals/{meal}`,
+    adminPublishMeal: `POST ${BASE}/catalogue/meals/{meal}/publish`,
+    adminRetireMeal: `POST ${BASE}/catalogue/meals/{meal}/retire`,
+    adminSetMealAvailability: `PUT ${BASE}/catalogue/meals/{meal}/availability`,
+
+    adminListPlans: `GET ${BASE}/catalogue/plans`,
+    adminGetPlan: `GET ${BASE}/catalogue/plans/{plan}`,
+    adminCreatePlan: `POST ${BASE}/catalogue/plans`,
+    adminUpdatePlan: `PATCH ${BASE}/catalogue/plans/{plan}`,
+    adminPublishPlan: `POST ${BASE}/catalogue/plans/{plan}/publish`,
+    adminRetirePlan: `POST ${BASE}/catalogue/plans/{plan}/retire`,
+    adminSetPlanVariants: `PUT ${BASE}/catalogue/plans/{plan}/variants`,
+    adminSetPlanDurations: `PUT ${BASE}/catalogue/plans/{plan}/durations`,
+    adminSetPlanCombinations: `PUT ${BASE}/catalogue/plans/{plan}/combinations`,
+
+    adminListZones: `GET ${BASE}/catalogue/delivery-zones`,
+    adminGetZone: `GET ${BASE}/catalogue/delivery-zones/{zone}`,
+    adminCreateZone: `POST ${BASE}/catalogue/delivery-zones`,
+    adminUpdateZone: `PATCH ${BASE}/catalogue/delivery-zones/{zone}`,
+    adminArchiveZone: `POST ${BASE}/catalogue/delivery-zones/{zone}/archive`,
+    adminSetZoneAreas: `PUT ${BASE}/catalogue/delivery-zones/{zone}/areas`,
+    adminSetDeliveryWindows: `PUT ${BASE}/catalogue/delivery-zones/{zone}/delivery-windows`,
+
+    adminGetBranchOperating: `GET ${BASE}/catalogue/branches/{branch}/operating`,
+    adminSetBranchOperating: `PUT ${BASE}/catalogue/branches/{branch}/operating`,
 } as const;
 
 /* ------------------------------------------------------------------------------------------------
@@ -551,7 +676,223 @@ export const apiProfessionalRepository: ProfessionalRepository = {
     },
 };
 
-/** The eight, as one bundle, for `createApiRepositories` to spread. */
+/* ------------------------------------------------------------------------------------------------
+ * Kitchen management (K1)
+ *
+ * Written out like every other stub above rather than generated. Forty-six methods is a lot of
+ * repetition, and it is repetition that *earns its keep*: adding a method to `KitchenAdminRepository`
+ * has to break this file at compile time, because the alternative — a `Proxy` — would keep
+ * "working" and let a screen discover the omission at runtime, in an admin surface where the
+ * omission is somebody's unsaved recipe.
+ * ---------------------------------------------------------------------------------------------- */
+
+export const apiKitchenAdminRepository: KitchenAdminRepository = {
+    listAllergenClasses(): Promise<readonly AllergenClass[]> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListAllergenClasses);
+    },
+    listServiceAreas(_filter?: ServiceAreaFilter): Promise<CursorPage<ServiceArea>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListServiceAreas);
+    },
+
+    listIngredients(_filter?: IngredientAdminFilter): Promise<CursorPage<IngredientAdmin>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListIngredients);
+    },
+    getIngredient(_ingredientId: IngredientId): Promise<IngredientAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetIngredient);
+    },
+    createIngredient(_request: CreateIngredientRequest): Promise<IngredientAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateIngredient);
+    },
+    updateIngredient(
+        _ingredientId: IngredientId,
+        _request: UpdateIngredientRequest,
+    ): Promise<IngredientAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateIngredient);
+    },
+    archiveIngredient(
+        _ingredientId: IngredientId,
+        _request: LockedRequest,
+    ): Promise<IngredientAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminArchiveIngredient);
+    },
+    setIngredientAllergens(
+        _ingredientId: IngredientId,
+        _request: SetIngredientAllergensRequest,
+    ): Promise<IngredientAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetIngredientAllergens);
+    },
+
+    listRecipes(_filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListRecipes);
+    },
+    getRecipe(_recipeId: RecipeId): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetRecipe);
+    },
+    createRecipe(_request: CreateRecipeRequest): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateRecipe);
+    },
+    updateRecipe(_recipeId: RecipeId, _request: UpdateRecipeRequest): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateRecipe);
+    },
+    setRecipeLines(_recipeId: RecipeId, _request: SetRecipeLinesRequest): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetRecipeLines);
+    },
+    setRecipeSteps(_recipeId: RecipeId, _request: SetRecipeStepsRequest): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetRecipeSteps);
+    },
+    setRecipeOutputs(_recipeId: RecipeId, _request: SetRecipeOutputsRequest): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetRecipeOutputs);
+    },
+    previewRecipeRollup(_draft: RecipeRollupDraft): Promise<RecipeRollupPreview> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminPreviewRecipeRollup);
+    },
+    publishRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishRecipe);
+    },
+    retireRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminRetireRecipe);
+    },
+
+    listProducts(_filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListProducts);
+    },
+    getProduct(_productId: ProductId): Promise<ProductAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetProduct);
+    },
+    createProduct(_request: CreateProductRequest): Promise<ProductAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateProduct);
+    },
+    updateProduct(_productId: ProductId, _request: UpdateProductRequest): Promise<ProductAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateProduct);
+    },
+    archiveProduct(_productId: ProductId, _request: LockedRequest): Promise<ProductAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminArchiveProduct);
+    },
+    setProductChannelAvailability(
+        _productId: ProductId,
+        _request: SetChannelAvailabilityRequest,
+    ): Promise<ProductAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetProductChannelAvailability);
+    },
+
+    listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListPriceLists);
+    },
+    getPriceList(_priceListId: PriceListId): Promise<PriceListAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetPriceList);
+    },
+    setPriceListEntries(
+        _priceListId: PriceListId,
+        _request: SetPriceListEntriesRequest,
+    ): Promise<PriceListAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPriceListEntries);
+    },
+    publishPriceList(_priceListId: PriceListId, _request: LockedRequest): Promise<PriceListAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishPriceList);
+    },
+
+    listMeals(_filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListMeals);
+    },
+    getMeal(_mealId: MealId): Promise<MealAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetMeal);
+    },
+    createMeal(_request: CreateMealRequest): Promise<MealAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateMeal);
+    },
+    updateMeal(_mealId: MealId, _request: UpdateMealRequest): Promise<MealAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateMeal);
+    },
+    publishMeal(_mealId: MealId, _request: LockedRequest): Promise<MealAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishMeal);
+    },
+    retireMeal(_mealId: MealId, _request: LockedRequest): Promise<MealAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminRetireMeal);
+    },
+    setMealAvailability(_mealId: MealId, _request: SetMealAvailabilityRequest): Promise<MealAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetMealAvailability);
+    },
+
+    listPlans(_filter?: PlanAdminFilter): Promise<CursorPage<PlanAdmin>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListPlans);
+    },
+    getPlan(_planId: SubscriptionPlanId): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetPlan);
+    },
+    createPlan(_request: CreatePlanRequest): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreatePlan);
+    },
+    updatePlan(_planId: SubscriptionPlanId, _request: UpdatePlanRequest): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdatePlan);
+    },
+    publishPlan(_planId: SubscriptionPlanId, _request: LockedRequest): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishPlan);
+    },
+    retirePlan(_planId: SubscriptionPlanId, _request: LockedRequest): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminRetirePlan);
+    },
+    setPlanVariants(
+        _planId: SubscriptionPlanId,
+        _request: SetPlanVariantsRequest,
+    ): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPlanVariants);
+    },
+    setPlanDurations(
+        _planId: SubscriptionPlanId,
+        _request: SetPlanDurationsRequest,
+    ): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPlanDurations);
+    },
+    setPlanCombinations(
+        _planId: SubscriptionPlanId,
+        _request: SetPlanCombinationsRequest,
+    ): Promise<PlanAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPlanCombinations);
+    },
+
+    listZones(_filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminListZones);
+    },
+    getZone(_zoneId: DeliveryZoneId): Promise<DeliveryZoneAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetZone);
+    },
+    createZone(_request: CreateDeliveryZoneRequest): Promise<DeliveryZoneAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateZone);
+    },
+    updateZone(
+        _zoneId: DeliveryZoneId,
+        _request: UpdateDeliveryZoneRequest,
+    ): Promise<DeliveryZoneAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateZone);
+    },
+    archiveZone(_zoneId: DeliveryZoneId, _request: LockedRequest): Promise<DeliveryZoneAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminArchiveZone);
+    },
+    setZoneAreas(
+        _zoneId: DeliveryZoneId,
+        _request: SetZoneAreasRequest,
+    ): Promise<DeliveryZoneAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetZoneAreas);
+    },
+    setDeliveryWindows(
+        _zoneId: DeliveryZoneId,
+        _request: SetDeliveryWindowsRequest,
+    ): Promise<DeliveryZoneAdmin> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetDeliveryWindows);
+    },
+
+    getBranchOperating(_branchId: KitchenBranchId): Promise<BranchOperating> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetBranchOperating);
+    },
+    setBranchOperating(
+        _branchId: KitchenBranchId,
+        _request: SetBranchOperatingRequest,
+    ): Promise<BranchOperating> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetBranchOperating);
+    },
+};
+
+/** The nine, as one bundle, for `createApiRepositories` to spread. */
 export const API_PROTOTYPE_REPOSITORIES = {
     marketplace: apiMarketplaceRepository,
     nutrition: apiNutritionRepository,
@@ -561,4 +902,5 @@ export const API_PROTOTYPE_REPOSITORIES = {
     commerce: apiCommerceRepository,
     business: apiBusinessRepository,
     professional: apiProfessionalRepository,
+    kitchenAdmin: apiKitchenAdminRepository,
 } as const;

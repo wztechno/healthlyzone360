@@ -52,7 +52,12 @@
         "hide": "Hide password"
     },
     "select": {
-        "placeholder": "Choose an option"
+        "placeholder": "Choose an option",
+        "searchLabel": "Filter the options",
+        "searchPlaceholder": "Type to filter",
+        "searchResults_one": "{{count}} matching option",
+        "searchResults_other": "{{count}} matching options",
+        "noResults": "No option matches your search."
     },
     "stepper": {
         "progress": "Step {{current}} of {{total}}"
@@ -70,7 +75,10 @@
         "remove": "Remove {{label}}"
     },
     "table": {
-        "empty": "There is nothing to show here yet."
+        "empty": "There is nothing to show here yet.",
+        "sortBy": "Sort by {{column}}",
+        "sortedAscending": "Sorted ascending",
+        "sortedDescending": "Sorted descending"
     },
     "dateField": {
         "day": "Day",
@@ -122,6 +130,7 @@
         "sampleHint": "A hint that explains the field.",
         "sampleError": "Something about this value is wrong.",
         "sampleOption": "Option {{index}}",
+        "searchableSelectLabel": "Sample field with a filter",
         "openDrawerEnd": "Open the trailing drawer",
         "openActionSheet": "Open the action sheet",
         "actionSheetTitle": "Choose an action",
@@ -149,6 +158,9 @@
         "tableColumnName": "Nutrient",
         "tableColumnAmount": "Amount",
         "tableColumnTarget": "Target",
+        "tableSortableCaption": "Example sortable table",
+        "tableActionHeader": "Actions",
+        "tableActionLabel": "View",
         "ringLabel": "Energy against target",
         "ringCaption": "kcal",
         "meterLabel": "Protein",

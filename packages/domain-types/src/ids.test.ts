@@ -19,6 +19,15 @@ import {
 const UUID_V7 = '01935f6c-1a2b-7c3d-8e4f-0123456789ab';
 const UUID_V4 = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 
+/** The identifiers K1's kitchen-management surface introduced. */
+const KITCHEN_MANAGEMENT_ID_LABELS: readonly string[] = [
+    'DeliveryWindowId',
+    'PriceListId',
+    'ProductId',
+    'RecipeVersionId',
+    'ServiceAreaId',
+];
+
 describe('isUuid', () => {
     it.each([UUID_V7, UUID_V4, UUID_V7.toUpperCase()])('accepts %s', (value) => {
         expect(isUuid(value)).toBe(true);
@@ -77,6 +86,7 @@ describe('identifier codecs', () => {
                             'OrganisationId',
                             'RoleId',
                             'UserId',
+                            ...KITCHEN_MANAGEMENT_ID_LABELS,
                         ].includes(label),
                 )
                 .sort(),
@@ -103,6 +113,19 @@ describe('identifier codecs', () => {
             'VdSessionId',
             'VolumeTierId',
         ]);
+    });
+
+    /**
+     * The K1 management identifiers, kept as their own group rather than folded into the list above.
+     * They name rows a consumer never sees — a recipe version, a price list, a service-area row —
+     * and the split is what makes "did this phase add an identifier?" answerable at a glance.
+     */
+    it('exposes the five kitchen-management identifiers', () => {
+        expect(
+            Object.keys(ID_CODECS)
+                .filter((label) => KITCHEN_MANAGEMENT_ID_LABELS.includes(label))
+                .sort(),
+        ).toEqual([...KITCHEN_MANAGEMENT_ID_LABELS].sort());
     });
 
     it('keeps every codec label unique', () => {

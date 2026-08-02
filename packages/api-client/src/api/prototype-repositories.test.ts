@@ -26,7 +26,7 @@ describeRepositoryContract({
 });
 
 describe('the api bundle exposes the prototype repositories', () => {
-    it('createApiRepositories returns all eight alongside the foundation four', () => {
+    it('createApiRepositories returns all nine alongside the foundation four', () => {
         const repositories = createApiRepositories({
             baseUrl: 'https://api.example',
             tokenStore: createMemoryTokenStore(),
@@ -40,6 +40,32 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(repositories.commerce).toBe(API_PROTOTYPE_REPOSITORIES.commerce);
         expect(repositories.business).toBe(API_PROTOTYPE_REPOSITORIES.business);
         expect(repositories.professional).toBe(API_PROTOTYPE_REPOSITORIES.professional);
+        expect(repositories.kitchenAdmin).toBe(API_PROTOTYPE_REPOSITORIES.kitchenAdmin);
+    });
+
+    /**
+     * The management endpoints live under two prefixes and nowhere else: `/reference/` for the
+     * platform-owned vocabularies a kitchen may only read, `/catalogue/` for the rows it owns.
+     * Asserted rather than assumed, because a management path that leaked into, say,
+     * `/marketplace/` would be an anonymous surface serving confidential data.
+     */
+    it('serves kitchen management from the reference and catalogue families only', () => {
+        const adminEndpoints = Object.entries(PROTOTYPE_ENDPOINTS)
+            .filter(([name]) => name.startsWith('admin'))
+            .map(([, endpoint]) => endpoint);
+
+        expect(adminEndpoints.length).toBeGreaterThan(40);
+        for (const endpoint of adminEndpoints) {
+            expect(endpoint).toMatch(/^(GET|POST|PUT|PATCH) \/api\/v1\/(reference|catalogue)\//);
+        }
+    });
+
+    /** Lifecycle transitions are sub-resource actions, never a status on a `PATCH` (plan §4.15). */
+    it('models publish, retire and archive as POST actions', () => {
+        for (const [name, endpoint] of Object.entries(PROTOTYPE_ENDPOINTS)) {
+            if (!/^admin(Publish|Retire|Archive)/.test(name)) continue;
+            expect(endpoint).toMatch(/^POST .*\/(publish|retire|archive)$/);
+        }
     });
 
     /**

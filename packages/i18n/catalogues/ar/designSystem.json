@@ -52,7 +52,16 @@
         "hide": "إخفاء كلمة المرور"
     },
     "select": {
-        "placeholder": "اختر أحد الخيارات"
+        "placeholder": "اختر أحد الخيارات",
+        "searchLabel": "تصفية الخيارات",
+        "searchPlaceholder": "اكتب للتصفية",
+        "searchResults_zero": "لا توجد خيارات مطابقة",
+        "searchResults_one": "خيار واحد مطابق",
+        "searchResults_two": "خياران مطابقان",
+        "searchResults_few": "{{count}} خيارات مطابقة",
+        "searchResults_many": "{{count}} خيارًا مطابقًا",
+        "searchResults_other": "{{count}} خيار مطابق",
+        "noResults": "لا يوجد خيار يطابق بحثك."
     },
     "stepper": {
         "progress": "الخطوة {{current}} من {{total}}"
@@ -70,7 +79,10 @@
         "remove": "إزالة {{label}}"
     },
     "table": {
-        "empty": "لا يوجد شيء لعرضه هنا بعد."
+        "empty": "لا يوجد شيء لعرضه هنا بعد.",
+        "sortBy": "الترتيب حسب {{column}}",
+        "sortedAscending": "مرتَّب تصاعديًا",
+        "sortedDescending": "مرتَّب تنازليًا"
     },
     "dateField": {
         "day": "اليوم",
@@ -126,6 +138,7 @@
         "sampleHint": "ملاحظة توضّح الحقل.",
         "sampleError": "هناك خطأ في هذه القيمة.",
         "sampleOption": "الخيار {{index}}",
+        "searchableSelectLabel": "حقل تجريبي مع تصفية",
         "openDrawerEnd": "فتح اللوحة من الحافة الخلفية",
         "openActionSheet": "فتح قائمة الإجراءات",
         "actionSheetTitle": "اختر إجراءً",
@@ -153,6 +166,9 @@
         "tableColumnName": "العنصر الغذائي",
         "tableColumnAmount": "الكمية",
         "tableColumnTarget": "الهدف",
+        "tableSortableCaption": "جدول تجريبي قابل للترتيب",
+        "tableActionHeader": "الإجراءات",
+        "tableActionLabel": "عرض",
         "ringLabel": "الطاقة مقابل الهدف",
         "ringCaption": "سعرة",
         "meterLabel": "البروتين",

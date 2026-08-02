@@ -18,7 +18,7 @@ import {
 /**
  * `describeRepositoryContract()` — one behavioural specification, run against both bundles.
  *
- * The mock and the API repositories satisfy the same eight interfaces, and the only reason that is
+ * The mock and the API repositories satisfy the same nine interfaces, and the only reason that is
  * worth anything is if something checks it. This factory is that something. It is run twice:
  *
  * - against **the mock bundle**, where it asserts real behaviour — the pagination shape, that the
@@ -40,6 +40,7 @@ export const REPOSITORY_KEYS = [
     'commerce',
     'business',
     'professional',
+    'kitchenAdmin',
 ] as const;
 
 export type RepositoryKey = (typeof REPOSITORY_KEYS)[number];
@@ -127,6 +128,61 @@ export const CONTRACT_METHODS: Readonly<Record<RepositoryKey, readonly string[]>
         'getClientPlan',
         'setDietitianNote',
         'setOverride',
+    ],
+    kitchenAdmin: [
+        'listAllergenClasses',
+        'listServiceAreas',
+        'listIngredients',
+        'getIngredient',
+        'createIngredient',
+        'updateIngredient',
+        'archiveIngredient',
+        'setIngredientAllergens',
+        'listRecipes',
+        'getRecipe',
+        'createRecipe',
+        'updateRecipe',
+        'setRecipeLines',
+        'setRecipeSteps',
+        'setRecipeOutputs',
+        'previewRecipeRollup',
+        'publishRecipe',
+        'retireRecipe',
+        'listProducts',
+        'getProduct',
+        'createProduct',
+        'updateProduct',
+        'archiveProduct',
+        'setProductChannelAvailability',
+        'listPriceLists',
+        'getPriceList',
+        'setPriceListEntries',
+        'publishPriceList',
+        'listMeals',
+        'getMeal',
+        'createMeal',
+        'updateMeal',
+        'publishMeal',
+        'retireMeal',
+        'setMealAvailability',
+        'listPlans',
+        'getPlan',
+        'createPlan',
+        'updatePlan',
+        'publishPlan',
+        'retirePlan',
+        'setPlanVariants',
+        'setPlanDurations',
+        'setPlanCombinations',
+        'listZones',
+        'getZone',
+        'createZone',
+        'updateZone',
+        'archiveZone',
+        'setZoneAreas',
+        'setDeliveryWindows',
+        'getBranchOperating',
+        'setBranchOperating',
     ],
 };
 

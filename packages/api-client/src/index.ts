@@ -10,14 +10,18 @@ export {
     ApiError,
     apiFailure,
     asApiFailure,
+    conflictFailure,
     createMemoryTokenStore,
     createTokenListeners,
     defaultRetryable,
     isApiFailure,
     isApiFailureCode,
     isAutoRetryable,
+    isConflictFailure,
+    isPermissionDeniedFailure,
     isRateLimitFailure,
     isValidationFailure,
+    permissionDeniedFailure,
     rateLimitFailure,
     throwFailure,
     validationFailure,
@@ -51,7 +55,7 @@ export type {
 } from './contracts/index.ts';
 
 /**
- * The eight Prompt 2 repository interfaces.
+ * The nine proposed repository interfaces — the eight from Prompt 2 plus K1's `kitchenAdmin`.
  *
  * Only the *interfaces*: the models, filters and request shapes they trade in are a large
  * vocabulary, and a screen imports those from `@healthy360/api-client/contracts` rather than
@@ -64,6 +68,7 @@ export type {
     CursorPage,
     CursorPageRequest,
     FoodRepository,
+    KitchenAdminRepository,
     MarketplaceRepository,
     MealPlanRepository,
     NumericRangeFilter,

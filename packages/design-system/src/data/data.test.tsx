@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 import { Text as RNText, useWindowDimensions } from 'react-native';
 
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
@@ -124,6 +124,222 @@ describe('Table — wide', () => {
         expect(screen.getByTestId('nutrients-empty')).toHaveTextContent(
             'There is nothing to show here yet.',
         );
+    });
+});
+
+describe('Table — sorting', () => {
+    /** `name` stays unsortable on purpose: it is what proves `aria-sort` is omitted, not "none". */
+    const sortableColumns: readonly TableColumn<NutrientRow>[] = columns.map((column) =>
+        column.key === 'name' ? column : { ...column, sortable: true },
+    );
+
+    it('puts the state on the header and omits it where there is nothing to sort', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.getByTestId('nutrients-columnheader-amount').props['aria-sort']).toBe(
+            'descending',
+        );
+        expect(screen.getByTestId('nutrients-columnheader-target').props['aria-sort']).toBe('none');
+        // Not "none" — a column that cannot be sorted must carry no `aria-sort` at all.
+        expect(
+            screen.getByTestId('nutrients-columnheader-name').props['aria-sort'],
+        ).toBeUndefined();
+        expect(screen.queryByTestId('nutrients-sort-name')).toBeNull();
+    });
+
+    it('names the sort control and reads it as a button', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="asc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        const button = screen.getByTestId('nutrients-sort-amount');
+        expect(button.props.accessibilityRole).toBe('button');
+        expect(button.props.accessibilityLabel).toBe('Sort by Amount');
+        // Native has no `aria-sort`, so the state has to reach it some other way.
+        expect(button.props.accessibilityHint).toBe('Sorted ascending');
+        expect(screen.getByTestId('nutrients-sort-target').props.accessibilityHint).toBeUndefined();
+    });
+
+    it('toggles the direction when the active column is pressed again', async () => {
+        const onSortChange = jest.fn();
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="asc"
+                onSortChange={onSortChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('nutrients-sort-amount'));
+        expect(onSortChange).toHaveBeenCalledWith('amount', 'desc');
+    });
+
+    it('starts a newly chosen column ascending', async () => {
+        const onSortChange = jest.fn();
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={onSortChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('nutrients-sort-target'));
+        expect(onSortChange).toHaveBeenCalledWith('target', 'asc');
+    });
+
+    /** Fully controlled: the table reports intent and renders whatever the caller hands back. */
+    it('never reorders the rows itself', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        const order = screen
+            .getAllByTestId(/^nutrients-row-/)
+            .map((node) => node.props.testID as string);
+        expect(order).toEqual(['nutrients-row-protein', 'nutrients-row-fibre']);
+    });
+
+    it('translates the sort control', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="القيم الغذائية"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={jest.fn()}
+            />,
+            'ar',
+        );
+
+        expect(screen.getByTestId('nutrients-sort-amount').props.accessibilityLabel).toBe(
+            'الترتيب حسب Amount',
+        );
+        expect(screen.getByTestId('nutrients-sort-amount').props.accessibilityHint).toBe(
+            'مرتَّب تنازليًا',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('nutrients'));
+    });
+
+    /** A card list has no column headers, so there is nothing to press and nothing to draw. */
+    it('offers no sorting affordance in the stacked presentation', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="asc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.queryByTestId('nutrients-sort-amount')).toBeNull();
+        expect(screen.getByTestId('nutrients-card-protein')).toBeTruthy();
+    });
+});
+
+describe('Table — row action', () => {
+    const rowAction = {
+        header: 'Actions',
+        render: (row: NutrientRow) => <RNText testID={`action-${row.key}`}>View</RNText>,
+    };
+
+    it('is a trailing cell above md, and is counted in the column count', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                rowAction={rowAction}
+            />,
+        );
+
+        expect(screen.getByTestId('nutrients-table').props['aria-colcount']).toBe(4);
+        expect(screen.getByTestId('nutrients-columnheader-action').props.role).toBe('columnheader');
+        expect(screen.getByTestId('nutrients-columnheader-action')).toHaveTextContent('Actions');
+        expect(screen.getByTestId('nutrients-cell-protein-action').props.role).toBe('cell');
+        expect(screen.getByTestId('action-protein')).toHaveTextContent('View');
+    });
+
+    it('leaves the column count alone when there is no action', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+            />,
+        );
+
+        expect(screen.getByTestId('nutrients-table').props['aria-colcount']).toBe(3);
+        expect(screen.queryByTestId('nutrients-columnheader-action')).toBeNull();
+    });
+
+    it('becomes a footer inside each card below md', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                rowAction={rowAction}
+            />,
+        );
+
+        expect(screen.queryByTestId('nutrients-table')).toBeNull();
+        expect(screen.getByTestId('nutrients-card-protein-action')).toBeTruthy();
+        expect(screen.getByTestId('action-fibre')).toHaveTextContent('View');
     });
 });
 

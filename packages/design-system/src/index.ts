@@ -135,7 +135,7 @@ export { Breadcrumbs } from './navigation/breadcrumbs.tsx';
 export type { BreadcrumbItem, BreadcrumbsProps } from './navigation/breadcrumbs.tsx';
 
 export { Table } from './data/table.tsx';
-export type { TableColumn, TableProps } from './data/table.tsx';
+export type { TableColumn, TableProps, TableRowAction, TableSortDirection } from './data/table.tsx';
 export { CalendarGrid } from './data/calendar-grid.tsx';
 export type {
     CalendarCell,

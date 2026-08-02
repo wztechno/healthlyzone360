@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 2824 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 2840 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1137,7 +1137,11 @@ export interface NamespaceKeys {
     | 'rangeFilter.min'
     | 'rating.count'
     | 'rating.summary'
+    | 'select.noResults'
     | 'select.placeholder'
+    | 'select.searchLabel'
+    | 'select.searchPlaceholder'
+    | 'select.searchResults'
     | 'shell.openNavigation'
     | 'shell.primaryNavigation'
     | 'shell.skipToContent'
@@ -1184,6 +1188,7 @@ export interface NamespaceKeys {
     | 'showcase.sampleHint'
     | 'showcase.sampleLabel'
     | 'showcase.sampleOption'
+    | 'showcase.searchableSelectLabel'
     | 'showcase.sections.actions'
     | 'showcase.sections.content'
     | 'showcase.sections.data'
@@ -1203,10 +1208,13 @@ export interface NamespaceKeys {
     | 'showcase.tabDelivery'
     | 'showcase.tabNutrition'
     | 'showcase.tabOverview'
+    | 'showcase.tableActionHeader'
+    | 'showcase.tableActionLabel'
     | 'showcase.tableCaption'
     | 'showcase.tableColumnAmount'
     | 'showcase.tableColumnName'
     | 'showcase.tableColumnTarget'
+    | 'showcase.tableSortableCaption'
     | 'showcase.tabsLabel'
     | 'showcase.title'
     | 'showcase.toastMessage'
@@ -1232,19 +1240,26 @@ export interface NamespaceKeys {
     | 'spike.typography.description'
     | 'stepper.progress'
     | 'swatch.contrast'
-    | 'table.empty';
+    | 'table.empty'
+    | 'table.sortBy'
+    | 'table.sortedAscending'
+    | 'table.sortedDescending';
   readonly "errors":
     | 'failure.auth_email_unverified'
     | 'failure.auth_invalid_credentials'
     | 'failure.auth_step_up_required'
     | 'failure.auth_two_factor_required'
     | 'failure.auth_unauthenticated'
+    | 'failure.authz_permission_denied'
     | 'failure.context_branch_out_of_scope'
     | 'failure.context_organisation_forbidden'
     | 'failure.context_organisation_required'
     | 'failure.network'
     | 'failure.prototype_not_implemented'
     | 'failure.rate_limit_exceeded'
+    | 'failure.request_precondition_required'
+    | 'failure.resource_conflict'
+    | 'failure.resource_not_found'
     | 'failure.server'
     | 'failure.validation_failed'
     | 'generic.body'
@@ -1269,6 +1284,8 @@ export interface NamespaceKeys {
     | 'validation.password_min_length'
     | 'validation.password_mismatch'
     | 'validation.required';
+  readonly "kitchen":
+    | 'title';
   readonly "marketplace":
     | 'allergens.celery'
     | 'allergens.crustaceans'
@@ -3979,7 +3996,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:rangeFilter.min',
   'designSystem:rating.count',
   'designSystem:rating.summary',
+  'designSystem:select.noResults',
   'designSystem:select.placeholder',
+  'designSystem:select.searchLabel',
+  'designSystem:select.searchPlaceholder',
+  'designSystem:select.searchResults',
   'designSystem:shell.openNavigation',
   'designSystem:shell.primaryNavigation',
   'designSystem:shell.skipToContent',
@@ -4026,6 +4047,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.sampleHint',
   'designSystem:showcase.sampleLabel',
   'designSystem:showcase.sampleOption',
+  'designSystem:showcase.searchableSelectLabel',
   'designSystem:showcase.sections.actions',
   'designSystem:showcase.sections.content',
   'designSystem:showcase.sections.data',
@@ -4045,10 +4067,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.tabDelivery',
   'designSystem:showcase.tabNutrition',
   'designSystem:showcase.tabOverview',
+  'designSystem:showcase.tableActionHeader',
+  'designSystem:showcase.tableActionLabel',
   'designSystem:showcase.tableCaption',
   'designSystem:showcase.tableColumnAmount',
   'designSystem:showcase.tableColumnName',
   'designSystem:showcase.tableColumnTarget',
+  'designSystem:showcase.tableSortableCaption',
   'designSystem:showcase.tabsLabel',
   'designSystem:showcase.title',
   'designSystem:showcase.toastMessage',
@@ -4075,17 +4100,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:stepper.progress',
   'designSystem:swatch.contrast',
   'designSystem:table.empty',
+  'designSystem:table.sortBy',
+  'designSystem:table.sortedAscending',
+  'designSystem:table.sortedDescending',
   'errors:failure.auth_email_unverified',
   'errors:failure.auth_invalid_credentials',
   'errors:failure.auth_step_up_required',
   'errors:failure.auth_two_factor_required',
   'errors:failure.auth_unauthenticated',
+  'errors:failure.authz_permission_denied',
   'errors:failure.context_branch_out_of_scope',
   'errors:failure.context_organisation_forbidden',
   'errors:failure.context_organisation_required',
   'errors:failure.network',
   'errors:failure.prototype_not_implemented',
   'errors:failure.rate_limit_exceeded',
+  'errors:failure.request_precondition_required',
+  'errors:failure.resource_conflict',
+  'errors:failure.resource_not_found',
   'errors:failure.server',
   'errors:failure.validation_failed',
   'errors:generic.body',
@@ -4110,6 +4142,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
+  'kitchen:title',
   'marketplace:allergens.celery',
   'marketplace:allergens.crustaceans',
   'marketplace:allergens.egg',

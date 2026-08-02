@@ -11,7 +11,20 @@ import type { RepositoryAppEnv } from './registry.ts';
 
 const NON_PRODUCTION: readonly RepositoryAppEnv[] = ['development', 'preview'];
 
-describe('createRepositories — mock mode', () => {
+/**
+ * Mock mode pays for a **cold dynamic import of the entire fixture world** — sixty ingredients,
+ * twenty recipes rolled up through the nutrition package, forty meals, and since K1 the mutable
+ * kitchen catalogue on top. That is the code split working as designed, and it is what these tests
+ * exist to prove is reachable; but it is transform-and-import work, not test work, and Vitest's
+ * five-second default is sized for the latter. Under `turbo run ... test` every package's workers
+ * compete for the same cores and the import alone has been measured above five seconds.
+ *
+ * The generous ceiling is therefore on the *import*, not on any behaviour: every assertion below
+ * still runs in single-digit milliseconds once the chunk is loaded.
+ */
+const MOCK_IMPORT_TIMEOUT_MS = 30_000;
+
+describe('createRepositories — mock mode', { timeout: MOCK_IMPORT_TIMEOUT_MS }, () => {
     it.each(NON_PRODUCTION)('builds mock repositories in %s', async (appEnv) => {
         const repositories = await createRepositories({
             dataMode: 'mock',

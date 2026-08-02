@@ -227,5 +227,6 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         commerce: prototype.commerce,
         business: prototype.business,
         professional: prototype.professional,
+        kitchenAdmin: prototype.kitchenAdmin,
     };
 }

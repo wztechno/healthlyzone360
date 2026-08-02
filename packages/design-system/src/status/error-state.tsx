@@ -19,6 +19,13 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'context.organisation_required': 'errors:failure.context_organisation_required',
     'context.organisation_forbidden': 'errors:failure.context_organisation_forbidden',
     'context.branch_out_of_scope': 'errors:failure.context_branch_out_of_scope',
+    // The four management codes (K1). `resource.conflict` and `request.precondition_required` are
+    // deliberately worded for the person rather than the developer: one says somebody else saved
+    // first, the other says the app sent a stale change — neither blames them for a typing mistake.
+    'authz.permission_denied': 'errors:failure.authz_permission_denied',
+    'resource.not_found': 'errors:failure.resource_not_found',
+    'resource.conflict': 'errors:failure.resource_conflict',
+    'request.precondition_required': 'errors:failure.request_precondition_required',
     'validation.failed': 'errors:failure.validation_failed',
     'rate_limit.exceeded': 'errors:failure.rate_limit_exceeded',
     // Raised by every prototype API repository. The record is exhaustive over `ApiFailure['code']`,

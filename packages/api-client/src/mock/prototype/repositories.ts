@@ -41,6 +41,30 @@ import type {
 } from '../../contracts/commerce.ts';
 import { apiFailure, throwFailure } from '../../contracts/failure.ts';
 import type {
+    AllergenClass,
+    BranchOperating,
+    DeliveryZoneAdmin,
+    DeliveryZoneAdminFilter,
+    IngredientAdmin,
+    IngredientAdminFilter,
+    KitchenAdminRepository,
+    MealAdmin,
+    MealAdminFilter,
+    PlanAdmin,
+    PlanAdminFilter,
+    PriceListAdmin,
+    PriceListAdminFilter,
+    ProductAdmin,
+    ProductAdminFilter,
+    PublishableStatus,
+    RecipeAdmin,
+    RecipeAdminFilter,
+    RecipeAdminSummary,
+    RecipeRollupPreview,
+    ServiceArea,
+    ServiceAreaFilter,
+} from '../../contracts/kitchen-admin.ts';
+import type {
     Food,
     FoodRepository,
     FoodSearchFilter,
@@ -119,13 +143,8 @@ import { totalRecipeMinutes } from './fixtures/index.ts';
 import {
     PROTOTYPE_DIETITIANS,
     PROTOTYPE_DIET_CATEGORIES,
-    PROTOTYPE_KITCHENS,
-    PROTOTYPE_MEALS,
-    PROTOTYPE_PLANS,
-    PROTOTYPE_RECIPES,
     dietitianByKey,
     hasChannels,
-    kitchenById,
 } from './fixtures/index.ts';
 import { PrototypeStore } from './store.ts';
 
@@ -237,6 +256,7 @@ export interface PrototypeRepositoryBundle {
     readonly commerce: CommerceRepository;
     readonly business: BusinessRepository;
     readonly professional: ProfessionalRepository;
+    readonly kitchenAdmin: KitchenAdminRepository;
 }
 
 export interface PrototypeRepositories extends PrototypeRepositoryBundle {
@@ -268,7 +288,7 @@ export function createPrototypeRepositories(
     const marketplace: MarketplaceRepository = {
         async listKitchens(filter?: KitchenFilter): Promise<CursorPage<Kitchen>> {
             await settle();
-            const matched = PROTOTYPE_KITCHENS.filter((kitchen) => {
+            const matched = store.kitchens().filter((kitchen) => {
                 if (
                     !matchesText(
                         [kitchen.name, kitchen.tagline, kitchen.description, ...kitchen.cuisines],
@@ -314,12 +334,12 @@ export function createPrototypeRepositories(
 
         async getKitchen(kitchenId: KitchenId): Promise<Kitchen> {
             await settle();
-            return kitchenById(kitchenId) ?? notFound('kitchen', String(kitchenId));
+            return store.kitchen(kitchenId) ?? notFound('kitchen', String(kitchenId));
         },
 
         async listMeals(filter?: MealFilter): Promise<CursorPage<MarketplaceMeal>> {
             await settle();
-            const matched = PROTOTYPE_MEALS.filter((meal) => {
+            const matched = store.meals().filter((meal) => {
                 // A meal is only *listed* where its kitchen is configured for the marketplace.
                 // Privacy by construction, again: a wholesale kitchen has no consumer listing.
                 if (!meal.channels.marketplace) return false;
@@ -371,15 +391,12 @@ export function createPrototypeRepositories(
 
         async getMeal(mealId: MealId): Promise<MarketplaceMeal> {
             await settle();
-            return (
-                PROTOTYPE_MEALS.find((meal) => meal.id === mealId) ??
-                notFound('marketplace meal', String(mealId))
-            );
+            return store.meal(mealId) ?? notFound('marketplace meal', String(mealId));
         },
 
         async listPlans(filter?: PlanFilter): Promise<CursorPage<SubscriptionPlan>> {
             await settle();
-            const matched = PROTOTYPE_PLANS.filter((plan) => {
+            const matched = store.marketplacePlans().filter((plan) => {
                 if (!matchesText([plan.name, plan.summary, plan.description], filter?.query)) {
                     return false;
                 }
@@ -427,10 +444,7 @@ export function createPrototypeRepositories(
 
         async getPlan(planId: SubscriptionPlanId): Promise<SubscriptionPlan> {
             await settle();
-            return (
-                PROTOTYPE_PLANS.find((plan) => plan.id === planId) ??
-                notFound('subscription plan', String(planId))
-            );
+            return store.marketplacePlan(planId) ?? notFound('subscription plan', String(planId));
         },
 
         async listDietitians(filter?: DietitianFilter): Promise<CursorPage<Dietitian>> {
@@ -661,7 +675,7 @@ export function createPrototypeRepositories(
             await settle();
             const pantryIds = new Set(store.pantry().items.map((item) => item.ingredientId));
 
-            const matched = PROTOTYPE_RECIPES.filter((recipe) => {
+            const matched = store.recipes().filter((recipe) => {
                 if (
                     !matchesText(
                         [recipe.name, recipe.description, ...recipe.cuisines],
@@ -1019,6 +1033,342 @@ export function createPrototypeRepositories(
         },
     };
 
+    /* ── kitchen management ────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The management surface, over the *same* catalogue the marketplace repository above reads.
+     *
+     * That is the whole point of the store refactor: publishing a meal here makes it appear in
+     * `marketplace.listMeals`, retiring one removes it, and editing a branch's opening hours changes
+     * what `getKitchen` reports — because there is one collection, not two.
+     */
+    const kitchenAdmin: KitchenAdminRepository = {
+        async listAllergenClasses(): Promise<readonly AllergenClass[]> {
+            await settle();
+            return store.kitchenCatalogue.allergenClasses();
+        },
+        async listServiceAreas(filter?: ServiceAreaFilter): Promise<CursorPage<ServiceArea>> {
+            await settle();
+            const matched = store.kitchenCatalogue.serviceAreas().filter((area) => {
+                if (!matchesText([area.name.en, area.name.ar], filter?.query)) return false;
+                if (filter?.countryCode !== undefined && area.countryCode !== filter.countryCode) {
+                    return false;
+                }
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+
+        async listIngredients(
+            filter?: IngredientAdminFilter,
+        ): Promise<CursorPage<IngredientAdmin>> {
+            await settle();
+            const matched = store.kitchenCatalogue.listIngredients().filter((row) => {
+                if (!matchesText([row.name.en, row.name.ar, ...row.aliases], filter?.query)) {
+                    return false;
+                }
+                if (!hasStatus(row.meta.status, filter?.statuses)) return false;
+                if (
+                    filter?.categoryCode !== undefined &&
+                    row.categoryCode !== filter.categoryCode
+                ) {
+                    return false;
+                }
+                if (
+                    filter?.allergenCodes !== undefined &&
+                    filter.allergenCodes.length > 0 &&
+                    !row.allergens.some((mapping) =>
+                        filter.allergenCodes?.includes(mapping.allergenCode),
+                    )
+                ) {
+                    return false;
+                }
+                if (filter?.ownedOnly === true && row.organisationId === null) return false;
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+        async getIngredient(ingredientId): Promise<IngredientAdmin> {
+            await settle();
+            return store.kitchenCatalogue.getIngredient(ingredientId);
+        },
+        async createIngredient(request): Promise<IngredientAdmin> {
+            await settle();
+            return store.kitchenCatalogue.createIngredient(request);
+        },
+        async updateIngredient(ingredientId, request): Promise<IngredientAdmin> {
+            await settle();
+            return store.kitchenCatalogue.updateIngredient(ingredientId, request);
+        },
+        async archiveIngredient(ingredientId, request): Promise<IngredientAdmin> {
+            await settle();
+            return store.kitchenCatalogue.archiveIngredient(ingredientId, request);
+        },
+        async setIngredientAllergens(ingredientId, request): Promise<IngredientAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setIngredientAllergens(ingredientId, request);
+        },
+
+        async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
+            await settle();
+            const matched = store.kitchenCatalogue.listRecipes().filter((row) => {
+                if (!matchesText([row.name.en, row.name.ar, row.slug], filter?.query)) return false;
+                if (!hasStatus(row.meta.status, filter?.statuses)) return false;
+                if (filter?.kitchenId !== undefined && row.kitchenId !== filter.kitchenId) {
+                    return false;
+                }
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+        async getRecipe(recipeId): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.getRecipe(recipeId);
+        },
+        async createRecipe(request): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.createRecipe(request);
+        },
+        async updateRecipe(recipeId, request): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.updateRecipe(recipeId, request);
+        },
+        async setRecipeLines(recipeId, request): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setRecipeLines(recipeId, request);
+        },
+        async setRecipeSteps(recipeId, request): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setRecipeSteps(recipeId, request);
+        },
+        async setRecipeOutputs(recipeId, request): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setRecipeOutputs(recipeId, request);
+        },
+        async previewRecipeRollup(draft): Promise<RecipeRollupPreview> {
+            await settle();
+            return store.kitchenCatalogue.previewRecipeRollup(draft);
+        },
+        async publishRecipe(recipeId, request): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.publishRecipe(recipeId, request);
+        },
+        async retireRecipe(recipeId, request): Promise<RecipeAdmin> {
+            await settle();
+            return store.kitchenCatalogue.retireRecipe(recipeId, request);
+        },
+
+        async listProducts(filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {
+            await settle();
+            const matched = store.kitchenCatalogue.listProducts().filter((row) => {
+                if (!matchesText([row.name.en, row.name.ar], filter?.query)) return false;
+                if (!hasStatus(row.meta.status, filter?.statuses)) return false;
+                if (
+                    filter?.categoryCode !== undefined &&
+                    row.categoryCode !== filter.categoryCode
+                ) {
+                    return false;
+                }
+                if (
+                    filter?.channels !== undefined &&
+                    filter.channels.length > 0 &&
+                    !row.channelAvailability.some(
+                        (entry) => entry.isAvailable && filter.channels?.includes(entry.channel),
+                    )
+                ) {
+                    return false;
+                }
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+        async getProduct(productId): Promise<ProductAdmin> {
+            await settle();
+            return store.kitchenCatalogue.getProduct(productId);
+        },
+        async createProduct(request): Promise<ProductAdmin> {
+            await settle();
+            return store.kitchenCatalogue.createProduct(request);
+        },
+        async updateProduct(productId, request): Promise<ProductAdmin> {
+            await settle();
+            return store.kitchenCatalogue.updateProduct(productId, request);
+        },
+        async archiveProduct(productId, request): Promise<ProductAdmin> {
+            await settle();
+            return store.kitchenCatalogue.archiveProduct(productId, request);
+        },
+        async setProductChannelAvailability(productId, request): Promise<ProductAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setProductChannelAvailability(productId, request);
+        },
+
+        async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
+            await settle();
+            const matched = store.kitchenCatalogue.listPriceLists().filter((row) => {
+                if (!matchesText([row.name.en, row.name.ar], filter?.query)) return false;
+                if (!hasStatus(row.meta.status, filter?.statuses)) return false;
+                if (filter?.currency !== undefined && row.currency !== filter.currency)
+                    return false;
+                if (
+                    filter?.channels !== undefined &&
+                    filter.channels.length > 0 &&
+                    !row.channels.some((channel) => filter.channels?.includes(channel))
+                ) {
+                    return false;
+                }
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+        async getPriceList(priceListId): Promise<PriceListAdmin> {
+            await settle();
+            return store.kitchenCatalogue.getPriceList(priceListId);
+        },
+        async setPriceListEntries(priceListId, request): Promise<PriceListAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setPriceListEntries(priceListId, request);
+        },
+        async publishPriceList(priceListId, request): Promise<PriceListAdmin> {
+            await settle();
+            return store.kitchenCatalogue.publishPriceList(priceListId, request);
+        },
+
+        async listMeals(filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
+            await settle();
+            const matched = store.kitchenCatalogue.listMeals().filter((row) => {
+                if (!matchesText([row.name.en, row.name.ar], filter?.query)) return false;
+                if (!hasStatus(row.meta.status, filter?.statuses)) return false;
+                if (filter?.kitchenId !== undefined && row.kitchenId !== filter.kitchenId) {
+                    return false;
+                }
+                if (!overlaps(row.mealTypes, filter?.mealTypes)) return false;
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+        async getMeal(mealId): Promise<MealAdmin> {
+            await settle();
+            return store.kitchenCatalogue.getMeal(mealId);
+        },
+        async createMeal(request): Promise<MealAdmin> {
+            await settle();
+            return store.kitchenCatalogue.createMeal(request);
+        },
+        async updateMeal(mealId, request): Promise<MealAdmin> {
+            await settle();
+            return store.kitchenCatalogue.updateMeal(mealId, request);
+        },
+        async publishMeal(mealId, request): Promise<MealAdmin> {
+            await settle();
+            return store.kitchenCatalogue.publishMeal(mealId, request);
+        },
+        async retireMeal(mealId, request): Promise<MealAdmin> {
+            await settle();
+            return store.kitchenCatalogue.retireMeal(mealId, request);
+        },
+        async setMealAvailability(mealId, request): Promise<MealAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setMealAvailability(mealId, request);
+        },
+
+        async listPlans(filter?: PlanAdminFilter): Promise<CursorPage<PlanAdmin>> {
+            await settle();
+            const matched = store.kitchenCatalogue.listPlans().filter((row) => {
+                if (!matchesText([row.name.en, row.name.ar, row.summary.en], filter?.query)) {
+                    return false;
+                }
+                if (!hasStatus(row.meta.status, filter?.statuses)) return false;
+                if (filter?.kitchenId !== undefined && row.kitchenId !== filter.kitchenId) {
+                    return false;
+                }
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+        async getPlan(planId): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.getPlan(planId);
+        },
+        async createPlan(request): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.createPlan(request);
+        },
+        async updatePlan(planId, request): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.updatePlan(planId, request);
+        },
+        async publishPlan(planId, request): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.publishPlan(planId, request);
+        },
+        async retirePlan(planId, request): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.retirePlan(planId, request);
+        },
+        async setPlanVariants(planId, request): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setPlanVariants(planId, request);
+        },
+        async setPlanDurations(planId, request): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setPlanDurations(planId, request);
+        },
+        async setPlanCombinations(planId, request): Promise<PlanAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setPlanCombinations(planId, request);
+        },
+
+        async listZones(filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {
+            await settle();
+            const matched = store.kitchenCatalogue.listZones().filter((row) => {
+                if (!matchesText([row.name.en, row.name.ar], filter?.query)) return false;
+                if (!hasStatus(row.meta.status, filter?.statuses)) return false;
+                if (
+                    filter?.branchId !== undefined &&
+                    !row.branchIds.some((branchId) => branchId === filter.branchId)
+                ) {
+                    return false;
+                }
+                return true;
+            });
+            return paginate(matched, filter);
+        },
+        async getZone(zoneId): Promise<DeliveryZoneAdmin> {
+            await settle();
+            return store.kitchenCatalogue.getZone(zoneId);
+        },
+        async createZone(request): Promise<DeliveryZoneAdmin> {
+            await settle();
+            return store.kitchenCatalogue.createZone(request);
+        },
+        async updateZone(zoneId, request): Promise<DeliveryZoneAdmin> {
+            await settle();
+            return store.kitchenCatalogue.updateZone(zoneId, request);
+        },
+        async archiveZone(zoneId, request): Promise<DeliveryZoneAdmin> {
+            await settle();
+            return store.kitchenCatalogue.archiveZone(zoneId, request);
+        },
+        async setZoneAreas(zoneId, request): Promise<DeliveryZoneAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setZoneAreas(zoneId, request);
+        },
+        async setDeliveryWindows(zoneId, request): Promise<DeliveryZoneAdmin> {
+            await settle();
+            return store.kitchenCatalogue.setDeliveryWindows(zoneId, request);
+        },
+
+        async getBranchOperating(branchId): Promise<BranchOperating> {
+            await settle();
+            return store.kitchenCatalogue.getBranchOperating(branchId);
+        },
+        async setBranchOperating(branchId, request): Promise<BranchOperating> {
+            await settle();
+            return store.kitchenCatalogue.setBranchOperating(branchId, request);
+        },
+    };
+
     return {
         store,
         marketplace,
@@ -1029,7 +1379,16 @@ export function createPrototypeRepositories(
         commerce,
         business,
         professional,
+        kitchenAdmin,
     };
+}
+
+/** Status filters are "any of these", and an absent filter means "every status". */
+function hasStatus(
+    status: PublishableStatus,
+    wanted: readonly PublishableStatus[] | undefined,
+): boolean {
+    return wanted === undefined || wanted.length === 0 || wanted.includes(status);
 }
 
 /** Proportion of a recipe's ingredients the pantry already covers, 0–1. */

@@ -1,11 +1,16 @@
 import type {
     CartId,
     CorporateProgrammeId,
+    DeliveryZoneId,
     DietitianId,
+    IngredientId,
+    KitchenBranchId,
     KitchenId,
     MealId,
     MealPlanEntryId,
     MealPlanId,
+    PriceListId,
+    ProductId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
@@ -28,6 +33,9 @@ import type {
  * in another — two caches for one fact, and an invalidation that misses half of them). So the map
  * is complete from the start. **Later waves read this file and do not edit it.** A wave that needs a
  * key which is genuinely absent asks for it rather than adding one.
+ *
+ * `kitchenAdmin` is the twelfth root, added whole by K1 for the same reason: the kitchen workspace
+ * is several slices, and each of them would otherwise edit this object.
  *
  * ## Shape rules
  *
@@ -54,6 +62,7 @@ export const QUERY_ROOTS = [
     'commerce',
     'business',
     'professional',
+    'kitchenAdmin',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -231,15 +240,77 @@ export const queryKeys = {
         clientPlan: (clientId: UserId, planId: MealPlanId, weekStart: string) =>
             ['professional', 'client-plan', clientId, planId, weekStart] as const,
     },
+
+    /**
+     * ── kitchenAdmin: the kitchen workspace (K1) ────────────────────────────────────────────────
+     *
+     * One entry per entity family plus a detail-by-identifier, so a mutation invalidates the list it
+     * changed and the row it changed, and a lifecycle action invalidates the family prefix.
+     *
+     * **Never persisted, and the reason is not "personal data".** This root holds purchase costs,
+     * technical-sheet cost lines and margins, and the device it renders on is a shared kitchen
+     * tablet that several people sign into. Writing that to disk would leave one kitchen's costs
+     * readable by the next person to pick the tablet up, without anybody having signed in at all.
+     * `PERSISTABLE_QUERY_ROOTS` below therefore stays `['reference', 'catalogue']`.
+     */
+    kitchenAdmin: {
+        all: () => ['kitchenAdmin'] as const,
+
+        /** Platform reference, read-only in this workspace. */
+        allergenClasses: () => ['kitchenAdmin', 'allergen-classes'] as const,
+        serviceAreas: (filter?: QueryScope) =>
+            ['kitchenAdmin', 'service-areas', scope(filter)] as const,
+
+        ingredients: (filter?: QueryScope) =>
+            ['kitchenAdmin', 'ingredients', scope(filter)] as const,
+        ingredient: (ingredientId: IngredientId) =>
+            ['kitchenAdmin', 'ingredient', ingredientId] as const,
+
+        recipes: (filter?: QueryScope) => ['kitchenAdmin', 'recipes', scope(filter)] as const,
+        recipe: (recipeId: RecipeId) => ['kitchenAdmin', 'recipe', recipeId] as const,
+        /**
+         * The line editor's roll-up preview.
+         *
+         * Keyed by a **hash of the draft** rather than by the recipe: the preview is a pure function
+         * of the lines on screen, most of which are not saved and some of which belong to a recipe
+         * that does not exist yet. Two people composing the same lines share one cache entry, and
+         * an entry cannot outlive the draft that produced it. The caller computes the hash — the key
+         * map must stay free of hashing policy, or two call sites will hash differently and split
+         * the cache in half.
+         */
+        recipeRollup: (draftHash: string) =>
+            ['kitchenAdmin', 'recipe', 'rollup', draftHash] as const,
+
+        products: (filter?: QueryScope) => ['kitchenAdmin', 'products', scope(filter)] as const,
+        product: (productId: ProductId) => ['kitchenAdmin', 'product', productId] as const,
+
+        priceLists: (filter?: QueryScope) =>
+            ['kitchenAdmin', 'price-lists', scope(filter)] as const,
+        priceList: (priceListId: PriceListId) =>
+            ['kitchenAdmin', 'price-list', priceListId] as const,
+
+        meals: (filter?: QueryScope) => ['kitchenAdmin', 'meals', scope(filter)] as const,
+        meal: (mealId: MealId) => ['kitchenAdmin', 'meal', mealId] as const,
+
+        plans: (filter?: QueryScope) => ['kitchenAdmin', 'plans', scope(filter)] as const,
+        plan: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan', planId] as const,
+
+        zones: (filter?: QueryScope) => ['kitchenAdmin', 'zones', scope(filter)] as const,
+        zone: (zoneId: DeliveryZoneId) => ['kitchenAdmin', 'zone', zoneId] as const,
+
+        branchOperating: (branchId: KitchenBranchId) =>
+            ['kitchenAdmin', 'branch-operating', branchId] as const,
+    },
 } as const;
 
 /**
  * Roots whose cached data may survive a restart.
  *
  * Deliberately minimal (plan §21). `session`, `devices`, `nutrition`, `planner`, `vd`, `commerce`,
- * `business` and `professional` are absent and must stay absent: they are authentication responses,
- * personal data or medical-adjacent data, and none of them may touch disk. Adding a root here is a
- * privacy decision, which is why it is a single reviewable list rather than a per-query flag.
+ * `business`, `professional` and `kitchenAdmin` are absent and must stay absent: they are
+ * authentication responses, personal data, medical-adjacent data, or — in `kitchenAdmin`'s case —
+ * confidential commercial data on a device several people share. Adding a root here is a privacy
+ * decision, which is why it is a single reviewable list rather than a per-query flag.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

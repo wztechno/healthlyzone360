@@ -437,6 +437,8 @@ describe('error normalisation', () => {
         ['context.branch_out_of_scope', 403],
         ['context.organisation_required', 400],
         ['auth.invalid_credentials', 422],
+        // Promoted out of the `server` projection with the kitchen-admin contract (K1).
+        ['resource.not_found', 404],
     ])('passes %s through unchanged', async (code, status) => {
         const failure = await failureOf([
             {
@@ -471,17 +473,108 @@ describe('error normalisation', () => {
     });
 
     /**
+     * `authz.permission_denied` carries the denying RBAC step on the wire already (generated
+     * `types.ts`), and K1's management endpoints add the permission code beside it. Both are read
+     * defensively: a server that sends neither still produces a usable failure, with empty strings
+     * rather than an invented permission name.
+     */
+    it('reads the permission and the denying step off an authorisation failure', async () => {
+        const failure = await failureOf([
+            {
+                status: 403,
+                body: {
+                    error: {
+                        code: 'authz.permission_denied',
+                        message: 'Your role does not allow that.',
+                        details: {
+                            permission: 'catalogue.publish_organisation',
+                            reason: 'no role in this membership carries the code',
+                        },
+                        correlation_id: 'c10a',
+                    },
+                },
+            },
+        ]);
+
+        expect((failure as { code: string }).code).toBe('authz.permission_denied');
+        expect((failure as { permission: string }).permission).toBe(
+            'catalogue.publish_organisation',
+        );
+        expect((failure as { reason: string }).reason).toBe(
+            'no role in this membership carries the code',
+        );
+        expect((failure as { retryable: boolean }).retryable).toBe(false);
+    });
+
+    it('degrades to empty strings when the envelope names no permission', async () => {
+        const failure = await failureOf([
+            {
+                status: 403,
+                body: {
+                    error: {
+                        code: 'authz.permission_denied',
+                        message: 'Denied.',
+                        details: {},
+                        correlation_id: 'c10b',
+                    },
+                },
+            },
+        ]);
+
+        expect((failure as { code: string }).code).toBe('authz.permission_denied');
+        expect((failure as { permission: string }).permission).toBe('');
+        expect((failure as { reason: string }).reason).toBe('');
+    });
+
+    /** The optimistic-locking rejection (plan §4.13): the editor needs the server's version. */
+    it('reads the current lock version off a conflict, and omits it when absent', async () => {
+        const withVersion = await failureOf([
+            {
+                status: 409,
+                body: {
+                    error: {
+                        code: 'resource.conflict',
+                        message: 'Somebody else saved first.',
+                        details: { current_lock_version: 4 },
+                        correlation_id: 'c10c',
+                    },
+                },
+            },
+        ]);
+
+        expect((withVersion as { code: string }).code).toBe('resource.conflict');
+        expect((withVersion as { currentLockVersion?: number }).currentLockVersion).toBe(4);
+
+        const withoutVersion = await failureOf([
+            {
+                status: 409,
+                body: {
+                    error: {
+                        code: 'resource.conflict',
+                        message: 'That slug is already taken.',
+                        details: {},
+                        correlation_id: 'c10d',
+                    },
+                },
+            },
+        ]);
+
+        expect((withoutVersion as { code: string }).code).toBe('resource.conflict');
+        expect(Object.hasOwn(withoutVersion as object, 'currentLockVersion')).toBe(false);
+    });
+
+    /**
      * Codes outside the client vocabulary keep the server's message and become `server`; a `4xx` is
      * not retryable, a `5xx` is.
      */
     it('projects an unmapped 4xx onto a non-retryable server failure', async () => {
         const failure = await failureOf([
             {
-                status: 404,
+                status: 400,
                 body: {
                     error: {
-                        code: 'resource.not_found',
-                        message: 'The requested resource does not exist.',
+                        code: 'request.invalid',
+                        message: 'The request could not be understood.',
                         details: {},
                         correlation_id: 'c10',
                     },
@@ -492,7 +585,7 @@ describe('error normalisation', () => {
         expect((failure as { code: string }).code).toBe('server');
         expect((failure as { retryable: boolean }).retryable).toBe(false);
         expect((failure as { message: string }).message).toBe(
-            'The requested resource does not exist.',
+            'The request could not be understood.',
         );
     });
 

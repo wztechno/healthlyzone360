@@ -4,6 +4,7 @@ import type {
     CorporateProgrammeId,
     DietitianId,
     IsoDateTime,
+    KitchenId,
     MealId,
     MealPlanEntryId,
     MealPlanId,
@@ -11,6 +12,7 @@ import type {
     NutritionTargetId,
     RecipeId,
     SubscriptionId,
+    SubscriptionPlanId,
     UserId,
     VdSessionId,
     VdSessionState,
@@ -48,6 +50,7 @@ import type {
 } from '../../contracts/commerce.ts';
 import { apiFailure, throwFailure, validationFailure } from '../../contracts/failure.ts';
 import type { Food, GroceryList, Pantry, Recipe } from '../../contracts/foods.ts';
+import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '../../contracts/marketplace.ts';
 import type {
     NutritionReview,
     RequestNutritionReviewRequest,
@@ -112,7 +115,6 @@ import {
     PROTOTYPE_CUSTOMER_ID,
     PROTOTYPE_CUSTOMER_NAME,
     PROTOTYPE_DIETITIAN_NOTE,
-    PROTOTYPE_INGREDIENTS,
     PROTOTYPE_MEALS,
     PROTOTYPE_PANTRY,
     PROTOTYPE_PLAN_IDS,
@@ -135,22 +137,18 @@ import {
     buildWeek,
     catalogueItemById,
     compareEntries,
-    deliveryWeekdaysFor,
     detectSafetyMarker,
     makeEntry,
     makeVdMessage,
     makeVdProposal,
     makeVdSession,
     makeWeekEntries,
-    mealById,
     nutrientTargetsFor,
     planByKey,
-    planById,
-    planVariantById,
     programmeById,
-    recipeById,
     targetFactsFor,
 } from './fixtures/index.ts';
+import { KitchenCatalogueStore } from './catalogue-store.ts';
 import {
     PROTOTYPE_RUNTIME_ORDINAL_START,
     cartIdAt,
@@ -181,10 +179,20 @@ import {
  *
  * ## Not-found
  *
- * The failure vocabulary carries no `resource.not_found`: it is a wire code the implemented
- * repositories never reach (`contracts/failure.ts`), and the API layer already projects it onto
- * `server` while keeping the server's message. A missing row here does the same thing — rejects as
- * `server` with a sentence naming what was missing — so a screen behaves identically either way.
+ * `resource.not_found` entered the failure vocabulary with K1, and the **kitchen-management** paths
+ * (`./catalogue-store.ts`) use it. The *consumer* paths below deliberately still reject as `server`
+ * with a sentence naming what was missing. That is not an oversight: the consumer screens' empty and
+ * error states were built against that behaviour, the API repositories behind them are still
+ * unimplemented stubs, and changing what a marketplace 404 looks like belongs to M1's per-family
+ * switch — with its own screens, copy and Playwright pass — not to a refactor whose whole promise is
+ * that nothing a consumer sees changes.
+ *
+ * ## The catalogue
+ *
+ * Ingredients, recipes, products, price lists, meals, plans, zones and branch operating data live in
+ * {@link KitchenCatalogueStore}, held here as `kitchenCatalogue`. The consumer reads on this class delegate
+ * to it, which is the point: a kitchen manager who retires a meal removes it from the marketplace
+ * listing, because there is only one collection and both sides read it.
  */
 
 /** Delivery slots the prototype offers. Codes are stable; the labels are translated by the app. */
@@ -262,6 +270,15 @@ export interface PrototypeStoreOptions {
 export class PrototypeStore {
     readonly scenario: string;
     readonly onboardingComplete: boolean;
+
+    /**
+     * The mutable kitchen catalogue, shared by the management surface and every consumer read.
+     *
+     * A field rather than a base class: the planner, the cart and the Virtual Dietitian have nothing
+     * to do with catalogue management, and folding nine hundred lines of it into this file would
+     * make both halves harder to review than the one delegation below costs.
+     */
+    readonly kitchenCatalogue = new KitchenCatalogueStore();
 
     readonly #plans = new Map<string, MutablePlan>();
     readonly #carts = new Map<string, MutableCart>();
@@ -966,7 +983,7 @@ export class PrototypeStore {
     /* ── foods, recipes, grocery, pantry ───────────────────────────────────────────────────── */
 
     foods(): readonly Food[] {
-        return PROTOTYPE_INGREDIENTS.map((ingredient) => ({
+        return this.kitchenCatalogue.consumerIngredients().map((ingredient) => ({
             id: ingredient.id,
             name: ingredient.name,
             brand: null,
@@ -978,8 +995,13 @@ export class PrototypeStore {
         }));
     }
 
+    /** Published recipes, each at its newest published version. */
+    recipes(): readonly Recipe[] {
+        return this.kitchenCatalogue.consumerRecipes();
+    }
+
     recipe(recipeId: RecipeId): Recipe {
-        const recipe = recipeById(recipeId);
+        const recipe = this.kitchenCatalogue.consumerRecipeById(recipeId);
         if (recipe === null) {
             throwFailure(
                 apiFailure('server', {
@@ -989,6 +1011,32 @@ export class PrototypeStore {
             );
         }
         return recipe;
+    }
+
+    /* ── catalogue reads the marketplace repositories answer from ──────────────────────────── */
+
+    kitchens(): readonly Kitchen[] {
+        return this.kitchenCatalogue.kitchens();
+    }
+
+    kitchen(kitchenId: KitchenId): Kitchen | null {
+        return this.kitchenCatalogue.kitchenById(kitchenId);
+    }
+
+    meals(): readonly MarketplaceMeal[] {
+        return this.kitchenCatalogue.consumerMeals();
+    }
+
+    meal(mealId: MealId): MarketplaceMeal | null {
+        return this.kitchenCatalogue.consumerMealById(mealId);
+    }
+
+    marketplacePlans(): readonly SubscriptionPlan[] {
+        return this.kitchenCatalogue.consumerPlans();
+    }
+
+    marketplacePlan(planId: SubscriptionPlanId): SubscriptionPlan | null {
+        return this.kitchenCatalogue.consumerPlanById(planId);
     }
 
     groceryList(weekStart: string): GroceryList {
@@ -1117,7 +1165,7 @@ export class PrototypeStore {
             throwFailure(validationFailure({ quantity: ['Order at least one.'] }));
         }
         const cart = this.#mutableCart(cartId);
-        const meal = mealById(mealId);
+        const meal = this.kitchenCatalogue.consumerMealById(mealId);
         if (meal === null) {
             throwFailure(
                 apiFailure('server', {
@@ -1200,7 +1248,7 @@ export class PrototypeStore {
     /* ── subscriptions ─────────────────────────────────────────────────────────────────────── */
 
     previewSubscription(configuration: SubscriptionConfiguration): SubscriptionPreview {
-        const plan = planById(configuration.planId);
+        const plan = this.kitchenCatalogue.consumerPlanById(configuration.planId);
         if (plan === null) {
             throwFailure(
                 apiFailure('server', {
@@ -1209,7 +1257,7 @@ export class PrototypeStore {
                 }),
             );
         }
-        const variant = planVariantById(configuration.variantId);
+        const variant = this.kitchenCatalogue.consumerPlanVariantById(configuration.variantId);
         if (variant === null || variant.planId !== plan.id) {
             throwFailure(validationFailure({ variant_id: ['That variant is not on this plan.'] }));
         }
@@ -1221,7 +1269,7 @@ export class PrototypeStore {
         const gross = variant.pricePerWeek.amount * weeks;
         const total = aed(Math.round((gross * (100 - discountPercent)) / 100));
 
-        const allowed = deliveryWeekdaysFor(plan.id);
+        const allowed = this.kitchenCatalogue.deliveryWeekdaysFor(plan.id);
         const warnings: string[] = [];
         if (configuration.deliveryWeekdays.length === 0) {
             warnings.push('subscription.no_delivery_days');
@@ -1278,7 +1326,7 @@ export class PrototypeStore {
             );
         }
         const preview = this.previewSubscription(request.configuration);
-        const plan = planById(request.configuration.planId);
+        const plan = this.kitchenCatalogue.consumerPlanById(request.configuration.planId);
         if (plan === null) {
             throwFailure(apiFailure('server', { message: 'That plan is no longer available.' }));
         }

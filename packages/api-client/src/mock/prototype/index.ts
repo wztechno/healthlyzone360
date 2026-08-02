@@ -43,6 +43,12 @@ export {
 } from './store.ts';
 export type { PrototypeStoreOptions } from './store.ts';
 
+/**
+ * The mutable catalogue, exposed for the same reason `PrototypeStore` is: a test may assert what a
+ * management write did without going back through a repository. Screens never touch it.
+ */
+export { KitchenCatalogueStore, PROTOTYPE_KITCHEN_MANAGER_NAME } from './catalogue-store.ts';
+
 export {
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,

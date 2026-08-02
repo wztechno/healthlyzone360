@@ -141,6 +141,29 @@ export const CorporateProgrammeId: IdCodec<CorporateProgrammeId> =
     createIdCodec<CorporateProgrammeId>('CorporateProgrammeId');
 export const VolumeTierId: IdCodec<VolumeTierId> = createIdCodec<VolumeTierId>('VolumeTierId');
 
+/* ------------------------------------------------------------------------------------------------
+ * Kitchen catalogue management identifiers (K1).
+ *
+ * These name rows that only ever appear on a *management* surface. A consumer never sees a recipe
+ * version, a price list or a service-area row, which is why none of them has a counterpart in the
+ * marketplace contract — the separation is the point, and giving them their own brands is what stops
+ * an admin identifier being handed to a consumer-facing call by accident.
+ * ---------------------------------------------------------------------------------------------- */
+
+export type ProductId = Brand<string, 'ProductId'>;
+export type PriceListId = Brand<string, 'PriceListId'>;
+export type RecipeVersionId = Brand<string, 'RecipeVersionId'>;
+export type DeliveryWindowId = Brand<string, 'DeliveryWindowId'>;
+export type ServiceAreaId = Brand<string, 'ServiceAreaId'>;
+
+export const ProductId: IdCodec<ProductId> = createIdCodec<ProductId>('ProductId');
+export const PriceListId: IdCodec<PriceListId> = createIdCodec<PriceListId>('PriceListId');
+export const RecipeVersionId: IdCodec<RecipeVersionId> =
+    createIdCodec<RecipeVersionId>('RecipeVersionId');
+export const DeliveryWindowId: IdCodec<DeliveryWindowId> =
+    createIdCodec<DeliveryWindowId>('DeliveryWindowId');
+export const ServiceAreaId: IdCodec<ServiceAreaId> = createIdCodec<ServiceAreaId>('ServiceAreaId');
+
 /** Every UUID identifier codec, keyed by label — handy for table-driven tests. */
 export const ID_CODECS = {
     UserId,
@@ -170,6 +193,11 @@ export const ID_CODECS = {
     QuotationId,
     CorporateProgrammeId,
     VolumeTierId,
+    ProductId,
+    PriceListId,
+    RecipeVersionId,
+    DeliveryWindowId,
+    ServiceAreaId,
 } as const;
 
 export type IdCodecName = keyof typeof ID_CODECS;

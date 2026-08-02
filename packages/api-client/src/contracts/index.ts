@@ -2,6 +2,7 @@ import type { AuthRepository } from './auth.ts';
 import type { BusinessRepository } from './business.ts';
 import type { CommerceRepository } from './commerce.ts';
 import type { FoodRepository } from './foods.ts';
+import type { KitchenAdminRepository } from './kitchen-admin.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
 import type { MealPlanRepository } from './planner.ts';
@@ -14,17 +15,27 @@ export {
     ApiError,
     apiFailure,
     asApiFailure,
+    conflictFailure,
     defaultRetryable,
     isApiFailure,
     isApiFailureCode,
     isAutoRetryable,
+    isConflictFailure,
+    isPermissionDeniedFailure,
     isRateLimitFailure,
     isValidationFailure,
+    permissionDeniedFailure,
     rateLimitFailure,
     throwFailure,
     validationFailure,
 } from './failure.ts';
-export type { ApiFailure, ApiFailureCode, FailureOptions, ValidationFields } from './failure.ts';
+export type {
+    ApiFailure,
+    ApiFailureCode,
+    ConflictFailureOptions,
+    FailureOptions,
+    ValidationFields,
+} from './failure.ts';
 
 export type {
     AuthRepository,
@@ -197,6 +208,104 @@ export type {
     VolumeTier,
 } from './business.ts';
 
+export {
+    ALLERGEN_CONTAINMENTS,
+    ALLERGEN_DECLARATION_ORIGINS,
+    ALLERGEN_VERIFICATIONS,
+    CONSUMER_VISIBLE_STATUSES,
+    COST_DECIMAL_PLACES,
+    PLAN_DURATION_KINDS,
+    PRICE_STATUSES,
+    PUBLISHABLE_STATUSES,
+    isConsumerVisible,
+    isPlanDurationConsistent,
+    isPriceEntryConsistent,
+} from './kitchen-admin.ts';
+export type {
+    AdminEntityMeta,
+    AdminRecordMeta,
+    AllergenClass,
+    AllergenContainment,
+    AllergenDeclarationOrigin,
+    AllergenSource,
+    AllergenVerification,
+    BranchOperating,
+    BranchOperatingDay,
+    CatalogueItemRef,
+    ChannelAvailability,
+    CostAmount,
+    CreateDeliveryZoneRequest,
+    CreateIngredientRequest,
+    CreateMealRequest,
+    CreatePlanRequest,
+    CreateProductRequest,
+    CreateRecipeRequest,
+    DeliveryWindow,
+    DeliveryWindowInput,
+    DeliveryZoneAdmin,
+    DeliveryZoneAdminFilter,
+    IngredientAdmin,
+    IngredientAdminFilter,
+    IngredientAllergenMapping,
+    KitchenAdminRepository,
+    LocalisedText,
+    LockedRequest,
+    MealAdmin,
+    MealAdminFilter,
+    MealAvailabilityDay,
+    PlanAdmin,
+    PlanAdminFilter,
+    PlanCombination,
+    PlanDurationAdmin,
+    PlanDurationKind,
+    PlanVariantAdmin,
+    PlanVariantInput,
+    PriceListAdmin,
+    PriceListAdminFilter,
+    PriceListEntry,
+    PriceStatus,
+    ProductAdmin,
+    ProductAdminFilter,
+    ProductPackVariant,
+    PublishableStatus,
+    RecipeAdmin,
+    RecipeAdminFilter,
+    RecipeAdminSummary,
+    RecipeAllergenDeclaration,
+    RecipeLine,
+    RecipeLineInput,
+    RecipeOutput,
+    RecipeOutputInput,
+    RecipeRollupDraft,
+    RecipeRollupPreview,
+    RecipeStepAdmin,
+    RecipeStepInput,
+    RecipeVersionAdmin,
+    RecipeVersionSummary,
+    RollupWarning,
+    ServiceArea,
+    ServiceAreaFilter,
+    SetBranchOperatingRequest,
+    SetChannelAvailabilityRequest,
+    SetDeliveryWindowsRequest,
+    SetIngredientAllergensRequest,
+    SetMealAvailabilityRequest,
+    SetPlanCombinationsRequest,
+    SetPlanDurationsRequest,
+    SetPlanVariantsRequest,
+    SetPriceListEntriesRequest,
+    SetRecipeLinesRequest,
+    SetRecipeOutputsRequest,
+    SetRecipeStepsRequest,
+    SetZoneAreasRequest,
+    UpdateDeliveryZoneRequest,
+    UpdateIngredientRequest,
+    UpdateMealRequest,
+    UpdatePlanRequest,
+    UpdateProductRequest,
+    UpdateRecipeRequest,
+} from './kitchen-admin.ts';
+
 export { REVIEW_PRIORITIES, REVIEW_QUEUE_STATES, REVIEW_SUBJECTS } from './professional.ts';
 export type {
     ApproveReviewRequest,
@@ -217,7 +326,7 @@ export type {
  * The complete data surface a screen may reach. Nothing else is exported to the application: a
  * screen depends on this bundle, never on a transport (plan §18).
  *
- * ## The twelve fields are all required, and that is the point
+ * ## The thirteen fields are all required, and that is the point
  *
  * Wave 1.1 declared the eight Prompt 2 contracts behind a separate `PrototypeRepositories` interface
  * because neither implementation existed yet, and adding required fields to a bundle nothing
@@ -231,9 +340,13 @@ export type {
  * required, adding a method to any contract fails the build in exactly two places — the mock and the
  * API stub — which is where it should fail.
  *
- * The eight are *proposed*, not implemented: against the real API every one of them rejects with
+ * The nine are *proposed*, not implemented: against the real API every one of them rejects with
  * `prototype.not_implemented` naming the endpoint it would have called. A screen therefore compiles
  * against the same surface in both modes and differs only in what it renders when the call fails.
+ *
+ * `kitchenAdmin` joined in K1 as the thirteenth field. It is required like the rest — the kitchen
+ * workspace is a route area, not an optional add-on, and an optional repository would put a `?.` in
+ * front of every management call and stop the compiler proving the two implementations match.
  */
 export interface Repositories {
     readonly auth: AuthRepository;
@@ -249,4 +362,5 @@ export interface Repositories {
     readonly commerce: CommerceRepository;
     readonly business: BusinessRepository;
     readonly professional: ProfessionalRepository;
+    readonly kitchenAdmin: KitchenAdminRepository;
 }

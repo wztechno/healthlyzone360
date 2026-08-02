@@ -5,12 +5,16 @@ import {
     ApiError,
     apiFailure,
     asApiFailure,
+    conflictFailure,
     defaultRetryable,
     isApiFailure,
     isApiFailureCode,
     isAutoRetryable,
+    isConflictFailure,
+    isPermissionDeniedFailure,
     isRateLimitFailure,
     isValidationFailure,
+    permissionDeniedFailure,
     rateLimitFailure,
     throwFailure,
     validationFailure,
@@ -27,6 +31,10 @@ describe('the failure vocabulary', () => {
             'context.organisation_required',
             'context.organisation_forbidden',
             'context.branch_out_of_scope',
+            'authz.permission_denied',
+            'resource.not_found',
+            'resource.conflict',
+            'request.precondition_required',
             'validation.failed',
             'rate_limit.exceeded',
             'network',
@@ -93,6 +101,34 @@ describe('failure builders', () => {
         expect(isRateLimitFailure(failure)).toBe(true);
         if (!isRateLimitFailure(failure)) throw new Error('unreachable');
         expect(failure.retryAfterSeconds).toBe(45);
+    });
+
+    /**
+     * The lock version is *absent*, not zero, when the server did not send one — an editor that
+     * saw `0` would tell the person the row had been reset to its first revision.
+     */
+    it('carries the server lock version on a conflict, and omits it when there is none', () => {
+        const versioned = conflictFailure({ currentLockVersion: 7 });
+        expect(isConflictFailure(versioned)).toBe(true);
+        if (!isConflictFailure(versioned)) throw new Error('unreachable');
+        expect(versioned.currentLockVersion).toBe(7);
+
+        const bare = conflictFailure();
+        if (!isConflictFailure(bare)) throw new Error('unreachable');
+        expect(bare.currentLockVersion).toBeUndefined();
+        expect(Object.hasOwn(bare, 'currentLockVersion')).toBe(false);
+    });
+
+    it('names the permission and the denying step on an authorisation failure', () => {
+        const failure = permissionDeniedFailure(
+            'catalogue.publish_organisation',
+            'membership roles do not carry the code',
+        );
+        expect(isPermissionDeniedFailure(failure)).toBe(true);
+        if (!isPermissionDeniedFailure(failure)) throw new Error('unreachable');
+        expect(failure.permission).toBe('catalogue.publish_organisation');
+        expect(failure.reason).toBe('membership roles do not carry the code');
+        expect(failure.retryable).toBe(false);
     });
 
     it('lets a caller mark a normally fatal failure retryable', () => {

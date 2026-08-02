@@ -87,6 +87,17 @@ const NUTRIENT_ROWS: readonly NutrientRow[] = [
     { key: 'fibre', name: 'Fibre', amount: '22 g', target: '30 g' },
 ];
 
+/**
+ * The sortable table story sorts its own rows, because {@link Table} deliberately does not: it
+ * reports the intent and the owner of the data decides what "sorted" means.
+ */
+const NUTRIENT_SORT_KEYS = ['name', 'amount', 'target'] as const;
+type NutrientSortKey = (typeof NUTRIENT_SORT_KEYS)[number];
+
+function isNutrientSortKey(value: string): value is NutrientSortKey {
+    return (NUTRIENT_SORT_KEYS as readonly string[]).includes(value);
+}
+
 /** Rendered inside the motion section so the animated figure has something to travel towards. */
 function AnimatedFigure({ value }: { readonly value: number }) {
     const shown = useAnimatedNumber(value);
@@ -117,6 +128,9 @@ export function ShowcaseScreen() {
     const [sheetOpen, setSheetOpen] = useState(false);
     const [checked, setChecked] = useState(false);
     const [selected, setSelected] = useState<string | null>(null);
+    const [filtered, setFiltered] = useState<string | null>(null);
+    const [sortKey, setSortKey] = useState<NutrientSortKey>('name');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [text, setText] = useState('');
     const [tab, setTab] = useState('overview');
     const [segment, setSegment] = useState('overview');
@@ -129,6 +143,13 @@ export function ShowcaseScreen() {
     const options = [1, 2, 3].map((index) => ({
         value: `option-${index}`,
         label: t('designSystem:showcase.sampleOption', { index }),
+    }));
+
+    /** Long enough that filtering it is worth doing, which is the point of the story. */
+    const manyOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((index) => ({
+        value: `filtered-option-${index}`,
+        label: t('designSystem:showcase.sampleOption', { index }),
+        description: t('designSystem:showcase.sampleHint'),
     }));
 
     const tabs = [
@@ -170,6 +191,16 @@ export function ShowcaseScreen() {
             render: (row) => <Text align="end">{row.target}</Text>,
         },
     ];
+
+    const sortableColumns: readonly TableColumn<NutrientRow>[] = columns.map((column) => ({
+        ...column,
+        sortable: true,
+    }));
+
+    const sortedNutrientRows = [...NUTRIENT_ROWS].sort((left, right) => {
+        const comparison = left[sortKey].localeCompare(right[sortKey], locale, { numeric: true });
+        return sortDirection === 'asc' ? comparison : -comparison;
+    });
 
     return (
         <PageTransition testID="showcase-page">
@@ -308,6 +339,16 @@ export function ShowcaseScreen() {
                         options={options}
                         value={selected}
                         onChange={setSelected}
+                    />
+                    <Select
+                        testID="showcase-select-searchable"
+                        id="showcase-select-searchable"
+                        label={t('designSystem:showcase.searchableSelectLabel')}
+                        hint={t('designSystem:showcase.sampleHint')}
+                        options={manyOptions}
+                        value={filtered}
+                        onChange={setFiltered}
+                        searchable
                     />
                 </Section>
 
@@ -535,6 +576,31 @@ export function ShowcaseScreen() {
                         columns={columns}
                         rows={NUTRIENT_ROWS}
                         rowKey={(row) => row.key}
+                    />
+                    <Table
+                        testID="showcase-table-sortable"
+                        caption={t('designSystem:showcase.tableSortableCaption')}
+                        columns={sortableColumns}
+                        rows={sortedNutrientRows}
+                        rowKey={(row) => row.key}
+                        sortKey={sortKey}
+                        sortDirection={sortDirection}
+                        onSortChange={(key, direction) => {
+                            if (isNutrientSortKey(key)) setSortKey(key);
+                            setSortDirection(direction);
+                        }}
+                        rowAction={{
+                            header: t('designSystem:showcase.tableActionHeader'),
+                            render: (row) => (
+                                <Button
+                                    testID={`showcase-table-action-${row.key}`}
+                                    size="sm"
+                                    variant="ghost"
+                                    label={t('designSystem:showcase.tableActionLabel')}
+                                    onPress={() => undefined}
+                                />
+                            ),
+                        }}
                     />
                     <Inline space="lg">
                         <ProgressRing
