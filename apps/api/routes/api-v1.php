@@ -25,12 +25,15 @@ use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Recipes\Http\Controllers\RecipeArchiveController;
+use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotIndexController;
+use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeLineReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeOutputReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeStepReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeStoreController;
+use Healthy360\Recipes\Http\Controllers\RecipeTechnicalSheetController;
 use Healthy360\Recipes\Http\Controllers\RecipeUpdateController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionAllergenIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionIndexController;
@@ -201,6 +204,41 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/recipes/{recipe}/versions/{version}/retire', RecipeVersionRetireController::class)
                     ->middleware('precondition')
                     ->name('catalogue.recipes.versions.retire');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Recipe costs (K1.3)
+            |--------------------------------------------------------------
+            |
+            | A fourth recipe permission, and the only one that is about
+            | money. `recipe.view_organisation` gets a line cook the method
+            | and the allergen label — everything needed to make the dish —
+            | while `recipe.view_costs_organisation` is what it takes to see
+            | what the dish costs (appendix C). Nothing here is reachable
+            | with the ordinary recipe read permission, and nothing outside
+            | here serialises a cost.
+            |
+            | The POST stacks **both** codes: writing is
+            | `recipe.manage_organisation`, and what it writes is money.
+            | Middleware groups compose, so the inner declaration is an
+            | additional gate rather than a replacement.
+            |
+            | No `precondition` on the POST: a snapshot appends to a ledger
+            | beside the version rather than mutating it, so there is no lost
+            | update for an `If-Match` to prevent.
+            |
+            */
+            Route::middleware('permission:recipe.view_costs_organisation')->group(function (): void {
+                Route::get('/recipes/{recipe}/versions/{version}/technical-sheet', RecipeTechnicalSheetController::class)
+                    ->name('catalogue.recipes.versions.technical-sheet');
+
+                Route::get('/recipes/{recipe}/versions/{version}/cost-snapshots', RecipeCostSnapshotIndexController::class)
+                    ->name('catalogue.recipes.versions.cost-snapshots.index');
+
+                Route::post('/recipes/{recipe}/versions/{version}/cost-snapshots', RecipeCostSnapshotStoreController::class)
+                    ->middleware('permission:recipe.manage_organisation')
+                    ->name('catalogue.recipes.versions.cost-snapshots.store');
             });
         });
 

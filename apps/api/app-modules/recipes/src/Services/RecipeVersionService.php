@@ -11,6 +11,7 @@ use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Enums\AllergenDerivation;
+use Healthy360\Recipes\Enums\CostBasis;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeCompleteness;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
@@ -24,6 +25,7 @@ use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\Recipes\Models\RecipeVersionStep;
+use Healthy360\ReferenceData\Models\Currency;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -57,6 +59,8 @@ final readonly class RecipeVersionService
         private TenantContext $context,
         private AuditRecorder $audit,
         private AllergenRollupService $rollup,
+        private RecipeCostingService $costing,
+        private CostVisibility $costVisibility,
     ) {}
 
     /**
@@ -188,7 +192,20 @@ final readonly class RecipeVersionService
      * a sheet that adds olive oil to the marinade and again to the finish is
      * two lines, and merging them would rewrite the method.
      *
-     * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, source_designation?: string|null, comment?: string|null}>  $lines
+     * **Costs (K1.3).** A line may carry `unit_cost_amount` and
+     * `cost_currency_code`; `line_cost_amount` is never accepted, because a
+     * derived value a client can supply is a derived value that can disagree
+     * with its inputs (appendix C). It is computed here as quantity × unit
+     * cost — the one place on the API where a line total is authored. The
+     * importer writes line totals verbatim instead, on purpose: a source sheet
+     * that adds up wrong is evidence, and evidence must not be silently
+     * corrected.
+     *
+     * Both cost gates live in `CostVisibility`: writing a cost needs
+     * `recipe.view_costs_organisation`, and so does *replacing a costed set
+     * without costs*, which would erase money the caller could not see.
+     *
+     * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null, source_designation?: string|null, comment?: string|null}>  $lines
      *
      * @throws ApiException
      */
@@ -197,6 +214,7 @@ final readonly class RecipeVersionService
         $this->assertEditable($version);
 
         $prepared = [];
+        $currencies = [];
 
         foreach ($lines as $index => $line) {
             $ingredient = $this->usableIngredient((string) $line['ingredient_id'], "lines.{$index}.ingredient_id");
@@ -207,15 +225,41 @@ final readonly class RecipeVersionService
                 $this->assertUnitExists($unitId, "lines.{$index}.unit_id");
             }
 
+            [$unitCost, $currency] = $this->costOf($line, $index);
+
+            if ($currency !== null) {
+                $currencies[$currency] = true;
+            }
+
             $prepared[] = [
                 'line_number' => $index + 1,
                 'ingredient_id' => (string) $ingredient->getKey(),
                 'quantity' => $quantity,
                 'unit_id' => $unitId,
+                'unit_cost_amount' => $unitCost,
+
+                // Derived here, never accepted: quantity × unit cost. Computed
+                // by the costing service rather than inline, so that a line
+                // total written today and a recalculation run tomorrow are
+                // the same arithmetic rather than two implementations of it.
+                'line_cost_amount' => $unitCost === null || $quantity === null
+                    ? null
+                    : $this->costing->lineCost($quantity, $unitCost),
+                'cost_currency_code' => $currency,
                 'source_designation' => $this->trimmedOrNull(isset($line['source_designation']) ? (string) $line['source_designation'] : null),
                 'comment' => $this->trimmedOrNull(isset($line['comment']) ? (string) $line['comment'] : null),
             ];
         }
+
+        if (count($currencies) > 1) {
+            throw $this->invalid(
+                'lines',
+                'Every costed line of a version must be in the same currency, and this system never converts between them.',
+                ['currencies' => array_keys($currencies)],
+            );
+        }
+
+        $this->assertMayRewriteCosts($version, $currencies !== []);
 
         $this->replaceWithin($version, $expectedLockVersion, function () use ($version, $prepared): void {
             RecipeVersionLine::withoutTenancy()->where('recipe_version_id', $version->getKey())->delete();
@@ -228,6 +272,9 @@ final readonly class RecipeVersionService
                 $row->ingredient_id = $attributes['ingredient_id'];
                 $row->quantity = $attributes['quantity'];
                 $row->unit_id = $attributes['unit_id'];
+                $row->unit_cost_amount = $attributes['unit_cost_amount'];
+                $row->line_cost_amount = $attributes['line_cost_amount'];
+                $row->cost_currency_code = $attributes['cost_currency_code'];
                 $row->source_designation = $attributes['source_designation'];
                 $row->comment = $attributes['comment'];
                 $row->created_by = $this->context->userId();
@@ -243,6 +290,14 @@ final readonly class RecipeVersionService
             metadata: [
                 'changed_fields' => ['lines'],
                 'line_count' => count($prepared),
+
+                // A count, never the amounts: the audit trail must not become
+                // a second copy of the cost surface that the cost permission
+                // does not guard.
+                'costed_line_count' => count(array_filter(
+                    $prepared,
+                    static fn (array $attributes): bool => $attributes['unit_cost_amount'] !== null,
+                )),
                 'lock_version' => $version->lock_version,
             ],
         );
@@ -433,6 +488,16 @@ final readonly class RecipeVersionService
      * time. The fourth has its own code because the fix is in a different
      * place — the ingredient's mapping editor, not the recipe.
      *
+     * **Costing is not a gate** (K1.3). When every line is costed, publication
+     * also writes a `recalculated` cost snapshot inside the same transaction
+     * and flips `completeness` to `costed`. When it is not, publication
+     * proceeds with no snapshot and `completeness` stays `indicative`. That
+     * asymmetry is deliberate: cost is commercial and allergens are
+     * food-safety, and holding a correct label hostage to a missing unit price
+     * would teach a kitchen to publish first and fix labels later. The costing
+     * path therefore cannot throw — see
+     * `RecipeCostingService::costingForPublication()`.
+     *
      * @throws ApiException
      */
     public function publish(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
@@ -454,9 +519,10 @@ final readonly class RecipeVersionService
 
         $rolled = $this->rollup->rollUp($orderedIngredientIds, $effective);
         $hash = $this->derivationHash($lines, $effective);
+        $costing = $this->costing->costingForPublication($version, $lines);
         $now = now();
 
-        $demoted = DB::transaction(function () use ($version, $expectedLockVersion, $rolled, $hash, $now): array {
+        $demoted = DB::transaction(function () use ($version, $expectedLockVersion, $rolled, $hash, $costing, $now): array {
             // The incumbent goes first: the partial unique index allows one
             // published version per recipe, so demoting before promoting keeps
             // the common path off the constraint entirely.
@@ -486,9 +552,13 @@ final readonly class RecipeVersionService
                 'derived_input_hash' => $hash,
                 'review_reason' => null,
                 'updated_by' => $this->context->userId(),
-            ], $expectedLockVersion);
+            ] + ($costing === null ? [] : ['completeness' => RecipeCompleteness::Costed->value]), $expectedLockVersion);
 
             $this->freezeLabel($version, $rolled, $now);
+
+            if ($costing !== null) {
+                $this->costing->writeSnapshot($version, CostBasis::Recalculated, $costing, calculatedAt: $now);
+            }
 
             return array_values($incumbents->map(static fn (RecipeVersion $row): string => (string) $row->getKey())->all());
         });
@@ -514,6 +584,12 @@ final readonly class RecipeVersionService
                 'line_count' => $lines->count(),
                 'derived_allergen_classes' => array_map(static fn (array $row): string => $row['allergen_code'], $rolled),
                 'superseded_version_ids' => $demoted,
+
+                // Whether the version was fully costed at publication, never
+                // what it cost. The audit trail is not behind the cost
+                // permission, so it must not carry amounts.
+                'completeness' => $version->completeness->value,
+                'cost_snapshot_written' => $costing !== null,
                 'lock_version' => $version->lock_version,
             ],
         );
@@ -879,6 +955,93 @@ final readonly class RecipeVersionService
     }
 
     /**
+     * The cost half of one submitted line, as `[unit_cost_amount, currency]`.
+     *
+     * An amount without a currency is not a monetary value (master plan v2
+     * §4.4) and a currency without an amount is not one either — the second is
+     * refused rather than quietly dropped, because a client that sent it
+     * believed it was writing something.
+     *
+     * @param  array{unit_cost_amount?: float|string|null, cost_currency_code?: string|null}  $line
+     * @return array{0: numeric-string|null, 1: string|null}
+     *
+     * @throws ApiException
+     */
+    private function costOf(array $line, int $index): array
+    {
+        $unitCost = $this->nonNegativeDecimalOrNull($line['unit_cost_amount'] ?? null, "lines.{$index}.unit_cost_amount");
+        $currency = $this->trimmedOrNull(isset($line['cost_currency_code']) ? (string) $line['cost_currency_code'] : null);
+        $currency = $currency === null ? null : mb_strtoupper($currency);
+
+        if ($unitCost !== null && $currency === null) {
+            throw $this->invalid("lines.{$index}.cost_currency_code", 'A cost must say which currency it is in.');
+        }
+
+        if ($currency !== null && $unitCost === null) {
+            throw $this->invalid("lines.{$index}.unit_cost_amount", 'A currency without an amount is not a cost.');
+        }
+
+        if ($currency !== null && ! Currency::query()->whereKey($currency)->exists()) {
+            throw $this->invalid("lines.{$index}.cost_currency_code", 'This currency is not one the platform knows.');
+        }
+
+        return [$unitCost, $currency];
+    }
+
+    /**
+     * Cost visibility guards the *write* path as well as the read path.
+     *
+     * Writing a cost blind is how a decimal point moves three places. Erasing
+     * one blind is worse — line identity is positional, so the values cannot
+     * be safely re-attached afterwards, and the person who destroyed them
+     * could not have seen what they were.
+     *
+     * @throws ApiException
+     */
+    private function assertMayRewriteCosts(RecipeVersion $version, bool $submissionCarriesCosts): void
+    {
+        if ($submissionCarriesCosts) {
+            $this->costVisibility->assertGranted('Writing a cost onto a recipe line requires permission to see costs.');
+
+            return;
+        }
+
+        $existing = RecipeVersionLine::withoutTenancy()
+            ->where('recipe_version_id', $version->getKey())
+            ->whereNotNull('unit_cost_amount')
+            ->exists();
+
+        if ($existing) {
+            $this->costVisibility->assertGranted('This version carries costs, and replacing its lines would erase them. That requires permission to see costs.');
+        }
+    }
+
+    /**
+     * @return numeric-string|null
+     *
+     * @throws ApiException
+     */
+    private function nonNegativeDecimalOrNull(mixed $value, string $field): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        // Zero is legal and meaningful — a donated or self-produced input
+        // costs nothing and saying so is not the same as saying nothing.
+        if (! is_numeric($value) || (float) $value < 0) {
+            throw $this->invalid($field, 'A cost must be a number that is not negative.');
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * @return numeric-string|null the `is_numeric` guard below is what makes
+     *                             this narrower than `string`, and it is what
+     *                             lets the costing arithmetic take the value
+     *                             without re-checking it
+     *
      * @throws ApiException
      */
     private function positiveDecimalOrNull(mixed $value, string $field): ?string

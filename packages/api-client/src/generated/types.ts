@@ -727,6 +727,163 @@ export type RecipeVersionAllergen = {
     source_note?: string | null;
 };
 
+/**
+ * Where a snapshot's arithmetic came from.
+ *
+ * `recalculated` is arithmetic this system performed over the version's
+ * lines: reproducible, and re-derivable from data still in the database.
+ *
+ * `as_recorded` is what a source technical sheet stated, stored verbatim
+ * **including its errors**. Several of the source sheets do their own
+ * arithmetic and do it wrong; correcting one on import destroys the
+ * evidence that it needs correcting, and trusting one puts a wrong number
+ * behind a right-looking label. Storing both and saying which is which is
+ * the only honest option. Written by the private importer only.
+ *
+ */
+export type CostBasis = 'as_recorded' | 'recalculated';
+
+/**
+ * One costed formulation line. Served **only** from the technical sheet,
+ * behind `recipe.view_costs_organisation`; the ordinary `RecipeLine`
+ * projection carries none of these fields.
+ *
+ */
+export type TechnicalSheetLine = {
+    id: Uuid;
+    line_number: number;
+    ingredient_id: Uuid;
+    /**
+     * Decimal with four places, as a string so no client rounds it.
+     */
+    quantity?: string | null;
+    unit_id?: Uuid | null;
+    /**
+     * Major currency units with six decimal places, as a string. Floats
+     * cannot represent `0.1`, and a cost whose total depends on the order
+     * the lines were summed in is not a cost.
+     *
+     */
+    unit_cost_amount?: string | null;
+    /**
+     * On the wire beside `unit_cost_amount` even though one is derivable
+     * from the other, because on an imported sheet they legitimately
+     * disagree: the source's own arithmetic is stored verbatim, and a
+     * reader who could only see the inputs would have no way to notice.
+     *
+     */
+    line_cost_amount?: string | null;
+    cost_currency_code?: string | null;
+    source_designation?: string | null;
+    comment?: string | null;
+};
+
+/**
+ * What one version cost, at one moment, on one basis. Append-only:
+ * `UPDATE` and `DELETE` are revoked from the application database role,
+ * so a snapshot is superseded by a newer one and never edited.
+ *
+ * The per-unit figures are null when the version does not say what it
+ * yields. Inventing a denominator to fill a column is the fabrication
+ * this programme exists to avoid.
+ *
+ */
+export type CostSnapshot = {
+    id: Uuid;
+    recipe_version_id: Uuid;
+    basis: CostBasis;
+    /**
+     * Every amount on this snapshot is in this one currency. Nothing converts between currencies.
+     */
+    currency_code: string;
+    /**
+     * The sum of the line costs, major units, six decimal places.
+     */
+    total_input_cost_amount: string;
+    /**
+     * Total ÷ `yield_quantity`. Null unless the version states both a yield quantity and a yield unit.
+     */
+    cost_per_yield_unit_amount?: string | null;
+    /**
+     * The unit `cost_per_yield_unit_amount` is per. A per-unit cost without its unit is a number, not a cost.
+     */
+    yield_unit_id?: Uuid | null;
+    /**
+     * Total ÷ `yield_piece_count`. Null unless the version counts pieces.
+     */
+    cost_per_piece_amount?: string | null;
+    /**
+     * Copied from the version at calculation time rather than joined at
+     * read time: a kitchen that later revises its allowance must not
+     * retroactively rewrite what an old snapshot said. The source sheets
+     * apply a flat `3.00`.
+     *
+     */
+    waste_coefficient_percent: string;
+    /**
+     * The per-unit figure × (1 + waste ÷ 100), rounded once.
+     */
+    cost_per_yield_unit_with_waste_amount?: string | null;
+    cost_per_piece_with_waste_amount?: string | null;
+    /**
+     * The source sheet's own wording, verbatim — "Cost per kg", "U.P.".
+     * Kept as evidence and **never** consulted to decide what a number
+     * means: at least five source sheets label a figure "cost per kg"
+     * beside a piece count. The basis is derived from the version's yield
+     * fields instead.
+     *
+     */
+    source_label?: string | null;
+    /**
+     * The label claims something the version's yield cannot support.
+     * Served with the figures and never without them: a number that looks
+     * authoritative while it is under review is worse than no number.
+     * Conservative by design — wording nobody can classify raises
+     * nothing, because a flag that cannot be substantiated teaches
+     * reviewers to ignore the flag.
+     *
+     */
+    basis_mismatch: boolean;
+    calculated_at: string;
+    created_at?: string | null;
+};
+
+/**
+ * The confidential cost projection of one recipe version.
+ */
+export type TechnicalSheet = {
+    version: AdminRecipeVersion;
+    completeness: RecipeCompleteness;
+    /**
+     * The single currency the costed lines share. Null when nothing is
+     * costed **or** when an import left more than one behind;
+     * `currency_conflict` says which, because "no currency" and "several
+     * currencies" need different fixes.
+     *
+     */
+    currency_code?: string | null;
+    currency_conflict: boolean;
+    lines: Array<TechnicalSheetLine>;
+    /**
+     * Lines that contributed nothing to a total, in line order — no
+     * quantity, no unit cost, or no currency. While this is non-empty no
+     * `recalculated` snapshot can be written, because a total that
+     * silently omits a line reads exactly like a total that did not.
+     *
+     */
+    uncosted_line_numbers: Array<number>;
+    /**
+     * The latest snapshot of each basis. Both keys are always present, so
+     * a client never has to guess whether a missing key means "none" or
+     * "not asked for"; either value may be null.
+     *
+     */
+    snapshots: {
+        recalculated: CostSnapshot | null;
+        as_recorded: CostSnapshot | null;
+    };
+};
+
 export type CreateRecipeRequest = {
     name_en: string;
     /**
@@ -797,9 +954,59 @@ export type ReplaceRecipeLinesRequest = {
         ingredient_id: Uuid;
         quantity?: number | null;
         unit_id?: Uuid | null;
+        /**
+         * What one `unit_id` of this ingredient costs, in **major**
+         * currency units with up to six decimal places — `3.9` is three
+         * dollars ninety (master plan v2 §4.4). Prices are a different
+         * concept on a different table and stay integer minor units;
+         * nothing sums one into the other.
+         *
+         * Zero is legal and meaningful: a donated or self-produced
+         * input costs nothing, and saying so is not the same as saying
+         * nothing.
+         *
+         * Requires `recipe.view_costs_organisation` **in addition to**
+         * `recipe.manage_organisation`, otherwise `403`. So does
+         * replacing a set that already carries costs *without* them —
+         * that erases money the caller could not see, and positional
+         * line identity means it cannot be put back.
+         *
+         * `line_cost_amount` is not accepted anywhere: it is quantity ×
+         * unit cost, the server derives it, and a derived value a
+         * client can supply is one that can disagree with its inputs.
+         *
+         */
+        unit_cost_amount?: number | string | null;
+        /**
+         * ISO 4217, case-insensitive on the way in and canonical on the
+         * way out. Required whenever `unit_cost_amount` is present and
+         * refused when it is absent — an amount without a currency is
+         * not a monetary value, and a currency without an amount is not
+         * one either.
+         *
+         * Every costed line of one version must share a single
+         * currency; a second is `422 validation.failed`.
+         *
+         */
+        cost_currency_code?: string | null;
         source_designation?: string | null;
         comment?: string | null;
     }>;
+};
+
+/**
+ * No amounts, deliberately. Every figure on a `recalculated` snapshot is
+ * derived from the version's own lines and yield.
+ *
+ */
+export type CreateCostSnapshotRequest = {
+    /**
+     * Only `recalculated` is accepted here. `as_recorded` exists on the
+     * table and means "this is what a source technical sheet stated" —
+     * the private importer's basis, never an endpoint's.
+     *
+     */
+    basis: 'recalculated';
 };
 
 export type ReplaceRecipeOutputsRequest = {
@@ -4559,6 +4766,263 @@ export type RetireRecipeVersionResponses = {
 };
 
 export type RetireRecipeVersionResponse = RetireRecipeVersionResponses[keyof RetireRecipeVersionResponses];
+
+export type ShowRecipeTechnicalSheetData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/technical-sheet';
+};
+
+export type ShowRecipeTechnicalSheetErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowRecipeTechnicalSheetError = ShowRecipeTechnicalSheetErrors[keyof ShowRecipeTechnicalSheetErrors];
+
+export type ShowRecipeTechnicalSheetResponses = {
+    /**
+     * The costed sheet.
+     */
+    200: {
+        data: TechnicalSheet;
+        meta: Meta;
+    };
+};
+
+export type ShowRecipeTechnicalSheetResponse = ShowRecipeTechnicalSheetResponses[keyof ShowRecipeTechnicalSheetResponses];
+
+export type ListRecipeCostSnapshotsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/catalogue/recipes/{recipe}/versions/{version}/cost-snapshots';
+};
+
+export type ListRecipeCostSnapshotsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListRecipeCostSnapshotsError = ListRecipeCostSnapshotsErrors[keyof ListRecipeCostSnapshotsErrors];
+
+export type ListRecipeCostSnapshotsResponses = {
+    /**
+     * A page of cost snapshots, newest first.
+     */
+    200: {
+        data: Array<CostSnapshot>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListRecipeCostSnapshotsResponse = ListRecipeCostSnapshotsResponses[keyof ListRecipeCostSnapshotsResponses];
+
+export type CreateRecipeCostSnapshotData = {
+    body: CreateCostSnapshotRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/cost-snapshots';
+};
+
+export type CreateRecipeCostSnapshotErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateRecipeCostSnapshotError = CreateRecipeCostSnapshotErrors[keyof CreateRecipeCostSnapshotErrors];
+
+export type CreateRecipeCostSnapshotResponses = {
+    /**
+     * The appended snapshot.
+     */
+    201: {
+        data: {
+            snapshot: CostSnapshot;
+        };
+        meta: Meta;
+    };
+};
+
+export type CreateRecipeCostSnapshotResponse = CreateRecipeCostSnapshotResponses[keyof CreateRecipeCostSnapshotResponses];
 
 export type ListAllergenClassesData = {
     body?: never;

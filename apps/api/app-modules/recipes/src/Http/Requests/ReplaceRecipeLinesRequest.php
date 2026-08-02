@@ -18,9 +18,16 @@ use Illuminate\Foundation\Http\FormRequest;
  * never has to keep numbering in step with an insertion, and two lines can
  * never claim the same position.
  *
- * The cost fields are not accepted here. They exist on the table and arrive
- * with the importer; the cost editing surface is K1.3, behind
- * `recipe.view_costs_organisation`.
+ * **Costs (K1.3).** `unit_cost_amount` and `cost_currency_code` are accepted
+ * per line and are the only way costs enter the system outside the importer.
+ * `line_cost_amount` is **not** accepted: it is quantity × unit cost, the
+ * service derives it, and a derived value a client can supply is a derived
+ * value that can disagree with its inputs (appendix C).
+ *
+ * Whether the caller may write a cost at all is not a validation question — it
+ * is `recipe.view_costs_organisation`, checked in the service, because the
+ * same permission also governs *erasing* a cost by replacing a costed set
+ * without one.
  */
 class ReplaceRecipeLinesRequest extends FormRequest
 {
@@ -44,17 +51,26 @@ class ReplaceRecipeLinesRequest extends FormRequest
             'lines.*.ingredient_id' => ['required', 'uuid'],
             'lines.*.quantity' => ['nullable', 'numeric', 'gt:0', 'max:99999999.9999'],
             'lines.*.unit_id' => ['nullable', 'uuid'],
+
+            // `gte:0`, not `gt:0`: a donated or self-produced input costs
+            // nothing, and recording that is not the same as recording
+            // nothing. The bound is what `decimal(18,6)` holds.
+            'lines.*.unit_cost_amount' => ['nullable', 'numeric', 'gte:0', 'max:999999999999.999999'],
+
+            // Existence is checked in the service against the currencies
+            // table, for the same reason the ingredient is.
+            'lines.*.cost_currency_code' => ['nullable', 'string', 'size:3'],
             'lines.*.source_designation' => ['nullable', 'string', 'max:160'],
             'lines.*.comment' => ['nullable', 'string', 'max:255'],
         ];
     }
 
     /**
-     * @return list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, source_designation?: string|null, comment?: string|null}>
+     * @return list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null, source_designation?: string|null, comment?: string|null}>
      */
     public function lines(): array
     {
-        /** @var list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, source_designation?: string|null, comment?: string|null}> $lines */
+        /** @var list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null, source_designation?: string|null, comment?: string|null}> $lines */
         $lines = $this->validated('lines') ?? [];
 
         return $lines;

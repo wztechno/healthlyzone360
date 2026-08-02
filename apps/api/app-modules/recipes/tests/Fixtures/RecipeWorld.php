@@ -68,6 +68,7 @@ final class RecipeWorld
         'recipe.view_organisation',
         'recipe.manage_organisation',
         'recipe.publish_organisation',
+        'recipe.view_costs_organisation',
     ]): object
     {
         $organisation = self::organisation();

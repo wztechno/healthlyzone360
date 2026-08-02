@@ -51,29 +51,42 @@ final class CursorPage
      * second `COUNT` that would disagree with the page under concurrent
      * writes.
      *
+     * `$newestFirst` reverses both halves of the keyset together — the
+     * ordering *and* the "everything after the cursor" predicate — because
+     * reversing only one produces a walk that silently returns the same page
+     * forever. The cursor codec is unchanged, so a cursor is still an opaque
+     * `(created_at, id)` pair and a client cannot tell the two directions
+     * apart. Which direction an endpoint walks is a property of the endpoint,
+     * never a query parameter: a collection that could be walked both ways
+     * from the same cursor would need the direction inside the cursor to stay
+     * coherent.
+     *
      * @param  EloquentBuilder<covariant Model>  $query
      *
      * @throws ApiException
      */
-    public static function constrain(EloquentBuilder $query, int $limit, ?string $cursor): void
+    public static function constrain(EloquentBuilder $query, int $limit, ?string $cursor, bool $newestFirst = false): void
     {
         $model = $query->getModel();
         $createdAt = $model->qualifyColumn($model->getCreatedAtColumn() ?? 'created_at');
         $key = $model->qualifyColumn($model->getKeyName());
+        $beyond = $newestFirst ? '<' : '>';
 
         if ($cursor !== null) {
             [$afterCreatedAt, $afterId] = self::decode($cursor);
 
-            $query->where(function (EloquentBuilder $scoped) use ($createdAt, $key, $afterCreatedAt, $afterId): void {
-                $scoped->where($createdAt, '>', $afterCreatedAt)
-                    ->orWhere(function (BuilderContract $tie) use ($createdAt, $key, $afterCreatedAt, $afterId): void {
-                        $tie->where($createdAt, '=', $afterCreatedAt)->where($key, '>', $afterId);
+            $query->where(function (EloquentBuilder $scoped) use ($createdAt, $key, $afterCreatedAt, $afterId, $beyond): void {
+                $scoped->where($createdAt, $beyond, $afterCreatedAt)
+                    ->orWhere(function (BuilderContract $tie) use ($createdAt, $key, $afterCreatedAt, $afterId, $beyond): void {
+                        $tie->where($createdAt, '=', $afterCreatedAt)->where($key, $beyond, $afterId);
                     });
             });
         }
 
+        $direction = $newestFirst ? 'desc' : 'asc';
+
         $query->reorder();
-        $query->orderBy($createdAt)->orderBy($key)->limit($limit + 1);
+        $query->orderBy($createdAt, $direction)->orderBy($key, $direction)->limit($limit + 1);
     }
 
     /**

@@ -600,6 +600,85 @@ export const zRecipeVersionAllergen = z.object({
     source_note: z.string().max(255).nullish()
 });
 
+/**
+ * Where a snapshot's arithmetic came from.
+ *
+ * `recalculated` is arithmetic this system performed over the version's
+ * lines: reproducible, and re-derivable from data still in the database.
+ *
+ * `as_recorded` is what a source technical sheet stated, stored verbatim
+ * **including its errors**. Several of the source sheets do their own
+ * arithmetic and do it wrong; correcting one on import destroys the
+ * evidence that it needs correcting, and trusting one puts a wrong number
+ * behind a right-looking label. Storing both and saying which is which is
+ * the only honest option. Written by the private importer only.
+ *
+ */
+export const zCostBasis = z.enum(['as_recorded', 'recalculated']);
+
+/**
+ * One costed formulation line. Served **only** from the technical sheet,
+ * behind `recipe.view_costs_organisation`; the ordinary `RecipeLine`
+ * projection carries none of these fields.
+ *
+ */
+export const zTechnicalSheetLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    ingredient_id: zUuid,
+    quantity: z.string().nullish(),
+    unit_id: zUuid.nullish(),
+    unit_cost_amount: z.string().nullish(),
+    line_cost_amount: z.string().nullish(),
+    cost_currency_code: z.string().length(3).nullish(),
+    source_designation: z.string().max(160).nullish(),
+    comment: z.string().max(255).nullish()
+});
+
+/**
+ * What one version cost, at one moment, on one basis. Append-only:
+ * `UPDATE` and `DELETE` are revoked from the application database role,
+ * so a snapshot is superseded by a newer one and never edited.
+ *
+ * The per-unit figures are null when the version does not say what it
+ * yields. Inventing a denominator to fill a column is the fabrication
+ * this programme exists to avoid.
+ *
+ */
+export const zCostSnapshot = z.object({
+    id: zUuid,
+    recipe_version_id: zUuid,
+    basis: zCostBasis,
+    currency_code: z.string().length(3),
+    total_input_cost_amount: z.string(),
+    cost_per_yield_unit_amount: z.string().nullish(),
+    yield_unit_id: zUuid.nullish(),
+    cost_per_piece_amount: z.string().nullish(),
+    waste_coefficient_percent: z.string(),
+    cost_per_yield_unit_with_waste_amount: z.string().nullish(),
+    cost_per_piece_with_waste_amount: z.string().nullish(),
+    source_label: z.string().max(60).nullish(),
+    basis_mismatch: z.boolean(),
+    calculated_at: z.iso.datetime({ offset: true }),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * The confidential cost projection of one recipe version.
+ */
+export const zTechnicalSheet = z.object({
+    version: zAdminRecipeVersion,
+    completeness: zRecipeCompleteness,
+    currency_code: z.string().length(3).nullish(),
+    currency_conflict: z.boolean(),
+    lines: z.array(zTechnicalSheetLine),
+    uncosted_line_numbers: z.array(z.int().gte(1)),
+    snapshots: z.object({
+        recalculated: zCostSnapshot.nullable(),
+        as_recorded: zCostSnapshot.nullable()
+    })
+});
+
 export const zCreateRecipeRequest = z.object({
     name_en: z.string().max(255),
     name_ar: z.string().max(255).nullish(),
@@ -658,9 +737,23 @@ export const zReplaceRecipeLinesRequest = z.object({
         ingredient_id: zUuid,
         quantity: z.number().gt(0).lte(99999999.9999).nullish(),
         unit_id: zUuid.nullish(),
+        unit_cost_amount: z.union([
+            z.number().gte(0).lte(1000000000000),
+            z.string()
+        ]).nullish(),
+        cost_currency_code: z.string().length(3).nullish(),
         source_designation: z.string().max(160).nullish(),
         comment: z.string().max(255).nullish()
     })).max(200)
+});
+
+/**
+ * No amounts, deliberately. Every figure on a `recalculated` snapshot is
+ * derived from the version's own lines and yield.
+ *
+ */
+export const zCreateCostSnapshotRequest = z.object({
+    basis: z.enum(['recalculated'])
 });
 
 export const zReplaceRecipeOutputsRequest = z.object({
@@ -1853,6 +1946,78 @@ export const zRetireRecipeVersionPath = z.object({
  * The retired version.
  */
 export const zRetireRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zShowRecipeTechnicalSheetHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipeTechnicalSheetPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The costed sheet.
+ */
+export const zShowRecipeTechnicalSheetResponse = z.object({
+    data: zTechnicalSheet,
+    meta: zMeta
+});
+
+export const zListRecipeCostSnapshotsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeCostSnapshotsPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+export const zListRecipeCostSnapshotsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of cost snapshots, newest first.
+ */
+export const zListRecipeCostSnapshotsResponse = z.object({
+    data: z.array(zCostSnapshot),
+    meta: zPaginationMeta
+});
+
+export const zCreateRecipeCostSnapshotBody = zCreateCostSnapshotRequest;
+
+export const zCreateRecipeCostSnapshotHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateRecipeCostSnapshotPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The appended snapshot.
+ */
+export const zCreateRecipeCostSnapshotResponse = z.object({
+    data: z.object({
+        snapshot: zCostSnapshot
+    }),
+    meta: zMeta
+});
 
 export const zListAllergenClassesHeaders = z.object({
     'Accept-Language': z.string().optional(),

@@ -13,6 +13,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeCostSnapshot;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
@@ -46,6 +47,13 @@ use Illuminate\Support\Str;
 | `join-rls-parent` — reachable only through a version, cascade-deleted with
 | it, protected by the policy above them.
 |
+| K1.3 takes it to **nine**. `recipe_cost_snapshots` carries both an
+| organisation policy and the `audit_logs` treatment — UPDATE and DELETE
+| revoked at grant level — because it names two strategies: `org-rls` keeps one
+| kitchen's margins away from another, and `append-only-ledger` keeps a kitchen
+| from rewriting its own cost history. The policy alone would only have
+| achieved the first.
+|
 */
 
 uses()->group('rls');
@@ -60,7 +68,7 @@ function rlsVisibleCounts(): array
     $tables = [
         'organisation_branches', 'organisation_memberships', 'roles',
         'feature_entitlements', 'consent_grants', 'audit_logs',
-        'recipe_versions', 'recipe_version_lines',
+        'recipe_versions', 'recipe_version_lines', 'recipe_cost_snapshots',
     ];
 
     foreach ($tables as $table) {
@@ -74,7 +82,7 @@ function rlsVisibleCounts(): array
 }
 
 /**
- * A complete tenant across all eight protected tables.
+ * A complete tenant across all nine protected tables.
  */
 function rlsTenant(ConsentDefinition $definition): object
 {
@@ -118,9 +126,14 @@ function rlsTenant(ConsentDefinition $definition): object
         'ingredient_id' => $ingredient->getKey(),
     ]);
 
+    $snapshot = RecipeCostSnapshot::factory()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisation->getKey(),
+    ]);
+
     return (object) compact(
         'organisation', 'user', 'branch', 'membership', 'role', 'entitlement',
-        'consent', 'audit', 'recipe', 'version', 'ingredient', 'line',
+        'consent', 'audit', 'recipe', 'version', 'ingredient', 'line', 'snapshot',
     );
 }
 
@@ -152,6 +165,7 @@ it('fails closed on every protected table when the session carries no context', 
         'audit_logs' => 0,
         'recipe_versions' => 0,
         'recipe_version_lines' => 0,
+        'recipe_cost_snapshots' => 0,
     ]);
 });
 
@@ -269,6 +283,87 @@ it('rejects an insert that would plant a recipe line in another kitchen', functi
     });
 
     expect(RecipeVersionLine::withoutTenancy()->where('line_number', 99)->exists())->toBeFalse();
+});
+
+it('shows a kitchen its own cost snapshots and nothing of the other', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $visible = RuntimeRole::run(fn (): array => DB::table('recipe_cost_snapshots')->pluck('id')->all());
+
+    expect($visible)->toBe([$this->b->snapshot->getKey()])
+        ->and($visible)->not->toContain($this->a->snapshot->getKey());
+});
+
+it('rejects a cost snapshot planted in another kitchen', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $insert = fn () => DB::transaction(fn () => DB::table('recipe_cost_snapshots')->insert([
+        'id' => (string) Str::uuid7(),
+        'recipe_version_id' => $this->a->version->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'currency_code' => $this->a->organisation->default_currency_code,
+        'basis' => 'recalculated',
+        'total_input_cost_amount' => '99.999999',
+        'waste_coefficient_percent' => '3.00',
+        'calculated_at' => now(),
+        'created_at' => now(),
+    ]));
+
+    RuntimeRole::run(function () use ($insert): void {
+        expect($insert)->toThrow(QueryException::class);
+    });
+
+    expect(RecipeCostSnapshot::withoutTenancy()->where('total_input_cost_amount', '99.999999')->exists())->toBeFalse();
+});
+
+it('refuses to rewrite or erase a cost snapshot at grant level, even its own', function (): void {
+    // The distinction that matters. The organisation policy already refuses
+    // another kitchen's rows; what makes this an append-only ledger is that
+    // the application role cannot rewrite the rows it *can* see. A cost
+    // history that can be edited after the fact is not a history.
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    RuntimeRole::run(function (): void {
+        $update = fn () => DB::transaction(fn () => DB::table('recipe_cost_snapshots')
+            ->where('id', $this->b->snapshot->getKey())
+            ->update(['total_input_cost_amount' => '0.000001']));
+
+        $delete = fn () => DB::transaction(fn () => DB::table('recipe_cost_snapshots')
+            ->where('id', $this->b->snapshot->getKey())
+            ->delete());
+
+        expect($update)->toThrow(QueryException::class, 'permission denied')
+            ->and($delete)->toThrow(QueryException::class, 'permission denied');
+    });
+
+    expect(RecipeCostSnapshot::withoutTenancy()->whereKey($this->b->snapshot->getKey())->exists())->toBeTrue()
+        ->and((string) RecipeCostSnapshot::withoutTenancy()->whereKey($this->b->snapshot->getKey())->value('total_input_cost_amount'))
+        ->not->toBe('0.000001');
+});
+
+it('lets a kitchen append a cost snapshot inside its own organisation', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $id = (string) Str::uuid7();
+
+    $visible = RuntimeRole::run(function () use ($id): array {
+        DB::table('recipe_cost_snapshots')->insert([
+            'id' => $id,
+            'recipe_version_id' => $this->b->version->getKey(),
+            'organisation_id' => $this->b->organisation->getKey(),
+            'currency_code' => $this->b->organisation->default_currency_code,
+            'basis' => 'recalculated',
+            'total_input_cost_amount' => '10.000000',
+            'waste_coefficient_percent' => '3.00',
+            'calculated_at' => now(),
+            'created_at' => now(),
+        ]);
+
+        return DB::table('recipe_cost_snapshots')->pluck('id')->all();
+    });
+
+    expect($visible)->toContain($id)
+        ->and($visible)->not->toContain($this->a->snapshot->getKey());
 });
 
 it('refuses to rewrite or erase an audit record at grant level', function (): void {
@@ -480,7 +575,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the eight declared tables and no others', function (): void {
+it('protects exactly the nine declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -488,20 +583,39 @@ it('protects exactly the eight declared tables and no others', function (): void
         ->pluck('tablename')
         ->all();
 
-    // Six from the foundation, two from K1.2. Pinned so that a new
-    // tenant-scoped table has to decide explicitly whether it joins the set
-    // (ADR-0007 review trigger) rather than inheriting a policy by accident —
-    // or, worse, quietly not having one.
+    // Six from the foundation, two from K1.2, one from K1.3. Pinned so that a
+    // new tenant-scoped table has to decide explicitly whether it joins the
+    // set (ADR-0007 review trigger) rather than inheriting a policy by
+    // accident — or, worse, quietly not having one.
     expect($protected)->toBe([
         'audit_logs',
         'consent_grants',
         'feature_entitlements',
         'organisation_branches',
         'organisation_memberships',
+        'recipe_cost_snapshots',
         'recipe_version_lines',
         'recipe_versions',
         'roles',
     ]);
+});
+
+it('revokes write-back privileges on exactly the two append-only ledgers', function (): void {
+    // The `append-only-ledger` strategy is a grant, not a policy, so nothing
+    // in pg_policies would reveal its absence. Pinned for the same reason the
+    // policy set is: a third ledger has to be a deliberate act, and a
+    // migration that quietly granted UPDATE back would fail here.
+    $writable = DB::table('information_schema.table_privileges')
+        ->where('grantee', 'healthy360_app')
+        ->whereIn('privilege_type', ['UPDATE', 'DELETE'])
+        ->whereIn('table_name', ['audit_logs', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines'])
+        ->orderBy('table_name')
+        ->pluck('table_name')
+        ->unique()
+        ->values()
+        ->all();
+
+    expect($writable)->toBe(['recipe_version_lines', 'recipe_versions']);
 });
 
 it('still migrates and seeds under the owner role with row-level security enabled', function (): void {
@@ -512,7 +626,8 @@ it('still migrates and seeds under the owner role with row-level security enable
 
     // Eight platform template roles since K1.1: the four foundation roles plus
     // kitchen_manager, kitchen_chef, kitchen_staff and commercial_manager.
-    // Pinned so a new template role has to be a deliberate act.
+    // Pinned so a new template role has to be a deliberate act. K1.3 widened
+    // three of them with `recipe.view_costs_organisation` and added none.
     expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)

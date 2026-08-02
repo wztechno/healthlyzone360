@@ -2766,6 +2766,225 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/technical-sheet:
+    get:
+      operationId: showRecipeTechnicalSheet
+      tags:
+        - Recipes
+      summary: The costed view of a formulation
+      description: |
+        The confidential cost projection — the only place in this API where a
+        recipe line carries money.
+
+        Requires **`recipe.view_costs_organisation`**, which is deliberately
+        not `recipe.view_organisation`: a line cook needs the method and the
+        allergen label to make the dish and must not thereby read the margin on
+        it. Every other recipe endpoint serialises no cost field at all, to
+        anybody, and a key sweep across that surface enforces it.
+
+        The response answers what a paper technical sheet answers:
+
+        - **What goes in and what it costs** — `lines`, with `unit_cost_amount`,
+          `line_cost_amount` and `cost_currency_code`. The two amounts are both
+          on the wire even though one is derivable from the other, because on
+          an imported sheet they legitimately disagree: the source's own
+          arithmetic is stored verbatim, errors included.
+        - **What the whole thing costs** — `snapshots`, keyed by basis. Both
+          keys are always present so a client never has to guess whether a
+          missing key means "none" or "not asked for"; either may be `null`.
+        - **What is missing** — `uncosted_line_numbers`, and `currency_conflict`
+          for the import case where two currencies ended up on one sheet.
+
+        **The snapshots are read, not recomputed.** A sheet that recalculated
+        on every GET would show a figure no snapshot records, changing as
+        ingredient prices move — precisely what a costed technical sheet exists
+        to pin down. Recomputing is an explicit `POST` to `cost-snapshots`.
+
+        Every successful read writes a `catalogue.technical_sheet_viewed` audit
+        event carrying a purpose of use and the `confidential` classification.
+        The event records identifiers and counts only: an audit row is readable
+        with `audit.view_organisation`, so an amount there would route around
+        the permission split entirely.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The costed sheet.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TechnicalSheet'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/cost-snapshots:
+    get:
+      operationId: listRecipeCostSnapshots
+      tags:
+        - Recipes
+      summary: The cost history of a version, newest first
+      description: |
+        An append-only ledger: `UPDATE` and `DELETE` are revoked from the
+        application database role, so a snapshot is superseded by writing a
+        newer one and never by editing an old one.
+
+        Paginated where the *version* list is not, and for the opposite reason:
+        a version list is bounded by how many times one kitchen revised one
+        formulation, while this grows every time anybody asks what the recipe
+        costs today.
+
+        Newest first, because the question is almost always "what does it cost
+        now". The keyset runs over when the snapshot was **recorded**, not over
+        `calculated_at`: the importer can record a sheet dated last spring, and
+        a cursor over a value the importer chooses would let a back-dated
+        import interleave itself into a page a client is halfway through
+        walking.
+
+        Requires `recipe.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of cost snapshots, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CostSnapshot'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createRecipeCostSnapshot
+      tags:
+        - Recipes
+      summary: Cost this version now and append the result
+      description: |
+        Recomputes the version's cost from its own lines and appends a
+        snapshot.
+
+        Requires **both** `recipe.manage_organisation` (this writes) and
+        `recipe.view_costs_organisation` (what it writes is money). Neither
+        alone is enough.
+
+        No `If-Match`: a snapshot appends to a ledger beside the version rather
+        than mutating it, so there is no lost update for a validator to
+        prevent.
+
+        `basis` may only be `recalculated`. `as_recorded` is a real value of
+        the column and is deliberately not accepted here — it means "this is
+        what a source technical sheet stated", and the only thing that holds a
+        source sheet is the private importer. An endpoint accepting it would
+        let somebody type figures in and have them stored as evidence of a
+        document nobody read.
+
+        No amounts in the body at all: every figure is derived from the lines
+        and the yield, and a derived value a client can supply is one that can
+        disagree with its inputs.
+
+        Three refusals. A **retired** version is `409 resource.conflict` —
+        retirement is terminal and a fresh cost for a withdrawn formulation has
+        nowhere to go. A version that is **not fully costed** is
+        `422 validation.failed` naming `uncosted_line_numbers`, and no snapshot
+        is written: a total that silently omits a line reads exactly like a
+        total that did not. Lines in **more than one currency** are
+        `422 validation.failed` naming them, because there is no exchange rate
+        anywhere in this system.
+
+        Success does **not** touch `completeness`. Only publication flips a
+        version to `costed`; letting an ad-hoc recalculation promote a draft
+        would make the field mean "somebody once pressed a button".
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCostSnapshotRequest'
+      responses:
+        '201':
+          description: The appended snapshot.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - snapshot
+                    properties:
+                      snapshot:
+                        $ref: '#/components/schemas/CostSnapshot'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /reference/allergen-classes:
     get:
       operationId: listAllergenClasses
@@ -5094,6 +5313,248 @@ components:
             one row per class, so a scope column would either duplicate rows or
             pick one scope and lose the rest.
       additionalProperties: false
+    CostBasis:
+      type: string
+      enum:
+        - as_recorded
+        - recalculated
+      description: |
+        Where a snapshot's arithmetic came from.
+
+        `recalculated` is arithmetic this system performed over the version's
+        lines: reproducible, and re-derivable from data still in the database.
+
+        `as_recorded` is what a source technical sheet stated, stored verbatim
+        **including its errors**. Several of the source sheets do their own
+        arithmetic and do it wrong; correcting one on import destroys the
+        evidence that it needs correcting, and trusting one puts a wrong number
+        behind a right-looking label. Storing both and saying which is which is
+        the only honest option. Written by the private importer only.
+    TechnicalSheetLine:
+      type: object
+      required:
+        - id
+        - line_number
+        - ingredient_id
+      description: |
+        One costed formulation line. Served **only** from the technical sheet,
+        behind `recipe.view_costs_organisation`; the ordinary `RecipeLine`
+        projection carries none of these fields.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        line_number:
+          type: integer
+          minimum: 1
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type:
+            - string
+            - 'null'
+          description: Decimal with four places, as a string so no client rounds it.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        unit_cost_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            Major currency units with six decimal places, as a string. Floats
+            cannot represent `0.1`, and a cost whose total depends on the order
+            the lines were summed in is not a cost.
+          examples:
+            - '3.900000'
+        line_cost_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            On the wire beside `unit_cost_amount` even though one is derivable
+            from the other, because on an imported sheet they legitimately
+            disagree: the source's own arithmetic is stored verbatim, and a
+            reader who could only see the inputs would have no way to notice.
+          examples:
+            - '9.750000'
+        cost_currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+        source_designation:
+          type:
+            - string
+            - 'null'
+          maxLength: 160
+        comment:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+      additionalProperties: false
+    CostSnapshot:
+      type: object
+      required:
+        - id
+        - recipe_version_id
+        - basis
+        - currency_code
+        - total_input_cost_amount
+        - waste_coefficient_percent
+        - basis_mismatch
+        - calculated_at
+      description: |
+        What one version cost, at one moment, on one basis. Append-only:
+        `UPDATE` and `DELETE` are revoked from the application database role,
+        so a snapshot is superseded by a newer one and never edited.
+
+        The per-unit figures are null when the version does not say what it
+        yields. Inventing a denominator to fill a column is the fabrication
+        this programme exists to avoid.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        recipe_version_id:
+          $ref: '#/components/schemas/Uuid'
+        basis:
+          $ref: '#/components/schemas/CostBasis'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: Every amount on this snapshot is in this one currency. Nothing converts between currencies.
+        total_input_cost_amount:
+          type: string
+          description: The sum of the line costs, major units, six decimal places.
+          examples:
+            - '10.000000'
+        cost_per_yield_unit_amount:
+          type:
+            - string
+            - 'null'
+          description: Total ÷ `yield_quantity`. Null unless the version states both a yield quantity and a yield unit.
+        yield_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The unit `cost_per_yield_unit_amount` is per. A per-unit cost without its unit is a number, not a cost.
+        cost_per_piece_amount:
+          type:
+            - string
+            - 'null'
+          description: Total ÷ `yield_piece_count`. Null unless the version counts pieces.
+        waste_coefficient_percent:
+          type: string
+          description: |
+            Copied from the version at calculation time rather than joined at
+            read time: a kitchen that later revises its allowance must not
+            retroactively rewrite what an old snapshot said. The source sheets
+            apply a flat `3.00`.
+          examples:
+            - '3.00'
+        cost_per_yield_unit_with_waste_amount:
+          type:
+            - string
+            - 'null'
+          description: The per-unit figure × (1 + waste ÷ 100), rounded once.
+        cost_per_piece_with_waste_amount:
+          type:
+            - string
+            - 'null'
+        source_label:
+          type:
+            - string
+            - 'null'
+          maxLength: 60
+          description: |
+            The source sheet's own wording, verbatim — "Cost per kg", "U.P.".
+            Kept as evidence and **never** consulted to decide what a number
+            means: at least five source sheets label a figure "cost per kg"
+            beside a piece count. The basis is derived from the version's yield
+            fields instead.
+        basis_mismatch:
+          type: boolean
+          description: |
+            The label claims something the version's yield cannot support.
+            Served with the figures and never without them: a number that looks
+            authoritative while it is under review is worse than no number.
+            Conservative by design — wording nobody can classify raises
+            nothing, because a flag that cannot be substantiated teaches
+            reviewers to ignore the flag.
+        calculated_at:
+          type: string
+          format: date-time
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    TechnicalSheet:
+      type: object
+      required:
+        - version
+        - completeness
+        - currency_conflict
+        - lines
+        - uncosted_line_numbers
+        - snapshots
+      description: The confidential cost projection of one recipe version.
+      properties:
+        version:
+          $ref: '#/components/schemas/AdminRecipeVersion'
+        completeness:
+          $ref: '#/components/schemas/RecipeCompleteness'
+        currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: |
+            The single currency the costed lines share. Null when nothing is
+            costed **or** when an import left more than one behind;
+            `currency_conflict` says which, because "no currency" and "several
+            currencies" need different fixes.
+        currency_conflict:
+          type: boolean
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/TechnicalSheetLine'
+        uncosted_line_numbers:
+          type: array
+          description: |
+            Lines that contributed nothing to a total, in line order — no
+            quantity, no unit cost, or no currency. While this is non-empty no
+            `recalculated` snapshot can be written, because a total that
+            silently omits a line reads exactly like a total that did not.
+          items:
+            type: integer
+            minimum: 1
+        snapshots:
+          type: object
+          required:
+            - recalculated
+            - as_recorded
+          description: |
+            The latest snapshot of each basis. Both keys are always present, so
+            a client never has to guess whether a missing key means "none" or
+            "not asked for"; either value may be null.
+          properties:
+            recalculated:
+              oneOf:
+                - $ref: '#/components/schemas/CostSnapshot'
+                - type: 'null'
+            as_recorded:
+              oneOf:
+                - $ref: '#/components/schemas/CostSnapshot'
+                - type: 'null'
+          additionalProperties: false
+      additionalProperties: false
     CreateRecipeRequest:
       type: object
       required:
@@ -5256,6 +5717,48 @@ components:
                 oneOf:
                   - $ref: '#/components/schemas/Uuid'
                   - type: 'null'
+              unit_cost_amount:
+                type:
+                  - number
+                  - string
+                  - 'null'
+                description: |
+                  What one `unit_id` of this ingredient costs, in **major**
+                  currency units with up to six decimal places — `3.9` is three
+                  dollars ninety (master plan v2 §4.4). Prices are a different
+                  concept on a different table and stay integer minor units;
+                  nothing sums one into the other.
+
+                  Zero is legal and meaningful: a donated or self-produced
+                  input costs nothing, and saying so is not the same as saying
+                  nothing.
+
+                  Requires `recipe.view_costs_organisation` **in addition to**
+                  `recipe.manage_organisation`, otherwise `403`. So does
+                  replacing a set that already carries costs *without* them —
+                  that erases money the caller could not see, and positional
+                  line identity means it cannot be put back.
+
+                  `line_cost_amount` is not accepted anywhere: it is quantity ×
+                  unit cost, the server derives it, and a derived value a
+                  client can supply is one that can disagree with its inputs.
+                minimum: 0
+                maximum: 1000000000000
+              cost_currency_code:
+                type:
+                  - string
+                  - 'null'
+                minLength: 3
+                maxLength: 3
+                description: |
+                  ISO 4217, case-insensitive on the way in and canonical on the
+                  way out. Required whenever `unit_cost_amount` is present and
+                  refused when it is absent — an amount without a currency is
+                  not a monetary value, and a currency without an amount is not
+                  one either.
+
+                  Every costed line of one version must share a single
+                  currency; a second is `422 validation.failed`.
               source_designation:
                 type:
                   - string
@@ -5267,6 +5770,23 @@ components:
                   - 'null'
                 maxLength: 255
             additionalProperties: false
+      additionalProperties: false
+    CreateCostSnapshotRequest:
+      type: object
+      required:
+        - basis
+      description: |
+        No amounts, deliberately. Every figure on a `recalculated` snapshot is
+        derived from the version's own lines and yield.
+      properties:
+        basis:
+          type: string
+          enum:
+            - recalculated
+          description: |
+            Only `recalculated` is accepted here. `as_recorded` exists on the
+            table and means "this is what a source technical sheet stated" —
+            the private importer's basis, never an endpoint's.
       additionalProperties: false
     ReplaceRecipeOutputsRequest:
       type: object

@@ -83,12 +83,23 @@ final class PermissionRegistry
             // kitchen sells is a separate decision, and the permission
             // registry is where that separation has to be real.
             //
-            // `recipe.view_costs_organisation` is deliberately absent: the
-            // cost surface is K1.3, and a permission with nothing behind it is
-            // a promise the code does not keep.
             'recipe.view_organisation' => ['domain' => 'recipe', 'description' => 'View recipes and their versions, lines, outputs, steps and allergen labels'],
             'recipe.manage_organisation' => ['domain' => 'recipe', 'description' => 'Create and edit recipes and draft versions of the organisation'],
             'recipe.publish_organisation' => ['domain' => 'recipe', 'description' => 'Publish and retire recipe versions of the organisation'],
+
+            // Phase K1.3 — a fourth code, and the split that motivates it is
+            // the whole reason costs are a separate slice. Reading a
+            // formulation and reading its margin are different needs:
+            // `recipe.view_organisation` lets a line cook read the method to
+            // make the dish, and this code is what it takes to see what the
+            // dish costs. Splitting them is the only way that separation is
+            // real rather than a convention nobody enforces (appendix C).
+            //
+            // It gates the read *and* the write: writing a unit cost blind is
+            // how a decimal point moves three places, and erasing one blind is
+            // worse, because positional line identity means it cannot be put
+            // back.
+            'recipe.view_costs_organisation' => ['domain' => 'recipe', 'description' => 'View and write recipe costs: technical sheets, cost snapshots and line unit costs'],
         ];
     }
 
@@ -204,6 +215,7 @@ final class PermissionRegistry
                     'recipe.view_organisation',
                     'recipe.manage_organisation',
                     'recipe.publish_organisation',
+                    'recipe.view_costs_organisation',
                     'organisation.view_current',
                     'branch.view_current',
                     'membership.view_organisation',
@@ -212,6 +224,9 @@ final class PermissionRegistry
 
             // A chef writes formulations and does not decide what the kitchen
             // sells: `recipe.publish_organisation` stops here deliberately.
+            // Costs do not: a chef who cannot see what a substitution does to
+            // the cost of a dish is a chef who cannot cost a dish, and the
+            // lines endpoint is where unit costs are keyed in.
             'kitchen_chef' => [
                 'name_en' => 'Chef',
                 'name_ar' => 'رئيس الطهاة',
@@ -220,8 +235,13 @@ final class PermissionRegistry
                     'catalogue.manage_organisation',
                     'recipe.view_organisation',
                     'recipe.manage_organisation',
+                    'recipe.view_costs_organisation',
                 ],
             ],
+
+            // The role the cost split exists for. Kitchen staff read the
+            // method and the allergen label — everything needed to make the
+            // dish — and no money at all.
             'kitchen_staff' => [
                 'name_en' => 'Kitchen staff',
                 'name_ar' => 'طاقم المطبخ',
@@ -230,12 +250,18 @@ final class PermissionRegistry
                     'recipe.view_organisation',
                 ],
             ],
+
+            // The mirror image: margins are this role's whole job, and
+            // `recipe.manage_organisation` is deliberately absent so that
+            // reading a cost never comes with the ability to change the
+            // formulation behind it.
             'commercial_manager' => [
                 'name_en' => 'Commercial manager',
                 'name_ar' => 'المدير التجاري',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'recipe.view_organisation',
+                    'recipe.view_costs_organisation',
                 ],
             ],
         ];

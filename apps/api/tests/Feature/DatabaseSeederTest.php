@@ -226,8 +226,9 @@ it('seeds the twelve organisation types with both names', function (): void {
 });
 
 it('seeds exactly the registered permission set', function (): void {
-    // 24 after K1.1, plus the three recipe codes K1.2 introduces.
-    expect(Permission::query()->count())->toBe(27)
+    // 24 after K1.1, plus the three recipe codes K1.2 introduces and the cost
+    // permission K1.3 splits out of them.
+    expect(Permission::query()->count())->toBe(28)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -257,15 +258,32 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 25],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 24],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 26],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 25],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue and publishes recipes' => ['kitchen_manager', 8],
-    'chef edits recipes but never publishes one' => ['kitchen_chef', 4],
-    'kitchen staff read the catalogue and recipes only' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue and recipes only' => ['commercial_manager', 2],
+    'kitchen manager runs the catalogue, publishes recipes and sees their costs' => ['kitchen_manager', 9],
+    'chef edits recipes and their costs but never publishes one' => ['kitchen_chef', 5],
+    'kitchen staff read the catalogue and recipes, and no costs at all' => ['kitchen_staff', 2],
+    'commercial manager reads the catalogue, recipes and costs' => ['commercial_manager', 3],
 ]);
+
+it('withholds cost visibility from kitchen staff and from nobody else in the kitchen', function (): void {
+    // The split appendix C asks for, asserted where it is actually decided.
+    // A line cook reading the method to make the dish must not thereby read
+    // the margin on it, and a docblock is not a mechanism.
+    $costs = Permission::query()->where('code', 'recipe.view_costs_organisation')->sole();
+
+    $holders = Role::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $costs->getKey())->select('role_id'))
+        ->pluck('code')
+        ->all();
+
+    expect($holders)->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'kitchen_chef', 'commercial_manager',
+    ]);
+});
 
 it('grants the publication permission to the kitchen manager and to nobody else', function (): void {
     // Publishing freezes an allergen label that reaches a diner and withdraws
