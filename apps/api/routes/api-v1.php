@@ -12,6 +12,7 @@ use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplac
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIngredientReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemPublishController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemReadinessController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemRetireController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemShowController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemStoreController;
@@ -91,6 +92,7 @@ use Healthy360\Recipes\Http\Controllers\RecipeUpdateController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionAllergenIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionPublishController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionReadinessController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
@@ -217,6 +219,13 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/recipes/{recipe}/versions', RecipeVersionIndexController::class)->name('catalogue.recipes.versions.index');
                 Route::get('/recipes/{recipe}/versions/{version}', RecipeVersionShowController::class)->name('catalogue.recipes.versions.show');
                 Route::get('/recipes/{recipe}/versions/{version}/allergens', RecipeVersionAllergenIndexController::class)->name('catalogue.recipes.versions.allergens.index');
+
+                // K1.8. A read of the publish gate, behind the *read*
+                // permission on purpose: the chef who has to fix a formulation
+                // must be able to see what is wrong with it, and guarding the
+                // diagnosis behind the authority to publish would leave the
+                // only person who can see the problem unable to fix it.
+                Route::get('/recipes/{recipe}/versions/{version}/readiness', RecipeVersionReadinessController::class)->name('catalogue.recipes.versions.readiness');
             });
 
             Route::middleware('permission:recipe.manage_organisation')->group(function (): void {
@@ -331,6 +340,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/items', CatalogueItemIndexController::class)->name('catalogue.items.index');
                 Route::get('/items/{item}', CatalogueItemShowController::class)->name('catalogue.items.show');
                 Route::get('/items/{item}/allergens', CatalogueItemAllergenIndexController::class)->name('catalogue.items.allergens.index');
+
+                // K1.8, and the same argument as its recipe twin: whoever has
+                // to complete a listing must be able to see what it is still
+                // missing, which is the read permission's business rather than
+                // the publisher's.
+                Route::get('/items/{item}/readiness', CatalogueItemReadinessController::class)->name('catalogue.items.readiness');
             });
 
             Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {

@@ -2724,6 +2724,94 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/readiness:
+    get:
+      operationId: showRecipeVersionReadiness
+      tags:
+        - Recipes
+      summary: Whether a version could be published, and why not
+      description: |
+        A read of the gate `POST …/publish` enforces — the same evaluator, not
+        a second opinion about it. `RecipeVersionReadiness` is asked here and
+        thrown from there, so an answer of `publishable: true` is the answer
+        the publish attempt will give a moment later against the same rows.
+
+        What that buys is a review queue that can show thirty formulations'
+        readiness without publishing any of them, and a version editor that can
+        show what is still missing while somebody is fixing it rather than only
+        after they press publish. Discovering a five-minute fix by attempting a
+        publication is how a kitchen learns to attempt publications.
+
+        Every reason is `{code, detail, context}`:
+
+        - `code` is the stable machine key — the same vocabulary
+          `catalogue.publish_blocked` uses in `details.reasons[].reason`.
+        - `detail` is a sentence for a human. Clients that render their own
+          copy per code should ignore it; clients that need to say *something*
+          about a code they have not seen before should print it.
+        - `context` carries whatever identifies the offending rows —
+          `line_numbers`, `ingredient_ids`, `status`, `review_reason`. It is a
+          nested object rather than sibling keys so that a reason carrying new
+          structure never changes the shape of a reason. It is `{}` when the
+          code says everything there is to say.
+
+        The vocabulary: `version_quarantined`, `version_not_a_draft`,
+        `no_lines`, `line_quantity_missing`, `ingredient_requires_review`,
+        `allergen_unmapped`.
+
+        **`allergen_unmapped` is reported here as an ordinary reason** even
+        though publication raises it under its own error code
+        (`catalogue.allergen_unmapped`, 422) rather than as a
+        `publish_blocked` reason. Publication draws that distinction because
+        the fix is in a different place — the ingredient's mapping editor, not
+        the recipe. This endpoint is asked "why not", and that is one more
+        answer.
+
+        `publishable` is exactly `reasons == []`. Both are on the wire because
+        a badge wants the boolean and a checklist wants the list, and deriving
+        one from the other at every call site is how the two drift apart in a
+        UI.
+
+        Requires **`recipe.view_organisation`**, deliberately not
+        `recipe.publish_organisation`. The chef who has to fix a formulation is
+        the one who has to be able to see what is wrong with it; guarding the
+        diagnosis behind the authority to publish would leave the only person
+        who can see the problem unable to do anything about it.
+
+        No `ETag` and no `If-Match`. Readiness is not a resource with a version
+        — it is a verdict about one, recomputed on every call because its
+        inputs (allergen mappings, ingredient verification) move underneath it.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The verdict, and every reason behind it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PublicationReadiness'
+                  meta:
+                    $ref: '#/components/schemas/RecipeVersionReadinessMeta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/recipes/{recipe}/versions/{version}/publish:
     post:
       operationId: publishRecipeVersion
@@ -4278,6 +4366,97 @@ paths:
                           $ref: '#/components/schemas/DerivedAllergen'
                   meta:
                     $ref: '#/components/schemas/DerivedAllergenMeta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/readiness:
+    get:
+      operationId: showCatalogueItemReadiness
+      tags:
+        - Sellable catalogue
+      summary: Whether a listing could be published, and why not
+      description: |
+        A read of the gate `POST …/publish` enforces — the same evaluator, not
+        a second opinion about it. `CatalogueItemReadiness` is asked here and
+        thrown from there, so an answer of `publishable: true` is the answer
+        the publish attempt will give a moment later against the same rows.
+
+        What that buys is a review queue that can show thirty listings'
+        readiness without publishing any of them, and a plan editor that can
+        show which cells of a price matrix are still empty while somebody is
+        filling them in.
+
+        Every reason is `{code, detail, context}`:
+
+        - `code` is the stable machine key — the same vocabulary
+          `catalogue.publish_blocked` uses in `details.reasons[].reason`.
+        - `detail` is a sentence for a human. Clients that render their own
+          copy per code should ignore it; clients that need to say *something*
+          about a code they have not seen before should print it.
+        - `context` carries whatever identifies the offending rows — `fields`,
+          `status`, `review_reason`, `recipe_version_ids`,
+          `catalogue_item_variant_ids` and the `configurations` beside them. It
+          is a nested object rather than sibling keys so that a reason carrying
+          new structure never changes the shape of a reason. It is `{}` when
+          the code says everything there is to say.
+
+        The vocabulary: `item_quarantined`, `item_not_a_draft`,
+        `translation_incomplete`, `no_active_variant`, `no_allergen_basis`,
+        `linked_recipe_quarantined`, and — for subscription plans only —
+        `plan_profile_missing`, `no_active_plan_configuration`,
+        `no_duration_assigned`, `plan_prices_incomplete`.
+
+        `publishable` is exactly `reasons == []`. Both are on the wire because
+        a badge wants the boolean and a checklist wants the list, and deriving
+        one from the other at every call site is how the two drift apart in a
+        UI.
+
+        **`publishable: true` is not a statement about permission.** A
+        subscription plan additionally needs `plan.publish_organisation`,
+        checked inside the publish action because that is the only layer that
+        has loaded the row and can therefore know it is a plan. This endpoint
+        answers "is the data ready", never "may you"; conflating the two would
+        make a merchandiser without plan authority read "not ready" about a
+        plan that is perfectly ready.
+
+        Requires **`catalogue.view_organisation`**, deliberately not
+        `catalogue.publish_organisation`. Whoever has to complete a listing is
+        the one who has to be able to see what it is still missing. It follows
+        that a caller who can read this may learn that a plan is unpriced —
+        which is a boolean about completeness and never an amount, the same
+        line the confirmed-price port draws.
+
+        No `ETag` and no `If-Match`. Readiness is not a resource with a version
+        — it is a verdict about one, recomputed on every call because its
+        inputs (prices, variants, the linked recipe's state) move underneath
+        it.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The verdict, and every reason behind it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PublicationReadiness'
+                  meta:
+                    $ref: '#/components/schemas/CatalogueItemReadinessMeta'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -10068,6 +10247,96 @@ components:
               oneOf:
                 - $ref: '#/components/schemas/Uuid'
                 - type: 'null'
+    ReadinessReason:
+      type: object
+      required:
+        - code
+        - detail
+        - context
+      properties:
+        code:
+          type: string
+          description: |
+            The stable machine key. The same vocabulary
+            `catalogue.publish_blocked` carries in `details.reasons[].reason`,
+            because the same evaluator produces both.
+          examples:
+            - line_quantity_missing
+        detail:
+          type: string
+          description: |
+            One sentence a human can act on. A client that renders its own copy
+            per code should ignore this; a client that meets a code it does not
+            know should print it rather than say nothing.
+        context:
+          type: object
+          additionalProperties: true
+          description: |
+            Whatever identifies the offending rows — line numbers, identifiers,
+            a status, a review reason, the configuration codes of unpriced
+            cells. Nested rather than flattened beside `code` so that a reason
+            carrying new structure never changes the shape of a reason. `{}`
+            when the code says everything there is to say.
+      additionalProperties: false
+    PublicationReadiness:
+      type: object
+      required:
+        - publishable
+        - reasons
+      properties:
+        publishable:
+          type: boolean
+          description: |
+            Exactly `reasons == []`. Both are on the wire because a badge wants
+            the boolean and a checklist wants the list, and deriving one from
+            the other at every call site is how the two drift apart in a UI.
+
+            A verdict about the *data*, never about the caller's authority: a
+            subscription plan additionally needs `plan.publish_organisation`,
+            which is checked where the item type is known.
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessReason'
+          description: |
+            Every blocker, not the first one found — the rule the publish
+            refusal has followed since K1.2, for the same reason: a gate that
+            reveals one problem per attempt turns a five-minute fix into five
+            round trips.
+      additionalProperties: false
+    RecipeVersionReadinessMeta:
+      allOf:
+        - $ref: '#/components/schemas/Meta'
+        - type: object
+          required:
+            - recipe_id
+            - version_number
+            - status
+            - derivation_state
+          properties:
+            recipe_id:
+              $ref: '#/components/schemas/Uuid'
+            version_number:
+              type: integer
+            status:
+              $ref: '#/components/schemas/RecipeVersionStatus'
+            derivation_state:
+              $ref: '#/components/schemas/DerivationState'
+    CatalogueItemReadinessMeta:
+      allOf:
+        - $ref: '#/components/schemas/Meta'
+        - type: object
+          required:
+            - slug
+            - item_type
+            - status
+          properties:
+            slug:
+              type: string
+            item_type:
+              $ref: '#/components/schemas/CatalogueItemType'
+            status:
+              $ref: '#/components/schemas/CatalogueItemStatus'
     CreateCatalogueItemRequest:
       type: object
       required:

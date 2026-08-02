@@ -85,10 +85,20 @@ flowchart BT
 - **Risk of omission.** Building all eleven modules on an unverified package couples the entire foundation to a third-party assumption.
 - **MVP status.** Spike is Planned — Phase 3, gating module implementation.
 
+## Kitchen-programme modules — `foundation` after K1
+
+Phase K1 flipped seven registry entries from `planned` to `foundation`, one slice at a time, each with its migrations, its API surface and its architecture test in the same commit:
+
+**Ingredients** (K1.1) · **Allergens** (K1.1) · **Recipes** (K1.2, costing K1.3) · **Catalogues** (K1.4, plan definitions K1.6) · **Pricing** (K1.5) · **Delivery** (K1.7) · **Kitchens** (K1.7, and the private GreenLife importer in K1.8).
+
+They stay `foundation` rather than becoming `active`: the schema and the internal management surface exist and are complete, and the customer-facing lifecycle does not — a marketplace read path arrives with M1 and ordering with C1. `active` is a statement about a delivered capability, not a reward for finishing a slice.
+
+`Kitchens` is the one whose declared dependencies reach across the whole family, and the registry says why: K1.8 gave it `kitchen:import-greenlife`, whose job is to stand a kitchen up from a workbook and which therefore writes ingredients, recipes, listings, prices and delivery geography. Catalogues could not host it — Pricing depends on Catalogues, so the edge would have closed a cycle — and nothing that may hold code depends on Kitchens, so widening it there stays acyclic.
+
 ## Future modules — registry entries only
 
-The following 28 modules are documented in the module registry (`docs/architecture/module-registry.yaml`) and in the future roadmap (`09-future-module-roadmap.md`). They receive **registry entries and documentation only** — no directories, no classes, no migrations — until each is genuinely required and separately designed:
+The remaining 21 modules are documented in the module registry (`docs/architecture/module-registry.yaml`) and in the future roadmap (`09-future-module-roadmap.md`). They receive **registry entries and documentation only** — no directories, no classes, no migrations — until each is genuinely required and separately designed:
 
-Nutrition, Ingredients, Allergens, Recipes, MealPlanning, Kitchens, Inventory, Procurement, Production, QualityControl, Marketplace, Catalogues, Pricing, Customers, Verification, B2B, Cart, Orders, Subscriptions, Payments, Accounting, POS, KitchenDisplay, Delivery, ClinicalRecords, Appointments, Reporting, ArtificialIntelligence.
+Nutrition, MealPlanning, Inventory, Procurement, Production, QualityControl, Marketplace, Customers, Verification, B2B, Cart, Orders, Subscriptions, Payments, Accounting, POS, KitchenDisplay, ClinicalRecords, Appointments, Reporting, ArtificialIntelligence.
 
-Kitchen and commercial permissions likewise remain registry proposals until those modules are implemented.
+Permissions for those modules likewise remain registry proposals until they are implemented; the kitchen and commercial sets (`catalogue.*`, `recipe.*`, `plan.*`, `price_list.*`, `delivery_zone.*`) are real, held by real template roles, and pinned by `PermissionRegistryTest` and `RlsTest`.

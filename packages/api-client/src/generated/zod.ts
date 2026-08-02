@@ -1138,6 +1138,30 @@ export const zDerivedAllergenMeta = zMeta.and(z.object({
     recipe_version_id: zUuid.nullable()
 }));
 
+export const zReadinessReason = z.object({
+    code: z.string(),
+    detail: z.string(),
+    context: z.record(z.string(), z.unknown())
+});
+
+export const zPublicationReadiness = z.object({
+    publishable: z.boolean(),
+    reasons: z.array(zReadinessReason)
+});
+
+export const zRecipeVersionReadinessMeta = zMeta.and(z.object({
+    recipe_id: zUuid,
+    version_number: z.int(),
+    status: zRecipeVersionStatus,
+    derivation_state: zDerivationState
+}));
+
+export const zCatalogueItemReadinessMeta = zMeta.and(z.object({
+    slug: z.string(),
+    item_type: zCatalogueItemType,
+    status: zCatalogueItemStatus
+}));
+
 /**
  * Derived and server-authored values are absent by construction:
  * `status` (always `draft`), `lock_version`, `organisation_id` and the
@@ -3178,6 +3202,27 @@ export const zListRecipeVersionAllergensResponse = z.object({
     }))
 });
 
+export const zShowRecipeVersionReadinessHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipeVersionReadinessPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The verdict, and every reason behind it.
+ */
+export const zShowRecipeVersionReadinessResponse = z.object({
+    data: zPublicationReadiness,
+    meta: zRecipeVersionReadinessMeta
+});
+
 export const zPublishRecipeVersionHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'If-Match': z.string(),
@@ -3667,6 +3712,26 @@ export const zShowCatalogueItemAllergensResponse = z.object({
         allergens: z.array(zDerivedAllergen)
     }),
     meta: zDerivedAllergenMeta
+});
+
+export const zShowCatalogueItemReadinessHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCatalogueItemReadinessPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The verdict, and every reason behind it.
+ */
+export const zShowCatalogueItemReadinessResponse = z.object({
+    data: zPublicationReadiness,
+    meta: zCatalogueItemReadinessMeta
 });
 
 export const zListDietClassificationsHeaders = z.object({

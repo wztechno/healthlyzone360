@@ -48,4 +48,25 @@ final class PublishBlocked extends ApiException
             ['reasons' => $reasons],
         );
     }
+
+    /**
+     * The same refusal, built from what `CatalogueItemReadiness` returns.
+     *
+     * The evaluator speaks `{code, detail, context}` — the shape
+     * `GET …/readiness` serves, where a nested context keeps a new reason's
+     * structure from changing the shape of a reason. The publish refusal has
+     * spoken `{reason, …context}` since K1.4 and clients parse it, so the
+     * flattening happens here rather than by moving the wire underneath them.
+     * One evaluator, two serialisations, and this is the only place that knows
+     * the older one.
+     *
+     * @param  list<array{code: string, detail: string, context: array<string, mixed>}>  $reasons
+     */
+    public static function fromReadiness(array $reasons): self
+    {
+        return new self(array_map(
+            static fn (array $reason): array => ['reason' => $reason['code']] + $reason['context'],
+            $reasons,
+        ));
+    }
 }

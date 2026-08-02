@@ -6,9 +6,7 @@ namespace Healthy360\Recipes\Services;
 
 use Closure;
 use Healthy360\Audit\Services\AuditRecorder;
-use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\IngredientStatus;
-use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\AllergenDerivation;
@@ -32,7 +30,6 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Tenancy\TenantContext;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -53,7 +50,10 @@ use Illuminate\Support\Facades\DB;
  * 3. **Publication is a gate, not a status field.** `publish()` evaluates
  *    readiness across the lines, their ingredients and those ingredients'
  *    allergen determinations, and only then writes the frozen label. There is
- *    no stored "publishable" flag to fall out of step with the data.
+ *    no stored "publishable" flag to fall out of step with the data. Since
+ *    K1.8 the evaluation itself lives in `RecipeVersionReadiness` and the
+ *    label writing in `RecipeLabelWriter`, both shared with the reactive
+ *    recompute job — one implementation of each food-safety rule, not two.
  */
 final readonly class RecipeVersionService
 {
@@ -64,6 +64,8 @@ final readonly class RecipeVersionService
         private RecipeCostingService $costing,
         private CostVisibility $costVisibility,
         private RecipeUsageRegistry $usage,
+        private RecipeVersionReadiness $readiness,
+        private RecipeLabelWriter $labels,
     ) {}
 
     /**
@@ -491,6 +493,11 @@ final readonly class RecipeVersionService
      * time. The fourth has its own code because the fix is in a different
      * place — the ingredient's mapping editor, not the recipe.
      *
+     * **The gates themselves live in `RecipeVersionReadiness`** (K1.8), so that
+     * `GET …/readiness` can answer "is this publishable, and if not why" without
+     * attempting a publication. This method reads the same list and throws from
+     * it; there is no second copy of a food-safety gate to drift.
+     *
      * **Costing is not a gate** (K1.3). When every line is costed, publication
      * also writes a `recalculated` cost snapshot inside the same transaction
      * and flips `completeness` to `costed`. When it is not, publication
@@ -505,23 +512,26 @@ final readonly class RecipeVersionService
      */
     public function publish(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
     {
-        /** @var Collection<int, RecipeVersionLine> $lines */
-        $lines = RecipeVersionLine::withoutTenancy()
-            ->where('recipe_version_id', $version->getKey())
-            ->orderBy('line_number')
-            ->get();
+        $lines = $this->readiness->linesOf($version);
 
-        $this->assertPublishable($version, $lines);
+        $structural = $this->readiness->structuralReasons($version, $lines);
+
+        if ($structural !== []) {
+            throw PublishBlocked::fromReadiness($structural);
+        }
 
         /** @var list<string> $orderedIngredientIds */
         $orderedIngredientIds = $lines->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->all();
 
         $effective = $this->rollup->effectiveFor(array_values(array_unique($orderedIngredientIds)), $version->organisation_id);
+        $undetermined = $this->readiness->undeterminedIngredientIds($orderedIngredientIds, $effective);
 
-        $this->assertAllergensDetermined($orderedIngredientIds, $effective);
+        if ($undetermined !== []) {
+            throw new AllergenUnmapped($undetermined);
+        }
 
         $rolled = $this->rollup->rollUp($orderedIngredientIds, $effective);
-        $hash = $this->derivationHash($lines, $effective);
+        $hash = $this->labels->derivationHash($lines, $effective);
         $costing = $this->costing->costingForPublication($version, $lines);
         $now = now();
 
@@ -557,7 +567,7 @@ final readonly class RecipeVersionService
                 'updated_by' => $this->context->userId(),
             ] + ($costing === null ? [] : ['completeness' => RecipeCompleteness::Costed->value]), $expectedLockVersion);
 
-            $this->freezeLabel($version, $rolled, $now);
+            $this->labels->freeze($version, $rolled, $now);
 
             if ($costing !== null) {
                 $this->costing->writeSnapshot($version, CostBasis::Recalculated, $costing, calculatedAt: $now);
@@ -664,194 +674,6 @@ final readonly class RecipeVersionService
         if (! $version->isEditable()) {
             throw new VersionImmutable($version->status);
         }
-    }
-
-    /**
-     * @param  Collection<int, RecipeVersionLine>  $lines
-     *
-     * @throws PublishBlocked
-     */
-    private function assertPublishable(RecipeVersion $version, Collection $lines): void
-    {
-        $reasons = [];
-
-        if ($version->status === RecipeVersionStatus::ReviewRequired) {
-            $reasons[] = ['reason' => 'version_quarantined', 'review_reason' => $version->review_reason];
-        } elseif ($version->status !== RecipeVersionStatus::Draft) {
-            $reasons[] = ['reason' => 'version_not_a_draft', 'status' => $version->status->value];
-        }
-
-        if ($lines->isEmpty()) {
-            $reasons[] = ['reason' => 'no_lines'];
-        }
-
-        $unquantified = $lines
-            ->filter(static fn (RecipeVersionLine $line): bool => $line->quantity === null || $line->unit_id === null)
-            ->map(static fn (RecipeVersionLine $line): int => $line->line_number)
-            ->values()
-            ->all();
-
-        if ($unquantified !== []) {
-            $reasons[] = ['reason' => 'line_quantity_missing', 'line_numbers' => $unquantified];
-        }
-
-        /** @var list<string> $ingredientIds */
-        $ingredientIds = $lines->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->unique()->values()->all();
-
-        if ($ingredientIds !== []) {
-            $quarantined = Ingredient::withoutTenancy()
-                ->whereIn('id', $ingredientIds)
-                ->where('verification_status', IngredientVerificationStatus::RequiresReview->value)
-                ->orderBy('id')
-                ->pluck('id')
-                ->map(static fn (mixed $id): string => (string) $id)
-                ->all();
-
-            if ($quarantined !== []) {
-                $reasons[] = ['reason' => 'ingredient_requires_review', 'ingredient_ids' => $quarantined];
-            }
-        }
-
-        if ($reasons !== []) {
-            throw new PublishBlocked($reasons);
-        }
-    }
-
-    /**
-     * An ingredient passes when it has at least one mapping row in any layer,
-     * or when it is `verified` — which is how "somebody checked, and it
-     * carries nothing" is recorded. An ingredient with neither has simply not
-     * been assessed, and that is not the same as being clear.
-     *
-     * @param  list<string>  $ingredientIds
-     * @param  array<string, array<string, array{containment: mixed, market_scopes: list<string>}>>  $effective
-     *
-     * @throws AllergenUnmapped
-     */
-    private function assertAllergensDetermined(array $ingredientIds, array $effective): void
-    {
-        $candidates = array_values(array_unique(array_filter(
-            $ingredientIds,
-            static fn (string $id): bool => ($effective[$id] ?? []) === [],
-        )));
-
-        if ($candidates === []) {
-            return;
-        }
-
-        $verified = Ingredient::withoutTenancy()
-            ->whereIn('id', $candidates)
-            ->where('verification_status', IngredientVerificationStatus::Verified->value)
-            ->pluck('id')
-            ->map(static fn (mixed $id): string => (string) $id)
-            ->all();
-
-        $undetermined = array_values(array_diff($candidates, $verified));
-        sort($undetermined);
-
-        if ($undetermined !== []) {
-            throw new AllergenUnmapped($undetermined);
-        }
-    }
-
-    /**
-     * Write the frozen label.
-     *
-     * Declared rows survive: a chef who knows the fryer is shared has said
-     * something no mapping implies, and a recomputation must not erase it. A
-     * derived row replaces a declaration only when it is *stronger*, so the
-     * label always carries the strongest claim anybody has made about each
-     * class. Weakening a human's statement by computation is the one thing
-     * this method will not do.
-     *
-     * @param  list<array{allergen_code: string, containment: AllergenContainment, source_ingredient_id: string, market_scopes: list<string>}>  $rolled
-     */
-    private function freezeLabel(RecipeVersion $version, array $rolled, mixed $now): void
-    {
-        /** @var Collection<int, RecipeVersionAllergen> $existing */
-        $existing = RecipeVersionAllergen::withoutTenancy()
-            ->where('recipe_version_id', $version->getKey())
-            ->get();
-
-        /** @var array<string, RecipeVersionAllergen> $declared */
-        $declared = $existing
-            ->filter(static fn (RecipeVersionAllergen $row): bool => $row->derivation === AllergenDerivation::Declared)
-            ->keyBy('allergen_code')
-            ->all();
-
-        foreach ($existing as $row) {
-            if ($row->derivation === AllergenDerivation::Derived) {
-                $row->delete();
-            }
-        }
-
-        foreach ($rolled as $entry) {
-            $incumbent = $declared[$entry['allergen_code']] ?? null;
-
-            if ($incumbent !== null) {
-                if ($entry['containment']->strength() <= $incumbent->containment->strength()) {
-                    continue;
-                }
-
-                $incumbent->delete();
-            }
-
-            $row = new RecipeVersionAllergen;
-            $row->recipe_version_id = (string) $version->getKey();
-            $row->organisation_id = $version->organisation_id;
-            $row->allergen_code = $entry['allergen_code'];
-            $row->containment = $entry['containment'];
-            $row->derivation = AllergenDerivation::Derived;
-            $row->source_ingredient_id = $entry['source_ingredient_id'];
-
-            // The market scopes live in the note rather than in a column: the
-            // label is one row per class (UNIQUE on recipe_version_id,
-            // allergen_code), so a scope column would either duplicate rows or
-            // pick one scope and lose the rest. Recording them keeps a
-            // US-only determination visible to a human reviewing the label.
-            $row->source_note = 'Market scope: '.implode(', ', $entry['market_scopes']);
-            $row->created_at = $now;
-            $row->save();
-        }
-    }
-
-    /**
-     * A fingerprint of everything the label was computed from, so an identical
-     * republish produces an identical hash and a changed input cannot
-     * masquerade as an unchanged one.
-     *
-     * Ordered line tuples plus each line's effective allergen set — and
-     * nothing else. No identifiers of the version, no timestamps, no actor:
-     * two versions with the same formulation and the same mappings *are* the
-     * same derivation, and a hash that said otherwise would make "has anything
-     * really changed" unanswerable.
-     *
-     * @param  Collection<int, RecipeVersionLine>  $lines
-     * @param  array<string, array<string, array{containment: AllergenContainment, market_scopes: list<string>}>>  $effective
-     */
-    private function derivationHash(Collection $lines, array $effective): string
-    {
-        $payload = [];
-
-        foreach ($lines as $line) {
-            $allergens = [];
-
-            foreach ($effective[$line->ingredient_id] ?? [] as $code => $mapping) {
-                $allergens[] = $code.':'.$mapping['containment']->value.':'.implode('|', $mapping['market_scopes']);
-            }
-
-            sort($allergens);
-
-            $payload[] = [
-                'line_number' => $line->line_number,
-                'ingredient_id' => $line->ingredient_id,
-                'quantity' => $line->quantity === null ? null : (string) $line->quantity,
-                'unit_id' => $line->unit_id,
-                'allergens' => $allergens,
-            ];
-        }
-
-        return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
     /**

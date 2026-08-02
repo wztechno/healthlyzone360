@@ -7,9 +7,12 @@ use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Recipes\Enums\DerivationState;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
+use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Support\Facades\Queue;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,7 +24,8 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 |
 | 1. An ingredient a live formulation names cannot be archived.
 | 2. A change to an ingredient's allergen mappings makes every published
-|    label that depends on it stale.
+|    label that depends on it stale — synchronously — and queues the K1.8
+|    recompute that re-derives it and quarantines what no longer matches.
 |
 */
 
@@ -104,6 +108,12 @@ it('refuses to build a formulation out of an archived ingredient', function (): 
 });
 
 it('marks a published label stale when the mappings underneath it change', function (): void {
+    // Marking is what the *write* does, and it is synchronous because a label
+    // whose basis has moved must not look current for even one read. The
+    // recompute that follows is a queued job (K1.8), faked here so that this
+    // test is about the marking alone.
+    Queue::fake();
+
     $this->postJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions/1/publish", [],
         $this->headers + ['If-Match' => '"1"'])
         ->assertOk()
@@ -116,21 +126,56 @@ it('marks a published label stale when the mappings underneath it change', funct
         ],
     ], $this->headers)->assertOk();
 
-    // Marked, not recomputed. The reactive recompute — and the quarantine it
-    // can raise — is the K1.8 job.
-    expect(RecipeVersion::withoutTenancy()->where('recipe_id', $this->recipeId)->sole()->derivation_state)
-        ->toBe(DerivationState::Stale);
+    $version = RecipeVersion::withoutTenancy()->where('recipe_id', $this->recipeId)->sole();
+
+    expect($version->derivation_state)->toBe(DerivationState::Stale);
+
+    Queue::assertPushed(
+        RecomputeRecipeDerivations::class,
+        fn (RecomputeRecipeDerivations $job): bool => $job->recipeVersionId === (string) $version->getKey()
+            && $job->organisationId === (string) $this->kitchen->organisation->getKey(),
+    );
 
     $this->getJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions/1/allergens", $this->headers)
         ->assertOk()
         ->assertJsonPath('meta.derivation_state', 'stale')
-        // The frozen label itself has not moved: it is the record of what was
-        // published, and a read that silently recomputed it would destroy the
-        // only evidence of what a customer was shown.
+        // The frozen label has not moved *on the read path*: it is the record
+        // of what was published, and a GET that silently recomputed it would
+        // destroy the only evidence of what a customer was shown. Rewriting it
+        // is the job's business, and the job takes the version off sale in the
+        // same breath.
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.allergen_code', 'sesame');
+});
 
-    // Republishing is what refreshes it, and now it says both.
+it('recomputes the label, quarantines the published version and names the delta', function (): void {
+    // The same edit as above with the queue running — the K1.8 behaviour the
+    // K1.2 slice deferred. The version was promising sesame and only sesame;
+    // it now also implies peanut, and a promise that changed is a promise a
+    // human has to look at before the dish goes back on sale.
+    $this->postJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions/1/publish", [],
+        $this->headers + ['If-Match' => '"1"'])->assertOk();
+
+    $this->putJson('/api/v1/catalogue/ingredients/'.$this->tahini->getKey().'/allergens', [
+        'mappings' => [
+            ['allergen_code' => RecipeWorld::allergen('sesame')->code, 'containment' => 'contains'],
+            ['allergen_code' => RecipeWorld::allergen('peanut')->code, 'containment' => 'may_contain'],
+        ],
+    ], $this->headers)->assertOk();
+
+    $version = RecipeVersion::withoutTenancy()->where('recipe_id', $this->recipeId)->sole();
+
+    expect($version->status)->toBe(RecipeVersionStatus::ReviewRequired)
+        ->and($version->derivation_state)->toBe(DerivationState::Current)
+        ->and($version->review_reason)->toContain('peanut');
+
+    $this->getJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions/1/allergens", $this->headers)
+        ->assertOk()
+        ->assertJsonPath('meta.derivation_state', 'current')
+        ->assertJsonCount(2, 'data');
+
+    // Republishing is how a kitchen accepts the new label: a fresh version
+    // carrying both classes, published deliberately.
     $this->postJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions", ['copy_from_version' => 1], $this->headers)
         ->assertCreated();
 

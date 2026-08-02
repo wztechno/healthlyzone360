@@ -25,4 +25,17 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
     {
         return [];
     }
+
+    /**
+     * Nothing sells this recipe, so nothing comes off sale. The recompute job
+     * still calls it — a quarantine that only happened when the catalogues
+     * module was installed would be a quarantine with a hole in it — and the
+     * empty answer is the honest one here.
+     *
+     * @return list<string>
+     */
+    public function quarantinePublishedItems(Recipe $recipe, string $reason): array
+    {
+        return [];
+    }
 }

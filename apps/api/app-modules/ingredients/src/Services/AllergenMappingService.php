@@ -16,6 +16,7 @@ use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,14 @@ use Illuminate\Support\Facades\DB;
  * class, or lowering a `contains` to a `may_contain`, is refused. The
  * asymmetry is not a policy preference. Over-declaring an allergen costs a
  * customer a menu option; under-declaring one costs them an ambulance.
+ *
+ * **A write here reaches the labels derived from it** (K1.8). Every published
+ * recipe version whose lines use the ingredient is marked stale and queued for
+ * recompute, and when the caller is writing the *baseline* that fan-out crosses
+ * organisations — one write by a platform operator, one restored tenant context
+ * per affected kitchen. Both halves go through `IngredientUsageRegistry`
+ * because the module edge runs Recipes → Ingredients and this module must not
+ * learn what a recipe is.
  */
 final readonly class AllergenMappingService
 {
@@ -48,6 +57,7 @@ final readonly class AllergenMappingService
         private TenantContext $context,
         private AuditRecorder $audit,
         private IngredientUsageRegistry $usage,
+        private DatabaseTenantContext $database,
     ) {}
 
     /**
@@ -134,15 +144,16 @@ final readonly class AllergenMappingService
                 : $write();
         });
 
-        // A frozen recipe label is only as good as the mappings it was
-        // computed from, so a mapping change invalidates every published label
-        // that depends on this ingredient (K1.2). Marked, not recomputed: the
-        // reactive recompute — and the quarantine it can raise when the new
-        // mapping contradicts a published label — is the **K1.8**
-        // allergen-recompute job. Doing it here would make an allergen edit
-        // take as long as the largest recipe using the ingredient, and would
-        // run a food-safety derivation inside the mapping editor's request.
-        $stale = $this->usage->markDependentDerivationsStale($ingredient);
+        // A frozen recipe label is only as good as the mappings it was computed
+        // from, so a mapping change invalidates every published label that
+        // depends on this ingredient. Marked here and recomputed on the queue:
+        // the derivation is a food-safety conclusion that can quarantine a
+        // published version and pull a listing off sale, and running it inside
+        // the mapping editor's request would make an allergen edit take as long
+        // as the largest recipe using the ingredient.
+        [$stale, $organisations] = $organisationId === null
+            ? $this->invalidateEveryTenant($ingredient)
+            : [$this->usage->markDependentDerivationsStale($ingredient), 1];
 
         $this->audit->record(
             'catalogue.ingredient_allergens_updated',
@@ -155,11 +166,75 @@ final readonly class AllergenMappingService
                 'allergen_classes' => array_map(static fn (array $m): string => $m['allergen_code'], $normalised),
                 'market_scope' => $scope->value,
                 'layer' => $organisationId === null ? 'platform_baseline' : 'organisation_overlay',
-                'stale_recipe_versions' => $stale,
+
+                // A count, as it always was. The identifiers are now available
+                // — the registry returns them — but an audit row naming every
+                // affected version of every tenant would be a cross-tenant
+                // listing sitting in one organisation's trail.
+                'stale_recipe_versions' => count($stale),
+
+                // How wide the blast radius was, never who was in it. A
+                // platform correction that reached eleven kitchens is a fact an
+                // operator must be able to see afterwards; *which* eleven is
+                // not theirs to read from an audit row.
+                'affected_organisations' => $organisations,
             ],
         );
 
         return $this->mappingsFor($ingredient, $organisationId);
+    }
+
+    /**
+     * The platform-baseline fan-out (K1.8) — the documented K1.2 gap.
+     *
+     * A tenant editing its own overlay affects exactly one organisation, and
+     * the ordinary path handles it. A platform operator correcting the baseline
+     * affects every kitchen that inherits the ingredient, and none of those rows
+     * is reachable from the operator's own context: the row-level security
+     * policies on `recipe_versions` fail closed, so the marking has to happen
+     * *inside* each organisation rather than around all of them.
+     *
+     * Both layers of context are restored per organisation, and both matter.
+     * `DatabaseTenantContext::during()` publishes the session variables the
+     * policies read; `TenantContext` is what the recipes module's registry
+     * consults to decide which organisation it is answering for. Setting one
+     * and not the other is how a query silently returns nothing.
+     *
+     * The ambient context is put back whatever happens. A platform operator's
+     * request continues after this call — it still has an audit event to write
+     * and a response to serialise — and leaving it pointed at the last tenant
+     * in the loop would be a tenancy breach caused by tidying up badly.
+     *
+     * @return array{0: list<string>, 1: int} the versions marked across every
+     *                                        organisation, and how many
+     *                                        organisations were reached
+     */
+    private function invalidateEveryTenant(Ingredient $ingredient): array
+    {
+        $organisationIds = $this->usage->dependentOrganisationIds($ingredient);
+
+        if ($organisationIds === []) {
+            return [[], 0];
+        }
+
+        $ambient = $this->context->toArray();
+
+        /** @var list<string> $marked */
+        $marked = [];
+
+        try {
+            foreach ($organisationIds as $organisationId) {
+                $this->database->during(null, $organisationId, null, function () use ($ingredient, $organisationId, &$marked): void {
+                    $this->context->restore(['user_id' => null, 'organisation_id' => $organisationId, 'branch_id' => null]);
+
+                    $marked = [...$marked, ...$this->usage->markDependentDerivationsStale($ingredient)];
+                });
+            }
+        } finally {
+            $this->context->restore($ambient);
+        }
+
+        return [$marked, count($organisationIds)];
     }
 
     /**
@@ -224,6 +299,13 @@ final readonly class AllergenMappingService
         }
 
         if ($weakened !== []) {
+            // Sorted, because the baseline is read without an ORDER BY and
+            // PostgreSQL owes nobody a row order. An error payload that lists
+            // the same two classes in a different order on two identical
+            // requests is a payload a client cannot compare and a test cannot
+            // assert on without sorting it first.
+            sort($weakened);
+
             throw new ApiException(
                 ErrorCode::ValidationFailed,
                 'An organisation mapping may add to the platform allergen baseline but never weaken it.',

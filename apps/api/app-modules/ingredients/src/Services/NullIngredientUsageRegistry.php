@@ -27,8 +27,19 @@ final class NullIngredientUsageRegistry implements IngredientUsageRegistry
         return ['recipe_ids' => [], 'recipe_version_ids' => [], 'catalogue_item_ids' => []];
     }
 
-    public function markDependentDerivationsStale(Ingredient $ingredient): int
+    /**
+     * @return list<string>
+     */
+    public function markDependentDerivationsStale(Ingredient $ingredient): array
     {
-        return 0;
+        return [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function dependentOrganisationIds(Ingredient $ingredient): array
+    {
+        return [];
     }
 }

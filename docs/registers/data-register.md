@@ -161,6 +161,27 @@ Every row that reaches a database arrives by one of these, and the mechanism is 
 
 **Confidential source data is never committed to this repository in any form** — not as a seeder, not as a JSON fixture, not as a test resource, and not behind an environment guard. A local-only guard on a committed file still commits the file.
 
+### Mechanism (c) as built — `kitchen:import-greenlife` (K1.8)
+
+The command lives in the **Kitchens** module (`app-modules/kitchens/src/Console/ImportGreenLifeCommand.php`) and is registered only when running in the console, so no HTTP path reaches it. Catalogues could not host it — Pricing depends on Catalogues, so a Catalogues → Pricing edge would close a cycle — and Kitchens is the only K1 module nothing that may hold code depends on. Its registry `depends_on` was widened in the same commit rather than left describing branch hours.
+
+| Feature | As built |
+|---|---|
+| Signature | `kitchen:import-greenlife --source=<dir> [--dry-run] [--validate-only] [--org=<slug>]` |
+| Environment allowlist | `config('kitchens.import.environments')`, default `local,testing`, overridable by `GREENLIFE_IMPORT_ENVIRONMENTS`. Refuses elsewhere with a printed explanation and a non-zero exit — never a silent no-op |
+| Manifest | sha256 + byte length of all five source files, recorded in the run report and compared against the most recent previous report. A changed file is a **named warning**, not a refusal: insert-if-absent is safe against a changed source, and refusing would block the operator who just fixed a typo the last run reported |
+| Provenance | every created row carries `source_system = greenlife_phase1` plus a `source_ref` naming file, sheet and row; the existing partial unique indexes on `(organisation_id, source_system, source_ref)` are what make a re-run converge |
+| Unit of idempotency | the organisation's **slug**; a **source reference** for ingredients, recipes, versions, catalogue items and price rows; a **code** for channels, tariffs, catalogues, vocabularies, zones and windows. Children (lines, outputs, packs, member ingredients, channel availability, variant profiles) carry no reference of their own and are written **only** when their parent is created — which is exactly what stops a re-run overwriting an operator's edit |
+| Dry run | executes the entire write path inside a transaction that is always rolled back, so "would create" means "did create, and then did not". A second implementation of the insert-if-absent rules would have been a second thing to keep in step |
+| Validate only | parses and reports; never opens a connection to the write path at all |
+| Reports | console **and** a JSON document under `storage/app/import-reports/` (gitignored by `storage/app/.gitignore`'s catch-all). Six registers: counts (created / would-create / skipped_existing / failed per entity), unresolved designations with every occurrence, incomplete sheets, data-quality findings, the allergen-review escalation, quarantine and known gaps |
+| Audit | `catalogue.greenlife_import_started` and `catalogue.greenlife_import_finished`, purpose of use `organisation_administration`. The finish event carries counts and **counts of problems** — never the problems, because an audit row is readable with `audit.view_organisation` and would otherwise become a second, less guarded copy of the report |
+| Transaction | one per run. A half-imported kitchen is worse than none: the counts would look plausible and the gaps would be invisible |
+
+**The curated designation dictionary** ships at `app-modules/ingredients/database/data/greenlife-aliases.json` — with the ingredients module, which owns designation resolution, not with the module that happens to run the command. It is human-authored and the importer never adds to it. There is no fuzzy match, no edit distance and no plural stripping anywhere in the import path, because no string metric separates "Cripsy Spice → Crispy Spice" (a typo) from "Sweet Paprika → Paprika" (a different product). Four sections: `aliases` (spelling, case, word order and the appendix D pairs), `tenant_ingredients` (the rows the platform library does not carry, created unverified and unmapped), `recipe_links` / `recipe_links_declined` (which product is made by which technical sheet, and which candidate links a human refused, with reasons), and `never_merge` (sets that look mergeable and are not).
+
+**The one place this system does not fail loudly** is designation resolution — recorded as a deviation in the decisions register. An unresolved designation costs its own recipe line, is reported by name with every sheet it appears on, and flags its sheet incomplete. It does not fabricate an ingredient and it does not abandon the file. §4.11 asks the importer for created / skipped / failed counts, and those only mean something if a run survives a failure.
+
 ## Isolation strategy vocabulary (D-047)
 
 Every table added from phase K1 onwards names **exactly one** strategy in its register row. The vocabulary is closed; "application scoped" is not a member of it:

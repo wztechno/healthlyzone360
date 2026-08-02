@@ -68,15 +68,35 @@ final readonly class CatalogueIngredientUsageRegistry implements IngredientUsage
     }
 
     /**
-     * Nothing to mark. Catalogue items hold **no stored allergen roll-up** in
-     * K1.4 — the derivation is computed on read from a published recipe
-     * version's frozen label or from the item's own ingredient list — so there
-     * is no cached conclusion for a mapping change to invalidate. The
-     * delegation is not a formality: the recipe labels underneath are stored,
-     * they do go stale, and this call is what marks them.
+     * Nothing to mark. Catalogue items hold **no stored allergen roll-up** —
+     * the derivation is computed on read from a published recipe version's
+     * frozen label or from the item's own ingredient list — so there is no
+     * cached conclusion for a mapping change to invalidate. The delegation is
+     * not a formality: the recipe labels underneath are stored, they do go
+     * stale, and this call is what marks them and schedules their recompute.
+     *
+     * A listing whose recipe label really did change *is* pulled off sale, but
+     * that happens on the other edge — the recompute job asks
+     * `RecipeUsageRegistry` once it knows the label moved, rather than every
+     * mapping edit quarantining a menu speculatively.
+     *
+     * @return list<string>
      */
-    public function markDependentDerivationsStale(Ingredient $ingredient): int
+    public function markDependentDerivationsStale(Ingredient $ingredient): array
     {
         return $this->inner->markDependentDerivationsStale($ingredient);
+    }
+
+    /**
+     * Delegated whole. The question is "which organisations hold a formulation
+     * using this ingredient", and a catalogue listing is not a formulation —
+     * an item's ingredient list carries no version to recompute, because there
+     * is nothing stored to recompute.
+     *
+     * @return list<string>
+     */
+    public function dependentOrganisationIds(Ingredient $ingredient): array
+    {
+        return $this->inner->dependentOrganisationIds($ingredient);
     }
 }

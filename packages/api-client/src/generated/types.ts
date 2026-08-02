@@ -1478,6 +1478,69 @@ export type DerivedAllergenMeta = Meta & {
     recipe_version_id: Uuid | null;
 };
 
+export type ReadinessReason = {
+    /**
+     * The stable machine key. The same vocabulary
+     * `catalogue.publish_blocked` carries in `details.reasons[].reason`,
+     * because the same evaluator produces both.
+     *
+     */
+    code: string;
+    /**
+     * One sentence a human can act on. A client that renders its own copy
+     * per code should ignore this; a client that meets a code it does not
+     * know should print it rather than say nothing.
+     *
+     */
+    detail: string;
+    /**
+     * Whatever identifies the offending rows — line numbers, identifiers,
+     * a status, a review reason, the configuration codes of unpriced
+     * cells. Nested rather than flattened beside `code` so that a reason
+     * carrying new structure never changes the shape of a reason. `{}`
+     * when the code says everything there is to say.
+     *
+     */
+    context: {
+        [key: string]: unknown;
+    };
+};
+
+export type PublicationReadiness = {
+    /**
+     * Exactly `reasons == []`. Both are on the wire because a badge wants
+     * the boolean and a checklist wants the list, and deriving one from
+     * the other at every call site is how the two drift apart in a UI.
+     *
+     * A verdict about the *data*, never about the caller's authority: a
+     * subscription plan additionally needs `plan.publish_organisation`,
+     * which is checked where the item type is known.
+     *
+     */
+    publishable: boolean;
+    /**
+     * Every blocker, not the first one found — the rule the publish
+     * refusal has followed since K1.2, for the same reason: a gate that
+     * reveals one problem per attempt turns a five-minute fix into five
+     * round trips.
+     *
+     */
+    reasons: Array<ReadinessReason>;
+};
+
+export type RecipeVersionReadinessMeta = Meta & {
+    recipe_id: Uuid;
+    version_number: number;
+    status: RecipeVersionStatus;
+    derivation_state: DerivationState;
+};
+
+export type CatalogueItemReadinessMeta = Meta & {
+    slug: string;
+    item_type: CatalogueItemType;
+    status: CatalogueItemStatus;
+};
+
 /**
  * Derived and server-authored values are absent by construction:
  * `status` (always `draft`), `lock_version`, `organisation_id` and the
@@ -6233,6 +6296,79 @@ export type ListRecipeVersionAllergensResponses = {
 
 export type ListRecipeVersionAllergensResponse = ListRecipeVersionAllergensResponses[keyof ListRecipeVersionAllergensResponses];
 
+export type ShowRecipeVersionReadinessData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/readiness';
+};
+
+export type ShowRecipeVersionReadinessErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowRecipeVersionReadinessError = ShowRecipeVersionReadinessErrors[keyof ShowRecipeVersionReadinessErrors];
+
+export type ShowRecipeVersionReadinessResponses = {
+    /**
+     * The verdict, and every reason behind it.
+     */
+    200: {
+        data: PublicationReadiness;
+        meta: RecipeVersionReadinessMeta;
+    };
+};
+
+export type ShowRecipeVersionReadinessResponse = ShowRecipeVersionReadinessResponses[keyof ShowRecipeVersionReadinessResponses];
+
 export type PublishRecipeVersionData = {
     body?: never;
     headers: {
@@ -8239,6 +8375,74 @@ export type ShowCatalogueItemAllergensResponses = {
 };
 
 export type ShowCatalogueItemAllergensResponse = ShowCatalogueItemAllergensResponses[keyof ShowCatalogueItemAllergensResponses];
+
+export type ShowCatalogueItemReadinessData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/readiness';
+};
+
+export type ShowCatalogueItemReadinessErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowCatalogueItemReadinessError = ShowCatalogueItemReadinessErrors[keyof ShowCatalogueItemReadinessErrors];
+
+export type ShowCatalogueItemReadinessResponses = {
+    /**
+     * The verdict, and every reason behind it.
+     */
+    200: {
+        data: PublicationReadiness;
+        meta: CatalogueItemReadinessMeta;
+    };
+};
+
+export type ShowCatalogueItemReadinessResponse = ShowCatalogueItemReadinessResponses[keyof ShowCatalogueItemReadinessResponses];
 
 export type ListDietClassificationsData = {
     body?: never;

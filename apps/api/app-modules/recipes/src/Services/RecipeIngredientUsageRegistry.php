@@ -8,6 +8,7 @@ use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
+use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
@@ -68,35 +69,98 @@ final readonly class RecipeIngredientUsageRegistry implements IngredientUsageReg
     }
 
     /**
-     * One UPDATE. The reactive recompute — and the quarantine it can raise
-     * when a changed mapping contradicts a published label — is the **K1.8**
-     * allergen-recompute job, not this call. Recomputing here would make an
-     * allergen edit take as long as the largest recipe that uses the
-     * ingredient and would run the food-safety derivation inside the mapping
-     * editor's transaction.
+     * One UPDATE, then one job per version marked.
+     *
+     * The marking is synchronous because a label whose basis has moved must not
+     * look current for even one read. The recompute is queued because it
+     * re-derives a food-safety conclusion, can quarantine a published version
+     * and can pull a listing off sale — none of which belongs inside the
+     * mapping editor's request, and all of which would make an allergen edit
+     * take as long as the largest recipe using the ingredient.
+     *
+     * **Every version marked is dispatched, including one already `stale`.**
+     * The `derivation_state` filter is on the UPDATE only, so a second mapping
+     * edit before the first recompute lands still schedules the work; the job's
+     * `ShouldBeUnique` key collapses the duplicates rather than this query
+     * pretending there was nothing to do.
      *
      * Scoped to the active organisation, which is also all the row-level
-     * security policy on `recipe_versions` would permit: a platform-baseline
-     * change legitimately affects every tenant, and fanning that out is the
-     * K1.8 job's business precisely because it can restore a tenant context
-     * per organisation. Marking what this caller owns is honest; claiming to
-     * have marked the rest would not be.
+     * security policy on `recipe_versions` would permit. A platform-baseline
+     * change legitimately affects every tenant, and the fan-out across them is
+     * driven by `dependentOrganisationIds()` with a restored context per
+     * organisation. Marking what this caller owns is honest; claiming to have
+     * marked the rest would not be.
+     *
+     * @return list<string>
      */
-    public function markDependentDerivationsStale(Ingredient $ingredient): int
+    public function markDependentDerivationsStale(Ingredient $ingredient): array
     {
         if (! $this->context->hasOrganisation()) {
-            return 0;
+            return [];
         }
 
-        return RecipeVersion::query()
+        $organisationId = (string) $this->context->organisationId();
+
+        /** @var list<string> $versionIds */
+        $versionIds = RecipeVersion::query()
             ->where('status', RecipeVersionStatus::Published->value)
-            ->where('derivation_state', '!=', DerivationState::Stale->value)
             ->whereIn('id', RecipeVersionLine::query()
                 ->where('ingredient_id', $ingredient->getKey())
                 ->select('recipe_version_id'))
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+
+        if ($versionIds === []) {
+            return [];
+        }
+
+        RecipeVersion::query()
+            ->whereIn('id', $versionIds)
+            ->where('derivation_state', '!=', DerivationState::Stale->value)
             ->update([
                 'derivation_state' => DerivationState::Stale->value,
                 'updated_at' => now(),
             ]);
+
+        foreach ($versionIds as $versionId) {
+            RecomputeRecipeDerivations::dispatch($versionId, $organisationId);
+        }
+
+        return $versionIds;
+    }
+
+    /**
+     * Read across tenants, which is exactly what `withoutTenancy()` is for and
+     * exactly why every call site of it is a decision.
+     *
+     * The caller is a platform operator rewriting a baseline that every kitchen
+     * inherits. Refusing to look outside their own context would mean the
+     * correction reached the reference data and never reached the labels
+     * derived from it — the documented K1.2 gap. What is *not* done here is any
+     * writing: this returns organisation identifiers, and the marking happens
+     * inside each organisation's restored context so that the row-level
+     * security policies see the tenant they are protecting.
+     *
+     * Non-retired rather than published-only, because a draft version's stale
+     * label is still worth recomputing before somebody tries to publish it, and
+     * the organisation list is the same either way in every case that matters.
+     *
+     * @return list<string>
+     */
+    public function dependentOrganisationIds(Ingredient $ingredient): array
+    {
+        /** @var list<string> */
+        return array_values(RecipeVersion::withoutTenancy()
+            ->where('status', '!=', RecipeVersionStatus::Retired->value)
+            ->whereIn('id', RecipeVersionLine::withoutTenancy()
+                ->where('ingredient_id', $ingredient->getKey())
+                ->select('recipe_version_id'))
+            ->orderBy('organisation_id')
+            ->pluck('organisation_id')
+            ->unique()
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all());
     }
 }

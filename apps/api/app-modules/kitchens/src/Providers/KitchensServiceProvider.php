@@ -4,19 +4,26 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Providers;
 
+use Healthy360\Kitchens\Console\ImportGreenLifeCommand;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * The kitchens module binds nothing in K1.7.
+ * The kitchens module binds nothing.
  *
- * It owns one table — a branch's operating week — and its service is a
- * constructor-injected concrete the container resolves by autowiring. Menus,
- * approved meal-plan receipt and kitchen instructions arrive with the phases
- * that need them; this provider gains bindings then, not before.
+ * Its services are constructor-injected concretes the container resolves by
+ * autowiring, and there is no port here for another module to swap. What it
+ * does register is the one console command K1.8 adds — the private GreenLife
+ * importer — and only when running in the console, so nothing about it is
+ * reachable from an HTTP request.
  */
 class KitchensServiceProvider extends ServiceProvider
 {
     public function register(): void {}
 
-    public function boot(): void {}
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([ImportGreenLifeCommand::class]);
+        }
+    }
 }
