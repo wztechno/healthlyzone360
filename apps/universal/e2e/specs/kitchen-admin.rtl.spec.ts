@@ -34,6 +34,22 @@ async function openKitchen(page: Page) {
     await expect(page.getByTestId('kitchen-home-screen')).toBeVisible();
 }
 
+/**
+ * The `…-row-seed-0-{itemKey}` prefix of the first price entry in an open editor.
+ *
+ * Anchored on the status label, which every row has, rather than on the amount field, which only a
+ * confirmed price has.
+ */
+async function firstEntryRowId(page: Page): Promise<string> {
+    const control = page
+        .locator('[data-testid^="kitchen-price-list-entries-row-"][data-testid$="-status-label"]')
+        .first();
+    await expect(control).toBeVisible();
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The entry row carries no test id.');
+    return testId.slice(0, testId.length - '-status-label'.length);
+}
+
 async function openFirstIngredient(page: Page) {
     await openKitchen(page);
     await page.getByTestId('kitchen-family-ingredients-open').click();
@@ -289,6 +305,52 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await expect(page.getByTestId('kitchen-meal-retire-consequence')).toContainText(
             ARABIC_SCRIPT,
         );
+    });
+
+    /**
+     * The price editor in Arabic, where the money has to stay in Latin digits (K1.5).
+     *
+     * `@healthy360/i18n` defaults to `latn` and the *display* of a figure follows that default, but
+     * an amount being **edited** is a different thing again: it is on its way to an integer minor-unit
+     * column, `parseMinorAmount` accepts Latin digits and nothing else, and a field that accepted
+     * `٥٫٥٠` would make round-tripping a price depend on the interface language. So the assertion is
+     * the strict one — the value is `[0-9.]` after a fill, in a document that is `rtl`.
+     *
+     * The currency code is asserted *not* to be translated, for the reason an allergen code is not:
+     * `USD` is an ISO identity, not copy.
+     */
+    test('keeps a price in Latin digits, and the currency code verbatim', async ({ page }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-price-lists-open').click();
+        await expect(page.getByTestId('kitchen-price-lists-table')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-price-lists-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-price-lists-subtitle')).toContainText(ARABIC_SCRIPT);
+
+        await page
+            .locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]')
+            .first()
+            .click();
+        await expect(page.getByTestId('kitchen-price-list-editor-screen')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-price-list-readonly-note')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        // The currency is a code, not copy: it reads the same in either language.
+        await expect(page.getByTestId('kitchen-price-list-currency')).not.toContainText(/[٠-٩]/);
+
+        const row = await firstEntryRowId(page);
+        const amount = page.getByTestId(`${row}-amount`).locator('input').first();
+        await expect(amount).toHaveValue(/^[0-9.]+$/);
+        await amount.fill('5.50');
+        await expect(amount).toHaveValue('5.50');
+
+        // The status control and its honest badge are translated; the rule they enforce is not
+        // language-dependent, so the field goes away here exactly as it does in English.
+        await page.getByTestId(`${row}-status-placeholder`).click();
+        await expect(page.getByTestId(`${row}-amount`)).toHaveCount(0);
+        await expect(page.getByTestId(`${row}-badge`)).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId(`${row}-no-amount`)).toContainText(ARABIC_SCRIPT);
     });
 
     test('translates the allergen reference, keeping the codes verbatim', async ({ page }) => {

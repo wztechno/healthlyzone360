@@ -95,6 +95,40 @@ async function openMeals(page: Page) {
     await expect(page.getByTestId('kitchen-meals-table')).toBeVisible();
 }
 
+async function openPriceLists(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-price-lists-open').click();
+    await expect(page.getByTestId('kitchen-price-lists-screen')).toBeVisible();
+    await expect(page.getByTestId('kitchen-price-lists-table')).toBeVisible();
+}
+
+/** The `kitchen-price-list-{id}` prefix of the first row that carries a confirmed price. */
+async function firstPriceListBase(page: Page): Promise<string> {
+    const control = page
+        .locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]')
+        .first();
+    await expect(control).toBeVisible();
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The price-list row carries no test id.');
+    return testId.slice(0, testId.length - '-open'.length);
+}
+
+/**
+ * The `…-row-seed-0-{itemKey}` prefix of the first entry in an open editor.
+ *
+ * Anchored on the status label rather than on the amount field, because the amount field is only
+ * rendered for a confirmed price — a row awaiting one has no such control at all.
+ */
+async function firstEntryRow(page: Page): Promise<string> {
+    const control = page
+        .locator('[data-testid^="kitchen-price-list-entries-row-"][data-testid$="-status-label"]')
+        .first();
+    await expect(control).toBeVisible();
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The entry row carries no test id.');
+    return testId.slice(0, testId.length - '-status-label'.length);
+}
+
 test.describe('kitchen workspace (en)', () => {
     test('shows only the families this role may open, with real counts', async ({ page }) => {
         await openKitchen(page);
@@ -586,5 +620,137 @@ test.describe('kitchen workspace (en)', () => {
                 .locator('[data-testid^="kitchen-allergen-class-"][data-testid$="-reference"]')
                 .first(),
         ).toBeVisible();
+    });
+
+    /* ── price lists (K1.5) ──────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The round trip this slice exists for: change one amount, save it, publish the list, and read
+     * the entry split back off the list screen.
+     *
+     * The assertion that matters most is the *negative* one in the publish dialog — a list is
+     * published with placeholder and market-priced rows still in it, and the dialog has to say those
+     * never reach a customer. A publish confirmation that only counted rows would be the most
+     * expensive true-sounding sentence in this programme (plan §2.4).
+     */
+    test('confirms a price, publishes the list, and states what will never reach a customer', async ({
+        page,
+    }) => {
+        await openPriceLists(page);
+
+        // The list answers "how many of these prices are real?", not only "how many are there?".
+        const anyBase = await firstPriceListBase(page);
+        await expect(page.getByTestId(`${anyBase}-currency`)).toBeVisible();
+        await expect(page.getByTestId(`${anyBase}-entries-confirmed`)).toContainText('confirmed');
+        await expect(page.getByTestId(`${anyBase}-entries-placeholder`)).toBeVisible();
+        await expect(page.getByTestId(`${anyBase}-entries-market`)).toBeVisible();
+
+        // No create control anywhere: the contract publishes no `createPriceList`.
+        await expect(page.getByTestId('kitchen-price-lists-toolbar-create')).toHaveCount(0);
+        // …and no publish from a row: the consequence needs the editor's context.
+        await expect(page.getByTestId(`${anyBase}-publish`)).toHaveCount(0);
+
+        // The retail-pack lists are the ones the seed leaves in draft, precisely because not one
+        // entry in them carries a confirmed amount. That is what this journey goes and fixes.
+        await page.getByTestId('kitchen-price-lists-toolbar-status-draft').click();
+        const base = await firstPriceListBase(page);
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-price-list-editor-screen')).toBeVisible();
+
+        // The currency is a fact rather than a field — there is no request that could change it.
+        await expect(page.getByTestId('kitchen-price-list-currency')).toBeVisible();
+        await expect(page.getByTestId('kitchen-price-list-readonly-note')).toContainText(
+            'cannot be changed here',
+        );
+
+        const row = await firstEntryRow(page);
+
+        // It starts as a row with no number and an honest reason for that — and with no amount
+        // field at all, because a row in this state cannot hold one.
+        await expect(page.getByTestId(`${row}-amount-absent`)).toBeVisible();
+        await expect(page.getByTestId(`${row}-amount`)).toHaveCount(0);
+
+        await page.getByTestId(`${row}-status-confirmed`).click();
+        const amount = page.getByTestId(`${row}-amount`).locator('input').first();
+        await expect(amount).toBeEditable();
+
+        await amount.fill('5.50');
+        await expect(page.getByTestId('kitchen-price-list-editor-screen-dirty')).toBeVisible();
+
+        await page.getByTestId('kitchen-price-list-editor-screen-save').click();
+        await expect(page.getByTestId('kitchen-price-list-saved-toast')).toBeVisible();
+        // The figure survives the round trip through integer minor units unchanged.
+        await expect(page.getByTestId(`${row}-amount`).locator('input').first()).toHaveValue(
+            '5.50',
+        );
+
+        await page.getByTestId('kitchen-price-list-publish').click();
+        await expect(page.getByTestId('kitchen-price-list-publish-dialog')).toBeVisible();
+        await expect(page.getByTestId('kitchen-price-list-publish-consequence')).toContainText(
+            'chargeable',
+        );
+        await expect(page.getByTestId('kitchen-price-list-publish-excluded')).toContainText(
+            'excluded from every customer-facing price',
+        );
+
+        await page.getByTestId('kitchen-price-list-publish-confirm').click();
+        await expect(page.getByTestId('kitchen-price-list-published-toast')).toBeVisible();
+        await expect(page.getByTestId('kitchen-price-list-published')).toBeVisible();
+        // A published list offers no second publish.
+        await expect(page.getByTestId('kitchen-price-list-publish')).toHaveCount(0);
+    });
+
+    /**
+     * The `CHECK`, driven through the controls rather than through the pure function.
+     *
+     * Switching a row away from `confirmed` has to clear the amount *and take the field away* in one
+     * gesture, and switching back has to block the save until a number exists. A placeholder that
+     * kept a stale figure is exactly the defect the NULL amount exists to prevent.
+     */
+    test('clears the amount and takes the field away when a price stops being confirmed', async ({
+        page,
+    }) => {
+        await openPriceLists(page);
+        const base = await firstPriceListBase(page);
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-price-list-entries')).toBeVisible();
+
+        const row = await firstEntryRow(page);
+        await expect(page.getByTestId(`${row}-amount`).locator('input').first()).not.toHaveValue(
+            '',
+        );
+
+        await page.getByTestId(`${row}-status-placeholder`).click();
+        await expect(page.getByTestId(`${row}-amount`)).toHaveCount(0);
+        await expect(page.getByTestId(`${row}-amount-absent`)).toBeVisible();
+        await expect(page.getByTestId(`${row}-no-amount`)).toContainText(
+            'never reaches a customer',
+        );
+        await expect(page.getByTestId(`${row}-badge`)).toContainText('Pending price');
+
+        await page.getByTestId(`${row}-status-market_priced`).click();
+        await expect(page.getByTestId(`${row}-badge`)).toContainText('Priced daily');
+
+        // Confirmed again, and empty: the save is refused until a number is typed.
+        await page.getByTestId(`${row}-status-confirmed`).click();
+        const amount = page.getByTestId(`${row}-amount`).locator('input').first();
+        await expect(amount).toHaveValue('');
+        await expect(page.getByTestId('kitchen-price-list-editor-screen-save')).toBeDisabled();
+
+        await amount.fill('7.25');
+        await expect(page.getByTestId('kitchen-price-list-editor-screen-save')).toBeEnabled();
+    });
+
+    test('marks the agreement-scoped list, and says what confidential means', async ({ page }) => {
+        await openPriceLists(page);
+
+        await expect(page.getByTestId('kitchen-price-lists-confidential')).toContainText(
+            'never shown outside it',
+        );
+        const badge = page
+            .locator('[data-testid^="kitchen-price-list-"][data-testid$="-agreement"]')
+            .first();
+        await expect(badge).toBeVisible();
+        await expect(badge).toContainText('Agreement');
     });
 });

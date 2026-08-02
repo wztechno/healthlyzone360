@@ -10,6 +10,10 @@ import type {
     LockedRequest,
     MealAdmin,
     MealAdminFilter,
+    PlanAdmin,
+    PlanAdminFilter,
+    PriceListAdmin,
+    PriceListAdminFilter,
     ProductAdmin,
     ProductAdminFilter,
     RecipeAdmin,
@@ -20,6 +24,7 @@ import type {
     SetChannelAvailabilityRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
+    SetPriceListEntriesRequest,
     SetRecipeLinesRequest,
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
@@ -32,6 +37,7 @@ import type {
     IngredientId,
     KitchenId,
     MealId,
+    PriceListId,
     ProductId,
     RecipeId,
 } from '@healthy360/domain-types';
@@ -137,6 +143,27 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *    accepts `dietClassifications` on the meal write and returns `allergens` frozen from the recipe
  *    version; there is no allergen setter and no per-meal provenance beyond `recipeId` /
  *    `recipeVersionId`. The editor writes the one and displays the other, and says which is which.
+ *
+ * ## Four more, on the pricing half (K1.5)
+ *
+ * 10. **A price list cannot be created, renamed or retired from here.** `KitchenAdminRepository`
+ *     publishes `listPriceLists`, `getPriceList`, `setPriceListEntries` and `publishPriceList` —
+ *     no `createPriceList`, no `updatePriceList`, no `retirePriceList`. So a list's name, currency,
+ *     kitchen and channel set are **read-only facts** in this workspace, the list screen offers no
+ *     create affordance, and the editor's header states the currency rather than offering to change
+ *     it. That also settles the "is the currency read-only after creation?" question the slice was
+ *     told to probe: there is no creation path to be after.
+ * 11. **An entry has no minimum quantity.** `PriceListEntry` is item + status + amount + effective
+ *     dates + note, and nothing else. Volume tiers exist on the *B2B* contract
+ *     (`business.ts` `CatalogueItemTier`) and not on this one, so no minimum-quantity control is
+ *     rendered here; a field that wrote nowhere would be worse than its absence.
+ * 12. **Effective dating is modelled per entry; supersession history is not readable.** Every entry
+ *     carries `effectiveFrom` and a nullable `effectiveUntil`, so the editor edits both. But
+ *     `setPriceListEntries` *replaces* the set, and there is no reader for anything a replacement
+ *     displaced — so no history affordance is offered, because there is no history to open.
+ * 13. **There is no customer scope.** `PriceListAdmin` carries `channels` and no `customerScope` or
+ *     agreement reference, so "this list belongs to one buyer relationship" is expressed by the
+ *     channel set alone (`hasPrivatePricing`), and the confidential treatment keys off that.
  */
 
 export { toFailure } from './hooks.ts';
@@ -1000,6 +1027,227 @@ export function useSetProductChannelAvailabilityMutation(): UseMutationResult<
     return useMutation({
         mutationFn: ({ productId, request }: SetProductChannelAvailabilityVariables) =>
             repositories.kitchenAdmin.setProductChannelAvailability(productId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/* ── price lists (K1.5) ──────────────────────────────────────────────────────────────────────── */
+
+export type PriceListsInfiniteResult = UseInfiniteQueryResult<
+    InfiniteData<CursorPage<PriceListAdmin>, string | undefined>,
+    Error
+>;
+
+/** The accumulated price lists across every page fetched so far. */
+export function priceListsFromPages(
+    pages: readonly CursorPage<PriceListAdmin>[] | undefined,
+): readonly PriceListAdmin[] {
+    return (pages ?? []).flatMap((page) => page.items);
+}
+
+/** Total matching price lists when the repository can count them; `null` when it cannot. */
+export function priceListTotalFromPages(
+    pages: readonly CursorPage<PriceListAdmin>[] | undefined,
+): number | null {
+    return pages?.[0]?.totalCount ?? null;
+}
+
+/**
+ * The kitchen's price lists.
+ *
+ * `listPriceLists` answers with whole {@link PriceListAdmin} records — **entries included** — so the
+ * list screen's confirmed/placeholder/market split costs no extra request per row. That is worth
+ * stating because it is also the reason the list is capped rather than infinite in spirit: a
+ * thousand-entry list is a large page, and the "load more" control is the honest place that shows.
+ */
+export function usePriceListsQuery(
+    filter?: Omit<PriceListAdminFilter, 'cursor'>,
+    enabled = true,
+): PriceListsInfiniteResult {
+    const { repositories } = useRepositoryContext();
+
+    return useInfiniteQuery({
+        queryKey: queryKeys.kitchenAdmin.priceLists(filter),
+        enabled: enabled && repositories !== null,
+        initialPageParam: undefined as string | undefined,
+        queryFn: ({ pageParam }) => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listPriceLists({
+                ...filter,
+                ...(pageParam === undefined ? {} : { cursor: pageParam }),
+            });
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+}
+
+/** One price list. Nullable identifier for the reason every detail hook here is. */
+export function usePriceListQuery(priceListId: PriceListId | null): UseQueryResult<PriceListAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.priceList(priceListId ?? ('' as PriceListId)),
+        enabled: repositories !== null && priceListId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (priceListId === null) throw new Error('No price list identifier.');
+            return repositories.kitchenAdmin.getPriceList(priceListId);
+        },
+    });
+}
+
+/**
+ * What the price-list hub card reports.
+ *
+ * `published` is the number that matters most in this family: a published price list is the one a
+ * cart resolves a price from, so "two published, one draft" is the state of what customers can
+ * actually be charged.
+ */
+export type PriceListFamilySummary = PublishedFamilySummary;
+
+/** The price-list counts behind the hub card, in one query. Four `limit: 1` listings, folded. */
+export function usePriceListSummaryQuery(enabled = true): UseQueryResult<PriceListFamilySummary> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.priceLists({ derive: 'summary' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<PriceListFamilySummary> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const [all, published, drafts, quarantined] = await Promise.all([
+                repositories.kitchenAdmin.listPriceLists({ limit: 1 }),
+                repositories.kitchenAdmin.listPriceLists({ limit: 1, statuses: ['published'] }),
+                repositories.kitchenAdmin.listPriceLists({ limit: 1, statuses: ['draft'] }),
+                repositories.kitchenAdmin.listPriceLists({
+                    limit: 1,
+                    statuses: ['review_required'],
+                }),
+            ]);
+            return {
+                total: all.totalCount,
+                published: published.totalCount,
+                drafts: drafts.totalCount,
+                quarantined: quarantined.totalCount,
+            };
+        },
+    });
+}
+
+export type AdminPlansInfiniteResult = UseInfiniteQueryResult<
+    InfiniteData<CursorPage<PlanAdmin>, string | undefined>,
+    Error
+>;
+
+/** The accumulated plans across every page fetched so far. */
+export function plansFromPages(
+    pages: readonly CursorPage<PlanAdmin>[] | undefined,
+): readonly PlanAdmin[] {
+    return (pages ?? []).flatMap((page) => page.items);
+}
+
+/**
+ * The kitchen's subscription plans.
+ *
+ * **A reader, and only a reader, at this slice.** The plans family — its combination, band and
+ * duration matrices — is K1.6's, and none of `setPlanVariants` / `setPlanDurations` /
+ * `setPlanCombinations` / `publishPlan` is wrapped here yet. This exists because a price list prices
+ * *plans and their variants* (`CatalogueItemRef`), so the price editor's item picker cannot be built
+ * without being able to list them. When K1.6 lands, it adds the writers beside this and moves the
+ * hook into its own section; nothing about the price editor changes.
+ */
+export function useAdminPlansQuery(
+    filter?: Omit<PlanAdminFilter, 'cursor'>,
+    enabled = true,
+): AdminPlansInfiniteResult {
+    const { repositories } = useRepositoryContext();
+
+    return useInfiniteQuery({
+        queryKey: queryKeys.kitchenAdmin.plans(filter),
+        enabled: enabled && repositories !== null,
+        initialPageParam: undefined as string | undefined,
+        queryFn: ({ pageParam }) => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listPlans({
+                ...filter,
+                ...(pageParam === undefined ? {} : { cursor: pageParam }),
+            });
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+}
+
+/* ── price-list writes ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Writes the record into its detail entry and invalidates the workspace root.
+ *
+ * The root invalidation earns its keep in this family more than in most: `publishPlan` is refused
+ * while no confirmed price exists for the plan (`mock/prototype/catalogue-store.ts`), so confirming
+ * a price here changes whether a *plan* editor's publish button can succeed. A narrower
+ * invalidation would leave that screen showing a blocker that has just been cleared.
+ */
+function usePriceListWriteEffects(): (priceList: PriceListAdmin) => void {
+    const queryClient = useQueryClient();
+
+    return (priceList: PriceListAdmin) => {
+        queryClient.setQueryData(queryKeys.kitchenAdmin.priceList(priceList.id), priceList);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+    };
+}
+
+export interface SetPriceListEntriesVariables {
+    readonly priceListId: PriceListId;
+    readonly request: SetPriceListEntriesRequest;
+}
+
+/**
+ * Replaces the whole entry set.
+ *
+ * Wholesale, like every other setter in this contract, and the mock enforces the migration's `CHECK`
+ * on the way in: an entry breaking `isPriceEntryConsistent` is `validation.failed` on `entries`
+ * rather than a silently dropped row. The editor therefore never *relies* on that — it blocks the
+ * save and marks the offending rows — but the server refusing it as well is what makes the rule
+ * true rather than merely enforced by a screen.
+ */
+export function useSetPriceListEntriesMutation(): UseMutationResult<
+    PriceListAdmin,
+    unknown,
+    SetPriceListEntriesVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePriceListWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ priceListId, request }: SetPriceListEntriesVariables) =>
+            repositories.kitchenAdmin.setPriceListEntries(priceListId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface PriceListLifecycleVariables {
+    readonly priceListId: PriceListId;
+    readonly request: LockedRequest;
+}
+
+/**
+ * Publishes the price list.
+ *
+ * Refused while any entry breaks `isPriceEntryConsistent` — the contract says so and the store does
+ * it, answering `validation.failed` on `entries`. The dialog renders that refusal beside its own
+ * button, and states the count of entries that would actually reach a customer, because publishing a
+ * list of forty rows of which three carry a number is not publishing forty prices.
+ */
+export function usePublishPriceListMutation(): UseMutationResult<
+    PriceListAdmin,
+    unknown,
+    PriceListLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = usePriceListWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ priceListId, request }: PriceListLifecycleVariables) =>
+            repositories.kitchenAdmin.publishPriceList(priceListId, request),
         onSuccess: onWritten,
     });
 }

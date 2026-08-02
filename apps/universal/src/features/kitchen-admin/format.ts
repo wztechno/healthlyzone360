@@ -1,13 +1,23 @@
+import { isPriceEntryConsistent } from '@healthy360/api-client/contracts';
 import type {
     AllergenContainment,
     AllergenVerification,
+    CatalogueItemRef,
     CostAmount,
     LocalisedText,
+    PriceListEntry,
+    PriceStatus,
     ProductPackVariant,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
-import type { DietClassification, MealType, SalesChannel } from '@healthy360/domain-types';
+import { hasPrivatePricing, minorUnitExponent } from '@healthy360/domain-types';
+import type {
+    CurrencyCode,
+    DietClassification,
+    MealType,
+    SalesChannel,
+} from '@healthy360/domain-types';
 import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
 
@@ -364,6 +374,181 @@ export function parseWholeNumber(value: string): number | null {
     return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+/* ── price lists (K1.5) ──────────────────────────────────────────────────────────────────────── */
+
+/** Statuses the price-list filter offers, in lifecycle order. */
+export const PRICE_LIST_STATUS_FILTERS: readonly PublishableStatus[] = [
+    'draft',
+    'review_required',
+    'published',
+    'retired',
+];
+
+const PRICE_STATUS_KEYS: Readonly<Record<PriceStatus, string>> = {
+    confirmed: 'kitchen:priceStatus.confirmed',
+    placeholder: 'kitchen:priceStatus.placeholder',
+    market_priced: 'kitchen:priceStatus.marketPriced',
+};
+
+export function priceStatusKey(status: PriceStatus): string {
+    return PRICE_STATUS_KEYS[status];
+}
+
+/**
+ * The badge a row without an amount wears.
+ *
+ * `placeholder` and `market_priced` are both "no number here", and the interface refuses to render
+ * them as the same thing, because the *reasons* differ and only one of them is a task: a placeholder
+ * is a price nobody has decided yet, and a market-priced row is a price that is decided every
+ * morning. A single grey "no price" badge would hide which of those a person is looking at.
+ */
+const PRICE_STATUS_BADGE_KEYS: Readonly<Record<PriceStatus, string>> = {
+    confirmed: 'kitchen:priceLists.badgeConfirmed',
+    placeholder: 'kitchen:priceLists.badgePending',
+    market_priced: 'kitchen:priceLists.badgeDaily',
+};
+
+export function priceStatusBadgeKey(status: PriceStatus): string {
+    return PRICE_STATUS_BADGE_KEYS[status];
+}
+
+const PRICE_STATUS_TONES: Readonly<Record<PriceStatus, BadgeTone>> = {
+    confirmed: 'success',
+    // Warning rather than neutral: a placeholder is unfinished work, and the plan's rule is that it
+    // never reaches a customer (plan §2.4). Neutral would read as a settled state.
+    placeholder: 'warning',
+    market_priced: 'info',
+};
+
+export function priceStatusTone(status: PriceStatus): BadgeTone {
+    return PRICE_STATUS_TONES[status];
+}
+
+/** True only for the status that carries an amount. The one place the rule is spelled as a word. */
+export function priceStatusCarriesAmount(status: PriceStatus): boolean {
+    return status === 'confirmed';
+}
+
+/**
+ * A price list whose prices are negotiated rather than advertised.
+ *
+ * `PriceListAdmin` publishes no `customerScope` — see the note in `screens/price-lists-screen.tsx`
+ * — so the only thing the contract lets this be read off is the channel set, and
+ * `hasPrivatePricing` is the platform's own answer to "which channels are contract-private?"
+ * (`@healthy360/domain-types`). Borrowing it rather than restating `['b2b', 'corporate']` here means
+ * a channel added to that set becomes confidential everywhere at once.
+ */
+export function isAgreementPriced(channels: readonly SalesChannel[]): boolean {
+    return channels.some((channel) => hasPrivatePricing(channel));
+}
+
+/** How a price list's entries break down. Rendered on the list row and inside the publish dialog. */
+export interface PriceEntrySummary {
+    readonly total: number;
+    readonly confirmed: number;
+    readonly placeholder: number;
+    readonly marketPriced: number;
+    /** Rows breaking `isPriceEntryConsistent` — a confirmed row with no amount, or the reverse. */
+    readonly inconsistent: number;
+}
+
+export function summarisePriceEntries(entries: readonly PriceListEntry[]): PriceEntrySummary {
+    let confirmed = 0;
+    let placeholder = 0;
+    let marketPriced = 0;
+    let inconsistent = 0;
+
+    for (const entry of entries) {
+        if (entry.priceStatus === 'confirmed') confirmed += 1;
+        else if (entry.priceStatus === 'placeholder') placeholder += 1;
+        else marketPriced += 1;
+        if (!isPriceEntryConsistent(entry)) inconsistent += 1;
+    }
+
+    return { total: entries.length, confirmed, placeholder, marketPriced, inconsistent };
+}
+
+/**
+ * A stable identity for the thing an entry prices.
+ *
+ * `CatalogueItemRef` is a discriminated union with no identifier of its own, and two entries
+ * pointing at the same product *and* the same pack are a duplicate price rather than two prices. The
+ * key is what the duplicate check compares and what a row's test id is built from; it is
+ * deliberately not shown to anybody.
+ */
+export function priceItemKey(item: CatalogueItemRef): string {
+    if (item.kind === 'product') return `product:${String(item.productId)}:${item.packCode ?? ''}`;
+    if (item.kind === 'meal') return `meal:${String(item.mealId)}`;
+    return `plan:${String(item.planId)}:${item.variantId === null ? '' : String(item.variantId)}`;
+}
+
+/**
+ * The same identity with the pack or variant dropped — "which catalogue row is this?".
+ *
+ * The entry editor picks an item and then a variant *of* that item, so the two pickers need two
+ * keys: this one addresses the row the first picker chose, and {@link priceItemKey} addresses the
+ * exact thing being priced. Only the second is ever compared for duplicates — two packs of one
+ * product are two legitimate prices.
+ */
+export function priceItemBaseKey(item: CatalogueItemRef): string {
+    if (item.kind === 'product') return `product:${String(item.productId)}`;
+    if (item.kind === 'meal') return `meal:${String(item.mealId)}`;
+    return `plan:${String(item.planId)}`;
+}
+
+const ITEM_KIND_KEYS: Readonly<Record<CatalogueItemRef['kind'], string>> = {
+    product: 'kitchen:priceLists.kindProduct',
+    meal: 'kitchen:priceLists.kindMeal',
+    plan: 'kitchen:priceLists.kindPlan',
+};
+
+export function priceItemKindKey(kind: CatalogueItemRef['kind']): string {
+    return ITEM_KIND_KEYS[kind];
+}
+
+/**
+ * Minor units as the string a **major-unit** input field holds.
+ *
+ * String arithmetic, not `amountMinor / 100`. `555 / 100` is `5.55` today and
+ * `5.550000000000001` for the next value somebody tries, and a form that re-renders a figure
+ * differently from the one it was given is a form people stop trusting. The exponent comes from the
+ * currency, because the Kuwaiti, Bahraini and Omani minor units are thousandths (D-030).
+ */
+export function minorAmountToInput(amountMinor: number, currency: CurrencyCode): string {
+    const exponent = minorUnitExponent(currency);
+    const sign = amountMinor < 0 ? '-' : '';
+    const digits = String(Math.abs(Math.trunc(amountMinor))).padStart(exponent + 1, '0');
+    const whole = digits.slice(0, digits.length - exponent);
+    const fraction = digits.slice(digits.length - exponent);
+    return exponent === 0 ? `${sign}${whole}` : `${sign}${whole}.${fraction}`;
+}
+
+/**
+ * A major-unit amount typed into a field, as integer minor units.
+ *
+ * The inverse of {@link minorAmountToInput}, and string-based for the same reason: `Number('5.50') *
+ * 100` is not reliably `550`, and this value goes into a `bigint` column. `null` for anything that
+ * is not a plain non-negative decimal, **including** one with more decimal places than the currency
+ * has — `5.505` in dollars is not half a cent, it is a typo, and silently rounding it would put a
+ * figure in the database that nobody typed.
+ *
+ * Latin digits only, exactly as {@link parseQuantity}: the display of a price follows the reader's
+ * locale, but the value being edited is on its way to an integer column and an input that localised
+ * it would make round-tripping a figure depend on the interface language.
+ */
+export function parseMinorAmount(value: string, currency: CurrencyCode): number | null {
+    const trimmed = value.trim();
+    if (trimmed === '' || !/^\d*\.?\d*$/.test(trimmed) || trimmed === '.') return null;
+
+    const exponent = minorUnitExponent(currency);
+    const [whole = '', fraction = ''] = trimmed.split('.');
+    if (fraction.length > exponent) return null;
+
+    const digits = `${whole === '' ? '0' : whole}${fraction.padEnd(exponent, '0')}`;
+    const parsed = Number(digits);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */
 
 /** The test id of one ingredient row's open control, so a spec need not rebuild the string. */
@@ -384,4 +569,9 @@ export function productRowTestId(productId: string): string {
 /** The test id prefix of one meal row. */
 export function mealRowTestId(mealId: string): string {
     return `kitchen-meal-${mealId}`;
+}
+
+/** The test id prefix of one price-list row. */
+export function priceListRowTestId(priceListId: string): string {
+    return `kitchen-price-list-${priceListId}`;
 }

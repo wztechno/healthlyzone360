@@ -114,6 +114,23 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        key: 'price-lists',
+        kind: 'managed',
+        nameKey: 'kitchen:families.priceLists.name',
+        descriptionKey: 'kitchen:families.priceLists.description',
+        // `☰`, three stacked rules — a schedule of priced rows. The same compromise the product and
+        // meal glyphs record, and for a sharper reason here: the icon set is a table of typographic
+        // characters with no money glyph in it, and any currency sign that could stand in would name
+        // *one* currency on a family whose whole point is that each list carries its own.
+        icon: 'menu',
+        href: '/kitchen/price-lists',
+        // See the note on the permission constants: the plan names `price_list.*` codes server-side
+        // and nothing in this world can grant one, so K1.5 reuses the catalogue pair with the rest
+        // of K1 and the reconciliation pass changes this file alone.
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'allergen-classes',
         kind: 'reference',
         nameKey: 'kitchen:families.allergenClasses.name',

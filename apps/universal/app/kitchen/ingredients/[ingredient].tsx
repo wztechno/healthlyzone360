@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { IngredientEditScreen } from '../../../src/features/kitchen-admin/screens/ingredient-edit-screen.tsx';
+import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor.
@@ -10,6 +10,12 @@ import { IngredientEditScreen } from '../../../src/features/kitchen-admin/screen
  * two places to keep that in step. The identifier is validated in the screen, so a hand-typed link
  * produces the designed not-found state rather than a repository failure.
  */
+const IngredientEditScreen = lazyScreen(
+    'kitchen-ingredient-editor-loading',
+    async () =>
+        (await import('../../../src/features/kitchen-admin/screens/index.ts')).IngredientEditScreen,
+);
+
 export default function KitchenIngredientEditor() {
     const { ingredient } = useLocalSearchParams<{ ingredient?: string }>();
     return <IngredientEditScreen ingredient={ingredient} />;

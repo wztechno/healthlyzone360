@@ -21,6 +21,7 @@ import {
     useAllergenClassesQuery,
     useIngredientSummaryQuery,
     useMealSummaryQuery,
+    usePriceListSummaryQuery,
     useProductSummaryQuery,
     useRecipeSummaryQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -263,6 +264,7 @@ export function KitchenHomeScreen() {
     const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'));
     const productSummary = useProductSummaryQuery(permitted.has('products'));
     const mealSummary = useMealSummaryQuery(permitted.has('meals'));
+    const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
 
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
@@ -318,6 +320,15 @@ export function KitchenHomeScreen() {
                                         key={family.key}
                                         family={family}
                                         summary={mealSummary}
+                                    />
+                                );
+                            }
+                            if (family.key === 'price-lists') {
+                                return (
+                                    <PublishedFamilyCard
+                                        key={family.key}
+                                        family={family}
+                                        summary={priceListSummary}
                                     />
                                 );
                             }

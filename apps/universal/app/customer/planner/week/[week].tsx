@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { PlannerWeekScreen } from '../../../../src/features/planner/screens/planner-week-screen.tsx';
+import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
 
 /**
  * `/customer/planner/week/{week}` — the weekly planner.
@@ -9,6 +9,12 @@ import { PlannerWeekScreen } from '../../../../src/features/planner/screens/plan
  * normalised to its Monday, and anything that is not a real date produces the designed not-found
  * state rather than a repository failure.
  */
+const PlannerWeekScreen = lazyScreen(
+    'planner-week-loading',
+    async () =>
+        (await import('../../../../src/features/planner/screens/index.ts')).PlannerWeekScreen,
+);
+
 export default function PlannerWeekRoute() {
     const { week } = useLocalSearchParams<{ week?: string }>();
     return <PlannerWeekScreen week={week} />;

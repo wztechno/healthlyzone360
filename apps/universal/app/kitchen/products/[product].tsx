@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { ProductEditScreen } from '../../../src/features/kitchen-admin/screens/product-edit-screen.tsx';
+import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /**
  * `/kitchen/products/{product}` — the product editor.
@@ -11,6 +11,12 @@ import { ProductEditScreen } from '../../../src/features/kitchen-admin/screens/p
  * in the screen, so a hand-typed link produces the designed not-found state rather than a repository
  * failure.
  */
+const ProductEditScreen = lazyScreen(
+    'kitchen-product-editor-loading',
+    async () =>
+        (await import('../../../src/features/kitchen-admin/screens/index.ts')).ProductEditScreen,
+);
+
 export default function KitchenProductEditor() {
     const { product } = useLocalSearchParams<{ product?: string }>();
     return <ProductEditScreen product={product} />;

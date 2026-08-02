@@ -1,6 +1,11 @@
-import { ShowcaseScreen } from '../../src/screens/showcase-screen.tsx';
+import { lazyScreen } from '../../src/shell/lazy-screen.tsx';
 
 /** `/platform-admin/showcase` — guarded by the area layout's `platform.access_admin` gate. */
+const ShowcaseScreen = lazyScreen(
+    'showcase-loading',
+    async () => (await import('../../src/screens/showcase-screen.tsx')).ShowcaseScreen,
+);
+
 export default function Showcase() {
     return <ShowcaseScreen />;
 }

@@ -90,6 +90,21 @@ async function openFirstMeal(page: Page) {
     await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
 }
 
+async function openPriceLists(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-price-lists-open').click();
+    await expect(page.getByTestId('kitchen-price-lists-table')).toBeVisible();
+}
+
+async function openFirstPriceList(page: Page) {
+    await openPriceLists(page);
+    await page
+        .locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]')
+        .first()
+        .click();
+    await expect(page.getByTestId('kitchen-price-list-editor-screen')).toBeVisible();
+}
+
 test.describe('kitchen workspace accessibility (axe)', () => {
     test('the workspace hub', async ({ page }) => {
         await openKitchen(page);
@@ -279,5 +294,61 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.getByTestId('kitchen-family-allergen-classes-open').click();
         await expect(page.getByTestId('kitchen-allergen-classes-list')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-allergen-classes');
+    });
+
+    /* ── price lists (K1.5) ──────────────────────────────────────────────────────────────────── */
+
+    test('the price-list list, including the confidential notice', async ({ page }) => {
+        await openPriceLists(page);
+        await expect(page.getByTestId('kitchen-price-lists-confidential')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-price-lists');
+    });
+
+    /**
+     * The price editor is the densest repeated-row form in the workspace: two dependent selects, a
+     * segmented control, an amount field and two date fields, per row. A control that loses its
+     * label inside a repeated card, or a tablist without a name, is exactly the kind of thing that
+     * is invisible until somebody using a screen reader meets it — so the editor is swept twice,
+     * once as it lands and once with a row switched to a status that has no amount.
+     *
+     * That second sweep is the one that found something real: a `readOnly` `TextInput` at the design
+     * system's disabled opacity contrasts 4.07:1 against the sunken surface, and `readonly` — unlike
+     * `disabled` — is an active control that axe holds to 4.5:1. The editor now removes the field
+     * rather than greying it, which is both accessible and more honest.
+     */
+    test('the price-list editor, and a row that can hold no amount', async ({ page }) => {
+        await openFirstPriceList(page);
+        await expect(page.getByTestId('kitchen-price-list-entries')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-price-list-editor');
+
+        const label = page
+            .locator(
+                '[data-testid^="kitchen-price-list-entries-row-"][data-testid$="-status-label"]',
+            )
+            .first();
+        const testId = await label.getAttribute('data-testid');
+        if (testId === null) throw new Error('The entry row carries no test id.');
+        const row = testId.slice(0, testId.length - '-status-label'.length);
+
+        await page.getByTestId(`${row}-status-placeholder`).click();
+        await expect(page.getByTestId(`${row}-no-amount`)).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-price-list-editor-placeholder-row');
+    });
+
+    test('the publish confirmation, where what will not reach a customer is stated', async ({
+        page,
+    }) => {
+        // A draft list: the seed publishes the menu lists, and a published one offers no publish.
+        await openPriceLists(page);
+        await page.getByTestId('kitchen-price-lists-toolbar-status-draft').click();
+        await page
+            .locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]')
+            .first()
+            .click();
+        await expect(page.getByTestId('kitchen-price-list-editor-screen')).toBeVisible();
+
+        await page.getByTestId('kitchen-price-list-publish').click();
+        await expect(page.getByTestId('kitchen-price-list-publish-dialog')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-price-list-publish-dialog');
     });
 });
