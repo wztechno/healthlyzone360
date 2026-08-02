@@ -1,7 +1,7 @@
 # S1 Subscription Semantics — Proposal for Product-Owner Review
 
-Status: PROPOSAL — no S1 code exists or will be written until you approve or amend this.
-Resolves the master-plan S1 gate (OQ-016/017/020 family). Approve as-is, or mark up any line.
+Status: **APPROVED by the product owner, 2026-08-02, as written.** Resolves the master-plan
+S1 gate (OQ-016/017/020 family). These semantics are binding for the S1 implementation.
 
 ## 1. What a plan day means: DELIVERY day, with a balance of days
 
