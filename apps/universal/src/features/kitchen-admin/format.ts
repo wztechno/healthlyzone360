@@ -1,10 +1,12 @@
 import type {
     AllergenContainment,
     AllergenVerification,
+    CostAmount,
     LocalisedText,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
+import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
 
 /**
@@ -177,9 +179,105 @@ export function humaniseCode(code: string): string {
     return spaced.charAt(0).toLocaleUpperCase() + spaced.slice(1);
 }
 
+/**
+ * Every unit that shares a dimension with `unit` — the ones a quantity in it can be converted to.
+ *
+ * Conversion only ever happens *within* a dimension (plan §4.5), so a line whose ingredient is
+ * issued in kilograms may be written in grams or kilograms and in nothing else. The picker narrows
+ * to this set rather than validating afterwards, because a unit that cannot be converted produces a
+ * roll-up warning and a missing figure, and a control that let somebody choose it was the defect.
+ */
+export function unitsInDimension(unit: MeasureUnit): readonly MeasureUnit[] {
+    const dimension = unitDimension(unit);
+    return MEASURE_UNITS.filter((candidate) => unitDimension(candidate) === dimension);
+}
+
+/* ── recipes ─────────────────────────────────────────────────────────────────────────────────── */
+
+/** Statuses the recipe list filter offers, in lifecycle order. Quarantine and retired included. */
+export const RECIPE_STATUS_FILTERS: readonly PublishableStatus[] = [
+    'draft',
+    'review_required',
+    'published',
+    'retired',
+];
+
+/**
+ * Roll-up warning codes this UI has its own copy for.
+ *
+ * `RollupWarning` carries a stable `code` *and* a server-authored `message`, in that order of
+ * preference: a code the interface knows is rendered in the reader's language, and one it does not
+ * falls back to the sentence the server wrote rather than to a generic apology. Neither is ever
+ * dropped — a roll-up that quietly omitted a line is the failure mode the whole shape exists to
+ * prevent.
+ */
+const ROLLUP_WARNING_KEYS: Readonly<Record<string, string>> = {
+    'rollup.unknown_ingredient': 'kitchen:rollup.warningUnknownIngredient',
+    'rollup.unconvertible_unit': 'kitchen:rollup.warningUnconvertibleUnit',
+    'rollup.missing_cost': 'kitchen:rollup.warningMissingCost',
+    'rollup.missing_facts': 'kitchen:rollup.warningMissingFacts',
+};
+
+/** The i18n key for a warning code, or `null` when only the server's sentence is available. */
+export function rollupWarningKey(code: string): string | null {
+    return ROLLUP_WARNING_KEYS[code] ?? null;
+}
+
+/**
+ * A cost divided across servings.
+ *
+ * `null` in, `null` out, and never a division by zero: a cost per serving computed from a yield of
+ * nothing is not a large number, it is an unanswerable question.
+ */
+export function costPerServing(cost: CostAmount | null, servings: number): CostAmount | null {
+    if (cost === null || !Number.isFinite(servings) || servings <= 0) return null;
+    return { amount: cost.amount / servings, currency: cost.currency };
+}
+
+/**
+ * Moves one row of an ordered list, returning a new list.
+ *
+ * The three row editors (lines, outputs, steps) all order by array position, so this is the single
+ * definition of "move" they share — pure, so the reordering rule can be asserted without rendering
+ * anything, and total, so an out-of-range index returns the list unchanged rather than corrupting
+ * it. There is no drag and drop anywhere in this workspace: the design system has no accessible
+ * implementation of one, and Move up / Move down buttons with a live-region announcement work for
+ * every input device.
+ */
+export function moveInList<T>(rows: readonly T[], from: number, to: number): readonly T[] {
+    if (from === to) return rows;
+    if (from < 0 || from >= rows.length || to < 0 || to >= rows.length) return rows;
+    const next = [...rows];
+    const [moved] = next.splice(from, 1);
+    if (moved === undefined) return rows;
+    next.splice(to, 0, moved);
+    return next;
+}
+
+/**
+ * Parses a quantity typed into a line editor.
+ *
+ * Latin digits only, deliberately. The *display* of a number follows the reader's locale — Arabic
+ * renders `١٢٣` — but the value being edited is data on its way to a decimal column, and an input
+ * that localised it would make round-tripping a figure through the form depend on the interface
+ * language. `null` for anything that is not a finite, non-negative number, so a half-typed `1.` is
+ * "not yet a quantity" rather than `1`.
+ */
+export function parseQuantity(value: string): number | null {
+    const trimmed = value.trim();
+    if (trimmed === '' || !/^\d*\.?\d*$/.test(trimmed)) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */
 
 /** The test id of one ingredient row's open control, so a spec need not rebuild the string. */
 export function ingredientRowTestId(ingredientId: string): string {
     return `kitchen-ingredient-${ingredientId}`;
+}
+
+/** The test id prefix of one recipe row. Same contract as the ingredient one. */
+export function recipeRowTestId(recipeId: string): string {
+    return `kitchen-recipe-${recipeId}`;
 }

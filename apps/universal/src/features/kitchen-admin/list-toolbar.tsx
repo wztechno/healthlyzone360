@@ -24,6 +24,14 @@ import { statusKey } from './format.ts';
  * and multi-select. A category list is dozens of codes nobody has memorised, which is a search
  * problem rather than a toggling one, and `Select.searchable` is the component that solves it.
  *
+ * ## The taxonomy slot is named by its caller, and may be absent
+ *
+ * "Category" is the ingredient list's word. The recipe list narrows by *kitchen* instead, because
+ * that is the taxonomy `RecipeAdminFilter` actually publishes, and a family with no second axis at
+ * all omits the control rather than rendering an empty picker. So the label travels with the
+ * options: a toolbar that hard-coded one family's noun would force the next slice either to lie or
+ * to fork the component.
+ *
  * ## Fully controlled, and it holds nothing
  *
  * The toolbar draws affordances and reports intent; every value lives in the screen, which is what
@@ -38,10 +46,15 @@ export interface ListToolbarProps {
     readonly onStatusesChange: (statuses: readonly PublishableStatus[]) => void;
     /** The statuses offered as chips, in lifecycle order. */
     readonly statusOptions: readonly PublishableStatus[];
-    readonly categoryOptions: readonly SelectOption[];
+    /** Omit to render no taxonomy filter at all — see the note above. */
+    readonly categoryOptions?: readonly SelectOption[] | undefined;
     /** `null` means "every category". */
-    readonly category: string | null;
-    readonly onCategoryChange: (category: string | null) => void;
+    readonly category?: string | null | undefined;
+    readonly onCategoryChange?: ((category: string | null) => void) | undefined;
+    /** The taxonomy's own noun. Defaults to the ingredient list's "Category". */
+    readonly categoryLabel?: string | undefined;
+    /** The "no filter" option's label. Defaults to the ingredient list's "All categories". */
+    readonly categoryAllLabel?: string | undefined;
     readonly createLabel: string;
     readonly onCreate?: (() => void) | undefined;
     /** Rendered under the controls; the screen supplies the already-pluralised sentence. */
@@ -59,8 +72,10 @@ export function ListToolbar({
     onStatusesChange,
     statusOptions,
     categoryOptions,
-    category,
+    category = null,
     onCategoryChange,
+    categoryLabel,
+    categoryAllLabel,
     createLabel,
     onCreate,
     resultSummary,
@@ -109,20 +124,25 @@ export function ListToolbar({
                 </Inline>
             </Stack>
 
-            <Select
-                testID={`${testID}-category`}
-                id={`${testID}-category`}
-                label={t('kitchen:toolbar.categoryLabel')}
-                searchable
-                value={category ?? ANY_CATEGORY}
-                onChange={(next) => {
-                    onCategoryChange(next === ANY_CATEGORY ? null : next);
-                }}
-                options={[
-                    { value: ANY_CATEGORY, label: t('kitchen:toolbar.categoryAll') },
-                    ...categoryOptions,
-                ]}
-            />
+            {categoryOptions === undefined || onCategoryChange === undefined ? null : (
+                <Select
+                    testID={`${testID}-category`}
+                    id={`${testID}-category`}
+                    label={categoryLabel ?? t('kitchen:toolbar.categoryLabel')}
+                    searchable
+                    value={category ?? ANY_CATEGORY}
+                    onChange={(next) => {
+                        onCategoryChange(next === ANY_CATEGORY ? null : next);
+                    }}
+                    options={[
+                        {
+                            value: ANY_CATEGORY,
+                            label: categoryAllLabel ?? t('kitchen:toolbar.categoryAll'),
+                        },
+                        ...categoryOptions,
+                    ]}
+                />
+            )}
 
             <Inline space="sm" align="center" justify="between" wrap>
                 <Stack space="none" grow>

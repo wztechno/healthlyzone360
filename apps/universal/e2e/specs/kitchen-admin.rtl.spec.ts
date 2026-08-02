@@ -124,6 +124,71 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         );
     });
 
+    /**
+     * The recipe editor is where the direction rules are hardest, because it holds all three at
+     * once: right-to-left chrome, a *number* that must stay in Latin digits because it is on its way
+     * to a decimal column, and a bilingual step field whose two halves each follow their own
+     * language. Getting any of the three wrong is invisible in English.
+     */
+    test('keeps quantities in Latin digits and announces a reorder in Arabic', async ({ page }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-recipes-open').click();
+        await expect(page.getByTestId('kitchen-recipes-table')).toBeVisible();
+
+        await page
+            .locator('[data-testid^="kitchen-recipe-"][data-testid$="-open"]')
+            .first()
+            .click();
+        await expect(page.getByTestId('kitchen-recipe-editor-screen')).toBeVisible();
+
+        // A published version is read-only; the successor draft is what carries the line editor.
+        await page.getByTestId('kitchen-recipe-new-draft').click();
+        await expect(page.getByTestId('kitchen-recipe-lines-add')).toBeVisible();
+
+        const quantity = page
+            .getByTestId('kitchen-recipe-lines-row-line-1-quantity')
+            .locator('input')
+            .first();
+        await expect(quantity).toBeVisible();
+        // Latin digits, in an Arabic interface. The displayed *figures* localise; the value being
+        // edited does not, or a round trip through the form would depend on the interface language.
+        await expect(quantity).toHaveValue(/^[0-9.]+$/);
+        await quantity.fill('275');
+        await expect(quantity).toHaveValue('275');
+
+        // Reordering is two buttons and an announcement — there is no drag anywhere in this
+        // workspace, and the announcement is the only thing a screen-reader user gets.
+        const announcer = page.getByTestId('kitchen-recipe-lines-announcer');
+        await expect(announcer).toHaveAttribute('role', 'status');
+        await page.getByTestId('kitchen-recipe-lines-row-line-1-move-down').click();
+        await expect(announcer).toContainText(ARABIC_SCRIPT);
+
+        // The labels around it are translated too, not merely mirrored.
+        await expect(page.getByTestId('kitchen-recipe-lines-add')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-recipe-rollup-title')).toContainText(ARABIC_SCRIPT);
+    });
+
+    test('pins each half of a bilingual step to its own writing direction', async ({ page }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-recipes-open').click();
+        await expect(page.getByTestId('kitchen-recipes-table')).toBeVisible();
+        await page
+            .locator('[data-testid^="kitchen-recipe-"][data-testid$="-open"]')
+            .first()
+            .click();
+        await expect(page.getByTestId('kitchen-recipe-editor-screen')).toBeVisible();
+
+        const english = page.getByTestId('kitchen-recipe-steps-row-step-1-instruction-en-input');
+        const arabic = page.getByTestId('kitchen-recipe-steps-row-step-1-instruction-ar-input');
+
+        await expect(english).toBeVisible();
+        await expect(arabic).toBeVisible();
+
+        // The document is right-to-left; the English half is not, and the Arabic half is.
+        await expect(english).toHaveCSS('direction', 'ltr');
+        await expect(arabic).toHaveCSS('direction', 'rtl');
+    });
+
     test('translates the allergen reference, keeping the codes verbatim', async ({ page }) => {
         await openKitchen(page);
         await page.getByTestId('kitchen-family-allergen-classes-open').click();

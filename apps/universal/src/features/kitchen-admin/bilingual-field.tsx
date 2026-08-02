@@ -55,6 +55,8 @@ interface HalfProps {
     readonly placeholder?: string | undefined;
     readonly error?: string | undefined;
     readonly required?: boolean | undefined;
+    /** Renders a paragraph field instead of a single line. See the note on `BilingualFieldProps`. */
+    readonly multiline?: boolean | undefined;
 }
 
 function BilingualHalf({
@@ -67,6 +69,7 @@ function BilingualHalf({
     placeholder,
     error,
     required = false,
+    multiline = false,
 }: HalfProps) {
     const [focused, setFocused] = useState(false);
 
@@ -93,13 +96,20 @@ function BilingualHalf({
                         value={value}
                         onChangeText={onChangeText}
                         {...(placeholder === undefined ? {} : { placeholder })}
+                        {...(multiline ? { multiline: true, numberOfLines: 3 } : {})}
                         autoCapitalize="none"
                         autoCorrect={false}
                         className="flex-1 text-base text-content-primary"
                         // `textAlign: 'auto'` keeps the text on the side the *writing direction*
                         // says, and `writingDirection` is what fixes that direction to the field's
-                        // own language rather than the interface's.
-                        style={{ textAlign: 'auto', writingDirection: direction }}
+                        // own language rather than the interface's. `textAlignVertical` only
+                        // matters once the box is taller than one line, and without it Android
+                        // centres a paragraph inside its own frame.
+                        style={{
+                            textAlign: 'auto',
+                            writingDirection: direction,
+                            ...(multiline ? { textAlignVertical: 'top' as const } : {}),
+                        }}
                         onFocus={() => {
                             setFocused(true);
                         }}
@@ -121,6 +131,16 @@ export interface BilingualFieldProps {
     /** Marks the English half required. The Arabic half never is — see the note above. */
     readonly requiredEnglish?: boolean | undefined;
     readonly englishError?: string | undefined;
+    /**
+     * Renders both halves as paragraph fields.
+     *
+     * A recipe step is a sentence or three, not a name, and typing one into a single-line box means
+     * scrolling a caret sideways through it. It is a variant rather than a second component because
+     * everything else about the field — the per-language writing direction, the missing-translation
+     * marker, the copy-across control — is identical, and a fork would eventually get one of those
+     * wrong on one of the two.
+     */
+    readonly multiline?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -130,6 +150,7 @@ export function BilingualField({
     onChange,
     requiredEnglish = false,
     englishError,
+    multiline = false,
     testID,
 }: BilingualFieldProps) {
     const { t } = useTranslation();
@@ -147,6 +168,7 @@ export function BilingualField({
                 }}
                 direction="ltr"
                 required={requiredEnglish}
+                multiline={multiline}
                 {...(englishError === undefined ? {} : { error: englishError })}
             />
 
@@ -159,6 +181,7 @@ export function BilingualField({
                     onChange({ ...value, ar: next });
                 }}
                 direction="rtl"
+                multiline={multiline}
             />
 
             <Inline space="sm" align="center" wrap>

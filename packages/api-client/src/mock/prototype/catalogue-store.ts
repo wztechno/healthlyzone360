@@ -671,7 +671,11 @@ export class KitchenCatalogueStore {
             name: request.name,
             slug,
             description: request.description,
-            kitchenId: null,
+            // A recipe a kitchen typed belongs to that kitchen, exactly as `createProduct` and
+            // `createMeal` already do. `RecipeAdminSummary.kitchenId` is non-nullable by contract,
+            // so leaving it `null` here produced a summary row whose kitchen was a type lie — and
+            // a recipe no kitchen filter could ever match.
+            kitchenId: this.#kitchens[0]?.id ?? null,
             versions: [version],
             currentVersionId: versionId,
         };

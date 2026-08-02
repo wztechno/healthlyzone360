@@ -18,6 +18,7 @@ import { Gate } from '../../../access/gate.tsx';
 import {
     useAllergenClassesQuery,
     useIngredientSummaryQuery,
+    useRecipeSummaryQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
@@ -131,6 +132,73 @@ function IngredientsCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
+/**
+ * The recipe book's card.
+ *
+ * It counts *published* recipes rather than only totals and drafts, because a recipe's publication
+ * state is what a consumer surface reads: "eleven published, two drafts, one awaiting review" is the
+ * state of the menu, which is the question this card is asked. The quarantine badge is hidden at
+ * zero for the reason the ingredient card hides its own — a badge reading "none awaiting review" is
+ * a permanent, meaningless piece of furniture.
+ */
+function RecipesCard({ family }: { readonly family: EntityFamily }) {
+    const { t } = useTranslation();
+    const summary = useRecipeSummaryQuery();
+    const testID = `kitchen-family-${family.key}`;
+
+    return (
+        <FamilyCardShell family={family} testID={testID}>
+            {summary.isPending ? (
+                <Skeleton
+                    testID={`${testID}-loading`}
+                    heightClassName="h-6"
+                    widthClassName="w-1/2"
+                />
+            ) : (
+                <Inline space="xs" wrap testID={`${testID}-counts`}>
+                    <Badge
+                        testID={`${testID}-total`}
+                        tone="neutral"
+                        icon="dot"
+                        label={
+                            summary.data?.total === null || summary.data === undefined
+                                ? t('kitchen:hub.countUnavailable')
+                                : t('kitchen:hub.itemCount', { count: summary.data.total })
+                        }
+                    />
+                    {summary.data?.published === null || summary.data === undefined ? null : (
+                        <Badge
+                            testID={`${testID}-published`}
+                            tone="success"
+                            label={t('kitchen:hub.publishedCount', {
+                                count: summary.data.published,
+                            })}
+                        />
+                    )}
+                    {summary.data?.drafts === null || summary.data === undefined ? null : (
+                        <Badge
+                            testID={`${testID}-drafts`}
+                            tone="info"
+                            label={t('kitchen:hub.draftCount', { count: summary.data.drafts })}
+                        />
+                    )}
+                    {summary.data?.quarantined === null ||
+                    summary.data === undefined ||
+                    summary.data.quarantined === 0 ? null : (
+                        <Badge
+                            testID={`${testID}-quarantined`}
+                            tone="warning"
+                            label={t('kitchen:hub.quarantineCount', {
+                                count: summary.data.quarantined,
+                            })}
+                        />
+                    )}
+                </Inline>
+            )}
+        </FamilyCardShell>
+    );
+}
+
 function AllergenClassesCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const classes = useAllergenClassesQuery();
@@ -201,6 +269,9 @@ export function KitchenHomeScreen() {
                         {families.map((family) => {
                             if (family.key === 'ingredients') {
                                 return <IngredientsCard key={family.key} family={family} />;
+                            }
+                            if (family.key === 'recipes') {
+                                return <RecipesCard key={family.key} family={family} />;
                             }
                             if (family.key === 'allergen-classes') {
                                 return <AllergenClassesCard key={family.key} family={family} />;

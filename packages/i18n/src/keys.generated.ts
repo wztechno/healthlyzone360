@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 3042 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 3205 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1400,6 +1400,8 @@ export interface NamespaceKeys {
     | 'families.allergenClasses.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
+    | 'families.recipes.description'
+    | 'families.recipes.name'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -1417,6 +1419,7 @@ export interface NamespaceKeys {
     | 'hub.errorTitle'
     | 'hub.itemCount'
     | 'hub.open'
+    | 'hub.publishedCount'
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
     | 'hub.subtitle'
@@ -1447,6 +1450,166 @@ export interface NamespaceKeys {
     | 'list.title'
     | 'list.updatedBy'
     | 'list.updatedBySeed'
+    | 'publish.action'
+    | 'publish.allergenRow'
+    | 'publish.allergenRowsNone'
+    | 'publish.allergenRowsTitle'
+    | 'publish.blockDescription'
+    | 'publish.blockIngredientState'
+    | 'publish.blockName'
+    | 'publish.blockNoLines'
+    | 'publish.blockUnsaved'
+    | 'publish.blockedTitle'
+    | 'publish.body'
+    | 'publish.confirm'
+    | 'publish.consequence'
+    | 'publish.failedTitle'
+    | 'publish.publishedToast'
+    | 'publish.quarantineBody'
+    | 'publish.quarantineTitle'
+    | 'publish.title'
+    | 'publish.unmappedBody'
+    | 'publish.unmappedTitle'
+    | 'recipes.addLine'
+    | 'recipes.addOutput'
+    | 'recipes.addStep'
+    | 'recipes.archive'
+    | 'recipes.archiveBody'
+    | 'recipes.archiveConfirm'
+    | 'recipes.archiveFailed'
+    | 'recipes.archiveTitle'
+    | 'recipes.archivedToast'
+    | 'recipes.backToCurrentVersion'
+    | 'recipes.backToList'
+    | 'recipes.caption'
+    | 'recipes.columnAllergens'
+    | 'recipes.columnName'
+    | 'recipes.columnVersion'
+    | 'recipes.completenessOutstanding'
+    | 'recipes.completenessReady'
+    | 'recipes.confidential'
+    | 'recipes.confidentialHint'
+    | 'recipes.create'
+    | 'recipes.createHintBody'
+    | 'recipes.createHintTitle'
+    | 'recipes.createTitle'
+    | 'recipes.createdToast'
+    | 'recipes.currentVersion'
+    | 'recipes.descriptionLabel'
+    | 'recipes.draftOpenedToast'
+    | 'recipes.emptyBody'
+    | 'recipes.emptyTitle'
+    | 'recipes.filteredEmptyBody'
+    | 'recipes.filteredEmptyTitle'
+    | 'recipes.immutableBody'
+    | 'recipes.immutableTitle'
+    | 'recipes.kitchenFilterAll'
+    | 'recipes.kitchenFilterLabel'
+    | 'recipes.lineCount'
+    | 'recipes.lineIngredient'
+    | 'recipes.lineIngredientPlaceholder'
+    | 'recipes.lineNote'
+    | 'recipes.lineNoteHint'
+    | 'recipes.lineNumber'
+    | 'recipes.lineQuantity'
+    | 'recipes.lineQuantityHint'
+    | 'recipes.lineRemoved'
+    | 'recipes.lineUnit'
+    | 'recipes.lineUnitUnknownDimension'
+    | 'recipes.linesDescription'
+    | 'recipes.linesEmpty'
+    | 'recipes.loadErrorTitle'
+    | 'recipes.markOptional'
+    | 'recipes.markRequired'
+    | 'recipes.moveDown'
+    | 'recipes.moveUp'
+    | 'recipes.movedAnnouncement'
+    | 'recipes.nameRequired'
+    | 'recipes.newDraft'
+    | 'recipes.newDraftFromVersion'
+    | 'recipes.noAllergens'
+    | 'recipes.notFoundBody'
+    | 'recipes.notFoundTitle'
+    | 'recipes.open'
+    | 'recipes.optional'
+    | 'recipes.outputCount'
+    | 'recipes.outputIngredient'
+    | 'recipes.outputNumber'
+    | 'recipes.outputsEmpty'
+    | 'recipes.outputsExplainerBody'
+    | 'recipes.outputsExplainerTitle'
+    | 'recipes.primaryOutput'
+    | 'recipes.primaryOutputHint'
+    | 'recipes.primaryOutputLabel'
+    | 'recipes.primaryOutputPlaceholder'
+    | 'recipes.primaryOutputRequired'
+    | 'recipes.quarantined'
+    | 'recipes.recipeCount'
+    | 'recipes.removeRow'
+    | 'recipes.resultCount'
+    | 'recipes.retire'
+    | 'recipes.saveErrorTitle'
+    | 'recipes.saveFailed'
+    | 'recipes.savedToast'
+    | 'recipes.sectionDetails'
+    | 'recipes.sectionLines'
+    | 'recipes.sectionOutputs'
+    | 'recipes.sectionSteps'
+    | 'recipes.sectionVersions'
+    | 'recipes.sectionYield'
+    | 'recipes.stepCount'
+    | 'recipes.stepInstruction'
+    | 'recipes.stepMinutes'
+    | 'recipes.stepMinutesHint'
+    | 'recipes.stepNumber'
+    | 'recipes.stepRemoved'
+    | 'recipes.stepsDescription'
+    | 'recipes.stepsEmpty'
+    | 'recipes.subtitle'
+    | 'recipes.title'
+    | 'recipes.unnamedLine'
+    | 'recipes.unnamedOutput'
+    | 'recipes.versionCount'
+    | 'recipes.versionNumber'
+    | 'recipes.versionSelect'
+    | 'recipes.versionSelected'
+    | 'recipes.versionUnavailableBody'
+    | 'recipes.versionUnavailableTitle'
+    | 'recipes.versionsDescription'
+    | 'recipes.wastePercent'
+    | 'recipes.wastePercentHint'
+    | 'recipes.yieldDescription'
+    | 'recipes.yieldPieces'
+    | 'recipes.yieldPiecesHint'
+    | 'recipes.yieldQuantity'
+    | 'recipes.yieldRequired'
+    | 'recipes.yieldUnit'
+    | 'rollup.allergenFrom'
+    | 'rollup.allergenNoSources'
+    | 'rollup.allergenProvenanceHint'
+    | 'rollup.allergensNone'
+    | 'rollup.allergensTitle'
+    | 'rollup.confidential'
+    | 'rollup.costHint'
+    | 'rollup.costPerServing'
+    | 'rollup.costTitle'
+    | 'rollup.costTotal'
+    | 'rollup.costUnknown'
+    | 'rollup.description'
+    | 'rollup.empty'
+    | 'rollup.errorTitle'
+    | 'rollup.factsTitle'
+    | 'rollup.refreshing'
+    | 'rollup.staleErrorTitle'
+    | 'rollup.title'
+    | 'rollup.unsavedNotice'
+    | 'rollup.warningLines'
+    | 'rollup.warningMissingCost'
+    | 'rollup.warningMissingFacts'
+    | 'rollup.warningUnconvertibleUnit'
+    | 'rollup.warningUnknownIngredient'
+    | 'rollup.warningsNone'
+    | 'rollup.warningsTitle'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -4459,6 +4622,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.allergenClasses.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
+  'kitchen:families.recipes.description',
+  'kitchen:families.recipes.name',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -4476,6 +4641,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.errorTitle',
   'kitchen:hub.itemCount',
   'kitchen:hub.open',
+  'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
   'kitchen:hub.subtitle',
@@ -4506,6 +4672,166 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.title',
   'kitchen:list.updatedBy',
   'kitchen:list.updatedBySeed',
+  'kitchen:publish.action',
+  'kitchen:publish.allergenRow',
+  'kitchen:publish.allergenRowsNone',
+  'kitchen:publish.allergenRowsTitle',
+  'kitchen:publish.blockDescription',
+  'kitchen:publish.blockIngredientState',
+  'kitchen:publish.blockName',
+  'kitchen:publish.blockNoLines',
+  'kitchen:publish.blockUnsaved',
+  'kitchen:publish.blockedTitle',
+  'kitchen:publish.body',
+  'kitchen:publish.confirm',
+  'kitchen:publish.consequence',
+  'kitchen:publish.failedTitle',
+  'kitchen:publish.publishedToast',
+  'kitchen:publish.quarantineBody',
+  'kitchen:publish.quarantineTitle',
+  'kitchen:publish.title',
+  'kitchen:publish.unmappedBody',
+  'kitchen:publish.unmappedTitle',
+  'kitchen:recipes.addLine',
+  'kitchen:recipes.addOutput',
+  'kitchen:recipes.addStep',
+  'kitchen:recipes.archive',
+  'kitchen:recipes.archiveBody',
+  'kitchen:recipes.archiveConfirm',
+  'kitchen:recipes.archiveFailed',
+  'kitchen:recipes.archiveTitle',
+  'kitchen:recipes.archivedToast',
+  'kitchen:recipes.backToCurrentVersion',
+  'kitchen:recipes.backToList',
+  'kitchen:recipes.caption',
+  'kitchen:recipes.columnAllergens',
+  'kitchen:recipes.columnName',
+  'kitchen:recipes.columnVersion',
+  'kitchen:recipes.completenessOutstanding',
+  'kitchen:recipes.completenessReady',
+  'kitchen:recipes.confidential',
+  'kitchen:recipes.confidentialHint',
+  'kitchen:recipes.create',
+  'kitchen:recipes.createHintBody',
+  'kitchen:recipes.createHintTitle',
+  'kitchen:recipes.createTitle',
+  'kitchen:recipes.createdToast',
+  'kitchen:recipes.currentVersion',
+  'kitchen:recipes.descriptionLabel',
+  'kitchen:recipes.draftOpenedToast',
+  'kitchen:recipes.emptyBody',
+  'kitchen:recipes.emptyTitle',
+  'kitchen:recipes.filteredEmptyBody',
+  'kitchen:recipes.filteredEmptyTitle',
+  'kitchen:recipes.immutableBody',
+  'kitchen:recipes.immutableTitle',
+  'kitchen:recipes.kitchenFilterAll',
+  'kitchen:recipes.kitchenFilterLabel',
+  'kitchen:recipes.lineCount',
+  'kitchen:recipes.lineIngredient',
+  'kitchen:recipes.lineIngredientPlaceholder',
+  'kitchen:recipes.lineNote',
+  'kitchen:recipes.lineNoteHint',
+  'kitchen:recipes.lineNumber',
+  'kitchen:recipes.lineQuantity',
+  'kitchen:recipes.lineQuantityHint',
+  'kitchen:recipes.lineRemoved',
+  'kitchen:recipes.lineUnit',
+  'kitchen:recipes.lineUnitUnknownDimension',
+  'kitchen:recipes.linesDescription',
+  'kitchen:recipes.linesEmpty',
+  'kitchen:recipes.loadErrorTitle',
+  'kitchen:recipes.markOptional',
+  'kitchen:recipes.markRequired',
+  'kitchen:recipes.moveDown',
+  'kitchen:recipes.moveUp',
+  'kitchen:recipes.movedAnnouncement',
+  'kitchen:recipes.nameRequired',
+  'kitchen:recipes.newDraft',
+  'kitchen:recipes.newDraftFromVersion',
+  'kitchen:recipes.noAllergens',
+  'kitchen:recipes.notFoundBody',
+  'kitchen:recipes.notFoundTitle',
+  'kitchen:recipes.open',
+  'kitchen:recipes.optional',
+  'kitchen:recipes.outputCount',
+  'kitchen:recipes.outputIngredient',
+  'kitchen:recipes.outputNumber',
+  'kitchen:recipes.outputsEmpty',
+  'kitchen:recipes.outputsExplainerBody',
+  'kitchen:recipes.outputsExplainerTitle',
+  'kitchen:recipes.primaryOutput',
+  'kitchen:recipes.primaryOutputHint',
+  'kitchen:recipes.primaryOutputLabel',
+  'kitchen:recipes.primaryOutputPlaceholder',
+  'kitchen:recipes.primaryOutputRequired',
+  'kitchen:recipes.quarantined',
+  'kitchen:recipes.recipeCount',
+  'kitchen:recipes.removeRow',
+  'kitchen:recipes.resultCount',
+  'kitchen:recipes.retire',
+  'kitchen:recipes.saveErrorTitle',
+  'kitchen:recipes.saveFailed',
+  'kitchen:recipes.savedToast',
+  'kitchen:recipes.sectionDetails',
+  'kitchen:recipes.sectionLines',
+  'kitchen:recipes.sectionOutputs',
+  'kitchen:recipes.sectionSteps',
+  'kitchen:recipes.sectionVersions',
+  'kitchen:recipes.sectionYield',
+  'kitchen:recipes.stepCount',
+  'kitchen:recipes.stepInstruction',
+  'kitchen:recipes.stepMinutes',
+  'kitchen:recipes.stepMinutesHint',
+  'kitchen:recipes.stepNumber',
+  'kitchen:recipes.stepRemoved',
+  'kitchen:recipes.stepsDescription',
+  'kitchen:recipes.stepsEmpty',
+  'kitchen:recipes.subtitle',
+  'kitchen:recipes.title',
+  'kitchen:recipes.unnamedLine',
+  'kitchen:recipes.unnamedOutput',
+  'kitchen:recipes.versionCount',
+  'kitchen:recipes.versionNumber',
+  'kitchen:recipes.versionSelect',
+  'kitchen:recipes.versionSelected',
+  'kitchen:recipes.versionUnavailableBody',
+  'kitchen:recipes.versionUnavailableTitle',
+  'kitchen:recipes.versionsDescription',
+  'kitchen:recipes.wastePercent',
+  'kitchen:recipes.wastePercentHint',
+  'kitchen:recipes.yieldDescription',
+  'kitchen:recipes.yieldPieces',
+  'kitchen:recipes.yieldPiecesHint',
+  'kitchen:recipes.yieldQuantity',
+  'kitchen:recipes.yieldRequired',
+  'kitchen:recipes.yieldUnit',
+  'kitchen:rollup.allergenFrom',
+  'kitchen:rollup.allergenNoSources',
+  'kitchen:rollup.allergenProvenanceHint',
+  'kitchen:rollup.allergensNone',
+  'kitchen:rollup.allergensTitle',
+  'kitchen:rollup.confidential',
+  'kitchen:rollup.costHint',
+  'kitchen:rollup.costPerServing',
+  'kitchen:rollup.costTitle',
+  'kitchen:rollup.costTotal',
+  'kitchen:rollup.costUnknown',
+  'kitchen:rollup.description',
+  'kitchen:rollup.empty',
+  'kitchen:rollup.errorTitle',
+  'kitchen:rollup.factsTitle',
+  'kitchen:rollup.refreshing',
+  'kitchen:rollup.staleErrorTitle',
+  'kitchen:rollup.title',
+  'kitchen:rollup.unsavedNotice',
+  'kitchen:rollup.warningLines',
+  'kitchen:rollup.warningMissingCost',
+  'kitchen:rollup.warningMissingFacts',
+  'kitchen:rollup.warningUnconvertibleUnit',
+  'kitchen:rollup.warningUnknownIngredient',
+  'kitchen:rollup.warningsNone',
+  'kitchen:rollup.warningsTitle',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',

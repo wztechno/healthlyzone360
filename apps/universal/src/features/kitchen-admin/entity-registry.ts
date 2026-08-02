@@ -16,7 +16,16 @@ import type { AccessState } from '@healthy360/permissions';
  * here as their slices land, and nothing else about the hub changes when they do.
  */
 
-/** Permission codes the K1 catalogue surfaces are gated on (master plan, phase K1). */
+/**
+ * Permission codes the K1 catalogue surfaces are gated on (master plan, phase K1).
+ *
+ * **TODO (K1 wiring pass).** The backend vocabulary is finer than this: `recipe.view_organisation`,
+ * `recipe.manage_organisation` and `recipe.publish_organisation` are distinct codes server-side, and
+ * publishing in particular is meant to be separately grantable. The mock's roles grant neither, so
+ * gating the recipe family on them today would hide a whole slice behind a permission nothing can
+ * issue. The recipe surfaces therefore reuse the catalogue pair, and the reconciliation pass that
+ * lands the real codes changes this file and nothing else — which is the reason the registry exists.
+ */
 export const CATALOGUE_VIEW_PERMISSION = 'catalogue.view_organisation';
 export const CATALOGUE_MANAGE_PERMISSION = 'catalogue.manage_organisation';
 
@@ -53,6 +62,20 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         descriptionKey: 'kitchen:families.ingredients.description',
         icon: 'branch',
         href: '/kitchen/ingredients',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'recipes',
+        kind: 'managed',
+        nameKey: 'kitchen:families.recipes.name',
+        descriptionKey: 'kitchen:families.recipes.description',
+        // `▤`, the ruled sheet. The icon set has no recipe glyph and adding one is a design-system
+        // change, not a slice's; this is the closest honest reading — a technical sheet.
+        icon: 'calendar',
+        href: '/kitchen/recipes',
+        // See the note on the permission constants: `recipe.*` exists server-side and nothing in
+        // this world can grant it yet.
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },

@@ -54,6 +54,18 @@ async function openFirstIngredient(page: Page) {
     await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
 }
 
+async function openRecipes(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-recipes-open').click();
+    await expect(page.getByTestId('kitchen-recipes-table')).toBeVisible();
+}
+
+async function openFirstRecipe(page: Page) {
+    await openRecipes(page);
+    await page.locator('[data-testid^="kitchen-recipe-"][data-testid$="-open"]').first().click();
+    await expect(page.getByTestId('kitchen-recipe-editor-screen')).toBeVisible();
+}
+
 test.describe('kitchen workspace accessibility (axe)', () => {
     test('the workspace hub', async ({ page }) => {
         await openKitchen(page);
@@ -122,6 +134,40 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.getByTestId('kitchen-ingredients-toolbar-create').click();
         await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-ingredient-create');
+    });
+
+    test('the recipe list', async ({ page }) => {
+        await openRecipes(page);
+        await expectNoSeriousViolations(page, 'kitchen-recipes');
+    });
+
+    /**
+     * The recipe editor is swept twice — read-only, then with the draft's line editor and the
+     * roll-up pane beside it. The second state is the one with the risk: a live region, an
+     * `aria-busy` container holding stale figures, expandable provenance chips and three ordered-row
+     * editors' worth of move buttons, none of which exist in the first.
+     */
+    test('the recipe editor, read-only and then with its draft open', async ({ page }) => {
+        await openFirstRecipe(page);
+        await expect(page.getByTestId('kitchen-recipe-rollup')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-recipe-editor-readonly');
+
+        await page.getByTestId('kitchen-recipe-new-draft').click();
+        await expect(page.getByTestId('kitchen-recipe-lines-add')).toBeVisible();
+        await expect(page.getByTestId('kitchen-recipe-rollup-figures')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-recipe-editor-draft');
+    });
+
+    test('the publish confirmation, where the label about to go public is stated', async ({
+        page,
+    }) => {
+        await openFirstRecipe(page);
+        await page.getByTestId('kitchen-recipe-new-draft').click();
+        await expect(page.getByTestId('kitchen-recipe-publish')).toBeVisible();
+
+        await page.getByTestId('kitchen-recipe-publish').click();
+        await expect(page.getByTestId('kitchen-recipe-publish-dialog')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-recipe-publish-dialog');
     });
 
     test('the allergen class reference', async ({ page }) => {

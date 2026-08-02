@@ -56,12 +56,34 @@ async function firstRowBase(page: Page): Promise<string> {
     return testId.slice(0, testId.length - '-open'.length);
 }
 
+async function openRecipes(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-recipes-open').click();
+    await expect(page.getByTestId('kitchen-recipes-screen')).toBeVisible();
+    await expect(page.getByTestId('kitchen-recipes-table')).toBeVisible();
+}
+
+/** The `kitchen-recipe-{id}` prefix of the first recipe row. */
+async function firstRecipeBase(page: Page): Promise<string> {
+    const control = page.locator('[data-testid^="kitchen-recipe-"][data-testid$="-open"]').first();
+    await expect(control).toBeVisible();
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The recipe row carries no test id.');
+    return testId.slice(0, testId.length - '-open'.length);
+}
+
 test.describe('kitchen workspace (en)', () => {
     test('shows only the families this role may open, with real counts', async ({ page }) => {
         await openKitchen(page);
 
         await expect(page.getByTestId('kitchen-family-ingredients')).toBeVisible();
+        await expect(page.getByTestId('kitchen-family-recipes')).toBeVisible();
         await expect(page.getByTestId('kitchen-family-allergen-classes')).toBeVisible();
+
+        // The recipe card counts what a kitchen acts on: published, drafts, quarantined.
+        await expect(page.getByTestId('kitchen-family-recipes-published')).toContainText(
+            'published',
+        );
 
         // Counts come from the repository, not from a constant on the card.
         await expect(page.getByTestId('kitchen-family-ingredients-total')).toContainText('records');
@@ -214,6 +236,96 @@ test.describe('kitchen workspace (en)', () => {
 
         await page.getByTestId('kitchen-ingredients-archive-confirm').click();
         await expect(page.getByTestId('kitchen-ingredients-archived-toast')).toBeVisible();
+    });
+
+    test('lists the recipe book with each version’s state and derived label', async ({ page }) => {
+        await openRecipes(page);
+
+        const base = await firstRecipeBase(page);
+        await expect(page.getByTestId(`${base}-name`)).toBeVisible();
+        await expect(page.getByTestId(`${base}-version`)).toContainText('Version');
+        // The version's own state and the label it carries are read per row; both must arrive.
+        await expect(page.getByTestId(`${base}-version-status`)).toBeVisible();
+        await expect(page.getByTestId(`${base}-updated`)).toBeVisible();
+        await expect(page.getByTestId('kitchen-recipes-toolbar-result-summary')).toContainText(
+            'match',
+        );
+    });
+
+    /**
+     * The spine of the slice: a published version is immutable, so changing it means opening its
+     * successor, editing that, watching the figures follow, and publishing it in turn. Every step
+     * goes through `KitchenAdminRepository` into the mutable store, and the list showing version two
+     * at the end is the store agreeing.
+     */
+    test('opens a draft from a published version, edits it, and publishes the successor', async ({
+        page,
+    }) => {
+        await openRecipes(page);
+
+        const base = await firstRecipeBase(page);
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-recipe-editor-screen')).toBeVisible();
+
+        // Read-only: the published version offers no way to add a line, only its successor.
+        await expect(page.getByTestId('kitchen-recipe-immutable')).toBeVisible();
+        await expect(page.getByTestId('kitchen-recipe-lines-add')).toHaveCount(0);
+
+        await page.getByTestId('kitchen-recipe-new-draft').click();
+        await expect(page.getByTestId('kitchen-recipe-lines-add')).toBeVisible();
+
+        // The preview is populated before the edit, so a change to it is observable.
+        await expect(page.getByTestId('kitchen-recipe-rollup-figures')).toBeVisible();
+        const energy = page.getByTestId('kitchen-recipe-rollup-facts-amount-energy');
+        await expect(energy).toBeVisible();
+        const before = (await energy.textContent()) ?? '';
+
+        const quantity = page
+            .getByTestId('kitchen-recipe-lines-row-line-1-quantity')
+            .locator('input')
+            .first();
+        await quantity.fill('900');
+
+        // The figures follow the lines. The allergen list is never blanked while they do.
+        await expect(page.getByTestId('kitchen-recipe-rollup-allergens')).toBeVisible();
+        await expect(energy).not.toHaveText(before, { timeout: 15_000 });
+
+        await page.getByTestId('kitchen-recipe-editor-screen-save').click();
+        await expect(page.getByTestId('kitchen-recipe-saved-toast')).toBeVisible();
+
+        await page.getByTestId('kitchen-recipe-publish').click();
+        await expect(page.getByTestId('kitchen-recipe-publish-dialog')).toBeVisible();
+        // The dialog states what becomes visible before it asks.
+        await expect(page.getByTestId('kitchen-recipe-publish-consequence')).toContainText('menu');
+        await expect(page.getByTestId('kitchen-recipe-publish-allergens')).toBeVisible();
+
+        await page.getByTestId('kitchen-recipe-publish-confirm').click();
+        await expect(page.getByTestId('kitchen-recipe-published-toast')).toBeVisible();
+
+        await page.getByTestId('kitchen-recipe-editor-screen-back').click();
+        await expect(page.getByTestId('kitchen-recipes-table')).toBeVisible();
+        await expect(page.getByTestId(`${base}-version`)).toContainText('Version 2');
+        await expect(page.getByTestId(`${base}-version-status`)).toContainText('Published');
+    });
+
+    test('withdraws a recipe behind a confirmation that says nothing is deleted', async ({
+        page,
+    }) => {
+        await openRecipes(page);
+
+        const control = page
+            .locator('[data-testid^="kitchen-recipe-"][data-testid$="-archive"]')
+            .first();
+        await expect(control).toBeVisible();
+        await control.click();
+
+        await expect(page.getByTestId('kitchen-recipes-archive-dialog')).toBeVisible();
+        await expect(page.getByTestId('kitchen-recipes-archive-dialog-description')).toContainText(
+            'Nothing is deleted',
+        );
+
+        await page.getByTestId('kitchen-recipes-archive-confirm').click();
+        await expect(page.getByTestId('kitchen-recipes-archived-toast')).toBeVisible();
     });
 
     test('publishes the allergen reference as reference, with no way to change it', async ({
