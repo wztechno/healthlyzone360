@@ -68,6 +68,30 @@ tags:
       **No operation in this family carries a price, a cost or a margin**: what
       is confidential about a catalogue is what it costs, and that lives in the
       pricing tables.
+  - name: Pricing
+    description: |
+      Price lists, their effective-dated entries and their channel
+      assignments.
+
+      Three things are worth reading before the operations. **The currency
+      lives on the list**, so every amount inside one is comparable by
+      construction and there is no cross-currency arithmetic anywhere.
+      **Amounts are integers of minor units** and are never formatted
+      server-side — `4500` with `currency_code: AED`, never `"45.00 AED"` and
+      never `45.0`. And **a price row is never edited**: the entries endpoint
+      takes the desired current state and the server closes and reopens rows
+      behind it, so what a customer was charged last March stays
+      reconstructable.
+
+      `price_status` is the honest badge: `confirmed` carries a number,
+      `placeholder` and `market_priced` carry none and the absence is the
+      statement. The admin operations here serve all three; the public
+      projection (M1) will serve only `confirmed`.
+
+      This family has **its own permission pair** — `price_list.view_organisation`
+      and `price_list.manage_organisation` — because price visibility is
+      commercial rather than culinary. A chef holds every catalogue and recipe
+      permission and neither of these.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
 paths:
@@ -4259,6 +4283,574 @@ paths:
                             description: The locale the names were rendered in.
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/price-lists:
+    get:
+      operationId: listPriceLists
+      tags:
+        - Pricing
+      summary: List price lists
+      description: |
+        Every tariff this organisation quotes, cursor-paginated. Unlike the
+        sales-channel list this one pages: a kitchen has a handful of channels
+        but can accumulate a tariff per corporate client.
+
+        Archived lists are excluded unless `status=archived` is asked for by
+        name — a list offered by default is a list somebody assigns to a
+        channel.
+
+        **No amounts.** The header carries a currency and a status, never a
+        price. Embedding rows here would serve an entire kitchen's negotiated
+        pricing in one response, and a cursor page is exactly the shape that
+        gets exported wholesale.
+
+        Requires `price_list.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring match over both names and the code.
+          schema:
+            type: string
+            maxLength: 160
+        - name: status
+          in: query
+          required: false
+          description: Restrict to one lifecycle state. Omitted, everything except `archived` is listed.
+          schema:
+            $ref: '#/components/schemas/PriceListStatus'
+        - name: customer_scope
+          in: query
+          required: false
+          description: Restrict to public tariffs or to negotiated agreements.
+          schema:
+            $ref: '#/components/schemas/PriceListCustomerScope'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of price lists.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminPriceList'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createPriceList
+      tags:
+        - Pricing
+      summary: Create a price list
+      description: |
+        Creates a **draft**. One created active would price customers before
+        anybody had entered a price.
+
+        `currency_code` is required and has no default: falling back to the
+        organisation's default currency is the kind of helpfulness that
+        produces a USD tariff in an AED kitchen with no way to tell whether
+        anybody meant it. It is normalised to upper case, so a lowercase ISO
+        code is not a second currency.
+
+        A duplicate `code` is `409 resource.conflict`, not a second list.
+
+        Requires `price_list.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePriceListRequest'
+      responses:
+        '201':
+          description: The created draft list.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/price-lists/{priceList}:
+    get:
+      operationId: showPriceList
+      tags:
+        - Pricing
+      summary: A price list and its channel assignments
+      description: |
+        Returns `ETag: "<lock_version>"` — the validator **every** write in
+        this family sends back, entries and channel assignments included. A
+        tariff's rows are one document even though they live in three tables,
+        and two merchandisers repricing at once is the race the validator
+        catches.
+
+        Channel assignments come with it; the entries do not. A tariff runs to
+        hundreds of rows and has its own cursor-paginated endpoint.
+
+        `meta.entry_counts` says how many standing rows there are and how many
+        of them are real prices — "312 priced, 8 owed" without paging.
+
+        Requires `price_list.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PriceListPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The price list, with its channel assignments.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updatePriceList
+      tags:
+        - Pricing
+      summary: Update a price list
+      description: |
+        `code` is **rejected**, not ignored: a client that sent it believed it
+        was writing something.
+
+        `currency_code` **is** accepted, and only while the list holds no price
+        rows at all — history included. After that it is
+        `409 resource.conflict` with `details.reason: currency_locked`, because
+        changing it would silently re-denominate every amount in the list and
+        cannot re-denominate the closed rows a past order points at. The answer
+        is a new list, not a retry.
+
+        `status` is absent (master plan v2 §4.15): activation and archiving are
+        POST actions.
+
+        `customer_scope` is editable — a tariff drafted as public that turns
+        out to be one client's deal has to be reclassifiable — and every change
+        lands in the audit trail naming both scopes.
+
+        **`If-Match` required.** Requires `price_list.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PriceListPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePriceListRequest'
+      responses:
+        '200':
+          description: The updated list.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PriceListConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/price-lists/{priceList}/publish:
+    post:
+      operationId: publishPriceList
+      tags:
+        - Pricing
+      summary: Activate a price list
+      description: |
+        Draft → active. Its own route and its own audit action, never a
+        `PATCH status`.
+
+        The gate is short, and what it does **not** check matters as much:
+        placeholder and market-priced rows are welcome on an active list. A
+        kitchen with forty confirmed prices and eight owed should trade on the
+        forty; a gate that demanded a complete tariff would push somebody to
+        invent the missing numbers. Keeping the unpriced rows away from a
+        customer is the public projection's job.
+
+        What it does check is that the list prices *something*: a tariff with
+        no standing rows assigned to a live channel is a silent "nothing is for
+        sale here" that looks identical to a working configuration.
+
+        Gated by `catalogue.publish_organisation` rather than a pricing code of
+        its own — activating a tariff is the same authority as deciding what is
+        on sale, held by the same two roles.
+
+        **`If-Match` required.**
+      parameters:
+        - $ref: '#/components/parameters/PriceListPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The activated list.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PriceListPublishBlocked'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/price-lists/{priceList}/archive:
+    post:
+      operationId: archivePriceList
+      tags:
+        - Pricing
+      summary: Archive a price list
+      description: |
+        Refused while any channel still names the list —
+        `409 resource.conflict` with `details.reason:
+        channel_assignments_active` and the channels holding it. Detaching is
+        the act that actually withdraws a tariff; archiving one a channel still
+        quotes from would be a label that changed nothing.
+
+        Nothing is deleted. Entries, history and supersession chains all
+        survive, so an order placed last spring can still be explained. An
+        archived list refuses every further edit.
+
+        **`If-Match` required.** Gated by `catalogue.publish_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PriceListPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived list.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PriceListConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/price-lists/{priceList}/entries:
+    get:
+      operationId: listPriceListEntries
+      tags:
+        - Pricing
+      summary: The prices in a list
+      description: |
+        **Standing rows by default** — what the tariff says today, which is
+        what a PUT will be diffed against. A default that returned history
+        would make the obvious client (read, edit, put back) silently
+        resurrect closed prices.
+
+        `include_history=1` adds the closed rows and flips the ordering to
+        **newest-first**: a history is read backwards from the most recent
+        change, not paged to the end to find last week's price.
+
+        Amounts are integers of minor units with `currency_code` repeated on
+        every row — a row that travels into a table cell, a log line or an
+        order snapshot must not arrive without its currency.
+
+        Placeholder and market-priced rows are served **in full**, with their
+        status and a null amount. This is the admin surface: the person whose
+        job is to price the unpriced rows has to see which ones they are.
+
+        Requires `price_list.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PriceListPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: include_history
+          in: query
+          required: false
+          description: |
+            `1`, `true` or `yes` includes closed rows and walks newest-first.
+            Anything else — including `0` — means no.
+          schema:
+            type: string
+            enum:
+              - '0'
+              - '1'
+              - 'true'
+              - 'false'
+              - 'yes'
+              - 'no'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of price rows.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminPriceListEntry'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/PaginationMeta'
+                      - type: object
+                        required:
+                          - include_history
+                          - currency_code
+                          - entry_counts
+                        properties:
+                          include_history:
+                            type: boolean
+                          currency_code:
+                            $ref: '#/components/schemas/CurrencyCode'
+                          entry_counts:
+                            $ref: '#/components/schemas/PriceListEntryCounts'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replacePriceListEntries
+      tags:
+        - Pricing
+      summary: Replace the prices in a list
+      description: |
+        The body is the desired **current** pricing state — the whole tariff as
+        it should stand after the call. The server works out what changed and
+        writes the history:
+
+        | submitted | standing | what happens |
+        |---|---|---|
+        | yes | no | a row opens, effective from today |
+        | yes | yes, same amount and status | **nothing at all** |
+        | yes | yes, different | the standing row closes and its replacement opens, linked by `superseded_by_id` |
+        | no | yes | the standing row closes, with no successor |
+
+        "Nothing at all" is load-bearing: a nightly importer reposting an
+        unchanged sheet must not manufacture a supersession chain hundreds deep
+        and destroy the ability to answer "when did this price actually
+        change".
+
+        A pricing point is `(catalogue_item_id, catalogue_item_variant_id,
+        min_quantity)`. Stating one twice in a submission is `422`.
+
+        There is no `effective_from`, no `effective_to` and no
+        `superseded_by_id` in the body, deliberately: those are the server's
+        account of when it was told, and a client that could write them could
+        backdate a price change to before an order was taken.
+
+        `unit_amount_minor` and `price_status` are **one fact**. A confirmed
+        row must carry a positive integer; a placeholder or market-priced row
+        must carry none. Both mismatches are `422` here and a CHECK constraint
+        underneath, so no importer or backfill can produce them either.
+
+        An empty `entries` array withdraws every price — closing each standing
+        row rather than deleting it.
+
+        **`If-Match` carries the price list's validator**, not a row's.
+        Requires `price_list.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PriceListPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePriceListEntriesRequest'
+      responses:
+        '200':
+          description: The list and its standing rows after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListEntriesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PriceListConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/price-lists/{priceList}/channels:
+    put:
+      operationId: replacePriceListChannels
+      tags:
+        - Pricing
+      summary: Replace the channels that quote from a list
+      description: |
+        The complete set, applied at once. **The array order is the priority**
+        — index 0 is consulted first — so listing a negotiated sheet above a
+        standing tariff states the override rather than requiring somebody to
+        invent non-colliding integers for it. An explicit `priority` is still
+        honoured, for an importer restoring a known configuration.
+
+        A channel may hold several lists on purpose. Resolution walks them in
+        priority order and **stops at the first that prices the point**: the
+        lists are not merged, so a client's agreement can override two lines
+        without restating the other four hundred, and a gap in it falls through
+        to the tariff behind rather than becoming a hole.
+
+        Naming one channel twice is `422` — that is a contradiction, not a
+        richer configuration.
+
+        An empty array detaches the list from every channel, which is how a
+        tariff is withdrawn and the step `archive` insists on first.
+
+        **`If-Match` required.** Requires `price_list.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PriceListPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePriceListChannelsRequest'
+      responses:
+        '200':
+          description: The list and its channel assignments after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListChannelsEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PriceListConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     sessionCookie:
@@ -4476,6 +5068,21 @@ components:
       in: path
       required: true
       description: The channel identifier, or its `code`.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 40
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    PriceListPath:
+      name: priceList
+      in: path
+      required: true
+      description: |
+        The price list identifier, or its `code`. Both are accepted for the
+        reason the sales-channel path gives: a client that walked the list
+        holds an identifier, an operator or an importer holds
+        `greenlife-b2b-usd`, and the code is unique per organisation.
       schema:
         oneOf:
           - $ref: '#/components/schemas/Uuid'
@@ -5010,6 +5617,70 @@ components:
                     recipe_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d41
                     recipe_version_ids:
                       - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d42
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    PriceListConflict:
+      description: |
+        The write conflicts with the state of the price list. `details.reason`
+        distinguishes the cases, so a client knows whether to reload or to do
+        something different:
+
+        - `currency_locked` — the list already holds prices, so its currency
+          cannot move. `details.current_currency`, `details.requested_currency`
+          and `details.entry_count` say why. The answer is a new list.
+        - `channel_assignments_active` — the list is still assigned to the
+          channels in `details.sales_channel_ids`. Detach it first.
+        - no `reason` — a plain lost race: the `If-Match` validator was stale,
+          and `details.current_lock_version` carries the current one. Reload
+          and retry.
+
+        An archived list also answers `409` on every write.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: This price list already holds amounts in USD. A currency cannot be changed under existing prices — create a new list instead.
+              details:
+                reason: currency_locked
+                current_currency: USD
+                requested_currency: AED
+                entry_count: 312
+                current_lock_version: 4
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    PriceListPublishBlocked:
+      description: |
+        The activation gate refused. `details.reasons` carries **every**
+        blocker rather than the first one found, the rule the recipe and
+        catalogue-item gates already follow.
+
+        The vocabulary is `price_list_not_a_draft`, `no_open_rows` and
+        `amount_status_mismatch`. The last is structurally unreachable — a
+        CHECK constraint refuses the combination at the database — and is
+        stated anyway, because "the database would have stopped it" is not
+        something a client can see.
+
+        Note what is **not** a blocker: placeholder and market-priced rows.
+        They are welcome on an active list, and the public projection is what
+        keeps them from a customer.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: catalogue.publish_blocked
+              message: This price list is not ready to be activated.
+              details:
+                reasons:
+                  - reason: no_open_rows
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
   schemas:
     Uuid:
@@ -8068,4 +8739,527 @@ components:
         display_order:
           type: integer
           minimum: 0
+      additionalProperties: false
+    CurrencyCode:
+      type: string
+      minLength: 3
+      maxLength: 3
+      pattern: ^[A-Z]{3}$
+      description: |
+        An ISO 4217 code. Every amount in the pricing family carries or
+        inherits exactly one, and no operation performs cross-currency
+        arithmetic.
+      examples:
+        - AED
+        - USD
+    PriceListStatus:
+      type: string
+      enum:
+        - draft
+        - active
+        - archived
+      description: |
+        The **operational** lifecycle of a tariff, deliberately not the
+        sellable family (`draft | review_required | published | retired`). A
+        price list is not published content; it is the instrument that prices
+        content, so it has no review state and no retirement. What a customer
+        sees is a *price*, and whether one reaches them is decided by the
+        channel assignment and the public projection.
+
+        An `active` list is still editable — that is the point of
+        effective-dating. An `archived` one refuses every write.
+    PriceListCustomerScope:
+      type: string
+      enum:
+        - public
+        - agreement
+      description: |
+        Who the tariff is for. `public` is the tariff anybody may be shown;
+        `agreement` is one customer's negotiated position, and showing it to a
+        second customer is the failure this module is built to prevent.
+
+        A column rather than an inference from the channel kind, because one
+        channel legitimately carries both.
+    PriceStatus:
+      type: string
+      enum:
+        - confirmed
+        - placeholder
+        - market_priced
+      description: |
+        What the row actually claims — the honest badge.
+
+        - `confirmed` — a real number the kitchen stands behind. Carries
+          `unit_amount_minor`. **The only status a public surface may serve.**
+        - `placeholder` — the source stated no price and nobody has supplied
+          one. Amount null, never public: a placeholder rendered as a price is
+          a lie with a currency symbol on it, and rendered as zero it is a
+          worse one.
+        - `market_priced` — quoted at the time of sale. Amount null, and the
+          absence *is* the statement, which is why it is a status rather than a
+          missing row.
+
+        The pairing is enforced by a database CHECK —
+        `(price_status = 'confirmed') = (unit_amount_minor IS NOT NULL)` — so a
+        client may branch on either half and get the same answer.
+    AdminPriceList:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - code
+        - name_en
+        - name_ar
+        - currency_code
+        - customer_scope
+        - status
+        - lock_version
+      description: |
+        The administrative shape of a price list header. Carries **both** names
+        and ignores `Accept-Language` for them.
+
+        No amounts: the header is a name, a currency and a status. The numbers
+        are behind `…/entries`.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Usually null. A tariff is normally an organisation-wide instrument;
+            naming a branch is for a kitchen that genuinely prices one location
+            differently.
+        code:
+          type: string
+          maxLength: 40
+          description: Immutable after creation — an importer, a channel assignment and a runbook already name it.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        customer_scope:
+          $ref: '#/components/schemas/PriceListCustomerScope'
+        status:
+          $ref: '#/components/schemas/PriceListStatus'
+        valid_from:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: Inclusive.
+        valid_to:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: |
+            **Inclusive** — a human writing "valid to 30 June" means through
+            the 30th. Deliberately not the convention an entry's `effective_to`
+            uses, which is exclusive because it is written by the supersession
+            machinery rather than by a person.
+        source_system:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+        source_ref:
+          type:
+            - string
+            - 'null'
+          maxLength: 160
+        lock_version:
+          type: integer
+          minimum: 0
+          description: |
+            Also served as the `ETag` of the single-resource GET, and the
+            validator **every** write in this family sends back — the entries
+            and the channel assignments included.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    AdminPriceListEntry:
+      type: object
+      required:
+        - id
+        - catalogue_item_id
+        - currency_code
+        - price_status
+        - effective_from
+      description: |
+        One price, for one pricing point, over one interval of time.
+
+        The pricing point is `(catalogue_item_id, catalogue_item_variant_id,
+        min_quantity)`. The **standing** row of a point is the one whose
+        `effective_to` is null; everything else is history, and history is
+        closed rather than edited.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Null prices the article as a whole. Naming a variant prices exactly
+            that pack or configuration; resolution prefers a variant's own row
+            and falls back to the article's.
+        min_quantity:
+          type:
+            - string
+            - 'null'
+          pattern: ^\d+\.\d{4}$
+          description: |
+            The tier threshold, as a fixed-scale decimal string. Null is the
+            base price. A row applies from its threshold **upwards**, and
+            resolution picks the highest threshold at or below the quantity
+            asked for.
+
+            A string rather than a number so the four decimal places survive
+            the round trip: a client that parsed `10` and re-sent `10.0` would
+            otherwise be describing a different key.
+        unit_amount_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          description: |
+            The price, as a whole number of the **minor units** of
+            `currency_code` — `4500` for 45.00 AED. Never a decimal, never
+            formatted, never zero.
+
+            Null exactly when `price_status` is not `confirmed`. The pair is a
+            single fact and a database CHECK enforces it.
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        price_status:
+          $ref: '#/components/schemas/PriceStatus'
+        effective_from:
+          type: string
+          format: date
+          description: Inclusive.
+        effective_to:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: |
+            **Exclusive**, and null on the standing row. The row governed
+            `[effective_from, effective_to)`.
+
+            Exclusive is forced rather than chosen: a replacement made today
+            closes the incumbent at today and opens its successor at today, so
+            an inclusive end would leave two rows both claiming to be the price
+            on the day of the change. A row changed twice in one day therefore
+            leaves a zero-length interval, which is honest — the price never
+            governed a whole day, and the record that somebody stated it
+            survives.
+        superseded_by_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The row that replaced this one. Null on the standing row, and also
+            null on a row that was simply withdrawn — "we stopped pricing this"
+            is a different fact from "we now price it differently".
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    PriceListChannelAssignment:
+      type: object
+      required:
+        - id
+        - sales_channel_id
+        - price_list_id
+        - priority
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        sales_channel_id:
+          $ref: '#/components/schemas/Uuid'
+        price_list_id:
+          $ref: '#/components/schemas/Uuid'
+        priority:
+          type: integer
+          description: Lower is consulted first. Assigned from the submitted array order unless stated.
+      additionalProperties: false
+    PriceListEntryCounts:
+      type: object
+      required:
+        - open
+        - confirmed
+      description: |
+        How many standing rows the list has, and how many of those are real
+        prices. The pair is what a merchandiser reads as "312 priced, 8 owed".
+      properties:
+        open:
+          type: integer
+          minimum: 0
+        confirmed:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    PriceListEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - price_list
+          properties:
+            price_list:
+              $ref: '#/components/schemas/AdminPriceList'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PriceListDetailEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - price_list
+            - channels
+          properties:
+            price_list:
+              $ref: '#/components/schemas/AdminPriceList'
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/PriceListChannelAssignment'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - entry_counts
+              properties:
+                entry_counts:
+                  $ref: '#/components/schemas/PriceListEntryCounts'
+    PriceListEntriesEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - price_list
+            - entries
+          properties:
+            price_list:
+              $ref: '#/components/schemas/AdminPriceList'
+            entries:
+              type: array
+              description: The **standing** rows after the write, so a client need not fetch them back.
+              items:
+                $ref: '#/components/schemas/AdminPriceListEntry'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - currency_code
+              properties:
+                currency_code:
+                  $ref: '#/components/schemas/CurrencyCode'
+    PriceListChannelsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - price_list
+            - channels
+          properties:
+            price_list:
+              $ref: '#/components/schemas/AdminPriceList'
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/PriceListChannelAssignment'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreatePriceListRequest:
+      type: object
+      required:
+        - code
+        - name_en
+        - currency_code
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: Normalised to upper case, so a lowercase ISO code is not a second currency.
+        customer_scope:
+          $ref: '#/components/schemas/PriceListCustomerScope'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        valid_from:
+          type:
+            - string
+            - 'null'
+          format: date
+        valid_to:
+          type:
+            - string
+            - 'null'
+          format: date
+      additionalProperties: false
+    UpdatePriceListRequest:
+      type: object
+      minProperties: 1
+      description: |
+        `code` is deliberately absent and is **rejected** rather than ignored
+        if sent. `status` is absent too: activation and archiving are POST
+        sub-resource actions.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: |
+            Accepted only while the list holds no price rows at all, history
+            included. Afterwards it is `409` with
+            `details.reason: currency_locked`.
+        customer_scope:
+          $ref: '#/components/schemas/PriceListCustomerScope'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        valid_from:
+          type:
+            - string
+            - 'null'
+          format: date
+        valid_to:
+          type:
+            - string
+            - 'null'
+          format: date
+      additionalProperties: false
+    ReplacePriceListEntriesRequest:
+      type: object
+      required:
+        - entries
+      description: |
+        The desired **current** pricing state. `entries` is required but may be
+        empty: an empty array withdraws every price, which is a decision a
+        merchandiser makes and not a field they forgot.
+      properties:
+        entries:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required:
+              - catalogue_item_id
+              - price_status
+            properties:
+              catalogue_item_id:
+                $ref: '#/components/schemas/Uuid'
+              catalogue_item_variant_id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+              min_quantity:
+                type:
+                  - number
+                  - string
+                  - 'null'
+                description: |
+                  The tier threshold, above zero. Omitted or null is the base
+                  price. Normalised to four decimal places, so `12`, `12.0` and
+                  `"12.0000"` are one pricing point rather than three.
+              unit_amount_minor:
+                type:
+                  - integer
+                  - 'null'
+                minimum: 1
+                description: |
+                  Required and positive when `price_status` is `confirmed`;
+                  refused otherwise. Whole minor units — `1250` for 12.50 —
+                  never a decimal and never a formatted string.
+              price_status:
+                $ref: '#/components/schemas/PriceStatus'
+            additionalProperties: false
+      additionalProperties: false
+    ReplacePriceListChannelsRequest:
+      type: object
+      required:
+        - channels
+      description: |
+        The complete set of channels quoting from this list. Empty detaches it
+        from all of them — the step `archive` insists on first.
+      properties:
+        channels:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required:
+              - sales_channel_id
+            properties:
+              sales_channel_id:
+                $ref: '#/components/schemas/Uuid'
+              priority:
+                type:
+                  - integer
+                  - 'null'
+                description: |
+                  Lower is consulted first. Omitted, it comes from the array
+                  order, which is what a merchandiser is stating when they list
+                  a negotiated sheet above a standing tariff.
+            additionalProperties: false
       additionalProperties: false

@@ -10,7 +10,15 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
+use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\CatalogueStatus;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
+use Healthy360\Catalogues\Enums\VariantStatus;
+use Healthy360\Catalogues\Enums\VariantType;
+use Healthy360\Catalogues\Models\Catalogue;
+use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Enums\BranchStatus;
@@ -21,6 +29,12 @@ use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationCapability;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
+use Healthy360\Pricing\Enums\CustomerScope;
+use Healthy360\Pricing\Enums\PriceListStatus;
+use Healthy360\Pricing\Enums\PriceStatus;
+use Healthy360\Pricing\Models\ChannelPriceList;
+use Healthy360\Pricing\Models\PriceList;
+use Healthy360\Pricing\Models\PriceListItem;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -94,10 +108,147 @@ class DemoTenantSeeder extends Seeder
         // against something a kitchen would actually have: a consumer web
         // shop and a wholesale desk. Both are structure, not content — no
         // item, no price and no formulation is seeded anywhere.
-        $this->salesChannel($verdant, 'web-shop', 'b2c_web', 'Web shop', 'المتجر الإلكتروني', 'web', $verdantOwner);
+        $webShop = $this->salesChannel($verdant, 'web-shop', 'b2c_web', 'Web shop', 'المتجر الإلكتروني', 'web', $verdantOwner);
         $this->salesChannel($verdant, 'wholesale', 'b2b', 'Wholesale', 'البيع بالجملة', null, $verdantOwner);
 
+        $this->seedVerdantTariff($verdant, $webShop, $verdantOwner);
+
         $this->seedPlatformOperator();
+    }
+
+    /**
+     * A draft AED tariff for the demonstration kitchen, and the two listings it
+     * prices (K1.5).
+     *
+     * **AED, not USD.** Verdant is an Emirati kitchen whose default currency is
+     * AED, and the currency lives on the list, so a USD tariff here would be a
+     * demonstration of the one mistake the schema exists to make impossible.
+     * The GreenLife USD lists arrive with the K1.8 importer, where they belong:
+     * they carry real formulations and real costs, which are never committed.
+     *
+     * **Draft, not active.** Nothing here has been reviewed by anybody, and a
+     * seeded tariff that priced a live channel would be exactly the "synthetic
+     * data presented as authoritative" the programme forbids. Activating it is
+     * one API call, which is the point — the demo exists so the gate can be
+     * exercised, not bypassed.
+     *
+     * The three entries are chosen to make the whole design visible in one
+     * fixture: a base price on a pack, a **quantity tier** above it, and a
+     * **placeholder** on the meal. The placeholder is the important one. It is
+     * what an honest "we have not priced this yet" looks like — a row with a
+     * status and no amount — and a demo without one would leave every surface
+     * built against this data believing every price is real.
+     */
+    private function seedVerdantTariff(Organisation $verdant, SalesChannel $webShop, User $creator): void
+    {
+        $catalogue = Catalogue::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $verdant->getKey(), 'code' => 'default'],
+            [
+                'name_en' => 'Default catalogue',
+                'name_ar' => 'الكتالوج الافتراضي',
+                'status' => CatalogueStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        $harissa = $this->catalogueItem($verdant, $catalogue, 'harissa-paste', CatalogueItemType::Product, 'Harissa paste', 'معجون الهريسة', $creator);
+        $bowl = $this->catalogueItem($verdant, $catalogue, 'chicken-freekeh-bowl', CatalogueItemType::Meal, 'Chicken freekeh bowl', 'وعاء الفريكة بالدجاج', $creator);
+
+        $jar = CatalogueItemVariant::withoutTenancy()->updateOrCreate(
+            ['catalogue_item_id' => $harissa->getKey(), 'code' => 'jar-250g'],
+            [
+                'organisation_id' => $verdant->getKey(),
+                'variant_type' => VariantType::Pack,
+                'name_en' => '250 g jar',
+                'name_ar' => 'برطمان ٢٥٠ غرام',
+                'is_default' => true,
+                'status' => VariantStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        $tariff = PriceList::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-web-aed'],
+            [
+                'name_en' => 'Web shop tariff',
+                'name_ar' => 'تعرفة المتجر الإلكتروني',
+                'currency_code' => 'AED',
+                'customer_scope' => CustomerScope::PublicTariff,
+                'status' => PriceListStatus::Draft,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        // 22.00 AED a jar, 19.00 from a dozen, and a meal nobody has priced.
+        $this->price($tariff, $harissa->getKey(), $jar->getKey(), null, 2200, PriceStatus::Confirmed, $creator);
+        $this->price($tariff, $harissa->getKey(), $jar->getKey(), '12.0000', 1900, PriceStatus::Confirmed, $creator);
+        $this->price($tariff, $bowl->getKey(), null, null, null, PriceStatus::Placeholder, $creator);
+
+        ChannelPriceList::withoutTenancy()->updateOrCreate(
+            ['sales_channel_id' => $webShop->getKey(), 'price_list_id' => $tariff->getKey()],
+            ['organisation_id' => $verdant->getKey(), 'priority' => 0, 'created_by' => $creator->getKey()],
+        );
+    }
+
+    private function catalogueItem(
+        Organisation $organisation,
+        Catalogue $catalogue,
+        string $slug,
+        CatalogueItemType $type,
+        string $nameEn,
+        string $nameAr,
+        User $creator,
+    ): CatalogueItem {
+        return CatalogueItem::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'slug' => $slug],
+            [
+                'catalogue_id' => $catalogue->getKey(),
+                'item_type' => $type,
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'status' => CatalogueItemStatus::Draft,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+    }
+
+    /**
+     * One standing price row, idempotent on the pricing point.
+     *
+     * Keyed on the point rather than blindly inserted, because a seeder that
+     * ran twice would otherwise hit the partial unique index that permits one
+     * standing row per point — the constraint working exactly as intended, and
+     * an unhelpful way to discover it.
+     */
+    private function price(
+        PriceList $priceList,
+        string $catalogueItemId,
+        ?string $variantId,
+        ?string $minQuantity,
+        ?int $amountMinor,
+        PriceStatus $status,
+        User $creator,
+    ): void {
+        PriceListItem::withoutTenancy()->updateOrCreate(
+            [
+                'price_list_id' => $priceList->getKey(),
+                'catalogue_item_id' => $catalogueItemId,
+                'catalogue_item_variant_id' => $variantId,
+                'min_quantity' => $minQuantity,
+                'effective_to' => null,
+            ],
+            [
+                'organisation_id' => $priceList->organisation_id,
+                'unit_amount_minor' => $amountMinor,
+                'price_status' => $status,
+                'effective_from' => now()->toDateString(),
+                'created_by' => $creator->getKey(),
+            ],
+        );
     }
 
     /**
@@ -255,8 +406,8 @@ class DemoTenantSeeder extends Seeder
         string $nameAr,
         ?string $orderSource,
         User $creator,
-    ): void {
-        SalesChannel::withoutTenancy()->updateOrCreate(
+    ): SalesChannel {
+        return SalesChannel::withoutTenancy()->updateOrCreate(
             ['organisation_id' => $organisation->getKey(), 'code' => $code],
             [
                 'channel_kind' => $kind,

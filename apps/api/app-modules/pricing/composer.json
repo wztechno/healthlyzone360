@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/pricing",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Pricing\\": "src/",
+			"Healthy360\\Pricing\\Tests\\": "tests/",
+			"Healthy360\\Pricing\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Pricing\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Pricing\\Providers\\PricingServiceProvider"
+			]
+		}
+	}
+}

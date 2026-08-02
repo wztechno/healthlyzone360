@@ -1243,6 +1243,227 @@ export const zPublicDietClassification = z.object({
 });
 
 /**
+ * An ISO 4217 code. Every amount in the pricing family carries or
+ * inherits exactly one, and no operation performs cross-currency
+ * arithmetic.
+ *
+ */
+export const zCurrencyCode = z.string().length(3).regex(/^[A-Z]{3}$/);
+
+/**
+ * The **operational** lifecycle of a tariff, deliberately not the
+ * sellable family (`draft | review_required | published | retired`). A
+ * price list is not published content; it is the instrument that prices
+ * content, so it has no review state and no retirement. What a customer
+ * sees is a *price*, and whether one reaches them is decided by the
+ * channel assignment and the public projection.
+ *
+ * An `active` list is still editable — that is the point of
+ * effective-dating. An `archived` one refuses every write.
+ *
+ */
+export const zPriceListStatus = z.enum([
+    'draft',
+    'active',
+    'archived'
+]);
+
+/**
+ * Who the tariff is for. `public` is the tariff anybody may be shown;
+ * `agreement` is one customer's negotiated position, and showing it to a
+ * second customer is the failure this module is built to prevent.
+ *
+ * A column rather than an inference from the channel kind, because one
+ * channel legitimately carries both.
+ *
+ */
+export const zPriceListCustomerScope = z.enum(['public', 'agreement']);
+
+/**
+ * What the row actually claims — the honest badge.
+ *
+ * - `confirmed` — a real number the kitchen stands behind. Carries
+ * `unit_amount_minor`. **The only status a public surface may serve.**
+ * - `placeholder` — the source stated no price and nobody has supplied
+ * one. Amount null, never public: a placeholder rendered as a price is
+ * a lie with a currency symbol on it, and rendered as zero it is a
+ * worse one.
+ * - `market_priced` — quoted at the time of sale. Amount null, and the
+ * absence *is* the statement, which is why it is a status rather than a
+ * missing row.
+ *
+ * The pairing is enforced by a database CHECK —
+ * `(price_status = 'confirmed') = (unit_amount_minor IS NOT NULL)` — so a
+ * client may branch on either half and get the same answer.
+ *
+ */
+export const zPriceStatus = z.enum([
+    'confirmed',
+    'placeholder',
+    'market_priced'
+]);
+
+/**
+ * The administrative shape of a price list header. Carries **both** names
+ * and ignores `Accept-Language` for them.
+ *
+ * No amounts: the header is a name, a currency and a status. The numbers
+ * are behind `…/entries`.
+ *
+ */
+export const zAdminPriceList = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullish(),
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    currency_code: zCurrencyCode,
+    customer_scope: zPriceListCustomerScope,
+    status: zPriceListStatus,
+    valid_from: z.iso.date().nullish(),
+    valid_to: z.iso.date().nullish(),
+    source_system: z.string().max(40).nullish(),
+    source_ref: z.string().max(160).nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * One price, for one pricing point, over one interval of time.
+ *
+ * The pricing point is `(catalogue_item_id, catalogue_item_variant_id,
+ * min_quantity)`. The **standing** row of a point is the one whose
+ * `effective_to` is null; everything else is history, and history is
+ * closed rather than edited.
+ *
+ */
+export const zAdminPriceListEntry = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    min_quantity: z.string().regex(/^\d+\.\d{4}$/).nullish(),
+    unit_amount_minor: z.int().gte(1).nullish(),
+    currency_code: zCurrencyCode,
+    price_status: zPriceStatus,
+    effective_from: z.iso.date(),
+    effective_to: z.iso.date().nullish(),
+    superseded_by_id: zUuid.nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zPriceListChannelAssignment = z.object({
+    id: zUuid,
+    sales_channel_id: zUuid,
+    price_list_id: zUuid,
+    priority: z.int()
+});
+
+/**
+ * How many standing rows the list has, and how many of those are real
+ * prices. The pair is what a merchandiser reads as "312 priced, 8 owed".
+ *
+ */
+export const zPriceListEntryCounts = z.object({
+    open: z.int().gte(0),
+    confirmed: z.int().gte(0)
+});
+
+export const zPriceListEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList
+    }),
+    meta: zMeta
+});
+
+export const zPriceListDetailEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList,
+        channels: z.array(zPriceListChannelAssignment)
+    }),
+    meta: zMeta.and(z.object({
+        entry_counts: zPriceListEntryCounts
+    }))
+});
+
+export const zPriceListEntriesEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList,
+        entries: z.array(zAdminPriceListEntry)
+    }),
+    meta: zMeta.and(z.object({
+        currency_code: zCurrencyCode
+    }))
+});
+
+export const zPriceListChannelsEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList,
+        channels: z.array(zPriceListChannelAssignment)
+    }),
+    meta: zMeta
+});
+
+export const zCreatePriceListRequest = z.object({
+    code: z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3),
+    customer_scope: zPriceListCustomerScope.optional(),
+    branch_id: zUuid.nullish(),
+    valid_from: z.iso.date().nullish(),
+    valid_to: z.iso.date().nullish()
+});
+
+/**
+ * `code` is deliberately absent and is **rejected** rather than ignored
+ * if sent. `status` is absent too: activation and archiving are POST
+ * sub-resource actions.
+ *
+ */
+export const zUpdatePriceListRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3).optional(),
+    customer_scope: zPriceListCustomerScope.optional(),
+    branch_id: zUuid.nullish(),
+    valid_from: z.iso.date().nullish(),
+    valid_to: z.iso.date().nullish()
+});
+
+/**
+ * The desired **current** pricing state. `entries` is required but may be
+ * empty: an empty array withdraws every price, which is a decision a
+ * merchandiser makes and not a field they forgot.
+ *
+ */
+export const zReplacePriceListEntriesRequest = z.object({
+    entries: z.array(z.object({
+        catalogue_item_id: zUuid,
+        catalogue_item_variant_id: zUuid.nullish(),
+        min_quantity: z.union([
+            z.number(),
+            z.string()
+        ]).nullish(),
+        unit_amount_minor: z.int().gte(1).nullish(),
+        price_status: zPriceStatus
+    })).max(500)
+});
+
+/**
+ * The complete set of channels quoting from this list. Empty detaches it
+ * from all of them — the step `archive` insists on first.
+ *
+ */
+export const zReplacePriceListChannelsRequest = z.object({
+    channels: z.array(z.object({
+        sales_channel_id: zUuid,
+        priority: z.int().nullish()
+    })).max(50)
+});
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -1369,6 +1590,18 @@ export const zCatalogueItemPath = z.union([
  * The channel identifier, or its `code`.
  */
 export const zSalesChannelPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The price list identifier, or its `code`. Both are accepted for the
+ * reason the sales-channel path gives: a client that walked the list
+ * holds an identifier, an operator or an importer holds
+ * `greenlife-b2b-usd`, and the code is unique per organisation.
+ *
+ */
+export const zPriceListPath = z.union([
     zUuid,
     z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 ]);
@@ -2821,3 +3054,186 @@ export const zListDietClassificationsResponse = z.object({
         locale: z.enum(['en', 'ar']).optional()
     }))
 });
+
+export const zListPriceListsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPriceListsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    query: z.string().max(160).optional(),
+    status: zPriceListStatus.optional(),
+    customer_scope: zPriceListCustomerScope.optional()
+});
+
+/**
+ * A page of price lists.
+ */
+export const zListPriceListsResponse = z.object({
+    data: z.array(zAdminPriceList),
+    meta: zPaginationMeta
+});
+
+export const zCreatePriceListBody = zCreatePriceListRequest;
+
+export const zCreatePriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The created draft list.
+ */
+export const zCreatePriceListResponse = zPriceListEnvelope;
+
+export const zShowPriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowPriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The price list, with its channel assignments.
+ */
+export const zShowPriceListResponse = zPriceListDetailEnvelope;
+
+export const zUpdatePriceListBody = zUpdatePriceListRequest;
+
+export const zUpdatePriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The updated list.
+ */
+export const zUpdatePriceListResponse = zPriceListEnvelope;
+
+export const zPublishPriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPublishPriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The activated list.
+ */
+export const zPublishPriceListResponse = zPriceListEnvelope;
+
+export const zArchivePriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchivePriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The archived list.
+ */
+export const zArchivePriceListResponse = zPriceListEnvelope;
+
+export const zListPriceListEntriesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPriceListEntriesPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+export const zListPriceListEntriesQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    include_history: z.enum([
+        '0',
+        '1',
+        'true',
+        'false',
+        'yes',
+        'no'
+    ]).optional()
+});
+
+/**
+ * A page of price rows.
+ */
+export const zListPriceListEntriesResponse = z.object({
+    data: z.array(zAdminPriceListEntry),
+    meta: zPaginationMeta.and(z.object({
+        include_history: z.boolean(),
+        currency_code: zCurrencyCode,
+        entry_counts: zPriceListEntryCounts
+    }))
+});
+
+export const zReplacePriceListEntriesBody = zReplacePriceListEntriesRequest;
+
+export const zReplacePriceListEntriesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePriceListEntriesPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The list and its standing rows after the write.
+ */
+export const zReplacePriceListEntriesResponse = zPriceListEntriesEnvelope;
+
+export const zReplacePriceListChannelsBody = zReplacePriceListChannelsRequest;
+
+export const zReplacePriceListChannelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePriceListChannelsPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The list and its channel assignments after the write.
+ */
+export const zReplacePriceListChannelsResponse = zPriceListChannelsEnvelope;

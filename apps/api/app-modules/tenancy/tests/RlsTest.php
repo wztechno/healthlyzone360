@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Catalogues\Models\Catalogue;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Consent\Models\ConsentGrant;
 use Healthy360\Features\Models\FeatureEntitlement;
@@ -12,6 +14,8 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Pricing\Models\PriceList;
+use Healthy360\Pricing\Models\PriceListItem;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeCostSnapshot;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -54,6 +58,18 @@ use Illuminate\Support\Str;
 | from rewriting its own cost history. The policy alone would only have
 | achieved the first.
 |
+| K1.5 takes it to **ten**, and `price_list_items` is the table the set exists
+| for. A negotiated price says what a kitchen will accept, from whom, and how
+| much room it has left. Note what it deliberately does *not* get: the
+| append-only revoke. The supersession diff has to close standing rows, which
+| is an UPDATE, so revoking UPDATE here would break the first price change —
+| the immutability that matters is narrower (history is closed, never
+| rewritten) and is enforced by the service and the partial unique index. K1.4
+| added nine catalogue tables and gave none of them a policy, on the stated
+| ground that a listing is published content; this one is the opposite, which
+| is why the boundary runs through the middle of the catalogue rather than
+| around it.
+|
 */
 
 uses()->group('rls');
@@ -69,6 +85,7 @@ function rlsVisibleCounts(): array
         'organisation_branches', 'organisation_memberships', 'roles',
         'feature_entitlements', 'consent_grants', 'audit_logs',
         'recipe_versions', 'recipe_version_lines', 'recipe_cost_snapshots',
+        'price_list_items',
     ];
 
     foreach ($tables as $table) {
@@ -82,7 +99,7 @@ function rlsVisibleCounts(): array
 }
 
 /**
- * A complete tenant across all nine protected tables.
+ * A complete tenant across all ten protected tables.
  */
 function rlsTenant(ConsentDefinition $definition): object
 {
@@ -131,9 +148,28 @@ function rlsTenant(ConsentDefinition $definition): object
         'organisation_id' => $organisation->getKey(),
     ]);
 
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $organisation->getKey()]);
+
+    $item = CatalogueItem::factory()->create([
+        'catalogue_id' => $catalogue->getKey(),
+        'organisation_id' => $organisation->getKey(),
+    ]);
+
+    $priceList = PriceList::factory()->create([
+        'organisation_id' => $organisation->getKey(),
+        'currency_code' => $organisation->default_currency_code,
+    ]);
+
+    $price = PriceListItem::factory()->create([
+        'organisation_id' => $organisation->getKey(),
+        'price_list_id' => $priceList->getKey(),
+        'catalogue_item_id' => $item->getKey(),
+    ]);
+
     return (object) compact(
         'organisation', 'user', 'branch', 'membership', 'role', 'entitlement',
         'consent', 'audit', 'recipe', 'version', 'ingredient', 'line', 'snapshot',
+        'catalogue', 'item', 'priceList', 'price',
     );
 }
 
@@ -166,6 +202,7 @@ it('fails closed on every protected table when the session carries no context', 
         'recipe_versions' => 0,
         'recipe_version_lines' => 0,
         'recipe_cost_snapshots' => 0,
+        'price_list_items' => 0,
     ]);
 });
 
@@ -364,6 +401,82 @@ it('lets a kitchen append a cost snapshot inside its own organisation', function
 
     expect($visible)->toContain($id)
         ->and($visible)->not->toContain($this->a->snapshot->getKey());
+});
+
+it('shows a kitchen its own prices and nothing of the other', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $visible = RuntimeRole::run(fn (): array => DB::table('price_list_items')->pluck('id')->all());
+
+    expect($visible)->toBe([$this->b->price->getKey()])
+        ->and($visible)->not->toContain($this->a->price->getKey());
+});
+
+it('never lets one kitchen read another negotiated amount even by name', function (): void {
+    // The failure this policy exists for. Guessing the identifier of a
+    // competitor's price row is not far-fetched — an importer log, a support
+    // ticket, a shared spreadsheet — and the answer has to be an empty set
+    // rather than a number.
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $amounts = RuntimeRole::run(fn (): array => DB::table('price_list_items')
+        ->where('id', $this->a->price->getKey())
+        ->pluck('unit_amount_minor')
+        ->all());
+
+    expect($amounts)->toBe([]);
+});
+
+it('never lets one kitchen rewrite or erase another kitchens price', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    [$updated, $deleted] = RuntimeRole::run(fn (): array => [
+        DB::table('price_list_items')->where('id', $this->a->price->getKey())->update(['unit_amount_minor' => 1]),
+        DB::table('price_list_items')->where('id', $this->a->price->getKey())->delete(),
+    ]);
+
+    expect($updated)->toBe(0)
+        ->and($deleted)->toBe(0)
+        ->and(PriceListItem::withoutTenancy()->whereKey($this->a->price->getKey())->value('unit_amount_minor'))->not->toBe(1)
+        ->and(PriceListItem::withoutTenancy()->whereKey($this->a->price->getKey())->exists())->toBeTrue();
+});
+
+it('rejects a price planted in another kitchen', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $insert = fn () => DB::transaction(fn () => DB::table('price_list_items')->insert([
+        'id' => (string) Str::uuid7(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'price_list_id' => $this->a->priceList->getKey(),
+        'catalogue_item_id' => $this->a->item->getKey(),
+        'unit_amount_minor' => 999999,
+        'price_status' => 'confirmed',
+        'effective_from' => now()->toDateString(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]));
+
+    RuntimeRole::run(function () use ($insert): void {
+        expect($insert)->toThrow(QueryException::class);
+    });
+
+    expect(PriceListItem::withoutTenancy()->where('unit_amount_minor', 999999)->exists())->toBeFalse();
+});
+
+it('lets a kitchen close and reopen its own price rows, because supersession is an update', function (): void {
+    // The deliberate difference from `recipe_cost_snapshots`. That table is an
+    // append-only ledger and the application role cannot write back to it at
+    // all. This one must be writable in exactly one way — closing a standing
+    // row — or the effective-dating design could not exist. The narrower
+    // immutability (history is closed, never rewritten) is the service's and
+    // the partial unique index's job, not the grant's.
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $closed = RuntimeRole::run(fn (): int => DB::table('price_list_items')
+        ->where('id', $this->b->price->getKey())
+        ->update(['effective_to' => now()->toDateString()]));
+
+    expect($closed)->toBe(1);
 });
 
 it('refuses to rewrite or erase an audit record at grant level', function (): void {
@@ -575,7 +688,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the nine declared tables and no others', function (): void {
+it('protects exactly the ten declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -583,16 +696,19 @@ it('protects exactly the nine declared tables and no others', function (): void 
         ->pluck('tablename')
         ->all();
 
-    // Six from the foundation, two from K1.2, one from K1.3. Pinned so that a
-    // new tenant-scoped table has to decide explicitly whether it joins the
-    // set (ADR-0007 review trigger) rather than inheriting a policy by
-    // accident — or, worse, quietly not having one.
+    // Six from the foundation, two from K1.2, one from K1.3, one from K1.5.
+    // Pinned so that a new tenant-scoped table has to decide explicitly
+    // whether it joins the set (ADR-0007 review trigger) rather than
+    // inheriting a policy by accident — or, worse, quietly not having one.
+    // K1.4's nine catalogue tables decided *not* to join, and the pin is what
+    // makes that a decision rather than an omission.
     expect($protected)->toBe([
         'audit_logs',
         'consent_grants',
         'feature_entitlements',
         'organisation_branches',
         'organisation_memberships',
+        'price_list_items',
         'recipe_cost_snapshots',
         'recipe_version_lines',
         'recipe_versions',
@@ -608,14 +724,18 @@ it('revokes write-back privileges on exactly the two append-only ledgers', funct
     $writable = DB::table('information_schema.table_privileges')
         ->where('grantee', 'healthy360_app')
         ->whereIn('privilege_type', ['UPDATE', 'DELETE'])
-        ->whereIn('table_name', ['audit_logs', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines'])
+        ->whereIn('table_name', ['audit_logs', 'price_list_items', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines'])
         ->orderBy('table_name')
         ->pluck('table_name')
         ->unique()
         ->values()
         ->all();
 
-    expect($writable)->toBe(['recipe_version_lines', 'recipe_versions']);
+    // `price_list_items` is in the comparison set precisely because it is a
+    // near-miss: it is the most confidential table in the schema and it is
+    // still not a ledger. Naming it here proves the K1.5 decision rather than
+    // leaving its absence from the ledger list to look like an oversight.
+    expect($writable)->toBe(['price_list_items', 'recipe_version_lines', 'recipe_versions']);
 });
 
 it('still migrates and seeds under the owner role with row-level security enabled', function (): void {

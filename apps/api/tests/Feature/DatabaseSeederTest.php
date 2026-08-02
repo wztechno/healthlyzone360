@@ -27,6 +27,11 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
+use Healthy360\Pricing\Enums\CustomerScope;
+use Healthy360\Pricing\Enums\PriceListStatus;
+use Healthy360\Pricing\Models\ChannelPriceList;
+use Healthy360\Pricing\Models\PriceList;
+use Healthy360\Pricing\Models\PriceListItem;
 use Healthy360\ReferenceData\Database\Seeders\CountrySeeder;
 use Healthy360\ReferenceData\Models\Country;
 use Healthy360\ReferenceData\Models\Currency;
@@ -263,9 +268,10 @@ it('seeds the twelve organisation types with both names', function (): void {
 
 it('seeds exactly the registered permission set', function (): void {
     // 24 after K1.1, plus the three recipe codes K1.2 introduces, the cost
-    // permission K1.3 splits out of them, and the catalogue publication
-    // authority K1.4 adds.
-    expect(Permission::query()->count())->toBe(29)
+    // permission K1.3 splits out of them, the catalogue publication authority
+    // K1.4 adds, and the pricing pair K1.5 keeps deliberately separate from
+    // `catalogue.*`.
+    expect(Permission::query()->count())->toBe(31)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -295,14 +301,14 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 27],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 26],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 29],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 28],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, and sees their costs' => ['kitchen_manager', 10],
-    'chef edits recipes and their costs but never publishes one' => ['kitchen_chef', 5],
-    'kitchen staff read the catalogue and recipes, and no costs at all' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue and its costs, and decides the range' => ['commercial_manager', 4],
+    'kitchen manager runs the catalogue, publishes it and its recipes, and prices it' => ['kitchen_manager', 12],
+    'chef edits recipes and their costs but never publishes one and never sees a price' => ['kitchen_chef', 5],
+    'kitchen staff read the catalogue and recipes, and no money at all' => ['kitchen_staff', 2],
+    'commercial manager reads the catalogue and its costs, decides the range and writes the tariff' => ['commercial_manager', 6],
 ]);
 
 it('withholds cost visibility from kitchen staff and from nobody else in the kitchen', function (): void {
@@ -357,6 +363,29 @@ it('grants the catalogue publication permission to the two roles that decide the
     ]);
 });
 
+it('keeps price visibility away from the chef and the kitchen staff entirely', function (): void {
+    // The K1.5 split, and the one that would have been easiest to get wrong.
+    // Folding prices into `catalogue.view_organisation` would have handed a
+    // negotiated amount — the most commercially sensitive figure in the
+    // schema — to every line cook who can read an ingredient, and would have
+    // quietly undone K1.3's cost split too, since a margin is reconstructable
+    // from a cost and a price. Note the chef holds the *cost* permission and
+    // neither price code: those are different questions with different answers.
+    foreach (['price_list.view_organisation', 'price_list.manage_organisation'] as $code) {
+        $permission = Permission::query()->where('code', $code)->sole();
+
+        $holders = Role::withoutTenancy()
+            ->whereNull('organisation_id')
+            ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $permission->getKey())->select('role_id'))
+            ->pluck('code')
+            ->all();
+
+        expect($holders)->toEqualCanonicalizing([
+            'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+        ], "Unexpected holders of {$code}.");
+    }
+});
+
 it('gives the demonstration kitchen its two routes to market', function (): void {
     $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
 
@@ -365,6 +394,66 @@ it('gives the demonstration kitchen its two routes to market', function (): void
     expect($channels->pluck('code')->all())->toBe(['web-shop', 'wholesale'])
         ->and($channels->pluck('channel_kind')->map(static fn ($kind): string => $kind->value)->all())
         ->toBe(['b2c_web', 'b2b']);
+});
+
+it('gives the demonstration kitchen a draft tariff in its own currency', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $tariff = PriceList::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('code', 'verdant-web-aed')
+        ->sole();
+
+    // AED because Verdant is an Emirati kitchen and the currency lives on the
+    // list. A USD tariff here would demonstrate the exact mistake the schema
+    // exists to make impossible. Draft because nobody has reviewed it.
+    expect($tariff->currency_code)->toBe('AED')
+        ->and($tariff->currency_code)->toBe($verdant->default_currency_code)
+        ->and($tariff->status)->toBe(PriceListStatus::Draft)
+        ->and($tariff->customer_scope)->toBe(CustomerScope::PublicTariff);
+
+    $webShop = SalesChannel::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('code', 'web-shop')
+        ->sole();
+
+    expect(ChannelPriceList::withoutTenancy()
+        ->where('price_list_id', $tariff->getKey())
+        ->where('sales_channel_id', $webShop->getKey())
+        ->count())->toBe(1);
+});
+
+it('seeds the demonstration tariff with a tier and an honest placeholder', function (): void {
+    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-web-aed')->sole();
+
+    $entries = PriceListItem::withoutTenancy()
+        ->where('price_list_id', $tariff->getKey())
+        ->openRows()
+        ->get();
+
+    expect($entries)->toHaveCount(3);
+
+    $statuses = $entries->groupBy(static fn (PriceListItem $row): string => $row->price_status->value);
+
+    expect($statuses->get('confirmed'))->toHaveCount(2)
+        ->and($statuses->get('placeholder'))->toHaveCount(1);
+
+    // The placeholder is the point of the fixture: a row that says "we have
+    // not priced this" without inventing a number. A surface built against
+    // demo data where every price is real would never render the honest state.
+    $placeholder = $statuses->get('placeholder')->sole();
+
+    expect($placeholder->unit_amount_minor)->toBeNull();
+
+    // And the tier, so the resolver's "highest threshold at or below" rule has
+    // something to resolve against.
+    $tiered = $entries->firstWhere(static fn (PriceListItem $row): bool => $row->min_quantity !== null);
+
+    expect($tiered)->not->toBeNull()
+        ->and((float) $tiered->min_quantity)->toBe(12.0)
+        ->and($tiered->unit_amount_minor)->toBeLessThan(
+            $entries->firstWhere(static fn (PriceListItem $row): bool => $row->min_quantity === null && $row->unit_amount_minor !== null)->unit_amount_minor,
+        );
 });
 
 it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {

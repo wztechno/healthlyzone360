@@ -192,10 +192,21 @@ modules:
     description: Catalogue items (products, meals and subscription plans), variants and pack variants, representative ingredients, diet classifications, sales channels and per-channel availability, with the sellable publication lifecycle.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes]
 
+  # Flipped to `foundation` by K1.5: price lists (the currency lives on the
+  # list, so a total is a sum of comparable numbers by construction),
+  # effective-dated price rows with supersession rather than update-in-place,
+  # and channel assignments with a consulted-in-order priority. The honest
+  # badge — confirmed | placeholder | market_priced, with a CHECK tying the
+  # amount to it — arrives here too, and `price_list_items` is the first
+  # catalogue-family table to take a PostgreSQL policy of its own.
+  #
+  # Commission structures and premium listings are Marketplace's, not this
+  # module's; the description narrows to what the code actually is.
   - name: Pricing
-    status: planned
-    description: Price lists, currencies, commission structures and premium listings.
-    depends_on: [Catalogues, ReferenceData]
+    status: foundation
+    phase: 2
+    description: Price lists with a single currency each, effective-dated price rows with supersession and honest confirmed/placeholder/market-priced statuses, channel assignments and effective-price resolution.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Catalogues]
 
   # Owned by phase J1 (master plan v2 §5) — no code until then.
   - name: Customers

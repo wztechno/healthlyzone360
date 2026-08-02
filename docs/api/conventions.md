@@ -120,15 +120,16 @@ The freshness of the validator is decided **inside the write statement** (`UPDAT
 
 The header applies only to resources that carry `lock_version`. A resource without one has no concurrency contract and is not sent `If-Match` — ingredient categories and allergen classes are examples.
 
-**Endpoints that require it** (as of K1.4):
+**Endpoints that require it** (as of K1.5):
 
 - `PATCH /api/v1/catalogue/ingredients/{ingredient}` · `POST /api/v1/catalogue/ingredients/{ingredient}/archive`
 - `PATCH /api/v1/catalogue/recipes/{recipe}` · `POST /api/v1/catalogue/recipes/{recipe}/archive`
 - `PATCH /api/v1/catalogue/recipes/{recipe}/versions/{version}` and its `…/lines`, `…/outputs`, `…/steps`, `…/publish`, `…/retire` sub-resources
 - `PATCH /api/v1/catalogue/sales-channels/{channel}`
 - `PATCH /api/v1/catalogue/items/{item}` and its `…/variants`, `…/ingredients`, `…/diet-classifications`, `…/channels`, `…/publish`, `…/retire` sub-resources
+- `PATCH /api/v1/catalogue/price-lists/{priceList}` and its `…/entries`, `…/channels`, `…/publish`, `…/archive` sub-resources
 
-On the version and item sub-resources the validator is the **parent's** `lock_version`, not a line's, a step's or a variant's. The set is the unit of change: a per-row validator would let two editors replace different halves of one formulation — or one listing — and each believe they had written the whole of it.
+On the version, item and price-list sub-resources the validator is the **parent's** `lock_version`, not a line's, a step's, a variant's or a price row's. The set is the unit of change: a per-row validator would let two editors replace different halves of one formulation — or one listing, or one tariff — and each believe they had written the whole of it.
 
 ## Cursor pagination
 
@@ -232,6 +233,15 @@ The full set as implemented in Phase 4. `openapi/healthy360.v1.yaml` is authorit
 | PUT | `/api/v1/catalogue/items/{item}/diet-classifications` | session or bearer, verified, org | Set-replace by platform **code**; an unknown or inactive code is 422 with `details.unknown`. **`If-Match` required.** `catalogue.manage_organisation` |
 | PUT | `/api/v1/catalogue/items/{item}/channels` | session or bearer, verified, org | Set-replace; optional per-variant rows; dates not timestamps; no price. **`If-Match` required.** `catalogue.manage_organisation` |
 | GET | `/api/v1/catalogue/items/{item}/allergens` | session or bearer, verified, org | Derived on read, never stored and never authored — **no writer exists**. `meta.basis` is `recipe_version`, `item_ingredients` or `none` ("nobody has said", not "no allergens"). `catalogue.view_organisation` |
+| GET | `/api/v1/catalogue/price-lists` | session or bearer, verified, org | Cursor-paginated. Filters `query`, `status`, `customer_scope`. Archived excluded unless asked for. **No amounts** — the header carries a currency, never a price. `price_list.view_organisation` |
+| POST | `/api/v1/catalogue/price-lists` | session or bearer, verified, org | Creates a `draft`; `currency_code` required and upper-cased, no default; duplicate `code` is 409. `price_list.manage_organisation` |
+| GET | `/api/v1/catalogue/price-lists/{priceList}` | session or bearer, verified, org | `{priceList}` accepts an identifier or the `code`. List plus channel assignments; `meta.entry_counts` gives standing and confirmed counts. Returns `ETag: "<lock_version>"`. `price_list.view_organisation` |
+| PATCH | `/api/v1/catalogue/price-lists/{priceList}` | session or bearer, verified, org | `code` is **rejected**, not ignored. `currency_code` moves only while the list holds no rows at all (history included), then 409 `reason: currency_locked`. **`If-Match` required.** `price_list.manage_organisation` |
+| POST | `/api/v1/catalogue/price-lists/{priceList}/publish` | session or bearer, verified, org | Draft → active. Blocked only by `no_open_rows` / `price_list_not_a_draft` — placeholder and market rows are welcome on an active list. **`If-Match` required.** `catalogue.publish_organisation` |
+| POST | `/api/v1/catalogue/price-lists/{priceList}/archive` | session or bearer, verified, org | Refused while a channel still names it (409 `reason: channel_assignments_active`). Nothing is deleted. **`If-Match` required.** `catalogue.publish_organisation` |
+| GET | `/api/v1/catalogue/price-lists/{priceList}/entries` | session or bearer, verified, org | Cursor-paginated. Standing rows by default; `include_history=1` adds closed rows and walks **newest-first**. Amounts are integer minor units with `currency_code` on every row, never formatted. Placeholder/market rows served in full. `price_list.view_organisation` |
+| PUT | `/api/v1/catalogue/price-lists/{priceList}/entries` | session or bearer, verified, org | Set-replace over effective-dated storage: the body is the desired **current** state, keyed by `(item, variant, min_quantity)`; unchanged points are untouched, changed ones close and reopen, absent ones close. No dates in the body. **`If-Match` (the list's) required.** `price_list.manage_organisation` |
+| PUT | `/api/v1/catalogue/price-lists/{priceList}/channels` | session or bearer, verified, org | Set-replace; **array order is the priority**, lowest consulted first; empty detaches everything. **`If-Match` required.** `price_list.manage_organisation` |
 | GET | `/api/v1/reference/allergen-classes` | — | **Anonymous.** Active classes only, one server-localised name from `Accept-Language` |
 | POST | `/api/v1/reference/allergen-classes` | session or bearer, verified, platform org | `platform.context` + `reference.manage_platform` |
 | PATCH | `/api/v1/reference/allergen-classes/{code}` | session or bearer, verified, platform org | `code` is immutable and a request carrying it is rejected. `platform.context` + `reference.manage_platform` |
@@ -259,3 +269,5 @@ Every rejection is `429 rate_limit.exceeded` with `Retry-After`.
 - Timestamps are RFC 3339 UTC; localisation happens client-side.
 - Responses never leak other tenants' identifiers, even in error messages. An organisation the caller is not a member of and an organisation that does not exist are both `context.organisation_forbidden`; another person's device and a device that never existed are both `resource.not_found`.
 - Authentication activity is audited (`auth.login_succeeded`, `auth.login_failed`, `auth.login_locked_out`, `auth.logout`, `auth.password_reset`, `auth.step_up_confirmed`, `auth.step_up_failed`, `auth.two_factor_*`, `auth.device_revoked`) with the correlation identifier. Passwords, tokens and two-factor codes are never written to audit metadata.
+- **Money is an integer of minor units plus a currency, never a formatted string and never a float.** `{"unit_amount_minor": 4500, "currency_code": "AED"}`, not `"45.00 AED"` and not `45.0`. A float loses money at the fourth decimal of a currency that has three; a server-formatted string picks a locale and a symbol position on behalf of a client that already knows the user's locale and this one does not; and a formatted amount has to be parsed back before it can be added up, which is where the rounding goes wrong. The client formats. Every amount carries or inherits exactly one currency, and no endpoint performs cross-currency arithmetic (master plan v2 §4.4).
+- Audit metadata keys avoid the substrings `password`, `token`, `secret`, `code`, `authorization` and `cookie`, because `AuditRecorder` matches its redaction list as a substring (OQ-036 / R-018). A currency is therefore recorded under `currency`, not `currency_code` — the over-match would otherwise erase the one fact that makes an amount meaningful.

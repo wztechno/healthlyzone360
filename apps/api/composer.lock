@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bacc43a54b3b6b94f75ff72af3a2dfd4",
+    "content-hash": "d5701549f59db8743e6b9615a438618c",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2253,6 +2253,38 @@
                     "Healthy360\\Organisations\\Tests\\": "tests/",
                     "Healthy360\\Organisations\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Organisations\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/pricing",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/pricing",
+                "reference": "cd076076be97ec74b69eedb545d5bcfab2a4c5ed"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Pricing\\Providers\\PricingServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Pricing\\": "src/",
+                    "Healthy360\\Pricing\\Tests\\": "tests/",
+                    "Healthy360\\Pricing\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Pricing\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [

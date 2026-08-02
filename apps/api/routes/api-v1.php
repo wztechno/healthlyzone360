@@ -40,6 +40,15 @@ use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
+use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
+use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
+use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
+use Healthy360\Pricing\Http\Controllers\PriceListEntryReplaceController;
+use Healthy360\Pricing\Http\Controllers\PriceListIndexController;
+use Healthy360\Pricing\Http\Controllers\PriceListPublishController;
+use Healthy360\Pricing\Http\Controllers\PriceListShowController;
+use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
+use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Recipes\Http\Controllers\RecipeArchiveController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotStoreController;
@@ -334,6 +343,79 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/items/{item}/retire', CatalogueItemRetireController::class)
                     ->middleware('precondition')
                     ->name('catalogue.items.retire');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Pricing — lists, entries and channel assignments (K1.5)
+            |--------------------------------------------------------------
+            |
+            | The one kitchen family with **its own permission pair**. Every
+            | other surface here reuses `catalogue.view_organisation` /
+            | `catalogue.manage_organisation`, because ingredients, recipes
+            | and listings are one catalogue and a second pair of codes over
+            | the same screens would be bookkeeping. Prices are different:
+            | price visibility is commercial, not culinary. A chef writes
+            | formulations and a kitchen hand reads them; neither needs to
+            | know what the dish sells for, and on an `agreement` list the
+            | number is one customer's negotiated position. Folding it into
+            | `catalogue.view_organisation` would have handed the most
+            | commercially sensitive figure in the system to everybody who
+            | can read an ingredient — and quietly undone K1.3's cost split,
+            | since a margin is reconstructable from a cost and a price.
+            |
+            | Activation and archiving reuse `catalogue.publish_organisation`
+            | rather than adding a third publish code: deciding that a tariff
+            | goes live is the same authority as deciding what is on sale,
+            | held by the same two roles.
+            |
+            | `precondition` guards every write, and on the sub-resources the
+            | validator is the **list's**. A tariff's rows are one document
+            | even though they live in three tables: two merchandisers
+            | repricing at once is the race this catches, and per-row
+            | validators would let both succeed and leave a tariff that is
+            | half of each.
+            |
+            | `{priceList}` accepts an identifier or the list's `code`.
+            |
+            | There is no DELETE anywhere in this family, and there never
+            | will be. A price is evidence of what a customer was charged;
+            | withdrawing one closes its interval, and withdrawing a tariff
+            | detaches it from its channels and archives it. Nothing is
+            | erased, because an order taken last March has to stay
+            | explainable.
+            |
+            */
+            Route::middleware('permission:price_list.view_organisation')->group(function (): void {
+                Route::get('/price-lists', PriceListIndexController::class)->name('catalogue.price-lists.index');
+                Route::get('/price-lists/{priceList}', PriceListShowController::class)->name('catalogue.price-lists.show');
+                Route::get('/price-lists/{priceList}/entries', PriceListEntryIndexController::class)->name('catalogue.price-lists.entries.index');
+            });
+
+            Route::middleware('permission:price_list.manage_organisation')->group(function (): void {
+                Route::post('/price-lists', PriceListStoreController::class)->name('catalogue.price-lists.store');
+
+                Route::patch('/price-lists/{priceList}', PriceListUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.price-lists.update');
+
+                Route::put('/price-lists/{priceList}/entries', PriceListEntryReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.price-lists.entries.replace');
+
+                Route::put('/price-lists/{priceList}/channels', PriceListChannelReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.price-lists.channels.replace');
+            });
+
+            Route::middleware('permission:catalogue.publish_organisation')->group(function (): void {
+                Route::post('/price-lists/{priceList}/publish', PriceListPublishController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.price-lists.publish');
+
+                Route::post('/price-lists/{priceList}/archive', PriceListArchiveController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.price-lists.archive');
             });
         });
 

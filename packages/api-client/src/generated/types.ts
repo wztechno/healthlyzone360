@@ -1629,6 +1629,322 @@ export type PublicDietClassification = {
 };
 
 /**
+ * An ISO 4217 code. Every amount in the pricing family carries or
+ * inherits exactly one, and no operation performs cross-currency
+ * arithmetic.
+ *
+ */
+export type CurrencyCode = string;
+
+/**
+ * The **operational** lifecycle of a tariff, deliberately not the
+ * sellable family (`draft | review_required | published | retired`). A
+ * price list is not published content; it is the instrument that prices
+ * content, so it has no review state and no retirement. What a customer
+ * sees is a *price*, and whether one reaches them is decided by the
+ * channel assignment and the public projection.
+ *
+ * An `active` list is still editable — that is the point of
+ * effective-dating. An `archived` one refuses every write.
+ *
+ */
+export type PriceListStatus = 'draft' | 'active' | 'archived';
+
+/**
+ * Who the tariff is for. `public` is the tariff anybody may be shown;
+ * `agreement` is one customer's negotiated position, and showing it to a
+ * second customer is the failure this module is built to prevent.
+ *
+ * A column rather than an inference from the channel kind, because one
+ * channel legitimately carries both.
+ *
+ */
+export type PriceListCustomerScope = 'public' | 'agreement';
+
+/**
+ * What the row actually claims — the honest badge.
+ *
+ * - `confirmed` — a real number the kitchen stands behind. Carries
+ * `unit_amount_minor`. **The only status a public surface may serve.**
+ * - `placeholder` — the source stated no price and nobody has supplied
+ * one. Amount null, never public: a placeholder rendered as a price is
+ * a lie with a currency symbol on it, and rendered as zero it is a
+ * worse one.
+ * - `market_priced` — quoted at the time of sale. Amount null, and the
+ * absence *is* the statement, which is why it is a status rather than a
+ * missing row.
+ *
+ * The pairing is enforced by a database CHECK —
+ * `(price_status = 'confirmed') = (unit_amount_minor IS NOT NULL)` — so a
+ * client may branch on either half and get the same answer.
+ *
+ */
+export type PriceStatus = 'confirmed' | 'placeholder' | 'market_priced';
+
+/**
+ * The administrative shape of a price list header. Carries **both** names
+ * and ignores `Accept-Language` for them.
+ *
+ * No amounts: the header is a name, a currency and a status. The numbers
+ * are behind `…/entries`.
+ *
+ */
+export type AdminPriceList = {
+    id: Uuid;
+    organisation_id: Uuid;
+    /**
+     * Usually null. A tariff is normally an organisation-wide instrument;
+     * naming a branch is for a kitchen that genuinely prices one location
+     * differently.
+     *
+     */
+    branch_id?: Uuid | null;
+    /**
+     * Immutable after creation — an importer, a channel assignment and a runbook already name it.
+     */
+    code: string;
+    name_en: string;
+    name_ar: string;
+    currency_code: CurrencyCode;
+    customer_scope: PriceListCustomerScope;
+    status: PriceListStatus;
+    /**
+     * Inclusive.
+     */
+    valid_from?: string | null;
+    /**
+     * **Inclusive** — a human writing "valid to 30 June" means through
+     * the 30th. Deliberately not the convention an entry's `effective_to`
+     * uses, which is exclusive because it is written by the supersession
+     * machinery rather than by a person.
+     *
+     */
+    valid_to?: string | null;
+    source_system?: string | null;
+    source_ref?: string | null;
+    /**
+     * Also served as the `ETag` of the single-resource GET, and the
+     * validator **every** write in this family sends back — the entries
+     * and the channel assignments included.
+     *
+     */
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+/**
+ * One price, for one pricing point, over one interval of time.
+ *
+ * The pricing point is `(catalogue_item_id, catalogue_item_variant_id,
+ * min_quantity)`. The **standing** row of a point is the one whose
+ * `effective_to` is null; everything else is history, and history is
+ * closed rather than edited.
+ *
+ */
+export type AdminPriceListEntry = {
+    id: Uuid;
+    catalogue_item_id: Uuid;
+    /**
+     * Null prices the article as a whole. Naming a variant prices exactly
+     * that pack or configuration; resolution prefers a variant's own row
+     * and falls back to the article's.
+     *
+     */
+    catalogue_item_variant_id?: Uuid | null;
+    /**
+     * The tier threshold, as a fixed-scale decimal string. Null is the
+     * base price. A row applies from its threshold **upwards**, and
+     * resolution picks the highest threshold at or below the quantity
+     * asked for.
+     *
+     * A string rather than a number so the four decimal places survive
+     * the round trip: a client that parsed `10` and re-sent `10.0` would
+     * otherwise be describing a different key.
+     *
+     */
+    min_quantity?: string | null;
+    /**
+     * The price, as a whole number of the **minor units** of
+     * `currency_code` — `4500` for 45.00 AED. Never a decimal, never
+     * formatted, never zero.
+     *
+     * Null exactly when `price_status` is not `confirmed`. The pair is a
+     * single fact and a database CHECK enforces it.
+     *
+     */
+    unit_amount_minor?: number | null;
+    currency_code: CurrencyCode;
+    price_status: PriceStatus;
+    /**
+     * Inclusive.
+     */
+    effective_from: string;
+    /**
+     * **Exclusive**, and null on the standing row. The row governed
+     * `[effective_from, effective_to)`.
+     *
+     * Exclusive is forced rather than chosen: a replacement made today
+     * closes the incumbent at today and opens its successor at today, so
+     * an inclusive end would leave two rows both claiming to be the price
+     * on the day of the change. A row changed twice in one day therefore
+     * leaves a zero-length interval, which is honest — the price never
+     * governed a whole day, and the record that somebody stated it
+     * survives.
+     *
+     */
+    effective_to?: string | null;
+    /**
+     * The row that replaced this one. Null on the standing row, and also
+     * null on a row that was simply withdrawn — "we stopped pricing this"
+     * is a different fact from "we now price it differently".
+     *
+     */
+    superseded_by_id?: Uuid | null;
+    created_at?: string | null;
+};
+
+export type PriceListChannelAssignment = {
+    id: Uuid;
+    sales_channel_id: Uuid;
+    price_list_id: Uuid;
+    /**
+     * Lower is consulted first. Assigned from the submitted array order unless stated.
+     */
+    priority: number;
+};
+
+/**
+ * How many standing rows the list has, and how many of those are real
+ * prices. The pair is what a merchandiser reads as "312 priced, 8 owed".
+ *
+ */
+export type PriceListEntryCounts = {
+    open: number;
+    confirmed: number;
+};
+
+export type PriceListEnvelope = {
+    data: {
+        price_list: AdminPriceList;
+    };
+    meta: Meta;
+};
+
+export type PriceListDetailEnvelope = {
+    data: {
+        price_list: AdminPriceList;
+        channels: Array<PriceListChannelAssignment>;
+    };
+    meta: Meta & {
+        entry_counts: PriceListEntryCounts;
+    };
+};
+
+export type PriceListEntriesEnvelope = {
+    data: {
+        price_list: AdminPriceList;
+        /**
+         * The **standing** rows after the write, so a client need not fetch them back.
+         */
+        entries: Array<AdminPriceListEntry>;
+    };
+    meta: Meta & {
+        currency_code: CurrencyCode;
+    };
+};
+
+export type PriceListChannelsEnvelope = {
+    data: {
+        price_list: AdminPriceList;
+        channels: Array<PriceListChannelAssignment>;
+    };
+    meta: Meta;
+};
+
+export type CreatePriceListRequest = {
+    code: string;
+    name_en: string;
+    name_ar?: string | null;
+    /**
+     * Normalised to upper case, so a lowercase ISO code is not a second currency.
+     */
+    currency_code: string;
+    customer_scope?: PriceListCustomerScope;
+    branch_id?: Uuid | null;
+    valid_from?: string | null;
+    valid_to?: string | null;
+};
+
+/**
+ * `code` is deliberately absent and is **rejected** rather than ignored
+ * if sent. `status` is absent too: activation and archiving are POST
+ * sub-resource actions.
+ *
+ */
+export type UpdatePriceListRequest = {
+    name_en?: string;
+    name_ar?: string | null;
+    /**
+     * Accepted only while the list holds no price rows at all, history
+     * included. Afterwards it is `409` with
+     * `details.reason: currency_locked`.
+     *
+     */
+    currency_code?: string;
+    customer_scope?: PriceListCustomerScope;
+    branch_id?: Uuid | null;
+    valid_from?: string | null;
+    valid_to?: string | null;
+};
+
+/**
+ * The desired **current** pricing state. `entries` is required but may be
+ * empty: an empty array withdraws every price, which is a decision a
+ * merchandiser makes and not a field they forgot.
+ *
+ */
+export type ReplacePriceListEntriesRequest = {
+    entries: Array<{
+        catalogue_item_id: Uuid;
+        catalogue_item_variant_id?: Uuid | null;
+        /**
+         * The tier threshold, above zero. Omitted or null is the base
+         * price. Normalised to four decimal places, so `12`, `12.0` and
+         * `"12.0000"` are one pricing point rather than three.
+         *
+         */
+        min_quantity?: number | string | null;
+        /**
+         * Required and positive when `price_status` is `confirmed`;
+         * refused otherwise. Whole minor units — `1250` for 12.50 —
+         * never a decimal and never a formatted string.
+         *
+         */
+        unit_amount_minor?: number | null;
+        price_status: PriceStatus;
+    }>;
+};
+
+/**
+ * The complete set of channels quoting from this list. Empty detaches it
+ * from all of them — the step `archive` insists on first.
+ *
+ */
+export type ReplacePriceListChannelsRequest = {
+    channels: Array<{
+        sales_channel_id: Uuid;
+        /**
+         * Lower is consulted first. Omitted, it comes from the array
+         * order, which is what a merchandiser is stating when they list
+         * a negotiated sheet above a standing tariff.
+         *
+         */
+        priority?: number | null;
+    }>;
+};
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -1739,6 +2055,15 @@ export type CatalogueItemPath = Uuid | string;
  * The channel identifier, or its `code`.
  */
 export type SalesChannelPath = Uuid | string;
+
+/**
+ * The price list identifier, or its `code`. Both are accepted for the
+ * reason the sales-channel path gives: a client that walked the list
+ * holds an identifier, an operator or an importer holds
+ * `greenlife-b2b-usd`, and the code is unique per organisation.
+ *
+ */
+export type PriceListPath = Uuid | string;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -7121,3 +7446,845 @@ export type ListDietClassificationsResponses = {
 };
 
 export type ListDietClassificationsResponse = ListDietClassificationsResponses[keyof ListDietClassificationsResponses];
+
+export type ListPriceListsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Case-insensitive substring match over both names and the code.
+         */
+        query?: string;
+        /**
+         * Restrict to one lifecycle state. Omitted, everything except `archived` is listed.
+         */
+        status?: PriceListStatus;
+        /**
+         * Restrict to public tariffs or to negotiated agreements.
+         */
+        customer_scope?: PriceListCustomerScope;
+    };
+    url: '/catalogue/price-lists';
+};
+
+export type ListPriceListsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPriceListsError = ListPriceListsErrors[keyof ListPriceListsErrors];
+
+export type ListPriceListsResponses = {
+    /**
+     * A page of price lists.
+     */
+    200: {
+        data: Array<AdminPriceList>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListPriceListsResponse = ListPriceListsResponses[keyof ListPriceListsResponses];
+
+export type CreatePriceListData = {
+    body: CreatePriceListRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/price-lists';
+};
+
+export type CreatePriceListErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePriceListError = CreatePriceListErrors[keyof CreatePriceListErrors];
+
+export type CreatePriceListResponses = {
+    /**
+     * The created draft list.
+     */
+    201: PriceListEnvelope;
+};
+
+export type CreatePriceListResponse = CreatePriceListResponses[keyof CreatePriceListResponses];
+
+export type ShowPriceListData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The price list identifier, or its `code`. Both are accepted for the
+         * reason the sales-channel path gives: a client that walked the list
+         * holds an identifier, an operator or an importer holds
+         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         *
+         */
+        priceList: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/price-lists/{priceList}';
+};
+
+export type ShowPriceListErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowPriceListError = ShowPriceListErrors[keyof ShowPriceListErrors];
+
+export type ShowPriceListResponses = {
+    /**
+     * The price list, with its channel assignments.
+     */
+    200: PriceListDetailEnvelope;
+};
+
+export type ShowPriceListResponse = ShowPriceListResponses[keyof ShowPriceListResponses];
+
+export type UpdatePriceListData = {
+    body: UpdatePriceListRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The price list identifier, or its `code`. Both are accepted for the
+         * reason the sales-channel path gives: a client that walked the list
+         * holds an identifier, an operator or an importer holds
+         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         *
+         */
+        priceList: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/price-lists/{priceList}';
+};
+
+export type UpdatePriceListErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The write conflicts with the state of the price list. `details.reason`
+     * distinguishes the cases, so a client knows whether to reload or to do
+     * something different:
+     *
+     * - `currency_locked` — the list already holds prices, so its currency
+     * cannot move. `details.current_currency`, `details.requested_currency`
+     * and `details.entry_count` say why. The answer is a new list.
+     * - `channel_assignments_active` — the list is still assigned to the
+     * channels in `details.sales_channel_ids`. Detach it first.
+     * - no `reason` — a plain lost race: the `If-Match` validator was stale,
+     * and `details.current_lock_version` carries the current one. Reload
+     * and retry.
+     *
+     * An archived list also answers `409` on every write.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdatePriceListError = UpdatePriceListErrors[keyof UpdatePriceListErrors];
+
+export type UpdatePriceListResponses = {
+    /**
+     * The updated list.
+     */
+    200: PriceListEnvelope;
+};
+
+export type UpdatePriceListResponse = UpdatePriceListResponses[keyof UpdatePriceListResponses];
+
+export type PublishPriceListData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The price list identifier, or its `code`. Both are accepted for the
+         * reason the sales-channel path gives: a client that walked the list
+         * holds an identifier, an operator or an importer holds
+         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         *
+         */
+        priceList: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/price-lists/{priceList}/publish';
+};
+
+export type PublishPriceListErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The activation gate refused. `details.reasons` carries **every**
+     * blocker rather than the first one found, the rule the recipe and
+     * catalogue-item gates already follow.
+     *
+     * The vocabulary is `price_list_not_a_draft`, `no_open_rows` and
+     * `amount_status_mismatch`. The last is structurally unreachable — a
+     * CHECK constraint refuses the combination at the database — and is
+     * stated anyway, because "the database would have stopped it" is not
+     * something a client can see.
+     *
+     * Note what is **not** a blocker: placeholder and market-priced rows.
+     * They are welcome on an active list, and the public projection is what
+     * keeps them from a customer.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PublishPriceListError = PublishPriceListErrors[keyof PublishPriceListErrors];
+
+export type PublishPriceListResponses = {
+    /**
+     * The activated list.
+     */
+    200: PriceListEnvelope;
+};
+
+export type PublishPriceListResponse = PublishPriceListResponses[keyof PublishPriceListResponses];
+
+export type ArchivePriceListData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The price list identifier, or its `code`. Both are accepted for the
+         * reason the sales-channel path gives: a client that walked the list
+         * holds an identifier, an operator or an importer holds
+         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         *
+         */
+        priceList: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/price-lists/{priceList}/archive';
+};
+
+export type ArchivePriceListErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The write conflicts with the state of the price list. `details.reason`
+     * distinguishes the cases, so a client knows whether to reload or to do
+     * something different:
+     *
+     * - `currency_locked` — the list already holds prices, so its currency
+     * cannot move. `details.current_currency`, `details.requested_currency`
+     * and `details.entry_count` say why. The answer is a new list.
+     * - `channel_assignments_active` — the list is still assigned to the
+     * channels in `details.sales_channel_ids`. Detach it first.
+     * - no `reason` — a plain lost race: the `If-Match` validator was stale,
+     * and `details.current_lock_version` carries the current one. Reload
+     * and retry.
+     *
+     * An archived list also answers `409` on every write.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchivePriceListError = ArchivePriceListErrors[keyof ArchivePriceListErrors];
+
+export type ArchivePriceListResponses = {
+    /**
+     * The archived list.
+     */
+    200: PriceListEnvelope;
+};
+
+export type ArchivePriceListResponse = ArchivePriceListResponses[keyof ArchivePriceListResponses];
+
+export type ListPriceListEntriesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The price list identifier, or its `code`. Both are accepted for the
+         * reason the sales-channel path gives: a client that walked the list
+         * holds an identifier, an operator or an importer holds
+         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         *
+         */
+        priceList: Uuid | string;
+    };
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * `1`, `true` or `yes` includes closed rows and walks newest-first.
+         * Anything else — including `0` — means no.
+         *
+         */
+        include_history?: '0' | '1' | 'true' | 'false' | 'yes' | 'no';
+    };
+    url: '/catalogue/price-lists/{priceList}/entries';
+};
+
+export type ListPriceListEntriesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPriceListEntriesError = ListPriceListEntriesErrors[keyof ListPriceListEntriesErrors];
+
+export type ListPriceListEntriesResponses = {
+    /**
+     * A page of price rows.
+     */
+    200: {
+        data: Array<AdminPriceListEntry>;
+        meta: PaginationMeta & {
+            include_history: boolean;
+            currency_code: CurrencyCode;
+            entry_counts: PriceListEntryCounts;
+        };
+    };
+};
+
+export type ListPriceListEntriesResponse = ListPriceListEntriesResponses[keyof ListPriceListEntriesResponses];
+
+export type ReplacePriceListEntriesData = {
+    body: ReplacePriceListEntriesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The price list identifier, or its `code`. Both are accepted for the
+         * reason the sales-channel path gives: a client that walked the list
+         * holds an identifier, an operator or an importer holds
+         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         *
+         */
+        priceList: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/price-lists/{priceList}/entries';
+};
+
+export type ReplacePriceListEntriesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The write conflicts with the state of the price list. `details.reason`
+     * distinguishes the cases, so a client knows whether to reload or to do
+     * something different:
+     *
+     * - `currency_locked` — the list already holds prices, so its currency
+     * cannot move. `details.current_currency`, `details.requested_currency`
+     * and `details.entry_count` say why. The answer is a new list.
+     * - `channel_assignments_active` — the list is still assigned to the
+     * channels in `details.sales_channel_ids`. Detach it first.
+     * - no `reason` — a plain lost race: the `If-Match` validator was stale,
+     * and `details.current_lock_version` carries the current one. Reload
+     * and retry.
+     *
+     * An archived list also answers `409` on every write.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplacePriceListEntriesError = ReplacePriceListEntriesErrors[keyof ReplacePriceListEntriesErrors];
+
+export type ReplacePriceListEntriesResponses = {
+    /**
+     * The list and its standing rows after the write.
+     */
+    200: PriceListEntriesEnvelope;
+};
+
+export type ReplacePriceListEntriesResponse = ReplacePriceListEntriesResponses[keyof ReplacePriceListEntriesResponses];
+
+export type ReplacePriceListChannelsData = {
+    body: ReplacePriceListChannelsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The price list identifier, or its `code`. Both are accepted for the
+         * reason the sales-channel path gives: a client that walked the list
+         * holds an identifier, an operator or an importer holds
+         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         *
+         */
+        priceList: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/price-lists/{priceList}/channels';
+};
+
+export type ReplacePriceListChannelsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The write conflicts with the state of the price list. `details.reason`
+     * distinguishes the cases, so a client knows whether to reload or to do
+     * something different:
+     *
+     * - `currency_locked` — the list already holds prices, so its currency
+     * cannot move. `details.current_currency`, `details.requested_currency`
+     * and `details.entry_count` say why. The answer is a new list.
+     * - `channel_assignments_active` — the list is still assigned to the
+     * channels in `details.sales_channel_ids`. Detach it first.
+     * - no `reason` — a plain lost race: the `If-Match` validator was stale,
+     * and `details.current_lock_version` carries the current one. Reload
+     * and retry.
+     *
+     * An archived list also answers `409` on every write.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplacePriceListChannelsError = ReplacePriceListChannelsErrors[keyof ReplacePriceListChannelsErrors];
+
+export type ReplacePriceListChannelsResponses = {
+    /**
+     * The list and its channel assignments after the write.
+     */
+    200: PriceListChannelsEnvelope;
+};
+
+export type ReplacePriceListChannelsResponse = ReplacePriceListChannelsResponses[keyof ReplacePriceListChannelsResponses];

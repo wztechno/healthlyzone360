@@ -116,6 +116,30 @@ final class PermissionRegistry
             // formulation, a merchandiser writes the listing, and neither of
             // them decides the range.
             'catalogue.publish_organisation' => ['domain' => 'catalogue', 'description' => 'Publish and retire catalogue items of the organisation'],
+
+            // Phase K1.5 — pricing. Its own pair of codes rather than a reuse
+            // of `catalogue.*`, and this is the one place in the kitchen where
+            // that separation is worth the extra vocabulary.
+            //
+            // **Price visibility is commercial, not culinary.** A chef writes
+            // formulations and a kitchen hand reads them; neither needs to
+            // know what the dish sells for, and on an `agreement` list the
+            // number is one customer's negotiated position — the most
+            // commercially sensitive figure this system holds. Folding it into
+            // `catalogue.view_organisation` would have handed it to everybody
+            // who can read an ingredient, which is the opposite of the
+            // K1.3 cost split and would have quietly undone it: costs behind
+            // their own permission, margins reconstructable from prices
+            // anybody can see.
+            //
+            // So the kitchen manager and the commercial manager hold both
+            // codes, and the chef and kitchen staff hold **neither**.
+            // Publication reuses `catalogue.publish_organisation`: activating
+            // a tariff is the same kind of decision as putting an item on
+            // sale, made by the same people, and a third publish code would be
+            // bookkeeping rather than authority.
+            'price_list.view_organisation' => ['domain' => 'price_list', 'description' => 'View price lists, their entries and their channel assignments'],
+            'price_list.manage_organisation' => ['domain' => 'price_list', 'description' => 'Create and update price lists, their entries and their channel assignments'],
         ];
     }
 
@@ -233,6 +257,8 @@ final class PermissionRegistry
                     'recipe.manage_organisation',
                     'recipe.publish_organisation',
                     'recipe.view_costs_organisation',
+                    'price_list.view_organisation',
+                    'price_list.manage_organisation',
                     'organisation.view_current',
                     'branch.view_current',
                     'membership.view_organisation',
@@ -258,7 +284,8 @@ final class PermissionRegistry
 
             // The role the cost split exists for. Kitchen staff read the
             // method and the allergen label — everything needed to make the
-            // dish — and no money at all.
+            // dish — and no money at all: neither costs (K1.3) nor prices
+            // (K1.5) reach this role.
             'kitchen_staff' => [
                 'name_en' => 'Kitchen staff',
                 'name_ar' => 'طاقم المطبخ',
@@ -280,6 +307,12 @@ final class PermissionRegistry
             // sale without being able to change a single line of how it is
             // made. `catalogue.manage_organisation` stays absent for the same
             // reason `recipe.manage_organisation` does.
+            //
+            // K1.5 gives it the pricing pair in full, including the write.
+            // This is the one surface where the commercial role authors rather
+            // than reads: a tariff is its instrument, and a commercial manager
+            // who could see prices but not set them would have to ask a chef
+            // to type them in.
             'commercial_manager' => [
                 'name_en' => 'Commercial manager',
                 'name_ar' => 'المدير التجاري',
@@ -288,6 +321,8 @@ final class PermissionRegistry
                     'catalogue.publish_organisation',
                     'recipe.view_organisation',
                     'recipe.view_costs_organisation',
+                    'price_list.view_organisation',
+                    'price_list.manage_organisation',
                 ],
             ],
         ];
