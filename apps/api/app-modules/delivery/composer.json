@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/delivery",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Delivery\\": "src/",
+			"Healthy360\\Delivery\\Tests\\": "tests/",
+			"Healthy360\\Delivery\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Delivery\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Delivery\\Providers\\DeliveryServiceProvider"
+			]
+		}
+	}
+}

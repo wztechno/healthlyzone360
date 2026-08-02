@@ -118,6 +118,41 @@ tags:
       is not an operation here: it stays `POST /catalogue/items/{item}/publish`,
       which additionally requires `plan.publish_organisation` when the item is a
       plan.
+  - name: Delivery
+    description: |
+      Where a kitchen delivers, what it charges to get there, and when the van
+      goes.
+
+      **Two levels of geography, and the split is the design.**
+      `delivery_areas` is the platform gazetteer — the same Achrafieh for
+      everybody — so an address captured once is comparable across kitchens and
+      a customer never re-enters it because a kitchen redrew its map. A
+      **zone** is one kitchen's commercial statement about a set of those
+      places: a fee, a minimum order and a promise about how long it takes.
+
+      **One area is served by one zone per branch.** An organisation-wide zone
+      and a branch-scoped zone may both claim the same area — that is the
+      override mechanism, and the branch claim wins when a branch is in
+      context. Two zones at the *same* scope cannot, and the refusal names the
+      zone that already holds it.
+
+      Amounts are integers of minor units with the currency on the zone, and a
+      `null` fee means nobody has decided rather than "free".
+
+      Provider integration, driver allocation, tracking and proof of delivery
+      are not here and are not implied: this family is configuration that
+      precedes any delivery job.
+  - name: Kitchen operations
+    description: |
+      Branch operating data — when a branch is open and how late an order for
+      that day may still be placed.
+
+      The only **branch-scoped** family in the kitchen programme: `X-Branch-Id`
+      is required, and an absent one is `400 context.branch_required` rather
+      than a guess about which location the caller meant. The week is read and
+      replaced whole, so there is no `If-Match` and no half-week to protect.
+
+      A **closed day is a row**; a day nobody has configured is an absent one.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
 paths:
@@ -5659,6 +5694,656 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-zones:
+    get:
+      operationId: listDeliveryZones
+      tags:
+        - Delivery
+      summary: The delivery zones this organisation has drawn
+      description: |
+        Cursor-paginated. A kitchen with one map has three zones and a kitchen
+        covering a country has a zone per district per branch, and the second
+        is the one that has to keep working.
+
+        Archived zones are excluded unless `status=archived` asks for them.
+
+        `branch_id=organisation` selects the organisation-wide map — the one
+        thing a plain identifier filter cannot express, because an absent
+        parameter already means "no filter".
+
+        The areas are **not** embedded: a zone can name a hundred places, and
+        `…/{zone}/areas` answers that question one zone at a time.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+        - name: status
+          in: query
+          required: false
+          description: Defaults to everything except `archived`.
+          schema:
+            $ref: '#/components/schemas/DeliveryZoneStatus'
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            A branch identifier, or the literal `organisation` for the
+            organisation-wide map.
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Uuid'
+              - type: string
+                const: organisation
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring over `name_en`, `name_ar` and `code`.
+          schema:
+            type: string
+            maxLength: 120
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of delivery zones.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZonesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createDeliveryZone
+      tags:
+        - Delivery
+      summary: Draw a delivery zone
+      description: |
+        The zone is created `active` and covering nowhere, so there is no
+        window in which a half-built map quotes a delivery. Areas are added
+        through `PUT …/{zone}/areas`.
+
+        `branch_id` is optional and usually absent: a zone with no branch is
+        the organisation-wide map, and a branch-scoped zone overrides it for
+        that branch.
+
+        `currency_code` is optional and defaults to the organisation's own —
+        unlike a price list, where a default would silently produce a USD
+        tariff in an AED kitchen. A zone carries at most two amounts, in the
+        kitchen's home market.
+
+        A duplicate `code` inside the organisation is `409`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeliveryZoneRequest'
+      responses:
+        '201':
+          description: The zone as created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-zones/{zone}:
+    get:
+      operationId: getDeliveryZone
+      tags:
+        - Delivery
+      summary: One delivery zone
+      description: |
+        Returns `ETag: "<lock_version>"`. The **area set is versioned against
+        this same number**: a zone and its map are one document, and two
+        operators redrawing at once is the race the validator catches.
+
+        `meta.area_count` comes with it, so a client can render "17 areas"
+        without fetching them.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryZonePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The delivery zone.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateDeliveryZone
+      tags:
+        - Delivery
+      summary: Rename, reprice or suspend a delivery zone
+      description: |
+        `code` and `status` are **rejected**, not ignored: a client that sent
+        one believed it was writing something. Archiving is a POST action;
+        suspension is `is_active`.
+
+        Changing `branch_id` re-scopes the zone **and its area claims
+        together**, in one transaction. It is refused with `409
+        area_already_served` when another zone already serves one of those
+        areas at the destination, and nothing is half-moved.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryZonePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeliveryZoneRequest'
+      responses:
+        '200':
+          description: The zone after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/DeliveryAreaConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-zones/{zone}/archive:
+    post:
+      operationId: archiveDeliveryZone
+      tags:
+        - Delivery
+      summary: Withdraw a delivery zone
+      description: |
+        Terminal, and it **releases the zone's area claims**. An archived zone
+        that kept them would occupy every place it ever served, and a kitchen
+        redrawing its map would find the new zone refused by one nobody uses.
+
+        A kitchen that wants to stop delivering *without* giving the areas up
+        suspends the zone instead (`is_active: false` on the PATCH), which is
+        reversible and keeps the map intact.
+
+        Nothing is deleted: the fee, the promise and the name survive, so a
+        delivery quoted from this zone last month can still be explained.
+
+        There is deliberately no customer-address check. `customer_addresses`
+        arrives in J1, so today there is nothing to consult and a blocker
+        written against an empty table would be a permanently-green check.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryZonePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived zone.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-zones/{zone}/areas:
+    get:
+      operationId: listDeliveryZoneAreas
+      tags:
+        - Delivery
+      summary: The places a zone covers
+      description: |
+        Unpaginated: the set is bounded by the gazetteer and is the unit a
+        client edits, so a picker showing half a map with a cursor to fetch the
+        rest would be a worse contract than one response.
+
+        Each entry is the **platform area** in admin shape, `is_active`
+        included — a kitchen must be able to see that a place it still serves
+        has been withdrawn from the gazetteer. Those claims are kept rather
+        than silently dropped, and `meta.inactive_area_count` is what a screen
+        puts a warning badge on.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryZonePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The areas this zone covers.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneAreasEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replaceDeliveryZoneAreas
+      tags:
+        - Delivery
+      summary: Redraw the map of a zone
+      description: |
+        Set-replace: the body is the desired whole map, and areas absent from
+        it are released. That release is the only way to hand a place to a
+        different zone, because **one area is served by one zone per branch**.
+
+        `If-Match` carries the **zone's** validator — a zone and its map are
+        one document.
+
+        Three refusals are worth knowing. A place already served by another
+        zone **at the same scope** is `409 area_already_served`, naming the
+        occupying zone rather than an index. An area in another country is
+        `422 area_country_mismatch`: the gazetteer is keyed `(country, code)`
+        precisely because place names repeat. An area the platform has
+        withdrawn is `422 area_inactive` — unless this zone already claimed it,
+        in which case the claim stands and `meta.inactive_area_count` says so.
+
+        An organisation-wide zone and a branch-scoped zone **may** both claim
+        one area. That is the override mechanism, not a hole: the branch claim
+        wins when a branch is in context, and the organisation-wide one answers
+        when none is.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryZonePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceDeliveryZoneAreasRequest'
+      responses:
+        '200':
+          description: The areas this zone covers after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneAreasEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/DeliveryAreaConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-windows:
+    get:
+      operationId: listDeliveryWindows
+      tags:
+        - Delivery
+      summary: The delivery slots this kitchen offers
+      description: |
+        Unpaginated, deliberately: a kitchen has morning, afternoon and
+        evening, and perhaps a weekend slot. This is the set a checkout picker
+        renders whole, so paging it would push every client into reassembling
+        it.
+
+        Deactivated windows are served **with** their flag rather than hidden —
+        there is no delete, so the only way to see a withdrawn slot is to be
+        shown it.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every delivery window, active and withdrawn.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWindowsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createDeliveryWindow
+      tags:
+        - Delivery
+      summary: Name a delivery slot
+      description: |
+        No `If-Match`: these rows carry no `lock_version`, and the concurrency
+        contract applies only to resources that do.
+
+        A duplicate `code` inside the organisation is `409`; the same code in
+        another kitchen is not a collision, because a window is one kitchen's
+        word for one of its own slots.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeliveryWindowRequest'
+      responses:
+        '201':
+          description: The window as created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWindowEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-windows/{window}:
+    patch:
+      operationId: updateDeliveryWindow
+      tags:
+        - Delivery
+      summary: Edit or withdraw a delivery slot
+      description: |
+        **Precondition-free**: a window carries no `lock_version`, and
+        `If-Match` applies only to resources that do.
+
+        `code` is **rejected**, not ignored. `is_active: false` is the only
+        withdrawal there is; there is no DELETE, because an order taken for the
+        evening slot has to stay explainable.
+
+        The pairing and ordering rules run against the **merged** row: sending
+        only `ends_at` compares it with the stored `starts_at`. Turning a timed
+        window back into an untimed one therefore means sending both as `null`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryWindowPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeliveryWindowRequest'
+      responses:
+        '200':
+          description: The window after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWindowEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/branch-operating:
+    get:
+      operationId: getBranchOperating
+      tags:
+        - Kitchen operations
+      summary: The current branch's operating week
+      description: |
+        The branch comes from `X-Branch-Id`. `branch.context` permits an absent
+        header — an organisation-wide membership may legitimately select no
+        branch — so this endpoint refuses that case with
+        `400 context.branch_required` rather than guessing which location the
+        caller meant.
+
+        **Unconfigured days are absent, not filled in.** A week with three rows
+        means four days nobody has decided about; inventing `is_open: false`
+        for them would tell a customer the branch is shut on Thursday when the
+        truth is that nobody has said. `meta.is_complete` is what a screen puts
+        the "finish setting this up" prompt behind.
+
+        No `ETag`: these rows carry no `lock_version`, because the week is
+        replaced whole in one transaction.
+
+        Requires `branch.view_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The branch's week, in weekday order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchOperatingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replaceBranchOperating
+      tags:
+        - Kitchen operations
+      summary: Replace the current branch's operating week
+      description: |
+        Set-replace, in one transaction. The week is the unit of change — "we
+        now close at six, and Sundays are off" is one decision, and applying
+        half of it produces a schedule nobody agreed to. That is also why there
+        is no `If-Match`: there is no half-week for a validator to protect.
+
+        A **closed day is a row** with no times; an omitted weekday is a day
+        nobody has decided about. Both are storable, and only that distinction
+        lets a checkout say "we are shut on Sundays" rather than "we cannot
+        answer". An empty `days` clears the week back to unconfigured.
+
+        Three per-row rules, each refused with the day and the field named: a
+        day is open with both times or closed with neither; a branch closes
+        after it opens (no overnight service yet); and a closed day carries no
+        cut-off. A cut-off **outside** the opening hours is accepted — "order
+        by 22:00 the night before" is a real rule, and which day a cut-off
+        governs is order capture's question rather than this table's.
+
+        There is deliberately no `branch_id` in the body: the branch comes from
+        `X-Branch-Id`, which is validated against the caller's membership
+        scope.
+
+        Requires `branch.manage_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceBranchOperatingRequest'
+      responses:
+        '200':
+          description: The branch's week after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchOperatingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /reference/delivery-areas:
+    get:
+      operationId: listDeliveryAreas
+      tags:
+        - Reference data
+      summary: The platform delivery gazetteer
+      security: []
+      description: |
+        **Anonymous.** J1's onboarding asks a customer for their delivery area
+        before an account exists, so an address form that only works after
+        sign-in cannot be part of sign-up.
+
+        Served through the public projection: one server-localised `name`
+        chosen from `Accept-Language`, never both language columns. Inactive
+        areas are excluded.
+
+        **Cursor-paginated**, unlike the other two public vocabularies.
+        Fourteen allergen classes and twelve diet classifications are
+        constants; the gazetteer is 125 rows for one country today and grows
+        with every market.
+
+        `country_code` is **required**: area codes are unique within a country,
+        not across the platform, and a default would serve Lebanon to a
+        customer in Dubai. A code the platform does not recognise is `400`
+        rather than an empty page, which would read as "we do not deliver there
+        yet".
+
+        `region` is carried and is currently `null` on every row (OD-12): the
+        source does not record which governorate a place belongs to, and a
+        client that wants to group the picker can see that the platform has
+        nothing to group by.
+      parameters:
+        - name: country_code
+          in: query
+          required: true
+          description: ISO 3166-1 alpha-2. Case-insensitive.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of delivery areas, localised.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicDeliveryAreasEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     sessionCookie:
@@ -5930,6 +6615,41 @@ components:
           - type: string
             maxLength: 40
             pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    XBranchIdRequired:
+      name: X-Branch-Id
+      in: header
+      required: true
+      description: |
+        The active branch. Validated against the membership scope: a
+        branch-scoped membership may only work inside its own branch.
+
+        Required here rather than optional, because the resource *is* one
+        branch's. An absent header is `400 context.branch_required` — the
+        endpoint refuses rather than guessing which location the caller meant.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    DeliveryZonePath:
+      name: zone
+      in: path
+      required: true
+      description: The delivery zone identifier, or its `code`.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 40
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    DeliveryWindowPath:
+      name: window
+      in: path
+      required: true
+      description: The delivery window identifier, or its `code`.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 30
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
   responses:
     Accepted:
       description: Accepted for delivery.
@@ -6070,7 +6790,13 @@ components:
                   - Origin
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     ContextRequired:
-      description: The endpoint is organisation-scoped and no `X-Organisation-Id` was sent.
+      description: |
+        A context the endpoint needs was not supplied —
+        `context.organisation_required` for a missing `X-Organisation-Id`, and
+        `context.branch_required` for a missing `X-Branch-Id` on the
+        branch-scoped operations. Distinct from
+        `context.branch_out_of_scope` (403): the caller has not asked for a
+        branch they may not have, they have not asked for one at all.
       headers:
         X-Correlation-Id:
           $ref: '#/components/headers/XCorrelationId'
@@ -6550,6 +7276,41 @@ components:
                 cell_index: 0
                 existing_configuration: lunch-dinner-standard
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    DeliveryAreaConflict:
+      description: |
+        A place is already served by another zone **at the same scope**, and
+        `details.occupying_zones` names it by `code` while
+        `details.conflicts` pairs each offending area with the zone holding it.
+
+        The rule is one area, one zone **per branch**. An organisation-wide
+        zone and a branch-scoped zone may both claim the same area — that is
+        the override, resolved branch-first — so this conflict only ever means
+        two zones at *one* scope.
+
+        `details.scope` says which scope collided: `organisation` for the
+        organisation-wide map, `branch` for one location's.
+
+        Also served for a stale `If-Match`, as everywhere else.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: Another zone at the same scope already serves one of these areas. An area is served by one zone per branch — move it out of the other zone first.
+              details:
+                reason: area_already_served
+                scope: organisation
+                conflicts:
+                  - delivery_area_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                    delivery_zone_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d40
+                occupying_zones:
+                  - beirut-inner
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
   schemas:
     Uuid:
       type: string
@@ -6586,6 +7347,7 @@ components:
         - context.organisation_required
         - context.organisation_forbidden
         - context.branch_out_of_scope
+        - context.branch_required
         - authz.permission_denied
         - request.invalid
         - request.precondition_required
@@ -10952,5 +11714,737 @@ components:
                 type:
                   - boolean
                   - 'null'
+            additionalProperties: false
+      additionalProperties: false
+    DeliveryZoneStatus:
+      type: string
+      description: |
+        The **operational** lifecycle of a zone, not the sellable family. A
+        zone is configuration; what a customer sees is whether their address
+        can be delivered to.
+
+        `inactive` is a suspension a kitchen expects to reverse and it **keeps**
+        its area claims; `archived` is terminal and **releases** them.
+      enum:
+        - active
+        - inactive
+        - archived
+    DeliveryZoneScope:
+      type: string
+      description: |
+        Whether the zone is the organisation's default map or one branch's
+        override. Stated rather than inferred from a null `branch_id`, so a
+        client does not have to know that NULL is a meaningful value here.
+      enum:
+        - organisation
+        - branch
+    DeliveryZone:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - branch_id
+        - scope
+        - code
+        - name_en
+        - name_ar
+        - currency_code
+        - delivery_fee_minor
+        - minimum_order_minor
+        - estimated_minutes
+        - status
+        - is_active
+        - lock_version
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Null is the organisation-wide map.
+        scope:
+          $ref: '#/components/schemas/DeliveryZoneScope'
+        code:
+          type: string
+          maxLength: 40
+          description: Fixed at creation. A request carrying it on update is refused.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: |
+            ISO 4217. Both amounts on this zone are denominated in it, so they
+            are comparable by construction and there is no cross-currency
+            arithmetic anywhere.
+        delivery_fee_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: |
+            Integer minor units, never a formatted string and never a float.
+            **Null means nobody has decided what delivery costs**; `0` means
+            delivery is free. Those are different commercial statements and one
+            is never rendered as the other.
+        minimum_order_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Integer minor units. Null means no minimum has been stated.
+        estimated_minutes:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          description: A promise, not a measurement. Null means none has been made.
+        status:
+          $ref: '#/components/schemas/DeliveryZoneStatus'
+        is_active:
+          type: boolean
+          description: |
+            Whether this zone actually serves. Derived from `status`, so it
+            cannot disagree with it — only an `active` zone quotes a delivery.
+        source_system:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+        source_ref:
+          type:
+            - string
+            - 'null'
+          maxLength: 160
+        lock_version:
+          type: integer
+          minimum: 0
+          description: |
+            The optimistic-concurrency validator, echoed as the `ETag`. The
+            zone's **area set** is versioned against this same number.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    DeliveryZoneEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - delivery_zone
+          properties:
+            delivery_zone:
+              $ref: '#/components/schemas/DeliveryZone'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    DeliveryZoneDetailEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - delivery_zone
+          properties:
+            delivery_zone:
+              $ref: '#/components/schemas/DeliveryZone'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                area_count:
+                  type: integer
+                  minimum: 0
+                  description: How many places this zone covers. The places themselves are one request away.
+    DeliveryZonesEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryZone'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+    AdminDeliveryArea:
+      type: object
+      required:
+        - id
+        - country_code
+        - code
+        - name_en
+        - name_ar
+        - region
+        - display_order
+        - is_active
+      description: |
+        A platform place as an administrator sees it — both language columns
+        and the active flag, because a kitchen choosing areas needs to know
+        that one it already serves has been withdrawn.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        code:
+          type: string
+          maxLength: 60
+          description: Unique within the country, never globally — place names repeat across borders.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        region:
+          type:
+            - string
+            - 'null'
+          maxLength: 60
+          description: |
+            Governorate or district. **Null on every row today** (OD-12): the
+            source does not record it, and an invented grouping would look
+            exactly like data.
+        display_order:
+          type: integer
+        is_active:
+          type: boolean
+      additionalProperties: false
+    PublicDeliveryArea:
+      type: object
+      required:
+        - id
+        - country_code
+        - code
+        - name
+        - region
+        - display_order
+      description: |
+        The public projection: **one** server-localised `name`, never both
+        language columns.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        code:
+          type: string
+          maxLength: 60
+        name:
+          type: string
+          description: Rendered in the locale `meta.locale` names.
+        region:
+          type:
+            - string
+            - 'null'
+          maxLength: 60
+        display_order:
+          type: integer
+      additionalProperties: false
+    PublicDeliveryAreasEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicDeliveryArea'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/PaginationMeta'
+            - type: object
+              properties:
+                locale:
+                  type: string
+                  enum:
+                    - en
+                    - ar
+                  description: The locale the names were rendered in.
+                country_code:
+                  type: string
+                  minLength: 2
+                  maxLength: 2
+    DeliveryZoneAreasEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminDeliveryArea'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                inactive_area_count:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    How many of these places the platform has since withdrawn.
+                    The claims are kept rather than silently dropped; this is
+                    what a screen puts a warning badge on.
+                scope:
+                  $ref: '#/components/schemas/DeliveryZoneScope'
+    DeliveryWindow:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - code
+        - name_en
+        - name_ar
+        - starts_at
+        - ends_at
+        - weekdays
+        - display_order
+        - is_active
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 30
+          description: Fixed at creation. A request carrying it on update is refused.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        starts_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: |
+            A clock face in the branch's own timezone, `HH:MM` — not an
+            instant. Null exactly when `ends_at` is: a window somebody named
+            before deciding its hours is a legitimate half-finished state.
+        ends_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: |
+            Strictly after `starts_at`. **Overnight windows are not supported
+            yet** — a rollover rule order capture has not agreed to would be a
+            rule nobody has tested — so 22:00–02:00 is modelled as two windows.
+        weekdays:
+          type: array
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+          description: |
+            ISO-8601 weekdays, 1 = Monday … 7 = Sunday. **An empty array means
+            every day**, and it is the only encoding of that fact: all seven
+            normalises to `[]` on the way in, so two windows that run daily
+            never compare as different.
+        display_order:
+          type: integer
+        is_active:
+          type: boolean
+          description: The only withdrawal there is. No DELETE exists.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    DeliveryWindowEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - delivery_window
+          properties:
+            delivery_window:
+              $ref: '#/components/schemas/DeliveryWindow'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    DeliveryWindowsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryWindow'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                active_count:
+                  type: integer
+                  minimum: 0
+    BranchOperatingDay:
+      type: object
+      required:
+        - id
+        - branch_id
+        - weekday
+        - is_open
+        - opens_at
+        - closes_at
+        - order_cut_off_at
+      description: |
+        One weekday of one branch's week. A **closed day is a row** with both
+        times null — "we are shut on Sunday" and "nobody has filled in Sunday"
+        are different facts, and only the first is stored as a row.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        weekday:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: 'ISO-8601: 1 = Monday … 7 = Sunday.'
+        is_open:
+          type: boolean
+          description: Derived from the times, so it cannot disagree with them.
+        opens_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: A clock face in the branch's own timezone. Null exactly when `closes_at` is.
+        closes_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: Strictly after `opens_at`. No overnight service in this phase.
+        order_cut_off_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: |
+            The last moment an order for this day is accepted. **Null means
+            until the van leaves** — a kitchen with no cut-off has none, and
+            that is an answer rather than an omission. Only an open day may
+            carry one; it may fall outside the opening hours.
+      additionalProperties: false
+    BranchOperatingEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/BranchOperatingDay'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                configured_weekdays:
+                  type: array
+                  maxItems: 7
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 7
+                open_day_count:
+                  type: integer
+                  minimum: 0
+                  maximum: 7
+                is_complete:
+                  type: boolean
+                  description: Whether all seven days have been decided. Days nobody has decided about are absent, never invented.
+    CreateDeliveryZoneRequest:
+      type: object
+      required:
+        - code
+        - name_en
+      description: |
+        No `status`: a zone is created active, archiving is a POST action and
+        suspension is `is_active` on the update (master plan v2 §4.15).
+      properties:
+        code:
+          type: string
+          maxLength: 40
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: Defaults to the organisation's own currency.
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Omitted or null draws the organisation-wide map.
+        delivery_fee_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Leave it out to say nobody has decided. Send `0` to say delivery is free.
+        minimum_order_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        estimated_minutes:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+      additionalProperties: false
+    UpdateDeliveryZoneRequest:
+      type: object
+      description: |
+        Every field optional. `code` and `status` are **rejected**, not
+        ignored — a client that sent one believed it was writing something.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Re-scopes the zone **and its area claims together**. Refused with
+            `409 area_already_served` when the destination scope is taken.
+        delivery_fee_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        minimum_order_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        estimated_minutes:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+        is_active:
+          type: boolean
+          description: |
+            The reversible half of the lifecycle: `false` suspends the zone and
+            **keeps** its area claims. Archiving is the POST action, and it
+            releases them.
+      additionalProperties: false
+    ReplaceDeliveryZoneAreasRequest:
+      type: object
+      required:
+        - service_area_ids
+      description: |
+        The desired **whole** map. Areas absent from it are released, which is
+        the only way to hand a place to a different zone. An empty array is a
+        zone that covers nowhere — a legitimate intermediate state while a
+        kitchen redraws.
+      properties:
+        service_area_ids:
+          type: array
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    CreateDeliveryWindowRequest:
+      type: object
+      required:
+        - code
+        - name_en
+      properties:
+        code:
+          type: string
+          maxLength: 30
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        starts_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$
+          description: Both times or neither. Refused with the missing half named.
+        ends_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$
+        weekdays:
+          type:
+            - array
+            - 'null'
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+          description: Omitted, null, empty or all seven all mean **every day**, and all store as `[]`.
+        display_order:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        is_active:
+          type:
+            - boolean
+            - 'null'
+      additionalProperties: false
+    UpdateDeliveryWindowRequest:
+      type: object
+      description: |
+        Every field optional; `code` is **rejected**, not ignored. The pairing
+        and ordering rules run against the **merged** row, so sending only one
+        end compares it with the stored other.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        starts_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$
+        ends_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$
+        weekdays:
+          type:
+            - array
+            - 'null'
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        display_order:
+          type: integer
+          minimum: 0
+        is_active:
+          type: boolean
+      additionalProperties: false
+    ReplaceBranchOperatingRequest:
+      type: object
+      required:
+        - days
+      description: |
+        The desired **whole** week. An omitted weekday is a day nobody has
+        decided about; a day sent with no times is closed. An empty array
+        clears the week back to unconfigured.
+
+        There is no `branch_id`: the branch comes from `X-Branch-Id`, validated
+        against the caller's membership scope.
+      properties:
+        days:
+          type: array
+          maxItems: 7
+          items:
+            type: object
+            required:
+              - weekday
+            properties:
+              weekday:
+                type: integer
+                minimum: 1
+                maximum: 7
+                description: ISO-8601. Each weekday at most once — two rows for one day is a contradiction, not a split shift.
+              opens_at:
+                type:
+                  - string
+                  - 'null'
+                pattern: ^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$
+              closes_at:
+                type:
+                  - string
+                  - 'null'
+                pattern: ^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$
+              order_cut_off_at:
+                type:
+                  - string
+                  - 'null'
+                pattern: ^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$
+                description: Only an open day may carry one. It may fall outside the opening hours.
             additionalProperties: false
       additionalProperties: false

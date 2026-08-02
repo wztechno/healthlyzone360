@@ -30,7 +30,12 @@ use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Delivery\Enums\DeliveryZoneStatus;
+use Healthy360\Delivery\Models\DeliveryWindow;
+use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Delivery\Models\DeliveryZoneArea;
 use Healthy360\Identity\Models\UserProfile;
+use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Enums\OrganisationStatus;
@@ -45,6 +50,7 @@ use Healthy360\Pricing\Enums\PriceStatus;
 use Healthy360\Pricing\Models\ChannelPriceList;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Pricing\Models\PriceListItem;
+use Healthy360\ReferenceData\Models\DeliveryArea;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -123,8 +129,176 @@ class DemoTenantSeeder extends Seeder
 
         $this->seedVerdantTariff($verdant, $webShop, $verdantOwner);
         $this->seedVerdantPlan($verdant, $verdantOwner);
+        $this->seedVerdantDelivery($verdant, $alQuoz, $verdantOwner);
 
         $this->seedPlatformOperator();
+    }
+
+    /**
+     * The demonstration kitchen's delivery configuration (K1.7): six synthetic
+     * Emirati areas, two zones over them — one organisation-wide, one scoped to
+     * Al Quoz — two delivery windows, and a full seven-day operating week for
+     * the branch including one closed day.
+     *
+     * **The six areas are demo data, mechanism (b), not the platform
+     * gazetteer.** The committed gazetteer (`DeliveryAreaSeeder`, mechanism
+     * (a)) holds the 125 Lebanese names the source workbook lists and nothing
+     * else, because that is what the source says exists. Verdant is an Emirati
+     * kitchen, so demonstrating a zone at all needs Emirati places, and
+     * inventing six of them *into* the platform gazetteer would put fabricated
+     * geography in front of every tenant in every environment — the same class
+     * of mistake as a fabricated price. They are seeded here instead, in a
+     * `local`/`testing`-only seeder, and their codes say so: `ae-demo-*`.
+     * Nothing in production reads them, and the seeder test asserts the
+     * Lebanese count is exactly 125 with these excluded.
+     *
+     * **The two zones demonstrate the precedence rule.** `emirates-wide`
+     * covers four areas as the organisation's default map; `al-quoz-express`
+     * covers two of the same four from the branch, faster and dearer. That
+     * overlap is legal precisely because the unique key is
+     * `(organisation, branch, area)` with `NULLS NOT DISTINCT`, and
+     * `ZoneResolver` decides that the branch claim wins. It is the fixture the
+     * resolution order is worth testing against, and the one a reader of the
+     * schema would otherwise assume is a bug.
+     *
+     * **The week has a closed day and a cut-off.** Friday is closed — a row
+     * with no times, not a missing row — so the difference between "shut" and
+     * "nobody has said" is visible in the fixture rather than only in the
+     * tests.
+     */
+    private function seedVerdantDelivery(Organisation $verdant, OrganisationBranch $branch, User $creator): void
+    {
+        $alQuozArea = $this->demoArea('ae-demo-al-quoz', 'Al Quoz', 'القوز', 1);
+        $businessBay = $this->demoArea('ae-demo-business-bay', 'Business Bay', 'الخليج التجاري', 2);
+        $jumeirah = $this->demoArea('ae-demo-jumeirah', 'Jumeirah', 'جميرا', 3);
+        $deira = $this->demoArea('ae-demo-deira', 'Deira', 'ديرة', 4);
+        $alBarsha = $this->demoArea('ae-demo-al-barsha', 'Al Barsha', 'البرشاء', 5);
+        $this->demoArea('ae-demo-mirdif', 'Mirdif', 'مردف', 6);
+
+        $emiratesWide = $this->deliveryZone($verdant, null, 'emirates-wide', 'Emirates wide', 'كل الإمارات', 1500, 5000, 90, $creator);
+        $alQuozExpress = $this->deliveryZone($verdant, $branch, 'al-quoz-express', 'Al Quoz express', 'القوز السريع', 2500, 3000, 30, $creator);
+
+        $this->zoneAreas($emiratesWide, [$alQuozArea, $businessBay, $jumeirah, $deira], $creator);
+
+        // Two of the four again, from the branch. Legal, and the point: a
+        // customer in Al Quoz ordering from this branch gets 30 minutes at
+        // AED 25, and the same customer with no branch in context gets the
+        // organisation-wide 90 minutes at AED 15.
+        $this->zoneAreas($alQuozExpress, [$alQuozArea, $alBarsha], $creator);
+
+        $this->deliveryWindow($verdant, 'morning', 'Morning', 'صباحاً', '09:00:00', '12:00:00', [], 1, $creator);
+        $this->deliveryWindow($verdant, 'evening', 'Evening', 'مساءً', '18:00:00', '21:00:00', [1, 2, 3, 4], 2, $creator);
+
+        // Saturday to Thursday open, Friday closed. ISO weekdays: 5 is Friday.
+        foreach ([1, 2, 3, 4, 5, 6, 7] as $weekday) {
+            $closed = $weekday === 5;
+
+            BranchOpeningHour::withoutTenancy()->updateOrCreate(
+                ['branch_id' => $branch->getKey(), 'weekday' => $weekday],
+                [
+                    'organisation_id' => $verdant->getKey(),
+                    'opens_at' => $closed ? null : '08:00:00',
+                    'closes_at' => $closed ? null : ($weekday >= 6 ? '22:00:00' : '20:00:00'),
+                    'order_cut_off_at' => $closed ? null : '18:00:00',
+                    'created_by' => $creator->getKey(),
+                ],
+            );
+        }
+    }
+
+    /**
+     * A synthetic Emirati area — demo data, mechanism (b), never the committed
+     * gazetteer. The `ae-demo-` prefix is what says so at a glance and is what
+     * `DatabaseSeederTest` excludes when it pins the Lebanese count at 125.
+     */
+    private function demoArea(string $code, string $nameEn, string $nameAr, int $displayOrder): DeliveryArea
+    {
+        return DeliveryArea::query()->updateOrCreate(
+            ['country_code' => 'AE', 'code' => $code],
+            [
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'region' => null,
+                'display_order' => $displayOrder,
+                'is_active' => true,
+            ],
+        );
+    }
+
+    private function deliveryZone(
+        Organisation $organisation,
+        ?OrganisationBranch $branch,
+        string $code,
+        string $nameEn,
+        string $nameAr,
+        ?int $feeMinor,
+        ?int $minimumMinor,
+        ?int $estimatedMinutes,
+        User $creator,
+    ): DeliveryZone {
+        return DeliveryZone::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'code' => $code],
+            [
+                'branch_id' => $branch?->getKey(),
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'currency_code' => $organisation->default_currency_code,
+                'delivery_fee_minor' => $feeMinor,
+                'minimum_order_minor' => $minimumMinor,
+                'estimated_minutes' => $estimatedMinutes,
+                'status' => DeliveryZoneStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+    }
+
+    /**
+     * @param  list<DeliveryArea>  $areas
+     */
+    private function zoneAreas(DeliveryZone $zone, array $areas, User $creator): void
+    {
+        foreach ($areas as $area) {
+            DeliveryZoneArea::withoutTenancy()->updateOrCreate(
+                ['delivery_zone_id' => $zone->getKey(), 'delivery_area_id' => $area->getKey()],
+                [
+                    'organisation_id' => $zone->organisation_id,
+                    // The denormalised copy of the zone's scope — the column
+                    // the one-area-per-branch index reads.
+                    'branch_id' => $zone->branch_id,
+                    'created_by' => $creator->getKey(),
+                ],
+            );
+        }
+    }
+
+    /**
+     * @param  list<int>  $weekdays
+     */
+    private function deliveryWindow(
+        Organisation $organisation,
+        string $code,
+        string $nameEn,
+        string $nameAr,
+        ?string $startsAt,
+        ?string $endsAt,
+        array $weekdays,
+        int $displayOrder,
+        User $creator,
+    ): DeliveryWindow {
+        return DeliveryWindow::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'code' => $code],
+            [
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt,
+                'weekdays' => $weekdays,
+                'display_order' => $displayOrder,
+                'is_active' => true,
+                'created_by' => $creator->getKey(),
+            ],
+        );
     }
 
     /**

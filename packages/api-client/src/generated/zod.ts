@@ -34,6 +34,7 @@ export const zErrorCode = z.enum([
     'context.organisation_required',
     'context.organisation_forbidden',
     'context.branch_out_of_scope',
+    'context.branch_required',
     'authz.permission_denied',
     'request.invalid',
     'request.precondition_required',
@@ -1786,6 +1787,262 @@ export const zReplacePlanVariantDurationsRequest = z.object({
 });
 
 /**
+ * The **operational** lifecycle of a zone, not the sellable family. A
+ * zone is configuration; what a customer sees is whether their address
+ * can be delivered to.
+ *
+ * `inactive` is a suspension a kitchen expects to reverse and it **keeps**
+ * its area claims; `archived` is terminal and **releases** them.
+ *
+ */
+export const zDeliveryZoneStatus = z.enum([
+    'active',
+    'inactive',
+    'archived'
+]);
+
+/**
+ * Whether the zone is the organisation's default map or one branch's
+ * override. Stated rather than inferred from a null `branch_id`, so a
+ * client does not have to know that NULL is a meaningful value here.
+ *
+ */
+export const zDeliveryZoneScope = z.enum(['organisation', 'branch']);
+
+export const zDeliveryZone = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullable(),
+    scope: zDeliveryZoneScope,
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    currency_code: z.string().length(3),
+    delivery_fee_minor: z.int().gte(0).nullable(),
+    minimum_order_minor: z.int().gte(0).nullable(),
+    estimated_minutes: z.int().gte(1).nullable(),
+    status: zDeliveryZoneStatus,
+    is_active: z.boolean(),
+    source_system: z.string().max(40).nullish(),
+    source_ref: z.string().max(160).nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zDeliveryZoneEnvelope = z.object({
+    data: z.object({
+        delivery_zone: zDeliveryZone
+    }),
+    meta: zMeta
+});
+
+export const zDeliveryZoneDetailEnvelope = z.object({
+    data: z.object({
+        delivery_zone: zDeliveryZone
+    }),
+    meta: zMeta.and(z.object({
+        area_count: z.int().gte(0).optional()
+    }))
+});
+
+export const zDeliveryZonesEnvelope = z.object({
+    data: z.array(zDeliveryZone),
+    meta: zPaginationMeta
+});
+
+/**
+ * A platform place as an administrator sees it — both language columns
+ * and the active flag, because a kitchen choosing areas needs to know
+ * that one it already serves has been withdrawn.
+ *
+ */
+export const zAdminDeliveryArea = z.object({
+    id: zUuid,
+    country_code: z.string().length(2),
+    code: z.string().max(60),
+    name_en: z.string(),
+    name_ar: z.string(),
+    region: z.string().max(60).nullable(),
+    display_order: z.int(),
+    is_active: z.boolean()
+});
+
+/**
+ * The public projection: **one** server-localised `name`, never both
+ * language columns.
+ *
+ */
+export const zPublicDeliveryArea = z.object({
+    id: zUuid,
+    country_code: z.string().length(2),
+    code: z.string().max(60),
+    name: z.string(),
+    region: z.string().max(60).nullable(),
+    display_order: z.int()
+});
+
+export const zPublicDeliveryAreasEnvelope = z.object({
+    data: z.array(zPublicDeliveryArea),
+    meta: zPaginationMeta.and(z.object({
+        locale: z.enum(['en', 'ar']).optional(),
+        country_code: z.string().length(2).optional()
+    }))
+});
+
+export const zDeliveryZoneAreasEnvelope = z.object({
+    data: z.array(zAdminDeliveryArea),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        inactive_area_count: z.int().gte(0).optional(),
+        scope: zDeliveryZoneScope.optional()
+    }))
+});
+
+export const zDeliveryWindow = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    code: z.string().max(30),
+    name_en: z.string(),
+    name_ar: z.string(),
+    starts_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    ends_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    weekdays: z.array(z.int().gte(1).lte(7)).max(7),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zDeliveryWindowEnvelope = z.object({
+    data: z.object({
+        delivery_window: zDeliveryWindow
+    }),
+    meta: zMeta
+});
+
+export const zDeliveryWindowsEnvelope = z.object({
+    data: z.array(zDeliveryWindow),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        active_count: z.int().gte(0).optional()
+    }))
+});
+
+/**
+ * One weekday of one branch's week. A **closed day is a row** with both
+ * times null — "we are shut on Sunday" and "nobody has filled in Sunday"
+ * are different facts, and only the first is stored as a row.
+ *
+ */
+export const zBranchOperatingDay = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    weekday: z.int().gte(1).lte(7),
+    is_open: z.boolean(),
+    opens_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    closes_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    order_cut_off_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable()
+});
+
+export const zBranchOperatingEnvelope = z.object({
+    data: z.array(zBranchOperatingDay).max(7),
+    meta: zMeta.and(z.object({
+        configured_weekdays: z.array(z.int().gte(1).lte(7)).max(7).optional(),
+        open_day_count: z.int().gte(0).lte(7).optional(),
+        is_complete: z.boolean().optional()
+    }))
+});
+
+/**
+ * No `status`: a zone is created active, archiving is a POST action and
+ * suspension is `is_active` on the update (master plan v2 §4.15).
+ *
+ */
+export const zCreateDeliveryZoneRequest = z.object({
+    code: z.string().max(40),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    branch_id: zUuid.nullish(),
+    delivery_fee_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    estimated_minutes: z.int().gte(1).nullish()
+});
+
+/**
+ * Every field optional. `code` and `status` are **rejected**, not
+ * ignored — a client that sent one believed it was writing something.
+ *
+ */
+export const zUpdateDeliveryZoneRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3).optional(),
+    branch_id: zUuid.nullish(),
+    delivery_fee_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    estimated_minutes: z.int().gte(1).nullish(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * The desired **whole** map. Areas absent from it are released, which is
+ * the only way to hand a place to a different zone. An empty array is a
+ * zone that covers nowhere — a legitimate intermediate state while a
+ * kitchen redraws.
+ *
+ */
+export const zReplaceDeliveryZoneAreasRequest = z.object({
+    service_area_ids: z.array(zUuid).max(500)
+});
+
+export const zCreateDeliveryWindowRequest = z.object({
+    code: z.string().max(30),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    starts_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    ends_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    weekdays: z.array(z.int().gte(1).lte(7)).max(7).nullish(),
+    display_order: z.int().gte(0).nullish(),
+    is_active: z.boolean().nullish()
+});
+
+/**
+ * Every field optional; `code` is **rejected**, not ignored. The pairing
+ * and ordering rules run against the **merged** row, so sending only one
+ * end compares it with the stored other.
+ *
+ */
+export const zUpdateDeliveryWindowRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    starts_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    ends_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    weekdays: z.array(z.int().gte(1).lte(7)).max(7).nullish(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * The desired **whole** week. An omitted weekday is a day nobody has
+ * decided about; a day sent with no times is closed. An empty array
+ * clears the week back to unconfigured.
+ *
+ * There is no `branch_id`: the branch comes from `X-Branch-Id`, validated
+ * against the caller's membership scope.
+ *
+ */
+export const zReplaceBranchOperatingRequest = z.object({
+    days: z.array(z.object({
+        weekday: z.int().gte(1).lte(7),
+        opens_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+        closes_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+        order_cut_off_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish()
+    })).max(7)
+});
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -1950,6 +2207,33 @@ export const zEnergyBandPath = z.union([
 export const zPlanDurationPath = z.union([
     zUuid,
     z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The active branch. Validated against the membership scope: a
+ * branch-scoped membership may only work inside its own branch.
+ *
+ * Required here rather than optional, because the resource *is* one
+ * branch's. An absent header is `400 context.branch_required` — the
+ * endpoint refuses rather than guessing which location the caller meant.
+ *
+ */
+export const zXBranchIdRequired = zUuid;
+
+/**
+ * The delivery zone identifier, or its `code`.
+ */
+export const zDeliveryZonePath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The delivery window identifier, or its `code`.
+ */
+export const zDeliveryWindowPath = z.union([
+    zUuid,
+    z.string().max(30).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 ]);
 
 export const zRegisterUserBody = zRegisterRequest;
@@ -3835,3 +4119,209 @@ export const zReplacePlanVariantDurationsPath = z.object({
  * The plan and its duration assignments after the write.
  */
 export const zReplacePlanVariantDurationsResponse = zPlanVariantDurationsEnvelope;
+
+export const zListDeliveryZonesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryZonesQuery = z.object({
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    status: zDeliveryZoneStatus.optional(),
+    branch_id: z.union([
+        zUuid,
+        z.literal('organisation')
+    ]).optional(),
+    query: z.string().max(120).optional()
+});
+
+/**
+ * A page of delivery zones.
+ */
+export const zListDeliveryZonesResponse = zDeliveryZonesEnvelope;
+
+export const zCreateDeliveryZoneBody = zCreateDeliveryZoneRequest;
+
+export const zCreateDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The zone as created.
+ */
+export const zCreateDeliveryZoneResponse = zDeliveryZoneEnvelope;
+
+export const zGetDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetDeliveryZonePath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The delivery zone.
+ */
+export const zGetDeliveryZoneResponse = zDeliveryZoneDetailEnvelope;
+
+export const zUpdateDeliveryZoneBody = zUpdateDeliveryZoneRequest;
+
+export const zUpdateDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateDeliveryZonePath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The zone after the write.
+ */
+export const zUpdateDeliveryZoneResponse = zDeliveryZoneEnvelope;
+
+export const zArchiveDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveDeliveryZonePath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The archived zone.
+ */
+export const zArchiveDeliveryZoneResponse = zDeliveryZoneEnvelope;
+
+export const zListDeliveryZoneAreasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryZoneAreasPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The areas this zone covers.
+ */
+export const zListDeliveryZoneAreasResponse = zDeliveryZoneAreasEnvelope;
+
+export const zReplaceDeliveryZoneAreasBody = zReplaceDeliveryZoneAreasRequest;
+
+export const zReplaceDeliveryZoneAreasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceDeliveryZoneAreasPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The areas this zone covers after the write.
+ */
+export const zReplaceDeliveryZoneAreasResponse = zDeliveryZoneAreasEnvelope;
+
+export const zListDeliveryWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every delivery window, active and withdrawn.
+ */
+export const zListDeliveryWindowsResponse = zDeliveryWindowsEnvelope;
+
+export const zCreateDeliveryWindowBody = zCreateDeliveryWindowRequest;
+
+export const zCreateDeliveryWindowHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The window as created.
+ */
+export const zCreateDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
+export const zUpdateDeliveryWindowBody = zUpdateDeliveryWindowRequest;
+
+export const zUpdateDeliveryWindowHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateDeliveryWindowPath = z.object({
+    window: z.union([
+        zUuid,
+        z.string().max(30).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The window after the write.
+ */
+export const zUpdateDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
+export const zGetBranchOperatingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The branch's week, in weekday order.
+ */
+export const zGetBranchOperatingResponse = zBranchOperatingEnvelope;
+
+export const zReplaceBranchOperatingBody = zReplaceBranchOperatingRequest;
+
+export const zReplaceBranchOperatingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The branch's week after the write.
+ */
+export const zReplaceBranchOperatingResponse = zBranchOperatingEnvelope;
+
+export const zListDeliveryAreasHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryAreasQuery = z.object({
+    country_code: z.string().length(2),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of delivery areas, localised.
+ */
+export const zListDeliveryAreasResponse = zPublicDeliveryAreasEnvelope;

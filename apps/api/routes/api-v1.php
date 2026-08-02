@@ -37,6 +37,17 @@ use Healthy360\Catalogues\Http\Controllers\SalesChannelIndexController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelShowController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelStoreController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelUpdateController;
+use Healthy360\Delivery\Http\Controllers\DeliveryWindowIndexController;
+use Healthy360\Delivery\Http\Controllers\DeliveryWindowStoreController;
+use Healthy360\Delivery\Http\Controllers\DeliveryWindowUpdateController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneArchiveController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneAreaIndexController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneAreaReplaceController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneIndexController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneShowController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneStoreController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneUpdateController;
+use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
 use Healthy360\Identity\Http\Controllers\ContextController;
 use Healthy360\Identity\Http\Controllers\DeviceController;
 use Healthy360\Identity\Http\Controllers\MeController;
@@ -54,6 +65,8 @@ use Healthy360\Ingredients\Http\Controllers\IngredientIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
+use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
+use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
@@ -525,6 +538,105 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
                 Route::get('/plans/{item}/profile', PlanProfileShowController::class)->name('catalogue.plans.profile.show');
             });
+
+            /*
+            |--------------------------------------------------------------
+            | Delivery configuration — zones, areas and windows (K1.7)
+            |--------------------------------------------------------------
+            |
+            | A fourth permission domain, `delivery_zone.*`, and **one code
+            | rather than a pair**. The K1.6 argument decides it: there is no
+            | screen that could sensibly show a kitchen where it delivers while
+            | withholding the ability to change it, and a read code no screen
+            | could withhold is bookkeeping rather than authority.
+            |
+            | Its own domain rather than more `catalogue.*` because where a
+            | kitchen delivers, what it charges to get there and what it will
+            | not go below are decisions about *logistics*. A merchandiser who
+            | can rename a product has no business redrawing the delivery map.
+            | Held by the kitchen manager and the commercial manager — the fee
+            | and the minimum order are prices, which is the commercial role's
+            | whole job — and by neither the chef nor kitchen staff.
+            |
+            | **Windows ride the same code.** When the van goes is the same
+            | kind of decision as where it goes, and a second code for the
+            | other half of one screen would be ceremony.
+            |
+            | `precondition` guards the zone writes, and on `…/areas` the
+            | validator is the **zone's**: a zone and its map are one document,
+            | and two operators redrawing at once is the race it catches. The
+            | window PATCH is precondition-free because those rows carry no
+            | `lock_version` — the rule the K1.6 vocabularies follow.
+            |
+            | `{zone}` and `{window}` accept an identifier or the row's own
+            | `code`: a client that walked the list holds one, an operator or
+            | an importer holds the other.
+            |
+            | There is no DELETE anywhere in this family. A zone archives —
+            | releasing its area claims — and a window deactivates, because an
+            | order taken for the evening slot has to stay explainable.
+            |
+            */
+            Route::middleware('permission:delivery_zone.manage_organisation')->group(function (): void {
+                Route::get('/delivery-zones', DeliveryZoneIndexController::class)->name('catalogue.delivery-zones.index');
+                Route::post('/delivery-zones', DeliveryZoneStoreController::class)->name('catalogue.delivery-zones.store');
+                Route::get('/delivery-zones/{zone}', DeliveryZoneShowController::class)->name('catalogue.delivery-zones.show');
+
+                Route::patch('/delivery-zones/{zone}', DeliveryZoneUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.delivery-zones.update');
+
+                Route::post('/delivery-zones/{zone}/archive', DeliveryZoneArchiveController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.delivery-zones.archive');
+
+                Route::get('/delivery-zones/{zone}/areas', DeliveryZoneAreaIndexController::class)->name('catalogue.delivery-zones.areas.index');
+
+                Route::put('/delivery-zones/{zone}/areas', DeliveryZoneAreaReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.delivery-zones.areas.replace');
+
+                Route::get('/delivery-windows', DeliveryWindowIndexController::class)->name('catalogue.delivery-windows.index');
+                Route::post('/delivery-windows', DeliveryWindowStoreController::class)->name('catalogue.delivery-windows.store');
+                Route::patch('/delivery-windows/{window}', DeliveryWindowUpdateController::class)->name('catalogue.delivery-windows.update');
+            });
+        });
+
+        /*
+        |------------------------------------------------------------------
+        | Kitchen operating data (K1.7)
+        |------------------------------------------------------------------
+        |
+        | The one family in the kitchen programme that is **branch-scoped**.
+        | Opening hours are a fact about a place, so `branch.context` is
+        | required rather than optional here, and the branch comes from
+        | `X-Branch-Id` — never from the body, which would be a second and
+        | unvalidated way to name a branch. The middleware permits an absent
+        | header (an organisation-wide membership may select no branch), so the
+        | service refuses that case explicitly with
+        | `400 context.branch_required` rather than guessing.
+        |
+        | The permissions are the **foundation `branch.*` pair**, not a new
+        | code. When a branch is open is a fact about the branch, and
+        | `branch.view_current` / `branch.manage_current` already exist for
+        | exactly that subject — a branch manager who can open and close a
+        | branch can plainly state when it trades. K1.7 adds
+        | `branch.manage_current` to the kitchen-manager template, which
+        | previously held only the read.
+        |
+        | No `If-Match`: the week is replaced whole in one transaction, so
+        | there is no half-week for a validator to protect and the rows carry
+        | no `lock_version`.
+        |
+        */
+        Route::middleware(['org.context', 'branch.context'])->prefix('/kitchen')->group(function (): void {
+            Route::get('/branch-operating', BranchOperatingShowController::class)
+                ->middleware('permission:branch.view_current')
+                ->name('kitchen.branch-operating.show');
+
+            Route::put('/branch-operating', BranchOperatingReplaceController::class)
+                ->middleware('permission:branch.manage_current')
+                ->name('kitchen.branch-operating.replace');
         });
 
         /*
@@ -573,3 +685,14 @@ Route::get('/reference/allergen-classes', PublicAllergenClassIndexController::cl
 // medical restriction — what a dish contains is the allergen list above.
 Route::get('/reference/diet-classifications', PublicDietClassificationIndexController::class)
     ->name('reference.diet-classifications.index');
+
+// Anonymous for a sharper version of the same reason (K1.7): J1's onboarding
+// asks a customer for their delivery area *before* an account exists, so an
+// address form that only works after sign-in cannot be part of sign-up.
+//
+// The one public list here that is **cursor-paginated**. Fourteen allergen
+// classes and twelve diet classifications are constants; the gazetteer is 125
+// rows for one country and grows with every market. `country_code` is required
+// — area codes are unique within a country, not across the platform.
+Route::get('/reference/delivery-areas', PublicDeliveryAreaIndexController::class)
+    ->name('reference.delivery-areas.index');

@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -2352,6 +2352,396 @@ export type ReplacePlanVariantDurationsRequest = {
 };
 
 /**
+ * The **operational** lifecycle of a zone, not the sellable family. A
+ * zone is configuration; what a customer sees is whether their address
+ * can be delivered to.
+ *
+ * `inactive` is a suspension a kitchen expects to reverse and it **keeps**
+ * its area claims; `archived` is terminal and **releases** them.
+ *
+ */
+export type DeliveryZoneStatus = 'active' | 'inactive' | 'archived';
+
+/**
+ * Whether the zone is the organisation's default map or one branch's
+ * override. Stated rather than inferred from a null `branch_id`, so a
+ * client does not have to know that NULL is a meaningful value here.
+ *
+ */
+export type DeliveryZoneScope = 'organisation' | 'branch';
+
+export type DeliveryZone = {
+    id: Uuid;
+    organisation_id: Uuid;
+    /**
+     * Null is the organisation-wide map.
+     */
+    branch_id: Uuid | null;
+    scope: DeliveryZoneScope;
+    /**
+     * Fixed at creation. A request carrying it on update is refused.
+     */
+    code: string;
+    name_en: string;
+    name_ar: string;
+    /**
+     * ISO 4217. Both amounts on this zone are denominated in it, so they
+     * are comparable by construction and there is no cross-currency
+     * arithmetic anywhere.
+     *
+     */
+    currency_code: string;
+    /**
+     * Integer minor units, never a formatted string and never a float.
+     * **Null means nobody has decided what delivery costs**; `0` means
+     * delivery is free. Those are different commercial statements and one
+     * is never rendered as the other.
+     *
+     */
+    delivery_fee_minor: number | null;
+    /**
+     * Integer minor units. Null means no minimum has been stated.
+     */
+    minimum_order_minor: number | null;
+    /**
+     * A promise, not a measurement. Null means none has been made.
+     */
+    estimated_minutes: number | null;
+    status: DeliveryZoneStatus;
+    /**
+     * Whether this zone actually serves. Derived from `status`, so it
+     * cannot disagree with it — only an `active` zone quotes a delivery.
+     *
+     */
+    is_active: boolean;
+    source_system?: string | null;
+    source_ref?: string | null;
+    /**
+     * The optimistic-concurrency validator, echoed as the `ETag`. The
+     * zone's **area set** is versioned against this same number.
+     *
+     */
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type DeliveryZoneEnvelope = {
+    data: {
+        delivery_zone: DeliveryZone;
+    };
+    meta: Meta;
+};
+
+export type DeliveryZoneDetailEnvelope = {
+    data: {
+        delivery_zone: DeliveryZone;
+    };
+    meta: Meta & {
+        /**
+         * How many places this zone covers. The places themselves are one request away.
+         */
+        area_count?: number;
+    };
+};
+
+export type DeliveryZonesEnvelope = {
+    data: Array<DeliveryZone>;
+    meta: PaginationMeta;
+};
+
+/**
+ * A platform place as an administrator sees it — both language columns
+ * and the active flag, because a kitchen choosing areas needs to know
+ * that one it already serves has been withdrawn.
+ *
+ */
+export type AdminDeliveryArea = {
+    id: Uuid;
+    country_code: string;
+    /**
+     * Unique within the country, never globally — place names repeat across borders.
+     */
+    code: string;
+    name_en: string;
+    name_ar: string;
+    /**
+     * Governorate or district. **Null on every row today** (OD-12): the
+     * source does not record it, and an invented grouping would look
+     * exactly like data.
+     *
+     */
+    region: string | null;
+    display_order: number;
+    is_active: boolean;
+};
+
+/**
+ * The public projection: **one** server-localised `name`, never both
+ * language columns.
+ *
+ */
+export type PublicDeliveryArea = {
+    id: Uuid;
+    country_code: string;
+    code: string;
+    /**
+     * Rendered in the locale `meta.locale` names.
+     */
+    name: string;
+    region: string | null;
+    display_order: number;
+};
+
+export type PublicDeliveryAreasEnvelope = {
+    data: Array<PublicDeliveryArea>;
+    meta: PaginationMeta & {
+        /**
+         * The locale the names were rendered in.
+         */
+        locale?: 'en' | 'ar';
+        country_code?: string;
+    };
+};
+
+export type DeliveryZoneAreasEnvelope = {
+    data: Array<AdminDeliveryArea>;
+    meta: Meta & {
+        count?: number;
+        /**
+         * How many of these places the platform has since withdrawn.
+         * The claims are kept rather than silently dropped; this is
+         * what a screen puts a warning badge on.
+         *
+         */
+        inactive_area_count?: number;
+        scope?: DeliveryZoneScope;
+    };
+};
+
+export type DeliveryWindow = {
+    id: Uuid;
+    organisation_id: Uuid;
+    /**
+     * Fixed at creation. A request carrying it on update is refused.
+     */
+    code: string;
+    name_en: string;
+    name_ar: string;
+    /**
+     * A clock face in the branch's own timezone, `HH:MM` — not an
+     * instant. Null exactly when `ends_at` is: a window somebody named
+     * before deciding its hours is a legitimate half-finished state.
+     *
+     */
+    starts_at: string | null;
+    /**
+     * Strictly after `starts_at`. **Overnight windows are not supported
+     * yet** — a rollover rule order capture has not agreed to would be a
+     * rule nobody has tested — so 22:00–02:00 is modelled as two windows.
+     *
+     */
+    ends_at: string | null;
+    /**
+     * ISO-8601 weekdays, 1 = Monday … 7 = Sunday. **An empty array means
+     * every day**, and it is the only encoding of that fact: all seven
+     * normalises to `[]` on the way in, so two windows that run daily
+     * never compare as different.
+     *
+     */
+    weekdays: Array<number>;
+    display_order: number;
+    /**
+     * The only withdrawal there is. No DELETE exists.
+     */
+    is_active: boolean;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type DeliveryWindowEnvelope = {
+    data: {
+        delivery_window: DeliveryWindow;
+    };
+    meta: Meta;
+};
+
+export type DeliveryWindowsEnvelope = {
+    data: Array<DeliveryWindow>;
+    meta: Meta & {
+        count?: number;
+        active_count?: number;
+    };
+};
+
+/**
+ * One weekday of one branch's week. A **closed day is a row** with both
+ * times null — "we are shut on Sunday" and "nobody has filled in Sunday"
+ * are different facts, and only the first is stored as a row.
+ *
+ */
+export type BranchOperatingDay = {
+    id: Uuid;
+    branch_id: Uuid;
+    /**
+     * ISO-8601: 1 = Monday … 7 = Sunday.
+     */
+    weekday: number;
+    /**
+     * Derived from the times, so it cannot disagree with them.
+     */
+    is_open: boolean;
+    /**
+     * A clock face in the branch's own timezone. Null exactly when `closes_at` is.
+     */
+    opens_at: string | null;
+    /**
+     * Strictly after `opens_at`. No overnight service in this phase.
+     */
+    closes_at: string | null;
+    /**
+     * The last moment an order for this day is accepted. **Null means
+     * until the van leaves** — a kitchen with no cut-off has none, and
+     * that is an answer rather than an omission. Only an open day may
+     * carry one; it may fall outside the opening hours.
+     *
+     */
+    order_cut_off_at: string | null;
+};
+
+export type BranchOperatingEnvelope = {
+    data: Array<BranchOperatingDay>;
+    meta: Meta & {
+        configured_weekdays?: Array<number>;
+        open_day_count?: number;
+        /**
+         * Whether all seven days have been decided. Days nobody has decided about are absent, never invented.
+         */
+        is_complete?: boolean;
+    };
+};
+
+/**
+ * No `status`: a zone is created active, archiving is a POST action and
+ * suspension is `is_active` on the update (master plan v2 §4.15).
+ *
+ */
+export type CreateDeliveryZoneRequest = {
+    code: string;
+    name_en: string;
+    name_ar?: string | null;
+    /**
+     * Defaults to the organisation's own currency.
+     */
+    currency_code?: string | null;
+    /**
+     * Omitted or null draws the organisation-wide map.
+     */
+    branch_id?: Uuid | null;
+    /**
+     * Leave it out to say nobody has decided. Send `0` to say delivery is free.
+     */
+    delivery_fee_minor?: number | null;
+    minimum_order_minor?: number | null;
+    estimated_minutes?: number | null;
+};
+
+/**
+ * Every field optional. `code` and `status` are **rejected**, not
+ * ignored — a client that sent one believed it was writing something.
+ *
+ */
+export type UpdateDeliveryZoneRequest = {
+    name_en?: string;
+    name_ar?: string | null;
+    currency_code?: string;
+    /**
+     * Re-scopes the zone **and its area claims together**. Refused with
+     * `409 area_already_served` when the destination scope is taken.
+     *
+     */
+    branch_id?: Uuid | null;
+    delivery_fee_minor?: number | null;
+    minimum_order_minor?: number | null;
+    estimated_minutes?: number | null;
+    /**
+     * The reversible half of the lifecycle: `false` suspends the zone and
+     * **keeps** its area claims. Archiving is the POST action, and it
+     * releases them.
+     *
+     */
+    is_active?: boolean;
+};
+
+/**
+ * The desired **whole** map. Areas absent from it are released, which is
+ * the only way to hand a place to a different zone. An empty array is a
+ * zone that covers nowhere — a legitimate intermediate state while a
+ * kitchen redraws.
+ *
+ */
+export type ReplaceDeliveryZoneAreasRequest = {
+    service_area_ids: Array<Uuid>;
+};
+
+export type CreateDeliveryWindowRequest = {
+    code: string;
+    name_en: string;
+    name_ar?: string | null;
+    /**
+     * Both times or neither. Refused with the missing half named.
+     */
+    starts_at?: string | null;
+    ends_at?: string | null;
+    /**
+     * Omitted, null, empty or all seven all mean **every day**, and all store as `[]`.
+     */
+    weekdays?: Array<number> | null;
+    display_order?: number | null;
+    is_active?: boolean | null;
+};
+
+/**
+ * Every field optional; `code` is **rejected**, not ignored. The pairing
+ * and ordering rules run against the **merged** row, so sending only one
+ * end compares it with the stored other.
+ *
+ */
+export type UpdateDeliveryWindowRequest = {
+    name_en?: string;
+    name_ar?: string | null;
+    starts_at?: string | null;
+    ends_at?: string | null;
+    weekdays?: Array<number> | null;
+    display_order?: number;
+    is_active?: boolean;
+};
+
+/**
+ * The desired **whole** week. An omitted weekday is a day nobody has
+ * decided about; a day sent with no times is closed. An empty array
+ * clears the week back to unconfigured.
+ *
+ * There is no `branch_id`: the branch comes from `X-Branch-Id`, validated
+ * against the caller's membership scope.
+ *
+ */
+export type ReplaceBranchOperatingRequest = {
+    days: Array<{
+        /**
+         * ISO-8601. Each weekday at most once — two rows for one day is a contradiction, not a split shift.
+         */
+        weekday: number;
+        opens_at?: string | null;
+        closes_at?: string | null;
+        /**
+         * Only an open day may carry one. It may fall outside the opening hours.
+         */
+        order_cut_off_at?: string | null;
+    }>;
+};
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -2486,6 +2876,27 @@ export type EnergyBandPath = Uuid | string;
  * The plan duration identifier, or its `code`.
  */
 export type PlanDurationPath = Uuid | string;
+
+/**
+ * The active branch. Validated against the membership scope: a
+ * branch-scoped membership may only work inside its own branch.
+ *
+ * Required here rather than optional, because the resource *is* one
+ * branch's. An absent header is `400 context.branch_required` — the
+ * endpoint refuses rather than guessing which location the caller meant.
+ *
+ */
+export type XBranchIdRequired = Uuid;
+
+/**
+ * The delivery zone identifier, or its `code`.
+ */
+export type DeliveryZonePath = Uuid | string;
+
+/**
+ * The delivery window identifier, or its `code`.
+ */
+export type DeliveryWindowPath = Uuid | string;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -3719,7 +4130,13 @@ export type ShowCurrentOrganisationData = {
 
 export type ShowCurrentOrganisationErrors = {
     /**
-     * The endpoint is organisation-scoped and no `X-Organisation-Id` was sent.
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
      */
     400: ErrorEnvelope;
     /**
@@ -9775,3 +10192,963 @@ export type ReplacePlanVariantDurationsResponses = {
 };
 
 export type ReplacePlanVariantDurationsResponse = ReplacePlanVariantDurationsResponses[keyof ReplacePlanVariantDurationsResponses];
+
+export type ListDeliveryZonesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * Defaults to everything except `archived`.
+         */
+        status?: DeliveryZoneStatus;
+        /**
+         * A branch identifier, or the literal `organisation` for the
+         * organisation-wide map.
+         *
+         */
+        branch_id?: Uuid | 'organisation';
+        /**
+         * Case-insensitive substring over `name_en`, `name_ar` and `code`.
+         */
+        query?: string;
+    };
+    url: '/catalogue/delivery-zones';
+};
+
+export type ListDeliveryZonesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDeliveryZonesError = ListDeliveryZonesErrors[keyof ListDeliveryZonesErrors];
+
+export type ListDeliveryZonesResponses = {
+    /**
+     * A page of delivery zones.
+     */
+    200: DeliveryZonesEnvelope;
+};
+
+export type ListDeliveryZonesResponse = ListDeliveryZonesResponses[keyof ListDeliveryZonesResponses];
+
+export type CreateDeliveryZoneData = {
+    body: CreateDeliveryZoneRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/delivery-zones';
+};
+
+export type CreateDeliveryZoneErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateDeliveryZoneError = CreateDeliveryZoneErrors[keyof CreateDeliveryZoneErrors];
+
+export type CreateDeliveryZoneResponses = {
+    /**
+     * The zone as created.
+     */
+    201: DeliveryZoneEnvelope;
+};
+
+export type CreateDeliveryZoneResponse = CreateDeliveryZoneResponses[keyof CreateDeliveryZoneResponses];
+
+export type GetDeliveryZoneData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}';
+};
+
+export type GetDeliveryZoneErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetDeliveryZoneError = GetDeliveryZoneErrors[keyof GetDeliveryZoneErrors];
+
+export type GetDeliveryZoneResponses = {
+    /**
+     * The delivery zone.
+     */
+    200: DeliveryZoneDetailEnvelope;
+};
+
+export type GetDeliveryZoneResponse = GetDeliveryZoneResponses[keyof GetDeliveryZoneResponses];
+
+export type UpdateDeliveryZoneData = {
+    body: UpdateDeliveryZoneRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}';
+};
+
+export type UpdateDeliveryZoneErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * A place is already served by another zone **at the same scope**, and
+     * `details.occupying_zones` names it by `code` while
+     * `details.conflicts` pairs each offending area with the zone holding it.
+     *
+     * The rule is one area, one zone **per branch**. An organisation-wide
+     * zone and a branch-scoped zone may both claim the same area — that is
+     * the override, resolved branch-first — so this conflict only ever means
+     * two zones at *one* scope.
+     *
+     * `details.scope` says which scope collided: `organisation` for the
+     * organisation-wide map, `branch` for one location's.
+     *
+     * Also served for a stale `If-Match`, as everywhere else.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateDeliveryZoneError = UpdateDeliveryZoneErrors[keyof UpdateDeliveryZoneErrors];
+
+export type UpdateDeliveryZoneResponses = {
+    /**
+     * The zone after the write.
+     */
+    200: DeliveryZoneEnvelope;
+};
+
+export type UpdateDeliveryZoneResponse = UpdateDeliveryZoneResponses[keyof UpdateDeliveryZoneResponses];
+
+export type ArchiveDeliveryZoneData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}/archive';
+};
+
+export type ArchiveDeliveryZoneErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveDeliveryZoneError = ArchiveDeliveryZoneErrors[keyof ArchiveDeliveryZoneErrors];
+
+export type ArchiveDeliveryZoneResponses = {
+    /**
+     * The archived zone.
+     */
+    200: DeliveryZoneEnvelope;
+};
+
+export type ArchiveDeliveryZoneResponse = ArchiveDeliveryZoneResponses[keyof ArchiveDeliveryZoneResponses];
+
+export type ListDeliveryZoneAreasData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}/areas';
+};
+
+export type ListDeliveryZoneAreasErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDeliveryZoneAreasError = ListDeliveryZoneAreasErrors[keyof ListDeliveryZoneAreasErrors];
+
+export type ListDeliveryZoneAreasResponses = {
+    /**
+     * The areas this zone covers.
+     */
+    200: DeliveryZoneAreasEnvelope;
+};
+
+export type ListDeliveryZoneAreasResponse = ListDeliveryZoneAreasResponses[keyof ListDeliveryZoneAreasResponses];
+
+export type ReplaceDeliveryZoneAreasData = {
+    body: ReplaceDeliveryZoneAreasRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}/areas';
+};
+
+export type ReplaceDeliveryZoneAreasErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * A place is already served by another zone **at the same scope**, and
+     * `details.occupying_zones` names it by `code` while
+     * `details.conflicts` pairs each offending area with the zone holding it.
+     *
+     * The rule is one area, one zone **per branch**. An organisation-wide
+     * zone and a branch-scoped zone may both claim the same area — that is
+     * the override, resolved branch-first — so this conflict only ever means
+     * two zones at *one* scope.
+     *
+     * `details.scope` says which scope collided: `organisation` for the
+     * organisation-wide map, `branch` for one location's.
+     *
+     * Also served for a stale `If-Match`, as everywhere else.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceDeliveryZoneAreasError = ReplaceDeliveryZoneAreasErrors[keyof ReplaceDeliveryZoneAreasErrors];
+
+export type ReplaceDeliveryZoneAreasResponses = {
+    /**
+     * The areas this zone covers after the write.
+     */
+    200: DeliveryZoneAreasEnvelope;
+};
+
+export type ReplaceDeliveryZoneAreasResponse = ReplaceDeliveryZoneAreasResponses[keyof ReplaceDeliveryZoneAreasResponses];
+
+export type ListDeliveryWindowsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/delivery-windows';
+};
+
+export type ListDeliveryWindowsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDeliveryWindowsError = ListDeliveryWindowsErrors[keyof ListDeliveryWindowsErrors];
+
+export type ListDeliveryWindowsResponses = {
+    /**
+     * Every delivery window, active and withdrawn.
+     */
+    200: DeliveryWindowsEnvelope;
+};
+
+export type ListDeliveryWindowsResponse = ListDeliveryWindowsResponses[keyof ListDeliveryWindowsResponses];
+
+export type CreateDeliveryWindowData = {
+    body: CreateDeliveryWindowRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/delivery-windows';
+};
+
+export type CreateDeliveryWindowErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateDeliveryWindowError = CreateDeliveryWindowErrors[keyof CreateDeliveryWindowErrors];
+
+export type CreateDeliveryWindowResponses = {
+    /**
+     * The window as created.
+     */
+    201: DeliveryWindowEnvelope;
+};
+
+export type CreateDeliveryWindowResponse = CreateDeliveryWindowResponses[keyof CreateDeliveryWindowResponses];
+
+export type UpdateDeliveryWindowData = {
+    body: UpdateDeliveryWindowRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery window identifier, or its `code`.
+         */
+        window: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-windows/{window}';
+};
+
+export type UpdateDeliveryWindowErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateDeliveryWindowError = UpdateDeliveryWindowErrors[keyof UpdateDeliveryWindowErrors];
+
+export type UpdateDeliveryWindowResponses = {
+    /**
+     * The window after the write.
+     */
+    200: DeliveryWindowEnvelope;
+};
+
+export type UpdateDeliveryWindowResponse = UpdateDeliveryWindowResponses[keyof UpdateDeliveryWindowResponses];
+
+export type GetBranchOperatingData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/kitchen/branch-operating';
+};
+
+export type GetBranchOperatingErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetBranchOperatingError = GetBranchOperatingErrors[keyof GetBranchOperatingErrors];
+
+export type GetBranchOperatingResponses = {
+    /**
+     * The branch's week, in weekday order.
+     */
+    200: BranchOperatingEnvelope;
+};
+
+export type GetBranchOperatingResponse = GetBranchOperatingResponses[keyof GetBranchOperatingResponses];
+
+export type ReplaceBranchOperatingData = {
+    body: ReplaceBranchOperatingRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/kitchen/branch-operating';
+};
+
+export type ReplaceBranchOperatingErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceBranchOperatingError = ReplaceBranchOperatingErrors[keyof ReplaceBranchOperatingErrors];
+
+export type ReplaceBranchOperatingResponses = {
+    /**
+     * The branch's week after the write.
+     */
+    200: BranchOperatingEnvelope;
+};
+
+export type ReplaceBranchOperatingResponse = ReplaceBranchOperatingResponses[keyof ReplaceBranchOperatingResponses];
+
+export type ListDeliveryAreasData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * ISO 3166-1 alpha-2. Case-insensitive.
+         */
+        country_code: string;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Page size.
+         */
+        limit?: number;
+    };
+    url: '/reference/delivery-areas';
+};
+
+export type ListDeliveryAreasErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDeliveryAreasError = ListDeliveryAreasErrors[keyof ListDeliveryAreasErrors];
+
+export type ListDeliveryAreasResponses = {
+    /**
+     * A page of delivery areas, localised.
+     */
+    200: PublicDeliveryAreasEnvelope;
+};
+
+export type ListDeliveryAreasResponse = ListDeliveryAreasResponses[keyof ListDeliveryAreasResponses];

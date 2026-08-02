@@ -756,7 +756,10 @@ it('still migrates and seeds under the owner role with row-level security enable
     // Pinned so a new template role has to be a deliberate act. K1.3 widened
     // three of them with `recipe.view_costs_organisation` and added none; K1.6
     // widened kitchen_manager and commercial_manager with the plan pair and,
-    // again, added none.
+    // again, added none. K1.7 widened the same two with
+    // `delivery_zone.manage_organisation` — and kitchen_manager alone with
+    // `branch.manage_current`, so the role that runs the kitchen can state
+    // when it trades — and still added none.
     expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)

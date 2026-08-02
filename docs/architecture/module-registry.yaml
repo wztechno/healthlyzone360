@@ -149,10 +149,26 @@ modules:
     description: Meal plans, daily/weekly schedules, substitution rules, dietitian approval and consumption-versus-target comparison.
     depends_on: [Recipes, Nutrition, ClinicalRecords]
 
+  # Flipped to `foundation` by K1.7 — the gap reviewer point 19 exposed. The
+  # draft wire contract already carried opening hours and an order cut-off
+  # while this module stayed `planned`, which is a public surface with no
+  # schema under it. `branch_opening_hours` is that schema: one row per
+  # weekday per branch, a closed day stored as a row rather than an absence,
+  # and a nullable cut-off that only an open day may carry.
+  #
+  # The Recipes edge is dropped. It was indicative coupling for the menus and
+  # kitchen-instruction capability this module does not yet have; today it
+  # owns branch operating data and touches no formulation, so the declared
+  # dependency would be a licence to import something nothing imports. It
+  # returns with the slice that builds menus. Tenancy, AccessControl, Audit
+  # and Support are added because the code actually uses them — the
+  # organisation scope, the permission gate, the audit event and the base
+  # model.
   - name: Kitchens
-    status: planned
-    description: Kitchen/branch operational setup, menus, approved meal-plan receipt and kitchen instructions.
-    depends_on: [Organisations, Recipes]
+    status: foundation
+    phase: 2
+    description: Branch operating data — opening hours per weekday and order cut-offs, read and replaced as a whole week in the current branch context. Menus, approved meal-plan receipt and kitchen instructions are still to come.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit]
 
   - name: Inventory
     status: planned
@@ -263,10 +279,28 @@ modules:
   # Orders edge dropped (master plan v2 §5): delivery zones, areas and windows
   # are configuration that precedes any delivery job, and K1.7 builds them
   # before Orders exists. The Orders edge returns with F1's delivery operations.
+  #
+  # Flipped to `foundation` by K1.7: the two-level geography (the platform
+  # `delivery_areas` gazetteer, which lives in ReferenceData because a place is
+  # nobody's tenant data, and each kitchen's `delivery_zones` over it), the
+  # one-area-one-zone-per-branch rule with `ZoneResolver` deciding that a
+  # branch claim beats the organisation-wide one, and the named delivery
+  # windows a checkout picks from. Provider integration, driver allocation,
+  # tracking and proof of delivery are F1's and are absent by design — nothing
+  # here dispatches anything.
+  #
+  # Support, Tenancy, AccessControl and Audit join the declared dependencies
+  # because the code uses them: the base model and API envelope, the
+  # organisation scope, the permission gate and the audit trail. The P0 entry
+  # named only [Organisations, ReferenceData], which described the domain
+  # coupling rather than the platform primitives every module of this kind
+  # imports; the amendment makes the declaration match the imports the
+  # architecture test checks.
   - name: Delivery
-    status: planned
-    description: Delivery zones, provider integration, driver allocation, tracking, proof of delivery and failed-delivery handling.
-    depends_on: [Organisations, ReferenceData]
+    status: foundation
+    phase: 2
+    description: Delivery geography and slots — kitchen delivery zones over the platform area gazetteer, one zone per area per branch with branch-over-organisation resolution, and the named delivery windows a checkout offers. Provider integration, driver allocation, tracking and proof of delivery arrive with F1.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit]
 
   - name: ClinicalRecords
     status: planned

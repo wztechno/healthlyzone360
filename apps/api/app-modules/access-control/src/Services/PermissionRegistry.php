@@ -169,6 +169,32 @@ final class PermissionRegistry
             // on the shared publish route, because one action should not have
             // two URLs — see `PublishCatalogueItem::assertMayPublish()`.
             'plan.publish_organisation' => ['domain' => 'plan', 'description' => 'Publish subscription plans of the organisation'],
+
+            // Phase K1.7 — delivery configuration. One code, not a pair, and
+            // the K1.6 argument decides it: there is no screen that could
+            // sensibly show a kitchen where it delivers while withholding the
+            // ability to change it. Everyone who reads a zone map is
+            // configuring one.
+            //
+            // It is its own domain rather than more `catalogue.*` because
+            // where a kitchen delivers, what it charges to get there and what
+            // it will not go below are operational and commercial decisions
+            // about *logistics*, not about food. A merchandiser who can rename
+            // a product has no business redrawing the delivery map, and a
+            // dispatcher who redraws the map has no business renaming
+            // products.
+            //
+            // Delivery **windows** ride this code too. A slot is the same kind
+            // of decision as a zone — when the van goes, versus where it goes —
+            // and a separate code for the other half of one screen would be
+            // bookkeeping rather than authority.
+            //
+            // Branch opening hours deliberately do **not**: they are a fact
+            // about a *place*, they already have `branch.view_current` /
+            // `branch.manage_current` in the foundation registry, and a branch
+            // manager who can open and close a branch can plainly state when it
+            // is open.
+            'delivery_zone.manage_organisation' => ['domain' => 'delivery_zone', 'description' => 'Manage delivery zones, the areas they serve and the delivery windows of the organisation'],
         ];
     }
 
@@ -295,6 +321,17 @@ final class PermissionRegistry
                     // is the one product both of them own.
                     'plan.manage_organisation',
                     'plan.publish_organisation',
+
+                    // K1.7. The delivery map is the kitchen manager's, and so
+                    // — newly — are the branch's opening hours and order
+                    // cut-offs. `branch.manage_current` was previously the
+                    // branch manager's alone, which was right while the code
+                    // only opened and closed branches; it is wrong now that it
+                    // also states when a kitchen trades, because a kitchen
+                    // manager who cannot say "we close at six on Fridays"
+                    // cannot run the kitchen. The branch manager keeps it.
+                    'delivery_zone.manage_organisation',
+                    'branch.manage_current',
                     'organisation.view_current',
                     'branch.view_current',
                     'membership.view_organisation',
@@ -369,6 +406,15 @@ final class PermissionRegistry
                     'price_list.manage_organisation',
                     'plan.manage_organisation',
                     'plan.publish_organisation',
+
+                    // K1.7. A delivery fee and a minimum order are prices, and
+                    // pricing is this role's whole job — the same argument that
+                    // gave it the tariff pair in K1.5. It does **not** gain
+                    // `branch.manage_current`: what a branch's opening hours
+                    // are is an operational fact about a place, and a
+                    // commercial manager who could rewrite them could close a
+                    // kitchen from a spreadsheet.
+                    'delivery_zone.manage_organisation',
                 ],
             ],
         ];

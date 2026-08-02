@@ -31,6 +31,18 @@ enum ErrorCode: string
     case ContextOrganisationForbidden = 'context.organisation_forbidden';
     case ContextBranchOutOfScope = 'context.branch_out_of_scope';
 
+    /**
+     * An endpoint that operates on one branch was reached with no branch
+     * selected (K1.7). Distinct from `context.branch_out_of_scope`: the caller
+     * has not asked for a branch they may not have, they have not asked for
+     * one at all, and the fix is to send `X-Branch-Id` rather than to pick a
+     * different branch. `branch.context` deliberately permits an absent
+     * header — an organisation-wide membership may legitimately select no
+     * branch — so the requirement belongs to the endpoints that genuinely
+     * cannot answer without one, not to the middleware.
+     */
+    case ContextBranchRequired = 'context.branch_required';
+
     case AuthzPermissionDenied = 'authz.permission_denied';
 
     case RequestInvalid = 'request.invalid';
@@ -92,7 +104,7 @@ enum ErrorCode: string
     public function status(): int
     {
         return match ($this) {
-            self::ContextOrganisationRequired, self::RequestInvalid => 400,
+            self::ContextOrganisationRequired, self::ContextBranchRequired, self::RequestInvalid => 400,
             self::AuthUnauthenticated => 401,
             self::AuthEmailUnverified,
             self::AuthTwoFactorRequired,
@@ -136,6 +148,7 @@ enum ErrorCode: string
             self::ContextOrganisationRequired => 'An X-Organisation-Id header is required for this endpoint.',
             self::ContextOrganisationForbidden => 'You do not have an active membership in the requested organisation.',
             self::ContextBranchOutOfScope => 'The requested branch is not within your membership scope.',
+            self::ContextBranchRequired => 'An X-Branch-Id header is required for this endpoint.',
             self::AuthzPermissionDenied => 'You do not have permission to perform this action.',
             self::RequestInvalid => 'The request could not be processed as sent.',
             self::RequestPreconditionRequired => 'This resource requires an If-Match header carrying the version you last read.',

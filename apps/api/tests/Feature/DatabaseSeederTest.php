@@ -23,6 +23,10 @@ use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Consent\Models\ConsentDefinition;
+use Healthy360\Delivery\Models\DeliveryWindow;
+use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Features\Models\FeatureDefinition;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\AllergenMappingSource;
@@ -34,6 +38,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
@@ -46,9 +51,11 @@ use Healthy360\Pricing\Models\PriceListItem;
 use Healthy360\ReferenceData\Database\Seeders\CountrySeeder;
 use Healthy360\ReferenceData\Models\Country;
 use Healthy360\ReferenceData\Models\Currency;
+use Healthy360\ReferenceData\Models\DeliveryArea;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\Language;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Hash;
 
 /*
@@ -281,9 +288,11 @@ it('seeds exactly the registered permission set', function (): void {
     // 24 after K1.1, plus the three recipe codes K1.2 introduces, the cost
     // permission K1.3 splits out of them, the catalogue publication authority
     // K1.4 adds, the pricing pair K1.5 keeps deliberately separate from
-    // `catalogue.*`, and the plan pair K1.6 adds for the commercial instrument
-    // a subscription is.
-    expect(Permission::query()->count())->toBe(33)
+    // `catalogue.*`, the plan pair K1.6 adds for the commercial instrument a
+    // subscription is, and the single delivery code K1.7 adds — one rather
+    // than a pair, because no screen could sensibly show a kitchen its
+    // delivery map while withholding the ability to change it.
+    expect(Permission::query()->count())->toBe(34)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -313,15 +322,44 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 31],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 30],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 32],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 31],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it and designs its plans' => ['kitchen_manager', 14],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans and draws the delivery map' => ['kitchen_manager', 16],
     'chef edits recipes and their costs but never publishes one and never sees a price' => ['kitchen_chef', 5],
     'kitchen staff read the catalogue and recipes, and no money at all' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff and owns the plans' => ['commercial_manager', 8],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans and prices delivery' => ['commercial_manager', 9],
 ]);
+
+it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
+    // K1.7's half of the same split. Where a kitchen delivers and what it
+    // charges to get there is a logistics-and-money decision, so the two
+    // commercial roles hold it and neither the chef nor kitchen staff do.
+    //
+    // `branch.manage_current` is deliberately different: it is a fact about a
+    // *place*, so the kitchen manager gains it — a manager who cannot say "we
+    // close at six on Fridays" cannot run the kitchen — while the commercial
+    // manager does not, because a commercial manager who could rewrite opening
+    // hours could close a kitchen from a spreadsheet.
+    $holders = static function (string $code): array {
+        $permission = Permission::query()->where('code', $code)->sole();
+
+        return Role::withoutTenancy()
+            ->whereNull('organisation_id')
+            ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $permission->getKey())->select('role_id'))
+            ->pluck('code')
+            ->all();
+    };
+
+    expect($holders('delivery_zone.manage_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+    ]);
+
+    expect($holders('branch.manage_current'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'branch_manager', 'kitchen_manager',
+    ]);
+});
 
 it('gives the plan authority to the two commercial roles and to neither the chef nor the staff', function (): void {
     // K1.6's half of the same split the cost test above asserts. A subscription
@@ -567,6 +605,89 @@ it('seeds a draft plan that is exactly one confirmed price short of publishable'
     expect($priced)->toBe([$configurations->get('lunch-dinner-standard-kcal-1200-1500')]);
 });
 
+it('seeds the Lebanese gazetteer at exactly the 125 names the source lists', function (): void {
+    // Committed platform reference data — mechanism (a) — and the count
+    // follows the source rather than a target. The `ae-demo-*` rows the demo
+    // tenant needs are excluded by construction: they are Emirati, and they
+    // are mechanism (b).
+    expect(DeliveryArea::query()->where('country_code', 'LB')->count())->toBe(125);
+
+    // Appendix D data-quality finding 25: the spelling is the source's, kept
+    // verbatim because a corrected place name is indistinguishable from a
+    // different place.
+    expect(DeliveryArea::query()->where('code', 'beirut-airpot')->value('name_en'))->toBe('Beirut Airpot');
+
+    // OD-12: the source does not say which governorate a name belongs to, so
+    // nothing here pretends to.
+    expect(DeliveryArea::query()->whereNotNull('region')->count())->toBe(0);
+});
+
+it('keeps the six synthetic demo areas out of the platform gazetteer', function (): void {
+    // Verdant is Emirati and the committed gazetteer is Lebanese, so
+    // demonstrating a zone at all needs Emirati places. Inventing six of them
+    // *into* the gazetteer would put fabricated geography in front of every
+    // tenant in every environment. They live in the demo seeder instead, and
+    // their codes say so.
+    $demo = DeliveryArea::query()->where('country_code', 'AE')->get();
+
+    expect($demo)->toHaveCount(6)
+        ->and($demo->every(static fn (DeliveryArea $area): bool => str_starts_with($area->code, 'ae-demo-')))->toBeTrue();
+});
+
+it('seeds the demonstration kitchen a two-level delivery map with a branch override', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $wide = DeliveryZone::withoutTenancy()->where('organisation_id', $verdant->getKey())->where('code', 'emirates-wide')->sole();
+    $express = DeliveryZone::withoutTenancy()->where('organisation_id', $verdant->getKey())->where('code', 'al-quoz-express')->sole();
+
+    expect($wide->branch_id)->toBeNull()
+        ->and($wide->currency_code)->toBe('AED')
+        ->and($express->branch_id)->not->toBeNull();
+
+    // The overlap is the fixture the resolution order is worth testing
+    // against: Al Quoz is claimed by both, and the branch claim wins.
+    $alQuoz = DeliveryArea::query()->where('code', 'ae-demo-al-quoz')->sole();
+
+    expect(DeliveryZoneArea::withoutTenancy()->where('delivery_area_id', $alQuoz->getKey())->count())->toBe(2);
+
+    // The resolver reads through the tenant scope, so the context an
+    // `org.context` request would have resolved is set by hand here.
+    $owner = User::query()->where('email', 'owner@verdant.test')->sole();
+    app(TenantContext::class)->setOrganisation((string) $owner->getKey(), (string) $verdant->getKey());
+
+    expect(app(ZoneResolver::class)->zoneFor((string) $alQuoz->getKey(), (string) $express->branch_id)?->code)
+        ->toBe('al-quoz-express');
+
+    expect(app(ZoneResolver::class)->zoneFor((string) $alQuoz->getKey())?->code)->toBe('emirates-wide');
+
+    app(TenantContext::class)->clear();
+});
+
+it('seeds the demonstration branch a full week with one closed day', function (): void {
+    $branch = OrganisationBranch::withoutTenancy()->where('name', 'Al Quoz')->sole();
+
+    $week = BranchOpeningHour::withoutTenancy()->where('branch_id', $branch->getKey())->orderBy('weekday')->get();
+
+    // Seven rows, because a closed day is a row: "shut on Friday" and "nobody
+    // has filled in Friday" have to stay distinguishable.
+    expect($week)->toHaveCount(7)
+        ->and($week->where('opens_at', null))->toHaveCount(1)
+        ->and($week->firstWhere('weekday', 5)?->opens_at)->toBeNull()
+        ->and($week->firstWhere('weekday', 5)?->order_cut_off_at)->toBeNull()
+        ->and($week->firstWhere('weekday', 1)?->order_cut_off_at)->toBe('18:00:00');
+});
+
+it('seeds two delivery windows, one of them restricted to some weekdays', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $windows = DeliveryWindow::withoutTenancy()->where('organisation_id', $verdant->getKey())->orderBy('display_order')->get();
+
+    expect($windows)->toHaveCount(2)
+        // `[]` is every day, and it is the only encoding of that fact.
+        ->and($windows->firstWhere('code', 'morning')?->weekdays)->toBe([])
+        ->and($windows->firstWhere('code', 'evening')?->weekdays)->toBe([1, 2, 3, 4]);
+});
+
 it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {
     expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8);
 
@@ -720,6 +841,11 @@ it('converges instead of duplicating when run a second time', function (): void 
         DietClassification::query()->count(),
         ProductCategory::withoutTenancy()->count(),
         SalesChannel::withoutTenancy()->count(),
+        DeliveryArea::query()->count(),
+        DeliveryZone::withoutTenancy()->count(),
+        DeliveryZoneArea::withoutTenancy()->count(),
+        DeliveryWindow::withoutTenancy()->count(),
+        BranchOpeningHour::withoutTenancy()->count(),
     ];
 
     $before = $counts();

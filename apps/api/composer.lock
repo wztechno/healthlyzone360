@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d5701549f59db8743e6b9615a438618c",
+    "content-hash": "ca02e1400cd0367ac547a48bd13ceed9",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2136,6 +2136,38 @@
             }
         },
         {
+            "name": "healthy360/delivery",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/delivery",
+                "reference": "b3edca5342f1172f07af3da4359ecdf5747f097f"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Delivery\\Providers\\DeliveryServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Delivery\\": "src/",
+                    "Healthy360\\Delivery\\Tests\\": "tests/",
+                    "Healthy360\\Delivery\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Delivery\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/features",
             "version": "1.0",
             "dist": {
@@ -2221,6 +2253,38 @@
                     "Healthy360\\Ingredients\\Tests\\": "tests/",
                     "Healthy360\\Ingredients\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Ingredients\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/kitchens",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/kitchens",
+                "reference": "51400e861d5f90da86ba4a5baf169b06b3b2faae"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Kitchens\\Providers\\KitchensServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Kitchens\\": "src/",
+                    "Healthy360\\Kitchens\\Tests\\": "tests/",
+                    "Healthy360\\Kitchens\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Kitchens\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [

@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/kitchens",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Kitchens\\": "src/",
+			"Healthy360\\Kitchens\\Tests\\": "tests/",
+			"Healthy360\\Kitchens\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Kitchens\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Kitchens\\Providers\\KitchensServiceProvider"
+			]
+		}
+	}
+}
