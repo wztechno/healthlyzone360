@@ -9,6 +9,7 @@ use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Consent\Models\ConsentGrant;
+use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Features\Models\FeatureEntitlement;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Organisations\Models\Organisation;
@@ -77,6 +78,16 @@ use Illuminate\Support\Str;
 | anonymous surface, and the number it discounts is already behind the policy
 | on `price_list_items`.
 |
+| J1 takes it to **eleven**. `customer_accounts` is the first table whose
+| policy is not organisation-shaped at all: a consumer account belongs to a
+| person and to no organisation, so it is reachable through `app.user_id`
+| alone, while a corporate account is reachable inside its organisation. Either
+| predicate on its own would shut out one of the two shapes the table exists to
+| hold. Its children — addresses, dietary profile, allergen declarations, food
+| exclusions — take no policy: they are `join-rls-parent`, reachable only
+| through this row and cascade-deleted with it, and a second policy would be a
+| second place to get the same predicate wrong.
+|
 */
 
 uses()->group('rls');
@@ -92,7 +103,7 @@ function rlsVisibleCounts(): array
         'organisation_branches', 'organisation_memberships', 'roles',
         'feature_entitlements', 'consent_grants', 'audit_logs',
         'recipe_versions', 'recipe_version_lines', 'recipe_cost_snapshots',
-        'price_list_items',
+        'price_list_items', 'customer_accounts',
     ];
 
     foreach ($tables as $table) {
@@ -106,7 +117,7 @@ function rlsVisibleCounts(): array
 }
 
 /**
- * A complete tenant across all ten protected tables.
+ * A complete tenant across all eleven protected tables.
  */
 function rlsTenant(ConsentDefinition $definition): object
 {
@@ -173,10 +184,20 @@ function rlsTenant(ConsentDefinition $definition): object
         'catalogue_item_id' => $item->getKey(),
     ]);
 
+    // Both shapes of the eleventh table, because the policy is an OR and one
+    // fixture would only ever exercise half of it: `customer` is a consumer
+    // account reachable through the person alone, `corporateCustomer` is a
+    // company's account reachable inside the organisation.
+    $customer = CustomerAccount::factory()->create(['user_id' => $user->getKey()]);
+
+    $corporateCustomer = CustomerAccount::factory()
+        ->forOrganisation($organisation)
+        ->create(['user_id' => null]);
+
     return (object) compact(
         'organisation', 'user', 'branch', 'membership', 'role', 'entitlement',
         'consent', 'audit', 'recipe', 'version', 'ingredient', 'line', 'snapshot',
-        'catalogue', 'item', 'priceList', 'price',
+        'catalogue', 'item', 'priceList', 'price', 'customer', 'corporateCustomer',
     );
 }
 
@@ -210,6 +231,7 @@ it('fails closed on every protected table when the session carries no context', 
         'recipe_version_lines' => 0,
         'recipe_cost_snapshots' => 0,
         'price_list_items' => 0,
+        'customer_accounts' => 0,
     ]);
 });
 
@@ -486,6 +508,64 @@ it('lets a kitchen close and reopen its own price rows, because supersession is 
     expect($closed)->toBe(1);
 });
 
+it('shows a person their own customer account and their organisation buyer, and nothing of the other tenant', function (): void {
+    // The J1 policy in one assertion. The consumer row is reachable through
+    // `app.user_id` with no organisation involved — a customer has none — and
+    // the corporate row through the organisation. Both predicates matter: an
+    // organisation-only policy would hide every D2C account from its own
+    // owner, and a user-only policy would hide every corporate buyer from the
+    // company that owns it.
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $visible = RuntimeRole::run(fn (): array => DB::table('customer_accounts')->pluck('id')->all());
+
+    expect($visible)->toEqualCanonicalizing([
+        $this->b->customer->getKey(),
+        $this->b->corporateCustomer->getKey(),
+    ])
+        ->and($visible)->not->toContain($this->a->customer->getKey())
+        ->and($visible)->not->toContain($this->a->corporateCustomer->getKey());
+});
+
+it('never lets one tenant read, rewrite, erase or plant another customer account', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    [$readByName, $updated, $deleted] = RuntimeRole::run(fn (): array => [
+        DB::table('customer_accounts')->where('id', $this->a->customer->getKey())->pluck('account_number')->all(),
+        DB::table('customer_accounts')->where('id', $this->a->customer->getKey())->update(['display_name' => 'Rewritten']),
+        DB::table('customer_accounts')->where('id', $this->a->customer->getKey())->delete(),
+    ]);
+
+    $plant = fn () => DB::transaction(fn () => DB::table('customer_accounts')->insert([
+        'id' => (string) Str::uuid7(),
+        'account_number' => 'H360-SMUGGLED1',
+        'account_type' => 'b2c',
+        'user_id' => $this->a->user->getKey(),
+        'organisation_id' => null,
+        'status' => 'provisional',
+        'origin' => 'self_service',
+        'lock_version' => 0,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]));
+
+    RuntimeRole::run(function () use ($plant): void {
+        expect($plant)->toThrow(QueryException::class);
+    });
+
+    // Naming the row directly is the attack the policy exists for: an
+    // identifier learned from a support ticket or a shared spreadsheet must
+    // return an empty set rather than a customer's name.
+    expect($readByName)->toBe([])
+        ->and($updated)->toBe(0)
+        // No DELETE policy at all — a customer account is closed and
+        // anonymised (J2), never removed by the application role.
+        ->and($deleted)->toBe(0)
+        ->and(CustomerAccount::query()->whereKey($this->a->customer->getKey())->value('display_name'))->not->toBe('Rewritten')
+        ->and(CustomerAccount::query()->whereKey($this->a->customer->getKey())->exists())->toBeTrue()
+        ->and(CustomerAccount::query()->where('account_number', 'H360-SMUGGLED1')->exists())->toBeFalse();
+});
+
 it('refuses to rewrite or erase an audit record at grant level', function (): void {
     RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
 
@@ -695,7 +775,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the ten declared tables and no others', function (): void {
+it('protects exactly the eleven declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -703,15 +783,18 @@ it('protects exactly the ten declared tables and no others', function (): void {
         ->pluck('tablename')
         ->all();
 
-    // Six from the foundation, two from K1.2, one from K1.3, one from K1.5.
-    // Pinned so that a new tenant-scoped table has to decide explicitly
-    // whether it joins the set (ADR-0007 review trigger) rather than
-    // inheriting a policy by accident — or, worse, quietly not having one.
-    // K1.4's nine catalogue tables decided *not* to join, and the pin is what
-    // makes that a decision rather than an omission.
+    // Six from the foundation, two from K1.2, one from K1.3, one from K1.5,
+    // one from J1. Pinned so that a new tenant-scoped table has to decide
+    // explicitly whether it joins the set (ADR-0007 review trigger) rather
+    // than inheriting a policy by accident — or, worse, quietly not having
+    // one. K1.4's nine catalogue tables decided *not* to join, and J1's four
+    // customer child tables decided not to either (they are reachable only
+    // through `customer_accounts`, which is here); the pin is what makes those
+    // decisions rather than omissions.
     expect($protected)->toBe([
         'audit_logs',
         'consent_grants',
+        'customer_accounts',
         'feature_entitlements',
         'organisation_branches',
         'organisation_memberships',

@@ -91,14 +91,22 @@ Phase K1 flipped seven registry entries from `planned` to `foundation`, one slic
 
 **Ingredients** (K1.1) · **Allergens** (K1.1) · **Recipes** (K1.2, costing K1.3) · **Catalogues** (K1.4, plan definitions K1.6) · **Pricing** (K1.5) · **Delivery** (K1.7) · **Kitchens** (K1.7, and the private GreenLife importer in K1.8).
 
-They stay `foundation` rather than becoming `active`: the schema and the internal management surface exist and are complete, and the customer-facing lifecycle does not — a marketplace read path arrives with M1 and ordering with C1. `active` is a statement about a delivered capability, not a reward for finishing a slice.
+They stay `foundation` rather than becoming `active`: the schema and the internal management surface exist and are complete, and the customer-facing lifecycle does not — M1 has since added the marketplace read path, and ordering waits for C1. `active` is a statement about a delivered capability, not a reward for finishing a slice.
+
+## Marketplace — `foundation` after M1, and a registry-only entry
+
+M1 flipped **Marketplace** from `planned` to `foundation`, and narrowed its description to what exists: the anonymous, read-only consumer view of the catalogue. Kitchens with their branches, delivery zones and operating weeks; published meals with their derived allergens, their resolved consumer price and a fourteen-day ordering calendar; published subscription plans. Partner onboarding, due diligence, suspension and partner dashboards are not built, and the registry no longer claims them.
+
+**No `app-modules/marketplace` directory was created, deliberately.** Reading a kitchen means reading an organisation, its branches, its delivery zones, its catalogue items and their prices *together*, and `Kitchens` is the only module whose dependency edges already permit all five. A sixth module would have needed an edge to every one of them in order to serve projections of rows it does not own — which is the shape of a module that exists to hold code rather than to own something. `Localisation` and `PlatformAdministration` are registry-only entries for the same class of reason, and the architecture test permits code without requiring it.
+
+The public read surface therefore lives in `Kitchens` — `Http/Controllers/Public*`, `Presenters/Marketplace*`, `Services/Marketplace*` — which is where this codebase already puts a public projection: beside the module that owns the data, exactly as `Allergens`, `Catalogues` and `Delivery` each own their public reference list.
 
 `Kitchens` is the one whose declared dependencies reach across the whole family, and the registry says why: K1.8 gave it `kitchen:import-greenlife`, whose job is to stand a kitchen up from a workbook and which therefore writes ingredients, recipes, listings, prices and delivery geography. Catalogues could not host it — Pricing depends on Catalogues, so the edge would have closed a cycle — and nothing that may hold code depends on Kitchens, so widening it there stays acyclic.
 
 ## Future modules — registry entries only
 
-The remaining 21 modules are documented in the module registry (`docs/architecture/module-registry.yaml`) and in the future roadmap (`09-future-module-roadmap.md`). They receive **registry entries and documentation only** — no directories, no classes, no migrations — until each is genuinely required and separately designed:
+The remaining 20 modules are documented in the module registry (`docs/architecture/module-registry.yaml`) and in the future roadmap (`09-future-module-roadmap.md`). They receive **registry entries and documentation only** — no directories, no classes, no migrations — until each is genuinely required and separately designed:
 
-Nutrition, MealPlanning, Inventory, Procurement, Production, QualityControl, Marketplace, Customers, Verification, B2B, Cart, Orders, Subscriptions, Payments, Accounting, POS, KitchenDisplay, ClinicalRecords, Appointments, Reporting, ArtificialIntelligence.
+Nutrition, MealPlanning, Inventory, Procurement, Production, QualityControl, Customers, Verification, B2B, Cart, Orders, Subscriptions, Payments, Accounting, POS, KitchenDisplay, ClinicalRecords, Appointments, Reporting, ArtificialIntelligence.
 
 Permissions for those modules likewise remain registry proposals until they are implemented; the kitchen and commercial sets (`catalogue.*`, `recipe.*`, `plan.*`, `price_list.*`, `delivery_zone.*`) are real, held by real template roles, and pinned by `PermissionRegistryTest` and `RlsTest`.

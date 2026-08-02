@@ -205,10 +205,32 @@ modules:
     description: Food-safety checkpoints, quality checks, labelling and packaging verification.
     depends_on: [Production, Allergens]
 
+  # Flipped to `foundation` by M1, with the scope narrowed to what actually
+  # exists: the anonymous, read-only consumer view of the catalogue — kitchens
+  # with their branches, delivery zones and operating weeks; published meals
+  # with their derived allergens, resolved price and ordering calendar;
+  # published subscription plans. Partner onboarding, due diligence,
+  # suspension/termination and partner dashboards are *not* built and are no
+  # longer claimed by this description; they belong to a later phase.
+  #
+  # **A registry-only entry, deliberately.** There is no `app-modules/marketplace`
+  # directory and M1 did not create one. Reading a kitchen means reading an
+  # organisation, its branches, its zones, its catalogue items and their prices
+  # together, and `Kitchens` is the only module whose dependency edges already
+  # permit all five. A sixth module would have needed edges to every one of
+  # them to serve projections of rows it does not own. `Localisation` and
+  # `PlatformAdministration` are registry-only entries for the same class of
+  # reason, and the architecture test permits code without requiring it.
+  #
+  # The public read surface therefore lives in `Kitchens`
+  # (`Http/Controllers/Public*`, `Presenters/Marketplace*`,
+  # `Services/Marketplace*`), which is also where the codebase already puts a
+  # public projection: beside the module that owns the data.
   - name: Marketplace
-    status: planned
-    description: Partner onboarding, due diligence, listings, suspension/termination and partner dashboards.
-    depends_on: [Organisations, Catalogues]
+    status: foundation
+    phase: 3
+    description: The anonymous, read-only consumer view of the catalogue — kitchens with their branches, delivery zones and operating weeks, published meals with derived allergens, resolved consumer price and a fourteen-day ordering calendar, and published subscription plans. Read capability only; no listing lifecycle, partner onboarding or dashboards exist. Served from the Kitchens module (registry-only entry).
+    depends_on: [Organisations, Catalogues, Pricing, Delivery, Kitchens]
 
   # Flipped to `foundation` by K1.4: catalogue items (product | meal |
   # subscription_plan), their variants and pack variants, the representative
@@ -239,17 +261,57 @@ modules:
     description: Price lists with a single currency each, effective-dated price rows with supersession and honest confirmed/placeholder/market-priced statuses, channel assignments and effective-price resolution.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Catalogues]
 
-  # Owned by phase J1 (master plan v2 §5) — no code until then.
+  # Flipped to `foundation` by J1: customer accounts in their three
+  # CHECK-enforced shapes (b2c | b2b | guest) with the provisional → active
+  # lifecycle, addresses anchored to the platform delivery gazetteer rather
+  # than to free text, and the dietary cluster — profile, allergen
+  # declarations, food exclusions — carrying the special-category
+  # classification and its purpose-of-use reader.
+  #
+  # `contact_points` is deliberately **not** here. It lives in Identity,
+  # because the login mirror it maintains is a fact about `users.email`
+  # (master plan v2 §4.10) and a contact belonging to an identity outlives
+  # every customer account that identity holds.
+  #
+  # Three edges join the P0 declaration, and each one is an import the
+  # architecture test can see. **Audit**: the lifecycle, the address book and
+  # the dietary reader all record events, and the last of those is the
+  # purpose-of-use path special-category data requires. **Verification**: the
+  # phone-verification policy asks the channel registry whether any real
+  # channel can reach a phone, which is what keeps gate A-011 honest — a
+  # configuration flag alone could demand a verification the deployment cannot
+  # perform. **Delivery**: `AreaServiceLookup` is declared here and satisfied
+  # by an adapter over `ZoneResolver`, because a customer's address must be
+  # somewhere a kitchen actually goes. The edge runs Customers → Delivery and
+  # not the reverse; delivery knows nothing about customers, which is what
+  # keeps the graph acyclic.
   - name: Customers
-    status: planned
-    description: Customer accounts (D2C, B2B and guest shapes), contact points, addresses, health profiles, allergen declarations, food exclusions and dietary requirements.
-    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent]
+    status: foundation
+    phase: 2
+    description: Customer accounts in their consumer, corporate and guest shapes with the provisional-to-active lifecycle and its server-authoritative activation evaluator, addresses anchored to the platform delivery gazetteer, and the dietary cluster — profile, allergen declarations and food exclusions — held as special-category data. Closure and anonymisation arrive with J2; the guest journey with G1.
+    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent, Audit, Verification, Delivery]
 
-  # Owned by phase J1 (master plan v2 §5) — no code until then.
+  # Flipped to `foundation` by J1: the OTP framework — challenges with peppered
+  # code hashes, a five-minute window, three attempts counted before the
+  # comparison under a row lock, a 45-second resend cooldown, and a
+  # cross-channel lockout that outlives the challenge it protects — plus the
+  # channel drivers behind an interface. Mail is the only one that really
+  # delivers; SMS and WhatsApp are log drivers flagged `simulated`, and the
+  # registry refuses to offer a simulated channel outside local and testing
+  # (master plan v2 §3 #16, OQ-008).
+  #
+  # ReferenceData joins the declared dependencies because a message's text
+  # direction is read from `languages.direction` rather than from a second list
+  # of right-to-left codes maintained in the mail layer.
+  #
+  # Step-up verification for closure, payment details and B2B signatures is
+  # reserved in the purpose vocabulary and issued by nobody yet: those journeys
+  # are J2's, PAY1's and B1's.
   - name: Verification
-    status: planned
-    description: One-time-passcode challenges and their channel drivers (email, SMS, WhatsApp) for contact verification and step-up.
-    depends_on: [Support, Identity, Audit]
+    status: foundation
+    phase: 2
+    description: One-time-passcode challenges and their channel drivers — email real, SMS and WhatsApp simulated behind the same interface until a provider is selected — with peppered code hashes, concurrency-safe verification, resend cooldowns and cross-channel lockout, plus the contact-verification journey and the email verification message that carries a link and a code together.
+    depends_on: [Support, Identity, ReferenceData, Audit]
 
   - name: B2B
     status: planned

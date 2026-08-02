@@ -22,6 +22,18 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Applied to: DELETE /api/v1/me/devices/{device} and
  * DELETE /api/v1/auth/two-factor-authentication.
+ *
+ * ## The method parameter (J1)
+ *
+ * `step-up` still means `step-up:password` and the two routes above are
+ * untouched — the default is the original behaviour, so no existing route
+ * changes meaning by acquiring a parameter it does not pass. `step-up:otp`
+ * demands a passcode confirmation instead, for the actions where possession of
+ * the phone is the thing being proven rather than knowledge of the password.
+ *
+ * The refusal names the endpoint that satisfies *that* method, because a
+ * client told only "step up required" cannot tell which of the two it needs,
+ * and guessing costs the user a round trip and a confusing prompt.
  */
 class RequireStepUp
 {
@@ -32,11 +44,14 @@ class RequireStepUp
      *
      * @throws ApiException
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, string $method = StepUpGuard::METHOD_PASSWORD): Response
     {
-        if (! $this->guard->confirmed($request)) {
+        if (! $this->guard->confirmed($request, $method)) {
             throw new ApiException(ErrorCode::AuthStepUpRequired, details: [
-                'confirmation_endpoint' => '/api/v1/auth/confirm-password',
+                'method' => $method,
+                'confirmation_endpoint' => $method === StepUpGuard::METHOD_OTP
+                    ? '/api/v1/verification/step-up'
+                    : '/api/v1/auth/confirm-password',
             ]);
         }
 

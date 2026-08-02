@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ca02e1400cd0367ac547a48bd13ceed9",
+    "content-hash": "1fd62dbecb8c059dc6b9fe76e6cf78fb",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2072,6 +2072,38 @@
             }
         },
         {
+            "name": "healthy360/b2b",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/b2b",
+                "reference": "9433ae6c40ed9828cccb19280f198816f7c970b0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\B2b\\Providers\\B2bServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\B2b\\": "src/",
+                    "Healthy360\\B2b\\Tests\\": "tests/",
+                    "Healthy360\\B2b\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\B2b\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/catalogues",
             "version": "1.0",
             "dist": {
@@ -2125,6 +2157,38 @@
                     "Healthy360\\Consent\\Tests\\": "tests/",
                     "Healthy360\\Consent\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Consent\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/customers",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/customers",
+                "reference": "e2a8dbbb41827a60e0fd8a605908f7a1a5da7b82"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Customers\\Providers\\CustomersServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Customers\\": "src/",
+                    "Healthy360\\Customers\\Tests\\": "tests/",
+                    "Healthy360\\Customers\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Customers\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [
@@ -2476,6 +2540,38 @@
                     "Healthy360\\Tenancy\\Tests\\": "tests/",
                     "Healthy360\\Tenancy\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Tenancy\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/verification",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/verification",
+                "reference": "bad447c3043004a90820c893dad23cd9f8f7314b"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Verification\\Providers\\VerificationServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Verification\\": "src/",
+                    "Healthy360\\Verification\\Tests\\": "tests/",
+                    "Healthy360\\Verification\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Verification\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [

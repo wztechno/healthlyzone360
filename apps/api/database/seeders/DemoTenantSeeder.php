@@ -22,7 +22,10 @@ use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
+use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\EnergyBand;
 use Healthy360\Catalogues\Models\MealCombinationOption;
 use Healthy360\Catalogues\Models\PlanDuration;
@@ -30,11 +33,20 @@ use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Catalogues\Services\CatalogueItemReadiness;
 use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
 use Healthy360\Identity\Models\UserProfile;
+use Healthy360\Ingredients\Enums\AllergenContainment;
+use Healthy360\Ingredients\Enums\AllergenMappingSource;
+use Healthy360\Ingredients\Enums\AllergenMarketScope;
+use Healthy360\Ingredients\Enums\AllergenVerificationStatus;
+use Healthy360\Ingredients\Enums\IngredientStatus;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
+use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
@@ -51,9 +63,12 @@ use Healthy360\Pricing\Models\ChannelPriceList;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Pricing\Models\PriceListItem;
 use Healthy360\ReferenceData\Models\DeliveryArea;
+use Healthy360\ReferenceData\Models\DietClassification;
+use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * Demonstration tenants exercising the multi-organisation identity model
@@ -130,6 +145,7 @@ class DemoTenantSeeder extends Seeder
         $this->seedVerdantTariff($verdant, $webShop, $verdantOwner);
         $this->seedVerdantPlan($verdant, $verdantOwner);
         $this->seedVerdantDelivery($verdant, $alQuoz, $verdantOwner);
+        $this->seedVerdantMenu($verdant, $webShop, $verdantOwner);
 
         $this->seedPlatformOperator();
     }
@@ -647,6 +663,242 @@ class DemoTenantSeeder extends Seeder
             ['sales_channel_id' => $webShop->getKey(), 'price_list_id' => $tariff->getKey()],
             ['organisation_id' => $verdant->getKey(), 'priority' => 0, 'created_by' => $creator->getKey()],
         );
+    }
+
+    /**
+     * The demonstration kitchen's **published** menu — three meals that reach
+     * the public marketplace end to end (M1).
+     *
+     * Everything above this method is structure: a catalogue with nothing on
+     * sale, a draft tariff demonstrating the price-list publish gate, a plan
+     * deliberately left unpublishable. That is the right shape for testing
+     * gates and the wrong shape for testing a marketplace, which answers with
+     * an empty page and proves nothing. These three meals are the smallest
+     * complete world in which `GET /marketplace/meals` returns something real.
+     *
+     * **Complete means all four conditions, none of them shortcut:**
+     *
+     * 1. **An allergen basis.** Each meal lists its own ingredients, and the
+     *    ingredients carry *verified* allergen mappings — freekeh contains
+     *    gluten, tahini contains sesame. The derivation reads those mappings, so
+     *    the allergen list a customer filters on is computed from a kitchen's
+     *    declaration rather than typed into a fixture.
+     * 2. **Both languages.** Arabic names and descriptions, because the
+     *    readiness gate refuses a half-translated listing and an Arabic customer
+     *    reading English is exactly what that gate exists to prevent.
+     * 3. **A confirmed price on an active tariff assigned to a consumer
+     *    channel.** A separate list from `verdant-web-aed`, which is a draft on
+     *    purpose and must stay one — a single list cannot be a draft and active
+     *    at once, and the draft is the fixture the price-list publish gate is
+     *    tested against.
+     * 4. **Channel availability.** A published, priced meal that no channel
+     *    offers is not on sale, and the marketplace query says so.
+     *
+     * **The readiness evaluator decides, not this seeder.** Each meal is passed
+     * to `CatalogueItemReadiness` and published only if it reports no reasons at
+     * all; a meal that is not ready aborts the seed with its reasons rather than
+     * being published anyway. A seeder that quietly wrote `status = published`
+     * would be manufacturing exactly the state the whole publication apparatus
+     * exists to make impossible.
+     *
+     * `chicken-freekeh-bowl` above is untouched and stays a draft with a
+     * placeholder price: it is the control. Every marketplace test can assert
+     * that a kitchen's unfinished work is invisible by naming a row that really
+     * is unfinished.
+     */
+    private function seedVerdantMenu(Organisation $verdant, SalesChannel $webShop, User $creator): void
+    {
+        $catalogue = Catalogue::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'default')
+            ->sole();
+
+        $gram = MeasurementUnit::query()->where('code', 'g')->sole();
+
+        $freekeh = $this->demoIngredient($verdant, 'freekeh', 'Freekeh', 'فريكة', $gram, 'gluten', $creator);
+        $tahini = $this->demoIngredient($verdant, 'tahini', 'Tahini', 'طحينة', $gram, 'sesame', $creator);
+        $chicken = $this->demoIngredient($verdant, 'chicken-breast', 'Chicken breast', 'صدر دجاج', $gram, null, $creator);
+        $lentils = $this->demoIngredient($verdant, 'red-lentils', 'Red lentils', 'عدس أحمر', $gram, null, $creator);
+
+        $menu = PriceList::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-menu-aed'],
+            [
+                'name_en' => 'Web shop menu',
+                'name_ar' => 'قائمة المتجر الإلكتروني',
+                'currency_code' => 'AED',
+                'customer_scope' => CustomerScope::PublicTariff,
+                'status' => PriceListStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        ChannelPriceList::withoutTenancy()->updateOrCreate(
+            ['sales_channel_id' => $webShop->getKey(), 'price_list_id' => $menu->getKey()],
+            ['organisation_id' => $verdant->getKey(), 'priority' => 1, 'created_by' => $creator->getKey()],
+        );
+
+        $menuItems = [
+            [
+                'slug' => 'grilled-chicken-freekeh',
+                'name_en' => 'Grilled chicken and freekeh',
+                'name_ar' => 'دجاج مشوي مع الفريكة',
+                'description_en' => 'Grilled chicken breast, cracked freekeh and a lemon dressing.',
+                'description_ar' => 'صدر دجاج مشوي مع الفريكة المجروشة وصلصة الليمون.',
+                'ingredients' => [$chicken, $freekeh],
+                'amount_minor' => 4200,
+                'diets' => ['high_protein'],
+            ],
+            [
+                'slug' => 'mezze-plate',
+                'name_en' => 'Mezze plate',
+                'name_ar' => 'صحن مقبلات',
+                'description_en' => 'Hummus, muhammara and a tahini dressing with warm bread.',
+                'description_ar' => 'حمص ومحمرة وصلصة الطحينة مع الخبز الدافئ.',
+                'ingredients' => [$tahini],
+                'amount_minor' => 3800,
+                'diets' => ['vegetarian'],
+            ],
+            [
+                'slug' => 'red-lentil-soup',
+                'name_en' => 'Red lentil soup',
+                'name_ar' => 'شوربة العدس الأحمر',
+                'description_en' => 'Red lentils simmered with cumin and finished with lemon.',
+                'description_ar' => 'عدس أحمر مطهو مع الكمون ويقدّم مع الليمون.',
+                'ingredients' => [$lentils],
+                'amount_minor' => 2600,
+                'diets' => ['vegan', 'vegetarian'],
+            ],
+        ];
+
+        $readiness = App::make(CatalogueItemReadiness::class);
+
+        foreach ($menuItems as $definition) {
+            $meal = $this->catalogueItem(
+                $verdant,
+                $catalogue,
+                $definition['slug'],
+                CatalogueItemType::Meal,
+                $definition['name_en'],
+                $definition['name_ar'],
+                $creator,
+            );
+
+            $meal->forceFill([
+                'description_en' => $definition['description_en'],
+                'description_ar' => $definition['description_ar'],
+                'image_placeholder_id' => 'meal-'.$definition['slug'],
+            ])->save();
+
+            foreach ($definition['ingredients'] as $order => $ingredient) {
+                CatalogueItemIngredient::withoutTenancy()->updateOrCreate(
+                    ['catalogue_item_id' => $meal->getKey(), 'ingredient_id' => $ingredient->getKey()],
+                    [
+                        'organisation_id' => $verdant->getKey(),
+                        'is_representative' => true,
+                        'display_order' => $order + 1,
+                        'created_by' => $creator->getKey(),
+                    ],
+                );
+            }
+
+            foreach ($definition['diets'] as $code) {
+                $classification = DietClassification::query()->where('code', $code)->sole();
+
+                CatalogueItemDietClassification::withoutTenancy()->updateOrCreate(
+                    [
+                        'catalogue_item_id' => $meal->getKey(),
+                        'diet_classification_id' => $classification->getKey(),
+                    ],
+                    ['organisation_id' => $verdant->getKey()],
+                );
+            }
+
+            $this->price($menu, (string) $meal->getKey(), null, null, $definition['amount_minor'], PriceStatus::Confirmed, $creator);
+
+            ChannelCatalogueItem::withoutTenancy()->updateOrCreate(
+                [
+                    'sales_channel_id' => $webShop->getKey(),
+                    'catalogue_item_id' => $meal->getKey(),
+                    'catalogue_item_variant_id' => null,
+                ],
+                [
+                    'organisation_id' => $verdant->getKey(),
+                    'is_available' => true,
+                    'available_from' => null,
+                    'available_to' => null,
+                    'created_by' => $creator->getKey(),
+                ],
+            );
+
+            // Re-read: the readiness evaluator queries by identifier, and the
+            // in-memory model is stale about the rows just written beneath it.
+            $meal->refresh();
+
+            $reasons = $readiness->reasons($meal);
+
+            if ($reasons !== []) {
+                throw new RuntimeException(sprintf(
+                    'The demo menu item %s is not ready to publish: %s. A seeder must never publish past the gate.',
+                    $definition['slug'],
+                    implode(', ', array_column($reasons, 'code')),
+                ));
+            }
+
+            $meal->forceFill(['status' => CatalogueItemStatus::Published])->save();
+        }
+    }
+
+    /**
+     * One demonstration ingredient, with a verified allergen mapping when it
+     * carries an allergen at all.
+     *
+     * `verified` rather than `unverified` because these stand in for a kitchen
+     * that has done the work: the derivation reads the mapping either way, and
+     * seeding an unverified one would put the demo world in the state K1.8's
+     * review queue exists to clear rather than in the state a published menu
+     * requires.
+     */
+    private function demoIngredient(
+        Organisation $organisation,
+        string $slug,
+        string $nameEn,
+        string $nameAr,
+        MeasurementUnit $unit,
+        ?string $allergenCode,
+        User $creator,
+    ): Ingredient {
+        $ingredient = Ingredient::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'slug' => $slug],
+            [
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'default_unit_id' => $unit->getKey(),
+                'status' => IngredientStatus::Active,
+                'verification_status' => IngredientVerificationStatus::Verified,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        if ($allergenCode !== null) {
+            IngredientAllergen::withoutTenancy()->updateOrCreate(
+                [
+                    'ingredient_id' => $ingredient->getKey(),
+                    'organisation_id' => $organisation->getKey(),
+                    'allergen_code' => $allergenCode,
+                    'market_scope' => AllergenMarketScope::All,
+                ],
+                [
+                    'containment' => AllergenContainment::Contains,
+                    'source' => AllergenMappingSource::KitchenDeclared,
+                    'verification_status' => AllergenVerificationStatus::Verified,
+                    'created_by' => $creator->getKey(),
+                ],
+            );
+        }
+
+        return $ingredient;
     }
 
     private function catalogueItem(

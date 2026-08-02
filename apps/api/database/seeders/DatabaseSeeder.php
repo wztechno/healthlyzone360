@@ -37,6 +37,11 @@ class DatabaseSeeder extends Seeder
             FeatureDefinitionSeeder::class,
             ConsentDefinitionSeeder::class,
             DemoTenantSeeder::class,
+            // After the tenants, and necessarily so: the demo customer's
+            // address has to sit in an area a demo kitchen already claims, or
+            // the activation evaluator would refuse it — which is exactly the
+            // behaviour the persona exists to demonstrate.
+            DemoCustomerSeeder::class,
         ]);
     }
 }

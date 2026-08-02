@@ -61,9 +61,19 @@ return [
     |
     */
 
+    /*
+    | `eloquent.active` is Healthy360's provider (Identity\Auth\
+    | ActiveUserProvider): the stock Eloquent provider with one addition — an
+    | account whose status is `closed` is not retrievable at all. Enforcing the
+    | lifecycle here rather than in a login pipeline covers every entry point
+    | (session login, POST /auth/token, remember-me, password reset) and
+    | revokes an existing session on its next request rather than only blocking
+    | new ones.
+    */
+
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            'driver' => 'eloquent.active',
             'model' => env('AUTH_MODEL', User::class),
         ],
 
