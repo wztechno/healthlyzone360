@@ -10,6 +10,7 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
+import { KitchenBranchId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,15 +20,18 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { Gate } from '../../../access/gate.tsx';
 import {
     useAllergenClassesQuery,
+    useBranchOperatingQuery,
     useIngredientSummaryQuery,
     useMealSummaryQuery,
     usePlanSummaryQuery,
     usePriceListSummaryQuery,
     useProductSummaryQuery,
     useRecipeSummaryQuery,
+    useZoneSummaryQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { PublishedFamilySummary } from '../../../data/kitchen-admin-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
+import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
 import { WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
 import type { EntityFamily } from '../entity-registry.ts';
 
@@ -214,6 +218,65 @@ function PublishedFamilyCard({
     );
 }
 
+/**
+ * The branch-hours card, which counts days rather than records.
+ *
+ * A branch's operating week is one record per branch with no publication state, so "eleven published
+ * records" is a sentence this family cannot say. What it can say is the thing a kitchen actually
+ * wants to know from a hub: how many days of the week this branch trades, and how many of those
+ * state a same-day order cut-off. A week with no cut-offs anywhere is marked, because that is the
+ * gap the whole slice exists to close.
+ */
+function BranchOperatingCard({ family }: { readonly family: EntityFamily }) {
+    const { t } = useTranslation();
+    const access = useAccessState();
+    const branchId = access.branch === undefined ? null : KitchenBranchId.unsafe(access.branch.id);
+    const operating = useBranchOperatingQuery(branchId);
+    const testID = `kitchen-family-${family.key}`;
+
+    const summary =
+        operating.data === undefined
+            ? null
+            : summariseOperating(operatingDraftsFrom(operating.data));
+
+    return (
+        <FamilyCardShell family={family} testID={testID}>
+            {operating.isPending && branchId !== null ? (
+                <Skeleton
+                    testID={`${testID}-loading`}
+                    heightClassName="h-6"
+                    widthClassName="w-1/2"
+                />
+            ) : (
+                <Inline space="xs" wrap testID={`${testID}-counts`}>
+                    <Badge
+                        testID={`${testID}-total`}
+                        tone="neutral"
+                        icon="dot"
+                        label={
+                            summary === null
+                                ? t('kitchen:hub.countUnavailable')
+                                : t('kitchen:branchHours.openDayCount', {
+                                      count: summary.openDays,
+                                  })
+                        }
+                    />
+                    {summary === null ? null : (
+                        <Badge
+                            testID={`${testID}-cut-offs`}
+                            tone={summary.withCutOff === 0 ? 'warning' : 'info'}
+                            {...(summary.withCutOff === 0 ? { icon: 'warning' as const } : {})}
+                            label={t('kitchen:branchHours.cutOffDayCount', {
+                                count: summary.withCutOff,
+                            })}
+                        />
+                    )}
+                </Inline>
+            )}
+        </FamilyCardShell>
+    );
+}
+
 function AllergenClassesCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const classes = useAllergenClassesQuery();
@@ -267,6 +330,7 @@ export function KitchenHomeScreen() {
     const mealSummary = useMealSummaryQuery(permitted.has('meals'));
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
     const planSummary = usePlanSummaryQuery(permitted.has('plans'));
+    const zoneSummary = useZoneSummaryQuery(permitted.has('delivery-zones'));
 
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
@@ -342,6 +406,18 @@ export function KitchenHomeScreen() {
                                         summary={planSummary}
                                     />
                                 );
+                            }
+                            if (family.key === 'delivery-zones') {
+                                return (
+                                    <PublishedFamilyCard
+                                        key={family.key}
+                                        family={family}
+                                        summary={zoneSummary}
+                                    />
+                                );
+                            }
+                            if (family.key === 'branch-operating') {
+                                return <BranchOperatingCard key={family.key} family={family} />;
                             }
                             if (family.key === 'allergen-classes') {
                                 return <AllergenClassesCard key={family.key} family={family} />;

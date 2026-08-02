@@ -1,11 +1,15 @@
 import type {
     AllergenClass,
+    BranchOperating,
+    CreateDeliveryZoneRequest,
     CreateIngredientRequest,
     CreateMealRequest,
     CreatePlanRequest,
     CreateProductRequest,
     CreateRecipeRequest,
     CursorPage,
+    DeliveryZoneAdmin,
+    DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
     LockedRequest,
@@ -22,7 +26,10 @@ import type {
     RecipeAdminSummary,
     RecipeRollupDraft,
     RecipeRollupPreview,
+    ServiceArea,
+    SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
+    SetDeliveryWindowsRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -32,6 +39,8 @@ import type {
     SetRecipeLinesRequest,
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
+    SetZoneAreasRequest,
+    UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
     UpdateMealRequest,
     UpdatePlanRequest,
@@ -39,7 +48,9 @@ import type {
     UpdateRecipeRequest,
 } from '@healthy360/api-client/contracts';
 import type {
+    DeliveryZoneId,
     IngredientId,
+    KitchenBranchId,
     KitchenId,
     MealId,
     PriceListId,
@@ -170,6 +181,29 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  * 13. **There is no customer scope.** `PriceListAdmin` carries `channels` and no `customerScope` or
  *     agreement reference, so "this list belongs to one buyer relationship" is expressed by the
  *     channel set alone (`hasPrivatePricing`), and the confidential treatment keys off that.
+ *
+ * ## Four more, on the delivery half (K1.7)
+ *
+ * 14. **A delivery window belongs to a zone, not to the kitchen.** `setDeliveryWindows` takes a
+ *     `DeliveryZoneId` and answers with the whole `DeliveryZoneAdmin`; there is no `listWindows`,
+ *     no `getWindow` and no kitchen-wide window resource. So there is no windows hook here and no
+ *     windows screen: the zone editor owns them, which is where the only setter is.
+ * 15. **A zone has no publication action.** The contract publishes `archiveZone` and nothing else —
+ *     no `publishZone`, no `retireZone` — so a zone moves *out* of visibility from this workspace
+ *     and never into it, exactly as a product does. {@link useZoneSummaryQuery} therefore counts
+ *     three statuses rather than four; `review_required` is unreachable for this family.
+ * 16. **The kitchen workspace cannot list its own branches.** `KitchenAdminRepository` has
+ *     `getBranchOperating(branchId)` and no `listBranches`, and `DeliveryZoneAdmin.branchIds` is a
+ *     list of identifiers with no names attached. Two consequences, both deliberate: the branch a
+ *     person edits hours for is the **session's active branch** rather than one picked from a list
+ *     this contract cannot supply, and the zone editor shows `branchIds` as a read-only count
+ *     instead of offering a picker whose vocabulary it would have to invent — a picker missing an
+ *     option would silently drop a branch from the zone on the next save.
+ * 17. **A zone's currency has no organisational source.** `CreateDeliveryZoneRequest.currency` is
+ *     required and nothing on the session, the organisation or this contract publishes "the
+ *     currency this kitchen trades in". The create form therefore derives the default from the
+ *     currencies already in use — the kitchen's own zones first, then its price lists — and offers
+ *     the full `CURRENCY_CODES` list when neither exists, rather than hard-coding a country's money.
  */
 
 export { toFailure } from './hooks.ts';
@@ -1759,6 +1793,365 @@ export function useRecipeRollupQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (draft === null) throw new Error('No draft to preview.');
             return repositories.kitchenAdmin.previewRecipeRollup(draft);
+        },
+    });
+}
+
+/* ── the delivery-area gazetteer (K1.7) ──────────────────────────────────────────────────────── */
+
+/**
+ * Pages the gazetteer fetches before it stops, and the cap that follows from it.
+ *
+ * `listServiceAreas` is a `CursorPage` like every other listing, and the mock repository's page
+ * limit is 100. The production gazetteer the plan describes is ~125 rows, so a single page would
+ * silently hide the last quarter of the country from a selector — which is the one place in this
+ * workspace where an invisible row is a delivery that never happens. Four pages is therefore the
+ * loop's bound, and {@link ServiceAreaGazetteer.truncated} says out loud when it was reached rather
+ * than pretending the answer is complete.
+ */
+const SERVICE_AREA_PAGE_SIZE = 100;
+const SERVICE_AREA_MAX_PAGES = 4;
+
+export interface ServiceAreaGazetteer {
+    readonly areas: readonly ServiceArea[];
+    /** Rows the server says match, when it can count them; `null` when it cannot. */
+    readonly total: number | null;
+    /** True when the loop hit its bound with more rows still to come. */
+    readonly truncated: boolean;
+}
+
+/**
+ * The delivery-area gazetteer a zone selects from.
+ *
+ * **Read whole, filtered on the client.** Two reasons, and neither is laziness. First, the picker
+ * this feeds is a search box over a few hundred stable rows: filtering locally makes it instant and
+ * needs no debounce, no request per keystroke and no "searching…" state. Second, `ServiceAreaFilter`
+ * publishes `query` and `countryCode` and the search a person actually performs is over *both*
+ * languages and the parent's name — which is `areaMatches` in the feature, not a server parameter.
+ *
+ * One cache entry for the whole workspace: the zone editor is the only reader today, and a second
+ * one would share it rather than re-page.
+ */
+export function useServiceAreasQuery(enabled = true): UseQueryResult<ServiceAreaGazetteer> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.serviceAreas({ pageSize: SERVICE_AREA_PAGE_SIZE }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<ServiceAreaGazetteer> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+
+            const areas: ServiceArea[] = [];
+            let cursor: string | undefined;
+            let total: number | null = null;
+            let truncated = false;
+
+            for (let page = 0; page < SERVICE_AREA_MAX_PAGES; page += 1) {
+                const answered: CursorPage<ServiceArea> =
+                    await repositories.kitchenAdmin.listServiceAreas({
+                        limit: SERVICE_AREA_PAGE_SIZE,
+                        ...(cursor === undefined ? {} : { cursor }),
+                    });
+                areas.push(...answered.items);
+                if (page === 0) total = answered.totalCount;
+                if (answered.nextCursor === null) break;
+                cursor = answered.nextCursor;
+                truncated = page === SERVICE_AREA_MAX_PAGES - 1;
+            }
+
+            return { areas, total, truncated };
+        },
+    });
+}
+
+/* ── delivery zones (K1.7) ───────────────────────────────────────────────────────────────────── */
+
+export type AdminZonesInfiniteResult = UseInfiniteQueryResult<
+    InfiniteData<CursorPage<DeliveryZoneAdmin>, string | undefined>,
+    Error
+>;
+
+/** The accumulated zones across every page fetched so far. */
+export function zonesFromPages(
+    pages: readonly CursorPage<DeliveryZoneAdmin>[] | undefined,
+): readonly DeliveryZoneAdmin[] {
+    return (pages ?? []).flatMap((page) => page.items);
+}
+
+/** Total matching zones when the repository can count them; `null` when it cannot. */
+export function zoneTotalFromPages(
+    pages: readonly CursorPage<DeliveryZoneAdmin>[] | undefined,
+): number | null {
+    return pages?.[0]?.totalCount ?? null;
+}
+
+/** The kitchen's delivery zones, with their areas and windows already resolved by the contract. */
+export function useAdminZonesQuery(
+    filter?: Omit<DeliveryZoneAdminFilter, 'cursor'>,
+    enabled = true,
+): AdminZonesInfiniteResult {
+    const { repositories } = useRepositoryContext();
+
+    return useInfiniteQuery({
+        queryKey: queryKeys.kitchenAdmin.zones(filter),
+        enabled: enabled && repositories !== null,
+        initialPageParam: undefined as string | undefined,
+        queryFn: ({ pageParam }) => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listZones({
+                ...filter,
+                ...(pageParam === undefined ? {} : { cursor: pageParam }),
+            });
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+}
+
+/** One zone. Nullable identifier for the reason every detail hook here is. */
+export function useAdminZoneQuery(
+    zoneId: DeliveryZoneId | null,
+): UseQueryResult<DeliveryZoneAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.zone(zoneId ?? ('' as DeliveryZoneId)),
+        enabled: repositories !== null && zoneId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (zoneId === null) throw new Error('No zone identifier.');
+            return repositories.kitchenAdmin.getZone(zoneId);
+        },
+    });
+}
+
+/**
+ * The zone counts behind the hub card.
+ *
+ * Three `limit: 1` listings rather than four: a zone has no `review_required` state to reach.
+ * `archiveZone` is the only lifecycle method the contract publishes for this family — there is no
+ * `publishZone` — so a zone moves draft → retired and nothing quarantines it. Counting a status
+ * nothing can produce would put a permanent zero on the card.
+ */
+export function useZoneSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.zones({ derive: 'summary' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<PublishedFamilySummary> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const [all, published, drafts] = await Promise.all([
+                repositories.kitchenAdmin.listZones({ limit: 1 }),
+                repositories.kitchenAdmin.listZones({ limit: 1, statuses: ['published'] }),
+                repositories.kitchenAdmin.listZones({ limit: 1, statuses: ['draft'] }),
+            ]);
+            return {
+                total: all.totalCount,
+                published: published.totalCount,
+                drafts: drafts.totalCount,
+                quarantined: 0,
+            };
+        },
+    });
+}
+
+/* ── zone writes ─────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Writes the record into its detail entry and invalidates the workspace root *and* the marketplace.
+ *
+ * The marketplace invalidation is this family's own version of the rule the meal and plan writes
+ * follow. A zone is not a consumer record, but a **branch publishes the zones that name it** — the
+ * mock store rebuilds `Kitchen.branches[].deliveryZones` on every zone write
+ * (`mock/prototype/catalogue-store.ts`), and only for zones that are `published`. So renaming a zone
+ * changes what a shopper reads on the kitchen page, and archiving one takes it off that page
+ * entirely. A narrower invalidation would leave the two disagreeing.
+ */
+function useZoneWriteEffects(): (zone: DeliveryZoneAdmin) => void {
+    const queryClient = useQueryClient();
+
+    return (zone: DeliveryZoneAdmin) => {
+        queryClient.setQueryData(queryKeys.kitchenAdmin.zone(zone.id), zone);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all() });
+    };
+}
+
+export function useCreateZoneMutation(): UseMutationResult<
+    DeliveryZoneAdmin,
+    unknown,
+    CreateDeliveryZoneRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useZoneWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreateDeliveryZoneRequest) =>
+            repositories.kitchenAdmin.createZone(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface UpdateZoneVariables {
+    readonly zoneId: DeliveryZoneId;
+    readonly request: UpdateDeliveryZoneRequest;
+}
+
+export function useUpdateZoneMutation(): UseMutationResult<
+    DeliveryZoneAdmin,
+    unknown,
+    UpdateZoneVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useZoneWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ zoneId, request }: UpdateZoneVariables) =>
+            repositories.kitchenAdmin.updateZone(zoneId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface ZoneLifecycleVariables {
+    readonly zoneId: DeliveryZoneId;
+    readonly request: LockedRequest;
+}
+
+/**
+ * Retires the zone.
+ *
+ * Nothing is deleted, and the consequence is visible immediately: the branches that serve the zone
+ * stop publishing it, because the store only projects a zone onto a branch while it is `published`.
+ * The editor states that before it asks.
+ */
+export function useArchiveZoneMutation(): UseMutationResult<
+    DeliveryZoneAdmin,
+    unknown,
+    ZoneLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useZoneWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ zoneId, request }: ZoneLifecycleVariables) =>
+            repositories.kitchenAdmin.archiveZone(zoneId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface SetZoneAreasVariables {
+    readonly zoneId: DeliveryZoneId;
+    readonly request: SetZoneAreasRequest;
+}
+
+/**
+ * Replaces the whole area set.
+ *
+ * Wholesale because the contract is wholesale, and because coverage is judged as a set: "these are
+ * the areas we deliver to" is one decision, and applying half of it would advertise a zone into a
+ * district nobody agreed to. The store rejects an unknown identifier with `resource.not_found`
+ * rather than skipping it, which is why the picker only ever offers rows it actually loaded.
+ */
+export function useSetZoneAreasMutation(): UseMutationResult<
+    DeliveryZoneAdmin,
+    unknown,
+    SetZoneAreasVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useZoneWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ zoneId, request }: SetZoneAreasVariables) =>
+            repositories.kitchenAdmin.setZoneAreas(zoneId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface SetDeliveryWindowsVariables {
+    readonly zoneId: DeliveryZoneId;
+    readonly request: SetDeliveryWindowsRequest;
+}
+
+/**
+ * Replaces the whole window set.
+ *
+ * A window sent with `id: null` is minted server-side and comes back with one, exactly as a plan
+ * variant is — so the editor rebases its rows on the echo after every save. Without that, a second
+ * save would send the same window with a null identifier again and create a duplicate.
+ */
+export function useSetDeliveryWindowsMutation(): UseMutationResult<
+    DeliveryZoneAdmin,
+    unknown,
+    SetDeliveryWindowsVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useZoneWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ zoneId, request }: SetDeliveryWindowsVariables) =>
+            repositories.kitchenAdmin.setDeliveryWindows(zoneId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/* ── branch operating data (K1.7) ────────────────────────────────────────────────────────────── */
+
+/**
+ * One branch's trading week.
+ *
+ * Keyed by `KitchenBranchId`, which is **not** the `BranchId` the session context carries — two
+ * brands, deliberately, because an organisation branch and a kitchen branch are different records
+ * in the plan's schema. In this world they resolve to the same identity for the branch a kitchen
+ * manager signs into, and the caller is the one place that crossing is made and stated
+ * (`screens/branch-operating-screen.tsx`). Nothing is cast here.
+ */
+export function useBranchOperatingQuery(
+    branchId: KitchenBranchId | null,
+): UseQueryResult<BranchOperating> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.branchOperating(branchId ?? ('' as KitchenBranchId)),
+        enabled: repositories !== null && branchId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (branchId === null) throw new Error('No branch identifier.');
+            return repositories.kitchenAdmin.getBranchOperating(branchId);
+        },
+    });
+}
+
+export interface SetBranchOperatingVariables {
+    readonly branchId: KitchenBranchId;
+    readonly request: SetBranchOperatingRequest;
+}
+
+/**
+ * Replaces the branch's whole trading week.
+ *
+ * The marketplace invalidation matters as much here as on a zone write and for the same mechanism:
+ * the store re-projects `KitchenBranch.openingHours` from this record, so a shopper's view of when
+ * a branch trades is downstream of this one save. The workspace root is invalidated rather than
+ * only this branch's key, because the hub card counts open days from the same record.
+ */
+export function useSetBranchOperatingMutation(): UseMutationResult<
+    BranchOperating,
+    unknown,
+    SetBranchOperatingVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ branchId, request }: SetBranchOperatingVariables) =>
+            repositories.kitchenAdmin.setBranchOperating(branchId, request),
+        onSuccess: (operating: BranchOperating) => {
+            queryClient.setQueryData(
+                queryKeys.kitchenAdmin.branchOperating(operating.branchId),
+                operating,
+            );
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all() });
         },
     });
 }

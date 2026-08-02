@@ -1,4 +1,4 @@
-import type { AdminEntityMeta } from '@healthy360/api-client/contracts';
+import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
 import { Badge, Button, Dialog, Heading, Inline, Stack, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
@@ -33,8 +33,17 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 export interface EditorFrameProps {
     readonly title: string;
-    /** The record's meta, or `null` for one that has never been saved. */
-    readonly meta: AdminEntityMeta | null;
+    /**
+     * The record's meta, or `null` for one that has never been saved.
+     *
+     * Widened by K1.7 to accept a plain {@link AdminRecordMeta} as well. A branch's operating week
+     * is an operational setting rather than a publishable record — the contract gives it no status
+     * on purpose, because a `draft` week would invent a lifecycle the branch does not have — and the
+     * header therefore draws no status badge for one rather than inventing a value to put in it.
+     * Everything else the header states (who changed it, when, and whether it is dirty) is identical
+     * for both, which is why this is one frame rather than two.
+     */
+    readonly meta: AdminEntityMeta | AdminRecordMeta | null;
     readonly guard: UnsavedGuard;
     readonly concurrency: OptimisticConcurrency;
     readonly onSaveDraft: () => void;
@@ -102,13 +111,13 @@ export function EditorFrame({
                             icon="dot"
                             label={t('kitchen:status.draft')}
                         />
-                    ) : (
+                    ) : 'status' in meta ? (
                         <Badge
                             testID={`${testID}-status`}
                             tone={statusTone(meta.status)}
                             label={t(statusKey(meta.status))}
                         />
-                    )}
+                    ) : null}
                     {guard.isDirty ? (
                         <Badge
                             testID={`${testID}-dirty`}

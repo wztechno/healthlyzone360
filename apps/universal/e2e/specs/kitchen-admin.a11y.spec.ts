@@ -111,6 +111,24 @@ async function openPlans(page: Page) {
     await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
 }
 
+async function openZones(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-delivery-zones-open').click();
+    await expect(page.getByTestId('kitchen-zones-table')).toBeVisible();
+}
+
+async function openFirstZone(page: Page) {
+    await openZones(page);
+    await page.locator('[data-testid^="kitchen-zone-"][data-testid$="-open"]').first().click();
+    await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible();
+}
+
+async function openBranchHours(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-branch-operating-open').click();
+    await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible();
+}
+
 async function openFirstPlan(page: Page) {
     await openPlans(page);
     await page.locator('[data-testid^="kitchen-plan-"][data-testid$="-open"]').first().click();
@@ -431,5 +449,102 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await expect(page.getByTestId('kitchen-plan-publish-dialog')).toBeVisible();
         await expect(page.getByTestId('kitchen-plan-publish-blocked')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-plan-publish-dialog');
+    });
+
+    test('the delivery-zone list', async ({ page }) => {
+        await openZones(page);
+        await expectNoSeriousViolations(page, 'kitchen-zones');
+    });
+
+    /**
+     * The zone editor carries the workspace's largest multi-select, and it is swept in the state
+     * that matters: **with the option group populated and a selection made**.
+     *
+     * The picker is deliberately not a combobox (see `delivery-row-editors.tsx`) — a labelled search
+     * field above an independently labelled checkbox group — and this is the sweep that keeps that
+     * decision honest: a group with no accessible name, a checkbox with no label, or a live region
+     * with no role are all serious findings and all invisible by eye.
+     */
+    test('the zone editor with its area picker populated and filtered', async ({ page }) => {
+        await openFirstZone(page);
+        await expect(page.getByTestId('kitchen-zone-area-picker-search')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-zone-editor');
+
+        await page.getByTestId('kitchen-zone-area-picker-search-input').fill('a');
+        await expect(page.getByTestId('kitchen-zone-area-picker-count')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-zone-editor-picker-filtered');
+
+        const option = page
+            .locator(
+                '[data-testid^="kitchen-zone-area-picker-option-"][data-testid$="-control"][aria-checked="false"]',
+            )
+            .first();
+        if ((await option.count()) > 0) {
+            await option.click();
+            await expect(
+                page.locator('[data-testid^="kitchen-zone-area-picker-chip-"]').first(),
+            ).toBeVisible();
+            await expectNoSeriousViolations(page, 'kitchen-zone-editor-picker-selected');
+        }
+    });
+
+    /**
+     * The window editor with a refusal on one row: a repeated card whose error has to be associated
+     * with the field inside *that* row rather than with the first one on the page.
+     */
+    test('the zone editor with a window row carrying a refusal', async ({ page }) => {
+        await openFirstZone(page);
+        await expect(page.getByTestId('kitchen-zone-window-rows')).toBeVisible();
+
+        const row = page.locator('[data-testid^="kitchen-zone-window-rows-row-"]').first();
+        const rowId = await row.getAttribute('data-testid');
+        if (rowId === null) throw new Error('The window row carries no test id.');
+
+        await page.getByTestId(`${rowId}-starts-input`).fill('22:00');
+        await page.getByTestId(`${rowId}-ends-input`).fill('02:00');
+        await expect(page.getByTestId(`${rowId}-error`)).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-zone-editor-window-refused');
+    });
+
+    test('the zone archive confirmation, where the cost is counted before it is agreed', async ({
+        page,
+    }) => {
+        await openFirstZone(page);
+        await page.getByTestId('kitchen-zone-archive').click();
+        await expect(page.getByTestId('kitchen-zone-archive-dialog')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-zone-archive-dialog');
+    });
+
+    /**
+     * The trading week, swept in both of its states.
+     *
+     * A closed day *removes* three labelled fields and replaces them with a note, which is exactly
+     * the kind of change that leaves an orphaned `aria-describedby` behind — and an error on one
+     * weekday has to name that weekday's field rather than the first one on the page.
+     */
+    test('the branch operating week, with a closed day and a refused cut-off', async ({ page }) => {
+        await openBranchHours(page);
+        await expectNoSeriousViolations(page, 'kitchen-branch-hours');
+
+        await page.getByTestId('kitchen-branch-hours-rows-day-2-closed-control').click();
+        await expect(page.getByTestId('kitchen-branch-hours-rows-day-2-closed-note')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-branch-hours-closed-day');
+
+        await page.getByTestId('kitchen-branch-hours-rows-day-1-closes-input').fill('17:00');
+        await page.getByTestId('kitchen-branch-hours-rows-day-1-cut-off-input').fill('23:00');
+        await expect(page.getByTestId('kitchen-branch-hours-rows-day-1-error')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-branch-hours-refused');
+    });
+
+    test('the same trading week on a phone', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openBranchHours(page);
+        await expectNoSeriousViolations(page, 'kitchen-branch-hours-narrow');
+    });
+
+    test('the zone list on a phone, where the table becomes stacked cards', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openZones(page);
+        await expectNoSeriousViolations(page, 'kitchen-zones-narrow');
     });
 });

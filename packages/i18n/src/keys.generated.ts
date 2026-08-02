@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 3655 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 3813 keys across 15 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1330,6 +1330,23 @@ export interface NamespaceKeys {
     | 'allergens.upgradeOnlyContainment'
     | 'allergens.upgradeOnlyVerification'
     | 'allergens.verificationLabel'
+    | 'areas.groupLabel'
+    | 'areas.inactive'
+    | 'areas.matchCount'
+    | 'areas.moreHidden'
+    | 'areas.noMatches'
+    | 'areas.noParent'
+    | 'areas.save'
+    | 'areas.saveError'
+    | 'areas.savedToast'
+    | 'areas.searchHint'
+    | 'areas.searchLabel'
+    | 'areas.searchPlaceholder'
+    | 'areas.selectedLabel'
+    | 'areas.selectedNone'
+    | 'areas.truncatedBody'
+    | 'areas.truncatedTitle'
+    | 'areas.unknownArea'
     | 'availability.addDay'
     | 'availability.availableLabel'
     | 'availability.closed'
@@ -1359,6 +1376,41 @@ export interface NamespaceKeys {
     | 'bilingual.englishLabel'
     | 'bilingual.missingArabic'
     | 'bilingual.missingArabicHint'
+    | 'branchHours.allClosedBody'
+    | 'branchHours.allClosedTitle'
+    | 'branchHours.backToHub'
+    | 'branchHours.branchBadge'
+    | 'branchHours.branchUnknown'
+    | 'branchHours.closedBadge'
+    | 'branchHours.closedLabel'
+    | 'branchHours.closedNote'
+    | 'branchHours.closesBeforeOpens'
+    | 'branchHours.closesInvalid'
+    | 'branchHours.closesLabel'
+    | 'branchHours.contextNote'
+    | 'branchHours.copiedAnnouncement'
+    | 'branchHours.copyToOpenDays'
+    | 'branchHours.cutOffAfterCloses'
+    | 'branchHours.cutOffDayCount'
+    | 'branchHours.cutOffHint'
+    | 'branchHours.cutOffInvalid'
+    | 'branchHours.cutOffLabel'
+    | 'branchHours.cutOffNone'
+    | 'branchHours.loadErrorTitle'
+    | 'branchHours.noBranchBody'
+    | 'branchHours.noBranchTitle'
+    | 'branchHours.openDayCount'
+    | 'branchHours.opensInvalid'
+    | 'branchHours.opensLabel'
+    | 'branchHours.save'
+    | 'branchHours.saveError'
+    | 'branchHours.savedToast'
+    | 'branchHours.sectionContext'
+    | 'branchHours.sectionWeek'
+    | 'branchHours.timeZoneBadge'
+    | 'branchHours.title'
+    | 'branchHours.titleFor'
+    | 'branchHours.weekIntro'
     | 'channels.createFirst'
     | 'channels.fromHint'
     | 'channels.fromLabel'
@@ -1430,6 +1482,10 @@ export interface NamespaceKeys {
     | 'editor.unsaved'
     | 'families.allergenClasses.description'
     | 'families.allergenClasses.name'
+    | 'families.branchOperating.description'
+    | 'families.branchOperating.name'
+    | 'families.deliveryZones.description'
+    | 'families.deliveryZones.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
     | 'families.meals.description'
@@ -2069,6 +2125,8 @@ export interface NamespaceKeys {
     | 'status.published'
     | 'status.retired'
     | 'status.reviewRequired'
+    | 'time.formatHint'
+    | 'time.placeholder'
     | 'title'
     | 'toolbar.categoryAll'
     | 'toolbar.categoryLabel'
@@ -2100,7 +2158,107 @@ export interface NamespaceKeys {
     | 'verification.laboratoryTested'
     | 'verification.operatorConfirmed'
     | 'verification.supplierDeclared'
-    | 'verification.unverified';
+    | 'verification.unverified'
+    | 'windows.activeHint'
+    | 'windows.activeLabel'
+    | 'windows.add'
+    | 'windows.capacityHint'
+    | 'windows.capacityInvalid'
+    | 'windows.capacityLabel'
+    | 'windows.capacityUncapped'
+    | 'windows.count'
+    | 'windows.coveredDayCount'
+    | 'windows.endBeforeStart'
+    | 'windows.endInvalid'
+    | 'windows.endsLabel'
+    | 'windows.inactiveBadge'
+    | 'windows.labelField'
+    | 'windows.labelRequired'
+    | 'windows.none'
+    | 'windows.removed'
+    | 'windows.rowTitle'
+    | 'windows.save'
+    | 'windows.saveError'
+    | 'windows.savedToast'
+    | 'windows.startInvalid'
+    | 'windows.startsLabel'
+    | 'windows.weekdaysHint'
+    | 'windows.weekdaysLabel'
+    | 'windows.weekdaysRequired'
+    | 'zones.amountInvalid'
+    | 'zones.archiveAreaCount'
+    | 'zones.archiveBody'
+    | 'zones.archiveBranchCount'
+    | 'zones.archiveConfirm'
+    | 'zones.archiveConsequence'
+    | 'zones.archiveTitle'
+    | 'zones.archiveWindowCount'
+    | 'zones.archivedBody'
+    | 'zones.archivedTitle'
+    | 'zones.archivedToast'
+    | 'zones.areaCount'
+    | 'zones.areasIntro'
+    | 'zones.backToList'
+    | 'zones.branchCount'
+    | 'zones.branchesLabel'
+    | 'zones.branchesReadOnly'
+    | 'zones.caption'
+    | 'zones.columnAreas'
+    | 'zones.columnCharges'
+    | 'zones.columnEstimated'
+    | 'zones.columnName'
+    | 'zones.columnWindows'
+    | 'zones.create'
+    | 'zones.createFirst'
+    | 'zones.createTitle'
+    | 'zones.createdToast'
+    | 'zones.currencyCreateHint'
+    | 'zones.currencyFixedHint'
+    | 'zones.currencyLabel'
+    | 'zones.editTitle'
+    | 'zones.emptyBody'
+    | 'zones.emptyTitle'
+    | 'zones.estimatedHint'
+    | 'zones.estimatedLabel'
+    | 'zones.estimatedMinutes'
+    | 'zones.estimatedNone'
+    | 'zones.estimatedUnit'
+    | 'zones.feeHint'
+    | 'zones.feeLabel'
+    | 'zones.feeStateAmount'
+    | 'zones.feeStateUnset'
+    | 'zones.feeStateZero'
+    | 'zones.feeValue'
+    | 'zones.filteredEmptyBody'
+    | 'zones.filteredEmptyTitle'
+    | 'zones.freeDelivery'
+    | 'zones.inactiveAreaCount'
+    | 'zones.loadErrorTitle'
+    | 'zones.minimumHint'
+    | 'zones.minimumLabel'
+    | 'zones.minimumStateAmount'
+    | 'zones.minimumStateUnset'
+    | 'zones.minimumStateZero'
+    | 'zones.minimumValue'
+    | 'zones.nameRequired'
+    | 'zones.noActiveWindows'
+    | 'zones.noAreas'
+    | 'zones.noEstimate'
+    | 'zones.noFeeRecorded'
+    | 'zones.noMinimum'
+    | 'zones.noMinimumRecorded'
+    | 'zones.noWindows'
+    | 'zones.notFoundBody'
+    | 'zones.notFoundTitle'
+    | 'zones.resultCount'
+    | 'zones.sectionAreas'
+    | 'zones.sectionDetails'
+    | 'zones.sectionWindows'
+    | 'zones.subtitle'
+    | 'zones.title'
+    | 'zones.uncoveredDayCount'
+    | 'zones.windowCount'
+    | 'zones.windowsIntro';
   readonly "marketplace":
     | 'allergens.celery'
     | 'allergens.crustaceans'
@@ -5002,6 +5160,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.upgradeOnlyContainment',
   'kitchen:allergens.upgradeOnlyVerification',
   'kitchen:allergens.verificationLabel',
+  'kitchen:areas.groupLabel',
+  'kitchen:areas.inactive',
+  'kitchen:areas.matchCount',
+  'kitchen:areas.moreHidden',
+  'kitchen:areas.noMatches',
+  'kitchen:areas.noParent',
+  'kitchen:areas.save',
+  'kitchen:areas.saveError',
+  'kitchen:areas.savedToast',
+  'kitchen:areas.searchHint',
+  'kitchen:areas.searchLabel',
+  'kitchen:areas.searchPlaceholder',
+  'kitchen:areas.selectedLabel',
+  'kitchen:areas.selectedNone',
+  'kitchen:areas.truncatedBody',
+  'kitchen:areas.truncatedTitle',
+  'kitchen:areas.unknownArea',
   'kitchen:availability.addDay',
   'kitchen:availability.availableLabel',
   'kitchen:availability.closed',
@@ -5031,6 +5206,41 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:bilingual.englishLabel',
   'kitchen:bilingual.missingArabic',
   'kitchen:bilingual.missingArabicHint',
+  'kitchen:branchHours.allClosedBody',
+  'kitchen:branchHours.allClosedTitle',
+  'kitchen:branchHours.backToHub',
+  'kitchen:branchHours.branchBadge',
+  'kitchen:branchHours.branchUnknown',
+  'kitchen:branchHours.closedBadge',
+  'kitchen:branchHours.closedLabel',
+  'kitchen:branchHours.closedNote',
+  'kitchen:branchHours.closesBeforeOpens',
+  'kitchen:branchHours.closesInvalid',
+  'kitchen:branchHours.closesLabel',
+  'kitchen:branchHours.contextNote',
+  'kitchen:branchHours.copiedAnnouncement',
+  'kitchen:branchHours.copyToOpenDays',
+  'kitchen:branchHours.cutOffAfterCloses',
+  'kitchen:branchHours.cutOffDayCount',
+  'kitchen:branchHours.cutOffHint',
+  'kitchen:branchHours.cutOffInvalid',
+  'kitchen:branchHours.cutOffLabel',
+  'kitchen:branchHours.cutOffNone',
+  'kitchen:branchHours.loadErrorTitle',
+  'kitchen:branchHours.noBranchBody',
+  'kitchen:branchHours.noBranchTitle',
+  'kitchen:branchHours.openDayCount',
+  'kitchen:branchHours.opensInvalid',
+  'kitchen:branchHours.opensLabel',
+  'kitchen:branchHours.save',
+  'kitchen:branchHours.saveError',
+  'kitchen:branchHours.savedToast',
+  'kitchen:branchHours.sectionContext',
+  'kitchen:branchHours.sectionWeek',
+  'kitchen:branchHours.timeZoneBadge',
+  'kitchen:branchHours.title',
+  'kitchen:branchHours.titleFor',
+  'kitchen:branchHours.weekIntro',
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
   'kitchen:channels.fromLabel',
@@ -5102,6 +5312,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.unsaved',
   'kitchen:families.allergenClasses.description',
   'kitchen:families.allergenClasses.name',
+  'kitchen:families.branchOperating.description',
+  'kitchen:families.branchOperating.name',
+  'kitchen:families.deliveryZones.description',
+  'kitchen:families.deliveryZones.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
@@ -5741,6 +5955,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:status.published',
   'kitchen:status.retired',
   'kitchen:status.reviewRequired',
+  'kitchen:time.formatHint',
+  'kitchen:time.placeholder',
   'kitchen:title',
   'kitchen:toolbar.categoryAll',
   'kitchen:toolbar.categoryLabel',
@@ -5773,6 +5989,106 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:verification.operatorConfirmed',
   'kitchen:verification.supplierDeclared',
   'kitchen:verification.unverified',
+  'kitchen:windows.activeHint',
+  'kitchen:windows.activeLabel',
+  'kitchen:windows.add',
+  'kitchen:windows.capacityHint',
+  'kitchen:windows.capacityInvalid',
+  'kitchen:windows.capacityLabel',
+  'kitchen:windows.capacityUncapped',
+  'kitchen:windows.count',
+  'kitchen:windows.coveredDayCount',
+  'kitchen:windows.endBeforeStart',
+  'kitchen:windows.endInvalid',
+  'kitchen:windows.endsLabel',
+  'kitchen:windows.inactiveBadge',
+  'kitchen:windows.labelField',
+  'kitchen:windows.labelRequired',
+  'kitchen:windows.none',
+  'kitchen:windows.removed',
+  'kitchen:windows.rowTitle',
+  'kitchen:windows.save',
+  'kitchen:windows.saveError',
+  'kitchen:windows.savedToast',
+  'kitchen:windows.startInvalid',
+  'kitchen:windows.startsLabel',
+  'kitchen:windows.weekdaysHint',
+  'kitchen:windows.weekdaysLabel',
+  'kitchen:windows.weekdaysRequired',
+  'kitchen:zones.amountInvalid',
+  'kitchen:zones.archiveAreaCount',
+  'kitchen:zones.archiveBody',
+  'kitchen:zones.archiveBranchCount',
+  'kitchen:zones.archiveConfirm',
+  'kitchen:zones.archiveConsequence',
+  'kitchen:zones.archiveTitle',
+  'kitchen:zones.archiveWindowCount',
+  'kitchen:zones.archivedBody',
+  'kitchen:zones.archivedTitle',
+  'kitchen:zones.archivedToast',
+  'kitchen:zones.areaCount',
+  'kitchen:zones.areasIntro',
+  'kitchen:zones.backToList',
+  'kitchen:zones.branchCount',
+  'kitchen:zones.branchesLabel',
+  'kitchen:zones.branchesReadOnly',
+  'kitchen:zones.caption',
+  'kitchen:zones.columnAreas',
+  'kitchen:zones.columnCharges',
+  'kitchen:zones.columnEstimated',
+  'kitchen:zones.columnName',
+  'kitchen:zones.columnWindows',
+  'kitchen:zones.create',
+  'kitchen:zones.createFirst',
+  'kitchen:zones.createTitle',
+  'kitchen:zones.createdToast',
+  'kitchen:zones.currencyCreateHint',
+  'kitchen:zones.currencyFixedHint',
+  'kitchen:zones.currencyLabel',
+  'kitchen:zones.editTitle',
+  'kitchen:zones.emptyBody',
+  'kitchen:zones.emptyTitle',
+  'kitchen:zones.estimatedHint',
+  'kitchen:zones.estimatedLabel',
+  'kitchen:zones.estimatedMinutes',
+  'kitchen:zones.estimatedNone',
+  'kitchen:zones.estimatedUnit',
+  'kitchen:zones.feeHint',
+  'kitchen:zones.feeLabel',
+  'kitchen:zones.feeStateAmount',
+  'kitchen:zones.feeStateUnset',
+  'kitchen:zones.feeStateZero',
+  'kitchen:zones.feeValue',
+  'kitchen:zones.filteredEmptyBody',
+  'kitchen:zones.filteredEmptyTitle',
+  'kitchen:zones.freeDelivery',
+  'kitchen:zones.inactiveAreaCount',
+  'kitchen:zones.loadErrorTitle',
+  'kitchen:zones.minimumHint',
+  'kitchen:zones.minimumLabel',
+  'kitchen:zones.minimumStateAmount',
+  'kitchen:zones.minimumStateUnset',
+  'kitchen:zones.minimumStateZero',
+  'kitchen:zones.minimumValue',
+  'kitchen:zones.nameRequired',
+  'kitchen:zones.noActiveWindows',
+  'kitchen:zones.noAreas',
+  'kitchen:zones.noEstimate',
+  'kitchen:zones.noFeeRecorded',
+  'kitchen:zones.noMinimum',
+  'kitchen:zones.noMinimumRecorded',
+  'kitchen:zones.noWindows',
+  'kitchen:zones.notFoundBody',
+  'kitchen:zones.notFoundTitle',
+  'kitchen:zones.resultCount',
+  'kitchen:zones.sectionAreas',
+  'kitchen:zones.sectionDetails',
+  'kitchen:zones.sectionWindows',
+  'kitchen:zones.subtitle',
+  'kitchen:zones.title',
+  'kitchen:zones.uncoveredDayCount',
+  'kitchen:zones.windowCount',
+  'kitchen:zones.windowsIntro',
   'marketplace:allergens.celery',
   'marketplace:allergens.crustaceans',
   'marketplace:allergens.egg',

@@ -145,6 +145,31 @@ async function firstPlanBase(page: Page): Promise<string> {
     return testId.slice(0, testId.length - '-open'.length);
 }
 
+async function openZones(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-delivery-zones-open').click();
+    await expect(page.getByTestId('kitchen-zones-screen')).toBeVisible();
+    await expect(page.getByTestId('kitchen-zones-table')).toBeVisible();
+}
+
+/** The `kitchen-zone-{id}` prefix of the first delivery-zone row. */
+async function firstZoneBase(page: Page): Promise<string> {
+    const control = page.locator('[data-testid^="kitchen-zone-"][data-testid$="-open"]').first();
+    await expect(control).toBeVisible();
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The zone row carries no test id.');
+    return testId.slice(0, testId.length - '-open'.length);
+}
+
+/** The first weekday row of the branch-hours editor that is currently open for trade. */
+async function firstOpenDayRow(page: Page): Promise<string> {
+    for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
+        const row = `kitchen-branch-hours-rows-day-${String(weekday)}`;
+        if ((await page.getByTestId(`${row}-opens-input`).count()) > 0) return row;
+    }
+    throw new Error('The seeded branch is closed every day.');
+}
+
 /** The test id of the duration row this session just added, whatever ordinal it took. */
 async function addedDurationRow(page: Page): Promise<string> {
     const row = page
@@ -918,5 +943,143 @@ test.describe('kitchen workspace (en)', () => {
             'confirmed price',
         );
         await expect(page.getByTestId('kitchen-plan-publish-confirm')).toBeDisabled();
+    });
+
+    /**
+     * The delivery slice's spine: choose an area, save it, and read the coverage back off the list.
+     *
+     * `setZoneAreas` replaces the whole set, so this is the write that decides where a kitchen can
+     * deliver at all — and the picker is the one control in this workspace that has to work over a
+     * few hundred rows, which is why the search box and the chips are both driven here.
+     */
+    test('adds a gazetteer area to a zone and the list reads the new coverage back', async ({
+        page,
+    }) => {
+        await openZones(page);
+
+        const base = await firstZoneBase(page);
+        const before = (await page.getByTestId(`${base}-area-count`).textContent()) ?? '';
+
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-zone-area-picker-search')).toBeVisible();
+
+        // An area this zone does not already cover. The checkbox group is the picker's real
+        // control; the chips above it are the summary of what it produced.
+        const option = page
+            .locator(
+                '[data-testid^="kitchen-zone-area-picker-option-"][data-testid$="-control"][aria-checked="false"]',
+            )
+            .first();
+        await expect(option).toBeVisible();
+        await option.click();
+
+        // Editing arms the guard, which is the visible half of the unsaved-changes contract.
+        await expect(page.getByTestId('kitchen-zone-editor-screen-dirty')).toBeVisible();
+
+        await page.getByTestId('kitchen-zone-areas-save').click();
+        await expect(page.getByTestId('kitchen-zone-areas-saved-toast')).toBeVisible();
+
+        await page.getByTestId('kitchen-zone-editor-screen-back').click();
+        await expect(page.getByTestId('kitchen-zones-table')).toBeVisible();
+        await expect(page.getByTestId(`${base}-area-count`)).not.toHaveText(before);
+    });
+
+    /**
+     * The `null`-versus-zero distinction, driven through the field that carries it.
+     *
+     * "No fee recorded" and "free delivery" are different promises to a customer, they reach the
+     * same nullable column, and the caption under the field is the only place a person can see which
+     * one they are about to save.
+     */
+    test('says whether an empty delivery fee means free or means undecided', async ({ page }) => {
+        await openZones(page);
+        const base = await firstZoneBase(page);
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible();
+
+        const fee = page.getByTestId('kitchen-zone-fee-input');
+        await fee.fill('');
+        await expect(page.getByTestId('kitchen-zone-fee-state')).toContainText(
+            'not the same as free',
+        );
+
+        await fee.fill('0');
+        await expect(page.getByTestId('kitchen-zone-fee-state')).toContainText('Free delivery');
+
+        await fee.fill('12.50');
+        await expect(page.getByTestId('kitchen-zone-fee-state')).toContainText('charge');
+
+        // A figure with more decimals than the currency has is a typo, not half a fils, and it
+        // blocks the save rather than being rounded into the column.
+        await fee.fill('12.505');
+        await expect(page.getByTestId('kitchen-zone-editor-screen-save')).toBeDisabled();
+    });
+
+    /**
+     * The gap the architectural review exposed, end to end: a branch's trading week.
+     *
+     * Two claims are asserted where they are visible. Closing a day **removes** its three fields
+     * rather than greying them, because a disabled field still holding `08:00` would show a time
+     * that is not being saved. And the cut-off rule is enforced per row, before the save, with the
+     * offending day named.
+     */
+    test('closes a day, copies the rest, and refuses a cut-off after closing time', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-branch-operating-open').click();
+        await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible();
+
+        // Seven rows, always. A closed day is a day somebody answered.
+        for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
+            await expect(
+                page.getByTestId(`kitchen-branch-hours-rows-day-${String(weekday)}`),
+            ).toBeVisible();
+        }
+
+        const row = await firstOpenDayRow(page);
+        await page.getByTestId(`${row}-opens-input`).fill('09:15');
+        await page.getByTestId(`${row}-closes-input`).fill('21:45');
+        await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
+
+        // A cut-off after closing time is refused on its own row, before anything is sent.
+        await page.getByTestId(`${row}-cut-off-input`).fill('23:00');
+        await expect(page.getByTestId(`${row}-error`)).toContainText('cut-off');
+        await expect(page.getByTestId('kitchen-branch-hours-screen-save')).toBeDisabled();
+        await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
+        await expect(page.getByTestId(`${row}-error`)).toHaveCount(0);
+
+        // Copy onto the open days, and say so — six rows changing below the fold is invisible
+        // otherwise.
+        await page.getByTestId(`${row}-copy`).click();
+        await expect(page.getByTestId('kitchen-branch-hours-rows-announcer')).toContainText(
+            'copied',
+        );
+
+        // Closing a day takes its fields away rather than disabling them. Never the row being
+        // edited above, so the two assertions cannot collide.
+        const target =
+            row === 'kitchen-branch-hours-rows-day-3'
+                ? 'kitchen-branch-hours-rows-day-4'
+                : 'kitchen-branch-hours-rows-day-3';
+        await page.getByTestId(`${target}-closed-control`).click();
+        await expect(page.getByTestId(`${target}-opens-input`)).toHaveCount(0);
+        await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
+
+        await page.getByTestId('kitchen-branch-hours-screen-save').click();
+        await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
+
+        /*
+         * Read back off the record the repository now holds, by leaving and returning rather than
+         * reloading: in mock mode the store lives inside the page, so a browser reload would rebuild
+         * the world from the seed and assert nothing about the write.
+         */
+        await page.getByTestId('kitchen-branch-hours-screen-back').click();
+        await expect(page.getByTestId('kitchen-home-screen')).toBeVisible();
+        await page.getByTestId('kitchen-family-branch-operating-open').click();
+        await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible();
+        await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
+        await expect(page.getByTestId(`${row}-cut-off-input`)).toHaveValue('17:30');
     });
 });

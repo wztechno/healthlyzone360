@@ -45,6 +45,7 @@ import { BilingualField } from '../bilingual-field.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
+    ISO_WEEKDAYS,
     dietClassificationKey,
     displayName,
     humaniseCode,
@@ -141,8 +142,6 @@ const EMPTY_DETAILS: DetailsDraft = {
     changeCutOffHours: DEFAULT_CUT_OFF_HOURS,
     deliveryWeekdays: [1, 2, 3, 4, 5],
 };
-
-const ISO_WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
 
 function detailsFrom(plan: PlanAdmin): DetailsDraft {
     return {

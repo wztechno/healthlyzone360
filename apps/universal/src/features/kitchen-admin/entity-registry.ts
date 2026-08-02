@@ -12,8 +12,20 @@ import type { AccessState } from '@healthy360/permissions';
  * offered when the screen behind it would actually open.
  *
  * **This registry grows one entry per K1 slice.** K1.1 lands ingredients and the allergen-class
- * reference, K1.2 recipes, K1.4 products and meals; price lists, plans, zones and branch operating
- * data append here as their slices land, and nothing else about the hub changes when they do.
+ * reference, K1.2 recipes, K1.4 products and meals, K1.5 price lists, K1.6 plans, K1.7 delivery
+ * zones and branch operating data — and nothing else about the hub changes when they do.
+ *
+ * ## Why the delivery slice is two cards and not one
+ *
+ * They are two *subjects*, not two views of one. A delivery zone is a record family: many of them,
+ * created, edited, archived, each carrying its own areas and its own delivery windows. A branch's
+ * operating week is a **single record belonging to the branch already in context** — one per branch,
+ * no lifecycle, nothing to create. Folding them into one card would mean a card whose count answered
+ * two different questions at once, and an "open" control that had to pick which of the two it meant.
+ *
+ * Delivery *windows* get no card, and that is the contract's shape rather than an omission:
+ * `setDeliveryWindows` is keyed by zone, so a window is only ever edited inside the zone that owns
+ * it (`data/kitchen-admin-hooks.ts`, gap 14).
  */
 
 /**
@@ -148,6 +160,38 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // See the note on the permission constants: the plan names `subscription_plan.*` codes
         // server-side and nothing in this world can grant one, so K1.6 reuses the catalogue pair
         // with the rest of K1 and the reconciliation pass changes this file alone.
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'delivery-zones',
+        kind: 'managed',
+        nameKey: 'kitchen:families.deliveryZones.name',
+        descriptionKey: 'kitchen:families.deliveryZones.description',
+        // `⚟`, a wedge of converging lines — a map pin, read as generously as this icon set allows.
+        // The same compromise the product, meal, price-list and plan cards record: there is no map,
+        // pin or region glyph in a table of typographic characters, and every alternative either
+        // belongs to another card or says something untrue. The character is registered as `filter`
+        // because a funnel was wanted first; a delivery zone is not a filter, and the label beside
+        // the card is what carries the meaning until a real icon set retires the compromise.
+        icon: 'filter',
+        href: '/kitchen/delivery-zones',
+        // See the note on the permission constants: the plan names `delivery_zone.*` codes
+        // server-side and nothing in this world can grant one, so K1.7 reuses the catalogue pair
+        // with the rest of K1 and the reconciliation pass changes this file alone.
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'branch-operating',
+        kind: 'managed',
+        nameKey: 'kitchen:families.branchOperating.name',
+        descriptionKey: 'kitchen:families.branchOperating.description',
+        // `▤`, the ruled sheet — a trading week is a timetable, which is the most literal reading
+        // this glyph has anywhere in the workspace. It is the third card to carry it (recipes and
+        // plans are the others) and the compromise those two record applies unchanged.
+        icon: 'calendar',
+        href: '/kitchen/branch-operating',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },

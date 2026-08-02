@@ -433,6 +433,107 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await expect(arabic).toHaveCSS('direction', 'rtl');
     });
 
+    /**
+     * The delivery slice in Arabic, where the two direction rules meet the two *time* rules.
+     *
+     * A **time is a value on its way to a column**, so it stays in Latin digits in a right-to-left
+     * document — the same rule the recipe quantity, the price amount and the plan's day count
+     * follow. And a **week is laid out by the document, never by the array**: the weekday chips are
+     * rendered in ISO order 1…7 and `Inline` mirrors them, so Monday is on the *right* here. Nothing
+     * in the source reverses the list, because a hand-mirrored week is a left-to-right week inside a
+     * right-to-left interface exactly once — on the day somebody "fixes" the order.
+     */
+    test('keeps times in Latin digits and lays the week out right to left', async ({ page }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-delivery-zones-open').click();
+        await expect(page.getByTestId('kitchen-zones-table')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-zones-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-zones-subtitle')).toContainText(ARABIC_SCRIPT);
+
+        await page.locator('[data-testid^="kitchen-zone-"][data-testid$="-open"]').first().click();
+        await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-zone-window-rows')).toBeVisible();
+
+        // The zone name is bilingual: each half follows its own language, not the interface's.
+        await expect(page.getByTestId('kitchen-zone-name-en-input')).toHaveCSS('direction', 'ltr');
+        await expect(page.getByTestId('kitchen-zone-name-ar-input')).toHaveCSS('direction', 'rtl');
+
+        // A fee is a value on its way to an integer minor-unit column: Latin digits, either way.
+        const fee = page.getByTestId('kitchen-zone-fee-input');
+        await fee.fill('12.50');
+        await expect(fee).toHaveValue('12.50');
+        await expect(page.getByTestId('kitchen-zone-fee-state')).toContainText(ARABIC_SCRIPT);
+
+        const row = page.locator('[data-testid^="kitchen-zone-window-rows-row-"]').first();
+        const rowId = await row.getAttribute('data-testid');
+        if (rowId === null) throw new Error('The window row carries no test id.');
+
+        const starts = page.getByTestId(`${rowId}-starts-input`);
+        await expect(starts).toHaveValue(/^[0-9:]+$/);
+        await starts.fill('08:30');
+        await expect(starts).toHaveValue('08:30');
+
+        // Monday is 1 in every language, and in a right-to-left document it sits to the right of
+        // Tuesday. The chips carry the translated day names, and the geometry is the document's.
+        const monday = page.getByTestId(`${rowId}-weekday-1`);
+        const tuesday = page.getByTestId(`${rowId}-weekday-2`);
+        await expect(monday).toContainText(ARABIC_SCRIPT);
+        const mondayBox = await monday.boundingBox();
+        const tuesdayBox = await tuesday.boundingBox();
+        if (mondayBox === null || tuesdayBox === null) {
+            throw new Error('A weekday chip has no box.');
+        }
+        expect(mondayBox.x).toBeGreaterThan(tuesdayBox.x);
+
+        // And the editor must stay inside itself in this direction too.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
+
+    /**
+     * The trading week in Arabic: the same two rules one screen further out, plus the one piece of
+     * copy that must read before it is agreed to — a day being closed.
+     */
+    test('keeps opening hours in Latin digits and states a closed day in Arabic', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-branch-operating-open').click();
+        await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-branch-hours-rows-day-1-name')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // Monday sits to the right of Tuesday, because the week is drawn in ISO order and mirrored
+        // by the document rather than by the array.
+        const monday = await page.getByTestId('kitchen-branch-hours-rows-day-1').boundingBox();
+        const tuesday = await page.getByTestId('kitchen-branch-hours-rows-day-2').boundingBox();
+        if (monday === null || tuesday === null) throw new Error('A weekday row has no box.');
+        // The rows stack vertically, so the ordering assertion is the vertical one: Monday first.
+        expect(monday.y).toBeLessThan(tuesday.y);
+
+        const opens = page.getByTestId('kitchen-branch-hours-rows-day-1-opens-input');
+        await expect(opens).toHaveValue(/^[0-9:]*$/);
+        await opens.fill('09:15');
+        await expect(opens).toHaveValue('09:15');
+
+        // Closing a day removes the fields in either direction; the note that replaces them reads.
+        await page.getByTestId('kitchen-branch-hours-rows-day-2-closed-control').click();
+        await expect(page.getByTestId('kitchen-branch-hours-rows-day-2-opens-input')).toHaveCount(
+            0,
+        );
+        await expect(page.getByTestId('kitchen-branch-hours-rows-day-2-closed-note')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // The time zone is an IANA identifier, not copy: it reads the same in either language.
+        await expect(page.getByTestId('kitchen-branch-hours-timezone')).not.toContainText(/[٠-٩]/);
+    });
+
     test('translates the allergen reference, keeping the codes verbatim', async ({ page }) => {
         await openKitchen(page);
         await page.getByTestId('kitchen-family-allergen-classes-open').click();

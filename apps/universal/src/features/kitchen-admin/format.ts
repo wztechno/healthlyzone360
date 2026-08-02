@@ -764,6 +764,29 @@ export function summarisePlanPrices(
  * divergent definition of the same rules.
  */
 
+/* ── delivery zones (K1.7) ───────────────────────────────────────────────────────────────────── */
+
+/**
+ * ISO 8601 weekdays, 1 Monday … 7 Sunday.
+ *
+ * One definition for the whole workspace: a plan's delivery weekdays, a zone's delivery windows and
+ * a branch's trading week all count in the same numbers, and three copies of `[1, 2, 3, 4, 5, 6, 7]`
+ * is three chances for one of them to start on Sunday. The array is **never reversed for Arabic** —
+ * `Inline` and `Stack` follow the document's direction, so a right-to-left interface mirrors the
+ * layout on its own, and a hand-mirrored week is a left-to-right week inside an RTL page exactly
+ * once: on the day somebody "fixes" the order.
+ */
+export const ISO_WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
+
+/**
+ * Statuses the zone list filter offers.
+ *
+ * Three rather than four: `archiveZone` is the only lifecycle method the contract publishes for this
+ * family, so nothing can put a zone into `review_required` and a chip that could never match
+ * anything would be furniture. `retired` stays, because archiving is exactly what does happen.
+ */
+export const ZONE_STATUS_FILTERS: readonly PublishableStatus[] = ['draft', 'published', 'retired'];
+
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */
 
 /** The test id of one ingredient row's open control, so a spec need not rebuild the string. */
@@ -794,4 +817,9 @@ export function priceListRowTestId(priceListId: string): string {
 /** The test id prefix of one plan row. */
 export function planRowTestId(planId: string): string {
     return `kitchen-plan-${planId}`;
+}
+
+/** The test id prefix of one delivery-zone row. */
+export function zoneRowTestId(zoneId: string): string {
+    return `kitchen-zone-${zoneId}`;
 }
