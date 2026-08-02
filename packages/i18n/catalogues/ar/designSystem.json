@@ -63,6 +63,13 @@
         "searchResults_other": "{{count}} خيار مطابق",
         "noResults": "لا يوجد خيار يطابق بحثك."
     },
+    "fileUpload": {
+        "choose": "اختر ملفًا",
+        "replace": "استبدل هذا الملف",
+        "remove": "إزالة",
+        "uploading": "جارٍ الرفع…",
+        "limits": "PDF أو JPEG أو PNG، بحد أقصى {{size}}."
+    },
     "stepper": {
         "progress": "الخطوة {{current}} من {{total}}"
     },

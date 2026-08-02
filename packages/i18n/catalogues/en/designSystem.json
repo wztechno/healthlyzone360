@@ -59,6 +59,13 @@
         "searchResults_other": "{{count}} matching options",
         "noResults": "No option matches your search."
     },
+    "fileUpload": {
+        "choose": "Choose a file",
+        "replace": "Replace this file",
+        "remove": "Remove",
+        "uploading": "Uploading…",
+        "limits": "PDF, JPEG or PNG, up to {{size}}."
+    },
     "stepper": {
         "progress": "Step {{current}} of {{total}}"
     },

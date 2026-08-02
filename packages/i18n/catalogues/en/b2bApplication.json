@@ -1,0 +1,320 @@
+{
+    "title": "Business account application",
+    "subtitle": "Tell us about the company, upload two documents, and we will come back to you.",
+    "reference": "Reference {{reference}}",
+    "entry": {
+        "title": "Apply for a business account",
+        "body": "Buying for a company works differently from buying for yourself: we agree terms first, then open the account. It takes about ten minutes, and you can stop and come back — everything you enter is saved as you go.",
+        "whatYouNeed": "What you will need",
+        "needRegistration": "Your commercial registration document",
+        "needIdentity": "An identity document for whoever signs for the company",
+        "needTerms": "An idea of the payment terms and volumes you want",
+        "start": "Start an application",
+        "resume": "Continue your application",
+        "resumeBody": "You started this on {{date}}. Pick up where you left off.",
+        "viewStatus": "See where it stands"
+    },
+    "wizard": {
+        "stepPosition": "Step {{position}} of {{total}}",
+        "next": "Continue",
+        "back": "Back",
+        "save": "Save and continue",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "saveFailed": "That did not save. Nothing has been lost — try again.",
+        "markComplete": "I have finished this section",
+        "incomplete": "Not finished yet",
+        "complete": "Finished",
+        "locked": "This section is closed while your application is with us.",
+        "lockedByRequest": "Only the sections we asked about can be changed right now.",
+        "outstanding_one": "{{count}} thing still to do before you can send this.",
+        "outstanding_other": "{{count}} things still to do before you can send this.",
+        "conflictTitle": "Somebody else changed this",
+        "conflictBody": "This application was saved somewhere else while you were typing. Reload it to see what changed — your text is still on screen until you do.",
+        "reload": "Reload"
+    },
+    "review": {
+        "title": "Check and send",
+        "body": "Read it back before we do. Once it is with us you can still answer questions, but you cannot rewrite it.",
+        "edit": "Change this",
+        "submit": "Send the application",
+        "submitting": "Sending…",
+        "blockedTitle": "Not quite ready",
+        "blockedBody": "We need these before this can go to a reviewer.",
+        "blockedSection": "{{section}} — {{fields}}",
+        "blockedDocuments": "Documents: {{kinds}}",
+        "withdraw": "Withdraw this application",
+        "withdrawConfirm": "Withdrawing closes this application. You can start a new one later, and nothing you uploaded is kept."
+    },
+    "sections": {
+        "company": {
+            "title": "The company",
+            "description": "As it appears on your commercial registration, not as people know it."
+        },
+        "signatory": {
+            "title": "Who signs",
+            "description": "The person who can commit the company to an agreement. We check this against the identity document."
+        },
+        "trade_terms": {
+            "title": "Terms you want",
+            "description": "What you are asking for. What we can offer comes back in the agreement."
+        },
+        "logistics": {
+            "title": "Deliveries",
+            "description": "How and when food should reach you. None of this is binding — it tells a reviewer what to plan for."
+        }
+    },
+    "fields": {
+        "legalName": "Registered company name",
+        "legalNameAr": "Registered name in Arabic",
+        "tradingName": "Trading name",
+        "businessType": "Kind of business",
+        "countryCode": "Country of registration",
+        "commercialRegistrationNumber": "Commercial registration number",
+        "taxRegistrationNumber": "Tax registration number",
+        "incorporatedOn": "Registered on",
+        "website": "Website",
+        "signatoryName": "Full name",
+        "signatoryTitle": "Role at the company",
+        "signatoryEmail": "Email address",
+        "signatoryPhone": "Phone number",
+        "requestedPaymentTerms": "Payment terms you want",
+        "requestedCreditLimitMinor": "Credit limit you want",
+        "currencyCode": "Currency",
+        "expectedVolumeBand": "Meals a week, roughly",
+        "expectedOrderFrequency": "How often you would order",
+        "productCategories": "What you want to buy",
+        "preferredDeliveryWindow": "Preferred delivery window",
+        "leadTimeDays": "Notice you can give, in days",
+        "requiresInvoicePerLocation": "Invoice each location separately",
+        "deliveryNotes": "Anything a driver should know"
+    },
+    "hints": {
+        "legalName": "Exactly as written on the registration document.",
+        "tradingName": "Leave this empty if it is the same as the registered name.",
+        "taxRegistrationNumber": "Optional. Leave it empty if the company is not registered for tax.",
+        "signatoryTitle": "Managing director, finance manager — whatever it says on the paperwork.",
+        "requestedCreditLimitMinor": "Leave this empty to pay up front. That is a complete answer, not a gap.",
+        "leadTimeDays": "How many days ahead you can place an order.",
+        "deliveryNotes": "Gate codes, loading bays, who to ask for."
+    },
+    "validation": {
+        "required": "This one is needed before you can send the application.",
+        "email": "Enter a valid email address.",
+        "url": "Enter a full web address, starting with http:// or https://.",
+        "phone": "Enter the number in international form, starting with +.",
+        "date": "Enter the date as YYYY-MM-DD.",
+        "currency": "Enter a three-letter currency code, such as USD.",
+        "tooLong": "That is longer than we can store.",
+        "format": "That does not look right.",
+        "invalid": "Check this one."
+    },
+    "businessTypes": {
+        "restaurant": "Restaurant",
+        "cafe": "Café",
+        "hotel": "Hotel",
+        "catering": "Catering company",
+        "retail": "Retail",
+        "corporate_office": "Corporate office",
+        "school": "School or university",
+        "hospital": "Hospital or clinic",
+        "gym": "Gym or studio",
+        "other": "Something else"
+    },
+    "paymentTerms": {
+        "prepaid": "Pay up front",
+        "net_15": "Net 15 days",
+        "net_30": "Net 30 days",
+        "net_60": "Net 60 days"
+    },
+    "volumeBands": {
+        "under_50": "Under 50",
+        "from_50_to_200": "50 to 200",
+        "from_200_to_500": "200 to 500",
+        "from_500_to_2000": "500 to 2,000",
+        "over_2000": "Over 2,000"
+    },
+    "orderFrequencies": {
+        "daily": "Every day",
+        "weekdays": "Weekdays",
+        "weekly": "Once a week",
+        "fortnightly": "Every two weeks",
+        "monthly": "Once a month",
+        "ad_hoc": "Whenever we need to"
+    },
+    "productCategories": {
+        "meals": "Individual meals",
+        "meal_plans": "Meal plans",
+        "bulk_catering": "Bulk catering",
+        "snacks": "Snacks",
+        "beverages": "Drinks",
+        "ingredients": "Ingredients"
+    },
+    "deliveryWindows": {
+        "early_morning": "Early morning",
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening"
+    },
+    "documents": {
+        "title": "Documents",
+        "description": "Uploads are held privately and are only ever read by the people reviewing this application.",
+        "required": "Required",
+        "optional": "Optional",
+        "missing_one": "{{count}} required document still to upload.",
+        "missing_other": "{{count}} required documents still to upload.",
+        "uploaded": "Uploaded {{date}}",
+        "download": "Open",
+        "downloadHint": "Opens a link that expires in a couple of minutes. We record that it was opened.",
+        "uploadFailed": "That upload did not go through. Nothing was saved — try again.",
+        "unreadableOnDevice": "This device cannot read the file's contents, so it cannot be uploaded from here. The web app can.",
+        "scanNotice": "We do not scan uploads for malware yet. Only send documents you are confident in.",
+        "kinds": {
+            "commercial_registration": "Commercial registration",
+            "tax_certificate": "Tax certificate",
+            "trade_licence": "Trade licence",
+            "signatory_identification": "Identity document for the signatory",
+            "authorisation_letter": "Letter of authorisation",
+            "proof_of_address": "Proof of address",
+            "food_safety_certificate": "Food safety certificate",
+            "insurance_certificate": "Insurance certificate",
+            "signed_agreement": "Signed agreement",
+            "other": "Something else"
+        },
+        "reviewStatus": {
+            "pending": "Waiting to be checked",
+            "accepted": "Accepted",
+            "rejected": "Not accepted",
+            "superseded": "Replaced"
+        },
+        "rejection": {
+            "unreadable": "We could not read it.",
+            "wrong_document": "This is not the document it was filed as.",
+            "expired": "It has expired.",
+            "incomplete": "Pages are missing, or it is only partly filled in.",
+            "mismatch": "The details on it do not match the application.",
+            "other": "See the message from our team."
+        },
+        "scan": {
+            "not_scanned": "Not scanned",
+            "pending": "Being scanned",
+            "clean": "Scanned, nothing found",
+            "infected": "Something was found in this file"
+        }
+    },
+    "status": {
+        "title": "Where your application stands",
+        "updated": "Last change {{date}}",
+        "reviewerRequestsTitle": "What we need from you",
+        "reviewerRequests_one": "{{count}} thing we have asked you for.",
+        "reviewerRequests_other": "{{count}} things we have asked you for.",
+        "requestAskedOn": "Asked on {{date}}",
+        "goToSection": "Go to {{section}}",
+        "goToDocuments": "Upload {{kind}}",
+        "requestResolved": "You answered this on {{date}}.",
+        "messageFromUs": "What our team said",
+        "draft": {
+            "label": "Not sent yet",
+            "body": "Nobody has seen this. Finish it and send it when you are ready."
+        },
+        "submitted": {
+            "label": "Sent",
+            "body": "It is in the queue. Somebody will pick it up — we will write to you when they do."
+        },
+        "in_review": {
+            "label": "Being reviewed",
+            "body": "Somebody is reading it now. If they need anything they will ask here."
+        },
+        "info_requested": {
+            "label": "We need something from you",
+            "body": "Your application keeps its place in the queue. Answer what is below and send it back."
+        },
+        "approved": {
+            "label": "Approved",
+            "body": "We can work with you. We are drawing up the terms now."
+        },
+        "agreement_pending": {
+            "label": "Waiting for your signature",
+            "body": "The terms are ready. Read them and, if you are happy, accept them — nothing happens until you do."
+        },
+        "agreement_signed": {
+            "label": "Signed",
+            "body": "We have your acceptance. Setting your account up is the next thing to happen."
+        },
+        "provisioning": {
+            "label": "Setting up your account",
+            "body": "This takes a minute or two. You do not need to stay on this page."
+        },
+        "provisioned": {
+            "label": "Your account is open",
+            "body": "You can order now. Your prices are the ones in your agreement and nobody else can see them."
+        },
+        "declined": {
+            "label": "Not approved",
+            "body": "We cannot open an account on this basis. What we can say about why is below."
+        },
+        "withdrawn": {
+            "label": "Withdrawn",
+            "body": "You closed this application. You can start a new one whenever you like."
+        }
+    },
+    "agreement": {
+        "title": "Your agreement",
+        "version": "Version {{version}}",
+        "summaryTitle": "The terms, briefly",
+        "documentTitle": "The agreement in full",
+        "termsTitle": "What we are offering",
+        "paymentTerms": "Payment terms",
+        "creditLimit": "Credit limit",
+        "minimumOrder": "Minimum order",
+        "leadTime": "Lead time",
+        "noticePeriod": "Notice period",
+        "startsOn": "Starts on",
+        "autoRenews": "Renews automatically",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days",
+        "notSet": "Not set",
+        "noInvoicingYet": "There is no invoicing on the platform yet. A payment term is recorded here; nothing will chase a balance.",
+        "signTitle": "Accept these terms",
+        "typedName": "Type your full name",
+        "typedNameHint": "This stands in for a signature. Type it as it appears on your identity document.",
+        "signatoryTitle": "Your role at the company",
+        "authority": "I am authorised to enter into this agreement for this company.",
+        "honestyTitle": "What this is, exactly",
+        "honestyBody": "This records that you read these terms and accepted them, together with the date, your name and a fingerprint of the exact document you were shown. It is not a qualified or certified electronic signature, and we do not claim it is one.",
+        "verifyTitle": "Confirm it is you",
+        "verifyBody": "Before you accept, we send a code to the address on the account. It is the only thing standing between an agreement and anybody who borrows your screen.",
+        "verifyFirst": "Verify the code before accepting.",
+        "verified": "Code confirmed.",
+        "sign": "Accept the agreement",
+        "signing": "Recording your acceptance…",
+        "signedOn": "Accepted on {{date}} by {{name}}, {{role}}.",
+        "otpNotVerified": "This acceptance was recorded without a code being verified.",
+        "changedTitle": "This agreement changed",
+        "changedBody": "The document on screen is no longer the one we hold. Reload it and read it again before accepting.",
+        "download": "Open the signed copy"
+    },
+    "provisioning": {
+        "title": "Setting up your account",
+        "body": "Five things happen, in order. It is safe to leave this page — nothing stops if you do.",
+        "steps": {
+            "organisation": "Creating your organisation",
+            "customer_account": "Opening the buying account",
+            "commercial_terms": "Applying your agreed terms",
+            "delivery_locations": "Adding your delivery locations",
+            "team_invitations": "Preparing invitations for your team"
+        },
+        "stepDone": "Done",
+        "stepWaiting": "Waiting",
+        "stepBlocked": "Stuck: {{reason}}",
+        "doneTitle": "You are set up",
+        "doneBody": "Your organisation exists and your prices are in place. Nobody outside your company can see them.",
+        "goToWorkspace": "Go to your business workspace"
+    },
+    "errors": {
+        "notFound": "We cannot find that application.",
+        "notEditable": "This cannot be changed at the moment.",
+        "sectionRefused": "Some of those details belong to another part of the form.",
+        "loadFailed": "We could not load your application."
+    }
+}

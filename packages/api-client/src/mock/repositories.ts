@@ -16,9 +16,21 @@ import type {
 } from '../contracts/auth.ts';
 import type { AccountRepository } from '../contracts/account.ts';
 import type { Repositories } from '../contracts/index.ts';
-import type { VerificationRepository } from '../contracts/verification.ts';
+import type {
+    OtpChallenge,
+    OtpChannel,
+    VerificationRepository,
+} from '../contracts/verification.ts';
 import { createAccountMockRepositories } from './account/repositories.ts';
 import type { AccountMockStore } from './account/store.ts';
+import type { B2BApplicationRepository } from '../contracts/b2b-application.ts';
+import { createB2bMockRepositories } from './b2b-application/repositories.ts';
+import type { B2bMockStore } from './b2b-application/store.ts';
+import type { GuestRepository } from '../contracts/guest.ts';
+import type { GuestTokenStore } from '../session/guest-token-store.ts';
+import { createGuestTokenStore } from '../session/guest-token-store.ts';
+import { createGuestMockRepositories } from './guest/repositories.ts';
+import type { GuestMockStore } from './guest/store.ts';
 import type {
     ContextRepository,
     DeviceRepository,
@@ -94,6 +106,38 @@ export interface MockRepositories extends Repositories {
     readonly accountServiceAreas: () => Promise<
         readonly { readonly id: string; readonly name: string }[]
     >;
+
+    /* ── G1: the guest world, carried on the same terms ──────────────────────────────────────────
+     *
+     * `GuestRepository` is not in the required `Repositories` bundle yet, for the reason above, so
+     * the mock bundle carries it as extra fields and the application discovers them with a runtime
+     * `typeof` test rather than a cast (`features/guest/repositories-shim.ts`).
+     *
+     * `guestTokenStore` is exposed because the guest credential outlives no single screen: signing
+     * in, converting and requesting deletion all end the guest identity, and each of those happens
+     * somewhere that is not the checkout. `getGuestChallenge` and `resendGuestChallenge` are bare
+     * functions rather than repository methods — `GuestRepository` deliberately does not grow a
+     * second copy of the OTP surface — so they cannot be mistaken for part of a contract.
+     */
+    readonly guest: GuestRepository;
+    readonly guestStore: GuestMockStore;
+    readonly guestTokenStore: GuestTokenStore;
+    readonly getGuestChallenge: (challengeId: string) => Promise<OtpChallenge>;
+    readonly resendGuestChallenge: (
+        challengeId: string,
+        channel?: OtpChannel,
+    ) => Promise<OtpChallenge>;
+
+    /* ── B1: the B2B onboarding world, carried on the same terms ────────────────────────────────
+     *
+     * `B2BApplicationRepository` is not a member of the required `Repositories` bundle either, for
+     * exactly the reason the ones above are not. The B2B screens resolve it with the same runtime
+     * `typeof` probe (`features/b2b-application/repositories-shim.ts`), so the day it becomes a
+     * required member nothing at any call site changes — the shim is deleted and the import moves.
+     */
+    readonly b2bApplication: B2BApplicationRepository;
+    /** The B2B world's own mutable store, on the same terms as `prototypeStore`. */
+    readonly b2bApplicationStore: B2bMockStore;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -138,6 +182,46 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
      * account signed in.
      */
     const accountWorld = createAccountMockRepositories({ latencyMs: latency });
+
+    /**
+     * The B1 B2B world, on the same terms as the account world.
+     *
+     * Not scenario-dependent either: which fixture an applicant holds is a property of how far
+     * *they* have got, not of which demo account signed in, and a test that needs a different state
+     * builds its own world with `createB2bMockRepositories({ fixture })` or drives this one through
+     * `b2bApplicationStore`.
+     */
+    const b2bWorld = createB2bMockRepositories({ latencyMs: latency });
+
+    /**
+     * The G1 guest world, wired to the prototype basket.
+     *
+     * The basket is reached through a **port** rather than a direct reference, so the guest world
+     * stays usable on its own (its `createFallbackCartPort` is what its unit tests use) while the
+     * bundle gives it the real one — which is what makes "place the order and empty the basket" a
+     * single honest step over the same cart the catalogue screens filled.
+     *
+     * The token store is the platform one, so on the web a guest credential lands in
+     * `sessionStorage` and dies with the tab. In Node and Jest there is no `sessionStorage` and it
+     * degrades to memory, which is the correct behaviour for both.
+     */
+    const guestTokenStore = createGuestTokenStore();
+    const guestWorld = createGuestMockRepositories({
+        latencyMs: latency,
+        tokenStore: guestTokenStore,
+        cart: {
+            read: () => prototype.store.cart(),
+            price: (cartId) => prototype.store.previewCheckout({ cartId }),
+            clear: (cartId) => {
+                // `PrototypeStore` has no `clearCart`, and adding one would be an edit to a store
+                // this wave does not own. Removing the lines one at a time reaches the same state
+                // through the operation the contract already publishes.
+                for (const item of prototype.store.cart().items) {
+                    prototype.store.removeCartItem(cartId, item.id);
+                }
+            },
+        },
+    });
 
     const auth: AuthRepository = {
         async login(request: LoginRequest): Promise<LoginResult> {
@@ -270,6 +354,13 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         account: accountWorld.account,
         accountStore: accountWorld.store,
         accountServiceAreas: () => Promise.resolve(accountWorld.store.serviceAreas()),
+        guest: guestWorld.guest,
+        guestStore: guestWorld.store,
+        guestTokenStore,
+        getGuestChallenge: guestWorld.getGuestChallenge,
+        resendGuestChallenge: guestWorld.resendGuestChallenge,
+        b2bApplication: b2bWorld.b2bApplication,
+        b2bApplicationStore: b2bWorld.store,
         auth,
         session,
         context,

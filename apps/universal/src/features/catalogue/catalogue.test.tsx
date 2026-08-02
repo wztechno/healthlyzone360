@@ -427,13 +427,20 @@ describe('MealDetailScreen', () => {
         }
     });
 
-    it('sends an anonymous visitor to sign in rather than opening a basket they cannot keep', async () => {
+    // G1 changed this deliberately: an anonymous visitor at the moment of highest intent is offered
+    // a guest checkout *and* sign-in, rather than being redirected to a wall. Signing in is still
+    // one press away and still records the page, which the second assertion pins.
+    it('offers an anonymous visitor a guest checkout, with sign-in still one press away', async () => {
         const id = await firstMealId();
         await renderScreen(<MealDetailScreen mealId={id} />, { scenario: 'consumer-prototype' });
 
         await waitFor(() => screen.getByTestId('meal-detail-add-to-basket'));
         await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
 
+        await waitFor(() => screen.getByTestId('meal-detail-guest-continue'));
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/sign-in');
+
+        await fireEvent.press(screen.getByTestId('meal-detail-guest-sign-in'));
         expect(routerMock.__push).toHaveBeenCalledWith('/sign-in');
     });
 

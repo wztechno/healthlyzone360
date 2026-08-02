@@ -71,6 +71,8 @@ export const QUERY_ROOTS = [
     'kitchenAdmin',
     'account',
     'verification',
+    'guest',
+    'b2bApplication',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -374,6 +376,61 @@ export const queryKeys = {
         contacts: () => ['verification', 'contacts'] as const,
         challenge: (challengeId: string) => ['verification', 'challenge', challengeId] as const,
     },
+
+    /**
+     * ── guest: ordering without an account (G1) ─────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `commerce`, because everything under it belongs to
+     * somebody who has no account and may never have one. Sharing `commerce`'s root would mean a
+     * sign-in invalidation either missed the guest entries or wiped a signed-in person's basket.
+     *
+     * **Never persisted, and this is the strongest case in the file.** A guest orders from a shared
+     * laptop, a family tablet, a phone handed over at a counter. The session holds a name, a
+     * contact and a delivery address belonging to somebody who *cannot sign in anywhere to clear
+     * it* — there is no account to log out of. Writing any of it to disk would leave it for the next
+     * person to pick the device up. `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     *
+     * `order` is keyed by the human reference rather than the identifier because that is what a
+     * confirmation page is reached with, and what a person actually holds.
+     */
+    guest: {
+        all: () => ['guest'] as const,
+        /** The live guest session behind the stored token — grade, capabilities, contact. */
+        session: () => ['guest', 'session'] as const,
+        /** A placed order, by its quotable reference. */
+        order: (reference: string) => ['guest', 'order', reference] as const,
+        /** What the conversion prompt pre-fills from. */
+        conversionPrefill: () => ['guest', 'conversion-prefill'] as const,
+        /** A live guest passcode challenge, so a reload keeps its cooldown. */
+        challenge: (challengeId: string) => ['guest', 'challenge', challengeId] as const,
+    },
+
+    /**
+     * ── b2bApplication: B2B onboarding (B1) ─────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `business`, and the reason is a permission boundary
+     * rather than tidiness: `business` holds a *corporate buyer's* programme, catalogue and
+     * quotations — data that exists only once an organisation does. An applicant has no
+     * organisation at all (D-027), so an application cached under `business` would be a personal
+     * record filed under a tenant that has not been created yet, and the first thing to invalidate
+     * the `business` prefix would throw it away.
+     *
+     * `current` is parameterless because a person has exactly one live application — the backend's
+     * partial unique index says so. The agreement gets an entry of its own because the signing
+     * screen re-reads it alone: the digest it echoes back has to be the one the server holds *now*,
+     * not one that arrived with an application read five minutes ago.
+     *
+     * **Never persisted.** A registration number, a signatory's identity document and a set of
+     * negotiated commercial terms are all behind this root, and the last of those is confidential
+     * to one buyer relationship. `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     */
+    b2bApplication: {
+        all: () => ['b2bApplication'] as const,
+        /** The applicant's live application, or `null` when they have never started one. */
+        current: () => ['b2bApplication', 'current'] as const,
+        agreement: (applicationId: string) =>
+            ['b2bApplication', 'agreement', applicationId] as const,
+    },
 } as const;
 
 /**
@@ -385,8 +442,10 @@ export const queryKeys = {
  * `kitchenAdmin`'s case — confidential commercial data on a device several people share. `account`
  * additionally holds a special-category allergy declaration and a consent record, and
  * `verification` holds live one-time-code state whose whole security model is that it is
- * short-lived. Adding a root here is a privacy decision, which is why it is a single reviewable
- * list rather than a per-query flag.
+ * short-lived. `guest` is the newest absence and the least negotiable one: it holds a name, a
+ * contact and a delivery address belonging to somebody with no account to sign out of, frequently
+ * on a device that is not theirs. Adding a root here is a privacy decision, which is why it is a
+ * single reviewable list rather than a per-query flag.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

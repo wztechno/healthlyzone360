@@ -6,6 +6,7 @@ import {
     Callout,
     Card,
     Chip,
+    Dialog,
     EmptyState,
     Heading,
     Inline,
@@ -87,7 +88,9 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
     const addToBasket = useAddCartItemMutation();
     const addToPlan = useAddPlanEntryMutation();
 
-    const [dialog, setDialog] = useState<'no-plan' | 'replace' | 'quotation' | null>(null);
+    const [dialog, setDialog] = useState<
+        'no-plan' | 'replace' | 'quotation' | 'guest-entry' | null
+    >(null);
 
     const here = parsed === null ? '/meals' : `/meals/${String(parsed)}`;
     const goSignIn = () => {
@@ -95,9 +98,24 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
         router.push('/sign-in');
     };
 
+    /**
+     * Adding to the basket while signed out.
+     *
+     * **This used to redirect to sign-in, and that was the wall G1 exists to remove.** An anonymous
+     * visitor who has decided what they want is at the moment of highest intent, and answering it
+     * with "make an account first" is where most of them stop. So the choice is offered instead:
+     * carry on as a guest, or sign in — and signing in stays a *visible* option rather than being
+     * replaced, because somebody who already has an account is better served by it (their addresses
+     * and past orders are there).
+     *
+     * The item goes into the basket either way before we navigate. The basket is not part of the
+     * guest session — it exists before one is started and survives one expiring — so putting the
+     * meal in it first means the guest checkout opens on a basket that already holds what the
+     * person just chose, rather than on an empty one they have to fill again.
+     */
     const onAddToBasket = (item: MarketplaceMeal) => {
         if (!signedIn) {
-            goSignIn();
+            setDialog('guest-entry');
             return;
         }
         addToBasket.mutate(
@@ -554,6 +572,55 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                     )}
                 </QueryStates>
             )}
+
+            {/*
+             * The guest entry point (plan Phase G1).
+             *
+             * A real dialog rather than a redirect, and both routes out of it are real: "continue
+             * as a guest" puts the meal in the basket and opens `/guest-checkout`, "sign in
+             * instead" does exactly what this button used to do — including recording the page, so
+             * somebody who signs in lands back here.
+             */}
+            <Dialog
+                testID="meal-detail-guest-entry-dialog"
+                open={dialog === 'guest-entry'}
+                onClose={() => {
+                    setDialog(null);
+                }}
+                title={t('guest:entry.title')}
+                description={t('guest:entry.body')}
+                actions={
+                    <>
+                        <Button
+                            testID="meal-detail-guest-sign-in"
+                            variant="secondary"
+                            label={t('guest:entry.signIn')}
+                            onPress={() => {
+                                setDialog(null);
+                                goSignIn();
+                            }}
+                        />
+                        <Button
+                            testID="meal-detail-guest-continue"
+                            label={t('guest:entry.continueAsGuest')}
+                            loading={addToBasket.isPending}
+                            onPress={() => {
+                                const item = meal.data;
+                                if (item === undefined) return;
+                                setDialog(null);
+                                addToBasket.mutate(
+                                    { mealId: item.id, quantity: 1 },
+                                    {
+                                        onSuccess: () => {
+                                            router.push('/guest-checkout');
+                                        },
+                                    },
+                                );
+                            }}
+                        />
+                    </>
+                }
+            />
 
             <PrototypeDialog
                 testID="meal-detail-no-plan-dialog"

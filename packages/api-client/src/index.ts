@@ -106,3 +106,19 @@ export {
 export type { MockScenario, MockScenarioName } from './mock/scenarios.ts';
 
 export { SORT_DIRECTIONS, emptyPage } from './contracts/index.ts';
+
+/**
+ * The guest credential's store (plan Phase G1).
+ *
+ * Exported from the root beside `SessionTokenStore` because the application supplies a
+ * platform-appropriate one for exactly the same reason, and for one that is specific to this
+ * credential: the web implementation belongs in `sessionStorage` and the native one in the
+ * keychain, which is a split only the application can make. `GuestRepository` itself is *not*
+ * exported — it is still a standalone contract awaiting registration, like `AccountRepository`.
+ */
+export {
+    GUEST_TOKEN_KEY,
+    createGuestTokenStore,
+    createMemoryGuestTokenStore,
+} from './session/index.ts';
+export type { GuestTokenStore } from './session/index.ts';

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4035 keys across 16 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4385 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -383,6 +383,245 @@ export interface NamespaceKeys {
     | 'workspace.switchBranch'
     | 'workspace.switchOrganisation'
     | 'workspace.title';
+  readonly "b2bApplication":
+    | 'agreement.authority'
+    | 'agreement.autoRenews'
+    | 'agreement.changedBody'
+    | 'agreement.changedTitle'
+    | 'agreement.creditLimit'
+    | 'agreement.days'
+    | 'agreement.documentTitle'
+    | 'agreement.download'
+    | 'agreement.honestyBody'
+    | 'agreement.honestyTitle'
+    | 'agreement.leadTime'
+    | 'agreement.minimumOrder'
+    | 'agreement.noInvoicingYet'
+    | 'agreement.notSet'
+    | 'agreement.noticePeriod'
+    | 'agreement.otpNotVerified'
+    | 'agreement.paymentTerms'
+    | 'agreement.sign'
+    | 'agreement.signTitle'
+    | 'agreement.signatoryTitle'
+    | 'agreement.signedOn'
+    | 'agreement.signing'
+    | 'agreement.startsOn'
+    | 'agreement.summaryTitle'
+    | 'agreement.termsTitle'
+    | 'agreement.title'
+    | 'agreement.typedName'
+    | 'agreement.typedNameHint'
+    | 'agreement.verified'
+    | 'agreement.verifyBody'
+    | 'agreement.verifyFirst'
+    | 'agreement.verifyTitle'
+    | 'agreement.version'
+    | 'businessTypes.cafe'
+    | 'businessTypes.catering'
+    | 'businessTypes.corporate_office'
+    | 'businessTypes.gym'
+    | 'businessTypes.hospital'
+    | 'businessTypes.hotel'
+    | 'businessTypes.other'
+    | 'businessTypes.restaurant'
+    | 'businessTypes.retail'
+    | 'businessTypes.school'
+    | 'deliveryWindows.afternoon'
+    | 'deliveryWindows.early_morning'
+    | 'deliveryWindows.evening'
+    | 'deliveryWindows.morning'
+    | 'documents.description'
+    | 'documents.download'
+    | 'documents.downloadHint'
+    | 'documents.kinds.authorisation_letter'
+    | 'documents.kinds.commercial_registration'
+    | 'documents.kinds.food_safety_certificate'
+    | 'documents.kinds.insurance_certificate'
+    | 'documents.kinds.other'
+    | 'documents.kinds.proof_of_address'
+    | 'documents.kinds.signatory_identification'
+    | 'documents.kinds.signed_agreement'
+    | 'documents.kinds.tax_certificate'
+    | 'documents.kinds.trade_licence'
+    | 'documents.missing'
+    | 'documents.optional'
+    | 'documents.rejection.expired'
+    | 'documents.rejection.incomplete'
+    | 'documents.rejection.mismatch'
+    | 'documents.rejection.other'
+    | 'documents.rejection.unreadable'
+    | 'documents.rejection.wrong_document'
+    | 'documents.required'
+    | 'documents.reviewStatus.accepted'
+    | 'documents.reviewStatus.pending'
+    | 'documents.reviewStatus.rejected'
+    | 'documents.reviewStatus.superseded'
+    | 'documents.scan.clean'
+    | 'documents.scan.infected'
+    | 'documents.scan.not_scanned'
+    | 'documents.scan.pending'
+    | 'documents.scanNotice'
+    | 'documents.title'
+    | 'documents.unreadableOnDevice'
+    | 'documents.uploadFailed'
+    | 'documents.uploaded'
+    | 'entry.body'
+    | 'entry.needIdentity'
+    | 'entry.needRegistration'
+    | 'entry.needTerms'
+    | 'entry.resume'
+    | 'entry.resumeBody'
+    | 'entry.start'
+    | 'entry.title'
+    | 'entry.viewStatus'
+    | 'entry.whatYouNeed'
+    | 'errors.loadFailed'
+    | 'errors.notEditable'
+    | 'errors.notFound'
+    | 'errors.sectionRefused'
+    | 'fields.businessType'
+    | 'fields.commercialRegistrationNumber'
+    | 'fields.countryCode'
+    | 'fields.currencyCode'
+    | 'fields.deliveryNotes'
+    | 'fields.expectedOrderFrequency'
+    | 'fields.expectedVolumeBand'
+    | 'fields.incorporatedOn'
+    | 'fields.leadTimeDays'
+    | 'fields.legalName'
+    | 'fields.legalNameAr'
+    | 'fields.preferredDeliveryWindow'
+    | 'fields.productCategories'
+    | 'fields.requestedCreditLimitMinor'
+    | 'fields.requestedPaymentTerms'
+    | 'fields.requiresInvoicePerLocation'
+    | 'fields.signatoryEmail'
+    | 'fields.signatoryName'
+    | 'fields.signatoryPhone'
+    | 'fields.signatoryTitle'
+    | 'fields.taxRegistrationNumber'
+    | 'fields.tradingName'
+    | 'fields.website'
+    | 'hints.deliveryNotes'
+    | 'hints.leadTimeDays'
+    | 'hints.legalName'
+    | 'hints.requestedCreditLimitMinor'
+    | 'hints.signatoryTitle'
+    | 'hints.taxRegistrationNumber'
+    | 'hints.tradingName'
+    | 'orderFrequencies.ad_hoc'
+    | 'orderFrequencies.daily'
+    | 'orderFrequencies.fortnightly'
+    | 'orderFrequencies.monthly'
+    | 'orderFrequencies.weekdays'
+    | 'orderFrequencies.weekly'
+    | 'paymentTerms.net_15'
+    | 'paymentTerms.net_30'
+    | 'paymentTerms.net_60'
+    | 'paymentTerms.prepaid'
+    | 'productCategories.beverages'
+    | 'productCategories.bulk_catering'
+    | 'productCategories.ingredients'
+    | 'productCategories.meal_plans'
+    | 'productCategories.meals'
+    | 'productCategories.snacks'
+    | 'provisioning.body'
+    | 'provisioning.doneBody'
+    | 'provisioning.doneTitle'
+    | 'provisioning.goToWorkspace'
+    | 'provisioning.stepBlocked'
+    | 'provisioning.stepDone'
+    | 'provisioning.stepWaiting'
+    | 'provisioning.steps.commercial_terms'
+    | 'provisioning.steps.customer_account'
+    | 'provisioning.steps.delivery_locations'
+    | 'provisioning.steps.organisation'
+    | 'provisioning.steps.team_invitations'
+    | 'provisioning.title'
+    | 'reference'
+    | 'review.blockedBody'
+    | 'review.blockedDocuments'
+    | 'review.blockedSection'
+    | 'review.blockedTitle'
+    | 'review.body'
+    | 'review.edit'
+    | 'review.submit'
+    | 'review.submitting'
+    | 'review.title'
+    | 'review.withdraw'
+    | 'review.withdrawConfirm'
+    | 'sections.company.description'
+    | 'sections.company.title'
+    | 'sections.logistics.description'
+    | 'sections.logistics.title'
+    | 'sections.signatory.description'
+    | 'sections.signatory.title'
+    | 'sections.trade_terms.description'
+    | 'sections.trade_terms.title'
+    | 'status.agreement_pending.body'
+    | 'status.agreement_pending.label'
+    | 'status.agreement_signed.body'
+    | 'status.agreement_signed.label'
+    | 'status.approved.body'
+    | 'status.approved.label'
+    | 'status.declined.body'
+    | 'status.declined.label'
+    | 'status.draft.body'
+    | 'status.draft.label'
+    | 'status.goToDocuments'
+    | 'status.goToSection'
+    | 'status.in_review.body'
+    | 'status.in_review.label'
+    | 'status.info_requested.body'
+    | 'status.info_requested.label'
+    | 'status.messageFromUs'
+    | 'status.provisioned.body'
+    | 'status.provisioned.label'
+    | 'status.provisioning.body'
+    | 'status.provisioning.label'
+    | 'status.requestAskedOn'
+    | 'status.requestResolved'
+    | 'status.reviewerRequests'
+    | 'status.reviewerRequestsTitle'
+    | 'status.submitted.body'
+    | 'status.submitted.label'
+    | 'status.title'
+    | 'status.updated'
+    | 'status.withdrawn.body'
+    | 'status.withdrawn.label'
+    | 'subtitle'
+    | 'title'
+    | 'validation.currency'
+    | 'validation.date'
+    | 'validation.email'
+    | 'validation.format'
+    | 'validation.invalid'
+    | 'validation.phone'
+    | 'validation.required'
+    | 'validation.tooLong'
+    | 'validation.url'
+    | 'volumeBands.from_200_to_500'
+    | 'volumeBands.from_500_to_2000'
+    | 'volumeBands.from_50_to_200'
+    | 'volumeBands.over_2000'
+    | 'volumeBands.under_50'
+    | 'wizard.back'
+    | 'wizard.complete'
+    | 'wizard.conflictBody'
+    | 'wizard.conflictTitle'
+    | 'wizard.incomplete'
+    | 'wizard.locked'
+    | 'wizard.lockedByRequest'
+    | 'wizard.markComplete'
+    | 'wizard.next'
+    | 'wizard.outstanding'
+    | 'wizard.reload'
+    | 'wizard.save'
+    | 'wizard.saveFailed'
+    | 'wizard.saved'
+    | 'wizard.saving'
+    | 'wizard.stepPosition';
   readonly "business":
     | 'builder.back'
     | 'builder.contactEmail'
@@ -1319,6 +1558,11 @@ export interface NamespaceKeys {
     | 'dateField.year'
     | 'emptyState.prototypeBadge'
     | 'emptyState.prototypeBody'
+    | 'fileUpload.choose'
+    | 'fileUpload.limits'
+    | 'fileUpload.remove'
+    | 'fileUpload.replace'
+    | 'fileUpload.uploading'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
     | 'passwordInput.hide'
@@ -1480,6 +1724,114 @@ export interface NamespaceKeys {
     | 'validation.password_min_length'
     | 'validation.password_mismatch'
     | 'validation.required';
+  readonly "guest":
+    | 'address.back'
+    | 'address.continue'
+    | 'address.date'
+    | 'address.outOfZoneAreas'
+    | 'address.outOfZoneBody'
+    | 'address.outOfZoneBrowse'
+    | 'address.outOfZoneTitle'
+    | 'address.slot'
+    | 'address.subtitle'
+    | 'address.title'
+    | 'contact.channel'
+    | 'contact.channelEmail'
+    | 'contact.channelSms'
+    | 'contact.channelWhatsapp'
+    | 'contact.continue'
+    | 'contact.email'
+    | 'contact.emailHint'
+    | 'contact.errors.contactRequired'
+    | 'contact.errors.emailInvalid'
+    | 'contact.errors.mobileInvalid'
+    | 'contact.errors.nameRequired'
+    | 'contact.fullName'
+    | 'contact.fullNameHint'
+    | 'contact.mobile'
+    | 'contact.mobileHint'
+    | 'contact.subtitle'
+    | 'contact.title'
+    | 'convert.body'
+    | 'convert.declined'
+    | 'convert.doneBody'
+    | 'convert.doneTitle'
+    | 'convert.fullName'
+    | 'convert.marketing'
+    | 'convert.marketingHint'
+    | 'convert.noThanks'
+    | 'convert.password'
+    | 'convert.passwordHint'
+    | 'convert.submit'
+    | 'convert.title'
+    | 'convert.verifiedNote'
+    | 'deletion.cancel'
+    | 'deletion.code'
+    | 'deletion.confirm'
+    | 'deletion.confirmAcknowledge'
+    | 'deletion.confirmBody'
+    | 'deletion.confirmTitle'
+    | 'deletion.doneBody'
+    | 'deletion.doneTitle'
+    | 'deletion.email'
+    | 'deletion.emailHint'
+    | 'deletion.invalidCode'
+    | 'deletion.mobile'
+    | 'deletion.mobileHint'
+    | 'deletion.request'
+    | 'deletion.sentBody'
+    | 'deletion.sentTitle'
+    | 'deletion.subtitle'
+    | 'deletion.suppressionNote'
+    | 'deletion.title'
+    | 'entry.body'
+    | 'entry.continueAsGuest'
+    | 'entry.signIn'
+    | 'entry.title'
+    | 'order.deliveringTo'
+    | 'order.lines'
+    | 'order.notFoundBody'
+    | 'order.notFoundTitle'
+    | 'order.payment'
+    | 'order.reference'
+    | 'order.slot'
+    | 'order.state'
+    | 'order.states.cancelled'
+    | 'order.states.confirmed'
+    | 'order.states.delivered'
+    | 'order.states.out_for_delivery'
+    | 'order.states.placed'
+    | 'order.states.preparing'
+    | 'order.subtitle'
+    | 'order.title'
+    | 'order.total'
+    | 'review.back'
+    | 'review.cashOnDelivery'
+    | 'review.cashOnDeliveryNote'
+    | 'review.contact'
+    | 'review.deliveringTo'
+    | 'review.marketingHint'
+    | 'review.marketingLabel'
+    | 'review.payment'
+    | 'review.place'
+    | 'review.slot'
+    | 'review.subtitle'
+    | 'review.title'
+    | 'review.unverified'
+    | 'session.expiredBody'
+    | 'session.expiredTitle'
+    | 'session.restart'
+    | 'steps.address'
+    | 'steps.contact'
+    | 'steps.review'
+    | 'steps.verify'
+    | 'subtitle'
+    | 'title'
+    | 'verify.back'
+    | 'verify.confirmed'
+    | 'verify.otpFallback'
+    | 'verify.subtitle'
+    | 'verify.title';
   readonly "kitchen":
     | 'a11y.aliasAdded'
     | 'a11y.listUpdated'
@@ -4442,6 +4794,244 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:workspace.switchBranch',
   'auth:workspace.switchOrganisation',
   'auth:workspace.title',
+  'b2bApplication:agreement.authority',
+  'b2bApplication:agreement.autoRenews',
+  'b2bApplication:agreement.changedBody',
+  'b2bApplication:agreement.changedTitle',
+  'b2bApplication:agreement.creditLimit',
+  'b2bApplication:agreement.days',
+  'b2bApplication:agreement.documentTitle',
+  'b2bApplication:agreement.download',
+  'b2bApplication:agreement.honestyBody',
+  'b2bApplication:agreement.honestyTitle',
+  'b2bApplication:agreement.leadTime',
+  'b2bApplication:agreement.minimumOrder',
+  'b2bApplication:agreement.noInvoicingYet',
+  'b2bApplication:agreement.notSet',
+  'b2bApplication:agreement.noticePeriod',
+  'b2bApplication:agreement.otpNotVerified',
+  'b2bApplication:agreement.paymentTerms',
+  'b2bApplication:agreement.sign',
+  'b2bApplication:agreement.signTitle',
+  'b2bApplication:agreement.signatoryTitle',
+  'b2bApplication:agreement.signedOn',
+  'b2bApplication:agreement.signing',
+  'b2bApplication:agreement.startsOn',
+  'b2bApplication:agreement.summaryTitle',
+  'b2bApplication:agreement.termsTitle',
+  'b2bApplication:agreement.title',
+  'b2bApplication:agreement.typedName',
+  'b2bApplication:agreement.typedNameHint',
+  'b2bApplication:agreement.verified',
+  'b2bApplication:agreement.verifyBody',
+  'b2bApplication:agreement.verifyFirst',
+  'b2bApplication:agreement.verifyTitle',
+  'b2bApplication:agreement.version',
+  'b2bApplication:businessTypes.cafe',
+  'b2bApplication:businessTypes.catering',
+  'b2bApplication:businessTypes.corporate_office',
+  'b2bApplication:businessTypes.gym',
+  'b2bApplication:businessTypes.hospital',
+  'b2bApplication:businessTypes.hotel',
+  'b2bApplication:businessTypes.other',
+  'b2bApplication:businessTypes.restaurant',
+  'b2bApplication:businessTypes.retail',
+  'b2bApplication:businessTypes.school',
+  'b2bApplication:deliveryWindows.afternoon',
+  'b2bApplication:deliveryWindows.early_morning',
+  'b2bApplication:deliveryWindows.evening',
+  'b2bApplication:deliveryWindows.morning',
+  'b2bApplication:documents.description',
+  'b2bApplication:documents.download',
+  'b2bApplication:documents.downloadHint',
+  'b2bApplication:documents.kinds.authorisation_letter',
+  'b2bApplication:documents.kinds.commercial_registration',
+  'b2bApplication:documents.kinds.food_safety_certificate',
+  'b2bApplication:documents.kinds.insurance_certificate',
+  'b2bApplication:documents.kinds.other',
+  'b2bApplication:documents.kinds.proof_of_address',
+  'b2bApplication:documents.kinds.signatory_identification',
+  'b2bApplication:documents.kinds.signed_agreement',
+  'b2bApplication:documents.kinds.tax_certificate',
+  'b2bApplication:documents.kinds.trade_licence',
+  'b2bApplication:documents.missing',
+  'b2bApplication:documents.optional',
+  'b2bApplication:documents.rejection.expired',
+  'b2bApplication:documents.rejection.incomplete',
+  'b2bApplication:documents.rejection.mismatch',
+  'b2bApplication:documents.rejection.other',
+  'b2bApplication:documents.rejection.unreadable',
+  'b2bApplication:documents.rejection.wrong_document',
+  'b2bApplication:documents.required',
+  'b2bApplication:documents.reviewStatus.accepted',
+  'b2bApplication:documents.reviewStatus.pending',
+  'b2bApplication:documents.reviewStatus.rejected',
+  'b2bApplication:documents.reviewStatus.superseded',
+  'b2bApplication:documents.scan.clean',
+  'b2bApplication:documents.scan.infected',
+  'b2bApplication:documents.scan.not_scanned',
+  'b2bApplication:documents.scan.pending',
+  'b2bApplication:documents.scanNotice',
+  'b2bApplication:documents.title',
+  'b2bApplication:documents.unreadableOnDevice',
+  'b2bApplication:documents.uploadFailed',
+  'b2bApplication:documents.uploaded',
+  'b2bApplication:entry.body',
+  'b2bApplication:entry.needIdentity',
+  'b2bApplication:entry.needRegistration',
+  'b2bApplication:entry.needTerms',
+  'b2bApplication:entry.resume',
+  'b2bApplication:entry.resumeBody',
+  'b2bApplication:entry.start',
+  'b2bApplication:entry.title',
+  'b2bApplication:entry.viewStatus',
+  'b2bApplication:entry.whatYouNeed',
+  'b2bApplication:errors.loadFailed',
+  'b2bApplication:errors.notEditable',
+  'b2bApplication:errors.notFound',
+  'b2bApplication:errors.sectionRefused',
+  'b2bApplication:fields.businessType',
+  'b2bApplication:fields.commercialRegistrationNumber',
+  'b2bApplication:fields.countryCode',
+  'b2bApplication:fields.currencyCode',
+  'b2bApplication:fields.deliveryNotes',
+  'b2bApplication:fields.expectedOrderFrequency',
+  'b2bApplication:fields.expectedVolumeBand',
+  'b2bApplication:fields.incorporatedOn',
+  'b2bApplication:fields.leadTimeDays',
+  'b2bApplication:fields.legalName',
+  'b2bApplication:fields.legalNameAr',
+  'b2bApplication:fields.preferredDeliveryWindow',
+  'b2bApplication:fields.productCategories',
+  'b2bApplication:fields.requestedCreditLimitMinor',
+  'b2bApplication:fields.requestedPaymentTerms',
+  'b2bApplication:fields.requiresInvoicePerLocation',
+  'b2bApplication:fields.signatoryEmail',
+  'b2bApplication:fields.signatoryName',
+  'b2bApplication:fields.signatoryPhone',
+  'b2bApplication:fields.signatoryTitle',
+  'b2bApplication:fields.taxRegistrationNumber',
+  'b2bApplication:fields.tradingName',
+  'b2bApplication:fields.website',
+  'b2bApplication:hints.deliveryNotes',
+  'b2bApplication:hints.leadTimeDays',
+  'b2bApplication:hints.legalName',
+  'b2bApplication:hints.requestedCreditLimitMinor',
+  'b2bApplication:hints.signatoryTitle',
+  'b2bApplication:hints.taxRegistrationNumber',
+  'b2bApplication:hints.tradingName',
+  'b2bApplication:orderFrequencies.ad_hoc',
+  'b2bApplication:orderFrequencies.daily',
+  'b2bApplication:orderFrequencies.fortnightly',
+  'b2bApplication:orderFrequencies.monthly',
+  'b2bApplication:orderFrequencies.weekdays',
+  'b2bApplication:orderFrequencies.weekly',
+  'b2bApplication:paymentTerms.net_15',
+  'b2bApplication:paymentTerms.net_30',
+  'b2bApplication:paymentTerms.net_60',
+  'b2bApplication:paymentTerms.prepaid',
+  'b2bApplication:productCategories.beverages',
+  'b2bApplication:productCategories.bulk_catering',
+  'b2bApplication:productCategories.ingredients',
+  'b2bApplication:productCategories.meal_plans',
+  'b2bApplication:productCategories.meals',
+  'b2bApplication:productCategories.snacks',
+  'b2bApplication:provisioning.body',
+  'b2bApplication:provisioning.doneBody',
+  'b2bApplication:provisioning.doneTitle',
+  'b2bApplication:provisioning.goToWorkspace',
+  'b2bApplication:provisioning.stepBlocked',
+  'b2bApplication:provisioning.stepDone',
+  'b2bApplication:provisioning.stepWaiting',
+  'b2bApplication:provisioning.steps.commercial_terms',
+  'b2bApplication:provisioning.steps.customer_account',
+  'b2bApplication:provisioning.steps.delivery_locations',
+  'b2bApplication:provisioning.steps.organisation',
+  'b2bApplication:provisioning.steps.team_invitations',
+  'b2bApplication:provisioning.title',
+  'b2bApplication:reference',
+  'b2bApplication:review.blockedBody',
+  'b2bApplication:review.blockedDocuments',
+  'b2bApplication:review.blockedSection',
+  'b2bApplication:review.blockedTitle',
+  'b2bApplication:review.body',
+  'b2bApplication:review.edit',
+  'b2bApplication:review.submit',
+  'b2bApplication:review.submitting',
+  'b2bApplication:review.title',
+  'b2bApplication:review.withdraw',
+  'b2bApplication:review.withdrawConfirm',
+  'b2bApplication:sections.company.description',
+  'b2bApplication:sections.company.title',
+  'b2bApplication:sections.logistics.description',
+  'b2bApplication:sections.logistics.title',
+  'b2bApplication:sections.signatory.description',
+  'b2bApplication:sections.signatory.title',
+  'b2bApplication:sections.trade_terms.description',
+  'b2bApplication:sections.trade_terms.title',
+  'b2bApplication:status.agreement_pending.body',
+  'b2bApplication:status.agreement_pending.label',
+  'b2bApplication:status.agreement_signed.body',
+  'b2bApplication:status.agreement_signed.label',
+  'b2bApplication:status.approved.body',
+  'b2bApplication:status.approved.label',
+  'b2bApplication:status.declined.body',
+  'b2bApplication:status.declined.label',
+  'b2bApplication:status.draft.body',
+  'b2bApplication:status.draft.label',
+  'b2bApplication:status.goToDocuments',
+  'b2bApplication:status.goToSection',
+  'b2bApplication:status.in_review.body',
+  'b2bApplication:status.in_review.label',
+  'b2bApplication:status.info_requested.body',
+  'b2bApplication:status.info_requested.label',
+  'b2bApplication:status.messageFromUs',
+  'b2bApplication:status.provisioned.body',
+  'b2bApplication:status.provisioned.label',
+  'b2bApplication:status.provisioning.body',
+  'b2bApplication:status.provisioning.label',
+  'b2bApplication:status.requestAskedOn',
+  'b2bApplication:status.requestResolved',
+  'b2bApplication:status.reviewerRequests',
+  'b2bApplication:status.reviewerRequestsTitle',
+  'b2bApplication:status.submitted.body',
+  'b2bApplication:status.submitted.label',
+  'b2bApplication:status.title',
+  'b2bApplication:status.updated',
+  'b2bApplication:status.withdrawn.body',
+  'b2bApplication:status.withdrawn.label',
+  'b2bApplication:subtitle',
+  'b2bApplication:title',
+  'b2bApplication:validation.currency',
+  'b2bApplication:validation.date',
+  'b2bApplication:validation.email',
+  'b2bApplication:validation.format',
+  'b2bApplication:validation.invalid',
+  'b2bApplication:validation.phone',
+  'b2bApplication:validation.required',
+  'b2bApplication:validation.tooLong',
+  'b2bApplication:validation.url',
+  'b2bApplication:volumeBands.from_200_to_500',
+  'b2bApplication:volumeBands.from_500_to_2000',
+  'b2bApplication:volumeBands.from_50_to_200',
+  'b2bApplication:volumeBands.over_2000',
+  'b2bApplication:volumeBands.under_50',
+  'b2bApplication:wizard.back',
+  'b2bApplication:wizard.complete',
+  'b2bApplication:wizard.conflictBody',
+  'b2bApplication:wizard.conflictTitle',
+  'b2bApplication:wizard.incomplete',
+  'b2bApplication:wizard.locked',
+  'b2bApplication:wizard.lockedByRequest',
+  'b2bApplication:wizard.markComplete',
+  'b2bApplication:wizard.next',
+  'b2bApplication:wizard.outstanding',
+  'b2bApplication:wizard.reload',
+  'b2bApplication:wizard.save',
+  'b2bApplication:wizard.saveFailed',
+  'b2bApplication:wizard.saved',
+  'b2bApplication:wizard.saving',
+  'b2bApplication:wizard.stepPosition',
   'business:builder.back',
   'business:builder.contactEmail',
   'business:builder.contactName',
@@ -5373,6 +5963,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:dateField.year',
   'designSystem:emptyState.prototypeBadge',
   'designSystem:emptyState.prototypeBody',
+  'designSystem:fileUpload.choose',
+  'designSystem:fileUpload.limits',
+  'designSystem:fileUpload.remove',
+  'designSystem:fileUpload.replace',
+  'designSystem:fileUpload.uploading',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',
   'designSystem:passwordInput.hide',
@@ -5533,6 +6128,113 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
+  'guest:address.back',
+  'guest:address.continue',
+  'guest:address.date',
+  'guest:address.outOfZoneAreas',
+  'guest:address.outOfZoneBody',
+  'guest:address.outOfZoneBrowse',
+  'guest:address.outOfZoneTitle',
+  'guest:address.slot',
+  'guest:address.subtitle',
+  'guest:address.title',
+  'guest:contact.channel',
+  'guest:contact.channelEmail',
+  'guest:contact.channelSms',
+  'guest:contact.channelWhatsapp',
+  'guest:contact.continue',
+  'guest:contact.email',
+  'guest:contact.emailHint',
+  'guest:contact.errors.contactRequired',
+  'guest:contact.errors.emailInvalid',
+  'guest:contact.errors.mobileInvalid',
+  'guest:contact.errors.nameRequired',
+  'guest:contact.fullName',
+  'guest:contact.fullNameHint',
+  'guest:contact.mobile',
+  'guest:contact.mobileHint',
+  'guest:contact.subtitle',
+  'guest:contact.title',
+  'guest:convert.body',
+  'guest:convert.declined',
+  'guest:convert.doneBody',
+  'guest:convert.doneTitle',
+  'guest:convert.fullName',
+  'guest:convert.marketing',
+  'guest:convert.marketingHint',
+  'guest:convert.noThanks',
+  'guest:convert.password',
+  'guest:convert.passwordHint',
+  'guest:convert.submit',
+  'guest:convert.title',
+  'guest:convert.verifiedNote',
+  'guest:deletion.cancel',
+  'guest:deletion.code',
+  'guest:deletion.confirm',
+  'guest:deletion.confirmAcknowledge',
+  'guest:deletion.confirmBody',
+  'guest:deletion.confirmTitle',
+  'guest:deletion.doneBody',
+  'guest:deletion.doneTitle',
+  'guest:deletion.email',
+  'guest:deletion.emailHint',
+  'guest:deletion.invalidCode',
+  'guest:deletion.mobile',
+  'guest:deletion.mobileHint',
+  'guest:deletion.request',
+  'guest:deletion.sentBody',
+  'guest:deletion.sentTitle',
+  'guest:deletion.subtitle',
+  'guest:deletion.suppressionNote',
+  'guest:deletion.title',
+  'guest:entry.body',
+  'guest:entry.continueAsGuest',
+  'guest:entry.signIn',
+  'guest:entry.title',
+  'guest:order.deliveringTo',
+  'guest:order.lines',
+  'guest:order.notFoundBody',
+  'guest:order.notFoundTitle',
+  'guest:order.payment',
+  'guest:order.reference',
+  'guest:order.slot',
+  'guest:order.state',
+  'guest:order.states.cancelled',
+  'guest:order.states.confirmed',
+  'guest:order.states.delivered',
+  'guest:order.states.out_for_delivery',
+  'guest:order.states.placed',
+  'guest:order.states.preparing',
+  'guest:order.subtitle',
+  'guest:order.title',
+  'guest:order.total',
+  'guest:review.back',
+  'guest:review.cashOnDelivery',
+  'guest:review.cashOnDeliveryNote',
+  'guest:review.contact',
+  'guest:review.deliveringTo',
+  'guest:review.marketingHint',
+  'guest:review.marketingLabel',
+  'guest:review.payment',
+  'guest:review.place',
+  'guest:review.slot',
+  'guest:review.subtitle',
+  'guest:review.title',
+  'guest:review.unverified',
+  'guest:session.expiredBody',
+  'guest:session.expiredTitle',
+  'guest:session.restart',
+  'guest:steps.address',
+  'guest:steps.contact',
+  'guest:steps.review',
+  'guest:steps.verify',
+  'guest:subtitle',
+  'guest:title',
+  'guest:verify.back',
+  'guest:verify.confirmed',
+  'guest:verify.otpFallback',
+  'guest:verify.subtitle',
+  'guest:verify.title',
   'kitchen:a11y.aliasAdded',
   'kitchen:a11y.listUpdated',
   'kitchen:a11y.mappingAdded',

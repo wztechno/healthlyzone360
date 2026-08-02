@@ -108,3 +108,59 @@ export type {
     AccountMockRepositoriesOptions,
     AccountMockStoreOptions,
 } from './account/index.ts';
+
+/**
+ * The B1 B2B-onboarding world.
+ *
+ * `MOCK_SIGNING_TOKEN` is re-exported here — and only here, not from the package root — on the same
+ * terms as `MOCK_OTP_CODE`: the only things that need it are the mock world's own tests and the
+ * specs that drive the signing panel. A screen never invents a step-up token for itself.
+ */
+export {
+    AGREEMENT_CONSENT_STATEMENT,
+    AGREEMENT_DOCUMENT_SHA256,
+    B2B_FIXTURES,
+    B2B_FIXTURE_NAMES,
+    B2B_ID_BANDS,
+    B2B_ID_PREFIX,
+    B2B_SEED_NOW,
+    B2bMockStore,
+    DEFAULT_B2B_FIXTURE,
+    DEFAULT_B2B_MOCK_LATENCY_MS,
+    DOCUMENT_LINK_TTL_SECONDS,
+    MOCK_SIGNING_TOKEN,
+    createB2bMockRepositories,
+} from './b2b-application/index.ts';
+export type {
+    B2bFixture,
+    B2bFixtureName,
+    B2bMockRepositories,
+    B2bMockRepositoriesOptions,
+    B2bMockStoreOptions,
+} from './b2b-application/index.ts';
+
+/**
+ * The G1 guest world.
+ *
+ * Re-exported here and not from the package root, on the same terms as the account world: the only
+ * things that need it are this package's own tests and the Playwright specs that drive the guest
+ * checkout. A screen reaches it through the application's shim, never by importing a fixture.
+ */
+export {
+    GUEST_DATA_TTL_SECONDS,
+    GUEST_ID_BANDS,
+    GUEST_ID_PREFIX,
+    GUEST_SESSION_TTL_SECONDS,
+    GuestMockStore,
+    capabilitiesFor,
+    createFallbackCartPort,
+    createGuestMockRepositories,
+    guestOrderReferenceAt,
+    guestTokenAt,
+} from './guest/index.ts';
+export type {
+    GuestCartPort,
+    GuestMockRepositories,
+    GuestMockRepositoriesOptions,
+    GuestMockStoreOptions,
+} from './guest/index.ts';

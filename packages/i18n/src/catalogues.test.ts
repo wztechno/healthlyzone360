@@ -54,6 +54,8 @@ describe('catalogue structure', () => {
             'business',
             'kitchen',
             'account',
+            'guest',
+            'b2bApplication',
         ]);
         expect(DEFAULT_NAMESPACE).toBe('common');
         for (const locale of LOCALES) {
