@@ -10,12 +10,12 @@ use Healthy360\Ingredients\Enums\AvailabilityTier;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Exceptions\PlatformRowImmutable;
-use Healthy360\Ingredients\Exceptions\StaleLockVersion;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientCategory;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -161,17 +161,20 @@ final readonly class IngredientCatalogueService
      * (master plan v2 §4.15): it has its own route, its own audit action and
      * (later) its own permission.
      *
-     * **Refused while a live recipe version still names it** (K1.2). An
-     * archived ingredient a published formulation depends on would leave that
-     * recipe pointing at history, and the list endpoint hides archived rows
-     * precisely so nobody builds a formulation out of one. Retired versions
-     * are not a blocker: history is allowed to reference an archived
-     * ingredient, and treating it as one would mean a kitchen could never
-     * retire an ingredient it had ever used.
+     * **Refused while a live recipe version still names it** (K1.2) **or a
+     * live catalogue item lists it** (K1.4). An archived ingredient a
+     * published formulation depends on would leave that recipe pointing at
+     * history, and one a published dish names on its ingredient list would
+     * leave a customer reading a label whose source is gone. The list endpoint
+     * hides archived rows precisely so nobody builds either out of one.
+     * Retired versions and retired items are not blockers: history is allowed
+     * to reference an archived ingredient, and treating it as one would mean a
+     * kitchen could never retire an ingredient it had ever used.
      *
      * The question is asked through `IngredientUsageRegistry` rather than by
-     * querying recipe tables here: the dependency edge runs Recipes →
-     * Ingredients, and this module must not learn that recipes exist.
+     * querying recipe or catalogue tables here: the dependency edges run
+     * Recipes → Ingredients and Catalogues → Ingredients, and this module must
+     * not learn that either of them exists.
      *
      * @throws ApiException
      */
@@ -189,10 +192,10 @@ final readonly class IngredientCatalogueService
 
         $references = $this->usage->activeReferences($ingredient);
 
-        if ($references['recipe_version_ids'] !== []) {
+        if ($references['recipe_version_ids'] !== [] || $references['catalogue_item_ids'] !== []) {
             throw new ApiException(
                 ErrorCode::CatalogueInUse,
-                'This ingredient is still used by a recipe version that has not been retired.',
+                'This ingredient is still used by a recipe version or a catalogue item that has not been retired.',
                 $references,
             );
         }

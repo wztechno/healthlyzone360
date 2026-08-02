@@ -60,6 +60,14 @@ tags:
       allergen label — with the publication lifecycle and its quarantine gate.
       Confidential throughout: no operation here has an anonymous counterpart,
       and recipe lines are on the public denylist.
+  - name: Sellable catalogue
+    description: |
+      Catalogue items — products, meals and subscription plans — with their
+      variants, public ingredient lists, diet tags, sales channels and
+      availability, under the publication lifecycle and its quarantine gate.
+      **No operation in this family carries a price, a cost or a margin**: what
+      is confidential about a catalogue is what it costs, and that lives in the
+      pricing tables.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
 paths:
@@ -3191,6 +3199,1066 @@ paths:
           $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/sales-channels:
+    get:
+      operationId: listSalesChannels
+      tags:
+        - Sellable catalogue
+      summary: List sales channels
+      description: |
+        The organisation's routes to market. Unpaginated: a kitchen has a
+        handful of them, not a catalogue, and a cursor over five rows is
+        ceremony.
+
+        Inactive channels are included — a merchandiser assigning availability
+        needs to see that the wholesale desk exists and is switched off.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every sales channel of the organisation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminSalesChannel'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createSalesChannel
+      tags:
+        - Sellable catalogue
+      summary: Create a sales channel
+      description: |
+        A channel is a row an organisation owns, not a value from a closed
+        union: two kitchens legitimately run two different wholesale desks with
+        different availability and different price lists. `channel_kind` is the
+        closed vocabulary a projection branches on; `code` is the kitchen's own
+        name for one instance of it.
+
+        `status` is not accepted: a new channel is always active, and one
+        created inactive is a row nobody would notice was there.
+
+        A duplicate code is `409 resource.conflict`, not a second channel.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSalesChannelRequest'
+      responses:
+        '201':
+          description: The created channel.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/sales-channels/{channel}:
+    get:
+      operationId: showSalesChannel
+      tags:
+        - Sellable catalogue
+      summary: A sales channel
+      description: |
+        Returns `ETag: "<lock_version>"` — the channel's validator, which a
+        write sends back as `If-Match`.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/SalesChannelPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The channel.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateSalesChannel
+      tags:
+        - Sellable catalogue
+      summary: Update a sales channel
+      description: |
+        Neither `code` nor `channel_kind` is accepted. The code is what a price
+        list, an availability rule and (from C1) an order's provenance name;
+        the kind decides whether prices behind the channel are contract-private,
+        and flipping a live b2b desk to `b2c_web` would reclassify every one of
+        them in a single write with no record of what had been private.
+
+        `status` **is** accepted here rather than being a POST action, unlike
+        catalogue-item publication: activating a channel is operational
+        configuration, not a decision about what reaches a customer.
+
+        **`If-Match` required.** Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/SalesChannelPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSalesChannelRequest'
+      responses:
+        '200':
+          description: The updated channel.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items:
+    get:
+      operationId: listCatalogueItems
+      tags:
+        - Sellable catalogue
+      summary: List catalogue items
+      description: |
+        Everything this organisation sells — products, meals and subscription
+        plans in one cursor-paginated list, discriminated by `item_type`.
+
+        Retired items are excluded unless `status=retired` is asked for by
+        name: a list that offered withdrawn articles by default invites
+        somebody to price one.
+
+        **No item here carries a price, a cost or a margin**, and none ever
+        will: money lives in the pricing family, and the admin contract's
+        confidential `marginPercent` is a presentation figure with no
+        server-side home.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring match over both names and the slug.
+          schema:
+            type: string
+            maxLength: 160
+        - name: status
+          in: query
+          required: false
+          description: |
+            Restrict to one publication state. Omitted, everything except
+            `retired` is listed.
+          schema:
+            $ref: '#/components/schemas/CatalogueItemStatus'
+        - name: item_type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CatalogueItemType'
+        - name: product_category_id
+          in: query
+          required: false
+          description: Exact match on the merchandising category.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of catalogue items.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminCatalogueItem'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createCatalogueItem
+      tags:
+        - Sellable catalogue
+      summary: Create a catalogue item
+      description: |
+        Creates a **draft**. Nothing is ever created published: publication is
+        a separate action, with a separate permission, behind a readiness gate.
+
+        `slug` is derived from the English name unless one is supplied, and is
+        immutable thereafter.
+
+        `name_ar` may be omitted and is then stored as the empty string, which
+        is the "not yet translated" state the publish gate refuses. Unlike a
+        recipe, the Arabic name does **not** fall back to the English one: a
+        catalogue item is customer-facing, so an untranslated name has to be
+        visible as untranslated.
+
+        `catalogue_id` may be omitted; the organisation's `default` catalogue
+        is created on demand.
+
+        Variants, ingredients, diet tags and channels are each their own
+        set-replace endpoint and are not accepted here.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCatalogueItemRequest'
+      responses:
+        '201':
+          description: The created draft item.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueItemEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}:
+    get:
+      operationId: showCatalogueItem
+      tags:
+        - Sellable catalogue
+      summary: A catalogue item and everything hanging off it
+      description: |
+        Returns `ETag: "<lock_version>"` — the item's validator, which every
+        write on it and on its sub-resources sends back as `If-Match`.
+
+        Variants, the public ingredient list, diet tags and channel
+        availability come with it: opening a listing and asking what it is made
+        of is one interaction, not five, and each set is bounded by what a
+        human typed into one form.
+
+        Diet classifications are returned as **codes**, matching what the
+        setter accepts.
+
+        An item belonging to another organisation is indistinguishable from one
+        that does not exist: both are `resource.not_found`.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The item with its variants, ingredients, diet tags and channels.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                      - variants
+                      - ingredients
+                      - diet_classifications
+                      - channels
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/AdminCatalogueItem'
+                      variants:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminCatalogueItemVariant'
+                      ingredients:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminCatalogueItemIngredient'
+                      diet_classifications:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 40
+                      channels:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminChannelAssignment'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateCatalogueItem
+      tags:
+        - Sellable catalogue
+      summary: Update a catalogue item
+      description: |
+        A rename changes the names. `slug` and `item_type` are **refused**
+        rather than ignored — a slug is what a link, a marketplace listing and
+        a partner's integration hold, and silently dropping a field a client
+        believed it was writing teaches nobody anything.
+
+        `status` is absent for the same reason it is on every lifecycle-bearing
+        resource: publication and retirement are POST sub-resource actions with
+        their own permission and their own audit events.
+
+        A retired item is frozen and every write to it is `409
+        resource.conflict`. A **published** one stays editable: an item is a
+        listing, and fixing a typo in a live description must not require
+        withdrawing it from sale.
+
+        **`If-Match` required.** Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCatalogueItemRequest'
+      responses:
+        '200':
+          description: The updated item.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueItemEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/publish:
+    post:
+      operationId: publishCatalogueItem
+      tags:
+        - Sellable catalogue
+      summary: Publish a catalogue item
+      description: |
+        Its own route, its own permission and its own audit action — never a
+        `PATCH status`. Deciding what a customer can buy is a different
+        authority from writing the listing.
+
+        The **K1.4 gate is deliberately minimal** and the full readiness
+        evaluator arrives later; what it can evaluate honestly today is:
+
+        - only a `draft` publishes — `review_required` is a structural
+          quarantine, `published` and `retired` are not candidates;
+        - both language names are present;
+        - a product has at least one `active` variant;
+        - a meal has an allergen basis: a linked recipe with a published
+          version, **or** at least one row on its public ingredient list;
+        - a linked recipe carrying a live `review_required` version blocks the
+          item too — a quarantine is an unresolved food-safety contradiction,
+          and it propagates.
+
+        Refusals are structured: `catalogue.publish_blocked` carries **every**
+        reason at once, so a kitchen fixes them in one pass rather than one per
+        attempt.
+
+        The response includes the derived allergen set, because "what did I
+        just tell a diner this contains" is the only question worth asking
+        immediately afterwards.
+
+        **`If-Match` required.** Requires `catalogue.publish_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The published item and the allergen set its listing will show.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                      - allergens
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/AdminCatalogueItem'
+                      allergens:
+                        $ref: '#/components/schemas/DerivedAllergenSet'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CatalogueItemPublishBlocked'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/retire:
+    post:
+      operationId: retireCatalogueItem
+      tags:
+        - Sellable catalogue
+      summary: Retire a catalogue item
+      description: |
+        The only withdrawal a sellable item has. There is no archive action and
+        no delete anywhere: an order or a price snapshot may point at a row
+        forever, so a retired item keeps its history and disappears from every
+        consumer read.
+
+        Available from every state except `retired` itself, **including
+        `draft`** — refusing to retire a draft would leave a kitchen with no
+        way at all to withdraw a listing it decided against.
+
+        A `reason` is optional; where one is given it is recorded on the audit
+        event, because "why did this disappear" is the first question asked six
+        months later.
+
+        **`If-Match` required.** Requires `catalogue.publish_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetireCatalogueItemRequest'
+      responses:
+        '200':
+          description: The retired item.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueItemEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/variants:
+    put:
+      operationId: replaceCatalogueItemVariants
+      tags:
+        - Sellable catalogue
+      summary: Replace an item's variants
+      description: |
+        A PUT because the body is the complete set of packs or configurations.
+        A PATCH surface would make "I did not touch the packs" and "I deleted
+        every pack" the same request, and on the thing a price points at that
+        difference is the whole point.
+
+        Rows are matched by `code`, not by position and not by identifier: a
+        code is stable within the item and is what a price list will name, so a
+        submitted set keeps the identifiers a price already points at. An `id`
+        may be sent and is checked for agreement.
+
+        **Absent codes are archived, not deleted** — the catalogue never loses
+        a row an order might reference — and re-submitting an archived code
+        revives it.
+
+        `variant_type` is derived from the item's own type and is never
+        accepted: a product has packs, a subscription plan has configurations,
+        and a **meal has neither**, so a submission against one is refused.
+        A pack must state its size; a plan configuration must not carry one.
+
+        Exactly one variant is the default. Two marked defaults is a stated
+        contradiction and is refused; none is not, and the first submitted
+        wins.
+
+        **`If-Match` carries the item's `lock_version`**, not a variant's: the
+        set is the unit of change. Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceCatalogueItemVariantsRequest'
+      responses:
+        '200':
+          description: |
+            The item and **every** variant it now has, including the ones this
+            call archived — so a client sees what the submission did rather
+            than what it sent.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                      - variants
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/AdminCatalogueItem'
+                      variants:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminCatalogueItemVariant'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/ingredients:
+    put:
+      operationId: replaceCatalogueItemIngredients
+      tags:
+        - Sellable catalogue
+      summary: Replace an item's public ingredient list
+      description: |
+        What a diner is told is in the dish, in the order the kitchen chose to
+        name it. **Not the formulation**: there is no quantity field here and
+        none is stored, because quantities are confidential and a shape that
+        accepted one would put a competitor's proportions behind an endpoint
+        whose whole purpose is what a customer reads.
+
+        The array order **is** `display_order`: naming order is a labelling
+        convention (descending by weight, in most regimes), not something to
+        re-sort alphabetically.
+
+        These rows are also a meal's **allergen basis of last resort** — the
+        fallback the derivation uses when no published recipe version exists.
+
+        An empty array is a legitimate statement and is accepted.
+
+        **`If-Match` (the item's) required.** Requires
+        `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceCatalogueItemIngredientsRequest'
+      responses:
+        '200':
+          description: The item and its public ingredient list.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                      - ingredients
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/AdminCatalogueItem'
+                      ingredients:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminCatalogueItemIngredient'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/diet-classifications:
+    put:
+      operationId: replaceCatalogueItemDietClassifications
+      tags:
+        - Sellable catalogue
+      summary: Replace an item's diet tags
+      description: |
+        Tags arrive as platform **codes** (`vegan`, `keto`), which is what a
+        human reads and what the public vocabulary endpoint serves. A code that
+        does not resolve to an *active* classification is a validation failure,
+        never an invitation to create one: a kitchen that could invent
+        "keto-ish" would make the customer-side filter meaningless the first
+        time two kitchens spelt one idea differently.
+
+        A diet tag is a **preference filter, never an allergen statement**.
+        `gluten_free` says the kitchen sells this as part of a gluten-free
+        line; what the dish contains is the derived allergen set.
+
+        **`If-Match` (the item's) required.** Requires
+        `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceCatalogueItemDietClassificationsRequest'
+      responses:
+        '200':
+          description: The item and its diet tags.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                      - diet_classifications
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/AdminCatalogueItem'
+                      diet_classifications:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 40
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/channels:
+    put:
+      operationId: replaceCatalogueItemChannels
+      tags:
+        - Sellable catalogue
+      summary: Replace an item's channel availability
+      description: |
+        The complete availability list, applied at once. "Web shop yes,
+        wholesale from March, marketplace no" is one decision, and applying
+        half of it leaves an offering nobody meant to make. An empty array
+        withdraws the item from every channel, which is a decision a kitchen
+        makes rather than a field it forgot.
+
+        A row may name a variant or not: naming none offers the item as a
+        whole, naming one offers exactly that pack or configuration.
+
+        Dates are **dates**, not timestamps — a kitchen decides "from Monday",
+        not "from midnight in some timezone".
+
+        Availability is not publication: an item can be a complete, published,
+        sellable article that no channel offers yet. There is deliberately no
+        price here either; what an offering costs is a price-list row.
+
+        **`If-Match` (the item's) required.** Requires
+        `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceCatalogueItemChannelsRequest'
+      responses:
+        '200':
+          description: The item and its channel assignments.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                      - channels
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/AdminCatalogueItem'
+                      channels:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminChannelAssignment'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/allergens:
+    get:
+      operationId: showCatalogueItemAllergens
+      tags:
+        - Sellable catalogue
+      summary: An item's derived allergen set
+      description: |
+        Read-only, and **there is no writer** — that is the point. An item's
+        allergens are never authored here: they come from a published recipe
+        version's frozen label, or from the union of the item's own listed
+        ingredients' effective mappings. An endpoint that let a merchandiser
+        type an allergen onto a listing would be an endpoint that lets a
+        merchandiser overrule a chef.
+
+        Computed on read, never stored. There is no roll-up column and no
+        per-item allergen table: the joins are cheap, and a stored copy goes
+        stale the moment a mapping changes. Stored labels exist exactly where
+        freezing is the point — on a published recipe version.
+
+        `meta.basis` says which source answered:
+
+        - `recipe_version` — the linked recipe's published version. Its frozen
+          rows are the answer, with `declared` preserved as `declared`.
+        - `item_ingredients` — the union of the listed ingredients' effective
+          mappings, strongest containment winning, with `source_ingredient_id`
+          naming the ingredient that made the stronger claim.
+        - `none` — an empty set that means **"nobody has said"**, never "no
+          allergens". Silence is not a statement of absence, and the publish
+          gate refuses a meal in this state.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The derived allergen set and the basis it was derived from.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - allergens
+                    properties:
+                      allergens:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DerivedAllergen'
+                  meta:
+                    $ref: '#/components/schemas/DerivedAllergenMeta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /reference/diet-classifications:
+    get:
+      operationId: listDietClassifications
+      tags:
+        - Reference data
+      summary: The platform diet vocabulary
+      security: []
+      description: |
+        **Anonymous.** A diet filter that only works after sign-in is not a
+        diet filter — the argument the public allergen-class list makes,
+        applied to the softer of the two vocabularies.
+
+        Served through the public projection: one server-localised `name`
+        chosen from `Accept-Language`, never both language columns. Inactive
+        classifications are excluded.
+
+        A classification is a **preference filter, never a medical
+        restriction**. What a dish contains is its allergen declaration; this
+        says how a person describes the pattern of what they eat.
+
+        Unpaginated: the list is small and constant.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The active diet classifications, localised.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublicDietClassification'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+                          locale:
+                            type: string
+                            enum:
+                              - en
+                              - ar
+                            description: The locale the names were rendered in.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     sessionCookie:
@@ -3387,6 +4455,33 @@ components:
           - $ref: '#/components/schemas/Uuid'
           - type: string
             pattern: ^\d+$
+    CatalogueItemPath:
+      name: item
+      in: path
+      required: true
+      description: |
+        The item identifier, or its `slug`. Both are accepted because both are
+        natural — a client that walked the list holds identifiers, a
+        marketplace integration or a support engineer holds
+        `harissa-paste-250g` — and a slug is unique per organisation and
+        immutable, so the two answers cannot drift apart.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 140
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    SalesChannelPath:
+      name: channel
+      in: path
+      required: true
+      description: The channel identifier, or its `code`.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 40
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
   responses:
     Accepted:
       description: Accepted for delivery.
@@ -3884,6 +4979,37 @@ components:
               details:
                 ingredient_ids:
                   - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d44
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    CatalogueItemPublishBlocked:
+      description: |
+        The K1.4 readiness gate refused. `details.reasons` carries **every**
+        blocker rather than the first one found, so a kitchen fixes them in one
+        pass.
+
+        The vocabulary is `item_quarantined`, `item_not_a_draft`,
+        `translation_incomplete`, `no_active_variant`, `no_allergen_basis` and
+        `linked_recipe_quarantined`. The full readiness evaluator will add
+        reasons to this list rather than replace the mechanism.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: catalogue.publish_blocked
+              message: This catalogue item is not ready to be published.
+              details:
+                reasons:
+                  - reason: translation_incomplete
+                    fields:
+                      - name_ar
+                  - reason: linked_recipe_quarantined
+                    recipe_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d41
+                    recipe_version_ids:
+                      - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d42
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
   schemas:
     Uuid:
@@ -6046,6 +7172,899 @@ components:
             - integer
             - 'null'
           minimum: 1
+        display_order:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    CatalogueItemType:
+      type: string
+      enum:
+        - product
+        - meal
+        - subscription_plan
+      description: |
+        Which kind of sellable thing an item is — the discriminator that lets
+        products, meals and subscription plans share one table, one price path,
+        one availability table and one publication gate. What genuinely differs
+        between them is nullable columns and child tables, not the apparatus
+        around them.
+    CatalogueItemStatus:
+      type: string
+      enum:
+        - draft
+        - review_required
+        - published
+        - retired
+      description: |
+        The publication lifecycle of a sellable item — the **same** four-state
+        family a recipe version carries, and deliberately not the
+        `active | archived` pair the operational tables use.
+
+        `review_required` is a stored **quarantine**, not a queue position: a
+        critical allergen contradiction must make publication structurally
+        impossible rather than decorate the row with a flag a publish path can
+        forget to read.
+
+        `retired` is terminal for consumer visibility and keeps the row,
+        because an order or a price snapshot may point at it forever. Sellable
+        items **retire; they never archive**.
+    CatalogueVariantType:
+      type: string
+      enum:
+        - pack
+        - plan_configuration
+      description: |
+        Whether a variant is a pack of a product or one configuration of a
+        subscription plan. Derived from the item's own type and never accepted
+        from a client; a meal has neither.
+    CatalogueVariantStatus:
+      type: string
+      enum:
+        - draft
+        - active
+        - archived
+      description: |
+        The operational lifecycle of a variant. **Not** the publication family,
+        and the asymmetry with the parent item is deliberate: a pack is not
+        separately published. Publishing the 500 g jar while the 1 kg jar sits
+        in draft is not a state a kitchen wants, it is a state a kitchen ends
+        up in.
+    CataloguePackFormat:
+      type: string
+      enum:
+        - bottle
+        - bag
+        - can
+        - gallon
+        - bunch
+        - loose
+      description: |
+        The container a pack comes in. `loose` is a real answer, not a missing
+        one, which is why the field is nullable *and* carries this value: "the
+        kitchen said loose" and "nobody has said" are different facts.
+    CatalogueProductionMode:
+      type: string
+      enum:
+        - production
+        - supplier
+        - both
+      description: |
+        Whether the kitchen makes this, buys it in, or both. `both` is not
+        indecision: several source articles are produced in-house when volume
+        allows and bought in when it does not.
+    SalesChannelKind:
+      type: string
+      enum:
+        - b2c_web
+        - b2b
+        - pos
+        - marketplace
+        - corporate
+        - insurance
+      description: |
+        What sort of route to market a channel is. The *kind* is a closed
+        vocabulary a projection branches on; the *channel* is a row an
+        organisation owns, because two kitchens legitimately run two different
+        wholesale desks. The universal client's `SalesChannel` union is the
+        prototype's flattening of the two.
+    SalesChannelStatus:
+      type: string
+      enum:
+        - active
+        - inactive
+      description: |
+        Whether a channel is currently trading. Operational, never the
+        publication family: nothing a customer sees is a channel — what a
+        customer sees is the items available through one.
+    AdminSalesChannel:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - code
+        - channel_kind
+        - name_en
+        - name_ar
+        - status
+        - lock_version
+      description: |
+        The administrative shape of a sales channel. Carries **both** names and
+        ignores `Accept-Language` for them.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 40
+          description: Immutable after creation — a price list and an order's provenance name it.
+        channel_kind:
+          $ref: '#/components/schemas/SalesChannelKind'
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        order_source:
+          type:
+            - string
+            - 'null'
+          maxLength: 30
+          description: |
+            How orders arriving here label themselves in a partner's system.
+            Deliberately unconstrained: that is somebody else's vocabulary.
+        status:
+          $ref: '#/components/schemas/SalesChannelStatus'
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Also served as the `ETag` of the single-resource GET.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    SalesChannelEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - sales_channel
+          properties:
+            sales_channel:
+              $ref: '#/components/schemas/AdminSalesChannel'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateSalesChannelRequest:
+      type: object
+      required:
+        - code
+        - channel_kind
+        - name_en
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        channel_kind:
+          $ref: '#/components/schemas/SalesChannelKind'
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        order_source:
+          type:
+            - string
+            - 'null'
+          maxLength: 30
+      additionalProperties: false
+    UpdateSalesChannelRequest:
+      type: object
+      minProperties: 1
+      description: |
+        `code` and `channel_kind` are deliberately absent. Changing either
+        means creating the new channel and deactivating the old one — which is
+        what actually happened.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        order_source:
+          type:
+            - string
+            - 'null'
+          maxLength: 30
+        status:
+          $ref: '#/components/schemas/SalesChannelStatus'
+      additionalProperties: false
+    AdminCatalogueItem:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - catalogue_id
+        - item_type
+        - slug
+        - name_en
+        - name_ar
+        - is_market_priced
+        - is_assorted
+        - status
+        - data_quality_flags
+        - lock_version
+      description: |
+        The administrative shape of a sellable item. Carries **both** names and
+        ignores `Accept-Language` for them: a bilingual editor has to see what
+        it is editing.
+
+        **No price, cost or margin field exists here or on any child shape**,
+        because no such column exists on any table in this family. Money lives
+        in the pricing tables; the admin contract's confidential
+        `marginPercent` is a presentation figure derived from a confirmed price
+        and a recipe cost per serving, and has no server-side home in this
+        slice.
+
+        There is no public projection yet. When one arrives it will be a
+        separate schema with its own denylist sweep, never this one with fields
+        removed.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_id:
+          $ref: '#/components/schemas/Uuid'
+        item_type:
+          $ref: '#/components/schemas/CatalogueItemType'
+        slug:
+          type: string
+          maxLength: 140
+          description: |
+            Immutable after creation. A rename changes the names and nothing
+            else: a slug is what a link, a marketplace listing and a partner's
+            integration hold.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+          description: |
+            The empty string is the "not yet translated" state, and the publish
+            gate refuses it. Unlike a recipe, there is **no fallback** to the
+            English name: a customer-facing name has to be visible as
+            untranslated.
+        description_en:
+          type:
+            - string
+            - 'null'
+        description_ar:
+          type:
+            - string
+            - 'null'
+        product_category_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The merchandising shelf, not the purchasing taxonomy.
+        production_mode:
+          oneOf:
+            - $ref: '#/components/schemas/CatalogueProductionMode'
+            - type: 'null'
+        recipe_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The recipe a meal is produced from. Its **published** version is
+            the first choice of allergen basis.
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The ingredient a resold raw good simply is.
+        purchasing_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        usage_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        is_market_priced:
+          type: boolean
+          description: |
+            Goods priced at the day's market rate carry no confirmed amount at
+            all. Not a price field — a fact about the article that pricing
+            reads.
+        is_assorted:
+          type: boolean
+          description: True for a row that stands for a mixed selection rather than one article.
+        status:
+          $ref: '#/components/schemas/CatalogueItemStatus'
+        review_reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 200
+          description: Why the item is quarantined.
+        image_placeholder_id:
+          type:
+            - string
+            - 'null'
+          maxLength: 80
+        data_quality_flags:
+          type: array
+          description: Unresolved import findings, e.g. `dual_pack_single_price`.
+          items:
+            type: string
+        source_system:
+          type:
+            - string
+            - 'null'
+        source_ref:
+          type:
+            - string
+            - 'null'
+        lock_version:
+          type: integer
+          minimum: 0
+          description: |
+            Also served as the `ETag` of the single-resource GET, and the
+            validator every sub-resource write sends back as `If-Match`.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    CatalogueItemEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - item
+          properties:
+            item:
+              $ref: '#/components/schemas/AdminCatalogueItem'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    AdminCatalogueItemVariant:
+      type: object
+      required:
+        - id
+        - variant_type
+        - code
+        - is_default
+        - status
+        - pack
+        - lock_version
+      description: The thing a price actually points at — one pack, or one plan configuration.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        variant_type:
+          $ref: '#/components/schemas/CatalogueVariantType'
+        code:
+          type: string
+          maxLength: 60
+          description: Stable within the item, and what a price list names.
+        name_en:
+          type:
+            - string
+            - 'null'
+        name_ar:
+          type:
+            - string
+            - 'null'
+        is_default:
+          type: boolean
+          description: |
+            Exactly one per item, enforced by a partial unique index rather
+            than by a service remembering to clear the incumbent first.
+        status:
+          $ref: '#/components/schemas/CatalogueVariantStatus'
+        pack:
+          oneOf:
+            - $ref: '#/components/schemas/CataloguePackDetail'
+            - type: 'null'
+          description: Present for a pack variant, null for a plan configuration.
+        lock_version:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    CataloguePackDetail:
+      type: object
+      required:
+        - pack_quantity
+        - pack_unit_id
+      properties:
+        pack_quantity:
+          type: string
+          description: A decimal(12,4) as a string, so no precision is lost in transport.
+        pack_unit_id:
+          $ref: '#/components/schemas/Uuid'
+        pack_piece_count:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          description: Units inside the pack — a tray of twelve is `12`.
+        pack_format:
+          oneOf:
+            - $ref: '#/components/schemas/CataloguePackFormat'
+            - type: 'null'
+        net_weight_grams:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          description: |
+            Nullable, and **never derived** from `pack_quantity`: that
+            conversion needs a density this system does not hold, and
+            fabricating one for a bunch of parsley is exactly the invented
+            figure this programme refuses to produce.
+      additionalProperties: false
+    AdminCatalogueItemIngredient:
+      type: object
+      required:
+        - id
+        - ingredient_id
+        - is_representative
+        - display_order
+      description: |
+        One line of the public ingredient list — what a diner is told is in the
+        dish. **Not a formulation**: there is no quantity here and there will
+        not be.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        is_representative:
+          type: boolean
+          description: Whether a listing card shows this one among the handful it has room for.
+        display_order:
+          type: integer
+          minimum: 1
+          description: Server-authored from the submitted order.
+      additionalProperties: false
+    AdminChannelAssignment:
+      type: object
+      required:
+        - id
+        - sales_channel_id
+        - catalogue_item_variant_id
+        - is_available
+        - available_from
+        - available_to
+      description: |
+        One statement that a channel offers this item, optionally narrowed to
+        one variant and one date window. There is deliberately no price here.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        sales_channel_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Null offers the item as a whole.
+        is_available:
+          type: boolean
+        available_from:
+          type:
+            - string
+            - 'null'
+          format: date
+        available_to:
+          type:
+            - string
+            - 'null'
+          format: date
+      additionalProperties: false
+    DerivedAllergen:
+      type: object
+      required:
+        - allergen_code
+        - containment
+        - derivation
+        - source_ingredient_id
+      properties:
+        allergen_code:
+          $ref: '#/components/schemas/AllergenCode'
+        containment:
+          type: string
+          enum:
+            - contains
+            - may_contain
+          description: |
+            The strongest claim any source makes for this class. `contains`
+            beats `may_contain`, never the other way round.
+        derivation:
+          type: string
+          enum:
+            - declared
+            - derived
+          description: |
+            `declared` is a human's statement that no mapping implies — a chef
+            who knows the fryer is shared. It survives a recomputation and is
+            never weakened by one. Only a recipe version can carry a
+            declaration; the ingredient-list basis is always `derived`.
+        source_ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Which ingredient implied it. "Why does this dish say sesame" has to
+            be answerable from the label alone.
+      additionalProperties: false
+    DerivedAllergenSet:
+      type: object
+      required:
+        - basis
+        - recipe_version_id
+        - allergens
+      properties:
+        basis:
+          type: string
+          enum:
+            - recipe_version
+            - item_ingredients
+            - none
+          description: |
+            Which source answered. `none` is an empty set that means "nobody
+            has said", never "no allergens".
+        recipe_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        allergens:
+          type: array
+          items:
+            $ref: '#/components/schemas/DerivedAllergen'
+      additionalProperties: false
+    DerivedAllergenMeta:
+      allOf:
+        - $ref: '#/components/schemas/Meta'
+        - type: object
+          required:
+            - basis
+            - recipe_version_id
+          properties:
+            basis:
+              type: string
+              enum:
+                - recipe_version
+                - item_ingredients
+                - none
+            recipe_version_id:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+    CreateCatalogueItemRequest:
+      type: object
+      required:
+        - item_type
+        - name_en
+      description: |
+        Derived and server-authored values are absent by construction:
+        `status` (always `draft`), `lock_version`, `organisation_id` and the
+        source-provenance fields are not accepted, and neither are variants,
+        ingredients, diet tags or channels — each of those is its own
+        set-replace endpoint.
+      properties:
+        item_type:
+          $ref: '#/components/schemas/CatalogueItemType'
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        slug:
+          type:
+            - string
+            - 'null'
+          maxLength: 130
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        description_en:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+        description_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+        catalogue_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Omit to use (and create on demand) the organisation's `default` catalogue.
+        product_category_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        production_mode:
+          oneOf:
+            - $ref: '#/components/schemas/CatalogueProductionMode'
+            - type: 'null'
+        recipe_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        purchasing_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        usage_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        is_market_priced:
+          type: boolean
+        is_assorted:
+          type: boolean
+        image_placeholder_id:
+          type:
+            - string
+            - 'null'
+          maxLength: 80
+      additionalProperties: false
+    UpdateCatalogueItemRequest:
+      type: object
+      minProperties: 1
+      description: |
+        `slug` and `item_type` are deliberately absent and are actively
+        **rejected** rather than ignored: a request that appeared to move a
+        slug and quietly did nothing would be worse than one that failed.
+        `status` is absent because publication and retirement are POST
+        sub-resource actions.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+        description_en:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+        description_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+        product_category_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        production_mode:
+          oneOf:
+            - $ref: '#/components/schemas/CatalogueProductionMode'
+            - type: 'null'
+        recipe_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        purchasing_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        usage_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        is_market_priced:
+          type: boolean
+        is_assorted:
+          type: boolean
+        image_placeholder_id:
+          type:
+            - string
+            - 'null'
+          maxLength: 80
+      additionalProperties: false
+    RetireCatalogueItemRequest:
+      type: object
+      description: |
+        A kitchen withdrawing a seasonal line owes nobody an explanation, so a
+        reason is optional; where one is given it is recorded on the audit
+        event.
+      properties:
+        reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 200
+      additionalProperties: false
+    ReplaceCatalogueItemVariantsRequest:
+      type: object
+      required:
+        - variants
+      properties:
+        variants:
+          type: array
+          maxItems: 100
+          description: |
+            The complete set. An empty array is a legitimate statement ("this
+            item has no variants") and is accepted; absent codes are archived,
+            not deleted.
+          items:
+            type: object
+            required:
+              - code
+            properties:
+              id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+                description: |
+                  Optional. Checked against this item and against the code, so
+                  a client holding an identifier cannot silently retarget it.
+              code:
+                type: string
+                maxLength: 60
+              name_en:
+                type:
+                  - string
+                  - 'null'
+                maxLength: 255
+              name_ar:
+                type:
+                  - string
+                  - 'null'
+                maxLength: 255
+              is_default:
+                type: boolean
+                description: |
+                  Two marked defaults is a stated contradiction and is refused.
+                  None is not: the first submitted wins.
+              status:
+                $ref: '#/components/schemas/CatalogueVariantStatus'
+              pack:
+                oneOf:
+                  - $ref: '#/components/schemas/CataloguePackDetail'
+                  - type: 'null'
+                description: |
+                  Required for a pack — a pack with no size is not a pack — and
+                  refused for a plan configuration.
+            additionalProperties: false
+      additionalProperties: false
+    ReplaceCatalogueItemIngredientsRequest:
+      type: object
+      required:
+        - ingredients
+      properties:
+        ingredients:
+          type: array
+          maxItems: 100
+          description: |
+            The complete list, in the order it should be named. There is no
+            `display_order` field: the array order is the sequence.
+          items:
+            type: object
+            required:
+              - ingredient_id
+            properties:
+              ingredient_id:
+                $ref: '#/components/schemas/Uuid'
+              is_representative:
+                type: boolean
+            additionalProperties: false
+      additionalProperties: false
+    ReplaceCatalogueItemDietClassificationsRequest:
+      type: object
+      required:
+        - diet_classifications
+      properties:
+        diet_classifications:
+          type: array
+          maxItems: 20
+          description: |
+            Platform codes. One that does not resolve to an *active*
+            classification is a validation failure carrying
+            `details.unknown`, never an invitation to create one.
+          items:
+            type: string
+            maxLength: 40
+      additionalProperties: false
+    ReplaceCatalogueItemChannelsRequest:
+      type: object
+      required:
+        - channels
+      properties:
+        channels:
+          type: array
+          maxItems: 50
+          description: |
+            The complete availability list. An empty array withdraws the item
+            from every channel.
+          items:
+            type: object
+            required:
+              - sales_channel_id
+            properties:
+              sales_channel_id:
+                $ref: '#/components/schemas/Uuid'
+              catalogue_item_variant_id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+              is_available:
+                type: boolean
+                default: true
+              available_from:
+                type:
+                  - string
+                  - 'null'
+                format: date
+              available_to:
+                type:
+                  - string
+                  - 'null'
+                format: date
+            additionalProperties: false
+      additionalProperties: false
+    PublicDietClassification:
+      type: object
+      required:
+        - code
+        - name
+        - display_order
+      description: |
+        The public projection of a diet classification: **one** server-localised
+        name, never both language columns.
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          description: |
+            The platform vocabulary, matching the universal client's
+            `DietClassification` union one for one.
+        name:
+          type: string
         display_order:
           type: integer
           minimum: 0

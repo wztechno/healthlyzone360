@@ -11,11 +11,19 @@ use Healthy360\Ingredients\Models\Ingredient;
  *
  * The ingredients module cannot ask the recipes module directly: the
  * dependency edge runs Recipes → Ingredients, and reversing it would be a
- * cycle. So the ingredients module declares the question and the recipes
- * module answers it — an ordinary port, bound by whichever module is present.
+ * cycle. So the ingredients module declares the question and the downstream
+ * modules answer it — an ordinary port, bound by whichever module is present.
  * `NullIngredientUsageRegistry` is the answer when nothing depends on
  * ingredients yet, which is also what keeps the K1.1 behaviour intact if the
  * recipes module is ever removed.
+ *
+ * **More than one module can answer** (K1.4). Recipes bind an implementation;
+ * catalogues decorate it, so an ingredient named by a live catalogue item's
+ * public ingredient list is as unarchivable as one named by a live
+ * formulation. The composition is a decorator rather than a registry of
+ * registries because the question has one answer — "here is everything
+ * holding it" — and a caller that had to merge N answers itself would
+ * eventually merge N-1 of them.
  *
  * Two questions, both of which only a downstream module can answer:
  *
@@ -33,10 +41,16 @@ interface IngredientUsageRegistry
      * Live references to this ingredient — anything that would be left
      * dangling if it were archived.
      *
-     * "Live" excludes retired recipe versions: history is allowed to point at
-     * an archived ingredient, that is what history is.
+     * "Live" excludes retired recipe versions and retired catalogue items:
+     * history is allowed to point at an archived ingredient, that is what
+     * history is.
      *
-     * @return array{recipe_ids: list<string>, recipe_version_ids: list<string>}
+     * The three lists are reported separately rather than merged into one bag
+     * of identifiers because a client has to be able to say *what* is holding
+     * the row — "two recipe versions" and "a published dish" send a kitchen to
+     * different screens.
+     *
+     * @return array{recipe_ids: list<string>, recipe_version_ids: list<string>, catalogue_item_ids: list<string>}
      */
     public function activeReferences(Ingredient $ingredient): array;
 

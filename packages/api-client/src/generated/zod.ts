@@ -852,6 +852,397 @@ export const zUpdateAllergenClassRequest = z.object({
 });
 
 /**
+ * Which kind of sellable thing an item is — the discriminator that lets
+ * products, meals and subscription plans share one table, one price path,
+ * one availability table and one publication gate. What genuinely differs
+ * between them is nullable columns and child tables, not the apparatus
+ * around them.
+ *
+ */
+export const zCatalogueItemType = z.enum([
+    'product',
+    'meal',
+    'subscription_plan'
+]);
+
+/**
+ * The publication lifecycle of a sellable item — the **same** four-state
+ * family a recipe version carries, and deliberately not the
+ * `active | archived` pair the operational tables use.
+ *
+ * `review_required` is a stored **quarantine**, not a queue position: a
+ * critical allergen contradiction must make publication structurally
+ * impossible rather than decorate the row with a flag a publish path can
+ * forget to read.
+ *
+ * `retired` is terminal for consumer visibility and keeps the row,
+ * because an order or a price snapshot may point at it forever. Sellable
+ * items **retire; they never archive**.
+ *
+ */
+export const zCatalogueItemStatus = z.enum([
+    'draft',
+    'review_required',
+    'published',
+    'retired'
+]);
+
+/**
+ * Whether a variant is a pack of a product or one configuration of a
+ * subscription plan. Derived from the item's own type and never accepted
+ * from a client; a meal has neither.
+ *
+ */
+export const zCatalogueVariantType = z.enum(['pack', 'plan_configuration']);
+
+/**
+ * The operational lifecycle of a variant. **Not** the publication family,
+ * and the asymmetry with the parent item is deliberate: a pack is not
+ * separately published. Publishing the 500 g jar while the 1 kg jar sits
+ * in draft is not a state a kitchen wants, it is a state a kitchen ends
+ * up in.
+ *
+ */
+export const zCatalogueVariantStatus = z.enum([
+    'draft',
+    'active',
+    'archived'
+]);
+
+/**
+ * The container a pack comes in. `loose` is a real answer, not a missing
+ * one, which is why the field is nullable *and* carries this value: "the
+ * kitchen said loose" and "nobody has said" are different facts.
+ *
+ */
+export const zCataloguePackFormat = z.enum([
+    'bottle',
+    'bag',
+    'can',
+    'gallon',
+    'bunch',
+    'loose'
+]);
+
+/**
+ * Whether the kitchen makes this, buys it in, or both. `both` is not
+ * indecision: several source articles are produced in-house when volume
+ * allows and bought in when it does not.
+ *
+ */
+export const zCatalogueProductionMode = z.enum([
+    'production',
+    'supplier',
+    'both'
+]);
+
+/**
+ * What sort of route to market a channel is. The *kind* is a closed
+ * vocabulary a projection branches on; the *channel* is a row an
+ * organisation owns, because two kitchens legitimately run two different
+ * wholesale desks. The universal client's `SalesChannel` union is the
+ * prototype's flattening of the two.
+ *
+ */
+export const zSalesChannelKind = z.enum([
+    'b2c_web',
+    'b2b',
+    'pos',
+    'marketplace',
+    'corporate',
+    'insurance'
+]);
+
+/**
+ * Whether a channel is currently trading. Operational, never the
+ * publication family: nothing a customer sees is a channel — what a
+ * customer sees is the items available through one.
+ *
+ */
+export const zSalesChannelStatus = z.enum(['active', 'inactive']);
+
+/**
+ * The administrative shape of a sales channel. Carries **both** names and
+ * ignores `Accept-Language` for them.
+ *
+ */
+export const zAdminSalesChannel = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    code: z.string().max(40),
+    channel_kind: zSalesChannelKind,
+    name_en: z.string(),
+    name_ar: z.string(),
+    order_source: z.string().max(30).nullish(),
+    status: zSalesChannelStatus,
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zSalesChannelEnvelope = z.object({
+    data: z.object({
+        sales_channel: zAdminSalesChannel
+    }),
+    meta: zMeta
+});
+
+export const zCreateSalesChannelRequest = z.object({
+    code: z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    channel_kind: zSalesChannelKind,
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    order_source: z.string().max(30).nullish()
+});
+
+/**
+ * `code` and `channel_kind` are deliberately absent. Changing either
+ * means creating the new channel and deactivating the old one — which is
+ * what actually happened.
+ *
+ */
+export const zUpdateSalesChannelRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    order_source: z.string().max(30).nullish(),
+    status: zSalesChannelStatus.optional()
+});
+
+/**
+ * The administrative shape of a sellable item. Carries **both** names and
+ * ignores `Accept-Language` for them: a bilingual editor has to see what
+ * it is editing.
+ *
+ * **No price, cost or margin field exists here or on any child shape**,
+ * because no such column exists on any table in this family. Money lives
+ * in the pricing tables; the admin contract's confidential
+ * `marginPercent` is a presentation figure derived from a confirmed price
+ * and a recipe cost per serving, and has no server-side home in this
+ * slice.
+ *
+ * There is no public projection yet. When one arrives it will be a
+ * separate schema with its own denylist sweep, never this one with fields
+ * removed.
+ *
+ */
+export const zAdminCatalogueItem = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    catalogue_id: zUuid,
+    item_type: zCatalogueItemType,
+    slug: z.string().max(140),
+    name_en: z.string(),
+    name_ar: z.string(),
+    description_en: z.string().nullish(),
+    description_ar: z.string().nullish(),
+    product_category_id: zUuid.nullish(),
+    production_mode: zCatalogueProductionMode.nullish(),
+    recipe_id: zUuid.nullish(),
+    ingredient_id: zUuid.nullish(),
+    purchasing_unit_id: zUuid.nullish(),
+    usage_unit_id: zUuid.nullish(),
+    is_market_priced: z.boolean(),
+    is_assorted: z.boolean(),
+    status: zCatalogueItemStatus,
+    review_reason: z.string().max(200).nullish(),
+    image_placeholder_id: z.string().max(80).nullish(),
+    data_quality_flags: z.array(z.string()),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCatalogueItemEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem
+    }),
+    meta: zMeta
+});
+
+export const zCataloguePackDetail = z.object({
+    pack_quantity: z.string(),
+    pack_unit_id: zUuid,
+    pack_piece_count: z.int().gte(1).nullish(),
+    pack_format: zCataloguePackFormat.nullish(),
+    net_weight_grams: z.int().gte(1).nullish()
+});
+
+/**
+ * The thing a price actually points at — one pack, or one plan configuration.
+ */
+export const zAdminCatalogueItemVariant = z.object({
+    id: zUuid,
+    variant_type: zCatalogueVariantType,
+    code: z.string().max(60),
+    name_en: z.string().nullish(),
+    name_ar: z.string().nullish(),
+    is_default: z.boolean(),
+    status: zCatalogueVariantStatus,
+    pack: zCataloguePackDetail.nullable(),
+    lock_version: z.int().gte(0)
+});
+
+/**
+ * One line of the public ingredient list — what a diner is told is in the
+ * dish. **Not a formulation**: there is no quantity here and there will
+ * not be.
+ *
+ */
+export const zAdminCatalogueItemIngredient = z.object({
+    id: zUuid,
+    ingredient_id: zUuid,
+    is_representative: z.boolean(),
+    display_order: z.int().gte(1)
+});
+
+/**
+ * One statement that a channel offers this item, optionally narrowed to
+ * one variant and one date window. There is deliberately no price here.
+ *
+ */
+export const zAdminChannelAssignment = z.object({
+    id: zUuid,
+    sales_channel_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullable(),
+    is_available: z.boolean(),
+    available_from: z.iso.date().nullable(),
+    available_to: z.iso.date().nullable()
+});
+
+export const zDerivedAllergen = z.object({
+    allergen_code: zAllergenCode,
+    containment: z.enum(['contains', 'may_contain']),
+    derivation: z.enum(['declared', 'derived']),
+    source_ingredient_id: zUuid.nullable()
+});
+
+export const zDerivedAllergenSet = z.object({
+    basis: z.enum([
+        'recipe_version',
+        'item_ingredients',
+        'none'
+    ]),
+    recipe_version_id: zUuid.nullable(),
+    allergens: z.array(zDerivedAllergen)
+});
+
+export const zDerivedAllergenMeta = zMeta.and(z.object({
+    basis: z.enum([
+        'recipe_version',
+        'item_ingredients',
+        'none'
+    ]),
+    recipe_version_id: zUuid.nullable()
+}));
+
+/**
+ * Derived and server-authored values are absent by construction:
+ * `status` (always `draft`), `lock_version`, `organisation_id` and the
+ * source-provenance fields are not accepted, and neither are variants,
+ * ingredients, diet tags or channels — each of those is its own
+ * set-replace endpoint.
+ *
+ */
+export const zCreateCatalogueItemRequest = z.object({
+    item_type: zCatalogueItemType,
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    slug: z.string().max(130).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
+    description_en: z.string().max(4000).nullish(),
+    description_ar: z.string().max(4000).nullish(),
+    catalogue_id: zUuid.nullish(),
+    product_category_id: zUuid.nullish(),
+    production_mode: zCatalogueProductionMode.nullish(),
+    recipe_id: zUuid.nullish(),
+    ingredient_id: zUuid.nullish(),
+    purchasing_unit_id: zUuid.nullish(),
+    usage_unit_id: zUuid.nullish(),
+    is_market_priced: z.boolean().optional(),
+    is_assorted: z.boolean().optional(),
+    image_placeholder_id: z.string().max(80).nullish()
+});
+
+/**
+ * `slug` and `item_type` are deliberately absent and are actively
+ * **rejected** rather than ignored: a request that appeared to move a
+ * slug and quietly did nothing would be worse than one that failed.
+ * `status` is absent because publication and retirement are POST
+ * sub-resource actions.
+ *
+ */
+export const zUpdateCatalogueItemRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    description_en: z.string().max(4000).nullish(),
+    description_ar: z.string().max(4000).nullish(),
+    product_category_id: zUuid.nullish(),
+    production_mode: zCatalogueProductionMode.nullish(),
+    recipe_id: zUuid.nullish(),
+    ingredient_id: zUuid.nullish(),
+    purchasing_unit_id: zUuid.nullish(),
+    usage_unit_id: zUuid.nullish(),
+    is_market_priced: z.boolean().optional(),
+    is_assorted: z.boolean().optional(),
+    image_placeholder_id: z.string().max(80).nullish()
+});
+
+/**
+ * A kitchen withdrawing a seasonal line owes nobody an explanation, so a
+ * reason is optional; where one is given it is recorded on the audit
+ * event.
+ *
+ */
+export const zRetireCatalogueItemRequest = z.object({
+    reason: z.string().max(200).nullish()
+});
+
+export const zReplaceCatalogueItemVariantsRequest = z.object({
+    variants: z.array(z.object({
+        id: zUuid.nullish(),
+        code: z.string().max(60),
+        name_en: z.string().max(255).nullish(),
+        name_ar: z.string().max(255).nullish(),
+        is_default: z.boolean().optional(),
+        status: zCatalogueVariantStatus.optional(),
+        pack: zCataloguePackDetail.nullish()
+    })).max(100)
+});
+
+export const zReplaceCatalogueItemIngredientsRequest = z.object({
+    ingredients: z.array(z.object({
+        ingredient_id: zUuid,
+        is_representative: z.boolean().optional()
+    })).max(100)
+});
+
+export const zReplaceCatalogueItemDietClassificationsRequest = z.object({
+    diet_classifications: z.array(z.string().max(40)).max(20)
+});
+
+export const zReplaceCatalogueItemChannelsRequest = z.object({
+    channels: z.array(z.object({
+        sales_channel_id: zUuid,
+        catalogue_item_variant_id: zUuid.nullish(),
+        is_available: z.boolean().optional().default(true),
+        available_from: z.iso.date().nullish(),
+        available_to: z.iso.date().nullish()
+    })).max(50)
+});
+
+/**
+ * The public projection of a diet classification: **one** server-localised
+ * name, never both language columns.
+ *
+ */
+export const zPublicDietClassification = z.object({
+    code: z.string().max(40),
+    name: z.string(),
+    display_order: z.int().gte(0)
+});
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -959,6 +1350,27 @@ export const zRecipePath = zUuid;
 export const zRecipeVersionPath = z.union([
     zUuid,
     z.string().regex(/^\d+$/)
+]);
+
+/**
+ * The item identifier, or its `slug`. Both are accepted because both are
+ * natural — a client that walked the list holds identifiers, a
+ * marketplace integration or a support engineer holds
+ * `harissa-paste-250g` — and a slug is unique per organisation and
+ * immutable, so the two answers cannot drift apart.
+ *
+ */
+export const zCatalogueItemPath = z.union([
+    zUuid,
+    z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The channel identifier, or its `code`.
+ */
+export const zSalesChannelPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 ]);
 
 export const zRegisterUserBody = zRegisterRequest;
@@ -2076,3 +2488,336 @@ export const zDeactivateAllergenClassPath = z.object({
  * The withdrawn allergen class.
  */
 export const zDeactivateAllergenClassResponse = zAllergenClassEnvelope;
+
+export const zListSalesChannelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every sales channel of the organisation.
+ */
+export const zListSalesChannelsResponse = z.object({
+    data: z.array(zAdminSalesChannel),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional()
+    }))
+});
+
+export const zCreateSalesChannelBody = zCreateSalesChannelRequest;
+
+export const zCreateSalesChannelHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The created channel.
+ */
+export const zCreateSalesChannelResponse = zSalesChannelEnvelope;
+
+export const zShowSalesChannelHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowSalesChannelPath = z.object({
+    channel: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The channel.
+ */
+export const zShowSalesChannelResponse = zSalesChannelEnvelope;
+
+export const zUpdateSalesChannelBody = zUpdateSalesChannelRequest;
+
+export const zUpdateSalesChannelHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSalesChannelPath = z.object({
+    channel: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The updated channel.
+ */
+export const zUpdateSalesChannelResponse = zSalesChannelEnvelope;
+
+export const zListCatalogueItemsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListCatalogueItemsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    query: z.string().max(160).optional(),
+    status: zCatalogueItemStatus.optional(),
+    item_type: zCatalogueItemType.optional(),
+    product_category_id: zUuid.optional()
+});
+
+/**
+ * A page of catalogue items.
+ */
+export const zListCatalogueItemsResponse = z.object({
+    data: z.array(zAdminCatalogueItem),
+    meta: zPaginationMeta
+});
+
+export const zCreateCatalogueItemBody = zCreateCatalogueItemRequest;
+
+export const zCreateCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The created draft item.
+ */
+export const zCreateCatalogueItemResponse = zCatalogueItemEnvelope;
+
+export const zShowCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item with its variants, ingredients, diet tags and channels.
+ */
+export const zShowCatalogueItemResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        variants: z.array(zAdminCatalogueItemVariant),
+        ingredients: z.array(zAdminCatalogueItemIngredient),
+        diet_classifications: z.array(z.string().max(40)),
+        channels: z.array(zAdminChannelAssignment)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateCatalogueItemBody = zUpdateCatalogueItemRequest;
+
+export const zUpdateCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The updated item.
+ */
+export const zUpdateCatalogueItemResponse = zCatalogueItemEnvelope;
+
+export const zPublishCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPublishCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The published item and the allergen set its listing will show.
+ */
+export const zPublishCatalogueItemResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        allergens: zDerivedAllergenSet
+    }),
+    meta: zMeta
+});
+
+export const zRetireCatalogueItemBody = zRetireCatalogueItemRequest;
+
+export const zRetireCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRetireCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The retired item.
+ */
+export const zRetireCatalogueItemResponse = zCatalogueItemEnvelope;
+
+export const zReplaceCatalogueItemVariantsBody = zReplaceCatalogueItemVariantsRequest;
+
+export const zReplaceCatalogueItemVariantsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemVariantsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and **every** variant it now has, including the ones this
+ * call archived — so a client sees what the submission did rather
+ * than what it sent.
+ *
+ */
+export const zReplaceCatalogueItemVariantsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        variants: z.array(zAdminCatalogueItemVariant)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceCatalogueItemIngredientsBody = zReplaceCatalogueItemIngredientsRequest;
+
+export const zReplaceCatalogueItemIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemIngredientsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and its public ingredient list.
+ */
+export const zReplaceCatalogueItemIngredientsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        ingredients: z.array(zAdminCatalogueItemIngredient)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceCatalogueItemDietClassificationsBody = zReplaceCatalogueItemDietClassificationsRequest;
+
+export const zReplaceCatalogueItemDietClassificationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemDietClassificationsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and its diet tags.
+ */
+export const zReplaceCatalogueItemDietClassificationsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        diet_classifications: z.array(z.string().max(40))
+    }),
+    meta: zMeta
+});
+
+export const zReplaceCatalogueItemChannelsBody = zReplaceCatalogueItemChannelsRequest;
+
+export const zReplaceCatalogueItemChannelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemChannelsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and its channel assignments.
+ */
+export const zReplaceCatalogueItemChannelsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        channels: z.array(zAdminChannelAssignment)
+    }),
+    meta: zMeta
+});
+
+export const zShowCatalogueItemAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCatalogueItemAllergensPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The derived allergen set and the basis it was derived from.
+ */
+export const zShowCatalogueItemAllergensResponse = z.object({
+    data: z.object({
+        allergens: z.array(zDerivedAllergen)
+    }),
+    meta: zDerivedAllergenMeta
+});
+
+export const zListDietClassificationsHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The active diet classifications, localised.
+ */
+export const zListDietClassificationsResponse = z.object({
+    data: z.array(zPublicDietClassification),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        locale: z.enum(['en', 'ar']).optional()
+    }))
+});

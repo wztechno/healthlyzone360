@@ -100,6 +100,22 @@ final class PermissionRegistry
             // worse, because positional line identity means it cannot be put
             // back.
             'recipe.view_costs_organisation' => ['domain' => 'recipe', 'description' => 'View and write recipe costs: technical sheets, cost snapshots and line unit costs'],
+
+            // Phase K1.4 — the sellable catalogue. Reads and edits reuse
+            // `catalogue.view_organisation` / `catalogue.manage_organisation`:
+            // ingredients, categories and items are one catalogue, and a
+            // fifth pair of codes over the same screens would be bookkeeping
+            // rather than authority.
+            //
+            // Publication is not. `catalogue.publish_organisation` is the
+            // authority to decide what a customer can buy — it makes a listing
+            // visible, freezes what its allergen label will say, and withdraws
+            // whatever was live before. That is the same separation
+            // `recipe.publish_organisation` draws one level down, and it stays
+            // separate here for the same reason: a chef writes the
+            // formulation, a merchandiser writes the listing, and neither of
+            // them decides the range.
+            'catalogue.publish_organisation' => ['domain' => 'catalogue', 'description' => 'Publish and retire catalogue items of the organisation'],
         ];
     }
 
@@ -212,6 +228,7 @@ final class PermissionRegistry
                 'permissions' => [
                     'catalogue.view_organisation',
                     'catalogue.manage_organisation',
+                    'catalogue.publish_organisation',
                     'recipe.view_organisation',
                     'recipe.manage_organisation',
                     'recipe.publish_organisation',
@@ -255,11 +272,20 @@ final class PermissionRegistry
             // `recipe.manage_organisation` is deliberately absent so that
             // reading a cost never comes with the ability to change the
             // formulation behind it.
+            //
+            // It *does* hold `catalogue.publish_organisation` (K1.4). Deciding
+            // what the kitchen sells and at what price is exactly this role's
+            // authority, and it is the one place where the commercial side
+            // outranks the kitchen: a commercial manager may put a dish on
+            // sale without being able to change a single line of how it is
+            // made. `catalogue.manage_organisation` stays absent for the same
+            // reason `recipe.manage_organisation` does.
             'commercial_manager' => [
                 'name_en' => 'Commercial manager',
                 'name_ar' => 'المدير التجاري',
                 'permissions' => [
                     'catalogue.view_organisation',
+                    'catalogue.publish_organisation',
                     'recipe.view_organisation',
                     'recipe.view_costs_organisation',
                 ],

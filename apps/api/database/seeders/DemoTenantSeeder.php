@@ -10,6 +10,8 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
+use Healthy360\Catalogues\Enums\SalesChannelStatus;
+use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
@@ -87,6 +89,13 @@ class DemoTenantSeeder extends Seeder
         // widening kitchen_manager in a later slice reaches this membership
         // without touching this file.
         $this->addRole($verdant, $verdantOwner, 'kitchen_manager', $verdantOwner);
+
+        // Two routes to market (K1.4), so channel availability is testable
+        // against something a kitchen would actually have: a consumer web
+        // shop and a wholesale desk. Both are structure, not content — no
+        // item, no price and no formulation is seeded anywhere.
+        $this->salesChannel($verdant, 'web-shop', 'b2c_web', 'Web shop', 'المتجر الإلكتروني', 'web', $verdantOwner);
+        $this->salesChannel($verdant, 'wholesale', 'b2b', 'Wholesale', 'البيع بالجملة', null, $verdantOwner);
 
         $this->seedPlatformOperator();
     }
@@ -227,6 +236,36 @@ class DemoTenantSeeder extends Seeder
                 'timezone' => $timezone,
                 'status' => BranchStatus::Active,
                 'created_by' => $creator->getKey(),
+            ],
+        );
+    }
+
+    /**
+     * A route to market for a demonstration kitchen.
+     *
+     * `updateOrCreate` rather than the reference seeders' insert-if-absent:
+     * this is demo scaffolding in a `local`/`testing`-only seeder, not curated
+     * platform data somebody edits and expects to keep.
+     */
+    private function salesChannel(
+        Organisation $organisation,
+        string $code,
+        string $kind,
+        string $nameEn,
+        string $nameAr,
+        ?string $orderSource,
+        User $creator,
+    ): void {
+        SalesChannel::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'code' => $code],
+            [
+                'channel_kind' => $kind,
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'order_source' => $orderSource,
+                'status' => SalesChannelStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
             ],
         );
     }

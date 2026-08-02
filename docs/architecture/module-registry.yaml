@@ -179,10 +179,18 @@ modules:
     description: Partner onboarding, due diligence, listings, suspension/termination and partner dashboards.
     depends_on: [Organisations, Catalogues]
 
+  # Flipped to `foundation` by K1.4: catalogue items (product | meal |
+  # subscription_plan), their variants and pack variants, the representative
+  # ingredient set, the diet-classification pivot, sales channels and
+  # per-channel availability, with the §4.7 sellable publication lifecycle
+  # (draft | review_required | published | retired) and a minimal readiness
+  # gate. Prices are deliberately absent — nothing here carries an amount, a
+  # margin or a currency; that whole surface is K1.5's Pricing module.
   - name: Catalogues
-    status: planned
-    description: Product and service listings with availability and configuration.
-    depends_on: [Organisations, Recipes, Ingredients]
+    status: foundation
+    phase: 2
+    description: Catalogue items (products, meals and subscription plans), variants and pack variants, representative ingredients, diet classifications, sales channels and per-channel availability, with the sellable publication lifecycle.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes]
 
   - name: Pricing
     status: planned

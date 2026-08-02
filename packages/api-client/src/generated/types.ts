@@ -1122,6 +1122,513 @@ export type UpdateAllergenClassRequest = {
 };
 
 /**
+ * Which kind of sellable thing an item is — the discriminator that lets
+ * products, meals and subscription plans share one table, one price path,
+ * one availability table and one publication gate. What genuinely differs
+ * between them is nullable columns and child tables, not the apparatus
+ * around them.
+ *
+ */
+export type CatalogueItemType = 'product' | 'meal' | 'subscription_plan';
+
+/**
+ * The publication lifecycle of a sellable item — the **same** four-state
+ * family a recipe version carries, and deliberately not the
+ * `active | archived` pair the operational tables use.
+ *
+ * `review_required` is a stored **quarantine**, not a queue position: a
+ * critical allergen contradiction must make publication structurally
+ * impossible rather than decorate the row with a flag a publish path can
+ * forget to read.
+ *
+ * `retired` is terminal for consumer visibility and keeps the row,
+ * because an order or a price snapshot may point at it forever. Sellable
+ * items **retire; they never archive**.
+ *
+ */
+export type CatalogueItemStatus = 'draft' | 'review_required' | 'published' | 'retired';
+
+/**
+ * Whether a variant is a pack of a product or one configuration of a
+ * subscription plan. Derived from the item's own type and never accepted
+ * from a client; a meal has neither.
+ *
+ */
+export type CatalogueVariantType = 'pack' | 'plan_configuration';
+
+/**
+ * The operational lifecycle of a variant. **Not** the publication family,
+ * and the asymmetry with the parent item is deliberate: a pack is not
+ * separately published. Publishing the 500 g jar while the 1 kg jar sits
+ * in draft is not a state a kitchen wants, it is a state a kitchen ends
+ * up in.
+ *
+ */
+export type CatalogueVariantStatus = 'draft' | 'active' | 'archived';
+
+/**
+ * The container a pack comes in. `loose` is a real answer, not a missing
+ * one, which is why the field is nullable *and* carries this value: "the
+ * kitchen said loose" and "nobody has said" are different facts.
+ *
+ */
+export type CataloguePackFormat = 'bottle' | 'bag' | 'can' | 'gallon' | 'bunch' | 'loose';
+
+/**
+ * Whether the kitchen makes this, buys it in, or both. `both` is not
+ * indecision: several source articles are produced in-house when volume
+ * allows and bought in when it does not.
+ *
+ */
+export type CatalogueProductionMode = 'production' | 'supplier' | 'both';
+
+/**
+ * What sort of route to market a channel is. The *kind* is a closed
+ * vocabulary a projection branches on; the *channel* is a row an
+ * organisation owns, because two kitchens legitimately run two different
+ * wholesale desks. The universal client's `SalesChannel` union is the
+ * prototype's flattening of the two.
+ *
+ */
+export type SalesChannelKind = 'b2c_web' | 'b2b' | 'pos' | 'marketplace' | 'corporate' | 'insurance';
+
+/**
+ * Whether a channel is currently trading. Operational, never the
+ * publication family: nothing a customer sees is a channel — what a
+ * customer sees is the items available through one.
+ *
+ */
+export type SalesChannelStatus = 'active' | 'inactive';
+
+/**
+ * The administrative shape of a sales channel. Carries **both** names and
+ * ignores `Accept-Language` for them.
+ *
+ */
+export type AdminSalesChannel = {
+    id: Uuid;
+    organisation_id: Uuid;
+    /**
+     * Immutable after creation — a price list and an order's provenance name it.
+     */
+    code: string;
+    channel_kind: SalesChannelKind;
+    name_en: string;
+    name_ar: string;
+    /**
+     * How orders arriving here label themselves in a partner's system.
+     * Deliberately unconstrained: that is somebody else's vocabulary.
+     *
+     */
+    order_source?: string | null;
+    status: SalesChannelStatus;
+    /**
+     * Also served as the `ETag` of the single-resource GET.
+     */
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type SalesChannelEnvelope = {
+    data: {
+        sales_channel: AdminSalesChannel;
+    };
+    meta: Meta;
+};
+
+export type CreateSalesChannelRequest = {
+    code: string;
+    channel_kind: SalesChannelKind;
+    name_en: string;
+    name_ar?: string | null;
+    order_source?: string | null;
+};
+
+/**
+ * `code` and `channel_kind` are deliberately absent. Changing either
+ * means creating the new channel and deactivating the old one — which is
+ * what actually happened.
+ *
+ */
+export type UpdateSalesChannelRequest = {
+    name_en?: string;
+    name_ar?: string;
+    order_source?: string | null;
+    status?: SalesChannelStatus;
+};
+
+/**
+ * The administrative shape of a sellable item. Carries **both** names and
+ * ignores `Accept-Language` for them: a bilingual editor has to see what
+ * it is editing.
+ *
+ * **No price, cost or margin field exists here or on any child shape**,
+ * because no such column exists on any table in this family. Money lives
+ * in the pricing tables; the admin contract's confidential
+ * `marginPercent` is a presentation figure derived from a confirmed price
+ * and a recipe cost per serving, and has no server-side home in this
+ * slice.
+ *
+ * There is no public projection yet. When one arrives it will be a
+ * separate schema with its own denylist sweep, never this one with fields
+ * removed.
+ *
+ */
+export type AdminCatalogueItem = {
+    id: Uuid;
+    organisation_id: Uuid;
+    catalogue_id: Uuid;
+    item_type: CatalogueItemType;
+    /**
+     * Immutable after creation. A rename changes the names and nothing
+     * else: a slug is what a link, a marketplace listing and a partner's
+     * integration hold.
+     *
+     */
+    slug: string;
+    name_en: string;
+    /**
+     * The empty string is the "not yet translated" state, and the publish
+     * gate refuses it. Unlike a recipe, there is **no fallback** to the
+     * English name: a customer-facing name has to be visible as
+     * untranslated.
+     *
+     */
+    name_ar: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    /**
+     * The merchandising shelf, not the purchasing taxonomy.
+     */
+    product_category_id?: Uuid | null;
+    production_mode?: CatalogueProductionMode | null;
+    /**
+     * The recipe a meal is produced from. Its **published** version is
+     * the first choice of allergen basis.
+     *
+     */
+    recipe_id?: Uuid | null;
+    /**
+     * The ingredient a resold raw good simply is.
+     */
+    ingredient_id?: Uuid | null;
+    purchasing_unit_id?: Uuid | null;
+    usage_unit_id?: Uuid | null;
+    /**
+     * Goods priced at the day's market rate carry no confirmed amount at
+     * all. Not a price field — a fact about the article that pricing
+     * reads.
+     *
+     */
+    is_market_priced: boolean;
+    /**
+     * True for a row that stands for a mixed selection rather than one article.
+     */
+    is_assorted: boolean;
+    status: CatalogueItemStatus;
+    /**
+     * Why the item is quarantined.
+     */
+    review_reason?: string | null;
+    image_placeholder_id?: string | null;
+    /**
+     * Unresolved import findings, e.g. `dual_pack_single_price`.
+     */
+    data_quality_flags: Array<string>;
+    source_system?: string | null;
+    source_ref?: string | null;
+    /**
+     * Also served as the `ETag` of the single-resource GET, and the
+     * validator every sub-resource write sends back as `If-Match`.
+     *
+     */
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type CatalogueItemEnvelope = {
+    data: {
+        item: AdminCatalogueItem;
+    };
+    meta: Meta;
+};
+
+/**
+ * The thing a price actually points at — one pack, or one plan configuration.
+ */
+export type AdminCatalogueItemVariant = {
+    id: Uuid;
+    variant_type: CatalogueVariantType;
+    /**
+     * Stable within the item, and what a price list names.
+     */
+    code: string;
+    name_en?: string | null;
+    name_ar?: string | null;
+    /**
+     * Exactly one per item, enforced by a partial unique index rather
+     * than by a service remembering to clear the incumbent first.
+     *
+     */
+    is_default: boolean;
+    status: CatalogueVariantStatus;
+    /**
+     * Present for a pack variant, null for a plan configuration.
+     */
+    pack: CataloguePackDetail | null;
+    lock_version: number;
+};
+
+export type CataloguePackDetail = {
+    /**
+     * A decimal(12,4) as a string, so no precision is lost in transport.
+     */
+    pack_quantity: string;
+    pack_unit_id: Uuid;
+    /**
+     * Units inside the pack — a tray of twelve is `12`.
+     */
+    pack_piece_count?: number | null;
+    pack_format?: CataloguePackFormat | null;
+    /**
+     * Nullable, and **never derived** from `pack_quantity`: that
+     * conversion needs a density this system does not hold, and
+     * fabricating one for a bunch of parsley is exactly the invented
+     * figure this programme refuses to produce.
+     *
+     */
+    net_weight_grams?: number | null;
+};
+
+/**
+ * One line of the public ingredient list — what a diner is told is in the
+ * dish. **Not a formulation**: there is no quantity here and there will
+ * not be.
+ *
+ */
+export type AdminCatalogueItemIngredient = {
+    id: Uuid;
+    ingredient_id: Uuid;
+    /**
+     * Whether a listing card shows this one among the handful it has room for.
+     */
+    is_representative: boolean;
+    /**
+     * Server-authored from the submitted order.
+     */
+    display_order: number;
+};
+
+/**
+ * One statement that a channel offers this item, optionally narrowed to
+ * one variant and one date window. There is deliberately no price here.
+ *
+ */
+export type AdminChannelAssignment = {
+    id: Uuid;
+    sales_channel_id: Uuid;
+    /**
+     * Null offers the item as a whole.
+     */
+    catalogue_item_variant_id: Uuid | null;
+    is_available: boolean;
+    available_from: string | null;
+    available_to: string | null;
+};
+
+export type DerivedAllergen = {
+    allergen_code: AllergenCode;
+    /**
+     * The strongest claim any source makes for this class. `contains`
+     * beats `may_contain`, never the other way round.
+     *
+     */
+    containment: 'contains' | 'may_contain';
+    /**
+     * `declared` is a human's statement that no mapping implies — a chef
+     * who knows the fryer is shared. It survives a recomputation and is
+     * never weakened by one. Only a recipe version can carry a
+     * declaration; the ingredient-list basis is always `derived`.
+     *
+     */
+    derivation: 'declared' | 'derived';
+    /**
+     * Which ingredient implied it. "Why does this dish say sesame" has to
+     * be answerable from the label alone.
+     *
+     */
+    source_ingredient_id: Uuid | null;
+};
+
+export type DerivedAllergenSet = {
+    /**
+     * Which source answered. `none` is an empty set that means "nobody
+     * has said", never "no allergens".
+     *
+     */
+    basis: 'recipe_version' | 'item_ingredients' | 'none';
+    recipe_version_id: Uuid | null;
+    allergens: Array<DerivedAllergen>;
+};
+
+export type DerivedAllergenMeta = Meta & {
+    basis: 'recipe_version' | 'item_ingredients' | 'none';
+    recipe_version_id: Uuid | null;
+};
+
+/**
+ * Derived and server-authored values are absent by construction:
+ * `status` (always `draft`), `lock_version`, `organisation_id` and the
+ * source-provenance fields are not accepted, and neither are variants,
+ * ingredients, diet tags or channels — each of those is its own
+ * set-replace endpoint.
+ *
+ */
+export type CreateCatalogueItemRequest = {
+    item_type: CatalogueItemType;
+    name_en: string;
+    name_ar?: string | null;
+    slug?: string | null;
+    description_en?: string | null;
+    description_ar?: string | null;
+    /**
+     * Omit to use (and create on demand) the organisation's `default` catalogue.
+     */
+    catalogue_id?: Uuid | null;
+    product_category_id?: Uuid | null;
+    production_mode?: CatalogueProductionMode | null;
+    recipe_id?: Uuid | null;
+    ingredient_id?: Uuid | null;
+    purchasing_unit_id?: Uuid | null;
+    usage_unit_id?: Uuid | null;
+    is_market_priced?: boolean;
+    is_assorted?: boolean;
+    image_placeholder_id?: string | null;
+};
+
+/**
+ * `slug` and `item_type` are deliberately absent and are actively
+ * **rejected** rather than ignored: a request that appeared to move a
+ * slug and quietly did nothing would be worse than one that failed.
+ * `status` is absent because publication and retirement are POST
+ * sub-resource actions.
+ *
+ */
+export type UpdateCatalogueItemRequest = {
+    name_en?: string;
+    name_ar?: string | null;
+    description_en?: string | null;
+    description_ar?: string | null;
+    product_category_id?: Uuid | null;
+    production_mode?: CatalogueProductionMode | null;
+    recipe_id?: Uuid | null;
+    ingredient_id?: Uuid | null;
+    purchasing_unit_id?: Uuid | null;
+    usage_unit_id?: Uuid | null;
+    is_market_priced?: boolean;
+    is_assorted?: boolean;
+    image_placeholder_id?: string | null;
+};
+
+/**
+ * A kitchen withdrawing a seasonal line owes nobody an explanation, so a
+ * reason is optional; where one is given it is recorded on the audit
+ * event.
+ *
+ */
+export type RetireCatalogueItemRequest = {
+    reason?: string | null;
+};
+
+export type ReplaceCatalogueItemVariantsRequest = {
+    /**
+     * The complete set. An empty array is a legitimate statement ("this
+     * item has no variants") and is accepted; absent codes are archived,
+     * not deleted.
+     *
+     */
+    variants: Array<{
+        /**
+         * Optional. Checked against this item and against the code, so
+         * a client holding an identifier cannot silently retarget it.
+         *
+         */
+        id?: Uuid | null;
+        code: string;
+        name_en?: string | null;
+        name_ar?: string | null;
+        /**
+         * Two marked defaults is a stated contradiction and is refused.
+         * None is not: the first submitted wins.
+         *
+         */
+        is_default?: boolean;
+        status?: CatalogueVariantStatus;
+        /**
+         * Required for a pack — a pack with no size is not a pack — and
+         * refused for a plan configuration.
+         *
+         */
+        pack?: CataloguePackDetail | null;
+    }>;
+};
+
+export type ReplaceCatalogueItemIngredientsRequest = {
+    /**
+     * The complete list, in the order it should be named. There is no
+     * `display_order` field: the array order is the sequence.
+     *
+     */
+    ingredients: Array<{
+        ingredient_id: Uuid;
+        is_representative?: boolean;
+    }>;
+};
+
+export type ReplaceCatalogueItemDietClassificationsRequest = {
+    /**
+     * Platform codes. One that does not resolve to an *active*
+     * classification is a validation failure carrying
+     * `details.unknown`, never an invitation to create one.
+     *
+     */
+    diet_classifications: Array<string>;
+};
+
+export type ReplaceCatalogueItemChannelsRequest = {
+    /**
+     * The complete availability list. An empty array withdraws the item
+     * from every channel.
+     *
+     */
+    channels: Array<{
+        sales_channel_id: Uuid;
+        catalogue_item_variant_id?: Uuid | null;
+        is_available?: boolean;
+        available_from?: string | null;
+        available_to?: string | null;
+    }>;
+};
+
+/**
+ * The public projection of a diet classification: **one** server-localised
+ * name, never both language columns.
+ *
+ */
+export type PublicDietClassification = {
+    /**
+     * The platform vocabulary, matching the universal client's
+     * `DietClassification` union one for one.
+     *
+     */
+    code: string;
+    name: string;
+    display_order: number;
+};
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -1217,6 +1724,21 @@ export type RecipePath = Uuid;
  *
  */
 export type RecipeVersionPath = Uuid | string;
+
+/**
+ * The item identifier, or its `slug`. Both are accepted because both are
+ * natural — a client that walked the list holds identifiers, a
+ * marketplace integration or a support engineer holds
+ * `harissa-paste-250g` — and a slug is unique per organisation and
+ * immutable, so the two answers cannot drift apart.
+ *
+ */
+export type CatalogueItemPath = Uuid | string;
+
+/**
+ * The channel identifier, or its `code`.
+ */
+export type SalesChannelPath = Uuid | string;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -5264,3 +5786,1338 @@ export type DeactivateAllergenClassResponses = {
 };
 
 export type DeactivateAllergenClassResponse = DeactivateAllergenClassResponses[keyof DeactivateAllergenClassResponses];
+
+export type ListSalesChannelsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/sales-channels';
+};
+
+export type ListSalesChannelsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListSalesChannelsError = ListSalesChannelsErrors[keyof ListSalesChannelsErrors];
+
+export type ListSalesChannelsResponses = {
+    /**
+     * Every sales channel of the organisation.
+     */
+    200: {
+        data: Array<AdminSalesChannel>;
+        meta: Meta & {
+            count?: number;
+        };
+    };
+};
+
+export type ListSalesChannelsResponse = ListSalesChannelsResponses[keyof ListSalesChannelsResponses];
+
+export type CreateSalesChannelData = {
+    body: CreateSalesChannelRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/sales-channels';
+};
+
+export type CreateSalesChannelErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateSalesChannelError = CreateSalesChannelErrors[keyof CreateSalesChannelErrors];
+
+export type CreateSalesChannelResponses = {
+    /**
+     * The created channel.
+     */
+    201: SalesChannelEnvelope;
+};
+
+export type CreateSalesChannelResponse = CreateSalesChannelResponses[keyof CreateSalesChannelResponses];
+
+export type ShowSalesChannelData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The channel identifier, or its `code`.
+         */
+        channel: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/sales-channels/{channel}';
+};
+
+export type ShowSalesChannelErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowSalesChannelError = ShowSalesChannelErrors[keyof ShowSalesChannelErrors];
+
+export type ShowSalesChannelResponses = {
+    /**
+     * The channel.
+     */
+    200: SalesChannelEnvelope;
+};
+
+export type ShowSalesChannelResponse = ShowSalesChannelResponses[keyof ShowSalesChannelResponses];
+
+export type UpdateSalesChannelData = {
+    body: UpdateSalesChannelRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The channel identifier, or its `code`.
+         */
+        channel: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/sales-channels/{channel}';
+};
+
+export type UpdateSalesChannelErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateSalesChannelError = UpdateSalesChannelErrors[keyof UpdateSalesChannelErrors];
+
+export type UpdateSalesChannelResponses = {
+    /**
+     * The updated channel.
+     */
+    200: SalesChannelEnvelope;
+};
+
+export type UpdateSalesChannelResponse = UpdateSalesChannelResponses[keyof UpdateSalesChannelResponses];
+
+export type ListCatalogueItemsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Case-insensitive substring match over both names and the slug.
+         */
+        query?: string;
+        /**
+         * Restrict to one publication state. Omitted, everything except
+         * `retired` is listed.
+         *
+         */
+        status?: CatalogueItemStatus;
+        item_type?: CatalogueItemType;
+        /**
+         * Exact match on the merchandising category.
+         */
+        product_category_id?: Uuid;
+    };
+    url: '/catalogue/items';
+};
+
+export type ListCatalogueItemsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListCatalogueItemsError = ListCatalogueItemsErrors[keyof ListCatalogueItemsErrors];
+
+export type ListCatalogueItemsResponses = {
+    /**
+     * A page of catalogue items.
+     */
+    200: {
+        data: Array<AdminCatalogueItem>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListCatalogueItemsResponse = ListCatalogueItemsResponses[keyof ListCatalogueItemsResponses];
+
+export type CreateCatalogueItemData = {
+    body: CreateCatalogueItemRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/items';
+};
+
+export type CreateCatalogueItemErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateCatalogueItemError = CreateCatalogueItemErrors[keyof CreateCatalogueItemErrors];
+
+export type CreateCatalogueItemResponses = {
+    /**
+     * The created draft item.
+     */
+    201: CatalogueItemEnvelope;
+};
+
+export type CreateCatalogueItemResponse = CreateCatalogueItemResponses[keyof CreateCatalogueItemResponses];
+
+export type ShowCatalogueItemData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}';
+};
+
+export type ShowCatalogueItemErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowCatalogueItemError = ShowCatalogueItemErrors[keyof ShowCatalogueItemErrors];
+
+export type ShowCatalogueItemResponses = {
+    /**
+     * The item with its variants, ingredients, diet tags and channels.
+     */
+    200: {
+        data: {
+            item: AdminCatalogueItem;
+            variants: Array<AdminCatalogueItemVariant>;
+            ingredients: Array<AdminCatalogueItemIngredient>;
+            diet_classifications: Array<string>;
+            channels: Array<AdminChannelAssignment>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ShowCatalogueItemResponse = ShowCatalogueItemResponses[keyof ShowCatalogueItemResponses];
+
+export type UpdateCatalogueItemData = {
+    body: UpdateCatalogueItemRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}';
+};
+
+export type UpdateCatalogueItemErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateCatalogueItemError = UpdateCatalogueItemErrors[keyof UpdateCatalogueItemErrors];
+
+export type UpdateCatalogueItemResponses = {
+    /**
+     * The updated item.
+     */
+    200: CatalogueItemEnvelope;
+};
+
+export type UpdateCatalogueItemResponse = UpdateCatalogueItemResponses[keyof UpdateCatalogueItemResponses];
+
+export type PublishCatalogueItemData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/publish';
+};
+
+export type PublishCatalogueItemErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The K1.4 readiness gate refused. `details.reasons` carries **every**
+     * blocker rather than the first one found, so a kitchen fixes them in one
+     * pass.
+     *
+     * The vocabulary is `item_quarantined`, `item_not_a_draft`,
+     * `translation_incomplete`, `no_active_variant`, `no_allergen_basis` and
+     * `linked_recipe_quarantined`. The full readiness evaluator will add
+     * reasons to this list rather than replace the mechanism.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PublishCatalogueItemError = PublishCatalogueItemErrors[keyof PublishCatalogueItemErrors];
+
+export type PublishCatalogueItemResponses = {
+    /**
+     * The published item and the allergen set its listing will show.
+     */
+    200: {
+        data: {
+            item: AdminCatalogueItem;
+            allergens: DerivedAllergenSet;
+        };
+        meta: Meta;
+    };
+};
+
+export type PublishCatalogueItemResponse = PublishCatalogueItemResponses[keyof PublishCatalogueItemResponses];
+
+export type RetireCatalogueItemData = {
+    body?: RetireCatalogueItemRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/retire';
+};
+
+export type RetireCatalogueItemErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RetireCatalogueItemError = RetireCatalogueItemErrors[keyof RetireCatalogueItemErrors];
+
+export type RetireCatalogueItemResponses = {
+    /**
+     * The retired item.
+     */
+    200: CatalogueItemEnvelope;
+};
+
+export type RetireCatalogueItemResponse = RetireCatalogueItemResponses[keyof RetireCatalogueItemResponses];
+
+export type ReplaceCatalogueItemVariantsData = {
+    body: ReplaceCatalogueItemVariantsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/variants';
+};
+
+export type ReplaceCatalogueItemVariantsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceCatalogueItemVariantsError = ReplaceCatalogueItemVariantsErrors[keyof ReplaceCatalogueItemVariantsErrors];
+
+export type ReplaceCatalogueItemVariantsResponses = {
+    /**
+     * The item and **every** variant it now has, including the ones this
+     * call archived — so a client sees what the submission did rather
+     * than what it sent.
+     *
+     */
+    200: {
+        data: {
+            item: AdminCatalogueItem;
+            variants: Array<AdminCatalogueItemVariant>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceCatalogueItemVariantsResponse = ReplaceCatalogueItemVariantsResponses[keyof ReplaceCatalogueItemVariantsResponses];
+
+export type ReplaceCatalogueItemIngredientsData = {
+    body: ReplaceCatalogueItemIngredientsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/ingredients';
+};
+
+export type ReplaceCatalogueItemIngredientsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceCatalogueItemIngredientsError = ReplaceCatalogueItemIngredientsErrors[keyof ReplaceCatalogueItemIngredientsErrors];
+
+export type ReplaceCatalogueItemIngredientsResponses = {
+    /**
+     * The item and its public ingredient list.
+     */
+    200: {
+        data: {
+            item: AdminCatalogueItem;
+            ingredients: Array<AdminCatalogueItemIngredient>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceCatalogueItemIngredientsResponse = ReplaceCatalogueItemIngredientsResponses[keyof ReplaceCatalogueItemIngredientsResponses];
+
+export type ReplaceCatalogueItemDietClassificationsData = {
+    body: ReplaceCatalogueItemDietClassificationsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/diet-classifications';
+};
+
+export type ReplaceCatalogueItemDietClassificationsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceCatalogueItemDietClassificationsError = ReplaceCatalogueItemDietClassificationsErrors[keyof ReplaceCatalogueItemDietClassificationsErrors];
+
+export type ReplaceCatalogueItemDietClassificationsResponses = {
+    /**
+     * The item and its diet tags.
+     */
+    200: {
+        data: {
+            item: AdminCatalogueItem;
+            diet_classifications: Array<string>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceCatalogueItemDietClassificationsResponse = ReplaceCatalogueItemDietClassificationsResponses[keyof ReplaceCatalogueItemDietClassificationsResponses];
+
+export type ReplaceCatalogueItemChannelsData = {
+    body: ReplaceCatalogueItemChannelsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/channels';
+};
+
+export type ReplaceCatalogueItemChannelsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceCatalogueItemChannelsError = ReplaceCatalogueItemChannelsErrors[keyof ReplaceCatalogueItemChannelsErrors];
+
+export type ReplaceCatalogueItemChannelsResponses = {
+    /**
+     * The item and its channel assignments.
+     */
+    200: {
+        data: {
+            item: AdminCatalogueItem;
+            channels: Array<AdminChannelAssignment>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceCatalogueItemChannelsResponse = ReplaceCatalogueItemChannelsResponses[keyof ReplaceCatalogueItemChannelsResponses];
+
+export type ShowCatalogueItemAllergensData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/allergens';
+};
+
+export type ShowCatalogueItemAllergensErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowCatalogueItemAllergensError = ShowCatalogueItemAllergensErrors[keyof ShowCatalogueItemAllergensErrors];
+
+export type ShowCatalogueItemAllergensResponses = {
+    /**
+     * The derived allergen set and the basis it was derived from.
+     */
+    200: {
+        data: {
+            allergens: Array<DerivedAllergen>;
+        };
+        meta: DerivedAllergenMeta;
+    };
+};
+
+export type ShowCatalogueItemAllergensResponse = ShowCatalogueItemAllergensResponses[keyof ShowCatalogueItemAllergensResponses];
+
+export type ListDietClassificationsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/reference/diet-classifications';
+};
+
+export type ListDietClassificationsErrors = {
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDietClassificationsError = ListDietClassificationsErrors[keyof ListDietClassificationsErrors];
+
+export type ListDietClassificationsResponses = {
+    /**
+     * The active diet classifications, localised.
+     */
+    200: {
+        data: Array<PublicDietClassification>;
+        meta: Meta & {
+            count?: number;
+            /**
+             * The locale the names were rendered in.
+             */
+            locale?: 'en' | 'ar';
+        };
+    };
+};
+
+export type ListDietClassificationsResponse = ListDietClassificationsResponses[keyof ListDietClassificationsResponses];

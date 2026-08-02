@@ -87,10 +87,10 @@ The complete implemented vocabulary — `Healthy360\Support\Api\ErrorCode`, mirr
 | `request.precondition_required` | 428 | A write to a lock-versioned resource arrived without `If-Match`. `details.required_headers` names it. Distinct from `resource.conflict`: the caller has not lost a race, it never entered one |
 | `resource.not_found` | 404 | The resource does not exist, or is not the caller's to see |
 | `resource.conflict` | 409 | The change conflicts with the current state |
-| `catalogue.in_use` | 409 | A catalogue record cannot be withdrawn because something still points at it — an ingredient named by a non-retired recipe version (`details.recipe_ids`, `details.recipe_version_ids`), or a recipe with a published version (`details.published_version_ids`). Distinct from `resource.conflict`: the caller has not lost a race, and the answer is "retire those first" rather than "reload and try again" |
+| `catalogue.in_use` | 409 | A catalogue record cannot be withdrawn because something still points at it — an ingredient named by a non-retired recipe version or listed by a non-retired catalogue item (`details.recipe_ids`, `details.recipe_version_ids`, `details.catalogue_item_ids`), a recipe with a published version (`details.published_version_ids`), or a published recipe version a published catalogue item sells (`details.catalogue_item_ids`). Distinct from `resource.conflict`: the caller has not lost a race, and the answer is "retire those first" rather than "reload and try again" |
 | `catalogue.version_immutable` | 409 | A write reached a published or retired recipe version. `details.status` names which. Published versions are immutable — a change is a new draft version, because a label a customer has already been shown must stay reconstructable |
 | `catalogue.allergen_unmapped` | 422 | Publication refused: at least one line ingredient carries no allergen determination at all. `details.ingredient_ids` names them. An ingredient passes when it holds a mapping row in any layer, **or** when its `verification_status` is `verified` — silence is not a statement of absence |
-| `catalogue.publish_blocked` | 409 | Publication refused by the readiness evaluator for any other reason. `details.reasons` carries **every** blocker as `{reason, …context}` (`version_quarantined`, `version_not_a_draft`, `no_lines`, `line_quantity_missing`, `ingredient_requires_review`), so a kitchen fixes them in one pass rather than one per attempt |
+| `catalogue.publish_blocked` | 409 | Publication refused by the readiness evaluator for any other reason. `details.reasons` carries **every** blocker as `{reason, …context}`, so a kitchen fixes them in one pass rather than one per attempt. Recipe versions: `version_quarantined`, `version_not_a_draft`, `no_lines`, `line_quantity_missing`, `ingredient_requires_review`. Catalogue items (K1.4): `item_quarantined`, `item_not_a_draft`, `translation_incomplete`, `no_active_variant`, `no_allergen_basis`, `linked_recipe_quarantined` |
 | `rate_limit.exceeded` | 429 | A rate limit was exceeded. Served with `Retry-After` |
 | `server.internal_error` | 500 | Anything unrecognised. Safe message only; never a message or trace from the underlying exception |
 
@@ -120,13 +120,15 @@ The freshness of the validator is decided **inside the write statement** (`UPDAT
 
 The header applies only to resources that carry `lock_version`. A resource without one has no concurrency contract and is not sent `If-Match` — ingredient categories and allergen classes are examples.
 
-**Endpoints that require it** (as of K1.2):
+**Endpoints that require it** (as of K1.4):
 
 - `PATCH /api/v1/catalogue/ingredients/{ingredient}` · `POST /api/v1/catalogue/ingredients/{ingredient}/archive`
 - `PATCH /api/v1/catalogue/recipes/{recipe}` · `POST /api/v1/catalogue/recipes/{recipe}/archive`
 - `PATCH /api/v1/catalogue/recipes/{recipe}/versions/{version}` and its `…/lines`, `…/outputs`, `…/steps`, `…/publish`, `…/retire` sub-resources
+- `PATCH /api/v1/catalogue/sales-channels/{channel}`
+- `PATCH /api/v1/catalogue/items/{item}` and its `…/variants`, `…/ingredients`, `…/diet-classifications`, `…/channels`, `…/publish`, `…/retire` sub-resources
 
-On the version sub-resources the validator is the **version's** `lock_version`, not a line's or a step's. The set is the unit of change: a per-row validator would let two editors replace different halves of one formulation and each believe they had written the whole of it.
+On the version and item sub-resources the validator is the **parent's** `lock_version`, not a line's, a step's or a variant's. The set is the unit of change: a per-row validator would let two editors replace different halves of one formulation — or one listing — and each believe they had written the whole of it.
 
 ## Cursor pagination
 
@@ -215,10 +217,26 @@ The full set as implemented in Phase 4. `openapi/healthy360.v1.yaml` is authorit
 | GET | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/technical-sheet` | session or bearer, verified, org | The only projection that serialises money. Lines with unit/line costs, the latest snapshot of each basis, `uncosted_line_numbers`. Audited as `catalogue.technical_sheet_viewed` (purpose `organisation_administration`, classification `confidential`). `recipe.view_costs_organisation` |
 | GET | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/cost-snapshots` | session or bearer, verified, org | Cursor-paginated, **newest first**; the keyset runs over when a snapshot was recorded, not `calculated_at`. `recipe.view_costs_organisation` |
 | POST | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/cost-snapshots` | session or bearer, verified, org | Recomputes from the lines and appends. `basis` accepts `recalculated` only — `as_recorded` is importer-only. 422 with `uncosted_line_numbers` when incomplete; 409 when the version is retired. No `If-Match` (appends beside the version, never mutates it). **Both** `recipe.manage_organisation` and `recipe.view_costs_organisation` |
+| GET | `/api/v1/catalogue/sales-channels` | session or bearer, verified, org | Unpaginated; inactive channels included. `catalogue.view_organisation` |
+| POST | `/api/v1/catalogue/sales-channels` | session or bearer, verified, org | Always created `active`. A duplicate `code` is 409. `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/sales-channels/{channel}` | session or bearer, verified, org | `{channel}` accepts an identifier or the `code`. Returns `ETag: "<lock_version>"`. `catalogue.view_organisation` |
+| PATCH | `/api/v1/catalogue/sales-channels/{channel}` | session or bearer, verified, org | `code` and `channel_kind` are immutable and not accepted; `status` **is** — a channel is operational configuration, not published content. **`If-Match` required.** `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/items` | session or bearer, verified, org | Cursor-paginated. Filters `query`, `status`, `item_type`, `product_category_id`. Retired excluded unless asked for. **No price, cost or margin field exists.** `catalogue.view_organisation` |
+| POST | `/api/v1/catalogue/items` | session or bearer, verified, org | Creates a `draft`; slug derived and thereafter immutable; `catalogue_id` optional (a `default` catalogue is created on demand). `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/items/{item}` | session or bearer, verified, org | `{item}` accepts an identifier or the `slug`. Item plus variants, ingredients, diet-tag codes and channel assignments. Returns `ETag: "<lock_version>"`. `catalogue.view_organisation` |
+| PATCH | `/api/v1/catalogue/items/{item}` | session or bearer, verified, org | `slug` and `item_type` are **rejected**, not ignored. A published item stays editable; a retired one is 409. **`If-Match` required.** `catalogue.manage_organisation` |
+| POST | `/api/v1/catalogue/items/{item}/publish` | session or bearer, verified, org | Minimal K1.4 readiness gate; response carries the derived allergen set. **`If-Match` required.** `catalogue.publish_organisation` |
+| POST | `/api/v1/catalogue/items/{item}/retire` | session or bearer, verified, org | Terminal, and the only withdrawal a sellable item has — available from `draft` too. Optional `reason` is audited. **`If-Match` required.** `catalogue.publish_organisation` |
+| PUT | `/api/v1/catalogue/items/{item}/variants` | session or bearer, verified, org | Set-replace matched on `code`; absent codes are **archived**, not deleted; `variant_type` derived from the item; exactly one default. **`If-Match` (the item's) required.** `catalogue.manage_organisation` |
+| PUT | `/api/v1/catalogue/items/{item}/ingredients` | session or bearer, verified, org | Set-replace; array order is `display_order`; **no quantity field exists**. Also a meal's fallback allergen basis. **`If-Match` required.** `catalogue.manage_organisation` |
+| PUT | `/api/v1/catalogue/items/{item}/diet-classifications` | session or bearer, verified, org | Set-replace by platform **code**; an unknown or inactive code is 422 with `details.unknown`. **`If-Match` required.** `catalogue.manage_organisation` |
+| PUT | `/api/v1/catalogue/items/{item}/channels` | session or bearer, verified, org | Set-replace; optional per-variant rows; dates not timestamps; no price. **`If-Match` required.** `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/items/{item}/allergens` | session or bearer, verified, org | Derived on read, never stored and never authored — **no writer exists**. `meta.basis` is `recipe_version`, `item_ingredients` or `none` ("nobody has said", not "no allergens"). `catalogue.view_organisation` |
 | GET | `/api/v1/reference/allergen-classes` | — | **Anonymous.** Active classes only, one server-localised name from `Accept-Language` |
 | POST | `/api/v1/reference/allergen-classes` | session or bearer, verified, platform org | `platform.context` + `reference.manage_platform` |
 | PATCH | `/api/v1/reference/allergen-classes/{code}` | session or bearer, verified, platform org | `code` is immutable and a request carrying it is rejected. `platform.context` + `reference.manage_platform` |
 | POST | `/api/v1/reference/allergen-classes/{code}/deactivate` | session or bearer, verified, platform org | No DELETE exists. `platform.context` + `reference.manage_platform` |
+| GET | `/api/v1/reference/diet-classifications` | — | **Anonymous.** Active classifications only, one server-localised name from `Accept-Language`. A preference filter, never a medical restriction — what a dish contains is the allergen list |
 
 No authentication action depends on Inertia views, and no endpoint issues a redirect.
 

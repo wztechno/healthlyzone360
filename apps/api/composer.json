@@ -13,6 +13,7 @@
         "healthy360/access-control": "^1.0",
         "healthy360/allergens": "^1.0",
         "healthy360/audit": "^1.0",
+        "healthy360/catalogues": "^1.0",
         "healthy360/consent": "^1.0",
         "healthy360/features": "^1.0",
         "healthy360/identity": "^1.0",

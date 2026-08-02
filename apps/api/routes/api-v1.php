@@ -6,6 +6,22 @@ use Healthy360\Allergens\Http\Controllers\AllergenClassDeactivateController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassUpdateController;
 use Healthy360\Allergens\Http\Controllers\PublicAllergenClassIndexController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergenIndexController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemIngredientReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemPublishController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemRetireController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemShowController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemStoreController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemUpdateController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemVariantReplaceController;
+use Healthy360\Catalogues\Http\Controllers\PublicDietClassificationIndexController;
+use Healthy360\Catalogues\Http\Controllers\SalesChannelIndexController;
+use Healthy360\Catalogues\Http\Controllers\SalesChannelShowController;
+use Healthy360\Catalogues\Http\Controllers\SalesChannelStoreController;
+use Healthy360\Catalogues\Http\Controllers\SalesChannelUpdateController;
 use Healthy360\Identity\Http\Controllers\ContextController;
 use Healthy360\Identity\Http\Controllers\DeviceController;
 use Healthy360\Identity\Http\Controllers\MeController;
@@ -240,6 +256,85 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->middleware('permission:recipe.manage_organisation')
                     ->name('catalogue.recipes.versions.cost-snapshots.store');
             });
+
+            /*
+            |--------------------------------------------------------------
+            | Sellable catalogue — items, variants and channels (K1.4)
+            |--------------------------------------------------------------
+            |
+            | Reads and edits reuse the K1.1 catalogue pair: ingredients,
+            | categories and items are one catalogue, and a fifth pair of
+            | codes over the same screens would be bookkeeping rather than
+            | authority. Publication is the exception —
+            | `catalogue.publish_organisation` is the authority to decide
+            | what a customer can buy, held by the kitchen manager and the
+            | commercial manager and by neither the chef nor the staff.
+            |
+            | `precondition` guards every write to a lock-versioned
+            | resource. On the item sub-resources — variants, ingredients,
+            | diet tags, channels — the validator is the **item's**, because
+            | each set is the unit of change and a per-row validator would
+            | let two editors replace different halves of one listing.
+            |
+            | `{item}` and `{channel}` accept an identifier or the row's own
+            | stable key (slug, code): a client that walked the list holds
+            | one, a marketplace integration or a human holds the other.
+            |
+            | The allergen endpoint has no writer, deliberately. An item's
+            | allergens are derived — from a published recipe version's
+            | frozen label, or from the item's own ingredient list — and an
+            | endpoint that let a merchandiser type one in would be an
+            | endpoint that lets a merchandiser overrule a chef.
+            |
+            */
+            Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
+                Route::get('/sales-channels', SalesChannelIndexController::class)->name('catalogue.sales-channels.index');
+                Route::get('/sales-channels/{channel}', SalesChannelShowController::class)->name('catalogue.sales-channels.show');
+
+                Route::get('/items', CatalogueItemIndexController::class)->name('catalogue.items.index');
+                Route::get('/items/{item}', CatalogueItemShowController::class)->name('catalogue.items.show');
+                Route::get('/items/{item}/allergens', CatalogueItemAllergenIndexController::class)->name('catalogue.items.allergens.index');
+            });
+
+            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
+                Route::post('/sales-channels', SalesChannelStoreController::class)->name('catalogue.sales-channels.store');
+
+                Route::patch('/sales-channels/{channel}', SalesChannelUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.sales-channels.update');
+
+                Route::post('/items', CatalogueItemStoreController::class)->name('catalogue.items.store');
+
+                Route::patch('/items/{item}', CatalogueItemUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.update');
+
+                Route::put('/items/{item}/variants', CatalogueItemVariantReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.variants.replace');
+
+                Route::put('/items/{item}/ingredients', CatalogueItemIngredientReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.ingredients.replace');
+
+                Route::put('/items/{item}/diet-classifications', CatalogueItemDietClassificationReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.diet-classifications.replace');
+
+                Route::put('/items/{item}/channels', CatalogueItemChannelReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.channels.replace');
+            });
+
+            Route::middleware('permission:catalogue.publish_organisation')->group(function (): void {
+                Route::post('/items/{item}/publish', CatalogueItemPublishController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.publish');
+
+                Route::post('/items/{item}/retire', CatalogueItemRetireController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.retire');
+            });
         });
 
         /*
@@ -282,3 +377,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 */
 Route::get('/reference/allergen-classes', PublicAllergenClassIndexController::class)
     ->name('reference.allergen-classes.index');
+
+// Anonymous for the same reason (K1.4): a diet filter that only works after
+// sign-in is not a diet filter. A classification is a preference, never a
+// medical restriction — what a dish contains is the allergen list above.
+Route::get('/reference/diet-classifications', PublicDietClassificationIndexController::class)
+    ->name('reference.diet-classifications.index');

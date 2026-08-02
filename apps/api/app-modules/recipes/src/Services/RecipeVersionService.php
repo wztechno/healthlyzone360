@@ -10,6 +10,7 @@ use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\AllergenDerivation;
 use Healthy360\Recipes\Enums\CostBasis;
 use Healthy360\Recipes\Enums\DerivationState;
@@ -17,7 +18,7 @@ use Healthy360\Recipes\Enums\RecipeCompleteness;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Exceptions\AllergenUnmapped;
 use Healthy360\Recipes\Exceptions\PublishBlocked;
-use Healthy360\Recipes\Exceptions\StaleLockVersion;
+use Healthy360\Recipes\Exceptions\RecipeVersionInUse;
 use Healthy360\Recipes\Exceptions\VersionImmutable;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -29,6 +30,7 @@ use Healthy360\ReferenceData\Models\Currency;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +63,7 @@ final readonly class RecipeVersionService
         private AllergenRollupService $rollup,
         private RecipeCostingService $costing,
         private CostVisibility $costVisibility,
+        private RecipeUsageRegistry $usage,
     ) {}
 
     /**
@@ -601,6 +604,13 @@ final readonly class RecipeVersionService
      * Withdraw a published version. Retirement is terminal: a retired version
      * is history, and history is what makes an old label reconstructable.
      *
+     * **Refused while a published catalogue item sells the recipe** (K1.4).
+     * That item's allergen label is derived from this version, so retiring it
+     * would leave a listing describing a formulation the system no longer
+     * holds. Asked through `RecipeUsageRegistry` rather than by querying
+     * catalogue tables: the dependency edge runs Catalogues → Recipes, and
+     * this module must not learn that catalogues exist.
+     *
      * @throws ApiException
      */
     public function retire(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
@@ -611,6 +621,16 @@ final readonly class RecipeVersionService
                 'Only a published version can be retired.',
                 ['status' => $version->status->value, 'current_lock_version' => $version->lock_version],
             );
+        }
+
+        $recipe = Recipe::withoutTenancy()->whereKey($version->recipe_id)->first();
+
+        if ($recipe instanceof Recipe) {
+            $items = $this->usage->publishedItemIds($recipe);
+
+            if ($items !== []) {
+                throw new RecipeVersionInUse($items);
+            }
         }
 
         DB::transaction(function () use ($version, $expectedLockVersion): void {

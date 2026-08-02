@@ -1,0 +1,250 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Healthy360\Catalogues\Services;
+
+use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\VariantStatus;
+use Healthy360\Catalogues\Exceptions\PublishBlocked;
+use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemIngredient;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
+use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Publication and retirement of a catalogue item — lifecycle actions with
+ * their own routes, their own permission (`catalogue.publish_organisation`)
+ * and their own audit events, never a `PATCH status` (master plan v2 §4.15).
+ *
+ * **The K1.4 gate is deliberately minimal, and says so.** The full readiness
+ * evaluator — confirmed prices, delivery availability, complete allergen
+ * determination across every listed ingredient, translation coverage on every
+ * field — is K1.8, and it will add reasons to this list rather than replace
+ * the mechanism. What is here is the set that can be evaluated honestly with
+ * the data K1.4 holds:
+ *
+ * - **State.** Only a draft publishes. A quarantined item
+ *   (`review_required`) is blocked *structurally* — that is what the state is
+ *   for (§4.7) — and a published or retired one is not a candidate.
+ * - **Both languages.** An item whose Arabic name is empty is untranslated,
+ *   and an untranslated listing reaching an Arabic-speaking customer as
+ *   English is the failure §4.18 exists to prevent.
+ * - **Something to buy.** A product with no active variant is a name with no
+ *   pack behind it, and a price has nothing to attach to.
+ * - **An allergen basis.** A meal must either link a recipe with a published
+ *   version, or list its own ingredients. An item with neither cannot answer
+ *   "what is in this", and silence is not a statement of absence — the same
+ *   rule the recipe publish gate is built on.
+ * - **Quarantine propagates.** A linked recipe carrying a live
+ *   `review_required` version blocks publication, even if a good published
+ *   version exists beside it. A quarantine is an unresolved food-safety
+ *   contradiction on that formulation, and the answer to "may we sell the dish
+ *   while somebody works out whether the burghul contains gluten" is no.
+ *
+ * Every blocker is collected and raised as one `catalogue.publish_blocked`, so
+ * a kitchen fixes everything in one pass rather than discovering problems one
+ * attempt at a time.
+ */
+final readonly class PublishCatalogueItem
+{
+    public function __construct(
+        private TenantContext $context,
+        private AuditRecorder $audit,
+        private CatalogueItemService $items,
+        private DerivedAllergenService $allergens,
+    ) {}
+
+    /**
+     * @throws ApiException
+     */
+    public function publish(CatalogueItem $item, int $expectedLockVersion): CatalogueItem
+    {
+        $this->assertPublishable($item);
+
+        DB::transaction(function () use ($item, $expectedLockVersion): void {
+            $this->items->compareAndSwap($item, [
+                'status' => CatalogueItemStatus::Published->value,
+                'review_reason' => null,
+                'updated_by' => $this->context->userId(),
+            ], $expectedLockVersion);
+        });
+
+        $derived = $this->allergens->forItem($item);
+
+        $this->audit->record(
+            'catalogue.item_published',
+            actorUserId: $this->context->userId(),
+            subjectType: 'catalogue_item',
+            subjectId: (string) $item->getKey(),
+            metadata: [
+                'slug' => $item->slug,
+                'item_type' => $item->item_type->value,
+
+                // What the label says at the moment of publication, as class
+                // names — never a `*_code` key, which the audit redactor would
+                // blank on a substring match (OQ-036).
+                'allergen_basis' => $derived['basis'],
+                'allergen_classes' => array_map(
+                    static fn (array $row): string => $row['allergen_code'],
+                    $derived['allergens'],
+                ),
+                'lock_version' => $item->lock_version,
+            ],
+        );
+
+        return $item;
+    }
+
+    /**
+     * Withdraw an item from sale. Terminal, and the only withdrawal there is:
+     * sellable items retire, they never archive (§4.7). A retired row keeps
+     * its history and disappears from every consumer read, because an order or
+     * a price snapshot may point at it forever.
+     *
+     * Retirement is available from every state except `retired` itself,
+     * including `draft`. Refusing to retire a draft would leave a kitchen with
+     * no way at all to withdraw a listing it decided against — there is no
+     * archive here and no delete anywhere.
+     *
+     * @throws ApiException
+     */
+    public function retire(CatalogueItem $item, int $expectedLockVersion, ?string $reason = null): CatalogueItem
+    {
+        if ($item->status === CatalogueItemStatus::Retired) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This catalogue item is already retired.',
+                ['status' => $item->status->value, 'current_lock_version' => $item->lock_version],
+            );
+        }
+
+        $previous = $item->status;
+
+        DB::transaction(function () use ($item, $expectedLockVersion): void {
+            $this->items->compareAndSwap($item, [
+                'status' => CatalogueItemStatus::Retired->value,
+                'updated_by' => $this->context->userId(),
+            ], $expectedLockVersion);
+        });
+
+        $this->audit->record(
+            'catalogue.item_retired',
+            actorUserId: $this->context->userId(),
+            subjectType: 'catalogue_item',
+            subjectId: (string) $item->getKey(),
+            metadata: [
+                'slug' => $item->slug,
+                'previous_status' => $previous->value,
+                'reason' => $reason,
+                'lock_version' => $item->lock_version,
+            ],
+        );
+
+        return $item;
+    }
+
+    /**
+     * @throws PublishBlocked
+     */
+    private function assertPublishable(CatalogueItem $item): void
+    {
+        $reasons = [];
+
+        if ($item->status === CatalogueItemStatus::ReviewRequired) {
+            $reasons[] = ['reason' => 'item_quarantined', 'review_reason' => $item->review_reason];
+        } elseif ($item->status !== CatalogueItemStatus::Draft) {
+            $reasons[] = ['reason' => 'item_not_a_draft', 'status' => $item->status->value];
+        }
+
+        $untranslated = [];
+
+        if (trim($item->name_en) === '') {
+            $untranslated[] = 'name_en';
+        }
+
+        if (trim($item->name_ar) === '') {
+            $untranslated[] = 'name_ar';
+        }
+
+        if ($untranslated !== []) {
+            $reasons[] = ['reason' => 'translation_incomplete', 'fields' => $untranslated];
+        }
+
+        if ($item->item_type === CatalogueItemType::Product && ! $this->hasActiveVariant($item)) {
+            $reasons[] = ['reason' => 'no_active_variant'];
+        }
+
+        if ($item->item_type === CatalogueItemType::Meal && ! $this->hasAllergenBasis($item)) {
+            $reasons[] = ['reason' => 'no_allergen_basis'];
+        }
+
+        $quarantined = $this->quarantinedVersionIds($item);
+
+        if ($quarantined !== []) {
+            $reasons[] = [
+                'reason' => 'linked_recipe_quarantined',
+                'recipe_id' => $item->recipe_id,
+                'recipe_version_ids' => $quarantined,
+            ];
+        }
+
+        if ($reasons !== []) {
+            throw new PublishBlocked($reasons);
+        }
+    }
+
+    private function hasActiveVariant(CatalogueItem $item): bool
+    {
+        return CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('status', VariantStatus::Active->value)
+            ->exists();
+    }
+
+    /**
+     * A meal may answer "what is in this" two ways: a published recipe version
+     * whose frozen label it inherits, or its own ingredient list. Either is
+     * enough; neither is not.
+     */
+    private function hasAllergenBasis(CatalogueItem $item): bool
+    {
+        if ($this->allergens->publishedVersion($item) !== null) {
+            return true;
+        }
+
+        return CatalogueItemIngredient::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->exists();
+    }
+
+    /**
+     * Live quarantined versions of the linked recipe.
+     *
+     * Retired ones are excluded: a quarantine resolved by superseding the
+     * version is resolved, and history must not block a publication forever.
+     *
+     * @return list<string>
+     */
+    private function quarantinedVersionIds(CatalogueItem $item): array
+    {
+        if ($item->recipe_id === null) {
+            return [];
+        }
+
+        return array_values(RecipeVersion::withoutTenancy()
+            ->where('recipe_id', $item->recipe_id)
+            ->where('status', RecipeVersionStatus::ReviewRequired->value)
+            ->orderBy('version_number')
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all());
+    }
+}

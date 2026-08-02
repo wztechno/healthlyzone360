@@ -9,6 +9,8 @@ use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Allergens\Models\Allergen;
+use Healthy360\Catalogues\Models\ProductCategory;
+use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Features\Models\FeatureDefinition;
 use Healthy360\Ingredients\Enums\AllergenContainment;
@@ -28,6 +30,7 @@ use Healthy360\Organisations\Models\OrganisationType;
 use Healthy360\ReferenceData\Database\Seeders\CountrySeeder;
 use Healthy360\ReferenceData\Models\Country;
 use Healthy360\ReferenceData\Models\Currency;
+use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\Language;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Illuminate\Support\Facades\Hash;
@@ -107,6 +110,39 @@ it('gives every measurement unit a dimension conversion can be trusted within', 
         'bunch' => 'package', 'can' => 'package', 'bag' => 'package', 'bottle' => 'package',
     ])->and(array_values(array_unique(array_values($dimensions))))
         ->toEqualCanonicalizing(['mass', 'volume', 'length', 'energy', 'count', 'serving', 'package']);
+});
+
+it('seeds the twelve diet classifications the frontend union declares', function (): void {
+    // The database vocabulary and the closed union a screen is written against
+    // are the same list, asserted in one direction here and pinned by the
+    // public endpoint test in the other. The Customer-Data-Structure source
+    // lists nine; these twelve are the superset every one of them folds into,
+    // so an import never has to invent a code.
+    $classifications = DietClassification::query()->orderBy('display_order')->get();
+
+    expect($classifications)->toHaveCount(12)
+        ->and($classifications->pluck('code')->all())->toBe([
+            'omnivore', 'vegetarian', 'vegan', 'pescatarian', 'keto', 'low_carb',
+            'high_protein', 'mediterranean', 'halal_friendly', 'gluten_free',
+            'dairy_free', 'nut_free',
+        ])
+        ->and($classifications->where('is_active', false)->count())->toBe(0)
+        // Authored Arabic, pending native review — never machine-translated,
+        // and never left blank (master plan v2 §4.18).
+        ->and($classifications->filter(fn (DietClassification $row): bool => trim($row->name_ar) === '')->count())->toBe(0)
+        ->and($classifications->filter(fn (DietClassification $row): bool => $row->name_ar === $row->name_en)->count())->toBe(0);
+});
+
+it('seeds the ten platform product categories as a flat library', function (): void {
+    $categories = ProductCategory::withoutTenancy()->whereNull('organisation_id')->orderBy('display_order')->get();
+
+    expect($categories)->toHaveCount(10)
+        ->and($categories->pluck('code')->all())->toBe([
+            'poultry', 'meat', 'frozen', 'sauce', 'toppings',
+            'oil', 'condiment', 'bread', 'dairy', 'vegetables',
+        ])
+        ->and($categories->where('is_active', false)->count())->toBe(0)
+        ->and($categories->where('name_ar', '')->count())->toBe(0);
 });
 
 it('seeds the fourteen canonical allergen classes with their market metadata', function (): void {
@@ -226,9 +262,10 @@ it('seeds the twelve organisation types with both names', function (): void {
 });
 
 it('seeds exactly the registered permission set', function (): void {
-    // 24 after K1.1, plus the three recipe codes K1.2 introduces and the cost
-    // permission K1.3 splits out of them.
-    expect(Permission::query()->count())->toBe(28)
+    // 24 after K1.1, plus the three recipe codes K1.2 introduces, the cost
+    // permission K1.3 splits out of them, and the catalogue publication
+    // authority K1.4 adds.
+    expect(Permission::query()->count())->toBe(29)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -258,14 +295,14 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 26],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 25],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 27],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 26],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes recipes and sees their costs' => ['kitchen_manager', 9],
+    'kitchen manager runs the catalogue, publishes it and its recipes, and sees their costs' => ['kitchen_manager', 10],
     'chef edits recipes and their costs but never publishes one' => ['kitchen_chef', 5],
     'kitchen staff read the catalogue and recipes, and no costs at all' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue, recipes and costs' => ['commercial_manager', 3],
+    'commercial manager reads the catalogue and its costs, and decides the range' => ['commercial_manager', 4],
 ]);
 
 it('withholds cost visibility from kitchen staff and from nobody else in the kitchen', function (): void {
@@ -299,6 +336,35 @@ it('grants the publication permission to the kitchen manager and to nobody else'
         ->all();
 
     expect($holders)->toEqualCanonicalizing(['organisation_owner', 'organisation_admin', 'kitchen_manager']);
+});
+
+it('grants the catalogue publication permission to the two roles that decide the range', function (): void {
+    // The kitchen manager and the commercial manager, and neither the chef nor
+    // the staff. Deciding what a customer can buy is a different authority
+    // from writing the listing, and the commercial manager holds it *without*
+    // `catalogue.manage_organisation`: a merchandiser may put a dish on sale
+    // without being able to change a line of how it is made.
+    $publish = Permission::query()->where('code', 'catalogue.publish_organisation')->sole();
+
+    $holders = Role::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $publish->getKey())->select('role_id'))
+        ->pluck('code')
+        ->all();
+
+    expect($holders)->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+    ]);
+});
+
+it('gives the demonstration kitchen its two routes to market', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $channels = SalesChannel::withoutTenancy()->where('organisation_id', $verdant->getKey())->orderBy('code')->get();
+
+    expect($channels->pluck('code')->all())->toBe(['web-shop', 'wholesale'])
+        ->and($channels->pluck('channel_kind')->map(static fn ($kind): string => $kind->value)->all())
+        ->toBe(['b2c_web', 'b2b']);
 });
 
 it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {
@@ -451,6 +517,9 @@ it('converges instead of duplicating when run a second time', function (): void 
         Ingredient::withoutTenancy()->count(),
         IngredientAlias::query()->count(),
         IngredientAllergen::withoutTenancy()->count(),
+        DietClassification::query()->count(),
+        ProductCategory::withoutTenancy()->count(),
+        SalesChannel::withoutTenancy()->count(),
     ];
 
     $before = $counts();

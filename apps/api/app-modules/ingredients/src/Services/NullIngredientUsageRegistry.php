@@ -20,11 +20,11 @@ use Healthy360\Ingredients\Models\Ingredient;
 final class NullIngredientUsageRegistry implements IngredientUsageRegistry
 {
     /**
-     * @return array{recipe_ids: list<string>, recipe_version_ids: list<string>}
+     * @return array{recipe_ids: list<string>, recipe_version_ids: list<string>, catalogue_item_ids: list<string>}
      */
     public function activeReferences(Ingredient $ingredient): array
     {
-        return ['recipe_ids' => [], 'recipe_version_ids' => []];
+        return ['recipe_ids' => [], 'recipe_version_ids' => [], 'catalogue_item_ids' => []];
     }
 
     public function markDependentDerivationsStale(Ingredient $ingredient): int

@@ -34,12 +34,16 @@ final readonly class RecipeIngredientUsageRegistry implements IngredientUsageReg
      * reconstructable — and treating it as a live reference would mean a
      * kitchen could never retire an ingredient it once used.
      *
-     * @return array{recipe_ids: list<string>, recipe_version_ids: list<string>}
+     * `catalogue_item_ids` is always empty here: this module knows nothing
+     * about catalogues, and the catalogues module decorates this
+     * implementation to fill it in (K1.4).
+     *
+     * @return array{recipe_ids: list<string>, recipe_version_ids: list<string>, catalogue_item_ids: list<string>}
      */
     public function activeReferences(Ingredient $ingredient): array
     {
         if (! $this->context->hasOrganisation()) {
-            return ['recipe_ids' => [], 'recipe_version_ids' => []];
+            return ['recipe_ids' => [], 'recipe_version_ids' => [], 'catalogue_item_ids' => []];
         }
 
         $versions = RecipeVersion::query()
@@ -59,6 +63,7 @@ final readonly class RecipeIngredientUsageRegistry implements IngredientUsageReg
         return [
             'recipe_ids' => array_values($versions->pluck('recipe_id')->unique()->map(static fn (mixed $id): string => (string) $id)->all()),
             'recipe_version_ids' => array_values($versions->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all()),
+            'catalogue_item_ids' => [],
         ];
     }
 
