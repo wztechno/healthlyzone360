@@ -12,6 +12,9 @@ use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Allergens\Models\Allergen;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\EnergyBand;
+use Healthy360\Catalogues\Models\MealCombinationOption;
+use Healthy360\Catalogues\Models\PlanDuration;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
@@ -50,6 +53,12 @@ final class CatalogueWorld
         'recipe.view_organisation',
         'recipe.manage_organisation',
         'recipe.publish_organisation',
+
+        // K1.6. Held by the same manager, and listed here rather than in a
+        // separate constant so that a suite subtracting one of them really is
+        // testing a caller who cannot design or publish a plan.
+        'plan.manage_organisation',
+        'plan.publish_organisation',
     ];
 
     /**
@@ -160,6 +169,51 @@ final class CatalogueWorld
         ]);
 
         return $ingredient;
+    }
+
+    /**
+     * A draft subscription plan with no profile, no matrix and no durations —
+     * the state every K1.6 publish blocker is measured from.
+     */
+    public static function plan(object $tenant, string $nameEn = 'Balanced plan'): CatalogueItem
+    {
+        return CatalogueItem::factory()->subscriptionPlan()->create([
+            'catalogue_id' => $tenant->catalogue->getKey(),
+            'organisation_id' => $tenant->organisation->getKey(),
+            'name_en' => $nameEn,
+            'name_ar' => 'الخطة المتوازنة',
+        ]);
+    }
+
+    public static function combination(Organisation $organisation, string $code = 'lunch-dinner'): MealCombinationOption
+    {
+        return MealCombinationOption::factory()->create([
+            'organisation_id' => $organisation->getKey(),
+            'code' => $code,
+        ]);
+    }
+
+    public static function energyBand(Organisation $organisation, string $code = 'kcal-1200-1500'): EnergyBand
+    {
+        return EnergyBand::factory()->create([
+            'organisation_id' => $organisation->getKey(),
+            'code' => $code,
+        ]);
+    }
+
+    /**
+     * A duration. `$days` of null builds the **one-off** kind — the shape that
+     * replaced the zero-day sentinel (§4.3) — because a fixture that could only
+     * build fixed runs would make the interesting case the awkward one.
+     */
+    public static function duration(Organisation $organisation, string $code = 'days-20', ?int $days = 20): PlanDuration
+    {
+        $factory = PlanDuration::factory();
+
+        return ($days === null ? $factory->oneOff() : $factory->days($days))->create([
+            'organisation_id' => $organisation->getKey(),
+            'code' => $code,
+        ]);
     }
 
     /**

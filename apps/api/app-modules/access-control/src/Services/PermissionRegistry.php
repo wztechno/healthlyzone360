@@ -140,6 +140,35 @@ final class PermissionRegistry
             // bookkeeping rather than authority.
             'price_list.view_organisation' => ['domain' => 'price_list', 'description' => 'View price lists, their entries and their channel assignments'],
             'price_list.manage_organisation' => ['domain' => 'price_list', 'description' => 'Create and update price lists, their entries and their channel assignments'],
+
+            // Phase K1.6 — commercial plan definitions. A third domain rather
+            // than more `catalogue.*`, and the argument is the K1.5 one applied
+            // one step further: a subscription is a **commercial instrument**,
+            // not a listing. Its profile states how late a subscriber may
+            // change a delivery and whether they may pause at all; its matrix
+            // decides what a recurring charge is levied for; its durations
+            // carry the discounts a longer commitment earns. Those are the
+            // commercial manager's decisions, and folding them into
+            // `catalogue.manage_organisation` would have handed them to
+            // everybody who can rename a product.
+            //
+            // There is no separate `plan.view_organisation`. Reading a plan's
+            // configuration is reading the catalogue — a chef needs to know the
+            // kitchen produces two lunches a day for the premium tier — and a
+            // read code that no screen could sensibly withhold would be
+            // bookkeeping. What is genuinely commercial about a plan is the
+            // *discount*, and that is `plan.manage_organisation`, which the
+            // vocabulary and matrix reads sit behind alongside their writes.
+            'plan.manage_organisation' => ['domain' => 'plan', 'description' => 'Manage subscription plan vocabularies, profiles, configuration matrices and duration assignments'],
+
+            // Publication gets its own code for the reason
+            // `catalogue.publish_organisation` and `recipe.publish_organisation`
+            // do, sharpened: putting a subscription on sale commits the kitchen
+            // to producing it every day for as long as somebody keeps paying.
+            // It is checked *in addition to* `catalogue.publish_organisation`
+            // on the shared publish route, because one action should not have
+            // two URLs — see `PublishCatalogueItem::assertMayPublish()`.
+            'plan.publish_organisation' => ['domain' => 'plan', 'description' => 'Publish subscription plans of the organisation'],
         ];
     }
 
@@ -259,6 +288,13 @@ final class PermissionRegistry
                     'recipe.view_costs_organisation',
                     'price_list.view_organisation',
                     'price_list.manage_organisation',
+
+                    // K1.6. A kitchen manager designs the plans the kitchen
+                    // produces and decides they go on sale; the commercial
+                    // manager below holds the same pair, because a subscription
+                    // is the one product both of them own.
+                    'plan.manage_organisation',
+                    'plan.publish_organisation',
                     'organisation.view_current',
                     'branch.view_current',
                     'membership.view_organisation',
@@ -313,6 +349,14 @@ final class PermissionRegistry
             // than reads: a tariff is its instrument, and a commercial manager
             // who could see prices but not set them would have to ask a chef
             // to type them in.
+            //
+            // K1.6 adds the plan pair on the same argument. A subscription is a
+            // commercial instrument before it is a menu: its cut-off, its
+            // pause rights and its long-run discounts are this role's decisions
+            // even though the food is somebody else's. `catalogue.manage` and
+            // `recipe.manage` stay absent, so the commercial manager can design
+            // and publish a plan without being able to change a single line of
+            // how any dish in it is made.
             'commercial_manager' => [
                 'name_en' => 'Commercial manager',
                 'name_ar' => 'المدير التجاري',
@@ -323,6 +367,8 @@ final class PermissionRegistry
                     'recipe.view_costs_organisation',
                     'price_list.view_organisation',
                     'price_list.manage_organisation',
+                    'plan.manage_organisation',
+                    'plan.publish_organisation',
                 ],
             ],
         ];

@@ -70,6 +70,13 @@ use Illuminate\Support\Str;
 | is why the boundary runs through the middle of the catalogue rather than
 | around it.
 |
+| K1.6 added six plan tables and gave none of them a policy either, so the set
+| stays at **ten**. A plan's configurations, calorie bands and durations are
+| things a customer is meant to see; the one commercial column among them —
+| `plan_variant_durations.discount_percent` — is `Internal`, reaches no
+| anonymous surface, and the number it discounts is already behind the policy
+| on `price_list_items`.
+|
 */
 
 uses()->group('rls');
@@ -747,7 +754,9 @@ it('still migrates and seeds under the owner role with row-level security enable
     // Eight platform template roles since K1.1: the four foundation roles plus
     // kitchen_manager, kitchen_chef, kitchen_staff and commercial_manager.
     // Pinned so a new template role has to be a deliberate act. K1.3 widened
-    // three of them with `recipe.view_costs_organisation` and added none.
+    // three of them with `recipe.view_costs_organisation` and added none; K1.6
+    // widened kitchen_manager and commercial_manager with the plan pair and,
+    // again, added none.
     expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)

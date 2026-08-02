@@ -13,13 +13,23 @@ use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\CatalogueStatus;
+use Healthy360\Catalogues\Enums\PlanDurationKind;
+use Healthy360\Catalogues\Enums\PlanPricingBasis;
+use Healthy360\Catalogues\Enums\PlanType;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
+use Healthy360\Catalogues\Enums\ServiceTier;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\EnergyBand;
+use Healthy360\Catalogues\Models\MealCombinationOption;
+use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Models\PlanVariantDuration;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
@@ -112,8 +122,280 @@ class DemoTenantSeeder extends Seeder
         $this->salesChannel($verdant, 'wholesale', 'b2b', 'Wholesale', 'البيع بالجملة', null, $verdantOwner);
 
         $this->seedVerdantTariff($verdant, $webShop, $verdantOwner);
+        $this->seedVerdantPlan($verdant, $verdantOwner);
 
         $this->seedPlatformOperator();
+    }
+
+    /**
+     * A minimal plan vocabulary and one draft subscription plan for the
+     * demonstration kitchen (K1.6) — built to be **exactly one confirmed price
+     * short of publishable**.
+     *
+     * That shortfall is the point of the fixture. The K1.6 publish gate refuses
+     * a plan whose active configurations are not all priced with confirmed,
+     * standing rows, because a plan page rendering a placeholder is the failure
+     * the placeholder design exists to prevent (decision OD-2, reviewer point
+     * 15). A demo where every configuration were priced would exercise the
+     * happy path and prove nothing; a demo where none were would report the
+     * same blocker for both cells and hide the per-configuration detail. One
+     * priced and one not shows the gate naming precisely the cell that is
+     * missing — and pricing the second one is a single API call away, which is
+     * how the flip to publishable gets demonstrated rather than described.
+     *
+     * Everything else the gate wants is present: a profile, two active
+     * configurations, and available durations across them. So the sole reason
+     * this plan cannot publish is the one worth looking at.
+     *
+     * **Two durations, one of them a one-off** — the shape that used to be
+     * written as zero days (§4.3). A demo without one would leave every surface
+     * built against this data believing a duration always has a number.
+     *
+     * **Discounts are NULL, deliberately**, on all but one assignment. That is
+     * what the source sheets actually contain, and a fixture that invented
+     * percentages would make "nobody has stated one" the unusual case in every
+     * screen built against it.
+     */
+    private function seedVerdantPlan(Organisation $verdant, User $creator): void
+    {
+        $catalogue = Catalogue::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $verdant->getKey(), 'code' => 'default'],
+            [
+                'name_en' => 'Default catalogue',
+                'name_ar' => 'الكتالوج الافتراضي',
+                'status' => CatalogueStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        $lunchDinner = $this->combination($verdant, 'lunch-dinner', 'Lunch and dinner', 'الغداء والعشاء', false, true, true, 2, 1, $creator);
+        $fullDay = $this->combination($verdant, 'full-day', 'Full day', 'اليوم الكامل', true, true, true, 3, 2, $creator);
+
+        $lowerBand = $this->energyBand($verdant, 'kcal-1200-1500', '1200–1500 kcal', '١٢٠٠–١٥٠٠ سعرة', 1200, 1500, 1, $creator);
+        $upperBand = $this->energyBand($verdant, 'kcal-1500-1800', '1500–1800 kcal', '١٥٠٠–١٨٠٠ سعرة', 1500, 1800, 2, $creator);
+
+        // The one-off first: it is the shortest commitment there is, and it
+        // carries no number of days at all.
+        $oneOff = $this->planDuration($verdant, 'one-off', PlanDurationKind::OneOff, null, 'One-off order', 'طلب لمرة واحدة', 1, $creator);
+        $twentyDays = $this->planDuration($verdant, 'days-20', PlanDurationKind::FixedDays, 20, '20 days', '٢٠ يوماً', 2, $creator);
+
+        $plan = $this->catalogueItem($verdant, $catalogue, 'balanced-plan', CatalogueItemType::SubscriptionPlan, 'Balanced plan', 'الخطة المتوازنة', $creator);
+
+        SubscriptionPlanProfile::withoutTenancy()->updateOrCreate(
+            ['catalogue_item_id' => $plan->getKey()],
+            [
+                'organisation_id' => $verdant->getKey(),
+                'plan_type' => PlanType::Both,
+                'pricing_basis' => PlanPricingBasis::PerDay,
+                'allows_free_selection' => false,
+                'skip_allowed' => true,
+                'pause_allowed' => true,
+
+                // The 24 h rule, which both source systems state from opposite
+                // directions and the merge preserves as one column.
+                'change_cutoff_hours' => 24,
+                'summary_en' => 'Two meals a day, portioned to a calorie band.',
+                'summary_ar' => 'وجبتان يومياً بحسب نطاق السعرات.',
+            ],
+        );
+
+        // Codes match what PlanVariantService derives for these coordinates, so
+        // the demo data and the API agree about identity.
+        $standard = $this->planConfiguration($plan, $verdant, $lunchDinner, $lowerBand, ServiceTier::Standard, 2, 0, '2 meals · 1200–1500 kcal', $creator);
+        $premium = $this->planConfiguration($plan, $verdant, $fullDay, $upperBand, ServiceTier::Premium, 3, 1, '3 meals + snack · 1500–1800 kcal', $creator);
+
+        $this->planDurationAssignment($verdant, $standard, $oneOff, null, $creator);
+        $this->planDurationAssignment($verdant, $standard, $twentyDays, null, $creator);
+        $this->planDurationAssignment($verdant, $premium, $twentyDays, '10.00', $creator);
+
+        $this->seedVerdantPlanTariff($verdant, $plan, $standard, $creator);
+    }
+
+    /**
+     * An **active** AED tariff carrying one confirmed plan price — and assigned
+     * to no channel at all.
+     *
+     * Both halves are deliberate. Active, because the publish gate only counts
+     * confirmed rows on an active list: a draft tariff prices nothing, which is
+     * what draft means, and seeding a draft one here would block the plan on
+     * *both* configurations and destroy the fixture. Unassigned, because
+     * `PriceResolver` walks from a channel to its lists, so a tariff no channel
+     * names quotes nothing to anybody — which keeps the seeded numbers out of
+     * every customer-facing path while still being real enough for the gate to
+     * read. "Agreed, not yet on sale" is an ordinary state for a tariff, not a
+     * contrivance.
+     *
+     * Separate from `verdant-web-aed` rather than folded into it, because that
+     * one is deliberately a draft demonstrating the price-list publish gate, and
+     * one list cannot be a draft and active at once.
+     */
+    private function seedVerdantPlanTariff(Organisation $verdant, CatalogueItem $plan, CatalogueItemVariant $standard, User $creator): void
+    {
+        $tariff = PriceList::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-plans-aed'],
+            [
+                'name_en' => 'Subscription plans tariff',
+                'name_ar' => 'تعرفة خطط الاشتراك',
+                'currency_code' => 'AED',
+                'customer_scope' => CustomerScope::PublicTariff,
+                'status' => PriceListStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        // 55.00 AED a day for the standard configuration — and nothing at all
+        // for the premium one, which is what leaves the plan unpublishable.
+        $this->price($tariff, $plan->getKey(), $standard->getKey(), null, 5500, PriceStatus::Confirmed, $creator);
+    }
+
+    private function combination(
+        Organisation $organisation,
+        string $code,
+        string $nameEn,
+        string $nameAr,
+        bool $breakfast,
+        bool $lunch,
+        bool $dinner,
+        int $mealsPerDay,
+        int $displayOrder,
+        User $creator,
+    ): MealCombinationOption {
+        return MealCombinationOption::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'code' => $code],
+            [
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'includes_breakfast' => $breakfast,
+                'includes_lunch' => $lunch,
+                'includes_dinner' => $dinner,
+                'meals_per_day' => $mealsPerDay,
+                'display_order' => $displayOrder,
+                'is_active' => true,
+                'created_by' => $creator->getKey(),
+            ],
+        );
+    }
+
+    private function energyBand(
+        Organisation $organisation,
+        string $code,
+        string $nameEn,
+        string $nameAr,
+        int $minKcal,
+        int $maxKcal,
+        int $displayOrder,
+        User $creator,
+    ): EnergyBand {
+        return EnergyBand::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'code' => $code],
+            [
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'min_kcal' => $minKcal,
+                'max_kcal' => $maxKcal,
+                'display_order' => $displayOrder,
+                'is_active' => true,
+                'created_by' => $creator->getKey(),
+            ],
+        );
+    }
+
+    private function planDuration(
+        Organisation $organisation,
+        string $code,
+        PlanDurationKind $kind,
+        ?int $days,
+        string $nameEn,
+        string $nameAr,
+        int $displayOrder,
+        User $creator,
+    ): PlanDuration {
+        return PlanDuration::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $organisation->getKey(), 'code' => $code],
+            [
+                'duration_kind' => $kind,
+                'duration_days' => $days,
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'display_order' => $displayOrder,
+                'is_active' => true,
+                'created_by' => $creator->getKey(),
+            ],
+        );
+    }
+
+    /**
+     * One matrix cell: the variant a price points at, plus the profile that
+     * says which cell it is. Written as a pair, because that is what the pair
+     * means.
+     */
+    private function planConfiguration(
+        CatalogueItem $plan,
+        Organisation $organisation,
+        MealCombinationOption $combination,
+        EnergyBand $band,
+        ServiceTier $tier,
+        int $mealsPerDay,
+        int $snacksPerDay,
+        string $nameEn,
+        User $creator,
+    ): CatalogueItemVariant {
+        $code = $combination->code.'-'.$tier->value.'-'.$band->code;
+
+        $variant = CatalogueItemVariant::withoutTenancy()->updateOrCreate(
+            ['catalogue_item_id' => $plan->getKey(), 'code' => $code],
+            [
+                'organisation_id' => $organisation->getKey(),
+                'variant_type' => VariantType::PlanConfiguration,
+                'name_en' => $nameEn,
+                'name_ar' => null,
+                'is_default' => false,
+                'status' => VariantStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        PlanVariantProfile::withoutTenancy()->updateOrCreate(
+            ['catalogue_item_variant_id' => $variant->getKey()],
+            [
+                'organisation_id' => $organisation->getKey(),
+                'catalogue_item_id' => $plan->getKey(),
+                'meal_combination_option_id' => $combination->getKey(),
+                'energy_band_id' => $band->getKey(),
+                'service_tier' => $tier,
+                'includes_snacks' => $snacksPerDay > 0,
+                'meals_per_day' => $mealsPerDay,
+                'snacks_per_day' => $snacksPerDay,
+            ],
+        );
+
+        return $variant;
+    }
+
+    /**
+     * `$discountPercent` is NULL for all but one assignment, and that is the
+     * honest default: the source sheets have empty discount cells, and NULL
+     * says "nobody has stated one" where `0.00` would say "there is none".
+     */
+    private function planDurationAssignment(
+        Organisation $organisation,
+        CatalogueItemVariant $variant,
+        PlanDuration $duration,
+        ?string $discountPercent,
+        User $creator,
+    ): void {
+        PlanVariantDuration::withoutTenancy()->updateOrCreate(
+            ['catalogue_item_variant_id' => $variant->getKey(), 'plan_duration_id' => $duration->getKey()],
+            [
+                'organisation_id' => $organisation->getKey(),
+                'discount_percent' => $discountPercent,
+                'is_available' => true,
+                'created_by' => $creator->getKey(),
+            ],
+        );
     }
 
     /**

@@ -16,6 +16,7 @@ use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
 use Healthy360\Tenancy\Contracts\OrganisationScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -72,6 +73,25 @@ class CatalogueItemVariant extends BaseModel implements OrganisationScoped
     public function pack(): HasOne
     {
         return $this->hasOne(CatalogueItemPackVariant::class, 'catalogue_item_variant_id');
+    }
+
+    /**
+     * The matrix cell this variant is, present only on a plan configuration —
+     * the plan-side twin of `pack()`.
+     *
+     * @return HasOne<PlanVariantProfile, $this>
+     */
+    public function planProfile(): HasOne
+    {
+        return $this->hasOne(PlanVariantProfile::class, 'catalogue_item_variant_id');
+    }
+
+    /**
+     * @return HasMany<PlanVariantDuration, $this>
+     */
+    public function planDurations(): HasMany
+    {
+        return $this->hasMany(PlanVariantDuration::class, 'catalogue_item_variant_id');
     }
 
     /**

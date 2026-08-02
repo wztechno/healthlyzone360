@@ -189,7 +189,7 @@ modules:
   - name: Catalogues
     status: foundation
     phase: 2
-    description: Catalogue items (products, meals and subscription plans), variants and pack variants, representative ingredients, diet classifications, sales channels and per-channel availability, with the sellable publication lifecycle.
+    description: Catalogue items (products, meals and subscription plans), variants and pack variants, representative ingredients, diet classifications, sales channels and per-channel availability, plus the commercial definition of a subscription — meal combinations, energy bands, durations, plan profiles, the configuration matrix and its duration assignments — all under the sellable publication lifecycle.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes]
 
   # Flipped to `foundation` by K1.5: price lists (the currency lives on the

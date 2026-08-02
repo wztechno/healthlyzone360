@@ -21,6 +21,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A sellable thing: a retail product, a meal, or a subscription plan.
@@ -146,6 +147,27 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
     public function variants(): HasMany
     {
         return $this->hasMany(CatalogueItemVariant::class);
+    }
+
+    /**
+     * The commercial terms, present only on a subscription plan.
+     *
+     * @return HasOne<SubscriptionPlanProfile, $this>
+     */
+    public function planProfile(): HasOne
+    {
+        return $this->hasOne(SubscriptionPlanProfile::class, 'catalogue_item_id');
+    }
+
+    /**
+     * The cells of the availability matrix, present only on a subscription
+     * plan. A cell is a variant; this is the commercial half of it.
+     *
+     * @return HasMany<PlanVariantProfile, $this>
+     */
+    public function planVariantProfiles(): HasMany
+    {
+        return $this->hasMany(PlanVariantProfile::class, 'catalogue_item_id');
     }
 
     /**

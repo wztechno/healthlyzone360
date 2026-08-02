@@ -1464,6 +1464,328 @@ export const zReplacePriceListChannelsRequest = z.object({
 });
 
 /**
+ * Whether a duration is a single purchase or a fixed run of days.
+ *
+ * **This is what replaced the zero-day sentinel.** The legacy model wrote
+ * "not a subscription, just a one-off order" as a duration of `0` days â€” a
+ * magic value that reads as data, that every consumer has to know the
+ * convention for, and that a per-day calculation divides by. Branch on
+ * this, never on the number.
+ *
+ */
+export const zPlanDurationKind = z.enum(['one_off', 'fixed_days']);
+
+/**
+ * How a plan may be bought. Deliberately not two booleans: "sold both
+ * ways" is a third answer a kitchen gives rather than the conjunction of
+ * the other two, and a pair of flags would additionally let a plan say
+ * neither.
+ *
+ */
+export const zPlanType = z.enum([
+    'both',
+    'subscription',
+    'limited_time'
+]);
+
+/**
+ * What the number on a price row *means* for this plan. It lives on the
+ * plan rather than on the price because it is a fact about the plan's
+ * commercial shape: two lists quoting the same plan on two different bases
+ * would be two answers to "what does a week cost".
+ *
+ */
+export const zPlanPricingBasis = z.enum([
+    'per_day',
+    'per_week',
+    'total'
+]);
+
+/**
+ * One of the four coordinates of a matrix cell.
+ */
+export const zServiceTier = z.enum(['standard', 'premium']);
+
+export const zMealCombinationOption = z.object({
+    id: zUuid,
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    includes_breakfast: z.boolean(),
+    includes_lunch: z.boolean(),
+    includes_dinner: z.boolean(),
+    meals_per_day: z.int().gte(1),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zMealCombinationOptionEnvelope = z.object({
+    data: z.object({
+        combination: zMealCombinationOption
+    }),
+    meta: zMeta
+});
+
+export const zEnergyBand = z.object({
+    id: zUuid,
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    min_kcal: z.int().gte(0),
+    max_kcal: z.int(),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zEnergyBandEnvelope = z.object({
+    data: z.object({
+        energy_band: zEnergyBand
+    }),
+    meta: zMeta
+});
+
+export const zPlanDurationOption = z.object({
+    id: zUuid,
+    code: z.string().max(40),
+    duration_kind: zPlanDurationKind,
+    duration_days: z.int().gte(1).nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zPlanDurationEnvelope = z.object({
+    data: z.object({
+        duration: zPlanDurationOption
+    }),
+    meta: zMeta
+});
+
+/**
+ * The commercial terms of one subscription plan â€” how it is sold, how a
+ * price is quoted, and what a subscriber may do to a delivery once it is
+ * scheduled.
+ *
+ */
+export const zPlanProfile = z.object({
+    catalogue_item_id: zUuid,
+    plan_type: zPlanType,
+    pricing_basis: zPlanPricingBasis,
+    allows_free_selection: z.boolean(),
+    skip_allowed: z.boolean(),
+    pause_allowed: z.boolean(),
+    change_cutoff_hours: z.int().gte(0),
+    summary_en: z.string().nullish(),
+    summary_ar: z.string().nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zPlanProfileEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        profile: zPlanProfile.nullable()
+    }),
+    meta: zMeta
+});
+
+/**
+ * One cell of a plan's availability matrix, together with the variant that
+ * carries it. **The variant is the priceable thing**: a price row names
+ * `catalogue_item_variant_id`, exactly as it does for a pack.
+ *
+ */
+export const zPlanVariantCell = z.object({
+    catalogue_item_variant_id: zUuid,
+    code: z.string().max(60),
+    status: zCatalogueVariantStatus,
+    name_en: z.string().nullish(),
+    name_ar: z.string().nullish(),
+    meal_combination_option_id: zUuid,
+    energy_band_id: zUuid.nullable(),
+    service_tier: zServiceTier,
+    includes_snacks: z.boolean(),
+    meals_per_day: z.int().gte(1),
+    snacks_per_day: z.int().gte(0)
+});
+
+export const zPlanVariantsEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        cells: z.array(zPlanVariantCell)
+    }),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zPlanDurationAssignment = z.object({
+    id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    variant_code: z.string().max(60).nullish(),
+    plan_duration_id: zUuid,
+    discount_percent: z.string().nullable(),
+    is_available: z.boolean()
+});
+
+export const zPlanVariantDurationsEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        assignments: z.array(zPlanDurationAssignment)
+    }),
+    meta: zMeta.and(z.object({
+        count: z.int(),
+        unstated_discount_count: z.int()
+    }))
+});
+
+export const zCreateMealCombinationOptionRequest = z.object({
+    code: z.string().max(40),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    includes_breakfast: z.boolean().nullish(),
+    includes_lunch: z.boolean().nullish(),
+    includes_dinner: z.boolean().nullish(),
+    meals_per_day: z.int().gte(1).lte(12),
+    display_order: z.int().gte(0).nullish()
+});
+
+/**
+ * `code` is refused rather than ignored: a configuration identifier is
+ * derived from it.
+ *
+ */
+export const zUpdateMealCombinationOptionRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    includes_breakfast: z.boolean().optional(),
+    includes_lunch: z.boolean().optional(),
+    includes_dinner: z.boolean().optional(),
+    meals_per_day: z.int().gte(1).lte(12).optional(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+export const zCreateEnergyBandRequest = z.object({
+    code: z.string().max(40),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    min_kcal: z.int().gte(0).lte(20000),
+    max_kcal: z.int().gte(1).lte(20000),
+    display_order: z.int().gte(0).nullish()
+});
+
+export const zUpdateEnergyBandRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    min_kcal: z.int().gte(0).lte(20000).optional(),
+    max_kcal: z.int().gte(1).lte(20000).optional(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * `duration_days` is required exactly when `duration_kind` is
+ * `fixed_days`, and refused exactly when it is `one_off`. Both mismatches
+ * are `422`, and a CHECK constraint refuses them underneath.
+ *
+ */
+export const zCreatePlanDurationRequest = z.object({
+    code: z.string().max(40),
+    duration_kind: zPlanDurationKind,
+    duration_days: z.int().gte(1).lte(3650).nullish(),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    display_order: z.int().gte(0).nullish()
+});
+
+/**
+ * The kind/days correspondence is applied to the **merged** row, so
+ * turning a fixed run into a one-off means sending `duration_days: null`
+ * as well.
+ *
+ */
+export const zUpdatePlanDurationRequest = z.object({
+    duration_kind: zPlanDurationKind.optional(),
+    duration_days: z.int().gte(1).lte(3650).nullish(),
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * The whole small document. Every field is optional and omitted ones take
+ * their documented defaults, so `{}` legitimately means "the ordinary
+ * terms".
+ *
+ */
+export const zPutPlanProfileRequest = z.object({
+    plan_type: zPlanType.nullish(),
+    pricing_basis: zPlanPricingBasis.nullish(),
+    allows_free_selection: z.boolean().nullish(),
+    skip_allowed: z.boolean().nullish(),
+    pause_allowed: z.boolean().nullish(),
+    change_cutoff_hours: z.int().gte(0).lte(720).nullish(),
+    summary_en: z.string().max(2000).nullish(),
+    summary_ar: z.string().max(2000).nullish()
+});
+
+/**
+ * The complete matrix. `cells` is required but may be empty: an empty
+ * array archives every configuration, which is a decision a kitchen makes
+ * and not a field they forgot.
+ *
+ * `variant_type` is not a field â€” it is derived from the item's own type â€”
+ * and neither is `catalogue_item_id`, which is in the URL.
+ *
+ */
+export const zReplacePlanVariantsRequest = z.object({
+    cells: z.array(z.object({
+        code: z.string().max(60).nullish(),
+        name_en: z.string().max(255).nullish(),
+        name_ar: z.string().max(255).nullish(),
+        status: zCatalogueVariantStatus.nullish(),
+        meal_combination_option_id: zUuid,
+        energy_band_id: zUuid.nullish(),
+        service_tier: zServiceTier.nullish(),
+        includes_snacks: z.boolean().nullish(),
+        meals_per_day: z.int().gte(1).lte(12),
+        snacks_per_day: z.int().gte(0).lte(12).nullish()
+    })).max(200)
+});
+
+/**
+ * The complete set of configuration Ã— duration pairings. Empty removes
+ * every one of them.
+ *
+ * Each row names its configuration by `catalogue_item_variant_id` **or**
+ * `variant_code`, and its duration by `plan_duration_id` **or**
+ * `duration_code`.
+ *
+ */
+export const zReplacePlanVariantDurationsRequest = z.object({
+    assignments: z.array(z.object({
+        catalogue_item_variant_id: zUuid.nullish(),
+        variant_code: z.string().max(60).nullish(),
+        plan_duration_id: zUuid.nullish(),
+        duration_code: z.string().max(40).nullish(),
+        discount_percent: z.union([
+            z.number().gte(0).lt(100),
+            z.string()
+        ]).nullish(),
+        is_available: z.boolean().nullish()
+    })).max(500)
+});
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -1602,6 +1924,30 @@ export const zSalesChannelPath = z.union([
  *
  */
 export const zPriceListPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The meal combination identifier, or its `code`.
+ */
+export const zPlanCombinationPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The energy band identifier, or its `code`.
+ */
+export const zEnergyBandPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The plan duration identifier, or its `code`.
+ */
+export const zPlanDurationPath = z.union([
     zUuid,
     z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 ]);
@@ -3237,3 +3583,255 @@ export const zReplacePriceListChannelsPath = z.object({
  * The list and its channel assignments after the write.
  */
 export const zReplacePriceListChannelsResponse = zPriceListChannelsEnvelope;
+
+export const zListMealCombinationOptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every meal combination of the organisation, active or not.
+ */
+export const zListMealCombinationOptionsResponse = z.object({
+    data: z.array(zMealCombinationOption),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zCreateMealCombinationOptionBody = zCreateMealCombinationOptionRequest;
+
+export const zCreateMealCombinationOptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The combination as stored.
+ */
+export const zCreateMealCombinationOptionResponse = zMealCombinationOptionEnvelope;
+
+export const zUpdateMealCombinationOptionBody = zUpdateMealCombinationOptionRequest;
+
+export const zUpdateMealCombinationOptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateMealCombinationOptionPath = z.object({
+    combination: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The combination after the write.
+ */
+export const zUpdateMealCombinationOptionResponse = zMealCombinationOptionEnvelope;
+
+export const zListEnergyBandsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every energy band of the organisation, active or not.
+ */
+export const zListEnergyBandsResponse = z.object({
+    data: z.array(zEnergyBand),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zCreateEnergyBandBody = zCreateEnergyBandRequest;
+
+export const zCreateEnergyBandHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The band as stored.
+ */
+export const zCreateEnergyBandResponse = zEnergyBandEnvelope;
+
+export const zUpdateEnergyBandBody = zUpdateEnergyBandRequest;
+
+export const zUpdateEnergyBandHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateEnergyBandPath = z.object({
+    band: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The band after the write.
+ */
+export const zUpdateEnergyBandResponse = zEnergyBandEnvelope;
+
+export const zListPlanDurationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every duration of the organisation, active or not.
+ */
+export const zListPlanDurationsResponse = z.object({
+    data: z.array(zPlanDurationOption),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zCreatePlanDurationBody = zCreatePlanDurationRequest;
+
+export const zCreatePlanDurationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The duration as stored.
+ */
+export const zCreatePlanDurationResponse = zPlanDurationEnvelope;
+
+export const zUpdatePlanDurationBody = zUpdatePlanDurationRequest;
+
+export const zUpdatePlanDurationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePlanDurationPath = z.object({
+    duration: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The duration after the write.
+ */
+export const zUpdatePlanDurationResponse = zPlanDurationEnvelope;
+
+export const zShowPlanProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowPlanProfilePath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and its terms, or a null profile.
+ */
+export const zShowPlanProfileResponse = zPlanProfileEnvelope;
+
+export const zPutPlanProfileBody = zPutPlanProfileRequest;
+
+export const zPutPlanProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPutPlanProfilePath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and its terms after the write.
+ */
+export const zPutPlanProfileResponse = zPlanProfileEnvelope;
+
+export const zListPlanVariantsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlanVariantsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and every cell of its matrix.
+ */
+export const zListPlanVariantsResponse = zPlanVariantsEnvelope;
+
+export const zReplacePlanVariantsBody = zReplacePlanVariantsRequest;
+
+export const zReplacePlanVariantsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePlanVariantsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and **every** cell it now has, including the ones this call
+ * archived — so a client sees what the submission did rather than what
+ * it sent.
+ *
+ */
+export const zReplacePlanVariantsResponse = zPlanVariantsEnvelope;
+
+export const zListPlanVariantDurationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlanVariantDurationsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and every duration assignment across its configurations.
+ */
+export const zListPlanVariantDurationsResponse = zPlanVariantDurationsEnvelope;
+
+export const zReplacePlanVariantDurationsBody = zReplacePlanVariantDurationsRequest;
+
+export const zReplacePlanVariantDurationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePlanVariantDurationsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and its duration assignments after the write.
+ */
+export const zReplacePlanVariantDurationsResponse = zPlanVariantDurationsEnvelope;

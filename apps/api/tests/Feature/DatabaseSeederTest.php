@@ -9,8 +9,19 @@ use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Allergens\Models\Allergen;
+use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\PlanDurationKind;
+use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\EnergyBand;
+use Healthy360\Catalogues\Models\MealCombinationOption;
+use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Models\PlanVariantDuration;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Features\Models\FeatureDefinition;
 use Healthy360\Ingredients\Enums\AllergenContainment;
@@ -269,9 +280,10 @@ it('seeds the twelve organisation types with both names', function (): void {
 it('seeds exactly the registered permission set', function (): void {
     // 24 after K1.1, plus the three recipe codes K1.2 introduces, the cost
     // permission K1.3 splits out of them, the catalogue publication authority
-    // K1.4 adds, and the pricing pair K1.5 keeps deliberately separate from
-    // `catalogue.*`.
-    expect(Permission::query()->count())->toBe(31)
+    // K1.4 adds, the pricing pair K1.5 keeps deliberately separate from
+    // `catalogue.*`, and the plan pair K1.6 adds for the commercial instrument
+    // a subscription is.
+    expect(Permission::query()->count())->toBe(33)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -301,15 +313,35 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 29],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 28],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 31],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 30],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, and prices it' => ['kitchen_manager', 12],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it and designs its plans' => ['kitchen_manager', 14],
     'chef edits recipes and their costs but never publishes one and never sees a price' => ['kitchen_chef', 5],
     'kitchen staff read the catalogue and recipes, and no money at all' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue and its costs, decides the range and writes the tariff' => ['commercial_manager', 6],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff and owns the plans' => ['commercial_manager', 8],
 ]);
+
+it('gives the plan authority to the two commercial roles and to neither the chef nor the staff', function (): void {
+    // K1.6's half of the same split the cost test above asserts. A subscription
+    // is a commercial instrument — cut-offs, pause rights, long-run discounts —
+    // so a chef who designs the food does not thereby decide the terms it is
+    // sold on, and kitchen staff hold neither code.
+    foreach (['plan.manage_organisation', 'plan.publish_organisation'] as $code) {
+        $permission = Permission::query()->where('code', $code)->sole();
+
+        $holders = Role::withoutTenancy()
+            ->whereNull('organisation_id')
+            ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $permission->getKey())->select('role_id'))
+            ->pluck('code')
+            ->all();
+
+        expect($holders)->toEqualCanonicalizing([
+            'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+        ]);
+    }
+});
 
 it('withholds cost visibility from kitchen staff and from nobody else in the kitchen', function (): void {
     // The split appendix C asks for, asserted where it is actually decided.
@@ -454,6 +486,85 @@ it('seeds the demonstration tariff with a tier and an honest placeholder', funct
         ->and($tiered->unit_amount_minor)->toBeLessThan(
             $entries->firstWhere(static fn (PriceListItem $row): bool => $row->min_quantity === null && $row->unit_amount_minor !== null)->unit_amount_minor,
         );
+});
+
+it('seeds a plan vocabulary that includes a one-off duration', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    expect(MealCombinationOption::withoutTenancy()->where('organisation_id', $verdant->getKey())->pluck('code')->all())
+        ->toEqualCanonicalizing(['lunch-dinner', 'full-day'])
+        ->and(EnergyBand::withoutTenancy()->where('organisation_id', $verdant->getKey())->pluck('code')->all())
+        ->toEqualCanonicalizing(['kcal-1200-1500', 'kcal-1500-1800']);
+
+    $durations = PlanDuration::withoutTenancy()->where('organisation_id', $verdant->getKey())->get();
+
+    expect($durations)->toHaveCount(2);
+
+    // The shape the zero-day sentinel used to occupy (§4.3): a one-off carries
+    // no number of days at all, and a demo without one would leave every
+    // surface built against this data believing a duration always has one.
+    $oneOff = $durations->firstWhere(static fn (PlanDuration $row): bool => $row->duration_kind === PlanDurationKind::OneOff);
+
+    expect($oneOff)->not->toBeNull()
+        ->and($oneOff->duration_days)->toBeNull()
+        ->and($durations->firstWhere(static fn (PlanDuration $row): bool => $row->duration_kind === PlanDurationKind::FixedDays)->duration_days)->toBe(20);
+});
+
+it('seeds a draft plan that is exactly one confirmed price short of publishable', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $plan = CatalogueItem::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('slug', 'balanced-plan')
+        ->sole();
+
+    expect($plan->item_type)->toBe(CatalogueItemType::SubscriptionPlan)
+        ->and($plan->status)->toBe(CatalogueItemStatus::Draft);
+
+    // The 24 h rule both source systems state, preserved as one column.
+    expect(SubscriptionPlanProfile::withoutTenancy()->whereKey($plan->getKey())->value('change_cutoff_hours'))->toBe(24);
+
+    $cells = PlanVariantProfile::withoutTenancy()->where('catalogue_item_id', $plan->getKey())->get();
+
+    expect($cells)->toHaveCount(2);
+
+    $configurations = CatalogueItemVariant::withoutTenancy()
+        ->where('catalogue_item_id', $plan->getKey())
+        ->pluck('id', 'code');
+
+    // Derived codes, matching what PlanVariantService produces for these
+    // coordinates — so the demo data and the API agree about identity.
+    expect($configurations->keys()->all())->toEqualCanonicalizing([
+        'lunch-dinner-standard-kcal-1200-1500',
+        'full-day-premium-kcal-1500-1800',
+    ]);
+
+    $assignments = PlanVariantDuration::withoutTenancy()
+        ->whereIn('catalogue_item_variant_id', $configurations->values())
+        ->get();
+
+    // Two of the three carry no discount at all, which is what the source
+    // sheets contain: NULL says "nobody has stated one" where 0.00 would say
+    // "there is none".
+    expect($assignments)->toHaveCount(3)
+        ->and($assignments->whereNull('discount_percent'))->toHaveCount(2);
+
+    // Exactly one configuration is priced, on an ACTIVE tariff that no channel
+    // names — so the publish gate can read it while nothing quotes it to a
+    // customer.
+    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-plans-aed')->sole();
+
+    expect($tariff->status)->toBe(PriceListStatus::Active)
+        ->and($tariff->currency_code)->toBe('AED')
+        ->and(ChannelPriceList::withoutTenancy()->where('price_list_id', $tariff->getKey())->count())->toBe(0);
+
+    $priced = PriceListItem::withoutTenancy()
+        ->where('price_list_id', $tariff->getKey())
+        ->confirmedOpenRows()
+        ->pluck('catalogue_item_variant_id')
+        ->all();
+
+    expect($priced)->toBe([$configurations->get('lunch-dinner-standard-kcal-1200-1500')]);
 });
 
 it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {

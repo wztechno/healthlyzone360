@@ -17,6 +17,21 @@ use Healthy360\Catalogues\Http\Controllers\CatalogueItemShowController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemUpdateController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemVariantReplaceController;
+use Healthy360\Catalogues\Http\Controllers\PlanCombinationIndexController;
+use Healthy360\Catalogues\Http\Controllers\PlanCombinationStoreController;
+use Healthy360\Catalogues\Http\Controllers\PlanCombinationUpdateController;
+use Healthy360\Catalogues\Http\Controllers\PlanDurationIndexController;
+use Healthy360\Catalogues\Http\Controllers\PlanDurationStoreController;
+use Healthy360\Catalogues\Http\Controllers\PlanDurationUpdateController;
+use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandIndexController;
+use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandStoreController;
+use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandUpdateController;
+use Healthy360\Catalogues\Http\Controllers\PlanProfileShowController;
+use Healthy360\Catalogues\Http\Controllers\PlanProfileUpdateController;
+use Healthy360\Catalogues\Http\Controllers\PlanVariantDurationIndexController;
+use Healthy360\Catalogues\Http\Controllers\PlanVariantDurationReplaceController;
+use Healthy360\Catalogues\Http\Controllers\PlanVariantIndexController;
+use Healthy360\Catalogues\Http\Controllers\PlanVariantReplaceController;
 use Healthy360\Catalogues\Http\Controllers\PublicDietClassificationIndexController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelIndexController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelShowController;
@@ -416,6 +431,99 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/price-lists/{priceList}/archive', PriceListArchiveController::class)
                     ->middleware('precondition')
                     ->name('catalogue.price-lists.archive');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Commercial plan definitions (K1.6)
+            |--------------------------------------------------------------
+            |
+            | A third permission domain, `plan.*`, on the K1.5 argument taken
+            | one step further: a subscription is a **commercial instrument**
+            | before it is a menu. Its profile decides how late a subscriber
+            | may change a delivery and whether they may pause at all; its
+            | matrix decides what a recurring charge is levied for; its
+            | durations carry the discounts a longer commitment earns. Those
+            | are the commercial manager's decisions, and folding them into
+            | `catalogue.manage_organisation` would have handed them to
+            | everybody who can rename a product.
+            |
+            | There is deliberately **no `plan.view_organisation`**. Reading a
+            | plan's configuration is reading the catalogue — a chef needs to
+            | know the kitchen produces two lunches a day for the premium tier
+            | — and a read code no screen could sensibly withhold would be
+            | bookkeeping rather than authority. What is genuinely commercial
+            | is the *discount*, and it sits behind
+            | `plan.manage_organisation` along with the writes.
+            |
+            | The vocabulary PATCHes are **precondition-free**: these rows
+            | carry no `lock_version` (appendix D), and the concurrency
+            | contract applies only to resources that do. The plan
+            | sub-resources all take `If-Match` carrying the **item's**
+            | validator, because a profile, a matrix and a set of duration
+            | assignments are three faces of one listing.
+            |
+            | `{item}` accepts an identifier or the plan's slug, and a
+            | catalogue item that is not a subscription plan is a `422` rather
+            | than a `404`: the caller can see the row perfectly well through
+            | `/catalogue/items/{item}`, and a 404 would send them hunting for
+            | a typo.
+            |
+            | Publication is **not** here. It stays
+            | `POST /catalogue/items/{item}/publish` — one action, one URL, one
+            | audit trail — and `plan.publish_organisation` is checked inside
+            | the action service, which is the only layer that has loaded the
+            | row and can therefore know it is a plan.
+            |
+            | There is no DELETE anywhere in this family. Vocabulary rows
+            | deactivate, matrix cells archive, and both because a price row
+            | and eventually an order point at what they describe.
+            |
+            */
+            Route::middleware('permission:plan.manage_organisation')->group(function (): void {
+                Route::get('/plan-vocabulary/combinations', PlanCombinationIndexController::class)->name('catalogue.plan-vocabulary.combinations.index');
+                Route::post('/plan-vocabulary/combinations', PlanCombinationStoreController::class)->name('catalogue.plan-vocabulary.combinations.store');
+                Route::patch('/plan-vocabulary/combinations/{combination}', PlanCombinationUpdateController::class)->name('catalogue.plan-vocabulary.combinations.update');
+
+                Route::get('/plan-vocabulary/energy-bands', PlanEnergyBandIndexController::class)->name('catalogue.plan-vocabulary.energy-bands.index');
+                Route::post('/plan-vocabulary/energy-bands', PlanEnergyBandStoreController::class)->name('catalogue.plan-vocabulary.energy-bands.store');
+                Route::patch('/plan-vocabulary/energy-bands/{band}', PlanEnergyBandUpdateController::class)->name('catalogue.plan-vocabulary.energy-bands.update');
+
+                Route::get('/plan-vocabulary/durations', PlanDurationIndexController::class)->name('catalogue.plan-vocabulary.durations.index');
+                Route::post('/plan-vocabulary/durations', PlanDurationStoreController::class)->name('catalogue.plan-vocabulary.durations.store');
+                Route::patch('/plan-vocabulary/durations/{duration}', PlanDurationUpdateController::class)->name('catalogue.plan-vocabulary.durations.update');
+
+                Route::put('/plans/{item}/profile', PlanProfileUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.plans.profile.update');
+
+                Route::get('/plans/{item}/variants', PlanVariantIndexController::class)->name('catalogue.plans.variants.index');
+
+                Route::put('/plans/{item}/variants', PlanVariantReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.plans.variants.replace');
+
+                Route::get('/plans/{item}/variant-durations', PlanVariantDurationIndexController::class)->name('catalogue.plans.variant-durations.index');
+
+                Route::put('/plans/{item}/variant-durations', PlanVariantDurationReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.plans.variant-durations.replace');
+            });
+
+            /*
+            | The one plan read that is **not** commercial. A plan's terms —
+            | how it is sold, on what basis it is priced, whether a subscriber
+            | may skip or pause, and how late a delivery may be changed — are
+            | what a customer will be shown on the plan page in M1, and what a
+            | chef needs to know to produce against. So the read sits with the
+            | rest of the catalogue rather than behind
+            | `plan.manage_organisation`, which every holder of also holds.
+            |
+            | The discounts do not, and that is the whole boundary: they live
+            | on `…/variant-durations` above.
+            */
+            Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
+                Route::get('/plans/{item}/profile', PlanProfileShowController::class)->name('catalogue.plans.profile.show');
             });
         });
 

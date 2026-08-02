@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Healthy360\Catalogues\Providers;
 
+use Healthy360\Catalogues\Contracts\ConfirmedPriceRegistry;
 use Healthy360\Catalogues\Services\CatalogueIngredientUsageRegistry;
 use Healthy360\Catalogues\Services\CatalogueRecipeUsageRegistry;
+use Healthy360\Catalogues\Services\NullConfirmedPriceRegistry;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Tenancy\TenantContext;
@@ -14,6 +16,23 @@ use Illuminate\Support\ServiceProvider;
 
 class CataloguesServiceProvider extends ServiceProvider
 {
+    /**
+     * The default answer to "which of these variants has a confirmed price":
+     * **none of them** (K1.6).
+     *
+     * Registered here rather than left unbound, so the catalogue is coherent
+     * with no pricing module at all — the same argument
+     * `IngredientsServiceProvider` makes about its own port. The pricing module
+     * replaces this binding with one that can actually answer.
+     *
+     * Fail-closed by design: see `NullConfirmedPriceRegistry` for why the
+     * optimistic default would be the dangerous one.
+     */
+    public function register(): void
+    {
+        $this->app->bind(ConfirmedPriceRegistry::class, NullConfirmedPriceRegistry::class);
+    }
+
     /**
      * Answer the recipes module's usage question with real catalogue data.
      *

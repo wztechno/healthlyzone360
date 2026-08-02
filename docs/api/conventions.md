@@ -120,7 +120,7 @@ The freshness of the validator is decided **inside the write statement** (`UPDAT
 
 The header applies only to resources that carry `lock_version`. A resource without one has no concurrency contract and is not sent `If-Match` — ingredient categories and allergen classes are examples.
 
-**Endpoints that require it** (as of K1.5):
+**Endpoints that require it** (as of K1.6):
 
 - `PATCH /api/v1/catalogue/ingredients/{ingredient}` · `POST /api/v1/catalogue/ingredients/{ingredient}/archive`
 - `PATCH /api/v1/catalogue/recipes/{recipe}` · `POST /api/v1/catalogue/recipes/{recipe}/archive`
@@ -128,8 +128,11 @@ The header applies only to resources that carry `lock_version`. A resource witho
 - `PATCH /api/v1/catalogue/sales-channels/{channel}`
 - `PATCH /api/v1/catalogue/items/{item}` and its `…/variants`, `…/ingredients`, `…/diet-classifications`, `…/channels`, `…/publish`, `…/retire` sub-resources
 - `PATCH /api/v1/catalogue/price-lists/{priceList}` and its `…/entries`, `…/channels`, `…/publish`, `…/archive` sub-resources
+- `PUT /api/v1/catalogue/plans/{item}/profile` · `…/variants` · `…/variant-durations` — the validator is the **item's**
 
-On the version, item and price-list sub-resources the validator is the **parent's** `lock_version`, not a line's, a step's, a variant's or a price row's. The set is the unit of change: a per-row validator would let two editors replace different halves of one formulation — or one listing, or one tariff — and each believe they had written the whole of it.
+On the version, item, price-list and plan sub-resources the validator is the **parent's** `lock_version`, not a line's, a step's, a variant's, a price row's or a matrix cell's. The set is the unit of change: a per-row validator would let two editors replace different halves of one formulation — or one listing, one tariff, one matrix — and each believe they had written the whole of it.
+
+The plan **vocabularies** (`/catalogue/plan-vocabulary/…`) deliberately take no `If-Match`: those rows carry no `lock_version`, and the rule above applies. Two editors renaming a calorie band at once is a lost caption; two editors replacing a plan's matrix at once is a lost tariff, which is why only the second is guarded.
 
 ## Cursor pagination
 
@@ -156,6 +159,8 @@ Until C1 no implemented endpoint accepts the header, so the `Idempotency-Key` ro
 A change of lifecycle state is a **POST to a sub-resource action** — `POST …/publish`, `POST …/retire`, `POST …/approve` — never a `PATCH` carrying a `status` field.
 
 Each action has its own permission and its own audit action, so "may edit this record" and "may publish it" are separately grantable and separately auditable, and the set of legal transitions lives in the routing table instead of in validation rules on a free-form field.
+
+**One documented exception, introduced in K1.6.** `POST /api/v1/catalogue/items/{item}/publish` is guarded by `catalogue.publish_organisation` in the routing table *and* by `plan.publish_organisation` inside the action service when the item turns out to be a subscription plan. Middleware cannot branch on a row it has not loaded, and giving one action two URLs — `/items/{item}/publish` and `/plans/{item}/publish` — would give it two audit trails and two places for a gate to be forgotten. So the second code composes with the first rather than replacing it, and the check lives where the item type is known. Both seeded roles that may publish anything hold both codes, so no template role behaves differently; what the extra code buys is that a bespoke role can be granted authority over products and meals without acquiring authority over the commercial instrument a subscription is. The precedent is the cost-snapshot endpoint, which stacks `recipe.manage_organisation` inside `recipe.view_costs_organisation`.
 
 ## Implemented endpoints
 
@@ -226,7 +231,7 @@ The full set as implemented in Phase 4. `openapi/healthy360.v1.yaml` is authorit
 | POST | `/api/v1/catalogue/items` | session or bearer, verified, org | Creates a `draft`; slug derived and thereafter immutable; `catalogue_id` optional (a `default` catalogue is created on demand). `catalogue.manage_organisation` |
 | GET | `/api/v1/catalogue/items/{item}` | session or bearer, verified, org | `{item}` accepts an identifier or the `slug`. Item plus variants, ingredients, diet-tag codes and channel assignments. Returns `ETag: "<lock_version>"`. `catalogue.view_organisation` |
 | PATCH | `/api/v1/catalogue/items/{item}` | session or bearer, verified, org | `slug` and `item_type` are **rejected**, not ignored. A published item stays editable; a retired one is 409. **`If-Match` required.** `catalogue.manage_organisation` |
-| POST | `/api/v1/catalogue/items/{item}/publish` | session or bearer, verified, org | Minimal K1.4 readiness gate; response carries the derived allergen set. **`If-Match` required.** `catalogue.publish_organisation` |
+| POST | `/api/v1/catalogue/items/{item}/publish` | session or bearer, verified, org | Readiness gate; response carries the derived allergen set. A **subscription plan** additionally needs `plan.publish_organisation` and additionally checks its profile, matrix, durations and **confirmed prices on every active configuration**. **`If-Match` required.** `catalogue.publish_organisation` |
 | POST | `/api/v1/catalogue/items/{item}/retire` | session or bearer, verified, org | Terminal, and the only withdrawal a sellable item has — available from `draft` too. Optional `reason` is audited. **`If-Match` required.** `catalogue.publish_organisation` |
 | PUT | `/api/v1/catalogue/items/{item}/variants` | session or bearer, verified, org | Set-replace matched on `code`; absent codes are **archived**, not deleted; `variant_type` derived from the item; exactly one default. **`If-Match` (the item's) required.** `catalogue.manage_organisation` |
 | PUT | `/api/v1/catalogue/items/{item}/ingredients` | session or bearer, verified, org | Set-replace; array order is `display_order`; **no quantity field exists**. Also a meal's fallback allergen basis. **`If-Match` required.** `catalogue.manage_organisation` |
@@ -242,6 +247,21 @@ The full set as implemented in Phase 4. `openapi/healthy360.v1.yaml` is authorit
 | GET | `/api/v1/catalogue/price-lists/{priceList}/entries` | session or bearer, verified, org | Cursor-paginated. Standing rows by default; `include_history=1` adds closed rows and walks **newest-first**. Amounts are integer minor units with `currency_code` on every row, never formatted. Placeholder/market rows served in full. `price_list.view_organisation` |
 | PUT | `/api/v1/catalogue/price-lists/{priceList}/entries` | session or bearer, verified, org | Set-replace over effective-dated storage: the body is the desired **current** state, keyed by `(item, variant, min_quantity)`; unchanged points are untouched, changed ones close and reopen, absent ones close. No dates in the body. **`If-Match` (the list's) required.** `price_list.manage_organisation` |
 | PUT | `/api/v1/catalogue/price-lists/{priceList}/channels` | session or bearer, verified, org | Set-replace; **array order is the priority**, lowest consulted first; empty detaches everything. **`If-Match` required.** `price_list.manage_organisation` |
+| GET | `/api/v1/catalogue/plan-vocabulary/combinations` | session or bearer, verified, org | Unpaginated; deactivated rows served **with** their flag, there being no delete. `includes_*` and `meals_per_day` are different facts. `plan.manage_organisation` |
+| POST | `/api/v1/catalogue/plan-vocabulary/combinations` | session or bearer, verified, org | Duplicate `code` in the organisation is 409; the same code in another kitchen is not a collision. A combination covering no sitting is 422. `plan.manage_organisation` |
+| PATCH | `/api/v1/catalogue/plan-vocabulary/combinations/{combination}` | session or bearer, verified, org | No `If-Match` — vocabulary rows carry no `lock_version`. `code` is **rejected**, not ignored. `is_active: false` is the only withdrawal there is. `plan.manage_organisation` |
+| GET | `/api/v1/catalogue/plan-vocabulary/energy-bands` | session or bearer, verified, org | Unpaginated, ordered lowest bracket first. A band, never a per-person target. `plan.manage_organisation` |
+| POST | `/api/v1/catalogue/plan-vocabulary/energy-bands` | session or bearer, verified, org | `max_kcal` strictly above `min_kcal`. `plan.manage_organisation` |
+| PATCH | `/api/v1/catalogue/plan-vocabulary/energy-bands/{band}` | session or bearer, verified, org | No `If-Match`; `code` rejected. One end alone may be submitted — the comparison runs against the merged row. `plan.manage_organisation` |
+| GET | `/api/v1/catalogue/plan-vocabulary/durations` | session or bearer, verified, org | Unpaginated, **one-off first**. `duration_kind` carries the meaning, `duration_days` the number; there is no zero-day row (§4.3). `plan.manage_organisation` |
+| POST | `/api/v1/catalogue/plan-vocabulary/durations` | session or bearer, verified, org | `duration_days` required for `fixed_days`, refused for `one_off`; `0` is 422 with a message about the removed sentinel. A CHECK enforces the same underneath. `plan.manage_organisation` |
+| PATCH | `/api/v1/catalogue/plan-vocabulary/durations/{duration}` | session or bearer, verified, org | No `If-Match`; `code` rejected. The kind/days rule applies to the **merged** row, so turning a run into a one-off means sending `duration_days: null` too. `plan.manage_organisation` |
+| GET | `/api/v1/catalogue/plans/{item}/profile` | session or bearer, verified, org | `profile` is **null** when nobody has written terms — the state the publish gate refuses, never filled in with defaults. A non-plan item is 422, not 404. Returns the item's `ETag`. The one plan read that is not commercial: `catalogue.view_organisation` |
+| PUT | `/api/v1/catalogue/plans/{item}/profile` | session or bearer, verified, org | Whole-document PUT; omitted fields take their defaults (`both`, `per_day`, skippable, pausable, **24 h**). `change_cutoff_hours: 0` is accepted. **`If-Match` (the item's) required.** `plan.manage_organisation` |
+| GET | `/api/v1/catalogue/plans/{item}/variants` | session or bearer, verified, org | The configuration matrix; each cell carries the `catalogue_item_variant_id` a price points at, its `code` and its `status`. Archived cells included. `plan.manage_organisation` |
+| PUT | `/api/v1/catalogue/plans/{item}/variants` | session or bearer, verified, org | Set-replace of **cells**; each writes a variant + its plan profile atomically. Code derived `combination-tier[-band]` unless supplied. Absent cells **archived**, their coordinates still occupied — a second configuration at an occupied cell is 409 naming the occupant. **`If-Match` (the item's) required.** `plan.manage_organisation` |
+| GET | `/api/v1/catalogue/plans/{item}/variant-durations` | session or bearer, verified, org | `discount_percent` is **null** where nobody stated one, never `"0.00"`; `meta.unstated_discount_count` counts them. `plan.manage_organisation` |
+| PUT | `/api/v1/catalogue/plans/{item}/variant-durations` | session or bearer, verified, org | Set-replace; rows name configuration and duration by identifier **or** code. Absent rows deleted; `is_available: false` keeps the negotiated discount. NULL discounts survive the round trip and are never coerced to 0. **`If-Match` (the item's) required.** `plan.manage_organisation` |
 | GET | `/api/v1/reference/allergen-classes` | — | **Anonymous.** Active classes only, one server-localised name from `Accept-Language` |
 | POST | `/api/v1/reference/allergen-classes` | session or bearer, verified, platform org | `platform.context` + `reference.manage_platform` |
 | PATCH | `/api/v1/reference/allergen-classes/{code}` | session or bearer, verified, platform org | `code` is immutable and a request carrying it is rejected. `platform.context` + `reference.manage_platform` |

@@ -4,20 +4,27 @@ declare(strict_types=1);
 
 namespace Healthy360\Catalogues\Services;
 
+use Healthy360\AccessControl\Enums\AccessDenialReason;
+use Healthy360\AccessControl\Exceptions\PermissionDenied;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Catalogues\Contracts\ConfirmedPriceRegistry;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\VariantStatus;
+use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Exceptions\PublishBlocked;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\PlanVariantDuration;
+use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Publication and retirement of a catalogue item — lifecycle actions with
@@ -52,6 +59,34 @@ use Illuminate\Support\Facades\DB;
  * Every blocker is collected and raised as one `catalogue.publish_blocked`, so
  * a kitchen fixes everything in one pass rather than discovering problems one
  * attempt at a time.
+ *
+ * **K1.6 adds a fifth set of checks, for subscription plans only** — and one of
+ * them reaches outside the catalogue for the first time:
+ *
+ * - **Terms.** A plan with no `subscription_plan_profiles` row has had no
+ *   commercial decision made about it: nobody has said how it is sold, on what
+ *   basis it is priced, or how late a subscriber may change a delivery. A
+ *   listing that answers none of those is not a listing.
+ * - **A matrix.** A plan with no active `plan_configuration` variant is a name
+ *   with no configuration behind it — the plan-side twin of a product with no
+ *   pack.
+ * - **A run.** At least one available duration assignment across the active
+ *   configurations. Without one there is nothing a customer can buy: a plan is
+ *   sold *for a period*, and the period is not implied.
+ * - **Real prices, on every configuration.** This is what keeps a plan imported
+ *   with placeholder prices honestly unpublishable until somebody supplies the
+ *   numbers (decision OD-2, reviewer point 15). A placeholder is a row that
+ *   says "we have not priced this", and a plan page rendering it — as a blank,
+ *   as a zero, or as anything at all — is the failure the whole placeholder
+ *   design exists to prevent. So every active configuration must carry a
+ *   confirmed, standing price on an active tariff, and the ones that do not are
+ *   named individually.
+ *
+ * The price question is asked through the `ConfirmedPriceRegistry` port rather
+ * than by querying `price_list_items` directly: the module dependency runs
+ * Pricing → Catalogues, and the registry graph is architecture-tested acyclic.
+ * The port answers *whether* a variant is priced and never *what* it costs, so
+ * the gate cannot become a way around the K1.5 permission split.
  */
 final readonly class PublishCatalogueItem
 {
@@ -60,6 +95,7 @@ final readonly class PublishCatalogueItem
         private AuditRecorder $audit,
         private CatalogueItemService $items,
         private DerivedAllergenService $allergens,
+        private ConfirmedPriceRegistry $prices,
     ) {}
 
     /**
@@ -67,6 +103,7 @@ final readonly class PublishCatalogueItem
      */
     public function publish(CatalogueItem $item, int $expectedLockVersion): CatalogueItem
     {
+        $this->assertMayPublish($item);
         $this->assertPublishable($item);
 
         DB::transaction(function () use ($item, $expectedLockVersion): void {
@@ -196,9 +233,114 @@ final readonly class PublishCatalogueItem
             ];
         }
 
+        if ($item->item_type === CatalogueItemType::SubscriptionPlan) {
+            $reasons = [...$reasons, ...$this->planReasons($item)];
+        }
+
         if ($reasons !== []) {
             throw new PublishBlocked($reasons);
         }
+    }
+
+    /**
+     * The plan-only half of the gate (K1.6).
+     *
+     * Every check is evaluated even when an earlier one has already failed, for
+     * the reason the whole class exists: a plan missing its profile *and* its
+     * prices should learn both facts in one attempt.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function planReasons(CatalogueItem $item): array
+    {
+        $reasons = [];
+
+        if (! SubscriptionPlanProfile::withoutTenancy()->whereKey($item->getKey())->exists()) {
+            $reasons[] = ['reason' => 'plan_profile_missing'];
+        }
+
+        /** @var array<string, string> $activeConfigurations identifier → code */
+        $activeConfigurations = CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('variant_type', VariantType::PlanConfiguration->value)
+            ->where('status', VariantStatus::Active->value)
+            ->orderBy('code')
+            ->pluck('code', 'id')
+            ->all();
+
+        if ($activeConfigurations === []) {
+            // Nothing further can be evaluated honestly: durations and prices
+            // are both questions *about* configurations, and reporting "no
+            // durations" beside "no configurations" would be two ways of saying
+            // the same missing thing.
+            return [...$reasons, ['reason' => 'no_active_plan_configuration']];
+        }
+
+        $variantIds = array_map(strval(...), array_keys($activeConfigurations));
+
+        $hasDuration = PlanVariantDuration::withoutTenancy()
+            ->whereIn('catalogue_item_variant_id', $variantIds)
+            ->where('is_available', true)
+            ->exists();
+
+        if (! $hasDuration) {
+            $reasons[] = ['reason' => 'no_duration_assigned'];
+        }
+
+        $priced = $this->prices->pricedVariantIds($item->organisation_id, $variantIds);
+        $unpriced = array_values(array_diff($variantIds, $priced));
+
+        if ($unpriced !== []) {
+            $reasons[] = [
+                'reason' => 'plan_prices_incomplete',
+                'catalogue_item_variant_ids' => $unpriced,
+
+                // The codes as well as the identifiers: a merchandiser reading
+                // this refusal is looking at a matrix labelled by code, and a
+                // list of UUIDs would send them back to the API to find out
+                // which cells to price.
+                'configurations' => array_map(
+                    static fn (string $id): string => $activeConfigurations[$id],
+                    $unpriced,
+                ),
+            ];
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * Publishing a **plan** additionally requires `plan.publish_organisation`.
+     *
+     * The route keeps `catalogue.publish_organisation` as its middleware, so
+     * this composes with that code rather than replacing it. That is forced by
+     * the decision to keep one publish route for all three item types, and it is
+     * the honest arrangement rather than a workaround: middleware cannot branch
+     * on a row it has not loaded, and a second route
+     * (`/catalogue/plans/{item}/publish`) would give one action two URLs and two
+     * audit trails. The precedent is the cost-snapshot endpoint, which stacks
+     * `recipe.manage_organisation` inside `recipe.view_costs_organisation` for
+     * the same reason.
+     *
+     * Both seeded roles that may publish anything — `kitchen_manager` and
+     * `commercial_manager` — hold both codes, so nothing a template role can do
+     * changes. What the extra code buys is that a *bespoke* role can be given
+     * authority over products and meals without acquiring authority over the
+     * commercial instrument a subscription is.
+     *
+     * @throws PermissionDenied
+     */
+    private function assertMayPublish(CatalogueItem $item): void
+    {
+        if ($item->item_type !== CatalogueItemType::SubscriptionPlan) {
+            return;
+        }
+
+        if (Gate::allows('plan.publish_organisation')) {
+            return;
+        }
+
+        throw new PermissionDenied(AccessDenialReason::PermissionNotGranted, 'plan.publish_organisation');
     }
 
     private function hasActiveVariant(CatalogueItem $item): bool

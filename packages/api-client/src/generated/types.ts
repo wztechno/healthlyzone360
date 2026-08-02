@@ -1945,6 +1945,413 @@ export type ReplacePriceListChannelsRequest = {
 };
 
 /**
+ * Whether a duration is a single purchase or a fixed run of days.
+ *
+ * **This is what replaced the zero-day sentinel.** The legacy model wrote
+ * "not a subscription, just a one-off order" as a duration of `0` days â€” a
+ * magic value that reads as data, that every consumer has to know the
+ * convention for, and that a per-day calculation divides by. Branch on
+ * this, never on the number.
+ *
+ */
+export type PlanDurationKind = 'one_off' | 'fixed_days';
+
+/**
+ * How a plan may be bought. Deliberately not two booleans: "sold both
+ * ways" is a third answer a kitchen gives rather than the conjunction of
+ * the other two, and a pair of flags would additionally let a plan say
+ * neither.
+ *
+ */
+export type PlanType = 'both' | 'subscription' | 'limited_time';
+
+/**
+ * What the number on a price row *means* for this plan. It lives on the
+ * plan rather than on the price because it is a fact about the plan's
+ * commercial shape: two lists quoting the same plan on two different bases
+ * would be two answers to "what does a week cost".
+ *
+ */
+export type PlanPricingBasis = 'per_day' | 'per_week' | 'total';
+
+/**
+ * One of the four coordinates of a matrix cell.
+ */
+export type ServiceTier = 'standard' | 'premium';
+
+export type MealCombinationOption = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string;
+    includes_breakfast: boolean;
+    includes_lunch: boolean;
+    includes_dinner: boolean;
+    /**
+     * Portions leaving the kitchen per day â€” **not** derived from the
+     * flags above, so "lunch, twice" stays representable.
+     *
+     */
+    meals_per_day: number;
+    display_order: number;
+    /**
+     * False is the withdrawal, and the only one there is: a combination a
+     * configuration references cannot be deleted.
+     *
+     */
+    is_active: boolean;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type MealCombinationOptionEnvelope = {
+    data: {
+        combination: MealCombinationOption;
+    };
+    meta: Meta;
+};
+
+export type EnergyBand = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string;
+    min_kcal: number;
+    /**
+     * Strictly above `min_kcal` â€” a band whose ends meet is a single value.
+     */
+    max_kcal: number;
+    display_order: number;
+    is_active: boolean;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type EnergyBandEnvelope = {
+    data: {
+        energy_band: EnergyBand;
+    };
+    meta: Meta;
+};
+
+export type PlanDurationOption = {
+    id: Uuid;
+    code: string;
+    duration_kind: PlanDurationKind;
+    /**
+     * **Null exactly when `duration_kind` is `one_off`**, and a positive
+     * integer exactly when it is `fixed_days`. Never `0`: that sentinel is
+     * what this model removed, and it is not coming back on the wire
+     * either.
+     *
+     */
+    duration_days: number | null;
+    name_en: string;
+    name_ar: string;
+    display_order: number;
+    is_active: boolean;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type PlanDurationEnvelope = {
+    data: {
+        duration: PlanDurationOption;
+    };
+    meta: Meta;
+};
+
+/**
+ * The commercial terms of one subscription plan â€” how it is sold, how a
+ * price is quoted, and what a subscriber may do to a delivery once it is
+ * scheduled.
+ *
+ */
+export type PlanProfile = {
+    catalogue_item_id: Uuid;
+    plan_type: PlanType;
+    pricing_basis: PlanPricingBasis;
+    /**
+     * Whether a subscriber chooses the dishes, or the kitchen decides.
+     */
+    allows_free_selection: boolean;
+    skip_allowed: boolean;
+    pause_allowed: boolean;
+    /**
+     * How long before a delivery a subscriber may still change it.
+     * Defaults to **24**, which is not a guess: the kitchen operating rule
+     * and the legacy amendment window state the same thing from opposite
+     * directions. `0` means "until the van leaves".
+     *
+     */
+    change_cutoff_hours: number;
+    summary_en?: string | null;
+    summary_ar?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type PlanProfileEnvelope = {
+    data: {
+        item: AdminCatalogueItem;
+        /**
+         * Null when nobody has written terms yet â€” the state the publish
+         * gate refuses, and deliberately not filled in with defaults.
+         *
+         */
+        profile: PlanProfile | null;
+    };
+    meta: Meta;
+};
+
+/**
+ * One cell of a plan's availability matrix, together with the variant that
+ * carries it. **The variant is the priceable thing**: a price row names
+ * `catalogue_item_variant_id`, exactly as it does for a pack.
+ *
+ */
+export type PlanVariantCell = {
+    catalogue_item_variant_id: Uuid;
+    /**
+     * Derived from the cell's own coordinates unless one was supplied, so
+     * resubmitting a cell keeps the variant a price already points at.
+     *
+     */
+    code: string;
+    status: CatalogueVariantStatus;
+    name_en?: string | null;
+    name_ar?: string | null;
+    meal_combination_option_id: Uuid;
+    /**
+     * Null for a kitchen that does not portion by calories â€” a different
+     * fact from a band nobody filled in, and part of the cell's identity
+     * either way.
+     *
+     */
+    energy_band_id: Uuid | null;
+    service_tier: ServiceTier;
+    includes_snacks: boolean;
+    meals_per_day: number;
+    snacks_per_day: number;
+};
+
+export type PlanVariantsEnvelope = {
+    data: {
+        item: AdminCatalogueItem;
+        cells: Array<PlanVariantCell>;
+    };
+    meta: Meta & {
+        count: number;
+    };
+};
+
+export type PlanDurationAssignment = {
+    id: Uuid;
+    catalogue_item_variant_id: Uuid;
+    variant_code?: string | null;
+    plan_duration_id: Uuid;
+    /**
+     * A decimal string, or **null when nobody has stated a discount** â€”
+     * which is commercially different from stating that there is none.
+     * Never returned as `0` for an unstated one, and never a float: it is
+     * served as `"0.00"` only when somebody actually said zero.
+     *
+     */
+    discount_percent: string | null;
+    /**
+     * False is "we still run this length, just not right now" â€” it keeps
+     * the negotiated discount, where dropping the row would discard it.
+     *
+     */
+    is_available: boolean;
+};
+
+export type PlanVariantDurationsEnvelope = {
+    data: {
+        item: AdminCatalogueItem;
+        assignments: Array<PlanDurationAssignment>;
+    };
+    meta: Meta & {
+        count: number;
+        /**
+         * How many assignments still carry no stated discount.
+         */
+        unstated_discount_count: number;
+    };
+};
+
+export type CreateMealCombinationOptionRequest = {
+    code: string;
+    name_en: string;
+    /**
+     * Falls back to the English name: a vocabulary row is a label on a
+     * control, and a blank option cannot be chosen.
+     *
+     */
+    name_ar?: string | null;
+    includes_breakfast?: boolean | null;
+    includes_lunch?: boolean | null;
+    includes_dinner?: boolean | null;
+    meals_per_day: number;
+    display_order?: number | null;
+};
+
+/**
+ * `code` is refused rather than ignored: a configuration identifier is
+ * derived from it.
+ *
+ */
+export type UpdateMealCombinationOptionRequest = {
+    name_en?: string;
+    name_ar?: string;
+    includes_breakfast?: boolean;
+    includes_lunch?: boolean;
+    includes_dinner?: boolean;
+    meals_per_day?: number;
+    display_order?: number;
+    is_active?: boolean;
+};
+
+export type CreateEnergyBandRequest = {
+    code: string;
+    name_en: string;
+    name_ar?: string | null;
+    min_kcal: number;
+    max_kcal: number;
+    display_order?: number | null;
+};
+
+export type UpdateEnergyBandRequest = {
+    name_en?: string;
+    name_ar?: string;
+    min_kcal?: number;
+    max_kcal?: number;
+    display_order?: number;
+    is_active?: boolean;
+};
+
+/**
+ * `duration_days` is required exactly when `duration_kind` is
+ * `fixed_days`, and refused exactly when it is `one_off`. Both mismatches
+ * are `422`, and a CHECK constraint refuses them underneath.
+ *
+ */
+export type CreatePlanDurationRequest = {
+    code: string;
+    duration_kind: PlanDurationKind;
+    /**
+     * `0` is refused: it is the sentinel this model removed, not a
+     * zero-length subscription.
+     *
+     */
+    duration_days?: number | null;
+    name_en: string;
+    name_ar?: string | null;
+    display_order?: number | null;
+};
+
+/**
+ * The kind/days correspondence is applied to the **merged** row, so
+ * turning a fixed run into a one-off means sending `duration_days: null`
+ * as well.
+ *
+ */
+export type UpdatePlanDurationRequest = {
+    duration_kind?: PlanDurationKind;
+    duration_days?: number | null;
+    name_en?: string;
+    name_ar?: string;
+    display_order?: number;
+    is_active?: boolean;
+};
+
+/**
+ * The whole small document. Every field is optional and omitted ones take
+ * their documented defaults, so `{}` legitimately means "the ordinary
+ * terms".
+ *
+ */
+export type PutPlanProfileRequest = {
+    plan_type?: PlanType | null;
+    pricing_basis?: PlanPricingBasis | null;
+    allows_free_selection?: boolean | null;
+    /**
+     * Defaults to true â€” a plan whose profile says nothing about skipping
+     * is one a subscriber may skip.
+     *
+     */
+    skip_allowed?: boolean | null;
+    pause_allowed?: boolean | null;
+    /**
+     * Defaults to 24. Zero is accepted and means "until the van leaves".
+     */
+    change_cutoff_hours?: number | null;
+    summary_en?: string | null;
+    summary_ar?: string | null;
+};
+
+/**
+ * The complete matrix. `cells` is required but may be empty: an empty
+ * array archives every configuration, which is a decision a kitchen makes
+ * and not a field they forgot.
+ *
+ * `variant_type` is not a field â€” it is derived from the item's own type â€”
+ * and neither is `catalogue_item_id`, which is in the URL.
+ *
+ */
+export type ReplacePlanVariantsRequest = {
+    cells: Array<{
+        /**
+         * Omitted is the ordinary case: the server derives
+         * `combination-tier[-band]` from the cell's own coordinates, so
+         * a 4 Ã— 2 Ã— 5 matrix needs no hand-typed identifiers.
+         *
+         */
+        code?: string | null;
+        name_en?: string | null;
+        name_ar?: string | null;
+        status?: CatalogueVariantStatus | null;
+        meal_combination_option_id: Uuid;
+        energy_band_id?: Uuid | null;
+        service_tier?: ServiceTier | null;
+        /**
+         * Must agree with `snacks_per_day`: the contradiction is 422,
+         * not a silent resolution.
+         *
+         */
+        includes_snacks?: boolean | null;
+        meals_per_day: number;
+        snacks_per_day?: number | null;
+    }>;
+};
+
+/**
+ * The complete set of configuration Ã— duration pairings. Empty removes
+ * every one of them.
+ *
+ * Each row names its configuration by `catalogue_item_variant_id` **or**
+ * `variant_code`, and its duration by `plan_duration_id` **or**
+ * `duration_code`.
+ *
+ */
+export type ReplacePlanVariantDurationsRequest = {
+    assignments: Array<{
+        catalogue_item_variant_id?: Uuid | null;
+        variant_code?: string | null;
+        plan_duration_id?: Uuid | null;
+        duration_code?: string | null;
+        /**
+         * **Omitted or null means nobody has stated a discount**, and it
+         * is stored and returned as null. Send `0` to state that there
+         * is none â€” that is a different row for every reader afterwards.
+         *
+         */
+        discount_percent?: number | string | null;
+        is_available?: boolean | null;
+    }>;
+};
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -2064,6 +2471,21 @@ export type SalesChannelPath = Uuid | string;
  *
  */
 export type PriceListPath = Uuid | string;
+
+/**
+ * The meal combination identifier, or its `code`.
+ */
+export type PlanCombinationPath = Uuid | string;
+
+/**
+ * The energy band identifier, or its `code`.
+ */
+export type EnergyBandPath = Uuid | string;
+
+/**
+ * The plan duration identifier, or its `code`.
+ */
+export type PlanDurationPath = Uuid | string;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -8288,3 +8710,1068 @@ export type ReplacePriceListChannelsResponses = {
 };
 
 export type ReplacePriceListChannelsResponse = ReplacePriceListChannelsResponses[keyof ReplacePriceListChannelsResponses];
+
+export type ListMealCombinationOptionsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/plan-vocabulary/combinations';
+};
+
+export type ListMealCombinationOptionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMealCombinationOptionsError = ListMealCombinationOptionsErrors[keyof ListMealCombinationOptionsErrors];
+
+export type ListMealCombinationOptionsResponses = {
+    /**
+     * Every meal combination of the organisation, active or not.
+     */
+    200: {
+        data: Array<MealCombinationOption>;
+        meta: Meta & {
+            count: number;
+        };
+    };
+};
+
+export type ListMealCombinationOptionsResponse = ListMealCombinationOptionsResponses[keyof ListMealCombinationOptionsResponses];
+
+export type CreateMealCombinationOptionData = {
+    body: CreateMealCombinationOptionRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/plan-vocabulary/combinations';
+};
+
+export type CreateMealCombinationOptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateMealCombinationOptionError = CreateMealCombinationOptionErrors[keyof CreateMealCombinationOptionErrors];
+
+export type CreateMealCombinationOptionResponses = {
+    /**
+     * The combination as stored.
+     */
+    201: MealCombinationOptionEnvelope;
+};
+
+export type CreateMealCombinationOptionResponse = CreateMealCombinationOptionResponses[keyof CreateMealCombinationOptionResponses];
+
+export type UpdateMealCombinationOptionData = {
+    body: UpdateMealCombinationOptionRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The meal combination identifier, or its `code`.
+         */
+        combination: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plan-vocabulary/combinations/{combination}';
+};
+
+export type UpdateMealCombinationOptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateMealCombinationOptionError = UpdateMealCombinationOptionErrors[keyof UpdateMealCombinationOptionErrors];
+
+export type UpdateMealCombinationOptionResponses = {
+    /**
+     * The combination after the write.
+     */
+    200: MealCombinationOptionEnvelope;
+};
+
+export type UpdateMealCombinationOptionResponse = UpdateMealCombinationOptionResponses[keyof UpdateMealCombinationOptionResponses];
+
+export type ListEnergyBandsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/plan-vocabulary/energy-bands';
+};
+
+export type ListEnergyBandsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListEnergyBandsError = ListEnergyBandsErrors[keyof ListEnergyBandsErrors];
+
+export type ListEnergyBandsResponses = {
+    /**
+     * Every energy band of the organisation, active or not.
+     */
+    200: {
+        data: Array<EnergyBand>;
+        meta: Meta & {
+            count: number;
+        };
+    };
+};
+
+export type ListEnergyBandsResponse = ListEnergyBandsResponses[keyof ListEnergyBandsResponses];
+
+export type CreateEnergyBandData = {
+    body: CreateEnergyBandRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/plan-vocabulary/energy-bands';
+};
+
+export type CreateEnergyBandErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateEnergyBandError = CreateEnergyBandErrors[keyof CreateEnergyBandErrors];
+
+export type CreateEnergyBandResponses = {
+    /**
+     * The band as stored.
+     */
+    201: EnergyBandEnvelope;
+};
+
+export type CreateEnergyBandResponse = CreateEnergyBandResponses[keyof CreateEnergyBandResponses];
+
+export type UpdateEnergyBandData = {
+    body: UpdateEnergyBandRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The energy band identifier, or its `code`.
+         */
+        band: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plan-vocabulary/energy-bands/{band}';
+};
+
+export type UpdateEnergyBandErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateEnergyBandError = UpdateEnergyBandErrors[keyof UpdateEnergyBandErrors];
+
+export type UpdateEnergyBandResponses = {
+    /**
+     * The band after the write.
+     */
+    200: EnergyBandEnvelope;
+};
+
+export type UpdateEnergyBandResponse = UpdateEnergyBandResponses[keyof UpdateEnergyBandResponses];
+
+export type ListPlanDurationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/plan-vocabulary/durations';
+};
+
+export type ListPlanDurationsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPlanDurationsError = ListPlanDurationsErrors[keyof ListPlanDurationsErrors];
+
+export type ListPlanDurationsResponses = {
+    /**
+     * Every duration of the organisation, active or not.
+     */
+    200: {
+        data: Array<PlanDurationOption>;
+        meta: Meta & {
+            count: number;
+        };
+    };
+};
+
+export type ListPlanDurationsResponse = ListPlanDurationsResponses[keyof ListPlanDurationsResponses];
+
+export type CreatePlanDurationData = {
+    body: CreatePlanDurationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/plan-vocabulary/durations';
+};
+
+export type CreatePlanDurationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePlanDurationError = CreatePlanDurationErrors[keyof CreatePlanDurationErrors];
+
+export type CreatePlanDurationResponses = {
+    /**
+     * The duration as stored.
+     */
+    201: PlanDurationEnvelope;
+};
+
+export type CreatePlanDurationResponse = CreatePlanDurationResponses[keyof CreatePlanDurationResponses];
+
+export type UpdatePlanDurationData = {
+    body: UpdatePlanDurationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The plan duration identifier, or its `code`.
+         */
+        duration: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plan-vocabulary/durations/{duration}';
+};
+
+export type UpdatePlanDurationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdatePlanDurationError = UpdatePlanDurationErrors[keyof UpdatePlanDurationErrors];
+
+export type UpdatePlanDurationResponses = {
+    /**
+     * The duration after the write.
+     */
+    200: PlanDurationEnvelope;
+};
+
+export type UpdatePlanDurationResponse = UpdatePlanDurationResponses[keyof UpdatePlanDurationResponses];
+
+export type ShowPlanProfileData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/profile';
+};
+
+export type ShowPlanProfileErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowPlanProfileError = ShowPlanProfileErrors[keyof ShowPlanProfileErrors];
+
+export type ShowPlanProfileResponses = {
+    /**
+     * The plan and its terms, or a null profile.
+     */
+    200: PlanProfileEnvelope;
+};
+
+export type ShowPlanProfileResponse = ShowPlanProfileResponses[keyof ShowPlanProfileResponses];
+
+export type PutPlanProfileData = {
+    body: PutPlanProfileRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/profile';
+};
+
+export type PutPlanProfileErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PutPlanProfileError = PutPlanProfileErrors[keyof PutPlanProfileErrors];
+
+export type PutPlanProfileResponses = {
+    /**
+     * The plan and its terms after the write.
+     */
+    200: PlanProfileEnvelope;
+};
+
+export type PutPlanProfileResponse = PutPlanProfileResponses[keyof PutPlanProfileResponses];
+
+export type ListPlanVariantsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/variants';
+};
+
+export type ListPlanVariantsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPlanVariantsError = ListPlanVariantsErrors[keyof ListPlanVariantsErrors];
+
+export type ListPlanVariantsResponses = {
+    /**
+     * The plan and every cell of its matrix.
+     */
+    200: PlanVariantsEnvelope;
+};
+
+export type ListPlanVariantsResponse = ListPlanVariantsResponses[keyof ListPlanVariantsResponses];
+
+export type ReplacePlanVariantsData = {
+    body: ReplacePlanVariantsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/variants';
+};
+
+export type ReplacePlanVariantsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * A matrix cell is already held by a different configuration —
+     * `details.existing_configuration` names its `code`, and
+     * `details.cell_index` points at the offending entry in the submission.
+     *
+     * The occupant may be **archived**, and that is the case worth
+     * understanding: a withdrawn cell keeps its coordinates because a price
+     * row still points at its variant, so re-selling that cell means reviving
+     * that configuration rather than opening a second one at the same address.
+     *
+     * Also served for a stale `If-Match`, as everywhere else.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplacePlanVariantsError = ReplacePlanVariantsErrors[keyof ReplacePlanVariantsErrors];
+
+export type ReplacePlanVariantsResponses = {
+    /**
+     * The plan and **every** cell it now has, including the ones this call
+     * archived — so a client sees what the submission did rather than what
+     * it sent.
+     *
+     */
+    200: PlanVariantsEnvelope;
+};
+
+export type ReplacePlanVariantsResponse = ReplacePlanVariantsResponses[keyof ReplacePlanVariantsResponses];
+
+export type ListPlanVariantDurationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/variant-durations';
+};
+
+export type ListPlanVariantDurationsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPlanVariantDurationsError = ListPlanVariantDurationsErrors[keyof ListPlanVariantDurationsErrors];
+
+export type ListPlanVariantDurationsResponses = {
+    /**
+     * The plan and every duration assignment across its configurations.
+     */
+    200: PlanVariantDurationsEnvelope;
+};
+
+export type ListPlanVariantDurationsResponse = ListPlanVariantDurationsResponses[keyof ListPlanVariantDurationsResponses];
+
+export type ReplacePlanVariantDurationsData = {
+    body: ReplacePlanVariantDurationsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/variant-durations';
+};
+
+export type ReplacePlanVariantDurationsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplacePlanVariantDurationsError = ReplacePlanVariantDurationsErrors[keyof ReplacePlanVariantDurationsErrors];
+
+export type ReplacePlanVariantDurationsResponses = {
+    /**
+     * The plan and its duration assignments after the write.
+     */
+    200: PlanVariantDurationsEnvelope;
+};
+
+export type ReplacePlanVariantDurationsResponse = ReplacePlanVariantDurationsResponses[keyof ReplacePlanVariantDurationsResponses];

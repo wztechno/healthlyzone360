@@ -21,10 +21,19 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *
  * The K1.4 vocabulary is deliberately small: `item_quarantined`,
  * `item_not_a_draft`, `translation_incomplete`, `no_active_variant`,
- * `no_allergen_basis`, `linked_recipe_quarantined`. The full readiness
- * evaluator — confirmed prices, delivery availability, complete allergen
- * determination — is K1.8, and it will add reasons to this list rather than
- * replace the mechanism.
+ * `no_allergen_basis`, `linked_recipe_quarantined`. K1.6 adds four that apply
+ * to subscription plans only — `plan_profile_missing`,
+ * `no_active_plan_configuration`, `no_duration_assigned` and
+ * `plan_prices_incomplete` — which is the mechanism working as designed: a
+ * slice adds reasons rather than replacing the apparatus. The rest of the full
+ * readiness evaluator (delivery availability, complete allergen determination
+ * across every listed ingredient, translation coverage on every field) is K1.8.
+ *
+ * `plan_prices_incomplete` is the one that carries a list. It names every
+ * active configuration nobody has confirmed a price for, by identifier *and* by
+ * code, because the person reading the refusal is looking at a matrix labelled
+ * by code and a list of UUIDs would send them back to the API to find out which
+ * cells to price.
  */
 final class PublishBlocked extends ApiException
 {

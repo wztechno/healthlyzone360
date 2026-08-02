@@ -92,6 +92,32 @@ tags:
       and `price_list.manage_organisation` — because price visibility is
       commercial rather than culinary. A chef holds every catalogue and recipe
       permission and neither of these.
+  - name: Subscription plans
+    description: |
+      The commercial definition of a subscription: the vocabularies a plan is
+      built from, its terms, its configuration matrix and the runs it is sold
+      for.
+
+      Three things are worth reading before the operations. **A plan
+      configuration is a catalogue item variant** — the same row a pack is —
+      so a plan is priced through exactly the same path as everything else and
+      `catalogue_item_variant_id` is what a price names. **Variant existence
+      encodes the matrix**: a cell a kitchen sells is a configuration, a cell it
+      does not is the absence of one, and there is no availability flag to
+      disagree with that. And **a duration is a kind, not a number**:
+      `one_off` carries no `duration_days` at all, which is what replaced the
+      zero-day row the legacy design used.
+
+      `discount_percent` is nullable and **null is a value**: it means nobody
+      has stated a discount, which is commercially different from stating that
+      there is none. It is never returned as `0`.
+
+      This family has **its own permission pair** —
+      `plan.manage_organisation` and `plan.publish_organisation` — because a
+      subscription is a commercial instrument before it is a menu. Publication
+      is not an operation here: it stays `POST /catalogue/items/{item}/publish`,
+      which additionally requires `plan.publish_organisation` when the item is a
+      plan.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
 
@@ -4656,6 +4682,773 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/plan-vocabulary/combinations:
+    get:
+      operationId: listMealCombinationOptions
+      tags: [Subscription plans]
+      summary: The meal combinations a kitchen sells plans in
+      description: |
+        Which meals of the day a plan delivers — "lunch and dinner", "full
+        day". A kitchen's own vocabulary: there is no platform library, because
+        "full board" means what each kitchen sells it as.
+
+        Not paginated. The vocabulary is a handful of rows a client renders as
+        a set of options in one pass, and paging a set of radio buttons would
+        hand a form half of itself.
+
+        **Deactivated rows are served too**, with their `is_active` flag: there
+        being no delete, one that vanished from the list would be withdrawn for
+        good.
+
+        `includes_*` and `meals_per_day` are **not** the same fact.
+        The flags say which sittings are covered; the count says how many
+        portions leave the kitchen, which is what a per-day price is quoted
+        against. They agree for the ordinary combinations and stop agreeing the
+        moment a kitchen sells "lunch, twice".
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every meal combination of the organisation, active or not.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MealCombinationOption'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required: [count]
+                        properties:
+                          count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createMealCombinationOption
+      tags: [Subscription plans]
+      summary: Add a meal combination
+      description: |
+        A duplicate `code` within the organisation is `409`, not a silent
+        update: the caller believed it was creating something. The same code in
+        another kitchen is not a collision — these are one organisation's words.
+
+        A combination that covers no sitting at all is `422`: a plan built on it
+        would be a subscription to an empty box.
+
+        `is_active` is not a field. A combination is created offered, and
+        withdrawal is the PATCH.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMealCombinationOptionRequest'
+      responses:
+        '201':
+          description: The combination as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealCombinationOptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plan-vocabulary/combinations/{combination}:
+    patch:
+      operationId: updateMealCombinationOption
+      tags: [Subscription plans]
+      summary: Edit or withdraw a meal combination
+      description: |
+        **No `If-Match`.** These rows carry no `lock_version`, and the
+        concurrency contract applies only to resources that do: sending a
+        validator a resource cannot honour would be worse than sending none.
+
+        `code` is **refused, not ignored** — a plan configuration's identifier
+        is derived from it, so moving it would rename variants a price already
+        points at.
+
+        `is_active: false` is the withdrawal, and the only one there is. A
+        vocabulary row a configuration references cannot be deleted at all: the
+        foreign keys are `RESTRICT`.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PlanCombinationPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMealCombinationOptionRequest'
+      responses:
+        '200':
+          description: The combination after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealCombinationOptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plan-vocabulary/energy-bands:
+    get:
+      operationId: listEnergyBands
+      tags: [Subscription plans]
+      summary: The calorie brackets a kitchen portions plans to
+      description: |
+        A **band, not a target**. The source kitchens sell brackets, and a
+        bracket is an honest statement about portioning; a single number would
+        imply a per-customer energy calculation this programme does not do.
+
+        Ordered by `display_order` then by `min_kcal`, so a kitchen that never
+        set an order still gets its bands lowest-first rather than
+        alphabetically, where "1200–1500" and "800–1100" come out backwards.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every energy band of the organisation, active or not.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EnergyBand'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required: [count]
+                        properties:
+                          count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createEnergyBand
+      tags: [Subscription plans]
+      summary: Add an energy band
+      description: |
+        `max_kcal` must be strictly above `min_kcal`: a band whose ends meet is
+        a single value wearing a range's clothes.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnergyBandRequest'
+      responses:
+        '201':
+          description: The band as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnergyBandEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plan-vocabulary/energy-bands/{band}:
+    patch:
+      operationId: updateEnergyBand
+      tags: [Subscription plans]
+      summary: Edit or withdraw an energy band
+      description: |
+        Precondition-free, and `code` refused rather than ignored — see the
+        combinations updater for both arguments.
+
+        Submitting one end of the range alone is legitimate; the comparison runs
+        against the merged row, so raising `min_kcal` past a stored `max_kcal`
+        is `422`.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/EnergyBandPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnergyBandRequest'
+      responses:
+        '200':
+          description: The band after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnergyBandEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plan-vocabulary/durations:
+    get:
+      operationId: listPlanDurations
+      tags: [Subscription plans]
+      summary: The runs a kitchen sells plans for
+      description: |
+        **`duration_kind` carries the meaning and `duration_days` carries the
+        number.** A `one_off` row is a single purchase and has
+        `duration_days: null`; a `fixed_days` row has a positive integer. There
+        is no zero-day row and there will not be one — that sentinel is what
+        this model replaced, and a client that divides by it would find out the
+        hard way.
+
+        Ordered with the one-off **first**: it is the shortest commitment there
+        is, so it belongs at the top of a list a customer reads downwards into
+        longer runs.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every duration of the organisation, active or not.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlanDurationOption'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required: [count]
+                        properties:
+                          count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createPlanDuration
+      tags: [Subscription plans]
+      summary: Add a plan duration
+      description: |
+        The kind decides whether the number is required or refused, and both
+        mismatches are `422`: a one-off that carries a length, and a fixed run
+        that does not. `duration_days: 0` is refused with a message about the
+        sentinel rather than a range violation, because a client sending it is
+        following the old convention and needs to be told that it is gone.
+
+        A CHECK constraint enforces the same correspondence underneath, so no
+        importer or backfill can produce either shape.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanDurationRequest'
+      responses:
+        '201':
+          description: The duration as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDurationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plan-vocabulary/durations/{duration}:
+    patch:
+      operationId: updatePlanDuration
+      tags: [Subscription plans]
+      summary: Edit or withdraw a plan duration
+      description: |
+        Precondition-free, and `code` refused rather than ignored.
+
+        The kind/days correspondence is applied to the **merged** row, so
+        flipping a fixed run to `one_off` without also sending
+        `duration_days: null` is `422` rather than a silent clearing: the two
+        columns are one fact, and a client that changed half of it has stated a
+        contradiction.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/PlanDurationPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanDurationRequest'
+      responses:
+        '200':
+          description: The duration after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDurationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plans/{item}/profile:
+    get:
+      operationId: showPlanProfile
+      tags: [Subscription plans]
+      summary: A plan's commercial terms
+      description: |
+        **`profile` is null when nobody has written one**, rather than a
+        fabricated set of defaults. "No commercial decision has been made about
+        this plan" is exactly the state the publish gate refuses, and a surface
+        that filled it in would leave a kitchen wondering why publication keeps
+        failing on terms it can see on screen.
+
+        A catalogue item that is not a subscription plan is `422`, not `404`:
+        the caller can see the row perfectly well through
+        `/catalogue/items/{item}`, so a 404 would send them hunting for a typo.
+
+        The `ETag` is the **item's**, because that is the validator a PUT here
+        has to carry.
+
+        The one plan read that is **not** commercial, so it requires
+        `catalogue.view_organisation` rather than `plan.manage_organisation`:
+        these terms are what a customer will be shown on the plan page and what
+        a chef needs to produce against. The discounts are the commercial part,
+        and they are on `…/variant-durations`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The plan and its terms, or a null profile.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanProfileEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: putPlanProfile
+      tags: [Subscription plans]
+      summary: Write a plan's commercial terms
+      description: |
+        A PUT because the profile is one commercial statement, read whole to
+        decide any part of it. A PATCH over eight interdependent switches would
+        make "I left pausing alone" and "I turned pausing off" the same request,
+        on a right a subscriber has been sold.
+
+        Every field is optional and omitted ones take their documented
+        defaults — `both`, `per_day`, skippable, pausable, 24 hours — so `{}`
+        is the legitimate "the ordinary terms".
+
+        **`change_cutoff_hours` defaults to 24 and the default is evidence**:
+        the kitchen operating rule and the legacy amendment window say the same
+        thing from opposite directions, so the merge keeps one column with that
+        default. `0` is accepted — "change it until the van leaves" is a policy
+        somebody may genuinely have.
+
+        **`If-Match` carries the item's validator** and the write bumps it: the
+        profile has no `lock_version` of its own, being the commercial face of
+        the item rather than a separate thing to lock.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutPlanProfileRequest'
+      responses:
+        '200':
+          description: The plan and its terms after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanProfileEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plans/{item}/variants:
+    get:
+      operationId: listPlanVariants
+      tags: [Subscription plans]
+      summary: A plan's configuration matrix
+      description: |
+        Each cell carries its coordinates **and** the identity of the variant
+        beneath it: the `catalogue_item_variant_id` a price row points at, the
+        `code` a resubmission matches on, and the `status`.
+
+        **Archived cells are served too**, so a grid can render "we used to sell
+        this" differently from "nothing here" — which is what a merchandiser
+        needs to know before trying to open a cell that is already occupied.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The plan and every cell of its matrix.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanVariantsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replacePlanVariants
+      tags: [Subscription plans]
+      summary: Replace a plan's configuration matrix
+      description: |
+        The body is *cells*; the server writes a `catalogue_item_variants` row
+        and its plan profile for each, atomically. That is what keeps the thing
+        a customer picks and the thing a price points at one object.
+
+        **The code is derived and deterministic** —
+        `combination-tier[-band]`, from the vocabulary rows' own codes — so the
+        same cell submitted from two clients on two days produces the same
+        variant and the same price keeps pointing at it. An explicit `code` is
+        accepted for a kitchen migrating identifiers it already uses elsewhere.
+
+        **Absent cells are archived, not deleted**, and their coordinates stay
+        occupied: reviving a withdrawn cell means resubmitting *that* cell, not
+        opening a second variant at the same address. Trying the second is
+        `409` with the occupying code named.
+
+        Stating one cell twice in a submission is `422` — and two cells that
+        differ only by an omitted `energy_band_id` are the same cell, not two.
+
+        `includes_snacks` and `snacks_per_day` are one fact stated twice, so
+        the contradiction is `422` rather than silently resolved.
+
+        A deactivated combination or band may keep a cell a plan already sells
+        and may not open a new one.
+
+        An empty `cells` array archives the whole matrix — a decision, not a
+        forgotten field.
+
+        **`If-Match` carries the item's validator.** Requires
+        `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePlanVariantsRequest'
+      responses:
+        '200':
+          description: |
+            The plan and **every** cell it now has, including the ones this call
+            archived — so a client sees what the submission did rather than what
+            it sent.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanVariantsEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PlanCellConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/plans/{item}/variant-durations:
+    get:
+      operationId: listPlanVariantDurations
+      tags: [Subscription plans]
+      summary: The runs each configuration may be bought for
+      description: |
+        **`discount_percent` is served as `null` where nobody has stated one** —
+        never as `"0.00"` and never omitted. The absence has to be visible,
+        because the person reading this screen is the person who has to go and
+        find the number. `meta.unstated_discount_count` says how many rows are
+        in that state.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The plan and every duration assignment across its configurations.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanVariantDurationsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replacePlanVariantDurations
+      tags: [Subscription plans]
+      summary: Replace a plan's duration assignments
+      description: |
+        The complete set of configuration × duration pairings, applied at once.
+        A kitchen decides "every cell runs 5, 20 and 40 days, and the premium
+        tier also runs 60" in one sitting, and splitting that across calls would
+        make the half-applied states reachable and publishable.
+
+        Rows name their configuration and duration by identifier **or by
+        code**, so an importer holding codes does not have to round-trip through
+        this API to learn identifiers it will never use again.
+
+        **An absent `discount_percent` stays absent all the way to the
+        column.** NULL is "nobody has stated one", `0` is "there is no
+        discount", and this endpoint never turns the first into the second.
+
+        **Absent rows are deleted**, and the asymmetry with the matrix is
+        deliberate: an assignment carries nothing but itself, so there is
+        nothing to strand. `is_available: false` is what says "we still run 40
+        days, just not this month" without discarding the negotiated discount.
+
+        A deactivated duration cannot be assigned.
+
+        **`If-Match` carries the item's validator.** Requires
+        `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePlanVariantDurationsRequest'
+      responses:
+        '200':
+          description: The plan and its duration assignments after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanVariantDurationsEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -4880,6 +5673,39 @@ components:
         reason the sales-channel path gives: a client that walked the list
         holds an identifier, an operator or an importer holds
         `greenlife-b2b-usd`, and the code is unique per organisation.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 40
+            pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+    PlanCombinationPath:
+      name: combination
+      in: path
+      required: true
+      description: The meal combination identifier, or its `code`.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 40
+            pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+    EnergyBandPath:
+      name: band
+      in: path
+      required: true
+      description: The energy band identifier, or its `code`.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 40
+            pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+    PlanDurationPath:
+      name: duration
+      in: path
+      required: true
+      description: The plan duration identifier, or its `code`.
       schema:
         oneOf:
           - $ref: '#/components/schemas/Uuid'
@@ -5478,6 +6304,34 @@ components:
               details:
                 reasons:
                   - reason: no_open_rows
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    PlanCellConflict:
+      description: |
+        A matrix cell is already held by a different configuration —
+        `details.existing_configuration` names its `code`, and
+        `details.cell_index` points at the offending entry in the submission.
+
+        The occupant may be **archived**, and that is the case worth
+        understanding: a withdrawn cell keeps its coordinates because a price
+        row still points at its variant, so re-selling that cell means reviving
+        that configuration rather than opening a second one at the same address.
+
+        Also served for a stale `If-Match`, as everywhere else.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: This matrix cell already exists on this plan as configuration "lunch-dinner-standard".
+              details:
+                cell_index: 0
+                existing_configuration: lunch-dinner-standard
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
 
   schemas:
@@ -8437,5 +9291,675 @@ components:
                   Lower is consulted first. Omitted, it comes from the array
                   order, which is what a merchandiser is stating when they list
                   a negotiated sheet above a standing tariff.
+            additionalProperties: false
+      additionalProperties: false
+
+    PlanDurationKind:
+      type: string
+      enum: [one_off, fixed_days]
+      description: |
+        Whether a duration is a single purchase or a fixed run of days.
+
+        **This is what replaced the zero-day sentinel.** The legacy model wrote
+        "not a subscription, just a one-off order" as a duration of `0` days â€” a
+        magic value that reads as data, that every consumer has to know the
+        convention for, and that a per-day calculation divides by. Branch on
+        this, never on the number.
+
+    PlanType:
+      type: string
+      enum: [both, subscription, limited_time]
+      description: |
+        How a plan may be bought. Deliberately not two booleans: "sold both
+        ways" is a third answer a kitchen gives rather than the conjunction of
+        the other two, and a pair of flags would additionally let a plan say
+        neither.
+
+    PlanPricingBasis:
+      type: string
+      enum: [per_day, per_week, total]
+      description: |
+        What the number on a price row *means* for this plan. It lives on the
+        plan rather than on the price because it is a fact about the plan's
+        commercial shape: two lists quoting the same plan on two different bases
+        would be two answers to "what does a week cost".
+
+    ServiceTier:
+      type: string
+      enum: [standard, premium]
+      description: One of the four coordinates of a matrix cell.
+
+    MealCombinationOption:
+      type: object
+      required: [id, code, name_en, name_ar, includes_breakfast, includes_lunch, includes_dinner, meals_per_day, display_order, is_active]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 40
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        includes_breakfast:
+          type: boolean
+        includes_lunch:
+          type: boolean
+        includes_dinner:
+          type: boolean
+        meals_per_day:
+          type: integer
+          minimum: 1
+          description: |
+            Portions leaving the kitchen per day â€” **not** derived from the
+            flags above, so "lunch, twice" stays representable.
+        display_order:
+          type: integer
+        is_active:
+          type: boolean
+          description: |
+            False is the withdrawal, and the only one there is: a combination a
+            configuration references cannot be deleted.
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        updated_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    MealCombinationOptionEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [combination]
+          properties:
+            combination:
+              $ref: '#/components/schemas/MealCombinationOption'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    EnergyBand:
+      type: object
+      required: [id, code, name_en, name_ar, min_kcal, max_kcal, display_order, is_active]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 40
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        min_kcal:
+          type: integer
+          minimum: 0
+        max_kcal:
+          type: integer
+          description: Strictly above `min_kcal` â€” a band whose ends meet is a single value.
+        display_order:
+          type: integer
+        is_active:
+          type: boolean
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        updated_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    EnergyBandEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [energy_band]
+          properties:
+            energy_band:
+              $ref: '#/components/schemas/EnergyBand'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PlanDurationOption:
+      type: object
+      required: [id, code, duration_kind, duration_days, name_en, name_ar, display_order, is_active]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 40
+        duration_kind:
+          $ref: '#/components/schemas/PlanDurationKind'
+        duration_days:
+          type: ['integer', 'null']
+          minimum: 1
+          description: |
+            **Null exactly when `duration_kind` is `one_off`**, and a positive
+            integer exactly when it is `fixed_days`. Never `0`: that sentinel is
+            what this model removed, and it is not coming back on the wire
+            either.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        display_order:
+          type: integer
+        is_active:
+          type: boolean
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        updated_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    PlanDurationEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [duration]
+          properties:
+            duration:
+              $ref: '#/components/schemas/PlanDurationOption'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PlanProfile:
+      type: object
+      required: [catalogue_item_id, plan_type, pricing_basis, allows_free_selection, skip_allowed, pause_allowed, change_cutoff_hours]
+      description: |
+        The commercial terms of one subscription plan â€” how it is sold, how a
+        price is quoted, and what a subscriber may do to a delivery once it is
+        scheduled.
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        plan_type:
+          $ref: '#/components/schemas/PlanType'
+        pricing_basis:
+          $ref: '#/components/schemas/PlanPricingBasis'
+        allows_free_selection:
+          type: boolean
+          description: Whether a subscriber chooses the dishes, or the kitchen decides.
+        skip_allowed:
+          type: boolean
+        pause_allowed:
+          type: boolean
+        change_cutoff_hours:
+          type: integer
+          minimum: 0
+          description: |
+            How long before a delivery a subscriber may still change it.
+            Defaults to **24**, which is not a guess: the kitchen operating rule
+            and the legacy amendment window state the same thing from opposite
+            directions. `0` means "until the van leaves".
+        summary_en:
+          type: ['string', 'null']
+        summary_ar:
+          type: ['string', 'null']
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        updated_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    PlanProfileEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [item, profile]
+          properties:
+            item:
+              $ref: '#/components/schemas/AdminCatalogueItem'
+            profile:
+              oneOf:
+                - $ref: '#/components/schemas/PlanProfile'
+                - type: 'null'
+              description: |
+                Null when nobody has written terms yet â€” the state the publish
+                gate refuses, and deliberately not filled in with defaults.
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PlanVariantCell:
+      type: object
+      required: [catalogue_item_variant_id, code, status, meal_combination_option_id, energy_band_id, service_tier, includes_snacks, meals_per_day, snacks_per_day]
+      description: |
+        One cell of a plan's availability matrix, together with the variant that
+        carries it. **The variant is the priceable thing**: a price row names
+        `catalogue_item_variant_id`, exactly as it does for a pack.
+      properties:
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 60
+          description: |
+            Derived from the cell's own coordinates unless one was supplied, so
+            resubmitting a cell keeps the variant a price already points at.
+        status:
+          $ref: '#/components/schemas/CatalogueVariantStatus'
+        name_en:
+          type: ['string', 'null']
+        name_ar:
+          type: ['string', 'null']
+        meal_combination_option_id:
+          $ref: '#/components/schemas/Uuid'
+        energy_band_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Null for a kitchen that does not portion by calories â€” a different
+            fact from a band nobody filled in, and part of the cell's identity
+            either way.
+        service_tier:
+          $ref: '#/components/schemas/ServiceTier'
+        includes_snacks:
+          type: boolean
+        meals_per_day:
+          type: integer
+          minimum: 1
+        snacks_per_day:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    PlanVariantsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [item, cells]
+          properties:
+            item:
+              $ref: '#/components/schemas/AdminCatalogueItem'
+            cells:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlanVariantCell'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count]
+              properties:
+                count:
+                  type: integer
+
+    PlanDurationAssignment:
+      type: object
+      required: [id, catalogue_item_variant_id, plan_duration_id, discount_percent, is_available]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        variant_code:
+          type: ['string', 'null']
+          maxLength: 60
+        plan_duration_id:
+          $ref: '#/components/schemas/Uuid'
+        discount_percent:
+          type: ['string', 'null']
+          description: |
+            A decimal string, or **null when nobody has stated a discount** â€”
+            which is commercially different from stating that there is none.
+            Never returned as `0` for an unstated one, and never a float: it is
+            served as `"0.00"` only when somebody actually said zero.
+        is_available:
+          type: boolean
+          description: |
+            False is "we still run this length, just not right now" â€” it keeps
+            the negotiated discount, where dropping the row would discard it.
+      additionalProperties: false
+
+    PlanVariantDurationsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [item, assignments]
+          properties:
+            item:
+              $ref: '#/components/schemas/AdminCatalogueItem'
+            assignments:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlanDurationAssignment'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count, unstated_discount_count]
+              properties:
+                count:
+                  type: integer
+                unstated_discount_count:
+                  type: integer
+                  description: How many assignments still carry no stated discount.
+
+    CreateMealCombinationOptionRequest:
+      type: object
+      required: [code, name_en, meals_per_day]
+      properties:
+        code:
+          type: string
+          maxLength: 40
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: ['string', 'null']
+          maxLength: 255
+          description: |
+            Falls back to the English name: a vocabulary row is a label on a
+            control, and a blank option cannot be chosen.
+        includes_breakfast:
+          type: ['boolean', 'null']
+        includes_lunch:
+          type: ['boolean', 'null']
+        includes_dinner:
+          type: ['boolean', 'null']
+        meals_per_day:
+          type: integer
+          minimum: 1
+          maximum: 12
+        display_order:
+          type: ['integer', 'null']
+          minimum: 0
+      additionalProperties: false
+
+    UpdateMealCombinationOptionRequest:
+      type: object
+      description: |
+        `code` is refused rather than ignored: a configuration identifier is
+        derived from it.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        includes_breakfast:
+          type: boolean
+        includes_lunch:
+          type: boolean
+        includes_dinner:
+          type: boolean
+        meals_per_day:
+          type: integer
+          minimum: 1
+          maximum: 12
+        display_order:
+          type: integer
+          minimum: 0
+        is_active:
+          type: boolean
+      additionalProperties: false
+
+    CreateEnergyBandRequest:
+      type: object
+      required: [code, name_en, min_kcal, max_kcal]
+      properties:
+        code:
+          type: string
+          maxLength: 40
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: ['string', 'null']
+          maxLength: 255
+        min_kcal:
+          type: integer
+          minimum: 0
+          maximum: 20000
+        max_kcal:
+          type: integer
+          minimum: 1
+          maximum: 20000
+        display_order:
+          type: ['integer', 'null']
+          minimum: 0
+      additionalProperties: false
+
+    UpdateEnergyBandRequest:
+      type: object
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        min_kcal:
+          type: integer
+          minimum: 0
+          maximum: 20000
+        max_kcal:
+          type: integer
+          minimum: 1
+          maximum: 20000
+        display_order:
+          type: integer
+          minimum: 0
+        is_active:
+          type: boolean
+      additionalProperties: false
+
+    CreatePlanDurationRequest:
+      type: object
+      required: [code, duration_kind, name_en]
+      description: |
+        `duration_days` is required exactly when `duration_kind` is
+        `fixed_days`, and refused exactly when it is `one_off`. Both mismatches
+        are `422`, and a CHECK constraint refuses them underneath.
+      properties:
+        code:
+          type: string
+          maxLength: 40
+        duration_kind:
+          $ref: '#/components/schemas/PlanDurationKind'
+        duration_days:
+          type: ['integer', 'null']
+          minimum: 1
+          maximum: 3650
+          description: |
+            `0` is refused: it is the sentinel this model removed, not a
+            zero-length subscription.
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: ['string', 'null']
+          maxLength: 255
+        display_order:
+          type: ['integer', 'null']
+          minimum: 0
+      additionalProperties: false
+
+    UpdatePlanDurationRequest:
+      type: object
+      description: |
+        The kind/days correspondence is applied to the **merged** row, so
+        turning a fixed run into a one-off means sending `duration_days: null`
+        as well.
+      properties:
+        duration_kind:
+          $ref: '#/components/schemas/PlanDurationKind'
+        duration_days:
+          type: ['integer', 'null']
+          minimum: 1
+          maximum: 3650
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        display_order:
+          type: integer
+          minimum: 0
+        is_active:
+          type: boolean
+      additionalProperties: false
+
+    PutPlanProfileRequest:
+      type: object
+      description: |
+        The whole small document. Every field is optional and omitted ones take
+        their documented defaults, so `{}` legitimately means "the ordinary
+        terms".
+      properties:
+        plan_type:
+          oneOf:
+            - $ref: '#/components/schemas/PlanType'
+            - type: 'null'
+        pricing_basis:
+          oneOf:
+            - $ref: '#/components/schemas/PlanPricingBasis'
+            - type: 'null'
+        allows_free_selection:
+          type: ['boolean', 'null']
+        skip_allowed:
+          type: ['boolean', 'null']
+          description: |
+            Defaults to true â€” a plan whose profile says nothing about skipping
+            is one a subscriber may skip.
+        pause_allowed:
+          type: ['boolean', 'null']
+        change_cutoff_hours:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 720
+          description: Defaults to 24. Zero is accepted and means "until the van leaves".
+        summary_en:
+          type: ['string', 'null']
+          maxLength: 2000
+        summary_ar:
+          type: ['string', 'null']
+          maxLength: 2000
+      additionalProperties: false
+
+    ReplacePlanVariantsRequest:
+      type: object
+      required: [cells]
+      description: |
+        The complete matrix. `cells` is required but may be empty: an empty
+        array archives every configuration, which is a decision a kitchen makes
+        and not a field they forgot.
+
+        `variant_type` is not a field â€” it is derived from the item's own type â€”
+        and neither is `catalogue_item_id`, which is in the URL.
+      properties:
+        cells:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [meal_combination_option_id, meals_per_day]
+            properties:
+              code:
+                type: ['string', 'null']
+                maxLength: 60
+                description: |
+                  Omitted is the ordinary case: the server derives
+                  `combination-tier[-band]` from the cell's own coordinates, so
+                  a 4 Ã— 2 Ã— 5 matrix needs no hand-typed identifiers.
+              name_en:
+                type: ['string', 'null']
+                maxLength: 255
+              name_ar:
+                type: ['string', 'null']
+                maxLength: 255
+              status:
+                oneOf:
+                  - $ref: '#/components/schemas/CatalogueVariantStatus'
+                  - type: 'null'
+              meal_combination_option_id:
+                $ref: '#/components/schemas/Uuid'
+              energy_band_id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+              service_tier:
+                oneOf:
+                  - $ref: '#/components/schemas/ServiceTier'
+                  - type: 'null'
+              includes_snacks:
+                type: ['boolean', 'null']
+                description: |
+                  Must agree with `snacks_per_day`: the contradiction is 422,
+                  not a silent resolution.
+              meals_per_day:
+                type: integer
+                minimum: 1
+                maximum: 12
+              snacks_per_day:
+                type: ['integer', 'null']
+                minimum: 0
+                maximum: 12
+            additionalProperties: false
+      additionalProperties: false
+
+    ReplacePlanVariantDurationsRequest:
+      type: object
+      required: [assignments]
+      description: |
+        The complete set of configuration Ã— duration pairings. Empty removes
+        every one of them.
+
+        Each row names its configuration by `catalogue_item_variant_id` **or**
+        `variant_code`, and its duration by `plan_duration_id` **or**
+        `duration_code`.
+      properties:
+        assignments:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            properties:
+              catalogue_item_variant_id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+              variant_code:
+                type: ['string', 'null']
+                maxLength: 60
+              plan_duration_id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+              duration_code:
+                type: ['string', 'null']
+                maxLength: 40
+              discount_percent:
+                type: ['number', 'string', 'null']
+                minimum: 0
+                exclusiveMaximum: 100
+                description: |
+                  **Omitted or null means nobody has stated a discount**, and it
+                  is stored and returned as null. Send `0` to state that there
+                  is none â€” that is a different row for every reader afterwards.
+              is_available:
+                type: ['boolean', 'null']
             additionalProperties: false
       additionalProperties: false
