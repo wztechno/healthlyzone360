@@ -68,20 +68,34 @@ final class PermissionRegistry
             'entitlement.view_organisation' => ['domain' => 'entitlement', 'description' => 'View feature entitlements of the organisation'],
             'subscription.view_organisation' => ['domain' => 'subscription', 'description' => 'View subscriptions of the organisation'],
             'audit.view_organisation' => ['domain' => 'audit', 'description' => 'View the audit trail of the organisation'],
+
+            // Phase K1.1 — the kitchen catalogue. Only the codes this slice's
+            // endpoints raise; recipes, plans, prices and delivery zones
+            // arrive with the slices that serve them.
+            'catalogue.view_organisation' => ['domain' => 'catalogue', 'description' => 'View the ingredient catalogue of the organisation'],
+            'catalogue.manage_organisation' => ['domain' => 'catalogue', 'description' => 'Create and update ingredients, categories, aliases and allergen mappings of the organisation'],
         ];
     }
 
     /**
-     * Permissions only a platform operator may hold. Deliberately empty: the
-     * foundation exposes no platform-operator surface, and every phase adds
-     * only the codes its own endpoints raise. A code added here is unreachable
-     * from any organisation template role by construction.
+     * Permissions only a platform operator may hold. Every phase adds only the
+     * codes its own endpoints raise, and a code added here is unreachable from
+     * any organisation template role by construction — `templateRoles()` is
+     * built from `organisationPermissions()` alone.
+     *
+     * K1.1 introduces the first two: the regulatory allergen vocabulary is
+     * shared by every tenant, so nobody inside a tenant may edit it. Granting
+     * these is a deliberate act on a bespoke organisation role inside the
+     * platform-operator organisation, never an inheritance.
      *
      * @return array<string, array{domain: string, description: string}>
      */
     public static function platformPermissions(): array
     {
-        return [];
+        return [
+            'reference.view_platform' => ['domain' => 'reference', 'description' => 'View platform reference vocabularies, including inactive entries'],
+            'reference.manage_platform' => ['domain' => 'reference', 'description' => 'Create, update and deactivate platform reference vocabularies'],
+        ];
     }
 
     /**
@@ -151,6 +165,53 @@ final class PermissionRegistry
                 'permissions' => array_merge([
                     'organisation.view_current',
                 ], $ownScope),
+            ],
+
+            // ── Kitchen roles (phase K1) ─────────────────────────────────
+            //
+            // Introduced with K1.1 holding only the codes that exist today.
+            // Later K1 slices widen them as they introduce recipe, plan,
+            // price and delivery permissions; TemplateRoleSeeder reconciles
+            // grants on every run, so widening a role here is enough and a
+            // code removed from a role is removed from the database too.
+            //
+            // No platform template role exists, and none ever will: an
+            // organisation template must never carry a platform code, so the
+            // platform-operator organisation grants `reference.*_platform`
+            // through a bespoke organisation-scoped role instead
+            // (DemoTenantSeeder demonstrates the path).
+            'kitchen_manager' => [
+                'name_en' => 'Kitchen manager',
+                'name_ar' => 'مدير المطبخ',
+                'permissions' => [
+                    'catalogue.view_organisation',
+                    'catalogue.manage_organisation',
+                    'organisation.view_current',
+                    'branch.view_current',
+                    'membership.view_organisation',
+                ],
+            ],
+            'kitchen_chef' => [
+                'name_en' => 'Chef',
+                'name_ar' => 'رئيس الطهاة',
+                'permissions' => [
+                    'catalogue.view_organisation',
+                    'catalogue.manage_organisation',
+                ],
+            ],
+            'kitchen_staff' => [
+                'name_en' => 'Kitchen staff',
+                'name_ar' => 'طاقم المطبخ',
+                'permissions' => [
+                    'catalogue.view_organisation',
+                ],
+            ],
+            'commercial_manager' => [
+                'name_en' => 'Commercial manager',
+                'name_ar' => 'المدير التجاري',
+                'permissions' => [
+                    'catalogue.view_organisation',
+                ],
             ],
         ];
     }

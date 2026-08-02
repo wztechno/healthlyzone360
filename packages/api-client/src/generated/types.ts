@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'authz.permission_denied' | 'request.invalid' | 'resource.not_found' | 'resource.conflict' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'resource.not_found' | 'resource.conflict' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -238,6 +238,330 @@ export type TwoFactorChallengeRequest = {
     recovery_code?: string | null;
 };
 
+export type PaginationMeta = Meta & {
+    /**
+     * Items on this page, after the extra look-ahead row is trimmed.
+     */
+    count: number;
+    /**
+     * Pass as `cursor` for the next page. Null when there is none.
+     */
+    next_cursor: string | null;
+    /**
+     * Whether another page exists. Answered by reading one row
+     * beyond the page rather than by a separate count, which would
+     * disagree with the page under concurrent writes.
+     *
+     */
+    has_more: boolean;
+};
+
+/**
+ * A canonical allergen class code — an immutable regulatory identity.
+ * Never renamed and never deleted; a class that should no longer be
+ * offered is deactivated instead. The fourteen seeded values match the
+ * universal client's `AllergenCode` union one for one.
+ *
+ */
+export type AllergenCode = string;
+
+/**
+ * The operational lifecycle of an ingredient. Deliberately not the
+ * publication family (`draft`/`published`/…): an ingredient is never
+ * sold, so it has no publication state of its own.
+ *
+ */
+export type IngredientStatus = 'active' | 'inactive' | 'archived';
+
+/**
+ * How much the platform trusts what it holds about this ingredient.
+ * `requires_review` is a recorded contradiction awaiting a human — the
+ * seeded burghul and pita rows carry it because the source workbook
+ * tags them allergen-free while its own allergen key does not.
+ *
+ */
+export type IngredientVerificationStatus = 'verified' | 'unverified' | 'requires_review';
+
+/**
+ * Local availability in the launch market. Null where the source does not say.
+ */
+export type AvailabilityTier = 'core' | 'common' | 'specialty_imported' | null;
+
+/**
+ * The administrative shape of an ingredient. Carries **both** names and
+ * ignores `Accept-Language` for them: a bilingual editor has to see what
+ * it is editing. There is no public ingredient projection.
+ *
+ */
+export type AdminIngredient = {
+    id: Uuid;
+    /**
+     * Null for a platform-library row.
+     */
+    organisation_id: Uuid | null;
+    /**
+     * Whether this is a platform-library row. On the wire so a client
+     * knows not to offer an edit control, rather than discovering it
+     * from a 403.
+     *
+     */
+    is_platform: boolean;
+    slug: string;
+    name_en: string;
+    /**
+     * Falls back to the English name where no Arabic exists.
+     */
+    name_ar: string;
+    ingredient_category_id: Uuid | null;
+    ingredient_subcategory_id: Uuid | null;
+    default_unit_id: Uuid;
+    default_unit_code?: string | null;
+    /**
+     * Decimal with four places, as a string so no client rounds it.
+     */
+    yield_factor: string;
+    forked_from_ingredient_id?: Uuid | null;
+    availability_tier?: AvailabilityTier;
+    status: IngredientStatus;
+    verification_status: IngredientVerificationStatus;
+    notes?: string | null;
+    source_system?: string | null;
+    source_ref?: string | null;
+    /**
+     * Also served as the `ETag` of the single-resource GET.
+     */
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type IngredientEnvelope = {
+    data: {
+        ingredient: AdminIngredient;
+    };
+    meta: Meta;
+};
+
+export type IngredientAlias = {
+    id: Uuid;
+    /**
+     * Verbatim, as the source or the operator wrote it.
+     */
+    alias: string;
+    /**
+     * Server-derived: lower-cased, trimmed, internal whitespace
+     * collapsed. Deliberately conservative — it does not stem or strip
+     * punctuation, because "Paprika Sweet" and "Paprika Smoked" are
+     * different ingredients.
+     *
+     */
+    alias_normalised: string;
+    locale?: 'en' | 'ar' | null;
+    source_system?: string | null;
+    source_ref?: string | null;
+};
+
+export type IngredientCategory = {
+    id: Uuid;
+    organisation_id: Uuid | null;
+    is_platform: boolean;
+    /**
+     * Null for a top-level category.
+     */
+    parent_id: Uuid | null;
+    code: string;
+    name_en: string;
+    name_ar: string;
+    display_order: number;
+    is_active: boolean;
+};
+
+export type IngredientCategoryEnvelope = {
+    data: {
+        category: IngredientCategory;
+    };
+    meta: Meta;
+};
+
+export type IngredientAllergenMapping = {
+    id: Uuid;
+    allergen_code: AllergenCode;
+    /**
+     * Derived, not stored. The client renders a baseline row read-only
+     * and its own overlay editable; asking it to infer that from a
+     * nullable identifier is how a UI ends up offering an edit control
+     * that always 403s.
+     *
+     */
+    layer: 'platform_baseline' | 'organisation_overlay';
+    organisation_id: Uuid | null;
+    /**
+     * An ingredient of the ingredient, or a cross-contact risk. Legally different statements.
+     */
+    containment: 'contains' | 'may_contain';
+    /**
+     * EU-14 and US Big-9 are different lists. Coconut is a tree nut
+     * under US law and not an EU allergen, so it is carried as a
+     * `us_only` mapping rather than a note nobody reads.
+     *
+     */
+    market_scope: 'all' | 'us_only' | 'eu_only';
+    source: 'master_list' | 'technical_sheet' | 'supplier_declaration' | 'kitchen_declared' | 'inferred';
+    verification_status: 'verified' | 'unverified' | 'requires_review' | 'requires_supplier_confirmation';
+    /**
+     * Free text supporting the statement — a supplier reference, a sheet, a note.
+     */
+    evidence?: string | null;
+};
+
+export type IngredientAllergenCollection = {
+    data: Array<IngredientAllergenMapping>;
+    meta: Meta;
+};
+
+export type CreateIngredientRequest = {
+    name_en: string;
+    /**
+     * Falls back to the English name when absent.
+     */
+    name_ar?: string | null;
+    /**
+     * Derived from the name when absent, and de-duplicated within the organisation.
+     */
+    slug?: string | null;
+    ingredient_category_id?: Uuid | null;
+    ingredient_subcategory_id?: Uuid | null;
+    default_unit_id: Uuid;
+    yield_factor?: number;
+    availability_tier?: AvailabilityTier;
+    notes?: string | null;
+};
+
+/**
+ * A partial update. `slug` and `status` are absent by design — the slug
+ * is the handle a re-import converges on, and status changes are
+ * lifecycle actions with their own routes.
+ *
+ */
+export type UpdateIngredientRequest = {
+    name_en?: string;
+    name_ar?: string;
+    ingredient_category_id?: Uuid | null;
+    ingredient_subcategory_id?: Uuid | null;
+    default_unit_id?: Uuid;
+    yield_factor?: number;
+    availability_tier?: AvailabilityTier;
+    notes?: string | null;
+};
+
+export type ReplaceIngredientAllergensRequest = {
+    /**
+     * The scope whose set is being replaced. Other scopes are untouched.
+     */
+    market_scope?: 'all' | 'us_only' | 'eu_only';
+    /**
+     * The complete statement for this scope and this layer. An empty
+     * array means "no allergens", which is a statement rather than a
+     * missing field — and is refused where a platform baseline would be
+     * weakened by it.
+     *
+     */
+    mappings: Array<{
+        allergen_code: AllergenCode;
+        containment: 'contains' | 'may_contain';
+        source?: 'master_list' | 'technical_sheet' | 'supplier_declaration' | 'kitchen_declared' | 'inferred' | null;
+        verification_status?: 'verified' | 'unverified' | 'requires_review' | 'requires_supplier_confirmation' | null;
+        evidence?: string | null;
+    }>;
+};
+
+/**
+ * The anonymous projection of an allergen class: exactly one
+ * server-localised name and description, plus the regulatory metadata a
+ * customer needs to read a label correctly.
+ *
+ */
+export type PublicAllergenClass = {
+    code: AllergenCode;
+    /**
+     * Localised from `Accept-Language` (`en` or `ar`).
+     */
+    name: string;
+    description?: string | null;
+    regulatory_ref: string;
+    is_eu_14: boolean;
+    is_us_big_9: boolean;
+    /**
+     * Whether US labelling requires a declaration above a threshold.
+     */
+    us_declaration_required: boolean;
+    /**
+     * The declaration threshold in parts per million — 10 for sulphites.
+     */
+    us_threshold_ppm?: number | null;
+    display_order: number;
+};
+
+/**
+ * The governance shape: both languages, and the activation flag the
+ * public projection has no business carrying.
+ *
+ */
+export type AdminAllergenClass = {
+    code: AllergenCode;
+    name_en: string;
+    name_ar: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    regulatory_ref: string;
+    is_eu_14: boolean;
+    is_us_big_9: boolean;
+    us_declaration_required: boolean;
+    us_threshold_ppm?: number | null;
+    display_order: number;
+    is_active: boolean;
+};
+
+export type AllergenClassEnvelope = {
+    data: {
+        allergen_class: AdminAllergenClass;
+    };
+    meta: Meta;
+};
+
+export type CreateAllergenClassRequest = {
+    code: AllergenCode;
+    name_en: string;
+    name_ar: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    regulatory_ref: string;
+    is_eu_14: boolean;
+    is_us_big_9: boolean;
+    us_declaration_required?: boolean | null;
+    us_threshold_ppm?: number | null;
+    display_order?: number | null;
+};
+
+/**
+ * `code` is deliberately absent and is actively rejected rather than
+ * ignored: a request that appeared to rename a regulatory identity and
+ * quietly did nothing would be worse than one that failed.
+ *
+ */
+export type UpdateAllergenClassRequest = {
+    name_en?: string;
+    name_ar?: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    regulatory_ref?: string;
+    is_eu_14?: boolean;
+    is_us_big_9?: boolean;
+    us_declaration_required?: boolean;
+    us_threshold_ppm?: number | null;
+    display_order?: number;
+};
+
 /**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
@@ -285,6 +609,39 @@ export type XClientVersion = string;
  * The client platform.
  */
 export type XClientPlatform = 'web' | 'ios' | 'android';
+
+/**
+ * The `ETag` the resource was last served with. Required on writes to
+ * lock-versioned resources: absent is **428**
+ * `request.precondition_required`, stale is **409** `resource.conflict`
+ * carrying `details.current_lock_version`. `*` is accepted and means
+ * "as long as the resource exists".
+ *
+ */
+export type IfMatch = string;
+
+/**
+ * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+ * never construct one. A cursor this endpoint did not issue is
+ * `400 request.invalid`, never a silent restart from the beginning.
+ *
+ */
+export type Cursor = string;
+
+/**
+ * Page size.
+ */
+export type CursorLimit = number;
+
+/**
+ * The ingredient identifier.
+ */
+export type IngredientPath = Uuid;
+
+/**
+ * The canonical allergen class code.
+ */
+export type AllergenCodePath = AllergenCode;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -1555,3 +1912,1173 @@ export type ShowCurrentOrganisationResponses = {
 };
 
 export type ShowCurrentOrganisationResponse = ShowCurrentOrganisationResponses[keyof ShowCurrentOrganisationResponses];
+
+export type ListIngredientsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Case-insensitive substring match over both names and every alias.
+         */
+        query?: string;
+        /**
+         * Restrict to one lifecycle state. Omitted, the list covers `active` and `inactive`.
+         */
+        status?: IngredientStatus;
+        /**
+         * Restrict to one category or sub-category identifier.
+         */
+        category?: Uuid;
+    };
+    url: '/catalogue/ingredients';
+};
+
+export type ListIngredientsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListIngredientsError = ListIngredientsErrors[keyof ListIngredientsErrors];
+
+export type ListIngredientsResponses = {
+    /**
+     * A page of ingredients.
+     */
+    200: {
+        data: Array<AdminIngredient>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListIngredientsResponse = ListIngredientsResponses[keyof ListIngredientsResponses];
+
+export type CreateIngredientData = {
+    body: CreateIngredientRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/ingredients';
+};
+
+export type CreateIngredientErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateIngredientError = CreateIngredientErrors[keyof CreateIngredientErrors];
+
+export type CreateIngredientResponses = {
+    /**
+     * The ingredient was created.
+     */
+    201: IngredientEnvelope;
+};
+
+export type CreateIngredientResponse = CreateIngredientResponses[keyof CreateIngredientResponses];
+
+export type ShowIngredientData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}';
+};
+
+export type ShowIngredientErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowIngredientError = ShowIngredientErrors[keyof ShowIngredientErrors];
+
+export type ShowIngredientResponses = {
+    /**
+     * The ingredient.
+     */
+    200: {
+        data: {
+            ingredient: AdminIngredient;
+            aliases: Array<IngredientAlias>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ShowIngredientResponse = ShowIngredientResponses[keyof ShowIngredientResponses];
+
+export type UpdateIngredientData = {
+    body: UpdateIngredientRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}';
+};
+
+export type UpdateIngredientErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateIngredientError = UpdateIngredientErrors[keyof UpdateIngredientErrors];
+
+export type UpdateIngredientResponses = {
+    /**
+     * The updated ingredient, with its new validator.
+     */
+    200: IngredientEnvelope;
+};
+
+export type UpdateIngredientResponse = UpdateIngredientResponses[keyof UpdateIngredientResponses];
+
+export type ArchiveIngredientData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/archive';
+};
+
+export type ArchiveIngredientErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveIngredientError = ArchiveIngredientErrors[keyof ArchiveIngredientErrors];
+
+export type ArchiveIngredientResponses = {
+    /**
+     * The archived ingredient.
+     */
+    200: IngredientEnvelope;
+};
+
+export type ArchiveIngredientResponse = ArchiveIngredientResponses[keyof ArchiveIngredientResponses];
+
+export type ListIngredientAllergensData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/allergens';
+};
+
+export type ListIngredientAllergensErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListIngredientAllergensError = ListIngredientAllergensErrors[keyof ListIngredientAllergensErrors];
+
+export type ListIngredientAllergensResponses = {
+    /**
+     * The visible allergen mappings.
+     */
+    200: IngredientAllergenCollection;
+};
+
+export type ListIngredientAllergensResponse = ListIngredientAllergensResponses[keyof ListIngredientAllergensResponses];
+
+export type ReplaceIngredientAllergensData = {
+    body: ReplaceIngredientAllergensRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/allergens';
+};
+
+export type ReplaceIngredientAllergensErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid. On an allergen replacement this is
+     * usually the upgrade-only rule:
+     * `details.weakened_allergen_classes` names the platform baseline
+     * classes the request would have dropped or weakened.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceIngredientAllergensError = ReplaceIngredientAllergensErrors[keyof ReplaceIngredientAllergensErrors];
+
+export type ReplaceIngredientAllergensResponses = {
+    /**
+     * The mappings now visible for this ingredient.
+     */
+    200: IngredientAllergenCollection;
+};
+
+export type ReplaceIngredientAllergensResponse = ReplaceIngredientAllergensResponses[keyof ReplaceIngredientAllergensResponses];
+
+export type ListIngredientAliasesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/aliases';
+};
+
+export type ListIngredientAliasesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListIngredientAliasesError = ListIngredientAliasesErrors[keyof ListIngredientAliasesErrors];
+
+export type ListIngredientAliasesResponses = {
+    /**
+     * The aliases of this ingredient.
+     */
+    200: {
+        data: Array<IngredientAlias>;
+        meta: Meta;
+    };
+};
+
+export type ListIngredientAliasesResponse = ListIngredientAliasesResponses[keyof ListIngredientAliasesResponses];
+
+export type AddIngredientAliasData = {
+    body: {
+        /**
+         * Verbatim, as the operator wrote it.
+         */
+        alias: string;
+        locale?: 'en' | 'ar' | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/aliases';
+};
+
+export type AddIngredientAliasErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddIngredientAliasError = AddIngredientAliasErrors[keyof AddIngredientAliasErrors];
+
+export type AddIngredientAliasResponses = {
+    /**
+     * The alias was added.
+     */
+    201: {
+        data: {
+            alias: IngredientAlias;
+        };
+        meta: Meta;
+    };
+};
+
+export type AddIngredientAliasResponse = AddIngredientAliasResponses[keyof AddIngredientAliasResponses];
+
+export type RemoveIngredientAliasData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+        /**
+         * The alias identifier.
+         */
+        alias: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/aliases/{alias}';
+};
+
+export type RemoveIngredientAliasErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveIngredientAliasError = RemoveIngredientAliasErrors[keyof RemoveIngredientAliasErrors];
+
+export type RemoveIngredientAliasResponses = {
+    /**
+     * The alias was removed.
+     */
+    204: void;
+};
+
+export type RemoveIngredientAliasResponse = RemoveIngredientAliasResponses[keyof RemoveIngredientAliasResponses];
+
+export type ListIngredientCategoriesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/ingredient-categories';
+};
+
+export type ListIngredientCategoriesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListIngredientCategoriesError = ListIngredientCategoriesErrors[keyof ListIngredientCategoriesErrors];
+
+export type ListIngredientCategoriesResponses = {
+    /**
+     * Every visible category.
+     */
+    200: {
+        data: Array<IngredientCategory>;
+        meta: Meta;
+    };
+};
+
+export type ListIngredientCategoriesResponse = ListIngredientCategoriesResponses[keyof ListIngredientCategoriesResponses];
+
+export type CreateIngredientCategoryData = {
+    body: {
+        code: string;
+        name_en: string;
+        /**
+         * Falls back to the English name when absent.
+         */
+        name_ar?: string | null;
+        parent_id?: Uuid | null;
+        display_order?: number;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/ingredient-categories';
+};
+
+export type CreateIngredientCategoryErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateIngredientCategoryError = CreateIngredientCategoryErrors[keyof CreateIngredientCategoryErrors];
+
+export type CreateIngredientCategoryResponses = {
+    /**
+     * The category was created.
+     */
+    201: IngredientCategoryEnvelope;
+};
+
+export type CreateIngredientCategoryResponse = CreateIngredientCategoryResponses[keyof CreateIngredientCategoryResponses];
+
+export type UpdateIngredientCategoryData = {
+    body: {
+        name_en?: string;
+        name_ar?: string;
+        parent_id?: Uuid | null;
+        display_order?: number;
+        is_active?: boolean;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The category identifier.
+         */
+        category: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredient-categories/{category}';
+};
+
+export type UpdateIngredientCategoryErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateIngredientCategoryError = UpdateIngredientCategoryErrors[keyof UpdateIngredientCategoryErrors];
+
+export type UpdateIngredientCategoryResponses = {
+    /**
+     * The updated category.
+     */
+    200: IngredientCategoryEnvelope;
+};
+
+export type UpdateIngredientCategoryResponse = UpdateIngredientCategoryResponses[keyof UpdateIngredientCategoryResponses];
+
+export type ListAllergenClassesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/reference/allergen-classes';
+};
+
+export type ListAllergenClassesErrors = {
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListAllergenClassesError = ListAllergenClassesErrors[keyof ListAllergenClassesErrors];
+
+export type ListAllergenClassesResponses = {
+    /**
+     * The active allergen classes, in display order.
+     */
+    200: {
+        data: Array<PublicAllergenClass>;
+        meta: Meta & {
+            count?: number;
+            /**
+             * The locale the names were rendered in.
+             */
+            locale?: 'en' | 'ar';
+        };
+    };
+};
+
+export type ListAllergenClassesResponse = ListAllergenClassesResponses[keyof ListAllergenClassesResponses];
+
+export type CreateAllergenClassData = {
+    body: CreateAllergenClassRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/reference/allergen-classes';
+};
+
+export type CreateAllergenClassErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateAllergenClassError = CreateAllergenClassErrors[keyof CreateAllergenClassErrors];
+
+export type CreateAllergenClassResponses = {
+    /**
+     * The allergen class was created.
+     */
+    201: AllergenClassEnvelope;
+};
+
+export type CreateAllergenClassResponse = CreateAllergenClassResponses[keyof CreateAllergenClassResponses];
+
+export type UpdateAllergenClassData = {
+    body: UpdateAllergenClassRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The canonical allergen class code.
+         */
+        code: AllergenCode;
+    };
+    query?: never;
+    url: '/reference/allergen-classes/{code}';
+};
+
+export type UpdateAllergenClassErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateAllergenClassError = UpdateAllergenClassErrors[keyof UpdateAllergenClassErrors];
+
+export type UpdateAllergenClassResponses = {
+    /**
+     * The updated allergen class.
+     */
+    200: AllergenClassEnvelope;
+};
+
+export type UpdateAllergenClassResponse = UpdateAllergenClassResponses[keyof UpdateAllergenClassResponses];
+
+export type DeactivateAllergenClassData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The canonical allergen class code.
+         */
+        code: AllergenCode;
+    };
+    query?: never;
+    url: '/reference/allergen-classes/{code}/deactivate';
+};
+
+export type DeactivateAllergenClassErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeactivateAllergenClassError = DeactivateAllergenClassErrors[keyof DeactivateAllergenClassErrors];
+
+export type DeactivateAllergenClassResponses = {
+    /**
+     * The withdrawn allergen class.
+     */
+    200: AllergenClassEnvelope;
+};
+
+export type DeactivateAllergenClassResponse = DeactivateAllergenClassResponses[keyof DeactivateAllergenClassResponses];

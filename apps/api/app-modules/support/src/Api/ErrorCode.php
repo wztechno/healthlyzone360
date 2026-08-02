@@ -34,6 +34,15 @@ enum ErrorCode: string
     case AuthzPermissionDenied = 'authz.permission_denied';
 
     case RequestInvalid = 'request.invalid';
+
+    /**
+     * A write to a lock-versioned resource arrived without `If-Match`
+     * (master plan v2 §4.13). Distinct from `resource.conflict`: the client
+     * has not lost a race, it never entered one, and the fix is to read the
+     * resource and retry with its validator rather than to reload and merge.
+     */
+    case RequestPreconditionRequired = 'request.precondition_required';
+
     case ResourceNotFound = 'resource.not_found';
     case ResourceConflict = 'resource.conflict';
 
@@ -59,6 +68,7 @@ enum ErrorCode: string
             self::AuthzPermissionDenied => 403,
             self::ResourceNotFound => 404,
             self::ResourceConflict => 409,
+            self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
             self::AuthInvalidCredentials,
@@ -89,6 +99,7 @@ enum ErrorCode: string
             self::ContextBranchOutOfScope => 'The requested branch is not within your membership scope.',
             self::AuthzPermissionDenied => 'You do not have permission to perform this action.',
             self::RequestInvalid => 'The request could not be processed as sent.',
+            self::RequestPreconditionRequired => 'This resource requires an If-Match header carrying the version you last read.',
             self::ResourceNotFound => 'The requested resource does not exist.',
             self::ResourceConflict => 'The requested change conflicts with the current state of the resource.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
@@ -110,6 +121,7 @@ enum ErrorCode: string
             409 => self::ResourceConflict,
             419 => self::AuthCsrfTokenMismatch,
             422 => self::ValidationFailed,
+            428 => self::RequestPreconditionRequired,
             429 => self::RateLimitExceeded,
             default => $status >= 400 && $status < 500 ? self::RequestInvalid : self::ServerInternalError,
         };

@@ -416,7 +416,10 @@ it('still migrates and seeds under the owner role with row-level security enable
     // of the six protected tables with no session context whatsoever.
     $this->seed();
 
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(4)
+    // Eight platform template roles since K1.1: the four foundation roles plus
+    // kitchen_manager, kitchen_chef, kitchen_staff and commercial_manager.
+    // Pinned so a new template role has to be a deliberate act.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(ConsentDefinition::query()->count())->toBeGreaterThan(1);

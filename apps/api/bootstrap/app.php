@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use Healthy360\AccessControl\Http\Middleware\RequirePermission;
+use Healthy360\AccessControl\Http\Middleware\RequirePlatformContext;
 use Healthy360\Identity\Http\Middleware\EnsureEmailIsVerified;
 use Healthy360\Identity\Http\Middleware\EnsureStatefulRequest;
 use Healthy360\Identity\Http\Middleware\RequireStepUp;
 use Healthy360\Identity\Http\Middleware\TouchUserDevice;
 use Healthy360\Support\Api\ApiExceptionRenderer;
 use Healthy360\Support\Http\Middleware\AssignCorrelationId;
+use Healthy360\Support\Http\Middleware\RequirePrecondition;
 use Healthy360\Tenancy\Http\Middleware\ResolveBranchContext;
 use Healthy360\Tenancy\Http\Middleware\ResolveOrganisationContext;
 use Healthy360\Tenancy\Http\Middleware\SetDatabaseTenantContext;
@@ -56,8 +58,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'db.context' => SetDatabaseTenantContext::class,
             'org.context' => ResolveOrganisationContext::class,
             'branch.context' => ResolveBranchContext::class,
+
+            // Platform-operator surfaces: the selected organisation must be
+            // the platform itself, on top of the platform permission.
+            'platform.context' => RequirePlatformContext::class,
+
             'permission' => RequirePermission::class,
             'step-up' => RequireStepUp::class,
+
+            // Optimistic concurrency: a write to a lock-versioned resource
+            // must carry the version it was written against (428 without).
+            'precondition' => RequirePrecondition::class,
             'stateful' => EnsureStatefulRequest::class,
             'device.touch' => TouchUserDevice::class,
 

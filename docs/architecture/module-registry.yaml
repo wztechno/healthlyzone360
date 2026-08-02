@@ -109,15 +109,26 @@ modules:
     description: Nutritional facts, macro/micronutrient values, calorie and energy calculations with stated basis and limitations.
     depends_on: [Ingredients, ReferenceData]
 
+  # ── Kitchen catalogue foundation (phase K1) ───────────────────────────────
+  #
+  # Dependency amendment (K1.1): the edge between these two used to run
+  # Allergens → Ingredients. It now runs the other way. The allergen classes
+  # are a standalone regulatory vocabulary that knows nothing about
+  # ingredients; it is the ingredient-to-allergen mapping — an attribute of an
+  # ingredient, written only by ingredient services — that needs the
+  # vocabulary. Declaring both directions would be a cycle, and this is the
+  # direction the code actually takes.
   - name: Ingredients
-    status: planned
-    description: Ingredient master database, categories, units and portion/quantity conversion.
-    depends_on: [ReferenceData]
+    status: foundation
+    phase: 2
+    description: Ingredient master database (platform library plus tenant rows), categories, aliases, allergen mappings, designation resolution.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Allergens]
 
   - name: Allergens
-    status: planned
-    description: Allergen identification, dietary classifications and special-instruction flags.
-    depends_on: [Ingredients]
+    status: foundation
+    phase: 2
+    description: Canonical allergen classes (code-keyed regulatory identities), market applicability and thresholds, platform governance and the public class list.
+    depends_on: [Support, Tenancy, Audit]
 
   # Nutrition edge dropped (master plan v2 §5): no nutrition data exists in the
   # Phase-1 sources, so recipes cannot depend on it. The edge returns with N1.

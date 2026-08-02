@@ -8,8 +8,19 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
+use Healthy360\Allergens\Models\Allergen;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Features\Models\FeatureDefinition;
+use Healthy360\Ingredients\Enums\AllergenContainment;
+use Healthy360\Ingredients\Enums\AllergenMappingSource;
+use Healthy360\Ingredients\Enums\AllergenMarketScope;
+use Healthy360\Ingredients\Enums\AllergenVerificationStatus;
+use Healthy360\Ingredients\Enums\IngredientStatus;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
+use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientAlias;
+use Healthy360\Ingredients\Models\IngredientAllergen;
+use Healthy360\Ingredients\Models\IngredientCategory;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
@@ -75,11 +86,133 @@ it('seeds the launch languages with the correct direction', function (): void {
         ->and($languages['fr']->is_active)->toBeFalse();
 });
 
-it('seeds the foundation measurement units', function (): void {
+it('seeds the foundation and kitchen measurement units', function (): void {
     expect(MeasurementUnit::query()->pluck('code')->all())->toEqualCanonicalizing([
         'g', 'mg', 'kg', 'ml', 'l', 'cm', 'm', 'kcal', 'kJ', 'piece', 'serving', 'tsp', 'tbsp', 'cup',
+        'gallon', 'bunch', 'can', 'bag', 'bottle',
     ])->and(MeasurementUnit::query()->pluck('unit_system')->unique()->values()->all())
-        ->toEqualCanonicalizing(['metric', 'clinical', 'imperial']);
+        ->toEqualCanonicalizing(['metric', 'clinical', 'imperial', 'packaging']);
+});
+
+it('gives every measurement unit a dimension conversion can be trusted within', function (): void {
+    $dimensions = MeasurementUnit::query()->pluck('dimension', 'code')->all();
+
+    expect($dimensions)->toMatchArray([
+        'g' => 'mass', 'mg' => 'mass', 'kg' => 'mass',
+        'ml' => 'volume', 'l' => 'volume', 'tsp' => 'volume', 'tbsp' => 'volume', 'cup' => 'volume', 'gallon' => 'volume',
+        'cm' => 'length', 'm' => 'length',
+        'kcal' => 'energy', 'kJ' => 'energy',
+        'piece' => 'count',
+        'serving' => 'serving',
+        'bunch' => 'package', 'can' => 'package', 'bag' => 'package', 'bottle' => 'package',
+    ])->and(array_values(array_unique(array_values($dimensions))))
+        ->toEqualCanonicalizing(['mass', 'volume', 'length', 'energy', 'count', 'serving', 'package']);
+});
+
+it('seeds the fourteen canonical allergen classes with their market metadata', function (): void {
+    $classes = Allergen::query()->orderBy('display_order')->get()->keyBy('code');
+
+    expect($classes)->toHaveCount(14)
+        ->and($classes->keys()->all())->toBe([
+            'gluten', 'crustaceans', 'egg', 'fish', 'peanut', 'soy', 'milk', 'tree_nut',
+            'celery', 'mustard', 'sesame', 'sulphites', 'lupin', 'mollusc',
+        ])
+        ->and($classes->pluck('regulatory_ref')->all())->toBe([
+            'ALG-01', 'ALG-02', 'ALG-03', 'ALG-04', 'ALG-05', 'ALG-06', 'ALG-07',
+            'ALG-08', 'ALG-09', 'ALG-10', 'ALG-11', 'ALG-12', 'ALG-13', 'ALG-14',
+        ])
+        ->and($classes->where('is_eu_14', false)->keys()->all())->toBe([])
+        ->and($classes->where('is_us_big_9', false)->keys()->sort()->values()->all())
+        ->toBe(['celery', 'lupin', 'mollusc', 'mustard', 'sulphites'])
+        ->and($classes['sulphites']->us_declaration_required)->toBeTrue()
+        ->and($classes['sulphites']->us_threshold_ppm)->toBe(10)
+        ->and($classes->where('us_declaration_required', true)->keys()->all())->toBe(['sulphites'])
+        ->and($classes->where('name_ar', '')->count())->toBe(0);
+});
+
+it('seeds the platform ingredient library with its taxonomy and aliases', function (): void {
+    $ingredients = Ingredient::withoutTenancy()->whereNull('organisation_id')->get();
+
+    expect($ingredients)->toHaveCount(213)
+        ->and($ingredients->pluck('source_system')->unique()->all())->toBe(['healthy360_platform'])
+        ->and($ingredients->pluck('source_ref')->unique())->toHaveCount(213)
+        ->and($ingredients->whereNull('seeded_at')->count())->toBe(0)
+        ->and($ingredients->where('status', IngredientStatus::Active)->count())->toBe(213);
+
+    $categories = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->get();
+
+    expect($categories)->toHaveCount(62)
+        ->and($categories->whereNull('parent_id')->count())->toBe(12)
+        ->and($categories->whereNotNull('parent_id')->count())->toBe(50);
+
+    // The two workbook rows that duplicate an earlier ingredient survive as
+    // aliases, so a later import quoting IG-161/IG-162 still resolves.
+    $aliases = IngredientAlias::query()->where('source_system', 'healthy360_platform')->get();
+
+    expect($aliases->count())->toBeGreaterThanOrEqual(2)
+        ->and($aliases->pluck('source_ref')->sort()->values()->all())->toBe(['IG-161', 'IG-162'])
+        ->and($aliases->pluck('alias_normalised')->sort()->values()->all())->toBe(['garlic', 'onions']);
+});
+
+it('seeds the platform allergen baseline exactly as the source records it', function (): void {
+    $mappings = IngredientAllergen::withoutTenancy()->whereNull('organisation_id')->get();
+
+    expect($mappings)->toHaveCount(61)
+        ->and($mappings->pluck('source')->unique()->all())->toBe([AllergenMappingSource::MasterList])
+        ->and($mappings->countBy(fn (IngredientAllergen $row): string => $row->allergen_code)->sortKeys()->all())
+        ->toBe([
+            'celery' => 1, 'crustaceans' => 2, 'egg' => 2, 'fish' => 4, 'gluten' => 13,
+            'lupin' => 1, 'milk' => 7, 'mollusc' => 1, 'mustard' => 1, 'peanut' => 2,
+            'sesame' => 3, 'soy' => 4, 'sulphites' => 7, 'tree_nut' => 13,
+        ]);
+
+    // Coconut is a tree nut under US law and not an EU allergen.
+    $usOnly = $mappings->where('market_scope', AllergenMarketScope::UsOnly);
+
+    expect($usOnly)->toHaveCount(4)
+        ->and($usOnly->pluck('allergen_code')->unique()->all())->toBe(['tree_nut']);
+
+    // "Possible — verify per supplier" is recorded as a possibility.
+    $sulphites = $mappings->where('allergen_code', 'sulphites');
+
+    expect($sulphites->pluck('containment')->unique()->all())->toBe([AllergenContainment::MayContain])
+        ->and($sulphites->pluck('verification_status')->unique()->all())
+        ->toBe([AllergenVerificationStatus::RequiresSupplierConfirmation])
+        ->and($sulphites->pluck('evidence')->unique()->all())->toBe(['verify per supplier']);
+
+    // Soya sauce carries both classes the source names for it.
+    $soyaSauce = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'soya-sauce')->sole();
+
+    expect($mappings->where('ingredient_id', $soyaSauce->getKey())->pluck('allergen_code')->sort()->values()->all())
+        ->toBe(['gluten', 'soy']);
+});
+
+it('quarantines the burghul and pita rows the source contradicts itself about', function (): void {
+    $flagged = Ingredient::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->where('verification_status', IngredientVerificationStatus::RequiresReview)
+        ->get();
+
+    expect($flagged->pluck('source_ref')->sort()->values()->all())->toBe(['IG-025', 'IG-143'])
+        ->and($flagged->pluck('slug')->sort()->values()->all())->toBe(['burghul-bulgur', 'pita-bread']);
+
+    foreach ($flagged as $ingredient) {
+        expect($ingredient->notes)->toContain('Cereals/Gluten')
+            // Seeded exactly as recorded: the source says "None", so no
+            // mapping is invented on the way in.
+            ->and(IngredientAllergen::withoutTenancy()->where('ingredient_id', $ingredient->getKey())->count())->toBe(0);
+    }
+});
+
+it('falls back to the English name where the source has no Arabic', function (): void {
+    // The ingredient workbook is English-only; a machine translation of a
+    // food name that ends up on an allergen label is not an improvement.
+    $fallbacks = Ingredient::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->whereColumn('name_ar', 'name_en')
+        ->count();
+
+    expect($fallbacks)->toBe(213);
 });
 
 it('seeds the twelve organisation types with both names', function (): void {
@@ -92,10 +225,22 @@ it('seeds the twelve organisation types with both names', function (): void {
         ->and(OrganisationType::query()->where('name_ar', '')->orWhereNull('name_ar')->count())->toBe(0);
 });
 
-it('seeds exactly the foundation permission set', function (): void {
-    expect(Permission::query()->count())->toBe(20)
+it('seeds exactly the registered permission set', function (): void {
+    expect(Permission::query()->count())->toBe(24)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
+});
+
+it('keeps the platform permissions out of every organisation template role', function (): void {
+    $platformIds = Permission::query()
+        ->whereIn('code', array_keys(PermissionRegistry::platformPermissions()))
+        ->pluck('id');
+
+    expect($platformIds)->toHaveCount(2)
+        ->and(RolePermission::withoutTenancy()
+            ->whereIn('permission_id', $platformIds)
+            ->whereIn('role_id', Role::withoutTenancy()->whereNull('organisation_id')->select('id'))
+            ->count())->toBe(0);
 });
 
 it('seeds permission codes in the domain.action_scope format', function (): void {
@@ -111,15 +256,58 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every foundation permission' => ['organisation_owner', 20],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 19],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 22],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 21],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
+    'kitchen manager runs the catalogue and can see the roster' => ['kitchen_manager', 5],
+    'chef edits the catalogue only' => ['kitchen_chef', 2],
+    'kitchen staff read the catalogue only' => ['kitchen_staff', 1],
+    'commercial manager reads the catalogue only' => ['commercial_manager', 1],
 ]);
 
-it('seeds only the four platform template roles', function (): void {
-    expect(Role::withoutTenancy()->count())->toBe(4)
-        ->and(Role::withoutTenancy()->whereNotNull('organisation_id')->count())->toBe(0);
+it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8);
+
+    // The one organisation-scoped role the demo seeds: platform permissions
+    // are granted deliberately, inside a platform-operator organisation, and
+    // never through a template (master plan v2 §4.16).
+    $bespoke = Role::withoutTenancy()->whereNotNull('organisation_id')->get();
+
+    expect($bespoke)->toHaveCount(1)
+        ->and($bespoke->first()?->code)->toBe('reference_editor');
+});
+
+it('grants the platform permissions only inside the platform operator organisation', function (): void {
+    $platform = Organisation::query()->where('slug', 'healthy360-operations')->sole();
+
+    expect($platform->type->code)->toBe('platform_operator')
+        ->and($platform->country_code)->toBe('LB')
+        ->and($platform->default_currency_code)->toBe('USD')
+        ->and($platform->default_language_code)->toBe('en');
+
+    $role = Role::withoutTenancy()->where('organisation_id', $platform->getKey())->where('code', 'reference_editor')->sole();
+
+    $codes = Permission::query()
+        ->whereIn('id', RolePermission::withoutTenancy()->where('role_id', $role->getKey())->select('permission_id'))
+        ->pluck('code')
+        ->all();
+
+    expect($codes)->toEqualCanonicalizing([
+        'reference.view_platform',
+        'reference.manage_platform',
+        'catalogue.view_organisation',
+        'catalogue.manage_organisation',
+    ]);
+
+    $ops = User::query()->where('email', 'ops@healthy360.test')->sole();
+    $membership = OrganisationMembership::withoutTenancy()
+        ->where('organisation_id', $platform->getKey())
+        ->where('user_id', $ops->getKey())
+        ->sole();
+
+    expect(MembershipRole::withoutTenancy()->where('membership_id', $membership->getKey())->where('role_id', $role->getKey())->exists())
+        ->toBeTrue();
 });
 
 it('withholds role management from the organisation administrator template', function (): void {
@@ -182,6 +370,7 @@ it('gives every demonstration user a verified account and a profile', function (
     'owner@verdant.test',
     'chef@verdant.test',
     'patient@healthy360.test',
+    'ops@healthy360.test',
 ]);
 
 it('places the dietitian in both demonstration organisations', function (): void {
@@ -210,9 +399,10 @@ it('scopes the demonstration chef membership to the Al Quoz branch', function ()
 });
 
 it('converges instead of duplicating when run a second time', function (): void {
-    $before = [
+    $counts = static fn (): array => [
         Country::query()->count(),
         Currency::query()->count(),
+        MeasurementUnit::query()->count(),
         Permission::query()->count(),
         Role::withoutTenancy()->count(),
         RolePermission::withoutTenancy()->count(),
@@ -221,20 +411,33 @@ it('converges instead of duplicating when run a second time', function (): void 
         OrganisationMembership::withoutTenancy()->count(),
         MembershipRole::withoutTenancy()->count(),
         User::query()->count(),
+        Allergen::query()->count(),
+        IngredientCategory::withoutTenancy()->count(),
+        Ingredient::withoutTenancy()->count(),
+        IngredientAlias::query()->count(),
+        IngredientAllergen::withoutTenancy()->count(),
     ];
+
+    $before = $counts();
 
     $this->seed();
 
-    expect([
-        Country::query()->count(),
-        Currency::query()->count(),
-        Permission::query()->count(),
-        Role::withoutTenancy()->count(),
-        RolePermission::withoutTenancy()->count(),
-        Organisation::query()->count(),
-        OrganisationBranch::withoutTenancy()->count(),
-        OrganisationMembership::withoutTenancy()->count(),
-        MembershipRole::withoutTenancy()->count(),
-        User::query()->count(),
-    ])->toBe($before);
+    expect($counts())->toBe($before);
+});
+
+it('leaves a curated platform ingredient alone on a re-run', function (): void {
+    // Insert-if-absent, not upsert: a platform operator's curation of a seeded
+    // row must survive the next deployment (risk R8).
+    $chickpeas = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'chickpeas')->sole();
+
+    $chickpeas->name_ar = 'حمص';
+    $chickpeas->notes = 'Reviewed by the platform reference editor.';
+    $chickpeas->save();
+
+    $this->seed();
+
+    $reloaded = Ingredient::withoutTenancy()->whereKey($chickpeas->getKey())->sole();
+
+    expect($reloaded->name_ar)->toBe('حمص')
+        ->and($reloaded->notes)->toBe('Reviewed by the platform reference editor.');
 });

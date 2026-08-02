@@ -13,7 +13,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  *
  * @property string $id
  * @property string $code e.g. g, ml, kcal, cm, kg
- * @property string $unit_system metric | imperial | clinical
+ * @property string $dimension mass | volume | count | serving | package | energy | length
+ * @property string $unit_system metric | imperial | clinical | packaging
  * @property string $name_en
  * @property string $name_ar
  * @property bool $is_active

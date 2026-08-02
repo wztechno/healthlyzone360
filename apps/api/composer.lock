@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a1b4a2c330f7cc0eda7f8d857cbb833f",
+    "content-hash": "6f880c406ca0070f3e80c5f58c718a98",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2008,6 +2008,38 @@
             }
         },
         {
+            "name": "healthy360/allergens",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/allergens",
+                "reference": "eb830f6e6108f2c6fbf079120fd02e1696470b0e"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Allergens\\Providers\\AllergensServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Allergens\\": "src/",
+                    "Healthy360\\Allergens\\Tests\\": "tests/",
+                    "Healthy360\\Allergens\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Allergens\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/audit",
             "version": "1.0",
             "dist": {
@@ -2125,6 +2157,38 @@
                     "Healthy360\\Identity\\Tests\\": "tests/",
                     "Healthy360\\Identity\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Identity\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/ingredients",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/ingredients",
+                "reference": "443a91cf79619522d8a0dea48dd3ebcec800bfd5"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Ingredients\\Providers\\IngredientsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Ingredients\\": "src/",
+                    "Healthy360\\Ingredients\\Tests\\": "tests/",
+                    "Healthy360\\Ingredients\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Ingredients\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [

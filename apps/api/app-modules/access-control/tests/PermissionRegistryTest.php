@@ -32,7 +32,15 @@ use Healthy360\AccessControl\Services\PermissionRegistry;
  */
 function organisationTemplateRoleCodes(): array
 {
-    return ['organisation_owner', 'organisation_admin', 'branch_manager', 'member'];
+    return [
+        'organisation_owner', 'organisation_admin', 'branch_manager', 'member',
+
+        // Phase K1: kitchen roles. Organisation-scoped like every template —
+        // no platform template role exists, and the platform codes are granted
+        // through a bespoke role inside the platform-operator organisation
+        // instead (DemoTenantSeeder).
+        'kitchen_manager', 'kitchen_chef', 'kitchen_staff', 'commercial_manager',
+    ];
 }
 
 it('registers the union of the organisation and platform sets', function (): void {

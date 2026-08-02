@@ -58,7 +58,8 @@ Collections return `data` as an array; pagination, counts and similar belong in 
 | Client → server | `X-Client-Version` | App version for diagnostics and deprecation telemetry | |
 | Client → server | `X-Client-Platform` | `web`, `ios`, `android` | |
 | Client → server | `Idempotency-Key` | De-duplication of retried commands | **Only on explicitly idempotent command endpoints** (marked in OpenAPI). Do not attach automatically to every mutation. Keys are scoped per endpoint per user; replays return the original response. No implemented endpoint accepts it yet |
-| Client → server | `If-Match` | Optimistic concurrency | **Only on resources supporting it** (those with `lock_version` — see ERD). Mismatch returns `409` with `resource.conflict`. No implemented endpoint accepts it yet |
+| Client → server | `If-Match` | Optimistic concurrency | **Required on writes to resources supporting it** (those with `lock_version` — see ERD). Absent returns `428` with `request.precondition_required`; mismatch returns `409` with `resource.conflict`. First accepted by the K1.1 ingredient writes (`PATCH /catalogue/ingredients/{ingredient}`, `POST …/archive`) |
+| Server → client | `ETag` | The validator of a lock-versioned resource | `"<lock_version>"`, quoted. Returned by the single-resource GET and by every write that succeeds; sent back as `If-Match` |
 | Server → client | `X-Correlation-Id` | Server-generated correlation identifier | Generated per request, returned on every response, embedded in `meta`/`error` and in audit logs |
 
 ## Error code namespaces
@@ -82,7 +83,8 @@ The complete implemented vocabulary — `Healthy360\Support\Api\ErrorCode`, mirr
 | `context.organisation_forbidden` | 403 | No active membership in the claimed organisation (also when it does not exist) |
 | `context.branch_out_of_scope` | 403 | The claimed branch is not an active branch inside the membership scope |
 | `authz.permission_denied` | 403 | The six-step RBAC decision denied. `details.reason` names the denying step, `details.permission` the code |
-| `request.invalid` | 400 | The request cannot be processed as sent (for example a session endpoint without a first-party `Origin`) |
+| `request.invalid` | 400 | The request cannot be processed as sent (for example a session endpoint without a first-party `Origin`, a malformed cursor, or an `If-Match` that is not an `ETag` this API issued) |
+| `request.precondition_required` | 428 | A write to a lock-versioned resource arrived without `If-Match`. `details.required_headers` names it. Distinct from `resource.conflict`: the caller has not lost a race, it never entered one |
 | `resource.not_found` | 404 | The resource does not exist, or is not the caller's to see |
 | `resource.conflict` | 409 | The change conflicts with the current state |
 | `rate_limit.exceeded` | 429 | A rate limit was exceeded. Served with `Retry-After` |
@@ -104,10 +106,26 @@ A confirmation is bound to the credential that performed it — the session for 
 A management endpoint that serves a lock-versioned resource returns the current version as its validator: `ETag: "<lock_version>"` on the single-resource GET. A write to such a resource requires `If-Match` carrying the value the client last read.
 
 - **Match** — the write proceeds and the response carries the new `ETag`.
-- **Mismatch** — `409 resource.conflict`. Somebody changed the resource since it was read; the client re-reads and decides, rather than retrying blindly over another author's work.
-- **Absent** — HTTP **428**, with a dedicated code introduced alongside the first endpoint that can raise it (phase K1). A code is never added to the vocabulary before an endpoint raises it, so the `If-Match` row in the header table above stays literally true until then.
+- **Mismatch** — `409 resource.conflict`, carrying `details.current_lock_version` so the client can offer "reload" or "keep mine" without a second round trip just to discover what it lost to. Somebody changed the resource since it was read; the client re-reads and decides, rather than retrying blindly over another author's work.
+- **Absent** — HTTP **428** `request.precondition_required`, with `details.required_headers`. Deliberately not 409 and not 400: the caller has not lost a race, it never entered one, and the fix is to read the resource and retry with its validator rather than to reload and merge.
+- **Unusable** — an `If-Match` that is not an `ETag` this API issued (`"abc"`) is `400 request.invalid`. A malformed request is not a lost race either.
 
-The header applies only to resources that carry `lock_version`. A resource without one has no concurrency contract and is not sent `If-Match`.
+`If-Match: *` is accepted per RFC 9110 and means "as long as the resource exists"; the endpoint's own existence check answers that.
+
+The freshness of the validator is decided **inside the write statement** (`UPDATE … WHERE lock_version = ?`), not by reading the row first: a read-then-write leaves a window in which the row changes, which is the exact race the header exists to close.
+
+The header applies only to resources that carry `lock_version`. A resource without one has no concurrency contract and is not sent `If-Match` — ingredient categories and allergen classes are examples.
+
+**Endpoints that require it** (as of K1.1): `PATCH /api/v1/catalogue/ingredients/{ingredient}` and `POST /api/v1/catalogue/ingredients/{ingredient}/archive`.
+
+## Cursor pagination
+
+Collection endpoints paginate by keyset over `(created_at, id)`, never by offset: a catalogue is written to while it is being walked, and `LIMIT/OFFSET` silently skips and repeats rows when that happens.
+
+- `limit` — 1 to 100, default 25. Outside the range is `400 request.invalid` with `details.parameter`.
+- `cursor` — the previous page's `meta.next_cursor`. Opaque: clients echo it back and never construct one.
+- `meta` carries `next_cursor` (null on the last page) and `has_more`, answered by reading one row beyond the page rather than by a separate count that would disagree with the page under concurrent writes.
+- A cursor the endpoint did not issue is `400 request.invalid`, never a silent restart from the beginning — that would turn a client bug into an infinite loop that looks like a working list.
 
 ## Idempotent commands (`Idempotency-Key`)
 
@@ -156,6 +174,23 @@ The full set as implemented in Phase 4. `openapi/healthy360.v1.yaml` is authorit
 | GET | `/api/v1/me/devices` | session or bearer, verified | Active devices |
 | DELETE | `/api/v1/me/devices/{device}` | session or bearer, verified | **Step-up protected**. 204 |
 | GET | `/api/v1/organisations/current` | session or bearer, verified | Organisation context probe; requires `organisation.view_current` |
+| GET | `/api/v1/catalogue/ingredients` | session or bearer, verified, org | Cursor-paginated; the organisation's rows plus the platform library. Filters `query`, `status`, `category`. `catalogue.view_organisation` |
+| POST | `/api/v1/catalogue/ingredients` | session or bearer, verified, org | Creates an `active`/`unverified` organisation row. `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/ingredients/{ingredient}` | session or bearer, verified, org | Returns `ETag: "<lock_version>"`. `catalogue.view_organisation` |
+| PATCH | `/api/v1/catalogue/ingredients/{ingredient}` | session or bearer, verified, org | **`If-Match` required.** `catalogue.manage_organisation` |
+| POST | `/api/v1/catalogue/ingredients/{ingredient}/archive` | session or bearer, verified, org | Lifecycle action. **`If-Match` required.** `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/ingredients/{ingredient}/allergens` | session or bearer, verified, org | Platform baseline and organisation overlay, each labelled. `catalogue.view_organisation` |
+| PUT | `/api/v1/catalogue/ingredients/{ingredient}/allergens` | session or bearer, verified, org | Replaces the caller's layer for one market scope; upgrade-only over the baseline. `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/ingredients/{ingredient}/aliases` | session or bearer, verified, org | `catalogue.view_organisation` |
+| POST | `/api/v1/catalogue/ingredients/{ingredient}/aliases` | session or bearer, verified, org | `catalogue.manage_organisation` |
+| DELETE | `/api/v1/catalogue/ingredients/{ingredient}/aliases/{alias}` | session or bearer, verified, org | 204. `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/ingredient-categories` | session or bearer, verified, org | Flat two-level taxonomy, unpaginated. `catalogue.view_organisation` |
+| POST | `/api/v1/catalogue/ingredient-categories` | session or bearer, verified, org | `catalogue.manage_organisation` |
+| PATCH | `/api/v1/catalogue/ingredient-categories/{category}` | session or bearer, verified, org | No `If-Match` — categories carry no `lock_version`. `catalogue.manage_organisation` |
+| GET | `/api/v1/reference/allergen-classes` | — | **Anonymous.** Active classes only, one server-localised name from `Accept-Language` |
+| POST | `/api/v1/reference/allergen-classes` | session or bearer, verified, platform org | `platform.context` + `reference.manage_platform` |
+| PATCH | `/api/v1/reference/allergen-classes/{code}` | session or bearer, verified, platform org | `code` is immutable and a request carrying it is rejected. `platform.context` + `reference.manage_platform` |
+| POST | `/api/v1/reference/allergen-classes/{code}/deactivate` | session or bearer, verified, platform org | No DELETE exists. `platform.context` + `reference.manage_platform` |
 
 No authentication action depends on Inertia views, and no endpoint issues a redirect.
 

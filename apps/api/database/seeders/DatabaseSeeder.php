@@ -20,7 +20,10 @@ use Illuminate\Database\Seeder;
  * their scoping column in one too.
  *
  * Order matters — reference data underpins organisations, and the permission
- * catalogue underpins the template roles that DemoTenantSeeder assigns.
+ * catalogue underpins the template roles that DemoTenantSeeder assigns. The
+ * kitchen reference data (allergen classes, platform ingredient library) sits
+ * with the rest of the reference layer, because it depends on measurement
+ * units and on nothing tenant-shaped.
  */
 class DatabaseSeeder extends Seeder
 {
@@ -28,6 +31,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ReferenceDataSeeder::class,
+            KitchenReferenceSeeder::class,
             OrganisationTypeSeeder::class,
             AccessControlSeeder::class,
             FeatureDefinitionSeeder::class,

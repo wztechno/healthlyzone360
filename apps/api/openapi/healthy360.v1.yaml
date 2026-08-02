@@ -52,6 +52,10 @@ tags:
     description: Hydration, workspace selection and device management.
   - name: Organisations
     description: Organisation-scoped endpoints, reached with a validated context.
+  - name: Kitchen catalogue
+    description: Ingredients, categories, aliases and allergen mappings, managed by a kitchen.
+  - name: Reference data
+    description: Platform-governed vocabularies — public to read, platform-operator only to write.
 
 security:
   - sessionCookie: []
@@ -1031,6 +1035,882 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/ingredients:
+    get:
+      operationId: listIngredients
+      tags: [Kitchen catalogue]
+      summary: List ingredients
+      description: |
+        The organisation's own ingredients **and** the platform library, in
+        one cursor-paginated list. `is_platform` distinguishes them: platform
+        rows are readable by every organisation and writable by none.
+
+        Archived rows are excluded unless `status=archived` is asked for by
+        name — an archived ingredient is history, and a list that quietly
+        included it would invite somebody to build a recipe out of one.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring match over both names and every alias.
+          schema:
+            type: string
+            maxLength: 160
+        - name: status
+          in: query
+          required: false
+          description: Restrict to one lifecycle state. Omitted, the list covers `active` and `inactive`.
+          schema:
+            $ref: '#/components/schemas/IngredientStatus'
+        - name: category
+          in: query
+          required: false
+          description: Restrict to one category or sub-category identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of ingredients.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminIngredient'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createIngredient
+      tags: [Kitchen catalogue]
+      summary: Create an ingredient
+      description: |
+        Adds an ingredient to the calling organisation's own catalogue. The
+        row starts `active` and `unverified`: usable immediately, and checked
+        by nobody yet.
+
+        Derived values are never client-supplied — `status`,
+        `verification_status`, `lock_version`, `organisation_id` and the
+        source-provenance fields are all server-authored.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIngredientRequest'
+      responses:
+        '201':
+          description: The ingredient was created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/ingredients/{ingredient}:
+    get:
+      operationId: showIngredient
+      tags: [Kitchen catalogue]
+      summary: An ingredient and its aliases
+      description: |
+        Returns `ETag: "<lock_version>"`. That header is the client's half of
+        the optimistic-concurrency contract: read the resource, keep the
+        validator, send it back as `If-Match` when writing.
+
+        An ingredient belonging to another organisation is indistinguishable
+        from one that does not exist: both are `resource.not_found`.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The ingredient.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [ingredient, aliases]
+                    properties:
+                      ingredient:
+                        $ref: '#/components/schemas/AdminIngredient'
+                      aliases:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/IngredientAlias'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateIngredient
+      tags: [Kitchen catalogue]
+      summary: Update an ingredient
+      description: |
+        Requires `If-Match` carrying the `ETag` the resource was last served
+        with. Absent, the request is **428** `request.precondition_required`
+        — the client has not lost a race, it never entered one. Stale, it is
+        **409** `resource.conflict` with `details.current_lock_version`.
+
+        Platform-library rows are readable and not writable: a write is
+        refused with `authz.permission_denied` and
+        `details.reason = policy_denied`, never a 404, because the caller can
+        see the row.
+
+        `slug` and `status` are not editable here — the slug is the handle an
+        import converges on, and status changes are lifecycle actions with
+        their own routes.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIngredientRequest'
+      responses:
+        '200':
+          description: The updated ingredient, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/ingredients/{ingredient}/archive:
+    post:
+      operationId: archiveIngredient
+      tags: [Kitchen catalogue]
+      summary: Archive an ingredient
+      description: |
+        A lifecycle action as a POST sub-resource, never a `PATCH status`: it
+        carries its own audit action and its own consequences. There is no
+        delete — an ingredient that has ever appeared in a recipe is part of a
+        food-safety record.
+
+        `If-Match` is required, exactly as for an update. Archiving an already
+        archived ingredient is `409 resource.conflict`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived ingredient.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/ingredients/{ingredient}/allergens:
+    get:
+      operationId: listIngredientAllergens
+      tags: [Kitchen catalogue]
+      summary: Allergen mappings for an ingredient
+      description: |
+        Both layers in one list, each labelled by `layer`: the platform
+        baseline (`platform_baseline`) and the calling organisation's overlay
+        (`organisation_overlay`). A mapping editor that showed only the
+        overlay would let a kitchen believe an ingredient carries no allergens
+        when the baseline says it carries milk.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The visible allergen mappings.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientAllergenCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replaceIngredientAllergens
+      tags: [Kitchen catalogue]
+      summary: Replace the allergen mappings of one layer
+      description: |
+        A PUT, not a PATCH: the body is the complete allergen statement for
+        one market scope, so an omitted class means "not present" and can be
+        acted on. A partial merge would make "removed" and "omitted" the same
+        request, which on an allergen list is the difference between a
+        correction and a silent regression. An empty `mappings` array is a
+        legitimate statement, not a missing field.
+
+        The layer written is derived from the caller's organisation and is
+        never a request field: a platform operator replaces the baseline, any
+        other organisation replaces only its own overlay.
+
+        **Upgrade-only.** An organisation overlay may add a class the baseline
+        does not mention, and may raise a `may_contain` to a `contains`. It
+        may never drop a baseline class or weaken one — that is
+        `422 validation.failed` with
+        `details.weakened_allergen_classes`. Over-declaring an allergen costs
+        a customer a menu option; under-declaring one costs them an ambulance.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceIngredientAllergensRequest'
+      responses:
+        '200':
+          description: The mappings now visible for this ingredient.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientAllergenCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/AllergenBaselineWeakened'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/ingredients/{ingredient}/aliases:
+    get:
+      operationId: listIngredientAliases
+      tags: [Kitchen catalogue]
+      summary: The other names an ingredient answers to
+      description: |
+        Aliases are what designation resolution matches on first — a supplier
+        wording or kitchen shorthand is an explicit human decision that "this
+        text means this ingredient", where a name match is only a coincidence
+        of spelling.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The aliases of this ingredient.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IngredientAlias'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: addIngredientAlias
+      tags: [Kitchen catalogue]
+      summary: Add an alias
+      description: |
+        `alias_normalised` is derived by the server — lower-cased, trimmed,
+        internal whitespace collapsed — and is never accepted from a client,
+        so two writers cannot normalise differently and break lookup. A name
+        that normalises to one the ingredient already answers to is
+        `409 resource.conflict`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [alias]
+              properties:
+                alias:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                  description: Verbatim, as the operator wrote it.
+                locale:
+                  type: ['string', 'null']
+                  enum: [en, ar, null]
+              additionalProperties: false
+      responses:
+        '201':
+          description: The alias was added.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [alias]
+                    properties:
+                      alias:
+                        $ref: '#/components/schemas/IngredientAlias'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/ingredients/{ingredient}/aliases/{alias}:
+    delete:
+      operationId: removeIngredientAlias
+      tags: [Kitchen catalogue]
+      summary: Remove an alias
+      description: |
+        A real delete, unlike almost everything else in the catalogue: an
+        alias is a lookup convenience, not a food-safety record, and a wrong
+        one actively misroutes a designation. The removal is audited.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - name: alias
+          in: path
+          required: true
+          description: The alias identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The alias was removed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/ingredient-categories:
+    get:
+      operationId: listIngredientCategories
+      tags: [Kitchen catalogue]
+      summary: The ingredient taxonomy
+      description: |
+        The platform taxonomy plus the organisation's own, flat, with
+        `parent_id` carrying the two-level tree. Deliberately not paginated
+        and not nested: the taxonomy is small, the client renders it in one
+        pass, and paginating a tree would hand it half a hierarchy.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every visible category.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IngredientCategory'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createIngredientCategory
+      tags: [Kitchen catalogue]
+      summary: Create a category
+      description: |
+        `code` must be unique across everything the caller can see, the
+        platform taxonomy included: a tenant code that shadowed a platform
+        code would make every later "which category is this?" ambiguous, in
+        the interface and in an import alike. A collision is
+        `409 resource.conflict`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name_en]
+              properties:
+                code:
+                  type: string
+                  maxLength: 40
+                  pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+                name_en:
+                  type: string
+                  maxLength: 255
+                name_ar:
+                  type: ['string', 'null']
+                  maxLength: 255
+                  description: Falls back to the English name when absent.
+                parent_id:
+                  oneOf:
+                    - $ref: '#/components/schemas/Uuid'
+                    - type: 'null'
+                display_order:
+                  type: integer
+                  minimum: 0
+                  maximum: 100000
+              additionalProperties: false
+      responses:
+        '201':
+          description: The category was created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientCategoryEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/ingredient-categories/{category}:
+    patch:
+      operationId: updateIngredientCategory
+      tags: [Kitchen catalogue]
+      summary: Update a category
+      description: |
+        No `If-Match`: categories carry no `lock_version`, and the
+        concurrency contract applies only to resources that do. Sending a
+        validator a resource cannot honour would be worse than sending none.
+
+        `code` is not editable — it is the handle an import maps onto.
+        Platform categories are readable and not writable.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - name: category
+          in: path
+          required: true
+          description: The category identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name_en:
+                  type: string
+                  maxLength: 255
+                name_ar:
+                  type: string
+                  maxLength: 255
+                parent_id:
+                  oneOf:
+                    - $ref: '#/components/schemas/Uuid'
+                    - type: 'null'
+                display_order:
+                  type: integer
+                  minimum: 0
+                  maximum: 100000
+                is_active:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: The updated category.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientCategoryEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /reference/allergen-classes:
+    get:
+      operationId: listAllergenClasses
+      tags: [Reference data]
+      summary: The allergen vocabulary
+      description: |
+        **Anonymous.** An allergy filter that only works after sign-in is not
+        an allergy filter, so this endpoint takes no credential.
+
+        A public projection: one server-localised `name` and `description`
+        chosen from `Accept-Language` (`en` or `ar`; anything else falls back
+        to English rather than failing), never both language columns.
+        Deactivated classes are excluded — a class the platform has withdrawn
+        must not be offered to a customer, while every historical reference to
+        its code still resolves internally.
+
+        The list is small and constant, so it is not paginated.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The active allergen classes, in display order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublicAllergenClass'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+                          locale:
+                            type: string
+                            enum: [en, ar]
+                            description: The locale the names were rendered in.
+              example:
+                data:
+                  - code: gluten
+                    name: Cereals containing gluten
+                    description: Wheat, rye, barley, oats and their hybrids.
+                    regulatory_ref: ALG-01
+                    is_eu_14: true
+                    is_us_big_9: true
+                    us_declaration_required: false
+                    us_threshold_ppm: null
+                    display_order: 1
+                meta:
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                  count: 14
+                  locale: en
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createAllergenClass
+      tags: [Reference data]
+      summary: Create an allergen class
+      description: |
+        Platform operators only. Two gates, both required: `platform.context`
+        (the selected organisation must itself be of type
+        `platform_operator`) and the `reference.manage_platform` permission.
+        An organisation that somehow held the permission still could not reach
+        this endpoint, because an organisation type is not something a tenant
+        can grant itself. Either gate denies with
+        `authz.permission_denied` and `details.reason = policy_denied` or
+        `permission_not_granted`.
+
+        Adding a class is rare and irreversible in one respect: every
+        organisation inherits it, and the `code` can never be taken back.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAllergenClassRequest'
+      responses:
+        '201':
+          description: The allergen class was created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllergenClassEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /reference/allergen-classes/{code}:
+    patch:
+      operationId: updateAllergenClass
+      tags: [Reference data]
+      summary: Update an allergen class
+      description: |
+        Names, translations, descriptions, market applicability and
+        thresholds are editable. **The `code` is not.** It is a regulatory
+        identity that mappings, customer declarations and frozen recipe
+        labels all point at, so a request carrying `code` is refused with
+        `422 validation.failed` rather than silently ignored.
+
+        Inactive classes are reachable here on purpose: an administrator must
+        be able to correct a withdrawn class's Arabic name so old labels keep
+        rendering.
+
+        Platform operators only — see `createAllergenClass` for the two gates.
+      parameters:
+        - $ref: '#/components/parameters/AllergenCodePath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAllergenClassRequest'
+      responses:
+        '200':
+          description: The updated allergen class.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllergenClassEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /reference/allergen-classes/{code}/deactivate:
+    post:
+      operationId: deactivateAllergenClass
+      tags: [Reference data]
+      summary: Withdraw an allergen class
+      description: |
+        There is no DELETE on this resource and there never will be.
+        Deactivation withdraws a class from the public vocabulary while
+        leaving every mapping, customer declaration and frozen recipe label
+        that references the code still resolvable to a readable name. A delete
+        would either orphan those references or cascade through a food-safety
+        record.
+
+        Deactivating an already inactive class is `409 resource.conflict`.
+
+        Platform operators only — see `createAllergenClass` for the two gates.
+      parameters:
+        - $ref: '#/components/parameters/AllergenCodePath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The withdrawn allergen class.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllergenClassEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -1066,6 +1946,15 @@ components:
       schema:
         type: integer
         minimum: 0
+
+    ETag:
+      description: |
+        The current `lock_version` of a lock-versioned resource, quoted. A
+        client keeps it and sends it back as `If-Match` when it writes.
+      required: true
+      schema:
+        type: string
+        examples: ['"3"']
 
   parameters:
     XOrganisationId:
@@ -1137,6 +2026,55 @@ components:
       schema:
         type: string
         enum: [web, ios, android]
+
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: |
+        The `ETag` the resource was last served with. Required on writes to
+        lock-versioned resources: absent is **428**
+        `request.precondition_required`, stale is **409** `resource.conflict`
+        carrying `details.current_lock_version`. `*` is accepted and means
+        "as long as the resource exists".
+      schema:
+        type: string
+        examples: ['"3"']
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        The `meta.next_cursor` of the previous page. Opaque — echo it back,
+        never construct one. A cursor this endpoint did not issue is
+        `400 request.invalid`, never a silent restart from the beginning.
+      schema:
+        type: string
+        maxLength: 200
+    CursorLimit:
+      name: limit
+      in: query
+      required: false
+      description: Page size.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    IngredientPath:
+      name: ingredient
+      in: path
+      required: true
+      description: The ingredient identifier.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    AllergenCodePath:
+      name: code
+      in: path
+      required: true
+      description: The canonical allergen class code.
+      schema:
+        $ref: '#/components/schemas/AllergenCode'
 
   responses:
     Accepted:
@@ -1446,6 +2384,72 @@ components:
                 retry_after_seconds: 47
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
 
+    PreconditionRequired:
+      description: |
+        The resource is lock-versioned and the write carried no `If-Match`.
+        **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+        never entered one — and the fix is to read the resource and retry with
+        its validator.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: request.precondition_required
+              message: This resource requires an If-Match header carrying the version you last read.
+              details:
+                required_headers: [If-Match]
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    ResourceConflict:
+      description: |
+        The change conflicts with the current state. On a lock-versioned
+        write this is a lost race, and `details.current_lock_version` is the
+        value to reload against, so a client can offer "reload" or "keep
+        mine" without a second round trip.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: This resource changed since you last read it. Reload it and reapply your change.
+              details:
+                current_lock_version: 4
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    AllergenBaselineWeakened:
+      description: |
+        The submitted data is invalid. On an allergen replacement this is
+        usually the upgrade-only rule:
+        `details.weakened_allergen_classes` names the platform baseline
+        classes the request would have dropped or weakened.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: validation.failed
+              message: An organisation mapping may add to the platform allergen baseline but never weaken it.
+              details:
+                fields:
+                  mappings:
+                    - The platform baseline for this ingredient must be kept or strengthened.
+                weakened_allergen_classes: [gluten]
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
   schemas:
     Uuid:
       type: string
@@ -1484,6 +2488,7 @@ components:
         - context.branch_out_of_scope
         - authz.permission_denied
         - request.invalid
+        - request.precondition_required
         - resource.not_found
         - resource.conflict
         - rate_limit.exceeded
@@ -1842,3 +2847,543 @@ components:
         recovery_code:
           type: [string, 'null']
           description: A single-use recovery code.
+
+    PaginationMeta:
+      allOf:
+        - $ref: '#/components/schemas/Meta'
+        - type: object
+          required: [count, next_cursor, has_more]
+          properties:
+            count:
+              type: integer
+              minimum: 0
+              description: Items on this page, after the extra look-ahead row is trimmed.
+            next_cursor:
+              type: ['string', 'null']
+              description: Pass as `cursor` for the next page. Null when there is none.
+            has_more:
+              type: boolean
+              description: |
+                Whether another page exists. Answered by reading one row
+                beyond the page rather than by a separate count, which would
+                disagree with the page under concurrent writes.
+
+    AllergenCode:
+      type: string
+      maxLength: 20
+      pattern: '^[a-z][a-z0-9_]*$'
+      description: |
+        A canonical allergen class code — an immutable regulatory identity.
+        Never renamed and never deleted; a class that should no longer be
+        offered is deactivated instead. The fourteen seeded values match the
+        universal client's `AllergenCode` union one for one.
+      examples: [gluten, tree_nut, sulphites]
+
+    IngredientStatus:
+      type: string
+      enum: [active, inactive, archived]
+      description: |
+        The operational lifecycle of an ingredient. Deliberately not the
+        publication family (`draft`/`published`/…): an ingredient is never
+        sold, so it has no publication state of its own.
+
+    IngredientVerificationStatus:
+      type: string
+      enum: [verified, unverified, requires_review]
+      description: |
+        How much the platform trusts what it holds about this ingredient.
+        `requires_review` is a recorded contradiction awaiting a human — the
+        seeded burghul and pita rows carry it because the source workbook
+        tags them allergen-free while its own allergen key does not.
+
+    AvailabilityTier:
+      type: ['string', 'null']
+      enum: [core, common, specialty_imported, null]
+      description: Local availability in the launch market. Null where the source does not say.
+
+    AdminIngredient:
+      type: object
+      required:
+        [
+          id,
+          organisation_id,
+          is_platform,
+          slug,
+          name_en,
+          name_ar,
+          ingredient_category_id,
+          ingredient_subcategory_id,
+          default_unit_id,
+          yield_factor,
+          status,
+          verification_status,
+          lock_version,
+        ]
+      description: |
+        The administrative shape of an ingredient. Carries **both** names and
+        ignores `Accept-Language` for them: a bilingual editor has to see what
+        it is editing. There is no public ingredient projection.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Null for a platform-library row.
+        is_platform:
+          type: boolean
+          description: |
+            Whether this is a platform-library row. On the wire so a client
+            knows not to offer an edit control, rather than discovering it
+            from a 403.
+        slug:
+          type: string
+          maxLength: 120
+        name_en:
+          type: string
+        name_ar:
+          type: string
+          description: Falls back to the English name where no Arabic exists.
+        ingredient_category_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        ingredient_subcategory_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        default_unit_id:
+          $ref: '#/components/schemas/Uuid'
+        default_unit_code:
+          type: ['string', 'null']
+        yield_factor:
+          type: string
+          description: Decimal with four places, as a string so no client rounds it.
+          examples: ['1.0000']
+        forked_from_ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        availability_tier:
+          $ref: '#/components/schemas/AvailabilityTier'
+        status:
+          $ref: '#/components/schemas/IngredientStatus'
+        verification_status:
+          $ref: '#/components/schemas/IngredientVerificationStatus'
+        notes:
+          type: ['string', 'null']
+        source_system:
+          type: ['string', 'null']
+        source_ref:
+          type: ['string', 'null']
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Also served as the `ETag` of the single-resource GET.
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        updated_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    IngredientEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [ingredient]
+          properties:
+            ingredient:
+              $ref: '#/components/schemas/AdminIngredient'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    IngredientAlias:
+      type: object
+      required: [id, alias, alias_normalised]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        alias:
+          type: string
+          maxLength: 160
+          description: Verbatim, as the source or the operator wrote it.
+        alias_normalised:
+          type: string
+          maxLength: 160
+          description: |
+            Server-derived: lower-cased, trimmed, internal whitespace
+            collapsed. Deliberately conservative — it does not stem or strip
+            punctuation, because "Paprika Sweet" and "Paprika Smoked" are
+            different ingredients.
+        locale:
+          type: ['string', 'null']
+          enum: [en, ar, null]
+        source_system:
+          type: ['string', 'null']
+        source_ref:
+          type: ['string', 'null']
+      additionalProperties: false
+
+    IngredientCategory:
+      type: object
+      required: [id, organisation_id, is_platform, parent_id, code, name_en, name_ar, display_order, is_active]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        is_platform:
+          type: boolean
+        parent_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Null for a top-level category.
+        code:
+          type: string
+          maxLength: 40
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        display_order:
+          type: integer
+        is_active:
+          type: boolean
+      additionalProperties: false
+
+    IngredientCategoryEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [category]
+          properties:
+            category:
+              $ref: '#/components/schemas/IngredientCategory'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    IngredientAllergenMapping:
+      type: object
+      required: [id, allergen_code, layer, organisation_id, containment, market_scope, source, verification_status]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        allergen_code:
+          $ref: '#/components/schemas/AllergenCode'
+        layer:
+          type: string
+          enum: [platform_baseline, organisation_overlay]
+          description: |
+            Derived, not stored. The client renders a baseline row read-only
+            and its own overlay editable; asking it to infer that from a
+            nullable identifier is how a UI ends up offering an edit control
+            that always 403s.
+        organisation_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        containment:
+          type: string
+          enum: [contains, may_contain]
+          description: An ingredient of the ingredient, or a cross-contact risk. Legally different statements.
+        market_scope:
+          type: string
+          enum: [all, us_only, eu_only]
+          description: |
+            EU-14 and US Big-9 are different lists. Coconut is a tree nut
+            under US law and not an EU allergen, so it is carried as a
+            `us_only` mapping rather than a note nobody reads.
+        source:
+          type: string
+          enum: [master_list, technical_sheet, supplier_declaration, kitchen_declared, inferred]
+        verification_status:
+          type: string
+          enum: [verified, unverified, requires_review, requires_supplier_confirmation]
+        evidence:
+          type: ['string', 'null']
+          description: Free text supporting the statement — a supplier reference, a sheet, a note.
+      additionalProperties: false
+
+    IngredientAllergenCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngredientAllergenMapping'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    CreateIngredientRequest:
+      type: object
+      required: [name_en, default_unit_id]
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: ['string', 'null']
+          maxLength: 255
+          description: Falls back to the English name when absent.
+        slug:
+          type: ['string', 'null']
+          maxLength: 110
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          description: Derived from the name when absent, and de-duplicated within the organisation.
+        ingredient_category_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        ingredient_subcategory_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        default_unit_id:
+          $ref: '#/components/schemas/Uuid'
+        yield_factor:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 99.9999
+        availability_tier:
+          $ref: '#/components/schemas/AvailabilityTier'
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+      additionalProperties: false
+
+    UpdateIngredientRequest:
+      type: object
+      minProperties: 1
+      description: |
+        A partial update. `slug` and `status` are absent by design — the slug
+        is the handle a re-import converges on, and status changes are
+        lifecycle actions with their own routes.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        ingredient_category_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        ingredient_subcategory_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        default_unit_id:
+          $ref: '#/components/schemas/Uuid'
+        yield_factor:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 99.9999
+        availability_tier:
+          $ref: '#/components/schemas/AvailabilityTier'
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+      additionalProperties: false
+
+    ReplaceIngredientAllergensRequest:
+      type: object
+      required: [mappings]
+      properties:
+        market_scope:
+          type: string
+          enum: [all, us_only, eu_only]
+          default: all
+          description: The scope whose set is being replaced. Other scopes are untouched.
+        mappings:
+          type: array
+          maxItems: 50
+          description: |
+            The complete statement for this scope and this layer. An empty
+            array means "no allergens", which is a statement rather than a
+            missing field — and is refused where a platform baseline would be
+            weakened by it.
+          items:
+            type: object
+            required: [allergen_code, containment]
+            properties:
+              allergen_code:
+                $ref: '#/components/schemas/AllergenCode'
+              containment:
+                type: string
+                enum: [contains, may_contain]
+              source:
+                type: ['string', 'null']
+                enum: [master_list, technical_sheet, supplier_declaration, kitchen_declared, inferred, null]
+              verification_status:
+                type: ['string', 'null']
+                enum: [verified, unverified, requires_review, requires_supplier_confirmation, null]
+              evidence:
+                type: ['string', 'null']
+                maxLength: 2000
+            additionalProperties: false
+      additionalProperties: false
+
+    PublicAllergenClass:
+      type: object
+      required: [code, name, regulatory_ref, is_eu_14, is_us_big_9, us_declaration_required, display_order]
+      description: |
+        The anonymous projection of an allergen class: exactly one
+        server-localised name and description, plus the regulatory metadata a
+        customer needs to read a label correctly.
+      properties:
+        code:
+          $ref: '#/components/schemas/AllergenCode'
+        name:
+          type: string
+          description: Localised from `Accept-Language` (`en` or `ar`).
+        description:
+          type: ['string', 'null']
+        regulatory_ref:
+          type: string
+          maxLength: 20
+          examples: [ALG-01]
+        is_eu_14:
+          type: boolean
+        is_us_big_9:
+          type: boolean
+        us_declaration_required:
+          type: boolean
+          description: Whether US labelling requires a declaration above a threshold.
+        us_threshold_ppm:
+          type: ['integer', 'null']
+          description: The declaration threshold in parts per million — 10 for sulphites.
+        display_order:
+          type: integer
+      additionalProperties: false
+
+    AdminAllergenClass:
+      type: object
+      required:
+        [code, name_en, name_ar, regulatory_ref, is_eu_14, is_us_big_9, us_declaration_required, display_order, is_active]
+      description: |
+        The governance shape: both languages, and the activation flag the
+        public projection has no business carrying.
+      properties:
+        code:
+          $ref: '#/components/schemas/AllergenCode'
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        description_en:
+          type: ['string', 'null']
+        description_ar:
+          type: ['string', 'null']
+        regulatory_ref:
+          type: string
+          maxLength: 20
+        is_eu_14:
+          type: boolean
+        is_us_big_9:
+          type: boolean
+        us_declaration_required:
+          type: boolean
+        us_threshold_ppm:
+          type: ['integer', 'null']
+        display_order:
+          type: integer
+        is_active:
+          type: boolean
+      additionalProperties: false
+
+    AllergenClassEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [allergen_class]
+          properties:
+            allergen_class:
+              $ref: '#/components/schemas/AdminAllergenClass'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    CreateAllergenClassRequest:
+      type: object
+      required: [code, name_en, name_ar, regulatory_ref, is_eu_14, is_us_big_9]
+      properties:
+        code:
+          $ref: '#/components/schemas/AllergenCode'
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        description_en:
+          type: ['string', 'null']
+          maxLength: 2000
+        description_ar:
+          type: ['string', 'null']
+          maxLength: 2000
+        regulatory_ref:
+          type: string
+          maxLength: 20
+        is_eu_14:
+          type: boolean
+        is_us_big_9:
+          type: boolean
+        us_declaration_required:
+          type: ['boolean', 'null']
+        us_threshold_ppm:
+          type: ['integer', 'null']
+          minimum: 1
+        display_order:
+          type: ['integer', 'null']
+          minimum: 0
+      additionalProperties: false
+
+    UpdateAllergenClassRequest:
+      type: object
+      minProperties: 1
+      description: |
+        `code` is deliberately absent and is actively rejected rather than
+        ignored: a request that appeared to rename a regulatory identity and
+        quietly did nothing would be worse than one that failed.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        description_en:
+          type: ['string', 'null']
+          maxLength: 2000
+        description_ar:
+          type: ['string', 'null']
+          maxLength: 2000
+        regulatory_ref:
+          type: string
+          maxLength: 20
+        is_eu_14:
+          type: boolean
+        is_us_big_9:
+          type: boolean
+        us_declaration_required:
+          type: boolean
+        us_threshold_ppm:
+          type: ['integer', 'null']
+          minimum: 1
+        display_order:
+          type: integer
+          minimum: 0
+      additionalProperties: false

@@ -36,6 +36,7 @@ export const zErrorCode = z.enum([
     'context.branch_out_of_scope',
     'authz.permission_denied',
     'request.invalid',
+    'request.precondition_required',
     'resource.not_found',
     'resource.conflict',
     'rate_limit.exceeded',
@@ -198,6 +199,285 @@ export const zTwoFactorChallengeRequest = z.object({
     recovery_code: z.string().nullish()
 });
 
+export const zPaginationMeta = zMeta.and(z.object({
+    count: z.int().gte(0),
+    next_cursor: z.string().nullable(),
+    has_more: z.boolean()
+}));
+
+/**
+ * A canonical allergen class code — an immutable regulatory identity.
+ * Never renamed and never deleted; a class that should no longer be
+ * offered is deactivated instead. The fourteen seeded values match the
+ * universal client's `AllergenCode` union one for one.
+ *
+ */
+export const zAllergenCode = z.string().max(20).regex(/^[a-z][a-z0-9_]*$/);
+
+/**
+ * The operational lifecycle of an ingredient. Deliberately not the
+ * publication family (`draft`/`published`/…): an ingredient is never
+ * sold, so it has no publication state of its own.
+ *
+ */
+export const zIngredientStatus = z.enum([
+    'active',
+    'inactive',
+    'archived'
+]);
+
+/**
+ * How much the platform trusts what it holds about this ingredient.
+ * `requires_review` is a recorded contradiction awaiting a human — the
+ * seeded burghul and pita rows carry it because the source workbook
+ * tags them allergen-free while its own allergen key does not.
+ *
+ */
+export const zIngredientVerificationStatus = z.enum([
+    'verified',
+    'unverified',
+    'requires_review'
+]);
+
+/**
+ * Local availability in the launch market. Null where the source does not say.
+ */
+export const zAvailabilityTier = z.enum([
+    'core',
+    'common',
+    'specialty_imported'
+]).nullable();
+
+/**
+ * The administrative shape of an ingredient. Carries **both** names and
+ * ignores `Accept-Language` for them: a bilingual editor has to see what
+ * it is editing. There is no public ingredient projection.
+ *
+ */
+export const zAdminIngredient = z.object({
+    id: zUuid,
+    organisation_id: zUuid.nullable(),
+    is_platform: z.boolean(),
+    slug: z.string().max(120),
+    name_en: z.string(),
+    name_ar: z.string(),
+    ingredient_category_id: zUuid.nullable(),
+    ingredient_subcategory_id: zUuid.nullable(),
+    default_unit_id: zUuid,
+    default_unit_code: z.string().nullish(),
+    yield_factor: z.string(),
+    forked_from_ingredient_id: zUuid.nullish(),
+    availability_tier: zAvailabilityTier.optional(),
+    status: zIngredientStatus,
+    verification_status: zIngredientVerificationStatus,
+    notes: z.string().nullish(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zIngredientEnvelope = z.object({
+    data: z.object({
+        ingredient: zAdminIngredient
+    }),
+    meta: zMeta
+});
+
+export const zIngredientAlias = z.object({
+    id: zUuid,
+    alias: z.string().max(160),
+    alias_normalised: z.string().max(160),
+    locale: z.enum(['en', 'ar']).nullish(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish()
+});
+
+export const zIngredientCategory = z.object({
+    id: zUuid,
+    organisation_id: zUuid.nullable(),
+    is_platform: z.boolean(),
+    parent_id: zUuid.nullable(),
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    display_order: z.int(),
+    is_active: z.boolean()
+});
+
+export const zIngredientCategoryEnvelope = z.object({
+    data: z.object({
+        category: zIngredientCategory
+    }),
+    meta: zMeta
+});
+
+export const zIngredientAllergenMapping = z.object({
+    id: zUuid,
+    allergen_code: zAllergenCode,
+    layer: z.enum(['platform_baseline', 'organisation_overlay']),
+    organisation_id: zUuid.nullable(),
+    containment: z.enum(['contains', 'may_contain']),
+    market_scope: z.enum([
+        'all',
+        'us_only',
+        'eu_only'
+    ]),
+    source: z.enum([
+        'master_list',
+        'technical_sheet',
+        'supplier_declaration',
+        'kitchen_declared',
+        'inferred'
+    ]),
+    verification_status: z.enum([
+        'verified',
+        'unverified',
+        'requires_review',
+        'requires_supplier_confirmation'
+    ]),
+    evidence: z.string().nullish()
+});
+
+export const zIngredientAllergenCollection = z.object({
+    data: z.array(zIngredientAllergenMapping),
+    meta: zMeta
+});
+
+export const zCreateIngredientRequest = z.object({
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    slug: z.string().max(110).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
+    ingredient_category_id: zUuid.nullish(),
+    ingredient_subcategory_id: zUuid.nullish(),
+    default_unit_id: zUuid,
+    yield_factor: z.number().gt(0).lte(99.9999).optional(),
+    availability_tier: zAvailabilityTier.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * A partial update. `slug` and `status` are absent by design — the slug
+ * is the handle a re-import converges on, and status changes are
+ * lifecycle actions with their own routes.
+ *
+ */
+export const zUpdateIngredientRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    ingredient_category_id: zUuid.nullish(),
+    ingredient_subcategory_id: zUuid.nullish(),
+    default_unit_id: zUuid.optional(),
+    yield_factor: z.number().gt(0).lte(99.9999).optional(),
+    availability_tier: zAvailabilityTier.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+export const zReplaceIngredientAllergensRequest = z.object({
+    market_scope: z.enum([
+        'all',
+        'us_only',
+        'eu_only'
+    ]).optional().default('all'),
+    mappings: z.array(z.object({
+        allergen_code: zAllergenCode,
+        containment: z.enum(['contains', 'may_contain']),
+        source: z.enum([
+            'master_list',
+            'technical_sheet',
+            'supplier_declaration',
+            'kitchen_declared',
+            'inferred'
+        ]).nullish(),
+        verification_status: z.enum([
+            'verified',
+            'unverified',
+            'requires_review',
+            'requires_supplier_confirmation'
+        ]).nullish(),
+        evidence: z.string().max(2000).nullish()
+    })).max(50)
+});
+
+/**
+ * The anonymous projection of an allergen class: exactly one
+ * server-localised name and description, plus the regulatory metadata a
+ * customer needs to read a label correctly.
+ *
+ */
+export const zPublicAllergenClass = z.object({
+    code: zAllergenCode,
+    name: z.string(),
+    description: z.string().nullish(),
+    regulatory_ref: z.string().max(20),
+    is_eu_14: z.boolean(),
+    is_us_big_9: z.boolean(),
+    us_declaration_required: z.boolean(),
+    us_threshold_ppm: z.int().nullish(),
+    display_order: z.int()
+});
+
+/**
+ * The governance shape: both languages, and the activation flag the
+ * public projection has no business carrying.
+ *
+ */
+export const zAdminAllergenClass = z.object({
+    code: zAllergenCode,
+    name_en: z.string(),
+    name_ar: z.string(),
+    description_en: z.string().nullish(),
+    description_ar: z.string().nullish(),
+    regulatory_ref: z.string().max(20),
+    is_eu_14: z.boolean(),
+    is_us_big_9: z.boolean(),
+    us_declaration_required: z.boolean(),
+    us_threshold_ppm: z.int().nullish(),
+    display_order: z.int(),
+    is_active: z.boolean()
+});
+
+export const zAllergenClassEnvelope = z.object({
+    data: z.object({
+        allergen_class: zAdminAllergenClass
+    }),
+    meta: zMeta
+});
+
+export const zCreateAllergenClassRequest = z.object({
+    code: zAllergenCode,
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255),
+    description_en: z.string().max(2000).nullish(),
+    description_ar: z.string().max(2000).nullish(),
+    regulatory_ref: z.string().max(20),
+    is_eu_14: z.boolean(),
+    is_us_big_9: z.boolean(),
+    us_declaration_required: z.boolean().nullish(),
+    us_threshold_ppm: z.int().gte(1).nullish(),
+    display_order: z.int().gte(0).nullish()
+});
+
+/**
+ * `code` is deliberately absent and is actively rejected rather than
+ * ignored: a request that appeared to rename a regulatory identity and
+ * quietly did nothing would be worse than one that failed.
+ *
+ */
+export const zUpdateAllergenClassRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    description_en: z.string().max(2000).nullish(),
+    description_ar: z.string().max(2000).nullish(),
+    regulatory_ref: z.string().max(20).optional(),
+    is_eu_14: z.boolean().optional(),
+    is_us_big_9: z.boolean().optional(),
+    us_declaration_required: z.boolean().optional(),
+    us_threshold_ppm: z.int().gte(1).nullish(),
+    display_order: z.int().gte(0).optional()
+});
+
 /**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
@@ -255,6 +535,39 @@ export const zXClientPlatform = z.enum([
     'ios',
     'android'
 ]);
+
+/**
+ * The `ETag` the resource was last served with. Required on writes to
+ * lock-versioned resources: absent is **428**
+ * `request.precondition_required`, stale is **409** `resource.conflict`
+ * carrying `details.current_lock_version`. `*` is accepted and means
+ * "as long as the resource exists".
+ *
+ */
+export const zIfMatch = z.string();
+
+/**
+ * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+ * never construct one. A cursor this endpoint did not issue is
+ * `400 request.invalid`, never a silent restart from the beginning.
+ *
+ */
+export const zCursor = z.string().max(200);
+
+/**
+ * Page size.
+ */
+export const zCursorLimit = z.int().gte(1).lte(100).default(25);
+
+/**
+ * The ingredient identifier.
+ */
+export const zIngredientPath = zUuid;
+
+/**
+ * The canonical allergen class code.
+ */
+export const zAllergenCodePath = zAllergenCode;
 
 export const zRegisterUserBody = zRegisterRequest;
 
@@ -694,3 +1007,286 @@ export const zShowCurrentOrganisationResponse = z.object({
     }),
     meta: zMeta
 });
+
+export const zListIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListIngredientsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    query: z.string().max(160).optional(),
+    status: zIngredientStatus.optional(),
+    category: zUuid.optional()
+});
+
+/**
+ * A page of ingredients.
+ */
+export const zListIngredientsResponse = z.object({
+    data: z.array(zAdminIngredient),
+    meta: zPaginationMeta
+});
+
+export const zCreateIngredientBody = zCreateIngredientRequest;
+
+export const zCreateIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The ingredient was created.
+ */
+export const zCreateIngredientResponse = zIngredientEnvelope;
+
+export const zShowIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowIngredientPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The ingredient.
+ */
+export const zShowIngredientResponse = z.object({
+    data: z.object({
+        ingredient: zAdminIngredient,
+        aliases: z.array(zIngredientAlias)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateIngredientBody = zUpdateIngredientRequest;
+
+export const zUpdateIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateIngredientPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The updated ingredient, with its new validator.
+ */
+export const zUpdateIngredientResponse = zIngredientEnvelope;
+
+export const zArchiveIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveIngredientPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The archived ingredient.
+ */
+export const zArchiveIngredientResponse = zIngredientEnvelope;
+
+export const zListIngredientAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListIngredientAllergensPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The visible allergen mappings.
+ */
+export const zListIngredientAllergensResponse = zIngredientAllergenCollection;
+
+export const zReplaceIngredientAllergensBody = zReplaceIngredientAllergensRequest;
+
+export const zReplaceIngredientAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceIngredientAllergensPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The mappings now visible for this ingredient.
+ */
+export const zReplaceIngredientAllergensResponse = zIngredientAllergenCollection;
+
+export const zListIngredientAliasesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListIngredientAliasesPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The aliases of this ingredient.
+ */
+export const zListIngredientAliasesResponse = z.object({
+    data: z.array(zIngredientAlias),
+    meta: zMeta
+});
+
+export const zAddIngredientAliasBody = z.object({
+    alias: z.string().min(1).max(160),
+    locale: z.enum(['en', 'ar']).nullish()
+});
+
+export const zAddIngredientAliasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAddIngredientAliasPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The alias was added.
+ */
+export const zAddIngredientAliasResponse = z.object({
+    data: z.object({
+        alias: zIngredientAlias
+    }),
+    meta: zMeta
+});
+
+export const zRemoveIngredientAliasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveIngredientAliasPath = z.object({
+    ingredient: zUuid,
+    alias: zUuid
+});
+
+/**
+ * The alias was removed.
+ */
+export const zRemoveIngredientAliasResponse = z.void();
+
+export const zListIngredientCategoriesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every visible category.
+ */
+export const zListIngredientCategoriesResponse = z.object({
+    data: z.array(zIngredientCategory),
+    meta: zMeta
+});
+
+export const zCreateIngredientCategoryBody = z.object({
+    code: z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    parent_id: zUuid.nullish(),
+    display_order: z.int().gte(0).lte(100000).optional()
+});
+
+export const zCreateIngredientCategoryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The category was created.
+ */
+export const zCreateIngredientCategoryResponse = zIngredientCategoryEnvelope;
+
+export const zUpdateIngredientCategoryBody = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    parent_id: zUuid.nullish(),
+    display_order: z.int().gte(0).lte(100000).optional(),
+    is_active: z.boolean().optional()
+});
+
+export const zUpdateIngredientCategoryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateIngredientCategoryPath = z.object({
+    category: zUuid
+});
+
+/**
+ * The updated category.
+ */
+export const zUpdateIngredientCategoryResponse = zIngredientCategoryEnvelope;
+
+export const zListAllergenClassesHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The active allergen classes, in display order.
+ */
+export const zListAllergenClassesResponse = z.object({
+    data: z.array(zPublicAllergenClass),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        locale: z.enum(['en', 'ar']).optional()
+    }))
+});
+
+export const zCreateAllergenClassBody = zCreateAllergenClassRequest;
+
+export const zCreateAllergenClassHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The allergen class was created.
+ */
+export const zCreateAllergenClassResponse = zAllergenClassEnvelope;
+
+export const zUpdateAllergenClassBody = zUpdateAllergenClassRequest;
+
+export const zUpdateAllergenClassHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateAllergenClassPath = z.object({
+    code: zAllergenCode
+});
+
+/**
+ * The updated allergen class.
+ */
+export const zUpdateAllergenClassResponse = zAllergenClassEnvelope;
+
+export const zDeactivateAllergenClassHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeactivateAllergenClassPath = z.object({
+    code: zAllergenCode
+});
+
+/**
+ * The withdrawn allergen class.
+ */
+export const zDeactivateAllergenClassResponse = zAllergenClassEnvelope;

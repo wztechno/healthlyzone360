@@ -222,6 +222,7 @@ export const WIRE_ERROR_CODES: readonly ErrorCode[] = [
     'context.branch_out_of_scope',
     'authz.permission_denied',
     'request.invalid',
+    'request.precondition_required',
     'resource.not_found',
     'resource.conflict',
     'rate_limit.exceeded',

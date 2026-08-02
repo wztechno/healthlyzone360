@@ -10,7 +10,7 @@ The 23 foundation tables (Plan §7) with data classification and PII flags. Clas
 | countries | Reference | Public | No | ISO 3166 codes as PKs; `is_active` marks launch set |
 | currencies | Reference | Public | No | ISO 4217 codes as PKs |
 | languages | Reference | Public | No | ISO 639 codes as PKs; direction flag (LTR/RTL) |
-| measurement_units | Reference | Public | No | Clinical and culinary units |
+| measurement_units | Reference | Public | No | Clinical, culinary and pack units. K1.1 added `dimension` (`mass`/`volume`/`count`/`serving`/`package`/`energy`/`length`) so automatic conversion can be confined to one dimension (D-047 strategy `platform-public-ref`); `unit_system` gained `packaging` for bunch/can/bag/bottle |
 | organisation_types | Organisations | Public | No | Clinic, kitchen, fitness, supplier, etc. |
 | organisations | Organisations | Confidential | No* | Tenant master data; contact fields may incidentally contain personal data of contacts |
 | organisation_capabilities | Organisations | Internal | No | What an organisation may operate (clinic, kitchen, …) |
@@ -27,6 +27,22 @@ The 23 foundation tables (Plan §7) with data classification and PII flags. Clas
 | consent_grants | Consent | Restricted | Yes | Who consented to what, when, in which context — legally significant; RLS representative set |
 | audit_logs | Operational | Restricted | Yes | Actor, action, purpose-of-use, redacted metadata; append-only; application role cannot update/delete; RLS representative set. Never contains raw passwords, tokens, medical content, request bodies or payment payloads |
 | idempotency_keys | Operational | Internal | No | Key, scope, response fingerprint; no request bodies retained |
+
+## Kitchen catalogue — phase K1.1 (ingredients & allergens)
+
+Every row names exactly one isolation strategy from the vocabulary below. K1.1 adds **no** PostgreSQL policy: the strategies named here describe the intended protection, and in this slice it is enforced at the application layer (global scope, service-layer platform-row rule) and proven by cross-organisation feature tests. The RLS set is unchanged, and `RlsTest` still covers six tables.
+
+| Table | Cluster | Classification | PII | Isolation strategy | Notes |
+|---|---|---|---|---|---|
+| allergens | Kitchen reference | Public | No | `platform-public-ref` | The 14 canonical EU-14 classes. **`code` is the primary key** — the justified exception to UUIDv7 surrogates (D-023): an allergen class is a regulatory identity that mappings, customer declarations and frozen labels all point at. Never renamed, never deleted; withdrawal is deactivation. Read anonymously through a public projection; written only by a platform operator |
+| ingredient_categories | Kitchen catalogue | Internal | No | `org-rls` (app-scope in K1.1) | Two-level taxonomy in one self-referencing table. `organisation_id` NULL = platform library, visible in every tenant (the `roles` pattern); tenant rows visible only in their own. `UNIQUE NULLS NOT DISTINCT (organisation_id, code)` |
+| ingredients | Kitchen catalogue | Internal | No | `org-rls` (app-scope in K1.1) | Platform library (`organisation_id` NULL) plus tenant rows. Carries `lock_version` (optimistic concurrency), `verification_status` (the burghul/pita contradiction is recorded as `requires_review`, never resolved silently) and `source_system`/`source_ref` for import convergence. **No `ingredient_kind`, no `produced_by_recipe_id`** — an intermediate is derived from `recipe_version_outputs` in K1.2 |
+| ingredient_aliases | Kitchen catalogue | Internal | No | `join-rls-parent` | Other names an ingredient answers to. `alias_normalised` is model-written (lower/trim/collapse) and is what designation lookup matches; deliberately no stemming or transliteration (risk R4). Reached only through `ingredients`, cascade-deleted with it |
+| ingredient_allergens | Kitchen catalogue | Internal (mapping) / Public (the declaration it produces) | No | `join-rls-parent` | Two layers in one table: `organisation_id` NULL = platform baseline, a tenant identifier = that kitchen's overlay. The overlay is **upgrade-only** — a kitchen may add or strengthen, never drop or weaken a baseline row. `market_scope` exists because EU-14 and US Big-9 differ (coconut is US-only). `allergen_code` is `restrictOnDelete` |
+
+`audit_logs.subject_id` widened from `uuid` to `varchar(64)` in the same migration group: allergen classes are the first auditable subject whose identity is a code rather than a surrogate key. The column was never a foreign key — it points at whatever `subject_type` names — so no integrity guarantee is lost.
+
+**Data loading**: `allergens` and the platform `ingredients`/`ingredient_categories`/`ingredient_aliases`/`ingredient_allergens` rows are mechanism (a) — committed, production-safe platform reference seeders (`KitchenReferenceSeeder`). They contain names, categories and regulated allergen classes only: no formulation, no cost, no supplier, no yield. Those arrive exclusively through the private importer (mechanism (c)), never as a file in this repository. The seeders are insert-if-absent, so a platform operator's curation of a seeded row survives the next deployment (risk R8).
 
 ## Standing conventions
 
