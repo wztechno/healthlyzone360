@@ -33,7 +33,6 @@ import type {
     ResendOtpRequest,
     VerifyOtpRequest,
 } from '../../contracts/verification.ts';
-import { MOCK_NOW } from '../fixtures.ts';
 import type { Clock } from '../store.ts';
 import {
     ACCOUNT_RUNTIME_ORDINAL_START,
@@ -116,6 +115,15 @@ interface Lockout {
 }
 
 export interface AccountMockStoreOptions {
+    /**
+     * The clock. Defaults to the **real** one, like `../store.ts`.
+     *
+     * It used to default to the fixed `MOCK_NOW`, and that was a defect rather than a preference: a
+     * challenge is issued at `now` and expires 300 s later, so a world pinned to a date in the past
+     * mints challenges that are already expired. Every panel it fed opened in its expired state
+     * with the code field closed, in the development app as much as in a test. Tests that need a
+     * fixed clock still pass one — the account world's own suite always did.
+     */
     readonly now?: Clock | undefined;
     /**
      * Whether channels with no real driver are *simulated* rather than refused.
@@ -161,7 +169,7 @@ export class AccountMockStore {
     #nextRuntimeOrdinal = ACCOUNT_RUNTIME_ORDINAL_START;
 
     constructor(options: AccountMockStoreOptions = {}) {
-        this.#now = options.now ?? (() => Date.parse(MOCK_NOW));
+        this.#now = options.now ?? (() => Date.now());
         this.#simulate = options.simulateChannels ?? true;
         for (const definition of SEED_CONSENTS) {
             this.#consents.set(definition.key, { granted: false, at: null, off: null });

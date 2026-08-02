@@ -14,7 +14,11 @@ import type {
     TwoFactorChallengeRequest,
     TwoFactorSetup,
 } from '../contracts/auth.ts';
+import type { AccountRepository } from '../contracts/account.ts';
 import type { Repositories } from '../contracts/index.ts';
+import type { VerificationRepository } from '../contracts/verification.ts';
+import { createAccountMockRepositories } from './account/repositories.ts';
+import type { AccountMockStore } from './account/store.ts';
 import type {
     ContextRepository,
     DeviceRepository,
@@ -54,6 +58,42 @@ export interface MockRepositories extends Repositories {
      * back through a repository. Screens never touch it — they only ever see `Repositories`.
      */
     readonly prototypeStore: PrototypeStore;
+
+    /* ── J1: the account world, carried ahead of its registration ───────────────────────────────
+     *
+     * `VerificationRepository` and `AccountRepository` are not members of the required
+     * `Repositories` bundle yet (`../contracts/index.ts` says why: registering them is the same
+     * commit that writes the API-side stub, and this is not that commit). Until then the mock
+     * bundle carries them as **extra** fields.
+     *
+     * That is what lets the account screens work in mock mode without importing the mock world:
+     * the application's own ESLint guard forbids a screen or a hook from reaching into
+     * `@healthy360/api-client/mock` at all (plan §5), and it is right to. The alternative — an
+     * exemption for one shim file — would open the door the guard exists to keep shut.
+     *
+     * A consumer discovers these with a runtime `typeof` test rather than a cast, so the day they
+     * become required members of `Repositories` nothing at the call site changes.
+     */
+    readonly verification: VerificationRepository;
+    readonly account: AccountRepository;
+    /** The account world's own mutable store, on the same terms as `prototypeStore`. */
+    readonly accountStore: AccountMockStore;
+    /**
+     * The closed list of areas a delivery address may point at.
+     *
+     * **A contract gap, carried explicitly rather than disguised.** `CustomerAddress.areaId` is a
+     * foreign key and the store refuses an area it does not know, so an address editor needs the
+     * list — and no consumer-facing contract operation publishes one.
+     * `KitchenAdminRepository.listServiceAreas` exists but is an organisation-scoped management
+     * surface a consumer has neither the context nor the permission for.
+     *
+     * It is a bare function rather than a repository method precisely so it cannot be mistaken for
+     * part of a contract. It disappears when `AccountRepository` gains `listServiceAreas()`, or
+     * when a public `GET /api/v1/reference/service-areas` exists.
+     */
+    readonly accountServiceAreas: () => Promise<
+        readonly { readonly id: string; readonly name: string }[]
+    >;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -87,6 +127,17 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
      * import stays behind it.
      */
     const prototype = createPrototypeRepositories({ scenario: scenario.name, settle });
+
+    /**
+     * The J1 account world, built here for the same reason the prototype world is: everything
+     * behind the mock dynamic import stays behind it.
+     *
+     * It takes the bundle's latency so a screen sees one timing model, and it is **not** scenario-
+     * dependent — `AccountMockStore` seeds the same partway-through-setup person in every world,
+     * because the account area's states are a function of what has been done, not of which demo
+     * account signed in.
+     */
+    const accountWorld = createAccountMockRepositories({ latencyMs: latency });
 
     const auth: AuthRepository = {
         async login(request: LoginRequest): Promise<LoginResult> {
@@ -215,6 +266,10 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         scenario,
         tokenStore,
         prototypeStore: prototype.store,
+        verification: accountWorld.verification,
+        account: accountWorld.account,
+        accountStore: accountWorld.store,
+        accountServiceAreas: () => Promise.resolve(accountWorld.store.serviceAreas()),
         auth,
         session,
         context,

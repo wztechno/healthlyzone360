@@ -37,6 +37,12 @@ import type {
  * `kitchenAdmin` is the twelfth root, added whole by K1 for the same reason: the kitchen workspace
  * is several slices, and each of them would otherwise edit this object.
  *
+ * `account` and `verification` are the thirteenth and fourteenth, added whole by J1 on the same
+ * terms: the D2C account area is five screens (checklist, contacts, addresses, allergy declaration,
+ * consents) and the one-time-code surface is shared with journeys that have no account at all —
+ * guest ordering, B2B signatories — which is exactly why the challenge does not hang off `account`.
+ * Neither is ever persisted; both are stated in `PERSISTABLE_QUERY_ROOTS`'s note below.
+ *
  * ## Shape rules
  *
  * 1. `[root, ...path, ...params]` — root first, then a stable path, then the parameters, so a
@@ -63,6 +69,8 @@ export const QUERY_ROOTS = [
     'business',
     'professional',
     'kitchenAdmin',
+    'account',
+    'verification',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -311,16 +319,74 @@ export const queryKeys = {
          */
         review: () => ['kitchenAdmin', 'review'] as const,
     },
+
+    /**
+     * ── account: the D2C account area (J1) ──────────────────────────────────────────────────────
+     *
+     * `overview` and `checklist` are separate entries over overlapping data on purpose. The
+     * checklist is what a mutation on any of the five setup screens invalidates — saving an address
+     * can flip `canActivate` — while the overview additionally carries the contacts and the account
+     * row, which a contact mutation invalidates instead. Giving them one key would make every write
+     * refetch both, and giving the checklist no key of its own would make the account screen
+     * re-read contacts it is not showing.
+     *
+     * **Never persisted.** Addresses, an allergy declaration and a consent record are personal
+     * data, and the declaration is special-category besides (appendix D). `PERSISTABLE_QUERY_ROOTS`
+     * stays as it is.
+     */
+    account: {
+        all: () => ['account'] as const,
+        /** Account row, contacts and checklist in one read. */
+        overview: () => ['account', 'overview'] as const,
+        /** The server's activation evaluator. Never recomputed from the items on the device. */
+        checklist: () => ['account', 'checklist'] as const,
+        addresses: () => ['account', 'addresses'] as const,
+        address: (addressId: string) => ['account', 'address', addressId] as const,
+        dietaryProfile: () => ['account', 'dietary-profile'] as const,
+        consents: () => ['account', 'consents'] as const,
+        /**
+         * The closed list of areas an address may point at.
+         *
+         * Under `account` rather than `reference` despite being non-personal lookup data, because
+         * the operation that answers it does not exist yet (see
+         * `features/account/repositories-shim.ts`). Classifying it as `reference` would make it
+         * persistable, and persisting a delivery-area list that a shim currently invents is exactly
+         * the kind of stale answer §21 is written to prevent.
+         */
+        serviceAreas: () => ['account', 'service-areas'] as const,
+    },
+
+    /**
+     * ── verification: contact points and one-time codes (J1) ────────────────────────────────────
+     *
+     * Its own root rather than a branch of `account` because the OTP framework serves purposes that
+     * have no account behind them at all — a guest order, a guest deletion request, a B2B
+     * signatory. A key under `account` would make those journeys either invent a second key or
+     * invalidate an account they do not have.
+     *
+     * `challenge` exists so a reload can re-read a live challenge **with its cooldown intact**
+     * rather than issue a second one (`contracts/verification.ts`, journey-forced shape 1). It is
+     * keyed by the challenge identifier because a resend supersedes: the answer carries a new id,
+     * and the old entry must not be reused.
+     */
+    verification: {
+        all: () => ['verification'] as const,
+        contacts: () => ['verification', 'contacts'] as const,
+        challenge: (challengeId: string) => ['verification', 'challenge', challengeId] as const,
+    },
 } as const;
 
 /**
  * Roots whose cached data may survive a restart.
  *
  * Deliberately minimal (plan §21). `session`, `devices`, `nutrition`, `planner`, `vd`, `commerce`,
- * `business`, `professional` and `kitchenAdmin` are absent and must stay absent: they are
- * authentication responses, personal data, medical-adjacent data, or — in `kitchenAdmin`'s case —
- * confidential commercial data on a device several people share. Adding a root here is a privacy
- * decision, which is why it is a single reviewable list rather than a per-query flag.
+ * `business`, `professional`, `kitchenAdmin`, `account` and `verification` are absent and must stay
+ * absent: they are authentication responses, personal data, medical-adjacent data, or — in
+ * `kitchenAdmin`'s case — confidential commercial data on a device several people share. `account`
+ * additionally holds a special-category allergy declaration and a consent record, and
+ * `verification` holds live one-time-code state whose whole security model is that it is
+ * short-lived. Adding a root here is a privacy decision, which is why it is a single reviewable
+ * list rather than a per-query flag.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

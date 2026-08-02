@@ -2,7 +2,7 @@ import { ToastProvider } from '@healthy360/design-system';
 import type { Repositories, SessionTokenStore } from '@healthy360/api-client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -54,12 +54,33 @@ export function AppProviders({
     const client = useMemo(() => queryClient ?? createQueryClient(), [queryClient]);
     const cacheStore = useMemo(() => createKeyValueStore(), []);
 
+    /**
+     * The language the persisted cache belongs to.
+     *
+     * Tracked in state rather than read once, because a person can change language without
+     * reloading and the disk cache must follow them: from M1 the server localises public reads and
+     * sends one `name`, so a cached page *is* a page in one language.
+     */
+    const [cacheLocale, setCacheLocale] = useState(() => i18n.resolvedLanguage ?? i18n.language);
+
+    useEffect(() => {
+        const onLanguageChanged = () => setCacheLocale(i18n.resolvedLanguage ?? i18n.language);
+        i18n.on('languageChanged', onLanguageChanged);
+        // A language change that landed between the initial render and this subscription would
+        // otherwise be missed for the rest of the session.
+        onLanguageChanged();
+        return () => {
+            i18n.off('languageChanged', onLanguageChanged);
+        };
+    }, []);
+
     useEffect(() => {
         // Allow-listed persistence only — nothing under `session` or `devices` may reach disk
-        // (plan §21). `restoreCache` discards anything written by an older cache version.
-        restoreCache(client, cacheStore);
-        return persistCache(client, cacheStore);
-    }, [client, cacheStore]);
+        // (plan §21). `restoreCache` discards anything written by an older cache version, and the
+        // key carries the locale so an Arabic reader never restores English names from disk.
+        restoreCache(client, cacheStore, cacheLocale);
+        return persistCache(client, cacheStore, cacheLocale);
+    }, [client, cacheStore, cacheLocale]);
 
     return (
         <I18nextProvider i18n={i18n}>

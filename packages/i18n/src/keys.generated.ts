@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 3966 keys across 16 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4035 keys across 16 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -61,7 +61,11 @@ export interface NamespaceKeys {
     | 'addresses.add'
     | 'addresses.areaHint'
     | 'addresses.areaLabel'
+    | 'addresses.areaPlaceholder'
+    | 'addresses.backToList'
     | 'addresses.buildingLabel'
+    | 'addresses.coverageBody'
+    | 'addresses.coverageTitle'
     | 'addresses.default'
     | 'addresses.edit'
     | 'addresses.empty'
@@ -72,9 +76,17 @@ export interface NamespaceKeys {
     | 'addresses.line1Label'
     | 'addresses.line2Label'
     | 'addresses.makeDefault'
+    | 'addresses.missingBody'
+    | 'addresses.missingTitle'
+    | 'addresses.noAreasBody'
+    | 'addresses.noAreasTitle'
     | 'addresses.notesHint'
     | 'addresses.notesLabel'
+    | 'addresses.partSeparator'
     | 'addresses.remove'
+    | 'addresses.removeBody'
+    | 'addresses.removeTitle'
+    | 'addresses.requiredField'
     | 'addresses.save'
     | 'addresses.subtitle'
     | 'addresses.title'
@@ -83,7 +95,10 @@ export interface NamespaceKeys {
     | 'checklist.cannotActivate'
     | 'checklist.done'
     | 'checklist.optional'
+    | 'checklist.outstanding'
     | 'checklist.required'
+    | 'checklist.review'
+    | 'checklist.start'
     | 'checklist.steps.add_address.body'
     | 'checklist.steps.add_address.title'
     | 'checklist.steps.consents.body'
@@ -97,18 +112,28 @@ export interface NamespaceKeys {
     | 'checklist.subtitle'
     | 'checklist.title'
     | 'checklist.todo'
+    | 'consents.ageGate'
+    | 'consents.ageGateTitle'
+    | 'consents.ageTitle'
+    | 'consents.allRequiredDone'
+    | 'consents.empty'
+    | 'consents.emptyBody'
     | 'consents.grant'
-    | 'consents.granted'
     | 'consents.grantedOn'
-    | 'consents.notGranted'
     | 'consents.optional'
+    | 'consents.outstanding'
+    | 'consents.reconsentBody'
+    | 'consents.reconsentTitle'
     | 'consents.required'
     | 'consents.requiredNote'
+    | 'consents.status.granted'
+    | 'consents.status.never'
+    | 'consents.status.reconsent'
+    | 'consents.status.withdrawn'
     | 'consents.subtitle'
     | 'consents.title'
     | 'consents.version'
     | 'consents.withdraw'
-    | 'consents.withdrawn'
     | 'consents.withdrawnOn'
     | 'contacts.add'
     | 'contacts.addEmail'
@@ -133,26 +158,70 @@ export interface NamespaceKeys {
     | 'dietary.allergenLabel'
     | 'dietary.allergensEmpty'
     | 'dietary.allergensTitle'
+    | 'dietary.dietsEmpty'
     | 'dietary.dietsSubtitle'
     | 'dietary.dietsTitle'
+    | 'dietary.disclaimerContext'
     | 'dietary.exclusionsSubtitle'
     | 'dietary.exclusionsTitle'
+    | 'dietary.hasAllergies.no'
+    | 'dietary.hasAllergies.yes'
+    | 'dietary.hasAllergiesLabel'
+    | 'dietary.noneBody'
     | 'dietary.noteLabel'
     | 'dietary.save'
     | 'dietary.saved'
     | 'dietary.severity.allergy'
     | 'dietary.severity.avoidance'
     | 'dietary.severity.intolerance'
+    | 'dietary.severityFor'
     | 'dietary.severityHint'
     | 'dietary.severityLabel'
     | 'dietary.storeOfRecord'
     | 'dietary.subtitle'
     | 'dietary.title'
+    | 'dietary.unanswered'
     | 'lifecycle.active'
     | 'lifecycle.closed'
     | 'lifecycle.closing'
     | 'lifecycle.provisional'
     | 'lifecycle.suspended'
+    | 'marketing.note'
+    | 'marketing.saveFailed'
+    | 'marketing.subtitle'
+    | 'marketing.title'
+    | 'phone.addNumber'
+    | 'phone.backToAccount'
+    | 'phone.countries.AE'
+    | 'phone.countries.BH'
+    | 'phone.countries.EG'
+    | 'phone.countries.GB'
+    | 'phone.countries.JO'
+    | 'phone.countries.KW'
+    | 'phone.countries.LB'
+    | 'phone.countries.OM'
+    | 'phone.countries.QA'
+    | 'phone.countries.SA'
+    | 'phone.countryHint'
+    | 'phone.countryLabel'
+    | 'phone.duplicateBody'
+    | 'phone.duplicateTitle'
+    | 'phone.errors.empty'
+    | 'phone.errors.tooLong'
+    | 'phone.errors.tooShort'
+    | 'phone.formTitle'
+    | 'phone.noNumberBody'
+    | 'phone.noNumberTitle'
+    | 'phone.numberHint'
+    | 'phone.numberLabel'
+    | 'phone.otpFallback'
+    | 'phone.pendingBody'
+    | 'phone.sendCode'
+    | 'phone.submit'
+    | 'phone.subtitle'
+    | 'phone.title'
+    | 'phone.verifiedBody'
+    | 'phone.verifiedTitle'
     | 'subtitle'
     | 'title';
   readonly "auth":
@@ -4052,7 +4121,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.add',
   'account:addresses.areaHint',
   'account:addresses.areaLabel',
+  'account:addresses.areaPlaceholder',
+  'account:addresses.backToList',
   'account:addresses.buildingLabel',
+  'account:addresses.coverageBody',
+  'account:addresses.coverageTitle',
   'account:addresses.default',
   'account:addresses.edit',
   'account:addresses.empty',
@@ -4063,9 +4136,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.line1Label',
   'account:addresses.line2Label',
   'account:addresses.makeDefault',
+  'account:addresses.missingBody',
+  'account:addresses.missingTitle',
+  'account:addresses.noAreasBody',
+  'account:addresses.noAreasTitle',
   'account:addresses.notesHint',
   'account:addresses.notesLabel',
+  'account:addresses.partSeparator',
   'account:addresses.remove',
+  'account:addresses.removeBody',
+  'account:addresses.removeTitle',
+  'account:addresses.requiredField',
   'account:addresses.save',
   'account:addresses.subtitle',
   'account:addresses.title',
@@ -4074,7 +4155,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:checklist.cannotActivate',
   'account:checklist.done',
   'account:checklist.optional',
+  'account:checklist.outstanding',
   'account:checklist.required',
+  'account:checklist.review',
+  'account:checklist.start',
   'account:checklist.steps.add_address.body',
   'account:checklist.steps.add_address.title',
   'account:checklist.steps.consents.body',
@@ -4088,18 +4172,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:checklist.subtitle',
   'account:checklist.title',
   'account:checklist.todo',
+  'account:consents.ageGate',
+  'account:consents.ageGateTitle',
+  'account:consents.ageTitle',
+  'account:consents.allRequiredDone',
+  'account:consents.empty',
+  'account:consents.emptyBody',
   'account:consents.grant',
-  'account:consents.granted',
   'account:consents.grantedOn',
-  'account:consents.notGranted',
   'account:consents.optional',
+  'account:consents.outstanding',
+  'account:consents.reconsentBody',
+  'account:consents.reconsentTitle',
   'account:consents.required',
   'account:consents.requiredNote',
+  'account:consents.status.granted',
+  'account:consents.status.never',
+  'account:consents.status.reconsent',
+  'account:consents.status.withdrawn',
   'account:consents.subtitle',
   'account:consents.title',
   'account:consents.version',
   'account:consents.withdraw',
-  'account:consents.withdrawn',
   'account:consents.withdrawnOn',
   'account:contacts.add',
   'account:contacts.addEmail',
@@ -4124,26 +4218,70 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.allergenLabel',
   'account:dietary.allergensEmpty',
   'account:dietary.allergensTitle',
+  'account:dietary.dietsEmpty',
   'account:dietary.dietsSubtitle',
   'account:dietary.dietsTitle',
+  'account:dietary.disclaimerContext',
   'account:dietary.exclusionsSubtitle',
   'account:dietary.exclusionsTitle',
+  'account:dietary.hasAllergies.no',
+  'account:dietary.hasAllergies.yes',
+  'account:dietary.hasAllergiesLabel',
+  'account:dietary.noneBody',
   'account:dietary.noteLabel',
   'account:dietary.save',
   'account:dietary.saved',
   'account:dietary.severity.allergy',
   'account:dietary.severity.avoidance',
   'account:dietary.severity.intolerance',
+  'account:dietary.severityFor',
   'account:dietary.severityHint',
   'account:dietary.severityLabel',
   'account:dietary.storeOfRecord',
   'account:dietary.subtitle',
   'account:dietary.title',
+  'account:dietary.unanswered',
   'account:lifecycle.active',
   'account:lifecycle.closed',
   'account:lifecycle.closing',
   'account:lifecycle.provisional',
   'account:lifecycle.suspended',
+  'account:marketing.note',
+  'account:marketing.saveFailed',
+  'account:marketing.subtitle',
+  'account:marketing.title',
+  'account:phone.addNumber',
+  'account:phone.backToAccount',
+  'account:phone.countries.AE',
+  'account:phone.countries.BH',
+  'account:phone.countries.EG',
+  'account:phone.countries.GB',
+  'account:phone.countries.JO',
+  'account:phone.countries.KW',
+  'account:phone.countries.LB',
+  'account:phone.countries.OM',
+  'account:phone.countries.QA',
+  'account:phone.countries.SA',
+  'account:phone.countryHint',
+  'account:phone.countryLabel',
+  'account:phone.duplicateBody',
+  'account:phone.duplicateTitle',
+  'account:phone.errors.empty',
+  'account:phone.errors.tooLong',
+  'account:phone.errors.tooShort',
+  'account:phone.formTitle',
+  'account:phone.noNumberBody',
+  'account:phone.noNumberTitle',
+  'account:phone.numberHint',
+  'account:phone.numberLabel',
+  'account:phone.otpFallback',
+  'account:phone.pendingBody',
+  'account:phone.sendCode',
+  'account:phone.submit',
+  'account:phone.subtitle',
+  'account:phone.title',
+  'account:phone.verifiedBody',
+  'account:phone.verifiedTitle',
   'account:subtitle',
   'account:title',
   'auth:branchPicker.empty',
