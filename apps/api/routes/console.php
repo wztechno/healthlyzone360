@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Healthy360\B2b\Jobs\PurgeExpiredInvitations;
 use Healthy360\B2b\Jobs\PurgeExpiredKycDocuments;
+use Healthy360\Cart\Jobs\ExpireStaleCarts;
+use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
+use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
 use Healthy360\Verification\Jobs\PurgeExpiredOtpChallenges;
 use Illuminate\Support\Facades\Schedule;
@@ -93,5 +96,64 @@ Schedule::job(new PurgeExpiredInvitations)
     ->dailyAt('04:45')
     ->timezone('UTC')
     ->name('b2b:purge-expired-invitations')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// G1 — the guest retention pair. Appended at the tail so parallel phases can
+// each add their own entries without touching one another's.
+
+/*
+| G1 — hourly. Guest tokens are minted per anonymous visitor, so this table
+| grows faster than anything else in the customers module. The job is hygiene
+| rather than security: a token stops working the moment it expires or is
+| revoked, because GuestSession::isLive() asks the clock and not this sweep.
+| The short grace before a dead row is removed (guest.retention.session_rows_hours)
+| exists so an abuse report arriving the next morning can still tell a revoked
+| session from a lapsed one.
+*/
+Schedule::job(new PurgeExpiredGuestSessions)
+    ->hourly()
+    ->name('customers:purge-expired-guest-sessions')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| G1 — daily at 03:30 UTC. Two passes in one job: close guest accounts whose
+| 14-day window has passed, then erase the personal data of those closed longer
+| than the 90-day retention window. Both numbers are configuration and both are
+| PROVISIONAL pending OQ-030 — never presented as a settled legal period.
+|
+| Offset from the 03:00 abandonment sweep rather than sharing the hour: two
+| cluster-wide deletion passes running together make a slow database look like a
+| broken one. UTC explicitly, for the same reason the 03:00 entry gives — the
+| platform spans Asia/Beirut and Asia/Dubai, and a schedule drifting with a
+| server's local timezone would run at a different hour depending on where it
+| was deployed.
+*/
+Schedule::job(new ExpireGuestData)
+    ->dailyAt('03:30')
+    ->timezone('UTC')
+    ->name('customers:expire-guest-data')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| C1 — daily at 05:15 UTC. Not retention, and the odd one out on this list:
+| an expired basket is *kept*. All this does is close it, so the customer's
+| one-open-cart slot on that channel is free the next time they shop. The lines
+| stay, because an abandoned basket is the record of what somebody nearly
+| ordered — and because `cart_items` restricts deletion of the articles it
+| points at, which would be pointless if the baskets themselves evaporated.
+|
+| Offset again rather than sharing an hour with the sweeps above, for the same
+| reason those are offset from each other. Daily is generous for work whose only
+| urgency is tidiness, and the window is `cart.expiry.ttl_minutes` — every
+| basket mutation pushes it out, so this only ever finds baskets nobody has
+| touched.
+*/
+Schedule::job(new ExpireStaleCarts)
+    ->dailyAt('05:15')
+    ->timezone('UTC')
+    ->name('cart:expire-stale-carts')
     ->withoutOverlapping()
     ->onOneServer();
