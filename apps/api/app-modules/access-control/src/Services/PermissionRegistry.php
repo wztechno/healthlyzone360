@@ -74,6 +74,21 @@ final class PermissionRegistry
             // arrive with the slices that serve them.
             'catalogue.view_organisation' => ['domain' => 'catalogue', 'description' => 'View the ingredient catalogue of the organisation'],
             'catalogue.manage_organisation' => ['domain' => 'catalogue', 'description' => 'Create and update ingredients, categories, aliases and allergen mappings of the organisation'],
+
+            // Phase K1.2 — recipes and their versions. Publication is a third
+            // code, not a corner of `manage`: publishing freezes an allergen
+            // label that reaches a diner and withdraws whatever was live
+            // before, which is a different kind of authority from editing a
+            // draft. A chef writes the formulation; deciding it is what the
+            // kitchen sells is a separate decision, and the permission
+            // registry is where that separation has to be real.
+            //
+            // `recipe.view_costs_organisation` is deliberately absent: the
+            // cost surface is K1.3, and a permission with nothing behind it is
+            // a promise the code does not keep.
+            'recipe.view_organisation' => ['domain' => 'recipe', 'description' => 'View recipes and their versions, lines, outputs, steps and allergen labels'],
+            'recipe.manage_organisation' => ['domain' => 'recipe', 'description' => 'Create and edit recipes and draft versions of the organisation'],
+            'recipe.publish_organisation' => ['domain' => 'recipe', 'description' => 'Publish and retire recipe versions of the organisation'],
         ];
     }
 
@@ -186,17 +201,25 @@ final class PermissionRegistry
                 'permissions' => [
                     'catalogue.view_organisation',
                     'catalogue.manage_organisation',
+                    'recipe.view_organisation',
+                    'recipe.manage_organisation',
+                    'recipe.publish_organisation',
                     'organisation.view_current',
                     'branch.view_current',
                     'membership.view_organisation',
                 ],
             ],
+
+            // A chef writes formulations and does not decide what the kitchen
+            // sells: `recipe.publish_organisation` stops here deliberately.
             'kitchen_chef' => [
                 'name_en' => 'Chef',
                 'name_ar' => 'رئيس الطهاة',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'catalogue.manage_organisation',
+                    'recipe.view_organisation',
+                    'recipe.manage_organisation',
                 ],
             ],
             'kitchen_staff' => [
@@ -204,6 +227,7 @@ final class PermissionRegistry
                 'name_ar' => 'طاقم المطبخ',
                 'permissions' => [
                     'catalogue.view_organisation',
+                    'recipe.view_organisation',
                 ],
             ],
             'commercial_manager' => [
@@ -211,6 +235,7 @@ final class PermissionRegistry
                 'name_ar' => 'المدير التجاري',
                 'permissions' => [
                     'catalogue.view_organisation',
+                    'recipe.view_organisation',
                 ],
             ],
         ];

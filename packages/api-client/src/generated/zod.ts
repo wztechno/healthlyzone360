@@ -39,6 +39,10 @@ export const zErrorCode = z.enum([
     'request.precondition_required',
     'resource.not_found',
     'resource.conflict',
+    'catalogue.in_use',
+    'catalogue.version_immutable',
+    'catalogue.allergen_unmapped',
+    'catalogue.publish_blocked',
     'rate_limit.exceeded',
     'server.internal_error'
 ]);
@@ -401,6 +405,282 @@ export const zReplaceIngredientAllergensRequest = z.object({
 });
 
 /**
+ * The operational lifecycle of a recipe *identity*. Deliberately not the
+ * publication family: a recipe is never published, its versions are.
+ * There is no `inactive` either — "temporarily not in use" is expressed
+ * by having no published version.
+ *
+ */
+export const zRecipeStatus = z.enum(['active', 'archived']);
+
+/**
+ * How guarded a formulation is. Defaults to `confidential` because a
+ * recipe is a kitchen's commercial secret until somebody decides
+ * otherwise, and a default that leaks is a default that is wrong exactly
+ * once. Neither value makes a formulation public: recipe lines are on
+ * the public denylist regardless.
+ *
+ */
+export const zRecipeConfidentiality = z.enum(['internal', 'confidential']).default('confidential');
+
+/**
+ * The publication lifecycle of a version. `review_required` is a
+ * **stored** quarantine state, not a flag beside one: a critical
+ * allergen contradiction has to block publication structurally, and a
+ * boolean next to a status is something a publish path can forget to
+ * read. A quarantined version is still editable — the point is that
+ * somebody fixes it — and is as unpublishable as a draft.
+ *
+ * "Publishable" is never stored; it is the readiness evaluator's verdict
+ * at the moment of publication.
+ *
+ */
+export const zRecipeVersionStatus = z.enum([
+    'draft',
+    'review_required',
+    'published',
+    'retired'
+]);
+
+/**
+ * `indicative` is a formulation without costs — which is what the
+ * sauces-and-dressings source provides, and recording that honestly
+ * beats inventing figures. `costed` is what a technical sheet is.
+ *
+ */
+export const zRecipeCompleteness = z.enum(['indicative', 'costed']);
+
+/**
+ * Whether the frozen allergen label still matches the ingredient
+ * mappings it was computed from. A new version is `stale` — nothing has
+ * been derived for it, and claiming `current` for an empty label would be
+ * the most dangerous default available. `failed` records that a recompute
+ * was attempted and could not complete, which must never be
+ * indistinguishable from "not tried yet".
+ *
+ */
+export const zDerivationState = z.enum([
+    'current',
+    'stale',
+    'failed'
+]);
+
+/**
+ * Where a label row came from. `derived` was computed from the effective
+ * ingredient mappings and carries the ingredient that caused it;
+ * `declared` is a human statement — a chef who knows the fryer is shared
+ * — that no mapping implies. A derivation never weakens a declaration.
+ *
+ */
+export const zAllergenDerivation = z.enum(['declared', 'derived']);
+
+/**
+ * The administrative shape of a recipe identity. Carries **both** names
+ * and ignores `Accept-Language` for them: a bilingual editor has to see
+ * what it is editing. There is no public recipe projection.
+ *
+ */
+export const zAdminRecipe = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullish(),
+    slug: z.string().max(120),
+    name_en: z.string(),
+    name_ar: z.string(),
+    recipe_category: z.string().max(40).nullish(),
+    source_kind: z.string().max(40).nullish(),
+    confidentiality: zRecipeConfidentiality,
+    status: zRecipeStatus,
+    notes: z.string().nullish(),
+    published_version_number: z.int().gte(1).nullable(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zRecipeEnvelope = z.object({
+    data: z.object({
+        recipe: zAdminRecipe
+    }),
+    meta: zMeta
+});
+
+/**
+ * The header of a recipe version. `derived_input_hash` is deliberately
+ * absent from the wire: it is an internal fingerprint, and publishing it
+ * would invite clients to compare hashes instead of reading
+ * `derivation_state`.
+ *
+ */
+export const zAdminRecipeVersion = z.object({
+    id: zUuid,
+    recipe_id: zUuid,
+    version_number: z.int().gte(1),
+    status: zRecipeVersionStatus,
+    completeness: zRecipeCompleteness,
+    yield_quantity: z.string().nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).nullish(),
+    input_quantity_total: z.string().nullish(),
+    waste_coefficient_percent: z.string(),
+    derivation_state: zDerivationState,
+    derived_at: z.iso.datetime({ offset: true }).nullish(),
+    published_at: z.iso.datetime({ offset: true }).nullish(),
+    review_reason: z.string().max(200).nullish(),
+    notes: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zRecipeVersionEnvelope = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion
+    }),
+    meta: zMeta
+});
+
+/**
+ * One formulation line.
+ *
+ * **No cost fields.** `recipe_version_lines` carries
+ * `unit_cost_amount`, `line_cost_amount` and `cost_currency_code`, and
+ * this projection reads none of them. The cost surface is K1.3, behind
+ * `recipe.view_costs_organisation`; until that permission exists there is
+ * no way to serve a cost to the right people, so the honest projection
+ * serves it to nobody.
+ *
+ */
+export const zRecipeLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    ingredient_id: zUuid,
+    quantity: z.string().nullish(),
+    unit_id: zUuid.nullish(),
+    source_designation: z.string().max(160).nullish(),
+    comment: z.string().max(255).nullish()
+});
+
+/**
+ * What a version produces. An ingredient with a row here is what the
+ * design used to call an "intermediate"; there is no kind column
+ * anywhere, because being an intermediate is a fact about some version's
+ * outputs and not a property of the ingredient.
+ *
+ */
+export const zRecipeOutput = z.object({
+    id: zUuid,
+    ingredient_id: zUuid,
+    output_quantity: z.string(),
+    unit_id: zUuid,
+    is_primary: z.boolean()
+});
+
+export const zRecipeStep = z.object({
+    id: zUuid,
+    step_number: z.int().gte(1),
+    instruction_en: z.string(),
+    instruction_ar: z.string().nullish(),
+    minutes: z.int().gte(0).nullish()
+});
+
+/**
+ * One row of a version's frozen label — the only part of a recipe version
+ * that is ever meant to reach a diner.
+ *
+ */
+export const zRecipeVersionAllergen = z.object({
+    id: zUuid,
+    allergen_code: zAllergenCode,
+    containment: z.enum(['contains', 'may_contain']),
+    derivation: zAllergenDerivation,
+    source_ingredient_id: zUuid.nullish(),
+    source_note: z.string().max(255).nullish()
+});
+
+export const zCreateRecipeRequest = z.object({
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    slug: z.string().max(110).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
+    branch_id: zUuid.nullish(),
+    recipe_category: z.string().max(40).nullish(),
+    source_kind: z.string().max(40).nullish(),
+    confidentiality: zRecipeConfidentiality.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * A partial update. `slug` and `status` are absent by design — the slug
+ * is the handle a re-import converges on, and status changes are
+ * lifecycle actions with their own routes.
+ *
+ */
+export const zUpdateRecipeRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    branch_id: zUuid.nullish(),
+    recipe_category: z.string().max(40).nullish(),
+    source_kind: z.string().max(40).nullish(),
+    confidentiality: zRecipeConfidentiality.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * An empty body opens a blank draft. `copy_from_version` is a version
+ * *number* — what a human reads on a technical sheet — resolved inside
+ * this recipe only.
+ *
+ */
+export const zCreateRecipeVersionRequest = z.object({
+    copy_from_version: z.int().gte(1).nullish()
+});
+
+/**
+ * A partial update of a version header. `status`, `derivation_state`,
+ * `derived_at`, `published_at` and `published_by` are absent by design:
+ * each is a conclusion the server reached.
+ *
+ */
+export const zUpdateRecipeVersionRequest = z.object({
+    completeness: zRecipeCompleteness.optional(),
+    yield_quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).nullish(),
+    input_quantity_total: z.number().gt(0).lte(99999999.9999).nullish(),
+    waste_coefficient_percent: z.number().gte(0).lte(999.99).optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+export const zReplaceRecipeLinesRequest = z.object({
+    lines: z.array(z.object({
+        ingredient_id: zUuid,
+        quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+        unit_id: zUuid.nullish(),
+        source_designation: z.string().max(160).nullish(),
+        comment: z.string().max(255).nullish()
+    })).max(200)
+});
+
+export const zReplaceRecipeOutputsRequest = z.object({
+    outputs: z.array(z.object({
+        ingredient_id: zUuid,
+        output_quantity: z.number().gt(0).lte(99999999.9999),
+        unit_id: zUuid,
+        is_primary: z.boolean().nullish().default(false)
+    })).max(20)
+});
+
+export const zReplaceRecipeStepsRequest = z.object({
+    steps: z.array(z.object({
+        instruction_en: z.string().max(4000),
+        instruction_ar: z.string().max(4000).nullish(),
+        minutes: z.int().gte(0).lte(10000).nullish()
+    })).max(100)
+});
+
+/**
  * The anonymous projection of an allergen class: exactly one
  * server-localised name and description, plus the regulatory metadata a
  * customer needs to read a label correctly.
@@ -568,6 +848,25 @@ export const zIngredientPath = zUuid;
  * The canonical allergen class code.
  */
 export const zAllergenCodePath = zAllergenCode;
+
+/**
+ * The recipe identifier.
+ */
+export const zRecipePath = zUuid;
+
+/**
+ * The version identifier, or its `version_number`. Both are accepted
+ * because both are natural — a client that walked the list holds
+ * identifiers, a human reading a technical sheet holds "version 3" — and
+ * a number cannot be mistaken for a UUID. The version is always resolved
+ * inside the recipe in the path, so one recipe's number can never reach
+ * another's version.
+ *
+ */
+export const zRecipeVersionPath = z.union([
+    zUuid,
+    z.string().regex(/^\d+$/)
+]);
 
 export const zRegisterUserBody = zRegisterRequest;
 
@@ -1232,6 +1531,328 @@ export const zUpdateIngredientCategoryPath = z.object({
  * The updated category.
  */
 export const zUpdateIngredientCategoryResponse = zIngredientCategoryEnvelope;
+
+export const zListRecipesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipesQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    query: z.string().max(160).optional(),
+    status: zRecipeStatus.optional(),
+    category: z.string().max(40).optional()
+});
+
+/**
+ * A page of recipes.
+ */
+export const zListRecipesResponse = z.object({
+    data: z.array(zAdminRecipe),
+    meta: zPaginationMeta
+});
+
+export const zCreateRecipeBody = zCreateRecipeRequest;
+
+export const zCreateRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The recipe and its first draft version.
+ */
+export const zCreateRecipeResponse = z.object({
+    data: z.object({
+        recipe: zAdminRecipe,
+        version: zAdminRecipeVersion
+    }),
+    meta: zMeta
+});
+
+export const zShowRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipePath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The recipe and every version of it.
+ */
+export const zShowRecipeResponse = z.object({
+    data: z.object({
+        recipe: zAdminRecipe,
+        versions: z.array(zAdminRecipeVersion)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateRecipeBody = zUpdateRecipeRequest;
+
+export const zUpdateRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateRecipePath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The updated recipe, with its new validator.
+ */
+export const zUpdateRecipeResponse = zRecipeEnvelope;
+
+export const zArchiveRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveRecipePath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The archived recipe.
+ */
+export const zArchiveRecipeResponse = zRecipeEnvelope;
+
+export const zListRecipeVersionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeVersionsPath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * Every version, oldest first.
+ */
+export const zListRecipeVersionsResponse = z.object({
+    data: z.array(zAdminRecipeVersion),
+    meta: zMeta
+});
+
+export const zCreateRecipeVersionBody = zCreateRecipeVersionRequest;
+
+export const zCreateRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateRecipeVersionPath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The new draft version.
+ */
+export const zCreateRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zShowRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The whole version.
+ */
+export const zShowRecipeVersionResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        lines: z.array(zRecipeLine),
+        outputs: z.array(zRecipeOutput),
+        steps: z.array(zRecipeStep),
+        allergens: z.array(zRecipeVersionAllergen)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateRecipeVersionBody = zUpdateRecipeVersionRequest;
+
+export const zUpdateRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The updated version.
+ */
+export const zUpdateRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zReplaceRecipeLinesBody = zReplaceRecipeLinesRequest;
+
+export const zReplaceRecipeLinesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipeLinesPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new lines.
+ */
+export const zReplaceRecipeLinesResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        lines: z.array(zRecipeLine)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceRecipeOutputsBody = zReplaceRecipeOutputsRequest;
+
+export const zReplaceRecipeOutputsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipeOutputsPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new outputs.
+ */
+export const zReplaceRecipeOutputsResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        outputs: z.array(zRecipeOutput)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceRecipeStepsBody = zReplaceRecipeStepsRequest;
+
+export const zReplaceRecipeStepsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipeStepsPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new steps.
+ */
+export const zReplaceRecipeStepsResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        steps: z.array(zRecipeStep)
+    }),
+    meta: zMeta
+});
+
+export const zListRecipeVersionAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeVersionAllergensPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The label rows.
+ */
+export const zListRecipeVersionAllergensResponse = z.object({
+    data: z.array(zRecipeVersionAllergen),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        derivation_state: zDerivationState,
+        derived_at: z.iso.datetime({ offset: true }).nullish()
+    }))
+});
+
+export const zPublishRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPublishRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The published version and the label it froze.
+ */
+export const zPublishRecipeVersionResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        allergens: z.array(zRecipeVersionAllergen)
+    }),
+    meta: zMeta
+});
+
+export const zRetireRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRetireRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The retired version.
+ */
+export const zRetireRecipeVersionResponse = zRecipeVersionEnvelope;
 
 export const zListAllergenClassesHeaders = z.object({
     'Accept-Language': z.string().optional(),

@@ -1,0 +1,23 @@
+{
+	"name": "healthy360/recipes",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Recipes\\": "src/",
+			"Healthy360\\Recipes\\Tests\\": "tests/",
+			"Healthy360\\Recipes\\Database\\Factories\\": "database/factories/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Recipes\\Providers\\RecipesServiceProvider"
+			]
+		}
+	}
+}

@@ -58,7 +58,7 @@ Collections return `data` as an array; pagination, counts and similar belong in 
 | Client → server | `X-Client-Version` | App version for diagnostics and deprecation telemetry | |
 | Client → server | `X-Client-Platform` | `web`, `ios`, `android` | |
 | Client → server | `Idempotency-Key` | De-duplication of retried commands | **Only on explicitly idempotent command endpoints** (marked in OpenAPI). Do not attach automatically to every mutation. Keys are scoped per endpoint per user; replays return the original response. No implemented endpoint accepts it yet |
-| Client → server | `If-Match` | Optimistic concurrency | **Required on writes to resources supporting it** (those with `lock_version` — see ERD). Absent returns `428` with `request.precondition_required`; mismatch returns `409` with `resource.conflict`. First accepted by the K1.1 ingredient writes (`PATCH /catalogue/ingredients/{ingredient}`, `POST …/archive`) |
+| Client → server | `If-Match` | Optimistic concurrency | **Required on writes to resources supporting it** (those with `lock_version` — see ERD). Absent returns `428` with `request.precondition_required`; mismatch returns `409` with `resource.conflict`. First accepted by the K1.1 ingredient writes (`PATCH /catalogue/ingredients/{ingredient}`, `POST …/archive`); K1.2 added the recipe and recipe-version writes |
 | Server → client | `ETag` | The validator of a lock-versioned resource | `"<lock_version>"`, quoted. Returned by the single-resource GET and by every write that succeeds; sent back as `If-Match` |
 | Server → client | `X-Correlation-Id` | Server-generated correlation identifier | Generated per request, returned on every response, embedded in `meta`/`error` and in audit logs |
 
@@ -87,10 +87,14 @@ The complete implemented vocabulary — `Healthy360\Support\Api\ErrorCode`, mirr
 | `request.precondition_required` | 428 | A write to a lock-versioned resource arrived without `If-Match`. `details.required_headers` names it. Distinct from `resource.conflict`: the caller has not lost a race, it never entered one |
 | `resource.not_found` | 404 | The resource does not exist, or is not the caller's to see |
 | `resource.conflict` | 409 | The change conflicts with the current state |
+| `catalogue.in_use` | 409 | A catalogue record cannot be withdrawn because something still points at it — an ingredient named by a non-retired recipe version (`details.recipe_ids`, `details.recipe_version_ids`), or a recipe with a published version (`details.published_version_ids`). Distinct from `resource.conflict`: the caller has not lost a race, and the answer is "retire those first" rather than "reload and try again" |
+| `catalogue.version_immutable` | 409 | A write reached a published or retired recipe version. `details.status` names which. Published versions are immutable — a change is a new draft version, because a label a customer has already been shown must stay reconstructable |
+| `catalogue.allergen_unmapped` | 422 | Publication refused: at least one line ingredient carries no allergen determination at all. `details.ingredient_ids` names them. An ingredient passes when it holds a mapping row in any layer, **or** when its `verification_status` is `verified` — silence is not a statement of absence |
+| `catalogue.publish_blocked` | 409 | Publication refused by the readiness evaluator for any other reason. `details.reasons` carries **every** blocker as `{reason, …context}` (`version_quarantined`, `version_not_a_draft`, `no_lines`, `line_quantity_missing`, `ingredient_requires_review`), so a kitchen fixes them in one pass rather than one per attempt |
 | `rate_limit.exceeded` | 429 | A rate limit was exceeded. Served with `Retry-After` |
 | `server.internal_error` | 500 | Anything unrecognised. Safe message only; never a message or trace from the underlying exception |
 
-Namespaces: `auth.*` authentication state · `authz.*` permission denial (RBAC steps 4–6) · `context.*` organisation and branch context · `resource.*` resource state · `validation.*` input · `request.*` malformed request · `rate_limit.*` throttling · `server.*` faults.
+Namespaces: `auth.*` authentication state · `authz.*` permission denial (RBAC steps 4–6) · `context.*` organisation and branch context · `resource.*` resource state · `catalogue.*` kitchen-catalogue rules that a generic resource code would flatten · `validation.*` input · `request.*` malformed request · `rate_limit.*` throttling · `server.*` faults.
 
 Separated authorisation concerns (context, entitlement, consent, relationship, step-up, email verification — plan §10) each surface a **distinct** code; they are never collapsed into a generic permission denial. Within `authz.permission_denied` the exact RBAC step is reported in `details.reason` (`unauthenticated`, `membership_inactive`, `branch_out_of_scope`, `permission_not_granted`, `resource_outside_organisation`, `policy_denied`).
 
@@ -116,7 +120,13 @@ The freshness of the validator is decided **inside the write statement** (`UPDAT
 
 The header applies only to resources that carry `lock_version`. A resource without one has no concurrency contract and is not sent `If-Match` — ingredient categories and allergen classes are examples.
 
-**Endpoints that require it** (as of K1.1): `PATCH /api/v1/catalogue/ingredients/{ingredient}` and `POST /api/v1/catalogue/ingredients/{ingredient}/archive`.
+**Endpoints that require it** (as of K1.2):
+
+- `PATCH /api/v1/catalogue/ingredients/{ingredient}` · `POST /api/v1/catalogue/ingredients/{ingredient}/archive`
+- `PATCH /api/v1/catalogue/recipes/{recipe}` · `POST /api/v1/catalogue/recipes/{recipe}/archive`
+- `PATCH /api/v1/catalogue/recipes/{recipe}/versions/{version}` and its `…/lines`, `…/outputs`, `…/steps`, `…/publish`, `…/retire` sub-resources
+
+On the version sub-resources the validator is the **version's** `lock_version`, not a line's or a step's. The set is the unit of change: a per-row validator would let two editors replace different halves of one formulation and each believe they had written the whole of it.
 
 ## Cursor pagination
 
@@ -187,6 +197,21 @@ The full set as implemented in Phase 4. `openapi/healthy360.v1.yaml` is authorit
 | GET | `/api/v1/catalogue/ingredient-categories` | session or bearer, verified, org | Flat two-level taxonomy, unpaginated. `catalogue.view_organisation` |
 | POST | `/api/v1/catalogue/ingredient-categories` | session or bearer, verified, org | `catalogue.manage_organisation` |
 | PATCH | `/api/v1/catalogue/ingredient-categories/{category}` | session or bearer, verified, org | No `If-Match` — categories carry no `lock_version`. `catalogue.manage_organisation` |
+| GET | `/api/v1/catalogue/recipes` | session or bearer, verified, org | Cursor-paginated. Filters `query`, `status`, `category`. `published_version_number` is computed, not stored. `recipe.view_organisation` |
+| POST | `/api/v1/catalogue/recipes` | session or bearer, verified, org | Creates the recipe **and** its draft version 1 in one transaction. `recipe.manage_organisation` |
+| GET | `/api/v1/catalogue/recipes/{recipe}` | session or bearer, verified, org | Recipe plus its version summaries. Returns `ETag: "<lock_version>"`. `recipe.view_organisation` |
+| PATCH | `/api/v1/catalogue/recipes/{recipe}` | session or bearer, verified, org | **`If-Match` required.** `recipe.manage_organisation` |
+| POST | `/api/v1/catalogue/recipes/{recipe}/archive` | session or bearer, verified, org | Lifecycle action. Refused with `catalogue.in_use` while a published version exists. **`If-Match` required.** `recipe.manage_organisation` |
+| GET | `/api/v1/catalogue/recipes/{recipe}/versions` | session or bearer, verified, org | Version history, unpaginated. `recipe.view_organisation` |
+| POST | `/api/v1/catalogue/recipes/{recipe}/versions` | session or bearer, verified, org | Opens a draft, optionally `copy_from_version`. No `If-Match` — nothing existing is written. `recipe.manage_organisation` |
+| GET | `/api/v1/catalogue/recipes/{recipe}/versions/{version}` | session or bearer, verified, org | Header, lines, outputs, steps and the frozen label. `{version}` accepts an identifier or a version number. **No cost fields** — the cost projection is K1.3. `recipe.view_organisation` |
+| PATCH | `/api/v1/catalogue/recipes/{recipe}/versions/{version}` | session or bearer, verified, org | Draft or quarantined only; published/retired is `catalogue.version_immutable`. **`If-Match` required.** `recipe.manage_organisation` |
+| PUT | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/lines` | session or bearer, verified, org | Set-replace; array order is the line sequence; duplicate ingredients allowed. **`If-Match` (the version's) required.** `recipe.manage_organisation` |
+| PUT | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/outputs` | session or bearer, verified, org | Set-replace; exactly one primary when non-empty. **`If-Match` required.** `recipe.manage_organisation` |
+| PUT | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/steps` | session or bearer, verified, org | Set-replace; array order is the step sequence. **`If-Match` required.** `recipe.manage_organisation` |
+| GET | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/allergens` | session or bearer, verified, org | Declared and derived label rows; `meta.derivation_state` says whether the label still matches the mappings. `recipe.view_organisation` |
+| POST | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/publish` | session or bearer, verified, org | Readiness gate, frozen label, demotion of the incumbent. **`If-Match` required.** `recipe.publish_organisation` |
+| POST | `/api/v1/catalogue/recipes/{recipe}/versions/{version}/retire` | session or bearer, verified, org | Terminal. **`If-Match` required.** `recipe.publish_organisation` |
 | GET | `/api/v1/reference/allergen-classes` | — | **Anonymous.** Active classes only, one server-localised name from `Accept-Language` |
 | POST | `/api/v1/reference/allergen-classes` | session or bearer, verified, platform org | `platform.context` + `reference.manage_platform` |
 | PATCH | `/api/v1/reference/allergen-classes/{code}` | session or bearer, verified, platform org | `code` is immutable and a request carrying it is rejected. `platform.context` + `reference.manage_platform` |

@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'resource.not_found' | 'resource.conflict' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -476,6 +476,358 @@ export type ReplaceIngredientAllergensRequest = {
 };
 
 /**
+ * The operational lifecycle of a recipe *identity*. Deliberately not the
+ * publication family: a recipe is never published, its versions are.
+ * There is no `inactive` either — "temporarily not in use" is expressed
+ * by having no published version.
+ *
+ */
+export type RecipeStatus = 'active' | 'archived';
+
+/**
+ * How guarded a formulation is. Defaults to `confidential` because a
+ * recipe is a kitchen's commercial secret until somebody decides
+ * otherwise, and a default that leaks is a default that is wrong exactly
+ * once. Neither value makes a formulation public: recipe lines are on
+ * the public denylist regardless.
+ *
+ */
+export type RecipeConfidentiality = 'internal' | 'confidential';
+
+/**
+ * The publication lifecycle of a version. `review_required` is a
+ * **stored** quarantine state, not a flag beside one: a critical
+ * allergen contradiction has to block publication structurally, and a
+ * boolean next to a status is something a publish path can forget to
+ * read. A quarantined version is still editable — the point is that
+ * somebody fixes it — and is as unpublishable as a draft.
+ *
+ * "Publishable" is never stored; it is the readiness evaluator's verdict
+ * at the moment of publication.
+ *
+ */
+export type RecipeVersionStatus = 'draft' | 'review_required' | 'published' | 'retired';
+
+/**
+ * `indicative` is a formulation without costs — which is what the
+ * sauces-and-dressings source provides, and recording that honestly
+ * beats inventing figures. `costed` is what a technical sheet is.
+ *
+ */
+export type RecipeCompleteness = 'indicative' | 'costed';
+
+/**
+ * Whether the frozen allergen label still matches the ingredient
+ * mappings it was computed from. A new version is `stale` — nothing has
+ * been derived for it, and claiming `current` for an empty label would be
+ * the most dangerous default available. `failed` records that a recompute
+ * was attempted and could not complete, which must never be
+ * indistinguishable from "not tried yet".
+ *
+ */
+export type DerivationState = 'current' | 'stale' | 'failed';
+
+/**
+ * Where a label row came from. `derived` was computed from the effective
+ * ingredient mappings and carries the ingredient that caused it;
+ * `declared` is a human statement — a chef who knows the fryer is shared
+ * — that no mapping implies. A derivation never weakens a declaration.
+ *
+ */
+export type AllergenDerivation = 'declared' | 'derived';
+
+/**
+ * The administrative shape of a recipe identity. Carries **both** names
+ * and ignores `Accept-Language` for them: a bilingual editor has to see
+ * what it is editing. There is no public recipe projection.
+ *
+ */
+export type AdminRecipe = {
+    id: Uuid;
+    organisation_id: Uuid;
+    branch_id?: Uuid | null;
+    slug: string;
+    name_en: string;
+    /**
+     * Falls back to the English name where no Arabic exists.
+     */
+    name_ar: string;
+    /**
+     * Free text, deliberately not an enumeration: the source vocabulary
+     * (sauce, dressing, marination, patty, topping, component) describes
+     * how one kitchen files its sheets, not a regulated identity, and an
+     * enum would turn "we started making dips" into a migration.
+     *
+     */
+    recipe_category?: string | null;
+    /**
+     * The source sheet's `Kind`, verbatim.
+     */
+    source_kind?: string | null;
+    confidentiality: RecipeConfidentiality;
+    status: RecipeStatus;
+    notes?: string | null;
+    /**
+     * The live version, or null when nothing is published. Computed, not
+     * stored: there is no `current_version_id` column to fall out of
+     * step with the versions themselves.
+     *
+     */
+    published_version_number: number | null;
+    source_system?: string | null;
+    source_ref?: string | null;
+    /**
+     * Also served as the `ETag` of the single-resource GET.
+     */
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type RecipeEnvelope = {
+    data: {
+        recipe: AdminRecipe;
+    };
+    meta: Meta;
+};
+
+/**
+ * The header of a recipe version. `derived_input_hash` is deliberately
+ * absent from the wire: it is an internal fingerprint, and publishing it
+ * would invite clients to compare hashes instead of reading
+ * `derivation_state`.
+ *
+ */
+export type AdminRecipeVersion = {
+    id: Uuid;
+    recipe_id: Uuid;
+    version_number: number;
+    status: RecipeVersionStatus;
+    completeness: RecipeCompleteness;
+    /**
+     * Decimal with four places, as a string so no client rounds it.
+     */
+    yield_quantity?: string | null;
+    yield_unit_id?: Uuid | null;
+    yield_piece_count?: number | null;
+    /**
+     * The sum of the input lines, kept alongside the yield because the
+     * source sheets state both and they legitimately differ.
+     *
+     */
+    input_quantity_total?: string | null;
+    /**
+     * Decimal with two places, as a string. Defaults to `3.00` — the flat
+     * allowance the source technical sheets apply across the board.
+     *
+     */
+    waste_coefficient_percent: string;
+    derivation_state: DerivationState;
+    derived_at?: string | null;
+    published_at?: string | null;
+    /**
+     * Why this version is quarantined, when it is.
+     */
+    review_reason?: string | null;
+    notes?: string | null;
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type RecipeVersionEnvelope = {
+    data: {
+        version: AdminRecipeVersion;
+    };
+    meta: Meta;
+};
+
+/**
+ * One formulation line.
+ *
+ * **No cost fields.** `recipe_version_lines` carries
+ * `unit_cost_amount`, `line_cost_amount` and `cost_currency_code`, and
+ * this projection reads none of them. The cost surface is K1.3, behind
+ * `recipe.view_costs_organisation`; until that permission exists there is
+ * no way to serve a cost to the right people, so the honest projection
+ * serves it to nobody.
+ *
+ */
+export type RecipeLine = {
+    id: Uuid;
+    /**
+     * Server-authored from the submitted order.
+     */
+    line_number: number;
+    ingredient_id: Uuid;
+    /**
+     * Decimal with four places, as a string. Null is legal only while the
+     * version is unpublished — the publish gate is where nullability
+     * ends.
+     *
+     */
+    quantity?: string | null;
+    unit_id?: Uuid | null;
+    /**
+     * The import source wording, verbatim.
+     */
+    source_designation?: string | null;
+    comment?: string | null;
+};
+
+/**
+ * What a version produces. An ingredient with a row here is what the
+ * design used to call an "intermediate"; there is no kind column
+ * anywhere, because being an intermediate is a fact about some version's
+ * outputs and not a property of the ingredient.
+ *
+ */
+export type RecipeOutput = {
+    id: Uuid;
+    ingredient_id: Uuid;
+    output_quantity: string;
+    unit_id: Uuid;
+    /**
+     * At most one per version, enforced by a partial unique index.
+     */
+    is_primary: boolean;
+};
+
+export type RecipeStep = {
+    id: Uuid;
+    step_number: number;
+    instruction_en: string;
+    instruction_ar?: string | null;
+    minutes?: number | null;
+};
+
+/**
+ * One row of a version's frozen label — the only part of a recipe version
+ * that is ever meant to reach a diner.
+ *
+ */
+export type RecipeVersionAllergen = {
+    id: Uuid;
+    allergen_code: AllergenCode;
+    containment: 'contains' | 'may_contain';
+    derivation: AllergenDerivation;
+    /**
+     * The line ingredient a derived row came from. Provenance is what
+     * makes a warning trusted: "sesame, from tahini" is acted on where a
+     * bare "sesame" is clicked past.
+     *
+     */
+    source_ingredient_id?: Uuid | null;
+    /**
+     * For a derived row, the market scopes that contributed. The label is
+     * one row per class, so a scope column would either duplicate rows or
+     * pick one scope and lose the rest.
+     *
+     */
+    source_note?: string | null;
+};
+
+export type CreateRecipeRequest = {
+    name_en: string;
+    /**
+     * Falls back to the English name when absent.
+     */
+    name_ar?: string | null;
+    /**
+     * Derived from the name when absent, and de-duplicated within the organisation.
+     */
+    slug?: string | null;
+    branch_id?: Uuid | null;
+    recipe_category?: string | null;
+    source_kind?: string | null;
+    confidentiality?: RecipeConfidentiality;
+    notes?: string | null;
+};
+
+/**
+ * A partial update. `slug` and `status` are absent by design — the slug
+ * is the handle a re-import converges on, and status changes are
+ * lifecycle actions with their own routes.
+ *
+ */
+export type UpdateRecipeRequest = {
+    name_en?: string;
+    name_ar?: string;
+    branch_id?: Uuid | null;
+    recipe_category?: string | null;
+    source_kind?: string | null;
+    confidentiality?: RecipeConfidentiality;
+    notes?: string | null;
+};
+
+/**
+ * An empty body opens a blank draft. `copy_from_version` is a version
+ * *number* — what a human reads on a technical sheet — resolved inside
+ * this recipe only.
+ *
+ */
+export type CreateRecipeVersionRequest = {
+    copy_from_version?: number | null;
+};
+
+/**
+ * A partial update of a version header. `status`, `derivation_state`,
+ * `derived_at`, `published_at` and `published_by` are absent by design:
+ * each is a conclusion the server reached.
+ *
+ */
+export type UpdateRecipeVersionRequest = {
+    completeness?: RecipeCompleteness;
+    yield_quantity?: number | null;
+    yield_unit_id?: Uuid | null;
+    yield_piece_count?: number | null;
+    input_quantity_total?: number | null;
+    waste_coefficient_percent?: number;
+    notes?: string | null;
+};
+
+export type ReplaceRecipeLinesRequest = {
+    /**
+     * The complete formulation. An empty array is a legitimate statement
+     * ("this version has no lines yet"), not a missing field. The array
+     * order is the line sequence, and duplicate ingredients are allowed.
+     *
+     */
+    lines: Array<{
+        ingredient_id: Uuid;
+        quantity?: number | null;
+        unit_id?: Uuid | null;
+        source_designation?: string | null;
+        comment?: string | null;
+    }>;
+};
+
+export type ReplaceRecipeOutputsRequest = {
+    /**
+     * An empty array is legitimate. A non-empty one must name exactly one
+     * primary, and may not name the same ingredient twice.
+     *
+     */
+    outputs: Array<{
+        ingredient_id: Uuid;
+        output_quantity: number;
+        unit_id: Uuid;
+        is_primary?: boolean | null;
+    }>;
+};
+
+export type ReplaceRecipeStepsRequest = {
+    /**
+     * The complete method. The array order is the step sequence.
+     */
+    steps: Array<{
+        instruction_en: string;
+        instruction_ar?: string | null;
+        minutes?: number | null;
+    }>;
+};
+
+/**
  * The anonymous projection of an allergen class: exactly one
  * server-localised name and description, plus the regulatory metadata a
  * customer needs to read a label correctly.
@@ -642,6 +994,22 @@ export type IngredientPath = Uuid;
  * The canonical allergen class code.
  */
 export type AllergenCodePath = AllergenCode;
+
+/**
+ * The recipe identifier.
+ */
+export type RecipePath = Uuid;
+
+/**
+ * The version identifier, or its `version_number`. Both are accepted
+ * because both are natural — a client that walked the list holds
+ * identifiers, a human reading a technical sheet holds "version 3" — and
+ * a number cannot be mistaken for a UUID. The version is always resolved
+ * inside the recipe in the path, so one recipe's number can never reach
+ * another's version.
+ *
+ */
+export type RecipeVersionPath = Uuid | string;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -2276,10 +2644,18 @@ export type ArchiveIngredientErrors = {
      */
     404: ErrorEnvelope;
     /**
-     * The change conflicts with the current state. On a lock-versioned
-     * write this is a lost race, and `details.current_lock_version` is the
-     * value to reload against, so a client can offer "reload" or "keep
-     * mine" without a second round trip.
+     * Three codes share this status, because three different things can be
+     * wrong and the remedies differ.
+     *
+     * **`catalogue.in_use`** — the ingredient is still named by a recipe
+     * version that has not been retired. `details.recipe_ids` and
+     * `details.recipe_version_ids` name them, so the caller knows what to
+     * retire first. Retired versions are never a blocker: history is allowed
+     * to reference an archived ingredient.
+     *
+     * **`resource.conflict`** — either the ingredient is already archived, or
+     * the write lost a race and `details.current_lock_version` is the value
+     * to reload against.
      *
      */
     409: ErrorEnvelope;
@@ -2841,6 +3217,1348 @@ export type UpdateIngredientCategoryResponses = {
 };
 
 export type UpdateIngredientCategoryResponse = UpdateIngredientCategoryResponses[keyof UpdateIngredientCategoryResponses];
+
+export type ListRecipesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Case-insensitive substring match over both names and the slug.
+         */
+        query?: string;
+        /**
+         * Restrict to one lifecycle state. Omitted, only `active` recipes are listed.
+         */
+        status?: RecipeStatus;
+        /**
+         * Exact match on `recipe_category`.
+         */
+        category?: string;
+    };
+    url: '/catalogue/recipes';
+};
+
+export type ListRecipesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListRecipesError = ListRecipesErrors[keyof ListRecipesErrors];
+
+export type ListRecipesResponses = {
+    /**
+     * A page of recipes.
+     */
+    200: {
+        data: Array<AdminRecipe>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListRecipesResponse = ListRecipesResponses[keyof ListRecipesResponses];
+
+export type CreateRecipeData = {
+    body: CreateRecipeRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/recipes';
+};
+
+export type CreateRecipeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateRecipeError = CreateRecipeErrors[keyof CreateRecipeErrors];
+
+export type CreateRecipeResponses = {
+    /**
+     * The recipe and its first draft version.
+     */
+    201: {
+        data: {
+            recipe: AdminRecipe;
+            version: AdminRecipeVersion;
+        };
+        meta: Meta;
+    };
+};
+
+export type CreateRecipeResponse = CreateRecipeResponses[keyof CreateRecipeResponses];
+
+export type ShowRecipeData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}';
+};
+
+export type ShowRecipeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowRecipeError = ShowRecipeErrors[keyof ShowRecipeErrors];
+
+export type ShowRecipeResponses = {
+    /**
+     * The recipe and every version of it.
+     */
+    200: {
+        data: {
+            recipe: AdminRecipe;
+            versions: Array<AdminRecipeVersion>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ShowRecipeResponse = ShowRecipeResponses[keyof ShowRecipeResponses];
+
+export type UpdateRecipeData = {
+    body: UpdateRecipeRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}';
+};
+
+export type UpdateRecipeErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateRecipeError = UpdateRecipeErrors[keyof UpdateRecipeErrors];
+
+export type UpdateRecipeResponses = {
+    /**
+     * The updated recipe, with its new validator.
+     */
+    200: RecipeEnvelope;
+};
+
+export type UpdateRecipeResponse = UpdateRecipeResponses[keyof UpdateRecipeResponses];
+
+export type ArchiveRecipeData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/archive';
+};
+
+export type ArchiveRecipeErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The recipe still has a published version.
+     * `details.published_version_ids` names them. Withdrawing something from
+     * sale is retiring the version — its own action, its own permission —
+     * not a side effect of archiving.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveRecipeError = ArchiveRecipeErrors[keyof ArchiveRecipeErrors];
+
+export type ArchiveRecipeResponses = {
+    /**
+     * The archived recipe.
+     */
+    200: RecipeEnvelope;
+};
+
+export type ArchiveRecipeResponse = ArchiveRecipeResponses[keyof ArchiveRecipeResponses];
+
+export type ListRecipeVersionsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions';
+};
+
+export type ListRecipeVersionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListRecipeVersionsError = ListRecipeVersionsErrors[keyof ListRecipeVersionsErrors];
+
+export type ListRecipeVersionsResponses = {
+    /**
+     * Every version, oldest first.
+     */
+    200: {
+        data: Array<AdminRecipeVersion>;
+        meta: Meta;
+    };
+};
+
+export type ListRecipeVersionsResponse = ListRecipeVersionsResponses[keyof ListRecipeVersionsResponses];
+
+export type CreateRecipeVersionData = {
+    body?: CreateRecipeVersionRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions';
+};
+
+export type CreateRecipeVersionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateRecipeVersionError = CreateRecipeVersionErrors[keyof CreateRecipeVersionErrors];
+
+export type CreateRecipeVersionResponses = {
+    /**
+     * The new draft version.
+     */
+    201: RecipeVersionEnvelope;
+};
+
+export type CreateRecipeVersionResponse = CreateRecipeVersionResponses[keyof CreateRecipeVersionResponses];
+
+export type ShowRecipeVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}';
+};
+
+export type ShowRecipeVersionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowRecipeVersionError = ShowRecipeVersionErrors[keyof ShowRecipeVersionErrors];
+
+export type ShowRecipeVersionResponses = {
+    /**
+     * The whole version.
+     */
+    200: {
+        data: {
+            version: AdminRecipeVersion;
+            lines: Array<RecipeLine>;
+            outputs: Array<RecipeOutput>;
+            steps: Array<RecipeStep>;
+            allergens: Array<RecipeVersionAllergen>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ShowRecipeVersionResponse = ShowRecipeVersionResponses[keyof ShowRecipeVersionResponses];
+
+export type UpdateRecipeVersionData = {
+    body: UpdateRecipeVersionRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}';
+};
+
+export type UpdateRecipeVersionErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the version is frozen (`catalogue.version_immutable` — it is
+     * published or retired, and no amount of reloading will make it writable;
+     * the answer is a new draft version) or the write lost a race
+     * (`resource.conflict`, carrying `details.current_lock_version`). Two
+     * codes, because the remedies are different.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateRecipeVersionError = UpdateRecipeVersionErrors[keyof UpdateRecipeVersionErrors];
+
+export type UpdateRecipeVersionResponses = {
+    /**
+     * The updated version.
+     */
+    200: RecipeVersionEnvelope;
+};
+
+export type UpdateRecipeVersionResponse = UpdateRecipeVersionResponses[keyof UpdateRecipeVersionResponses];
+
+export type ReplaceRecipeLinesData = {
+    body: ReplaceRecipeLinesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/lines';
+};
+
+export type ReplaceRecipeLinesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the version is frozen (`catalogue.version_immutable` — it is
+     * published or retired, and no amount of reloading will make it writable;
+     * the answer is a new draft version) or the write lost a race
+     * (`resource.conflict`, carrying `details.current_lock_version`). Two
+     * codes, because the remedies are different.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceRecipeLinesError = ReplaceRecipeLinesErrors[keyof ReplaceRecipeLinesErrors];
+
+export type ReplaceRecipeLinesResponses = {
+    /**
+     * The version and its new lines.
+     */
+    200: {
+        data: {
+            version: AdminRecipeVersion;
+            lines: Array<RecipeLine>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceRecipeLinesResponse = ReplaceRecipeLinesResponses[keyof ReplaceRecipeLinesResponses];
+
+export type ReplaceRecipeOutputsData = {
+    body: ReplaceRecipeOutputsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/outputs';
+};
+
+export type ReplaceRecipeOutputsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the version is frozen (`catalogue.version_immutable` — it is
+     * published or retired, and no amount of reloading will make it writable;
+     * the answer is a new draft version) or the write lost a race
+     * (`resource.conflict`, carrying `details.current_lock_version`). Two
+     * codes, because the remedies are different.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceRecipeOutputsError = ReplaceRecipeOutputsErrors[keyof ReplaceRecipeOutputsErrors];
+
+export type ReplaceRecipeOutputsResponses = {
+    /**
+     * The version and its new outputs.
+     */
+    200: {
+        data: {
+            version: AdminRecipeVersion;
+            outputs: Array<RecipeOutput>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceRecipeOutputsResponse = ReplaceRecipeOutputsResponses[keyof ReplaceRecipeOutputsResponses];
+
+export type ReplaceRecipeStepsData = {
+    body: ReplaceRecipeStepsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/steps';
+};
+
+export type ReplaceRecipeStepsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the version is frozen (`catalogue.version_immutable` — it is
+     * published or retired, and no amount of reloading will make it writable;
+     * the answer is a new draft version) or the write lost a race
+     * (`resource.conflict`, carrying `details.current_lock_version`). Two
+     * codes, because the remedies are different.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceRecipeStepsError = ReplaceRecipeStepsErrors[keyof ReplaceRecipeStepsErrors];
+
+export type ReplaceRecipeStepsResponses = {
+    /**
+     * The version and its new steps.
+     */
+    200: {
+        data: {
+            version: AdminRecipeVersion;
+            steps: Array<RecipeStep>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceRecipeStepsResponse = ReplaceRecipeStepsResponses[keyof ReplaceRecipeStepsResponses];
+
+export type ListRecipeVersionAllergensData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/allergens';
+};
+
+export type ListRecipeVersionAllergensErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListRecipeVersionAllergensError = ListRecipeVersionAllergensErrors[keyof ListRecipeVersionAllergensErrors];
+
+export type ListRecipeVersionAllergensResponses = {
+    /**
+     * The label rows.
+     */
+    200: {
+        data: Array<RecipeVersionAllergen>;
+        meta: Meta & {
+            count: number;
+            derivation_state: DerivationState;
+            derived_at?: string | null;
+        };
+    };
+};
+
+export type ListRecipeVersionAllergensResponse = ListRecipeVersionAllergensResponses[keyof ListRecipeVersionAllergensResponses];
+
+export type PublishRecipeVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/publish';
+};
+
+export type PublishRecipeVersionErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The readiness evaluator refused. `details.reasons` carries **every**
+     * blocker rather than the first one found — a gate that reveals one
+     * problem per attempt turns a five-minute fix into five round trips.
+     * Each entry is a stable machine `reason` plus whatever identifies the
+     * offending rows.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * At least one line ingredient carries no allergen determination at all.
+     * Its own code rather than a `publish_blocked` reason because the fix is
+     * in a different place — the ingredient's mapping editor — and because
+     * silence must never be mistaken for a clean result. An ingredient
+     * passes when it holds a mapping row in any layer, **or** when its
+     * `verification_status` is `verified`, which is how "checked, and it
+     * carries nothing" is recorded.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PublishRecipeVersionError = PublishRecipeVersionErrors[keyof PublishRecipeVersionErrors];
+
+export type PublishRecipeVersionResponses = {
+    /**
+     * The published version and the label it froze.
+     */
+    200: {
+        data: {
+            version: AdminRecipeVersion;
+            allergens: Array<RecipeVersionAllergen>;
+        };
+        meta: Meta;
+    };
+};
+
+export type PublishRecipeVersionResponse = PublishRecipeVersionResponses[keyof PublishRecipeVersionResponses];
+
+export type RetireRecipeVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/retire';
+};
+
+export type RetireRecipeVersionErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RetireRecipeVersionError = RetireRecipeVersionErrors[keyof RetireRecipeVersionErrors];
+
+export type RetireRecipeVersionResponses = {
+    /**
+     * The retired version.
+     */
+    200: RecipeVersionEnvelope;
+};
+
+export type RetireRecipeVersionResponse = RetireRecipeVersionResponses[keyof RetireRecipeVersionResponses];
 
 export type ListAllergenClassesData = {
     body?: never;

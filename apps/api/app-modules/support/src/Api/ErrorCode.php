@@ -46,6 +46,41 @@ enum ErrorCode: string
     case ResourceNotFound = 'resource.not_found';
     case ResourceConflict = 'resource.conflict';
 
+    /**
+     * A catalogue record cannot be withdrawn because something still points at
+     * it — an ingredient referenced by a recipe version that is not retired.
+     * Distinct from the generic conflict: the caller has not lost a race, and
+     * `details` names what is holding the record, so the answer is "retire
+     * those first" rather than "reload and try again".
+     */
+    case CatalogueInUse = 'catalogue.in_use';
+
+    /**
+     * A write reached a published or retired recipe version. Published
+     * versions are immutable (master plan v2 §4.7) — a change is a new draft
+     * version, never an edit in place, because a label a customer has already
+     * been shown must stay reconstructable.
+     */
+    case CatalogueVersionImmutable = 'catalogue.version_immutable';
+
+    /**
+     * Publication was refused because at least one line ingredient carries no
+     * allergen determination at all. Silence is not a statement of absence:
+     * an ingredient nobody has assessed is not the same as one assessed and
+     * found clear, and only the second may reach a plate.
+     * `details.ingredient_ids` names them.
+     */
+    case CatalogueAllergenUnmapped = 'catalogue.allergen_unmapped';
+
+    /**
+     * Publication was refused by the readiness evaluator for a reason other
+     * than an unmapped allergen — an unquantified line, a quarantined
+     * ingredient, a version in the wrong state. `details.reasons` carries one
+     * structured entry per blocker, so a UI can list every problem at once
+     * rather than revealing them one publish attempt at a time.
+     */
+    case CataloguePublishBlocked = 'catalogue.publish_blocked';
+
     case RateLimitExceeded = 'rate_limit.exceeded';
 
     case ServerInternalError = 'server.internal_error';
@@ -67,12 +102,16 @@ enum ErrorCode: string
             self::ContextBranchOutOfScope,
             self::AuthzPermissionDenied => 403,
             self::ResourceNotFound => 404,
-            self::ResourceConflict => 409,
+            self::ResourceConflict,
+            self::CatalogueInUse,
+            self::CatalogueVersionImmutable,
+            self::CataloguePublishBlocked => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
             self::AuthInvalidCredentials,
-            self::AuthTwoFactorInvalid => 422,
+            self::AuthTwoFactorInvalid,
+            self::CatalogueAllergenUnmapped => 422,
             self::RateLimitExceeded => 429,
             self::ServerInternalError => 500,
         };
@@ -102,6 +141,10 @@ enum ErrorCode: string
             self::RequestPreconditionRequired => 'This resource requires an If-Match header carrying the version you last read.',
             self::ResourceNotFound => 'The requested resource does not exist.',
             self::ResourceConflict => 'The requested change conflicts with the current state of the resource.',
+            self::CatalogueInUse => 'This record is still referenced by a recipe version that has not been retired.',
+            self::CatalogueVersionImmutable => 'A published or retired recipe version cannot be changed. Create a new draft version instead.',
+            self::CatalogueAllergenUnmapped => 'Every ingredient in a published recipe must carry an allergen determination.',
+            self::CataloguePublishBlocked => 'This recipe version is not ready to be published.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
         };

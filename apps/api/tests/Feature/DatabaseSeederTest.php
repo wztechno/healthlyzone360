@@ -226,7 +226,8 @@ it('seeds the twelve organisation types with both names', function (): void {
 });
 
 it('seeds exactly the registered permission set', function (): void {
-    expect(Permission::query()->count())->toBe(24)
+    // 24 after K1.1, plus the three recipe codes K1.2 introduces.
+    expect(Permission::query()->count())->toBe(27)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -256,15 +257,31 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 22],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 21],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 25],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 24],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue and can see the roster' => ['kitchen_manager', 5],
-    'chef edits the catalogue only' => ['kitchen_chef', 2],
-    'kitchen staff read the catalogue only' => ['kitchen_staff', 1],
-    'commercial manager reads the catalogue only' => ['commercial_manager', 1],
+    'kitchen manager runs the catalogue and publishes recipes' => ['kitchen_manager', 8],
+    'chef edits recipes but never publishes one' => ['kitchen_chef', 4],
+    'kitchen staff read the catalogue and recipes only' => ['kitchen_staff', 2],
+    'commercial manager reads the catalogue and recipes only' => ['commercial_manager', 2],
 ]);
+
+it('grants the publication permission to the kitchen manager and to nobody else', function (): void {
+    // Publishing freezes an allergen label that reaches a diner and withdraws
+    // whatever was live before. A chef writing a formulation is a different
+    // authority, and the separation has to be real in the seeded roles rather
+    // than a sentence in a docblock.
+    $publish = Permission::query()->where('code', 'recipe.publish_organisation')->sole();
+
+    $holders = Role::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $publish->getKey())->select('role_id'))
+        ->pluck('code')
+        ->all();
+
+    expect($holders)->toEqualCanonicalizing(['organisation_owner', 'organisation_admin', 'kitchen_manager']);
+});
 
 it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {
     expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8);

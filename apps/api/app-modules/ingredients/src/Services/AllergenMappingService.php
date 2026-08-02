@@ -6,6 +6,7 @@ namespace Healthy360\Ingredients\Services;
 
 use Healthy360\AccessControl\Http\Middleware\RequirePlatformContext;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\AllergenMappingSource;
 use Healthy360\Ingredients\Enums\AllergenMarketScope;
@@ -46,6 +47,7 @@ final readonly class AllergenMappingService
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private IngredientUsageRegistry $usage,
     ) {}
 
     /**
@@ -132,6 +134,16 @@ final readonly class AllergenMappingService
                 : $write();
         });
 
+        // A frozen recipe label is only as good as the mappings it was
+        // computed from, so a mapping change invalidates every published label
+        // that depends on this ingredient (K1.2). Marked, not recomputed: the
+        // reactive recompute — and the quarantine it can raise when the new
+        // mapping contradicts a published label — is the **K1.8**
+        // allergen-recompute job. Doing it here would make an allergen edit
+        // take as long as the largest recipe using the ingredient, and would
+        // run a food-safety derivation inside the mapping editor's request.
+        $stale = $this->usage->markDependentDerivationsStale($ingredient);
+
         $this->audit->record(
             'catalogue.ingredient_allergens_updated',
             actorUserId: $this->context->userId(),
@@ -143,6 +155,7 @@ final readonly class AllergenMappingService
                 'allergen_classes' => array_map(static fn (array $m): string => $m['allergen_code'], $normalised),
                 'market_scope' => $scope->value,
                 'layer' => $organisationId === null ? 'platform_baseline' : 'organisation_overlay',
+                'stale_recipe_versions' => $stale,
             ],
         );
 

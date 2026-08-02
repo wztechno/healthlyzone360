@@ -132,10 +132,17 @@ modules:
 
   # Nutrition edge dropped (master plan v2 §5): no nutrition data exists in the
   # Phase-1 sources, so recipes cannot depend on it. The edge returns with N1.
+  #
+  # Flipped to `foundation` by K1.2: recipes, versions, lines, outputs, steps
+  # and frozen allergen labels exist, with the publication lifecycle
+  # (draft | review_required | published | retired) and its quarantine gate.
+  # Costing is deliberately absent — the cost columns exist on the lines and
+  # no surface reads them until K1.3 introduces `recipe.view_costs_organisation`.
   - name: Recipes
-    status: planned
-    description: Recipe creation, versioning, costing and nutrition-label generation.
-    depends_on: [Ingredients, Allergens]
+    status: foundation
+    phase: 2
+    description: Recipes and their versions — lines, outputs, steps, frozen allergen labels, publication lifecycle with quarantine, and derivation state.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens]
 
   - name: MealPlanning
     status: planned

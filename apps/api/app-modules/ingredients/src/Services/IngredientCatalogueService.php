@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Ingredients\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\AvailabilityTier;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
@@ -41,6 +42,7 @@ final readonly class IngredientCatalogueService
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private IngredientUsageRegistry $usage,
     ) {}
 
     /**
@@ -159,6 +161,18 @@ final readonly class IngredientCatalogueService
      * (master plan v2 §4.15): it has its own route, its own audit action and
      * (later) its own permission.
      *
+     * **Refused while a live recipe version still names it** (K1.2). An
+     * archived ingredient a published formulation depends on would leave that
+     * recipe pointing at history, and the list endpoint hides archived rows
+     * precisely so nobody builds a formulation out of one. Retired versions
+     * are not a blocker: history is allowed to reference an archived
+     * ingredient, and treating it as one would mean a kitchen could never
+     * retire an ingredient it had ever used.
+     *
+     * The question is asked through `IngredientUsageRegistry` rather than by
+     * querying recipe tables here: the dependency edge runs Recipes →
+     * Ingredients, and this module must not learn that recipes exist.
+     *
      * @throws ApiException
      */
     public function archive(Ingredient $ingredient, int $expectedLockVersion): Ingredient
@@ -170,6 +184,16 @@ final readonly class IngredientCatalogueService
                 ErrorCode::ResourceConflict,
                 'This ingredient is already archived.',
                 ['current_lock_version' => $ingredient->lock_version, 'status' => $ingredient->status->value],
+            );
+        }
+
+        $references = $this->usage->activeReferences($ingredient);
+
+        if ($references['recipe_version_ids'] !== []) {
+            throw new ApiException(
+                ErrorCode::CatalogueInUse,
+                'This ingredient is still used by a recipe version that has not been retired.',
+                $references,
             );
         }
 

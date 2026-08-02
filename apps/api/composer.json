@@ -18,6 +18,7 @@
         "healthy360/identity": "^1.0",
         "healthy360/ingredients": "^1.0",
         "healthy360/organisations": "^1.0",
+        "healthy360/recipes": "^1.0",
         "healthy360/reference-data": "^1.0",
         "healthy360/support": "^1.0",
         "healthy360/tenancy": "^1.0",

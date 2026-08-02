@@ -54,6 +54,12 @@ tags:
     description: Organisation-scoped endpoints, reached with a validated context.
   - name: Kitchen catalogue
     description: Ingredients, categories, aliases and allergen mappings, managed by a kitchen.
+  - name: Recipes
+    description: |
+      Recipes and their versions — lines, outputs, steps and the frozen
+      allergen label — with the publication lifecycle and its quarantine gate.
+      Confidential throughout: no operation here has an anonymous counterpart,
+      and recipe lines are on the public denylist.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
 paths:
@@ -1331,6 +1337,12 @@ paths:
         `If-Match` is required, exactly as for an update. Archiving an already
         archived ingredient is `409 resource.conflict`.
 
+        **Refused while a live recipe version names it** (K1.2) —
+        `409 catalogue.in_use`, with the referencing recipes and versions in
+        `details`. An archived ingredient a published formulation depends on
+        would leave that recipe pointing at history. Retired versions are not
+        a blocker.
+
         Requires `catalogue.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/IngredientPath'
@@ -1358,7 +1370,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/ResourceConflict'
+          $ref: '#/components/responses/IngredientArchiveConflict'
         '428':
           $ref: '#/components/responses/PreconditionRequired'
         '429':
@@ -1789,6 +1801,971 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes:
+    get:
+      operationId: listRecipes
+      tags:
+        - Recipes
+      summary: List recipes
+      description: |
+        The organisation's recipe book, cursor-paginated. There is no platform
+        library of recipes: a recipe belongs to exactly one organisation,
+        always.
+
+        `published_version_number` answers "what is live" without a second
+        request. It is computed, not stored — there is no
+        `current_version_id` column to fall out of step with the versions.
+
+        Archived recipes are excluded unless `status=archived` is asked for by
+        name.
+
+        Requires `recipe.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring match over both names and the slug.
+          schema:
+            type: string
+            maxLength: 160
+        - name: status
+          in: query
+          required: false
+          description: Restrict to one lifecycle state. Omitted, only `active` recipes are listed.
+          schema:
+            $ref: '#/components/schemas/RecipeStatus'
+        - name: category
+          in: query
+          required: false
+          description: Exact match on `recipe_category`.
+          schema:
+            type: string
+            maxLength: 40
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of recipes.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminRecipe'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createRecipe
+      tags:
+        - Recipes
+      summary: Create a recipe
+      description: |
+        Creates the recipe **and** its draft version 1, in one transaction. A
+        recipe with no versions is a name with nothing behind it, and the
+        version is the unit of work, so the response carries both rather than
+        making the client fetch what the server just created.
+
+        Derived values are never client-supplied: `status`, `lock_version`,
+        `organisation_id` and the source-provenance fields are all
+        server-authored.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecipeRequest'
+      responses:
+        '201':
+          description: The recipe and its first draft version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - recipe
+                      - version
+                    properties:
+                      recipe:
+                        $ref: '#/components/schemas/AdminRecipe'
+                      version:
+                        $ref: '#/components/schemas/AdminRecipeVersion'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}:
+    get:
+      operationId: showRecipe
+      tags:
+        - Recipes
+      summary: A recipe and its version history
+      description: |
+        Returns `ETag: "<lock_version>"` — the recipe's validator, which a
+        write sends back as `If-Match`.
+
+        The version summaries come with it: opening a recipe and asking which
+        versions it has is one interaction, and the list is bounded by how
+        many times a kitchen has revised one formulation.
+
+        A recipe belonging to another organisation is indistinguishable from
+        one that does not exist: both are `resource.not_found`.
+
+        Requires `recipe.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The recipe and every version of it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - recipe
+                      - versions
+                    properties:
+                      recipe:
+                        $ref: '#/components/schemas/AdminRecipe'
+                      versions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminRecipeVersion'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateRecipe
+      tags:
+        - Recipes
+      summary: Update a recipe
+      description: |
+        Requires `If-Match` carrying the `ETag` the resource was last served
+        with: absent is **428** `request.precondition_required`, stale is
+        **409** `resource.conflict` with `details.current_lock_version`.
+
+        `slug` and `status` are not editable here — the slug is the handle an
+        import converges on, and status changes are lifecycle actions with
+        their own routes.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecipeRequest'
+      responses:
+        '200':
+          description: The updated recipe, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/archive:
+    post:
+      operationId: archiveRecipe
+      tags:
+        - Recipes
+      summary: Archive a recipe
+      description: |
+        A lifecycle action as a POST sub-resource, never a `PATCH status`.
+
+        **Refused while a published version exists** —
+        `409 catalogue.in_use`, with `details.published_version_ids`.
+        Withdrawing something from sale is retiring the version, which has its
+        own route and its own permission; letting archive do it implicitly
+        would pull a live recipe through a route that never mentions
+        publication.
+
+        There is no delete. A recipe that has ever been published is part of a
+        food-safety record.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived recipe.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/RecipeArchiveBlocked'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions:
+    get:
+      operationId: listRecipeVersions
+      tags:
+        - Recipes
+      summary: The version history of a recipe
+      description: |
+        Unpaginated: the collection is bounded by how many times one kitchen
+        has revised one formulation, and a cursor over a dozen rows would add
+        a walk to every client for no benefit.
+
+        Requires `recipe.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every version, oldest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminRecipeVersion'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createRecipeVersion
+      tags:
+        - Recipes
+      summary: Open a new draft version
+      description: |
+        This is how a published version is changed: it is not. A published
+        version is frozen, and the supported change is a new draft — optionally
+        copied from an existing one, which is the normal path because a new
+        version is almost always "last one, with a change".
+
+        Copying carries lines, outputs, steps and **declared** allergen rows.
+        Derived rows are not copied: they are a conclusion about a published
+        state, and this version has none yet.
+
+        No `If-Match` — nothing existing is being written.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecipeVersionRequest'
+      responses:
+        '201':
+          description: The new draft version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeVersionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}:
+    get:
+      operationId: showRecipeVersion
+      tags:
+        - Recipes
+      summary: A version, with its lines, outputs, steps and allergen label
+      description: |
+        Everything in one response: a recipe editor needs all of it to render
+        anything, and four requests to open one screen is four chances of a
+        partial view of a formulation.
+
+        `{version}` accepts either the version identifier or the version
+        number — a client that walked the list holds identifiers, a human
+        reading a technical sheet holds "version 3".
+
+        **Lines carry no cost fields.** The cost projection is K1.3, behind
+        `recipe.view_costs_organisation`; until that permission exists there is
+        no way to serve a cost to the right people.
+
+        `ETag: "<lock_version>"` is the version's validator — the one the
+        line, output and step replacements require as `If-Match`.
+
+        Requires `recipe.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The whole version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - version
+                      - lines
+                      - outputs
+                      - steps
+                      - allergens
+                    properties:
+                      version:
+                        $ref: '#/components/schemas/AdminRecipeVersion'
+                      lines:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeLine'
+                      outputs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeOutput'
+                      steps:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeStep'
+                      allergens:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeVersionAllergen'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateRecipeVersion
+      tags:
+        - Recipes
+      summary: Update a draft version's header
+      description: |
+        Editable only while the version is `draft` or `review_required`. A
+        published or retired version is **409**
+        `catalogue.version_immutable` — not a conflict, because reloading will
+        never make it writable and the answer is a new draft version.
+
+        `status`, `derivation_state`, `derived_at`, `published_at` and
+        `published_by` are absent from the body by design: each is a
+        conclusion the server reached, and a client that could post
+        `derivation_state: current` could declare an allergen label fresh
+        without anything having been computed.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecipeVersionRequest'
+      responses:
+        '200':
+          description: The updated version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/VersionImmutableOrConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/lines:
+    put:
+      operationId: replaceRecipeLines
+      tags:
+        - Recipes
+      summary: Replace the lines of a version
+      description: |
+        A PUT because the body is the complete formulation. A PATCH surface
+        would make "I removed the sesame line" and "I forgot to send the
+        sesame line" the same request, and on a formulation that difference is
+        the whole point. An empty `lines` array is a legitimate statement, not
+        a missing field.
+
+        `line_number` is not a field: the array order is the sequence, so a
+        client never keeps numbering in step with an insertion. Duplicate
+        ingredients are **allowed** — a sheet that adds olive oil to the
+        marinade and again to the finish is two lines.
+
+        `quantity` may be null while the version is unpublished: the
+        sauces-and-dressings source lists typical ingredients with no amounts,
+        and refusing to store that would mean fabricating numbers. The publish
+        gate is where nullability ends.
+
+        `If-Match` carries the **version's** `lock_version`, not a line's: the
+        set is the unit of change.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceRecipeLinesRequest'
+      responses:
+        '200':
+          description: The version and its new lines.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - version
+                      - lines
+                    properties:
+                      version:
+                        $ref: '#/components/schemas/AdminRecipeVersion'
+                      lines:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeLine'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/VersionImmutableOrConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/outputs:
+    put:
+      operationId: replaceRecipeOutputs
+      tags:
+        - Recipes
+      summary: Replace what a version produces
+      description: |
+        `recipe_version_outputs` is what replaced
+        `ingredients.produced_by_recipe_id`: a version may produce several
+        things, the yield belongs to the version rather than the recipe, and an
+        "intermediate" ingredient is simply one that appears here.
+
+        An empty set is legitimate — a component whose yield nobody has
+        measured. A non-empty set must name **exactly one** primary; zero or
+        two is `422 validation.failed`, because "the thing this recipe makes"
+        has to be answerable without a tie-break.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceRecipeOutputsRequest'
+      responses:
+        '200':
+          description: The version and its new outputs.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - version
+                      - outputs
+                    properties:
+                      version:
+                        $ref: '#/components/schemas/AdminRecipeVersion'
+                      outputs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeOutput'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/VersionImmutableOrConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/steps:
+    put:
+      operationId: replaceRecipeSteps
+      tags:
+        - Recipes
+      summary: Replace the method of a version
+      description: |
+        `instruction_ar` is optional while `instruction_en` is not: a kitchen
+        writes the method it works in first, and blocking a draft on a
+        translation nobody has written would only produce machine translation,
+        which is forbidden for text a person acts on.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceRecipeStepsRequest'
+      responses:
+        '200':
+          description: The version and its new steps.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - version
+                      - steps
+                    properties:
+                      version:
+                        $ref: '#/components/schemas/AdminRecipeVersion'
+                      steps:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeStep'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/VersionImmutableOrConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/allergens:
+    get:
+      operationId: listRecipeVersionAllergens
+      tags:
+        - Recipes
+      summary: The frozen allergen label of a version
+      description: |
+        Both kinds of row, each labelled by `derivation`: what was computed
+        from the ingredients (`derived`, carrying the ingredient that caused
+        it) and what a human stated (`declared`). A screen showing only one
+        would either hide the chef's shared-fryer warning or hide the sesame
+        the tahini brings.
+
+        `meta.derivation_state` says whether the label still matches the
+        mappings underneath it. A label read without that answer looks equally
+        authoritative whether it is current or three mapping edits old.
+
+        Requires `recipe.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The label rows.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RecipeVersionAllergen'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required:
+                          - count
+                          - derivation_state
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+                          derivation_state:
+                            $ref: '#/components/schemas/DerivationState'
+                          derived_at:
+                            type:
+                              - string
+                              - 'null'
+                            format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/publish:
+    post:
+      operationId: publishRecipeVersion
+      tags:
+        - Recipes
+      summary: Publish a version
+      description: |
+        Evaluates readiness, freezes the allergen label, and demotes whatever
+        was published before to `retired` — one transaction.
+
+        The gates:
+
+        - **State.** Only a `draft` publishes. A quarantined version
+          (`review_required`) is blocked *structurally*: that is what the
+          state is for.
+        - **Substance.** A version with no lines is a name, and a line without
+          a quantity and a unit cannot be made twice the same way.
+        - **Ingredient trust.** An ingredient marked `requires_review` — the
+          burghul/pita contradiction the source workbook contains — blocks
+          publication until a human resolves it.
+        - **Allergen determination.** Every line ingredient must carry at
+          least one mapping row in some layer, **or** be `verified`, which is
+          how "checked, and it carries nothing" is recorded. Silence is not a
+          statement of absence.
+
+        The first three are reported together as **409**
+        `catalogue.publish_blocked` with `details.reasons` — every blocker at
+        once, so a kitchen fixes them in one pass instead of one per attempt.
+        The fourth is **422** `catalogue.allergen_unmapped` with
+        `details.ingredient_ids`, because the fix is in a different place: the
+        ingredient's mapping editor, not the recipe.
+
+        Requires **`recipe.publish_organisation`** — a permission of its own.
+        Freezing a label that reaches a diner and withdrawing what was live is
+        a different authority from editing a draft.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The published version and the label it froze.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - version
+                      - allergens
+                    properties:
+                      version:
+                        $ref: '#/components/schemas/AdminRecipeVersion'
+                      allergens:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipeVersionAllergen'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PublishBlocked'
+        '422':
+          $ref: '#/components/responses/AllergenUnmapped'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/{recipe}/versions/{version}/retire:
+    post:
+      operationId: retireRecipeVersion
+      tags:
+        - Recipes
+      summary: Retire a published version
+      description: |
+        Withdraws a published version. Terminal, deliberately: a retired
+        version is history, and history is what makes an old allergen label
+        reconstructable. Bringing a formulation back means publishing a new
+        version, which recomputes the label against the mappings as they are
+        now rather than as they were.
+
+        Retiring anything that is not published is `409 resource.conflict`.
+
+        Requires `recipe.publish_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The retired version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /reference/allergen-classes:
     get:
       operationId: listAllergenClasses
@@ -2168,6 +3145,29 @@ components:
       description: The canonical allergen class code.
       schema:
         $ref: '#/components/schemas/AllergenCode'
+    RecipePath:
+      name: recipe
+      in: path
+      required: true
+      description: The recipe identifier.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    RecipeVersionPath:
+      name: version
+      in: path
+      required: true
+      description: |
+        The version identifier, or its `version_number`. Both are accepted
+        because both are natural — a client that walked the list holds
+        identifiers, a human reading a technical sheet holds "version 3" — and
+        a number cannot be mistaken for a UUID. The version is always resolved
+        inside the recipe in the path, so one recipe's number can never reach
+        another's version.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            pattern: ^\d+$
   responses:
     Accepted:
       description: Accepted for delivery.
@@ -2541,6 +3541,131 @@ components:
                 weakened_allergen_classes:
                   - gluten
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    RecipeArchiveBlocked:
+      description: |
+        The recipe still has a published version.
+        `details.published_version_ids` names them. Withdrawing something from
+        sale is retiring the version — its own action, its own permission —
+        not a side effect of archiving.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: catalogue.in_use
+              message: This recipe still has a published version. Retire it before archiving the recipe.
+              details:
+                published_version_ids:
+                  - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d40
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    IngredientArchiveConflict:
+      description: |
+        Three codes share this status, because three different things can be
+        wrong and the remedies differ.
+
+        **`catalogue.in_use`** — the ingredient is still named by a recipe
+        version that has not been retired. `details.recipe_ids` and
+        `details.recipe_version_ids` name them, so the caller knows what to
+        retire first. Retired versions are never a blocker: history is allowed
+        to reference an archived ingredient.
+
+        **`resource.conflict`** — either the ingredient is already archived, or
+        the write lost a race and `details.current_lock_version` is the value
+        to reload against.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: catalogue.in_use
+              message: This ingredient is still used by a recipe version that has not been retired.
+              details:
+                recipe_ids:
+                  - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d41
+                recipe_version_ids:
+                  - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d42
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    VersionImmutableOrConflict:
+      description: |
+        Either the version is frozen (`catalogue.version_immutable` — it is
+        published or retired, and no amount of reloading will make it writable;
+        the answer is a new draft version) or the write lost a race
+        (`resource.conflict`, carrying `details.current_lock_version`). Two
+        codes, because the remedies are different.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: catalogue.version_immutable
+              message: A published recipe version cannot be changed. Create a new draft version instead.
+              details:
+                status: published
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    PublishBlocked:
+      description: |
+        The readiness evaluator refused. `details.reasons` carries **every**
+        blocker rather than the first one found — a gate that reveals one
+        problem per attempt turns a five-minute fix into five round trips.
+        Each entry is a stable machine `reason` plus whatever identifies the
+        offending rows.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: catalogue.publish_blocked
+              message: This recipe version is not ready to be published.
+              details:
+                reasons:
+                  - reason: line_quantity_missing
+                    line_numbers:
+                      - 2
+                      - 5
+                  - reason: ingredient_requires_review
+                    ingredient_ids:
+                      - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d43
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    AllergenUnmapped:
+      description: |
+        At least one line ingredient carries no allergen determination at all.
+        Its own code rather than a `publish_blocked` reason because the fix is
+        in a different place — the ingredient's mapping editor — and because
+        silence must never be mistaken for a clean result. An ingredient
+        passes when it holds a mapping row in any layer, **or** when its
+        `verification_status` is `verified`, which is how "checked, and it
+        carries nothing" is recorded.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: catalogue.allergen_unmapped
+              message: Every ingredient in a published recipe must carry an allergen determination.
+              details:
+                ingredient_ids:
+                  - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d44
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
   schemas:
     Uuid:
       type: string
@@ -2582,6 +3707,10 @@ components:
         - request.precondition_required
         - resource.not_found
         - resource.conflict
+        - catalogue.in_use
+        - catalogue.version_immutable
+        - catalogue.allergen_unmapped
+        - catalogue.publish_blocked
         - rate_limit.exceeded
         - server.internal_error
     Error:
@@ -3539,6 +4668,667 @@ components:
                   - string
                   - 'null'
                 maxLength: 2000
+            additionalProperties: false
+      additionalProperties: false
+    RecipeStatus:
+      type: string
+      enum:
+        - active
+        - archived
+      description: |
+        The operational lifecycle of a recipe *identity*. Deliberately not the
+        publication family: a recipe is never published, its versions are.
+        There is no `inactive` either — "temporarily not in use" is expressed
+        by having no published version.
+    RecipeConfidentiality:
+      type: string
+      enum:
+        - internal
+        - confidential
+      default: confidential
+      description: |
+        How guarded a formulation is. Defaults to `confidential` because a
+        recipe is a kitchen's commercial secret until somebody decides
+        otherwise, and a default that leaks is a default that is wrong exactly
+        once. Neither value makes a formulation public: recipe lines are on
+        the public denylist regardless.
+    RecipeVersionStatus:
+      type: string
+      enum:
+        - draft
+        - review_required
+        - published
+        - retired
+      description: |
+        The publication lifecycle of a version. `review_required` is a
+        **stored** quarantine state, not a flag beside one: a critical
+        allergen contradiction has to block publication structurally, and a
+        boolean next to a status is something a publish path can forget to
+        read. A quarantined version is still editable — the point is that
+        somebody fixes it — and is as unpublishable as a draft.
+
+        "Publishable" is never stored; it is the readiness evaluator's verdict
+        at the moment of publication.
+    RecipeCompleteness:
+      type: string
+      enum:
+        - indicative
+        - costed
+      description: |
+        `indicative` is a formulation without costs — which is what the
+        sauces-and-dressings source provides, and recording that honestly
+        beats inventing figures. `costed` is what a technical sheet is.
+    DerivationState:
+      type: string
+      enum:
+        - current
+        - stale
+        - failed
+      description: |
+        Whether the frozen allergen label still matches the ingredient
+        mappings it was computed from. A new version is `stale` — nothing has
+        been derived for it, and claiming `current` for an empty label would be
+        the most dangerous default available. `failed` records that a recompute
+        was attempted and could not complete, which must never be
+        indistinguishable from "not tried yet".
+    AllergenDerivation:
+      type: string
+      enum:
+        - declared
+        - derived
+      description: |
+        Where a label row came from. `derived` was computed from the effective
+        ingredient mappings and carries the ingredient that caused it;
+        `declared` is a human statement — a chef who knows the fryer is shared
+        — that no mapping implies. A derivation never weakens a declaration.
+    AdminRecipe:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - slug
+        - name_en
+        - name_ar
+        - confidentiality
+        - status
+        - published_version_number
+        - lock_version
+      description: |
+        The administrative shape of a recipe identity. Carries **both** names
+        and ignores `Accept-Language` for them: a bilingual editor has to see
+        what it is editing. There is no public recipe projection.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        slug:
+          type: string
+          maxLength: 120
+        name_en:
+          type: string
+        name_ar:
+          type: string
+          description: Falls back to the English name where no Arabic exists.
+        recipe_category:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+          description: |
+            Free text, deliberately not an enumeration: the source vocabulary
+            (sauce, dressing, marination, patty, topping, component) describes
+            how one kitchen files its sheets, not a regulated identity, and an
+            enum would turn "we started making dips" into a migration.
+        source_kind:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+          description: The source sheet's `Kind`, verbatim.
+        confidentiality:
+          $ref: '#/components/schemas/RecipeConfidentiality'
+        status:
+          $ref: '#/components/schemas/RecipeStatus'
+        notes:
+          type:
+            - string
+            - 'null'
+        published_version_number:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          description: |
+            The live version, or null when nothing is published. Computed, not
+            stored: there is no `current_version_id` column to fall out of
+            step with the versions themselves.
+        source_system:
+          type:
+            - string
+            - 'null'
+        source_ref:
+          type:
+            - string
+            - 'null'
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Also served as the `ETag` of the single-resource GET.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    RecipeEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - recipe
+          properties:
+            recipe:
+              $ref: '#/components/schemas/AdminRecipe'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    AdminRecipeVersion:
+      type: object
+      required:
+        - id
+        - recipe_id
+        - version_number
+        - status
+        - completeness
+        - waste_coefficient_percent
+        - derivation_state
+        - lock_version
+      description: |
+        The header of a recipe version. `derived_input_hash` is deliberately
+        absent from the wire: it is an internal fingerprint, and publishing it
+        would invite clients to compare hashes instead of reading
+        `derivation_state`.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        recipe_id:
+          $ref: '#/components/schemas/Uuid'
+        version_number:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/RecipeVersionStatus'
+        completeness:
+          $ref: '#/components/schemas/RecipeCompleteness'
+        yield_quantity:
+          type:
+            - string
+            - 'null'
+          description: Decimal with four places, as a string so no client rounds it.
+          examples:
+            - '1000.0000'
+        yield_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        yield_piece_count:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+        input_quantity_total:
+          type:
+            - string
+            - 'null'
+          description: |
+            The sum of the input lines, kept alongside the yield because the
+            source sheets state both and they legitimately differ.
+        waste_coefficient_percent:
+          type: string
+          description: |
+            Decimal with two places, as a string. Defaults to `3.00` — the flat
+            allowance the source technical sheets apply across the board.
+          examples:
+            - '3.00'
+        derivation_state:
+          $ref: '#/components/schemas/DerivationState'
+        derived_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        published_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        review_reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 200
+          description: Why this version is quarantined, when it is.
+        notes:
+          type:
+            - string
+            - 'null'
+        lock_version:
+          type: integer
+          minimum: 0
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    RecipeVersionEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - version
+          properties:
+            version:
+              $ref: '#/components/schemas/AdminRecipeVersion'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    RecipeLine:
+      type: object
+      required:
+        - id
+        - line_number
+        - ingredient_id
+      description: |
+        One formulation line.
+
+        **No cost fields.** `recipe_version_lines` carries
+        `unit_cost_amount`, `line_cost_amount` and `cost_currency_code`, and
+        this projection reads none of them. The cost surface is K1.3, behind
+        `recipe.view_costs_organisation`; until that permission exists there is
+        no way to serve a cost to the right people, so the honest projection
+        serves it to nobody.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        line_number:
+          type: integer
+          minimum: 1
+          description: Server-authored from the submitted order.
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type:
+            - string
+            - 'null'
+          description: |
+            Decimal with four places, as a string. Null is legal only while the
+            version is unpublished — the publish gate is where nullability
+            ends.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        source_designation:
+          type:
+            - string
+            - 'null'
+          maxLength: 160
+          description: The import source wording, verbatim.
+        comment:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+      additionalProperties: false
+    RecipeOutput:
+      type: object
+      required:
+        - id
+        - ingredient_id
+        - output_quantity
+        - unit_id
+        - is_primary
+      description: |
+        What a version produces. An ingredient with a row here is what the
+        design used to call an "intermediate"; there is no kind column
+        anywhere, because being an intermediate is a fact about some version's
+        outputs and not a property of the ingredient.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        output_quantity:
+          type: string
+          examples:
+            - '1000.0000'
+        unit_id:
+          $ref: '#/components/schemas/Uuid'
+        is_primary:
+          type: boolean
+          description: At most one per version, enforced by a partial unique index.
+      additionalProperties: false
+    RecipeStep:
+      type: object
+      required:
+        - id
+        - step_number
+        - instruction_en
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        step_number:
+          type: integer
+          minimum: 1
+        instruction_en:
+          type: string
+        instruction_ar:
+          type:
+            - string
+            - 'null'
+        minutes:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+      additionalProperties: false
+    RecipeVersionAllergen:
+      type: object
+      required:
+        - id
+        - allergen_code
+        - containment
+        - derivation
+      description: |
+        One row of a version's frozen label — the only part of a recipe version
+        that is ever meant to reach a diner.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        allergen_code:
+          $ref: '#/components/schemas/AllergenCode'
+        containment:
+          type: string
+          enum:
+            - contains
+            - may_contain
+        derivation:
+          $ref: '#/components/schemas/AllergenDerivation'
+        source_ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The line ingredient a derived row came from. Provenance is what
+            makes a warning trusted: "sesame, from tahini" is acted on where a
+            bare "sesame" is clicked past.
+        source_note:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+          description: |
+            For a derived row, the market scopes that contributed. The label is
+            one row per class, so a scope column would either duplicate rows or
+            pick one scope and lose the rest.
+      additionalProperties: false
+    CreateRecipeRequest:
+      type: object
+      required:
+        - name_en
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+          description: Falls back to the English name when absent.
+        slug:
+          type:
+            - string
+            - 'null'
+          maxLength: 110
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          description: Derived from the name when absent, and de-duplicated within the organisation.
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        recipe_category:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+        source_kind:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+        confidentiality:
+          $ref: '#/components/schemas/RecipeConfidentiality'
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+      additionalProperties: false
+    UpdateRecipeRequest:
+      type: object
+      minProperties: 1
+      description: |
+        A partial update. `slug` and `status` are absent by design — the slug
+        is the handle a re-import converges on, and status changes are
+        lifecycle actions with their own routes.
+      properties:
+        name_en:
+          type: string
+          maxLength: 255
+        name_ar:
+          type: string
+          maxLength: 255
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        recipe_category:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+        source_kind:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+        confidentiality:
+          $ref: '#/components/schemas/RecipeConfidentiality'
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+      additionalProperties: false
+    CreateRecipeVersionRequest:
+      type: object
+      description: |
+        An empty body opens a blank draft. `copy_from_version` is a version
+        *number* — what a human reads on a technical sheet — resolved inside
+        this recipe only.
+      properties:
+        copy_from_version:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+      additionalProperties: false
+    UpdateRecipeVersionRequest:
+      type: object
+      minProperties: 1
+      description: |
+        A partial update of a version header. `status`, `derivation_state`,
+        `derived_at`, `published_at` and `published_by` are absent by design:
+        each is a conclusion the server reached.
+      properties:
+        completeness:
+          $ref: '#/components/schemas/RecipeCompleteness'
+        yield_quantity:
+          type:
+            - number
+            - 'null'
+          exclusiveMinimum: 0
+          maximum: 99999999.9999
+        yield_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        yield_piece_count:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+        input_quantity_total:
+          type:
+            - number
+            - 'null'
+          exclusiveMinimum: 0
+          maximum: 99999999.9999
+        waste_coefficient_percent:
+          type: number
+          minimum: 0
+          maximum: 999.99
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+      additionalProperties: false
+    ReplaceRecipeLinesRequest:
+      type: object
+      required:
+        - lines
+      properties:
+        lines:
+          type: array
+          maxItems: 200
+          description: |
+            The complete formulation. An empty array is a legitimate statement
+            ("this version has no lines yet"), not a missing field. The array
+            order is the line sequence, and duplicate ingredients are allowed.
+          items:
+            type: object
+            required:
+              - ingredient_id
+            properties:
+              ingredient_id:
+                $ref: '#/components/schemas/Uuid'
+              quantity:
+                type:
+                  - number
+                  - 'null'
+                exclusiveMinimum: 0
+                maximum: 99999999.9999
+              unit_id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+              source_designation:
+                type:
+                  - string
+                  - 'null'
+                maxLength: 160
+              comment:
+                type:
+                  - string
+                  - 'null'
+                maxLength: 255
+            additionalProperties: false
+      additionalProperties: false
+    ReplaceRecipeOutputsRequest:
+      type: object
+      required:
+        - outputs
+      properties:
+        outputs:
+          type: array
+          maxItems: 20
+          description: |
+            An empty array is legitimate. A non-empty one must name exactly one
+            primary, and may not name the same ingredient twice.
+          items:
+            type: object
+            required:
+              - ingredient_id
+              - output_quantity
+              - unit_id
+            properties:
+              ingredient_id:
+                $ref: '#/components/schemas/Uuid'
+              output_quantity:
+                type: number
+                exclusiveMinimum: 0
+                maximum: 99999999.9999
+              unit_id:
+                $ref: '#/components/schemas/Uuid'
+              is_primary:
+                type:
+                  - boolean
+                  - 'null'
+                default: false
+            additionalProperties: false
+      additionalProperties: false
+    ReplaceRecipeStepsRequest:
+      type: object
+      required:
+        - steps
+      properties:
+        steps:
+          type: array
+          maxItems: 100
+          description: The complete method. The array order is the step sequence.
+          items:
+            type: object
+            required:
+              - instruction_en
+            properties:
+              instruction_en:
+                type: string
+                maxLength: 4000
+              instruction_ar:
+                type:
+                  - string
+                  - 'null'
+                maxLength: 4000
+              minutes:
+                type:
+                  - integer
+                  - 'null'
+                minimum: 0
+                maximum: 10000
             additionalProperties: false
       additionalProperties: false
     PublicAllergenClass:

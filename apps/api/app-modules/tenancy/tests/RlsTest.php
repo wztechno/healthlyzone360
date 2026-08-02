@@ -8,9 +8,13 @@ use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Consent\Models\ConsentGrant;
 use Healthy360\Features\Models\FeatureEntitlement;
+use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 use Healthy360\Tenancy\Tests\Fixtures\RecordTenantSettingsJob;
@@ -35,6 +39,13 @@ use Illuminate\Support\Str;
 | proven separately in CrossOrganisationIsolationTest. Two independent layers,
 | two independent suites (ADR-0007).
 |
+| The set grew from six tables to **eight** in K1.2: `recipe_versions` and
+| `recipe_version_lines` join it, because a formulation leak is the worst
+| failure this schema can have and an application scope is not a defence
+| against a query somebody forgets to scope. The other four recipe tables are
+| `join-rls-parent` — reachable only through a version, cascade-deleted with
+| it, protected by the policy above them.
+|
 */
 
 uses()->group('rls');
@@ -46,7 +57,13 @@ function rlsVisibleCounts(): array
 {
     $counts = [];
 
-    foreach (['organisation_branches', 'organisation_memberships', 'roles', 'feature_entitlements', 'consent_grants', 'audit_logs'] as $table) {
+    $tables = [
+        'organisation_branches', 'organisation_memberships', 'roles',
+        'feature_entitlements', 'consent_grants', 'audit_logs',
+        'recipe_versions', 'recipe_version_lines',
+    ];
+
+    foreach ($tables as $table) {
         /** @var object{total: int} $row */
         $row = DB::selectOne("select count(*) as total from {$table}");
 
@@ -57,7 +74,7 @@ function rlsVisibleCounts(): array
 }
 
 /**
- * A complete tenant across all six protected tables.
+ * A complete tenant across all eight protected tables.
  */
 function rlsTenant(ConsentDefinition $definition): object
 {
@@ -86,7 +103,25 @@ function rlsTenant(ConsentDefinition $definition): object
         'organisation_id' => $organisation->getKey(),
     ]);
 
-    return (object) compact('organisation', 'user', 'branch', 'membership', 'role', 'entitlement', 'consent', 'audit');
+    $recipe = Recipe::factory()->create(['organisation_id' => $organisation->getKey()]);
+
+    $version = RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisation->getKey(),
+    ]);
+
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $organisation->getKey()]);
+
+    $line = RecipeVersionLine::factory()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'ingredient_id' => $ingredient->getKey(),
+    ]);
+
+    return (object) compact(
+        'organisation', 'user', 'branch', 'membership', 'role', 'entitlement',
+        'consent', 'audit', 'recipe', 'version', 'ingredient', 'line',
+    );
 }
 
 beforeEach(function (): void {
@@ -115,6 +150,8 @@ it('fails closed on every protected table when the session carries no context', 
         'feature_entitlements' => 0,
         'consent_grants' => 0,
         'audit_logs' => 0,
+        'recipe_versions' => 0,
+        'recipe_version_lines' => 0,
     ]);
 });
 
@@ -181,6 +218,57 @@ it('rejects an insert that would plant a row in another organisation', function 
     });
 
     expect(OrganisationBranch::withoutTenancy()->where('name', 'Smuggled')->exists())->toBeFalse();
+});
+
+it('shows a kitchen its own recipe versions and lines and nothing of the other', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    [$versions, $lines] = RuntimeRole::run(fn (): array => [
+        DB::table('recipe_versions')->pluck('id')->all(),
+        DB::table('recipe_version_lines')->pluck('id')->all(),
+    ]);
+
+    expect($versions)->toBe([$this->b->version->getKey()])
+        ->and($lines)->toBe([$this->b->line->getKey()])
+        ->and($versions)->not->toContain($this->a->version->getKey())
+        ->and($lines)->not->toContain($this->a->line->getKey());
+});
+
+it('never lets one kitchen rewrite or erase another kitchens formulation', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    [$versionUpdated, $lineUpdated, $lineDeleted] = RuntimeRole::run(fn (): array => [
+        DB::table('recipe_versions')->where('id', $this->a->version->getKey())->update(['status' => 'published']),
+        DB::table('recipe_version_lines')->where('id', $this->a->line->getKey())->update(['quantity' => 9999]),
+        DB::table('recipe_version_lines')->where('id', $this->a->line->getKey())->delete(),
+    ]);
+
+    expect($versionUpdated)->toBe(0)
+        ->and($lineUpdated)->toBe(0)
+        ->and($lineDeleted)->toBe(0)
+        ->and(RecipeVersion::withoutTenancy()->whereKey($this->a->version->getKey())->value('status'))->not->toBe('published')
+        ->and(RecipeVersionLine::withoutTenancy()->whereKey($this->a->line->getKey())->exists())->toBeTrue();
+});
+
+it('rejects an insert that would plant a recipe line in another kitchen', function (): void {
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    $insert = fn () => DB::transaction(fn () => DB::table('recipe_version_lines')->insert([
+        'id' => (string) Str::uuid7(),
+        'recipe_version_id' => $this->a->version->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'line_number' => 99,
+        'ingredient_id' => $this->a->ingredient->getKey(),
+        'quantity' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]));
+
+    RuntimeRole::run(function () use ($insert): void {
+        expect($insert)->toThrow(QueryException::class);
+    });
+
+    expect(RecipeVersionLine::withoutTenancy()->where('line_number', 99)->exists())->toBeFalse();
 });
 
 it('refuses to rewrite or erase an audit record at grant level', function (): void {
@@ -392,7 +480,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the six representative tables and no others', function (): void {
+it('protects exactly the eight declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -400,12 +488,18 @@ it('protects exactly the six representative tables and no others', function (): 
         ->pluck('tablename')
         ->all();
 
+    // Six from the foundation, two from K1.2. Pinned so that a new
+    // tenant-scoped table has to decide explicitly whether it joins the set
+    // (ADR-0007 review trigger) rather than inheriting a policy by accident —
+    // or, worse, quietly not having one.
     expect($protected)->toBe([
         'audit_logs',
         'consent_grants',
         'feature_entitlements',
         'organisation_branches',
         'organisation_memberships',
+        'recipe_version_lines',
+        'recipe_versions',
         'roles',
     ]);
 });

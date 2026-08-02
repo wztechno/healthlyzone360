@@ -24,6 +24,21 @@ use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
+use Healthy360\Recipes\Http\Controllers\RecipeArchiveController;
+use Healthy360\Recipes\Http\Controllers\RecipeIndexController;
+use Healthy360\Recipes\Http\Controllers\RecipeLineReplaceController;
+use Healthy360\Recipes\Http\Controllers\RecipeOutputReplaceController;
+use Healthy360\Recipes\Http\Controllers\RecipeShowController;
+use Healthy360\Recipes\Http\Controllers\RecipeStepReplaceController;
+use Healthy360\Recipes\Http\Controllers\RecipeStoreController;
+use Healthy360\Recipes\Http\Controllers\RecipeUpdateController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionAllergenIndexController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionIndexController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionPublishController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionUpdateController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -116,6 +131,76 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
                 Route::post('/ingredient-categories', IngredientCategoryStoreController::class)->name('catalogue.ingredient-categories.store');
                 Route::patch('/ingredient-categories/{category}', IngredientCategoryUpdateController::class)->name('catalogue.ingredient-categories.update');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Recipes & versions (K1.2)
+            |--------------------------------------------------------------
+            |
+            | Three permissions, not two. `recipe.view_organisation` and
+            | `recipe.manage_organisation` are the familiar pair; publication
+            | has its own, because freezing an allergen label that reaches a
+            | diner and withdrawing whatever was live before is a different
+            | authority from editing a draft. A chef holds manage; deciding
+            | what the kitchen sells is somebody else's decision.
+            |
+            | `precondition` guards every write to a lock-versioned resource.
+            | On the version sub-resources — lines, outputs, steps — the
+            | validator is the **version's**, because the set is the unit of
+            | change and a per-row validator would let two editors replace
+            | different halves of one formulation.
+            |
+            | Publish and retire are POST sub-resource actions, never a
+            | `PATCH status` (master plan v2 §4.15).
+            |
+            */
+            Route::middleware('permission:recipe.view_organisation')->group(function (): void {
+                Route::get('/recipes', RecipeIndexController::class)->name('catalogue.recipes.index');
+                Route::get('/recipes/{recipe}', RecipeShowController::class)->name('catalogue.recipes.show');
+                Route::get('/recipes/{recipe}/versions', RecipeVersionIndexController::class)->name('catalogue.recipes.versions.index');
+                Route::get('/recipes/{recipe}/versions/{version}', RecipeVersionShowController::class)->name('catalogue.recipes.versions.show');
+                Route::get('/recipes/{recipe}/versions/{version}/allergens', RecipeVersionAllergenIndexController::class)->name('catalogue.recipes.versions.allergens.index');
+            });
+
+            Route::middleware('permission:recipe.manage_organisation')->group(function (): void {
+                Route::post('/recipes', RecipeStoreController::class)->name('catalogue.recipes.store');
+
+                Route::patch('/recipes/{recipe}', RecipeUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.update');
+
+                Route::post('/recipes/{recipe}/archive', RecipeArchiveController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.archive');
+
+                Route::post('/recipes/{recipe}/versions', RecipeVersionStoreController::class)->name('catalogue.recipes.versions.store');
+
+                Route::patch('/recipes/{recipe}/versions/{version}', RecipeVersionUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.update');
+
+                Route::put('/recipes/{recipe}/versions/{version}/lines', RecipeLineReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.lines.replace');
+
+                Route::put('/recipes/{recipe}/versions/{version}/outputs', RecipeOutputReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.outputs.replace');
+
+                Route::put('/recipes/{recipe}/versions/{version}/steps', RecipeStepReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.steps.replace');
+            });
+
+            Route::middleware('permission:recipe.publish_organisation')->group(function (): void {
+                Route::post('/recipes/{recipe}/versions/{version}/publish', RecipeVersionPublishController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.publish');
+
+                Route::post('/recipes/{recipe}/versions/{version}/retire', RecipeVersionRetireController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.retire');
             });
         });
 
