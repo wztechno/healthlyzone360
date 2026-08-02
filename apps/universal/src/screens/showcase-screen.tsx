@@ -22,6 +22,7 @@ import {
     EmptyState,
     ErrorState,
     FadeIn,
+    FileUploadField,
     FilterChip,
     Heading,
     Icon,
@@ -340,6 +341,23 @@ export function ShowcaseScreen() {
                         value={otp}
                         length={6}
                         onChangeText={setOtp}
+                    />
+                    {/*
+                     * One picker on both platforms, an indeterminate spinner rather than a fake
+                     * progress bar, and the size cap quoted from the component's own constant.
+                     * Shown attached so the summary row and its remove control are in the visual
+                     * baseline; the picker itself opens a system dialog, which is why the showcase
+                     * does not press it.
+                     */}
+                    <FileUploadField
+                        testID="showcase-file-upload"
+                        id="showcase-file-upload"
+                        label={t('b2bApplication:documents.kinds.commercial_registration')}
+                        hint={t('b2bApplication:documents.description')}
+                        required
+                        attachment={{ name: 'commercial-registration.pdf', size: 248310 }}
+                        onPick={() => undefined}
+                        onRemove={() => undefined}
                     />
                     <Checkbox
                         testID="showcase-checkbox"

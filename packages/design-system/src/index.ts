@@ -77,6 +77,17 @@ export { PasswordInput } from './forms/password-input.tsx';
 export type { PasswordInputProps } from './forms/password-input.tsx';
 export { OtpInput, normaliseOtpDigits } from './forms/otp-input.tsx';
 export type { OtpInputProps } from './forms/otp-input.tsx';
+export {
+    FILE_UPLOAD_MAX_BYTES,
+    FILE_UPLOAD_MIME_TYPES,
+    FILE_UPLOAD_REJECTIONS,
+    FileUploadField,
+} from './forms/file-upload-field.tsx';
+export type {
+    FileUploadFieldProps,
+    FileUploadRejection,
+    PickedFile,
+} from './forms/file-upload-field.tsx';
 export { Checkbox } from './forms/checkbox.tsx';
 export type { CheckboxProps } from './forms/checkbox.tsx';
 export { Select } from './forms/select.tsx';
