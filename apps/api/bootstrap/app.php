@@ -6,6 +6,7 @@ use Healthy360\AccessControl\Http\Middleware\RequirePermission;
 use Healthy360\AccessControl\Http\Middleware\RequirePlatformContext;
 use Healthy360\Customers\Guest\Http\Middleware\ResolveGuestSession;
 use Healthy360\Identity\Http\Middleware\EnsureEmailIsVerified;
+use Healthy360\Identity\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Healthy360\Identity\Http\Middleware\EnsureStatefulRequest;
 use Healthy360\Identity\Http\Middleware\RequireStepUp;
 use Healthy360\Identity\Http\Middleware\TouchUserDevice;
@@ -21,6 +22,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful as SanctumEnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -45,6 +47,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Sanctum: cookie sessions for first-party origins, bearer tokens
         // for every other client.
         $middleware->statefulApi();
+        $middleware->replaceInGroup(
+            'api',
+            SanctumEnsureFrontendRequestsAreStateful::class,
+            EnsureFrontendRequestsAreStateful::class,
+        );
         $middleware->throttleApi();
 
         // Correlation runs outermost, so even a response produced by a
