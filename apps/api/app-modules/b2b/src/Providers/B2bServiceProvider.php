@@ -4,17 +4,27 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Providers;
 
+use Healthy360\B2b\Contracts\SellerOpenOrders;
+use Healthy360\B2b\Services\NoSellerOpenOrders;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * The B2B module binds nothing.
+ * The B2B module binds one thing, and B2 is why.
  *
- * Its four services — `ApplicationService`, `KycDocumentService`,
- * `InvitationService`, `AgreementService` — are constructor-injected concretes
- * the container resolves by autowiring, and the module publishes no port for
- * another module to implement. That is the same shape Delivery uses and for
- * the same reason: an interface with one implementation is indirection
- * pretending to be a boundary.
+ * Its services — `ApplicationService`, `KycDocumentService`,
+ * `InvitationService`, `AgreementService`, and now `OffboardingService` and
+ * `ExportService` — are constructor-injected concretes the container resolves
+ * by autowiring. B1 published no port at all, on the grounds that an interface
+ * with one implementation is indirection pretending to be a boundary.
+ *
+ * **B2 publishes exactly one, and it is a real boundary.**
+ * `SellerOpenOrders` asks a question only the orders module can answer — "does
+ * this organisation still have anything in flight as a buyer?" — and the
+ * dependency edge runs Orders → B2B, so B2B cannot call across. The default
+ * bound here is `NoSellerOpenOrders`, which answers *unavailable* rather than
+ * *nothing outstanding*; `SettlementRegistry` turns that into a
+ * `not_applicable` with a reason instead of a green tick. Integrator-2 rebinds
+ * it to the orders implementation.
  *
  * The module's HTTP surface — the applicant's own application, the KYC
  * upload and download, the platform review queue, agreement signing,
@@ -50,12 +60,32 @@ use Illuminate\Support\ServiceProvider;
  *    an org-match policy would fail closed on the one request the table exists
  *    to serve.
  *
- * What is still genuinely absent is B2's: offboarding and record export are
- * table shells with no service and no surface.
+ * ## What B2 closed, and what it left open
+ *
+ * Offboarding and record export are no longer table shells: `OffboardingService`
+ * drives the nine-state wind-up, `RevokeBusinessAccess` removes access with the
+ * sole-membership token rule, and `ExportService` builds, hands over and takes
+ * back the bundles. What is still absent is the **HTTP surface** — routes, the
+ * OpenAPI paths, the permission codes and the error codes are the integration
+ * wave's, per master plan v2 §4.16, and this provider still registers no
+ * routes.
+ *
+ * Two bindings are the integrator's to make, both documented at their source:
+ *
+ * 1. `SellerOpenOrders` → the orders module's implementation, replacing the
+ *    null default registered below.
+ * 2. `Healthy360\Customers\Contracts\PendingB2bSignatory` →
+ *    `PendingB2bSignatoryQuery`, once J2's port has landed.
  */
 class B2bServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        // `bindIf`, not `bind`: the orders module's provider may already have
+        // registered the real implementation, and a default that overwrote it
+        // would silently disarm the one settlement check that works.
+        $this->app->bindIf(SellerOpenOrders::class, NoSellerOpenOrders::class);
+    }
 
     public function boot(): void {}
 }

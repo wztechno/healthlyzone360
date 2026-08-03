@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $email
  * @property string|null $phone
  * @property string|null $notes
+ * @property CarbonImmutable|null $purged_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
@@ -36,7 +37,20 @@ class B2bApplicationContact extends BaseModel
     {
         return [
             'role' => ApplicationContactRole::class,
+            'purged_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Whether this person's details have been removed at offboarding.
+     *
+     * The row survives the purge: the application's history says somebody in
+     * this role was named and invited, and a deleted row would leave that
+     * history pointing at nothing.
+     */
+    public function isPurged(): bool
+    {
+        return $this->purged_at !== null;
     }
 
     /**

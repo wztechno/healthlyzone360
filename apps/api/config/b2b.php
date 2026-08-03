@@ -76,4 +76,50 @@ return [
         'reference_prefix' => env('B2B_APPLICATION_REFERENCE_PREFIX', 'B2B'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Offboarding
+    |--------------------------------------------------------------------------
+    |
+    | Thirty days, and it is a *fallback* rather than a policy. The notice
+    | period that applies to a company is the one in its agreement; this is
+    | only what applies when the agreement is silent (OQ-032, confirmed). The
+    | number is copied onto the offboarding row at request time, so changing it
+    | here never shortens notice already served.
+    |
+    */
+
+    'offboarding' => [
+        'default_notice_period_days' => (int) env('B2B_OFFBOARDING_NOTICE_DAYS', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Record exports
+    |--------------------------------------------------------------------------
+    |
+    | The same private disk the KYC documents use, and deliberately: an export
+    | is the most concentrated collection of one company's data the platform
+    | ever produces, so anything weaker for a bundle than for one identity
+    | document would be the wrong way round.
+    |
+    | `ttl_days` is how long a built bundle stays downloadable before
+    | `PurgeExpiredRecordExports` deletes the object. It is stamped onto each
+    | row at build time, so a change here does not retroactively move bundles
+    | that already exist.
+    |
+    | `temporary_url_ttl_minutes` is fifteen rather than the KYC five: a bundle
+    | is a large download over whatever connection the recipient has, and a URL
+    | that expires mid-transfer is a failure they cannot diagnose. Fifteen
+    | rather than a day, because a signed URL is a bearer credential.
+    |
+    */
+
+    'exports' => [
+        'disk' => env('B2B_EXPORT_DISK', 'private'),
+        'path_prefix' => 'record-exports',
+        'ttl_days' => (int) env('B2B_EXPORT_TTL_DAYS', 7),
+        'temporary_url_ttl_minutes' => (int) env('B2B_EXPORT_TEMPORARY_URL_TTL_MINUTES', 15),
+    ],
+
 ];

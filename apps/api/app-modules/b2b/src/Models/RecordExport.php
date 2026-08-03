@@ -37,8 +37,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $byte_size
  * @property string|null $sha256
  * @property array<string, int>|null $row_counts
+ * @property array<string, mixed>|null $manifest
  * @property CarbonImmutable|null $expires_at
  * @property CarbonImmutable|null $downloaded_at
+ * @property int $download_count
+ * @property string|null $last_downloaded_by
+ * @property CarbonImmutable|null $purged_at
  * @property string|null $failure_reason
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -59,13 +63,31 @@ class RecordExport extends BaseModel
         return [
             'status' => RecordExportStatus::class,
             'row_counts' => 'array',
+            'manifest' => 'array',
             'byte_size' => 'integer',
+            'download_count' => 'integer',
             'requested_at' => 'immutable_datetime',
             'started_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
             'downloaded_at' => 'immutable_datetime',
+            'purged_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Whether the bytes are still there to be handed over.
+     *
+     * Two conditions, and both are needed. The status says the object was
+     * built and not yet purged; the clock says the window has not closed. A
+     * download that trusted the status alone would serve an export whose
+     * expiry passed an hour before the purge job next runs.
+     */
+    public function isDownloadable(): bool
+    {
+        return $this->status->hasObject()
+            && $this->purged_at === null
+            && ($this->expires_at === null || $this->expires_at->isFuture());
     }
 
     /**

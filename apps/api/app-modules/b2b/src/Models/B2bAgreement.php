@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property string $id
  * @property string $b2b_application_id
+ * @property string|null $organisation_id the tenant this agreement was provisioned into; null until then
  * @property int $version
  * @property string|null $supersedes_agreement_id
  * @property AgreementStatus $status
