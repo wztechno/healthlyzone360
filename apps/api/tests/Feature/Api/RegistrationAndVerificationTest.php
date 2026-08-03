@@ -113,6 +113,47 @@ it('locks an unverified account out of verified endpoints and lets it in after t
         ->assertJsonPath('meta.count', 0);
 });
 
+it('verifies by signed link without an existing session or bearer token', function (): void {
+    $this->postJson('/api/v1/auth/register', $this->payload)->assertCreated();
+
+    $user = User::query()->where('email', 'nour@example.test')->sole();
+
+    $verificationUrl = null;
+
+    Notification::assertSentTo($user, VerifyEmail::class, function (VerifyEmail $notification) use ($user, &$verificationUrl): bool {
+        $verificationUrl = $notification->toMail($user)->actionUrl;
+
+        return true;
+    });
+
+    forgetResolvedGuards();
+
+    $this->getJson((string) $verificationUrl)
+        ->assertOk()
+        ->assertJsonPath('data.email_verified', true);
+
+    expect($user->refresh()->hasVerifiedEmail())->toBeTrue();
+});
+
+it('redirects a browser following the signed link to the client verify screen', function (): void {
+    $this->postJson('/api/v1/auth/register', $this->payload)->assertCreated();
+
+    $user = User::query()->where('email', 'nour@example.test')->sole();
+
+    $verificationUrl = null;
+
+    Notification::assertSentTo($user, VerifyEmail::class, function (VerifyEmail $notification) use ($user, &$verificationUrl): bool {
+        $verificationUrl = $notification->toMail($user)->actionUrl;
+
+        return true;
+    });
+
+    forgetResolvedGuards();
+
+    $this->get((string) $verificationUrl)
+        ->assertRedirect(rtrim((string) config('app.frontend_url'), '/').'/verify-email?verified=1');
+});
+
 it('rejects a tampered verification link with its own error code', function (): void {
     $this->postJson('/api/v1/auth/register', $this->payload)->assertCreated();
 

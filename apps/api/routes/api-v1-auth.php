@@ -3,16 +3,16 @@
 declare(strict_types=1);
 
 use Healthy360\Identity\Http\Controllers\ConfirmPasswordController;
+use Healthy360\Identity\Http\Controllers\ResendEmailVerificationController;
+use Healthy360\Identity\Http\Controllers\SignedEmailVerificationController;
 use Healthy360\Identity\Http\Controllers\TokenController;
 use Healthy360\Identity\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
-use Laravel\Fortify\Http\Controllers\EmailVerificationNotificationController;
 use Laravel\Fortify\Http\Controllers\NewPasswordController;
 use Laravel\Fortify\Http\Controllers\PasswordResetLinkController;
 use Laravel\Fortify\Http\Controllers\RegisteredUserController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
-use Laravel\Fortify\Http\Controllers\VerifyEmailController;
 
 /*
 |--------------------------------------------------------------------------
@@ -84,12 +84,12 @@ Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('p
 | notification against the `verification.verify` route name, so the name is
 | part of the contract.
 */
-Route::post('/email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
+Route::post('/email/verification-notification', ResendEmailVerificationController::class)
     ->middleware(array_filter([$auth, $verificationLimiter ? 'throttle:'.$verificationLimiter : null]))
     ->name('verification.send');
 
-Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
-    ->middleware(array_filter([$auth, 'signed', $verificationLimiter ? 'throttle:'.$verificationLimiter : null]))
+Route::get('/verify-email/{id}/{hash}', SignedEmailVerificationController::class)
+    ->middleware(array_filter(['signed', $verificationLimiter ? 'throttle:'.$verificationLimiter : null]))
     ->name('verification.verify');
 
 /*

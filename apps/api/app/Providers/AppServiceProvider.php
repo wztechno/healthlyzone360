@@ -10,9 +10,13 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Symfony\Component\Mailer\Bridge\Brevo\Transport\BrevoTransportFactory;
+use Symfony\Component\Mailer\Transport\Dsn;
+use Symfony\Component\Mailer\Transport\TransportInterface;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +35,26 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureRateLimiting();
+        $this->configureBrevoMailTransport();
+    }
+
+    /**
+     * Symfony Brevo API transport (docs: Laravel mail — third-party transports).
+     *
+     * Bearer-token Expo clients never use cookie sessions; the same is true of
+     * mail: verification and OTP notifications are sent from this API via
+     * Laravel Mail, not from the Expo app. `symfony/brevo-mailer` registers
+     * here rather than via `@getbrevo/brevo`, which is the Node SDK.
+     */
+    private function configureBrevoMailTransport(): void
+    {
+        Mail::extend('brevo', function (): TransportInterface {
+            $key = (string) config('services.brevo.key');
+
+            return (new BrevoTransportFactory)->create(
+                new Dsn('brevo+api', 'default', $key === '' ? null : $key),
+            );
+        });
     }
 
     /**

@@ -54,6 +54,11 @@ return Application::configure(basePath: dirname(__DIR__))
         );
         $middleware->throttleApi();
 
+        // No web login route exists (`login.store` only). Returning null lets the
+        // authenticator answer API callers with 401 auth.unauthenticated instead
+        // of redirecting to a missing `login` route and surfacing 500.
+        $middleware->redirectGuestsTo(fn (): ?string => null);
+
         // Correlation runs outermost, so even a response produced by a
         // failing middleware leaves with X-Correlation-Id.
         $middleware->api(prepend: [AssignCorrelationId::class]);
