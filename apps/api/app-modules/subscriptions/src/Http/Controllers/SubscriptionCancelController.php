@@ -7,8 +7,10 @@ namespace Healthy360\Subscriptions\Http\Controllers;
 use Healthy360\Subscriptions\Http\Concerns\ReadsOptionalPrecondition;
 use Healthy360\Subscriptions\Http\Requests\CancelSubscriptionRequest;
 use Healthy360\Subscriptions\Models\CreditMemo;
+use Healthy360\Subscriptions\Presenters\SubscriptionLocale;
 use Healthy360\Subscriptions\Presenters\SubscriptionPresenter;
 use Healthy360\Subscriptions\Services\SubscriptionLocator;
+use Healthy360\Subscriptions\Services\SubscriptionProjection;
 use Healthy360\Subscriptions\Services\SubscriptionService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -47,6 +49,7 @@ final class SubscriptionCancelController
         private readonly SubscriptionLocator $locator,
         private readonly SubscriptionService $subscriptions,
         private readonly SubscriptionPresenter $presenter,
+        private readonly SubscriptionProjection $projection,
     ) {}
 
     /**
@@ -70,7 +73,12 @@ final class SubscriptionCancelController
         $memo = $result['credit_memo'];
 
         return ApiResponse::data([
-            'subscription' => $this->presenter->customer($cancelled, $this->subscriptions->balance($cancelled)),
+            'subscription' => $this->presenter->customer(
+                $cancelled,
+                $this->subscriptions->balance($cancelled),
+                $this->projection->for($cancelled),
+                SubscriptionLocale::from($request->header('Accept-Language')),
+            ),
             // `refresh()` because `status` is the column's own default rather
             // than something the service assigns: a freshly inserted memo holds
             // no value for it in memory, and serving `null` where the contract

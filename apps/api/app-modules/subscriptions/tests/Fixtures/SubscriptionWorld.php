@@ -60,6 +60,12 @@ final class SubscriptionWorld
         $profile = SubscriptionPlanProfile::factory()->create([
             'catalogue_item_id' => $plan->getKey(),
             'organisation_id' => $world->organisation->getKey(),
+            // This world's plan *is* a Free Selection one — the choices endpoint
+            // is exercised against it — so the flag says so. It was left at the
+            // column default while nothing read it; the quote now serves it, and
+            // a fixture whose flag contradicted its own behaviour would make the
+            // quote look wrong when it was right.
+            'allows_free_selection' => true,
         ]);
 
         $configuration = CatalogueItemVariant::factory()->planConfiguration()->create([

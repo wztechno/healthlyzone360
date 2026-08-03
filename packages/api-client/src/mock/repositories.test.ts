@@ -748,6 +748,78 @@ describe('two-factor enrolment', () => {
     });
 });
 
+/**
+ * The two closure checks the bundle binds across worlds (J2).
+ *
+ * Asserted here rather than in `account/account.test.ts` because they are the only two blockers that
+ * cannot be exercised by the account world alone: one reads the foundation `MockStore`'s session,
+ * the other the B2B applicant's agreement. What is being pinned is that neither reports
+ * `not_applicable` any more — that verdict means *nobody asked*, and both modules are present — and
+ * that each answers from a seeded world rather than a hand-built double.
+ */
+describe('the closure blockers the bundle wires across worlds', () => {
+    async function blockerOf(repositories: MockRepositories, code: string) {
+        const preconditions = await repositories.account.getClosurePreconditions();
+        const blocker = preconditions.blockers.find((entry) => entry.code === code);
+        expect(blocker).toBeDefined();
+        return { blocker: blocker!, canClose: preconditions.canClose };
+    }
+
+    it('blocks on the signed-in dietitian’s active memberships, and counts only the active ones', async () => {
+        const repositories = make('multi-org-dietitian');
+        await signIn(repositories, MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail);
+
+        const { blocker, canClose } = await blockerOf(repositories, 'organisation_memberships');
+        expect(blocker.status).toBe('blocking');
+        // Three memberships are seeded and one of them is `pending`. A pending invitation is not a
+        // seat somebody holds, so it must not stand in the way of their closure.
+        expect(blocker.count).toBe(2);
+        expect(blocker.reason).toBe('memberships_live');
+        expect(canClose).toBe(false);
+    });
+
+    it('clears for a consumer with no memberships — and says clear, not not_applicable', async () => {
+        const repositories = make('customer-no-org');
+        await signIn(repositories, MOCK_SCENARIOS['customer-no-org'].primaryEmail);
+
+        const { blocker } = await blockerOf(repositories, 'organisation_memberships');
+        expect(blocker.status).toBe('clear');
+        expect(blocker.count).toBe(0);
+    });
+
+    /**
+     * Signed out answers zero rather than throwing. The wizard lives behind the session guard so
+     * this is unreachable in the application; it is pinned because a port that raised would turn a
+     * missing session into an unhandled rejection inside a preconditions read.
+     */
+    it('does not raise when nobody is signed in', async () => {
+        const { blocker } = await blockerOf(
+            make('multi-org-dietitian'),
+            'organisation_memberships',
+        );
+        expect(blocker.status).toBe('clear');
+    });
+
+    it('is clear while the applicant has no agreement waiting, and blocks once one does', async () => {
+        const repositories = make('customer-no-org');
+        await signIn(repositories, MOCK_SCENARIOS['customer-no-org'].primaryEmail);
+
+        // The default B2B fixture is a half-finished draft: no agreement, nothing to sign.
+        expect((await blockerOf(repositories, 'pending_b2b_signatures')).blocker.status).toBe(
+            'clear',
+        );
+
+        repositories.b2bApplicationStore.startApplication();
+        repositories.b2bApplicationStore.forceState('agreement_pending');
+
+        const { blocker, canClose } = await blockerOf(repositories, 'pending_b2b_signatures');
+        expect(blocker.status).toBe('blocking');
+        expect(blocker.count).toBe(1);
+        expect(blocker.reason).toBe('signatures_pending');
+        expect(canClose).toBe(false);
+    });
+});
+
 describe('simulated latency', () => {
     it('is applied on every call and is configurable to zero', async () => {
         const slow = createMockRepositories({ scenario: 'customer-no-org', latencyMs: 40 });

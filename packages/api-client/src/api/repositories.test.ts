@@ -664,3 +664,1155 @@ describe('confirmPassword', () => {
         expect(confirmedUntil).toBeGreaterThanOrEqual(before + 10_800_000);
     });
 });
+
+/* ── J2: closure ─────────────────────────────────────────────────────────────────────────────── */
+
+const CLOSURE_BLOCKERS_MIXED = [
+    { code: 'open_orders', status: 'blocking', count: 2, reason: 'orders_in_flight' },
+    { code: 'active_subscriptions', status: 'clear', count: 0, reason: null },
+    {
+        code: 'unsettled_credit_memos',
+        status: 'advisory',
+        count: 1,
+        reason: 'credit_memos_unsettled',
+    },
+    { code: 'wallet_balance', status: 'not_applicable', count: 0, reason: 'no_wallet_module' },
+];
+
+const LIVE_NONE_OK: Scripted = {
+    status: 200,
+    body: {
+        data: { closure_request: null, blockers: CLOSURE_BLOCKERS_MIXED },
+        meta: { correlation_id: 'c-live' },
+    },
+};
+
+describe('closure (J2, docs/api/conventions.md)', () => {
+    it('derives preconditions from the live read: only blocking stops a closure', async () => {
+        const { repositories, calls } = harness([LIVE_NONE_OK], createMemoryTokenStore('token'));
+        const preconditions = await repositories.account.getClosurePreconditions();
+
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/me/closure-requests/live');
+        expect(preconditions.canClose).toBe(false);
+        expect(preconditions.blockers).toHaveLength(4);
+        // The four statuses reach the caller whole: `not_applicable` is not smoothed into `clear`,
+        // and the advisory memo neither blocks nor disappears.
+        expect(preconditions.blockers[2]).toMatchObject({ status: 'advisory', count: 1 });
+        expect(preconditions.blockers[3]).toMatchObject({
+            status: 'not_applicable',
+            reason: 'no_wallet_module',
+        });
+        expect(preconditions.retainedRecordCodes).toContain('orders_anonymised');
+    });
+
+    it('treats advisory and not_applicable as no bar to closing', async () => {
+        const clear = {
+            ...LIVE_NONE_OK,
+            body: {
+                data: {
+                    closure_request: null,
+                    blockers: CLOSURE_BLOCKERS_MIXED.filter((entry) => entry.status !== 'blocking'),
+                },
+                meta: { correlation_id: 'c-live' },
+            },
+        };
+        const { repositories } = harness([clear], createMemoryTokenStore('token'));
+
+        await expect(repositories.account.getClosurePreconditions()).resolves.toMatchObject({
+            canClose: true,
+        });
+    });
+
+    it('answers null when nothing is in flight', async () => {
+        const { repositories } = harness([LIVE_NONE_OK], createMemoryTokenStore('token'));
+        await expect(repositories.account.getLiveClosureRequest()).resolves.toBeNull();
+    });
+
+    it('resolves a blocked full closure as a success with no challenge (D-073)', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 202,
+                    body: {
+                        data: {
+                            closure_request: {
+                                request_id: 'closure-1',
+                                scope: 'full',
+                                status: 'requested',
+                                blocked: true,
+                                blockers: CLOSURE_BLOCKERS_MIXED,
+                                verification_required: true,
+                                destination_masked: null,
+                                expires_in_seconds: null,
+                                scheduled_for: null,
+                            },
+                        },
+                        meta: { correlation_id: 'c-blocked' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const ticket = await repositories.account.requestClosure({
+            reasonCode: 'moving_away',
+            scope: 'full',
+        });
+
+        expect(calls[0]!.method).toBe('POST');
+        expect(calls[0]!.body).toEqual({ reason_code: 'moving_away', scope: 'full' });
+        expect(ticket.blocked).toBe(true);
+        expect(ticket.challenge).toBeNull();
+        expect(ticket.reasonCode).toBe('moving_away');
+        expect(ticket.blockers.map((blocker) => blocker.status)).toContain('blocking');
+    });
+
+    it('carries the challenge, its mask and its countdown when the code went out', async () => {
+        const before = Date.now();
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 202,
+                    body: {
+                        data: {
+                            closure_request: {
+                                request_id: 'closure-2',
+                                scope: 'full',
+                                status: 'requested',
+                                blocked: false,
+                                blockers: [],
+                                verification_required: true,
+                                destination_masked: 'n••••@example.test',
+                                expires_in_seconds: 300,
+                                scheduled_for: null,
+                            },
+                        },
+                        meta: { correlation_id: 'c-clear' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const ticket = await repositories.account.requestClosure({
+            reasonCode: 'privacy_concerns',
+            reasonNote: 'Please remove everything.',
+            scope: 'full',
+        });
+
+        expect(calls[0]!.body).toEqual({
+            reason_code: 'privacy_concerns',
+            reason_note: 'Please remove everything.',
+            scope: 'full',
+        });
+        expect(ticket.challenge).not.toBeNull();
+        expect(ticket.challenge!.purpose).toBe('closure_step_up');
+        expect(ticket.challenge!.maskedDestination).toBe('n••••@example.test');
+        expect(Date.parse(ticket.challenge!.expiresAt)).toBeGreaterThanOrEqual(before + 300_000);
+        // The wire never names the challenge (it is bound to the request row), so there is no
+        // identifier to resend against — stated, not invented.
+        expect(ticket.challenge!.id).toBe('');
+        expect(ticket.challenge!.resendsRemaining).toBe(0);
+    });
+
+    it('verifies against the request and maps the scheduled window', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            closure_request: {
+                                request_id: 'closure-2',
+                                scope: 'full',
+                                status: 'scheduled',
+                                blocked: false,
+                                blockers: [],
+                                verification_required: false,
+                                scheduled_for: '2026-08-10T00:00:00Z',
+                            },
+                        },
+                        meta: { correlation_id: 'c-verify' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const ticket = await repositories.account.verifyClosure({
+            ticketId: 'closure-2',
+            code: '123456',
+        });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/me/closure-requests/closure-2/verify',
+        );
+        expect(calls[0]!.body).toEqual({ code: '123456' });
+        expect(ticket.status).toBe('scheduled');
+        expect(ticket.scheduledFor).toBe('2026-08-10T00:00:00Z');
+        expect(ticket.challenge).toBeNull();
+    });
+
+    it('cancels with a DELETE that answers the row, not a 204', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            closure_request: {
+                                request_id: 'closure-2',
+                                scope: 'full',
+                                status: 'cancelled',
+                                cancelled_at: '2026-08-03T12:00:00Z',
+                                cancelled_because: 'customer_cancelled',
+                            },
+                        },
+                        meta: { correlation_id: 'c-cancel' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const ticket = await repositories.account.cancelClosure({ ticketId: 'closure-2' });
+
+        expect(calls[0]!.method).toBe('DELETE');
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/me/closure-requests/closure-2');
+        expect(ticket.status).toBe('cancelled');
+        expect(ticket.challenge).toBeNull();
+    });
+});
+
+/* ── B2: the wind-down ───────────────────────────────────────────────────────────────────────── */
+
+const OFFBOARDING_WIRE = {
+    id: 'offboarding-1',
+    organisation_id: 'organisation-9',
+    b2b_agreement_id: 'agreement-1',
+    status: 'settlement_pending',
+    trigger: 'non_renewal',
+    reason: null,
+    reason_note: 'Not renewing for 2027.',
+    requested_by: 'operator-1',
+    requested_at: '2026-08-01T09:00:00Z',
+    notice_period_days: 30,
+    notice_served_at: '2026-08-01T09:00:00Z',
+    effective_on: '2026-08-31',
+    settlement: {
+        status: 'pending',
+        note: null,
+        checks: [
+            { check: 'open_orders', outcome: 'clear', reason: null, detail: null },
+            {
+                check: 'outstanding_invoices',
+                outcome: 'not_applicable',
+                reason: 'invoicing_module_absent',
+                detail: null,
+            },
+        ],
+        started_at: '2026-08-02T09:00:00Z',
+        resolved_at: null,
+        waived_by: null,
+        waiver_reason: null,
+    },
+    signoff: {
+        awaiting_since: null,
+        signed_off_at: null,
+        signed_off_by: null,
+        signatory_name: null,
+        signatory_title: null,
+        consent_statement: null,
+        document_sha256: null,
+    },
+    revocation: {
+        started_at: null,
+        completed_at: null,
+        memberships_revoked: null,
+        tokens_deleted: null,
+    },
+    archive: { started_at: null, summary: null, legal_entity_retained: null },
+    completed_at: null,
+    cancelled_at: null,
+    cancelled_by: null,
+    cancellation_reason: null,
+    lock_version: 3,
+    allowed_transitions: ['settlement_pending', 'awaiting_signoff', 'cancelled'],
+};
+
+const OFFBOARDING_OK: Scripted = {
+    status: 200,
+    body: { data: { offboarding: OFFBOARDING_WIRE }, meta: { correlation_id: 'c-off' } },
+};
+
+describe('offboarding (B2, docs/api/conventions.md)', () => {
+    it('reads the wind-up by its own key under the platform prefix', async () => {
+        const { repositories, calls } = harness([OFFBOARDING_OK], createMemoryTokenStore('token'));
+        const offboarding = await repositories.b2bApplication.getOffboarding({
+            organisationId: 'offboarding-1',
+        });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/platform/b2b/offboardings/offboarding-1',
+        );
+        expect(offboarding).not.toBeNull();
+        expect(offboarding!.organisationId).toBe('organisation-9');
+        expect(offboarding!.noticePeriodDays).toBe(30);
+        expect(offboarding!.allowedTransitions).toEqual([
+            'settlement_pending',
+            'awaiting_signoff',
+            'cancelled',
+        ]);
+        // `not_applicable` reaches the caller with its reason — never smoothed into a pass.
+        expect(offboarding!.settlement.checks[1]).toMatchObject({
+            outcome: 'not_applicable',
+            reason: 'invoicing_module_absent',
+        });
+        // Nothing is signed, so nothing claims a code was consumed.
+        expect(offboarding!.signoff.otpVerified).toBe(false);
+    });
+
+    it('answers null for a wind-up that does not exist', async () => {
+        const { repositories } = harness(
+            [
+                {
+                    status: 404,
+                    body: {
+                        error: {
+                            code: 'resource.not_found',
+                            message: 'No such wind-up.',
+                            details: {},
+                            correlation_id: 'c-404',
+                        },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        await expect(
+            repositories.b2bApplication.getOffboarding({ organisationId: 'organisation-9' }),
+        ).resolves.toBeNull();
+    });
+
+    it('re-runs the settlement checks without an If-Match: the state machine is the guard', async () => {
+        const { repositories, calls } = harness([OFFBOARDING_OK], createMemoryTokenStore('token'));
+        await repositories.b2bApplication.runSettlementChecks({
+            offboardingId: 'offboarding-1',
+            lockVersion: 3,
+        });
+
+        expect(calls[0]!.method).toBe('POST');
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/platform/b2b/offboardings/offboarding-1/settlement-checks',
+        );
+        expect(calls[0]!.headers['If-Match']).toBeUndefined();
+    });
+
+    it('issues the signoff challenge and maps the 202 envelope', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 202,
+                    body: {
+                        data: {
+                            challenge: {
+                                challenge_id: 'challenge-7',
+                                purpose: 'b2b_signatory',
+                                channel: 'email',
+                                destination_masked: 's••••@company.test',
+                                expires_at: '2026-08-03T12:05:00Z',
+                                resend_available_at: '2026-08-03T12:00:45Z',
+                                resend_cooldown_seconds: 45,
+                                attempts_remaining: 3,
+                                resends_remaining: 3,
+                                available_channels: [{ channel: 'email', simulated: false }],
+                                simulated: false,
+                            },
+                        },
+                        meta: { correlation_id: 'c-challenge' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const challenge = await repositories.b2bApplication.issueSignoffChallenge({
+            offboardingId: 'offboarding-1',
+        });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/platform/b2b/offboardings/offboarding-1/signoff-challenges',
+        );
+        expect(challenge.id).toBe('challenge-7');
+        expect(challenge.purpose).toBe('b2b_signatory');
+        expect(challenge.maskedDestination).toBe('s••••@company.test');
+    });
+
+    it('spends the packed token first, then signs off with the consumed challenge', async () => {
+        const signed = {
+            ...OFFBOARDING_WIRE,
+            status: 'signed_off',
+            signoff: {
+                awaiting_since: '2026-08-02T10:00:00Z',
+                signed_off_at: '2026-08-03T12:01:00Z',
+                signed_off_by: 'signatory-1',
+                signatory_name: 'Samira Haddad',
+                signatory_title: 'Managing Director',
+                consent_statement: 'I confirm I am authorised to bind this company…',
+                document_sha256: 'a'.repeat(64),
+            },
+        };
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: { data: { verified: true }, meta: { correlation_id: 'c-verify' } },
+                },
+                {
+                    status: 200,
+                    body: { data: { offboarding: signed }, meta: { correlation_id: 'c-signed' } },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const offboarding = await repositories.b2bApplication.signOffOffboarding({
+            offboardingId: 'offboarding-1',
+            typedName: 'Samira Haddad',
+            signatoryTitle: 'Managing Director',
+            authorityConfirmed: true,
+            documentSha256: '',
+            verificationToken: 'challenge-7:123456',
+            lockVersion: 3,
+        });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/verification/challenges/challenge-7/verify',
+        );
+        expect(calls[0]!.body).toEqual({ code: '123456' });
+        expect(calls[1]!.url).toBe(
+            'https://api.example/api/v1/platform/b2b/offboardings/offboarding-1/signoff',
+        );
+        expect(calls[1]!.body).toMatchObject({
+            signatory_name: 'Samira Haddad',
+            otp_challenge_id: 'challenge-7',
+            // The empty echo means "the wind-up published no digest", which the wire spells null.
+            document_sha256: null,
+        });
+        // A recorded sign-off is a proved one: the service refuses anything else.
+        expect(offboarding.signoff.otpVerified).toBe(true);
+    });
+
+    it('refuses a token that does not carry both halves before anything is sent', async () => {
+        const { repositories, calls } = harness([OFFBOARDING_OK], createMemoryTokenStore('token'));
+
+        await expect(
+            repositories.b2bApplication.signOffOffboarding({
+                offboardingId: 'offboarding-1',
+                typedName: 'Samira Haddad',
+                signatoryTitle: 'Managing Director',
+                authorityConfirmed: true,
+                documentSha256: '',
+                verificationToken: 'challenge-7',
+                lockVersion: 3,
+            }),
+        ).rejects.toMatchObject({ code: 'b2b.signatory_required' });
+        expect(calls).toHaveLength(0);
+    });
+
+    it('refuses to sign off without the authority claim', async () => {
+        const { repositories, calls } = harness([OFFBOARDING_OK], createMemoryTokenStore('token'));
+
+        await expect(
+            repositories.b2bApplication.signOffOffboarding({
+                offboardingId: 'offboarding-1',
+                typedName: 'Samira Haddad',
+                signatoryTitle: 'Managing Director',
+                authorityConfirmed: false,
+                documentSha256: '',
+                verificationToken: 'challenge-7:123456',
+                lockVersion: 3,
+            }),
+        ).rejects.toMatchObject({ code: 'validation.failed' });
+        expect(calls).toHaveLength(0);
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * S1 — the two subscription reads that are served
+ *
+ * The other four methods of that wave stay rejections and are pinned as such below, because "this
+ * one is deliberately not wired" is exactly the kind of fact that quietly stops being true.
+ * ---------------------------------------------------------------------------------------------- */
+
+const WIRE_BALANCE = {
+    status: 'active',
+    balance_days_total: 20,
+    balance_days_consumed: 6,
+    remaining_days: 14,
+    per_day_minor: 1800,
+    currency_code: 'AED',
+    weekdays: [1, 2, 3, 4, 5],
+    next_delivery_date: '2026-08-11',
+    skipped_days: 2,
+};
+
+/** A customer subscription as the enriched projection serves it. */
+const WIRE_SUBSCRIPTION = {
+    id: 'subscription-1',
+    status: 'active',
+    catalogue_item_id: 'plan-1',
+    catalogue_item_variant_id: 'variant-1',
+    plan_duration_id: 'duration-1',
+    sales_channel_id: 'channel-1',
+    currency_code: 'AED',
+    captured_unit_price_minor: 2000,
+    captured_discount_percent: '10.00',
+    effective_day_price_minor: 1800,
+    captured_at: '2026-08-01T09:00:00+00:00',
+    weekdays: [1, 3, 5],
+    delivery_window_code: 'morning',
+    customer_address_id: 'address-1',
+    no_substitutions: false,
+    balance_days_total: 20,
+    balance_days_consumed: 6,
+    remaining_days: 14,
+    next_delivery_date: '2026-08-11',
+    pause_count: 0,
+    lock_version: 3,
+    created_at: '2026-08-01T09:00:00+00:00',
+    updated_at: '2026-08-03T09:00:00+00:00',
+    plan: { id: 'plan-1', name: 'Balanced 2 meals a day', slug: 'balanced-2' },
+    kitchen: { id: 'kitchen-1', name: 'Verdant Kitchen' },
+    configuration: { id: 'variant-1', code: 'lunch-dinner', name: 'Lunch & dinner' },
+    duration: { id: 'duration-1', code: '4w', kind: 'fixed_days', days: 28, name: 'Four weeks' },
+    delivery_address: {
+        id: 'address-1',
+        label: 'Home',
+        line_one: '12 Marina Walk',
+        line_two: null,
+        delivery_area_id: 'area-1',
+        directions: 'Ring the bell twice',
+    },
+    starts_on: '2026-08-05',
+    // 1800 × three delivery weekdays.
+    weekly_price_minor: 9000,
+    allows_free_selection: true,
+    change_cutoff_hours: 12,
+    skipped_dates: ['2026-08-08'],
+    chosen_catalogue_item_ids: ['meal-7'],
+};
+
+describe('subscriptions (S1)', () => {
+    it('reads the balance from the single subscription read and prices it per day', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            subscription: {
+                                id: 'subscription-1',
+                                status: 'active',
+                                lock_version: 4,
+                                balance: WIRE_BALANCE,
+                            },
+                        },
+                        meta: { correlation_id: 'correlation-1' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const balance = await repositories.commerce.getSubscriptionBalance(
+            'subscription-1' as never,
+        );
+
+        expect(calls[0]?.method).toBe('GET');
+        expect(calls[0]?.url).toBe('https://api.example/api/v1/me/subscriptions/subscription-1');
+        expect(balance).toEqual({
+            subscriptionId: 'subscription-1',
+            state: 'active',
+            days: { total: 20, consumed: 6, remaining: 14 },
+            // The *effective* per-day price — the number a credit memo multiplies.
+            perDayPrice: { amount: 1800, currency: 'AED' },
+            skippedDays: 2,
+            nextDeliveryDate: '2026-08-11',
+            deliveryWeekdays: [1, 2, 3, 4, 5],
+            changeCutoffHours: 24,
+        });
+    });
+
+    it('projects a completed subscription onto `expired`', async () => {
+        const { repositories } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            subscription: {
+                                id: 'subscription-1',
+                                status: 'completed',
+                                lock_version: 9,
+                                balance: { ...WIRE_BALANCE, status: 'completed' },
+                            },
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        expect((await repositories.commerce.getSubscriptionBalance('s-1' as never)).state).toBe(
+            'expired',
+        );
+    });
+
+    /** A balance-less single read is a broken envelope: answering zero days would say "spent". */
+    it('refuses a single read that arrived without its balance', async () => {
+        const { repositories } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: { subscription: { id: 'subscription-1', status: 'active' } },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        await expect(
+            repositories.commerce.getSubscriptionBalance('subscription-1' as never),
+        ).rejects.toMatchObject({ code: 'server' });
+    });
+
+    it('answers the ledger as one complete page, dropping a status it cannot name', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: [
+                            {
+                                id: 'delivery-1',
+                                delivery_date: '2026-08-10',
+                                delivery_window_code: 'morning',
+                                status: 'delivered',
+                                consumed: true,
+                                skip_reason: null,
+                                meals: [],
+                            },
+                            {
+                                id: 'delivery-2',
+                                delivery_date: '2026-08-11',
+                                delivery_window_code: null,
+                                status: 'skipped_customer',
+                                consumed: false,
+                                skip_reason: 'customer_request',
+                                meals: [],
+                            },
+                            // A status this build does not know. Dropped rather than defaulted —
+                            // showing it as `scheduled` would promise food.
+                            {
+                                id: 'delivery-3',
+                                delivery_date: '2026-08-12',
+                                status: 'teleported',
+                                consumed: false,
+                                meals: [],
+                            },
+                        ],
+                        meta: { correlation_id: 'c', count: 3, balance: WIRE_BALANCE },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const page = await repositories.commerce.listSubscriptionDeliveries(
+            'subscription-1' as never,
+        );
+
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/me/subscriptions/subscription-1/deliveries',
+        );
+        expect(page.items).toEqual([
+            {
+                id: 'delivery-1',
+                date: '2026-08-10',
+                status: 'delivered',
+                consumed: true,
+                skipReason: null,
+                slotCode: 'morning',
+            },
+            {
+                id: 'delivery-2',
+                date: '2026-08-11',
+                status: 'skipped_customer',
+                consumed: false,
+                skipReason: 'customer_request',
+                slotCode: '',
+            },
+        ]);
+        // Unpaginated on the wire, so there is no second page and both fields say so. `totalCount`
+        // is the server's count of the *whole* ledger, not of what survived the filter.
+        expect(page.nextCursor).toBeNull();
+        expect(page.hasMore).toBe(false);
+        expect(page.totalCount).toBe(3);
+    });
+
+    it('applies the status filter the endpoint has no parameter for', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: [
+                            {
+                                id: 'delivery-1',
+                                delivery_date: '2026-08-10',
+                                status: 'delivered',
+                                consumed: true,
+                                meals: [],
+                            },
+                            {
+                                id: 'delivery-2',
+                                delivery_date: '2026-08-11',
+                                status: 'scheduled',
+                                consumed: false,
+                                meals: [],
+                            },
+                        ],
+                        meta: { count: 2 },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const page = await repositories.commerce.listSubscriptionDeliveries(
+            'subscription-1' as never,
+            { statuses: ['scheduled'], cursor: 'ignored', limit: 5 },
+        );
+
+        // The cursor and the limit are accepted and ignored rather than sent to an endpoint that
+        // takes neither.
+        expect(calls[0]?.url).not.toContain('?');
+        expect(page.items.map((delivery) => delivery.id)).toEqual(['delivery-2']);
+    });
+
+    /* ── the four the backend had to open before they could be wired ─────────────────────────── */
+
+    it('quotes by day count, never by a channel or a duration identifier', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            quote: {
+                                currency_code: 'AED',
+                                days: 20,
+                                list_price_minor: 2000,
+                                discount_percent: '10.00',
+                                per_day_minor: 1800,
+                                total_minor: 36000,
+                                duration_code: '4w',
+                                duration_kind: 'fixed_days',
+                                available_weekdays: [1, 2, 3, 4, 5],
+                                allows_free_selection: true,
+                                change_cutoff_hours: 12,
+                            },
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const quote = await repositories.commerce.getSubscriptionQuote({
+            planId: 'plan-1' as never,
+            variantId: 'variant-1' as never,
+            duration: '4w',
+        });
+
+        // Three coordinates. A shopper can obtain none of a channel identifier, a duration
+        // identifier or a tariff — so the request carries the day count the public plan read
+        // already publishes, and the server resolves the rest.
+        const url = new URL(calls[0]!.url);
+        expect(url.pathname).toBe('/api/v1/subscriptions/quote');
+        expect(Object.fromEntries(url.searchParams)).toEqual({
+            catalogue_item_id: 'plan-1',
+            catalogue_item_variant_id: 'variant-1',
+            plan_duration_days: '28',
+        });
+
+        // The seven-probe hack's replacement, and the two rules a configurator draws with.
+        expect(quote.availableWeekdays).toEqual([1, 2, 3, 4, 5]);
+        expect(quote.allowsFreeSelection).toBe(true);
+        // The plan's own cut-off, not the platform default — the 24-hour rule is configuration.
+        expect(quote.changeCutoffHours).toBe(12);
+        expect(quote.available).toBe(true);
+        expect(quote.refusals).toEqual([]);
+        expect(quote.total).toEqual({ amount: 36000, currency: 'AED' });
+        expect(quote.discountPercent).toBe(10);
+    });
+
+    it('draws a refused quote instead of throwing it', async () => {
+        const { repositories } = harness(
+            [
+                {
+                    status: 409,
+                    body: {
+                        error: {
+                            code: 'subscription.refused',
+                            message: 'That run is not offered for this configuration.',
+                            details: {
+                                reasons: [
+                                    { reason: 'duration_not_offered', duration_days: 28 },
+                                    // Not in this build's vocabulary: dropped rather than shown
+                                    // to somebody as a raw code.
+                                    { reason: 'invented_by_a_later_backend' },
+                                ],
+                            },
+                            correlation_id: 'c',
+                        },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const quote = await repositories.commerce.getSubscriptionQuote({
+            planId: 'plan-1' as never,
+            variantId: 'variant-1' as never,
+            duration: '4w',
+        });
+
+        // A configurator draws "this duration is not offered"; it does not crash on it.
+        expect(quote.available).toBe(false);
+        expect(quote.refusals).toEqual(['duration_not_offered']);
+        expect(quote.days).toBe(0);
+        expect(quote.total.amount).toBe(0);
+        expect(quote.availableWeekdays).toEqual([]);
+    });
+
+    it('cancels and answers with the credit memo in the same breath', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            subscription: { ...WIRE_SUBSCRIPTION, status: 'cancelled' },
+                            credit_memo: {
+                                id: 'memo-1',
+                                reason: 'subscription_cancelled',
+                                unused_days: 14,
+                                per_day_minor: 1800,
+                                amount_minor: 25200,
+                                currency_code: 'AED',
+                                status: 'recorded',
+                                settlement: 'manual',
+                                recorded_at: '2026-08-03T10:00:00+00:00',
+                            },
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const result = await repositories.commerce.cancelSubscription('subscription-1' as never, {
+            reason: 'too_expensive',
+        });
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/me/subscriptions/subscription-1/cancel',
+        );
+        expect(calls[0]?.body).toEqual({ reason: 'too_expensive' });
+        // No `If-Match`: the header is honoured on every subscription write and demanded by none,
+        // and the contract carries no lock version to send.
+        expect(calls[0]?.headers['If-Match']).toBeUndefined();
+
+        expect(result.subscription.state).toBe('cancelled');
+        expect(result.creditMemo).toEqual({
+            id: 'memo-1',
+            subscriptionId: 'subscription-1',
+            reason: 'subscription_cancelled',
+            unusedDays: 14,
+            perDayPrice: { amount: 1800, currency: 'AED' },
+            amount: { amount: 25200, currency: 'AED' },
+            status: 'recorded',
+            settlement: 'manual',
+            recordedAt: '2026-08-03T10:00:00+00:00',
+        });
+    });
+
+    it('maps the named facts the projection now carries', async () => {
+        const { repositories } = harness(
+            [{ status: 200, body: { data: { subscription: WIRE_SUBSCRIPTION }, meta: {} } }],
+            createMemoryTokenStore('token'),
+        );
+
+        const subscription = await repositories.commerce.setSubscriptionWeekdays(
+            'subscription-1' as never,
+            { deliveryWeekdays: [1, 3, 5] },
+        );
+
+        expect(subscription.planName).toBe('Balanced 2 meals a day');
+        expect(subscription.kitchenId).toBe('kitchen-1');
+        // The effective per-day price times the delivery weekdays, computed server-side so a
+        // client is not a second implementation of what somebody pays.
+        expect(subscription.weeklyPrice).toEqual({ amount: 9000, currency: 'AED' });
+        // The duration's *own* day count, never `balance_days_total` — twenty delivery days is
+        // what a four-week plan on five weekdays buys.
+        expect(subscription.configuration.duration).toBe('4w');
+        expect(subscription.configuration.startDate).toBe('2026-08-05');
+        expect(subscription.configuration.address.label).toBe('Home');
+        expect(subscription.configuration.selectedMealIds).toEqual(['meal-7']);
+        expect(subscription.skippedDates).toEqual(['2026-08-08']);
+        // A pause lasts until somebody resumes it, so there is no instant to report.
+        expect(subscription.pausedUntil).toBeNull();
+    });
+
+    it('refuses to name a run outside the closed duration vocabulary', async () => {
+        const { repositories } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            subscription: {
+                                ...WIRE_SUBSCRIPTION,
+                                // A real kitchen run of forty days. Rounding it to "4 weeks" would
+                                // show somebody the wrong commitment.
+                                duration: { ...WIRE_SUBSCRIPTION.duration, days: 40 },
+                            },
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        await expect(
+            repositories.commerce.setSubscriptionWeekdays('subscription-1' as never, {
+                deliveryWeekdays: [1],
+            }),
+        ).rejects.toMatchObject({ code: 'server' });
+    });
+
+    it('sends only identifiers for meal choices and reads the names back', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            delivery_date: '2026-08-11',
+                            meals: [
+                                {
+                                    slot: 'lunch',
+                                    sequence: 1,
+                                    catalogue_item_id: 'meal-7',
+                                    name: 'Grilled Chicken & Quinoa',
+                                    source: 'customer',
+                                },
+                                {
+                                    slot: 'dinner',
+                                    sequence: 1,
+                                    catalogue_item_id: 'meal-9',
+                                    name: 'Lentil Soup',
+                                    source: 'kitchen_default',
+                                },
+                            ],
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const choices = await repositories.commerce.setSubscriptionMealChoices(
+            'subscription-1' as never,
+            { date: '2026-08-11', choices: [{ slot: 'lunch', mealId: 'meal-7' as never }] },
+        );
+
+        expect(calls[0]?.method).toBe('PUT');
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/me/subscriptions/subscription-1/choices',
+        );
+        // No name on the way out. A caller-supplied label on a surface this close to safety could
+        // disagree with the dish actually recorded.
+        expect(calls[0]?.body).toEqual({
+            date: '2026-08-11',
+            meals: [{ slot: 'lunch', catalogue_item_id: 'meal-7' }],
+        });
+
+        // The whole day comes back, including the default nobody overrode, each dish named by the
+        // server — so the editor redraws from one answer.
+        expect(choices).toEqual([
+            {
+                date: '2026-08-11',
+                slot: 'lunch',
+                mealId: 'meal-7',
+                mealName: 'Grilled Chicken & Quinoa',
+                source: 'customer',
+            },
+            {
+                date: '2026-08-11',
+                slot: 'dinner',
+                mealId: 'meal-9',
+                mealName: 'Lentil Soup',
+                source: 'kitchen_default',
+            },
+        ]);
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The six refusal codes (S1, J2, B2)
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('the refusal envelopes', () => {
+    /** Drives one scripted error envelope through a repository call and returns the failure. */
+    async function refusalOf(body: unknown, status = 409) {
+        const { repositories } = harness([{ status, body }], createMemoryTokenStore('token'));
+        try {
+            await repositories.commerce.getSubscriptionBalance('subscription-1' as never);
+        } catch (error) {
+            if (error instanceof ApiError) return error.failure;
+            throw error;
+        }
+        throw new Error('Expected the call to reject.');
+    }
+
+    it('lifts `reason` out of each subscription refusal and keeps the rest as context', async () => {
+        const failure = await refusalOf({
+            error: {
+                code: 'subscription.change_refused',
+                message: 'That is inside the cut-off.',
+                details: {
+                    reasons: [
+                        {
+                            reason: 'inside_cut_off',
+                            delivery_date: '2026-08-11',
+                            cut_off_hours: 24,
+                            effective_from: '2026-08-13',
+                        },
+                        { reason: 'not_a_delivery_day' },
+                        // No `reason`: nothing a screen could say about it.
+                        { delivery_date: '2026-08-14' },
+                    ],
+                },
+                correlation_id: 'correlation-9',
+            },
+        });
+
+        expect(failure).toMatchObject({
+            code: 'subscription.change_refused',
+            message: 'That is inside the cut-off.',
+            correlationId: 'correlation-9',
+            retryable: false,
+            reasons: [
+                {
+                    reason: 'inside_cut_off',
+                    context: {
+                        delivery_date: '2026-08-11',
+                        cut_off_hours: 24,
+                        effective_from: '2026-08-13',
+                    },
+                },
+                { reason: 'not_a_delivery_day', context: {} },
+            ],
+        });
+    });
+
+    it('carries an empty reason list rather than inventing one', async () => {
+        const failure = await refusalOf({
+            error: {
+                code: 'subscription.refused',
+                message: 'No.',
+                details: {},
+                correlation_id: 'c',
+            },
+        });
+        expect(failure).toMatchObject({ code: 'subscription.refused', reasons: [] });
+    });
+
+    it('carries the closure reason the wizard refetches on', async () => {
+        const failure = await refusalOf({
+            error: {
+                code: 'closure.refused',
+                message: 'A closure request is already in progress.',
+                details: { reason: 'closure_already_in_flight' },
+                correlation_id: 'c',
+            },
+        });
+        expect(failure).toMatchObject({
+            code: 'closure.refused',
+            reason: 'closure_already_in_flight',
+        });
+    });
+
+    it('carries the transitions still open, so the surface draws buttons from the server', async () => {
+        const failure = await refusalOf({
+            error: {
+                code: 'offboarding.refused',
+                message: 'An offboarding that is revoking cannot become cancelled.',
+                details: {
+                    reason: 'offboarding.transition_not_allowed',
+                    status: 'revoking',
+                    allowed_transitions: ['archiving'],
+                },
+                correlation_id: 'c',
+            },
+        });
+        expect(failure).toMatchObject({
+            code: 'offboarding.refused',
+            reason: 'offboarding.transition_not_allowed',
+            allowedTransitions: ['archiving'],
+        });
+    });
+
+    it('names every outstanding settlement check, not the first', async () => {
+        const failure = await refusalOf({
+            error: {
+                code: 'offboarding.settlement_outstanding',
+                message: 'Settlement is not resolved.',
+                details: {
+                    reason: 'offboarding.settlement_outstanding',
+                    blockers: ['open_buyer_orders', 'unsettled_credit_memos'],
+                },
+                correlation_id: 'c',
+            },
+        });
+        expect(failure).toMatchObject({
+            code: 'offboarding.settlement_outstanding',
+            blockers: ['open_buyer_orders', 'unsettled_credit_memos'],
+        });
+    });
+
+    /** The one of the six that carries nothing structured — no repository method reaches it yet. */
+    it('keeps the record-export refusal as its own code rather than a generic server error', async () => {
+        const failure = await refusalOf({
+            error: {
+                code: 'record_export.unavailable',
+                message: 'This bundle is not available to download.',
+                details: { reason: 'record_export.not_downloadable', status: 'building' },
+                correlation_id: 'c',
+            },
+        });
+        expect(failure).toMatchObject({ code: 'record_export.unavailable', retryable: false });
+    });
+});

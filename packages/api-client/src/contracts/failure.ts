@@ -107,6 +107,42 @@ import type { OtpChannel } from './verification.ts';
  * - **`request.idempotency_key_reused`** — the same key arrived with a *different* body. It is a
  *   client defect, like `request.precondition_required`, and must be reported rather than retried:
  *   a retry with a fresh key would place a second order.
+ *
+ * ## The six refusal codes (S1, J2, B2)
+ *
+ * The integrator wave gave three long-running journeys — a standing subscription, closing an
+ * account, winding a company down — a `409` each rather than a shared one, and the reason is the
+ * same one that earned the ten journey codes their place: **the remedy differs**. Five of the six
+ * carry structured detail, because in every case the *specific* refusal is what a screen has to
+ * draw, and a single sentence would collapse "you may not change tomorrow's delivery" into "no".
+ *
+ * - **`subscription.refused`** — the plan cannot be bought as configured. `reasons` is a list, not
+ *   one string, because a configurator is refused for several things at once (this duration is not
+ *   offered *and* nobody delivers to that area) and fixing one of them is not progress the person
+ *   can see unless all of them are named.
+ * - **`subscription.change_refused`** — the subscription exists and this *change* is refused. Its
+ *   commonest reason, `inside_cut_off`, carries `cut_off_hours` and `effective_from`, which is the
+ *   difference between "that is not allowed" and "that is not allowed until Thursday" — so the
+ *   context object travels with each reason rather than being flattened away.
+ * - **`closure.refused`** — the closure request itself was refused: one is already in flight, or
+ *   this one is no longer at the step being attempted. The wizard **refetches the live request**
+ *   and lands on the step that actually exists, which is why the reason is carried and the message
+ *   is not enough. A *blocked* closure is deliberately not this code — it comes back inside a
+ *   successful acknowledgement as `blocked` with its blockers, and leaves the request alive.
+ * - **`offboarding.settlement_outstanding`** — sign-off was refused because money is unsettled. It
+ *   is its own code rather than a reason on the one below because the remedy is different and
+ *   specific: settle the named checks, or waive them. `blockers` names *every* outstanding check,
+ *   so the panel lists them instead of revealing them one refusal at a time.
+ * - **`offboarding.refused`** — the state machine refused the transition. It carries
+ *   `allowedTransitions`, and that is the point: the wind-down surface draws its buttons from what
+ *   the server says is legal *now* rather than from a second copy of the state machine on the
+ *   device, which would disagree the first time the backend gained a state.
+ * - **`record_export.unavailable`** — the bundle is not downloadable yet, or no longer is. It is
+ *   the one of the six that carries nothing beyond the base three, because no repository method
+ *   reaches it yet: `B2BApplicationRepository` has no export methods, and until an export panel
+ *   exists there is no screen to branch on a reason. It is declared now, with its family, on the
+ *   same terms `request.precondition_required` was — a code the vocabulary knows about is a code
+ *   that cannot silently become `server`.
  */
 export const API_FAILURE_CODES = [
     'auth.invalid_credentials',
@@ -138,11 +174,38 @@ export const API_FAILURE_CODES = [
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
+    // The six refusal codes (S1, J2, B2).
+    'subscription.refused',
+    'subscription.change_refused',
+    'closure.refused',
+    'offboarding.refused',
+    'offboarding.settlement_outstanding',
+    'record_export.unavailable',
     'network',
     'server',
     'prototype.not_implemented',
 ] as const;
 export type ApiFailureCode = (typeof API_FAILURE_CODES)[number];
+
+/**
+ * One entry of a subscription refusal.
+ *
+ * `reason` is the server's own vocabulary member — `inside_cut_off`, `duration_not_offered`,
+ * `area_not_served` — and `context` is the rest of the object *verbatim*, because what travels
+ * beside a reason differs per reason and is exactly what makes the message specific:
+ * `inside_cut_off` carries `delivery_date`, `cut_off_hours` and `effective_from`, and a screen
+ * that dropped them could only say "too late" to somebody who wants to know until when.
+ *
+ * `reason` is a plain `string` rather than a closed union on purpose. The backend's list is long,
+ * differs between the two subscription codes and will grow; a client that narrowed it would have to
+ * choose between dropping a refusal it did not recognise — leaving a screen with nothing to say —
+ * and carrying an `unknown` member that means the same thing as the string it discarded.
+ */
+export interface SubscriptionRefusal {
+    readonly reason: string;
+    /** Everything the server sent beside `reason`. Empty when it sent nothing. */
+    readonly context: Readonly<Record<string, unknown>>;
+}
 
 /** Field path → messages, exactly the shape `mapLaravelValidationErrors` consumes. */
 export type ValidationFields = Readonly<Record<string, readonly string[]>>;
@@ -169,6 +232,13 @@ type SimpleFailureCode = Exclude<
     | 'otp.invalid'
     | 'otp.cooldown_active'
     | 'otp.attempts_exceeded'
+    // Five of the six refusal codes. `record_export.unavailable` is deliberately not here — see the
+    // last bullet of the header.
+    | 'subscription.refused'
+    | 'subscription.change_refused'
+    | 'closure.refused'
+    | 'offboarding.refused'
+    | 'offboarding.settlement_outstanding'
 >;
 
 export type ApiFailure =
@@ -224,6 +294,44 @@ export type ApiFailure =
            * not say".
            */
           readonly availableChannels: readonly OtpChannel[];
+      })
+    | (ApiFailureBase & {
+          readonly code: 'subscription.refused' | 'subscription.change_refused';
+          /**
+           * Every reason the request was refused, in the server's order.
+           *
+           * Required and possibly empty. Empty means the server refused without naming a reason,
+           * which a configurator has to be able to tell apart from "it did not refuse".
+           */
+          readonly reasons: readonly SubscriptionRefusal[];
+      })
+    | (ApiFailureBase & {
+          readonly code: 'closure.refused';
+          /** `closure_already_in_flight`, `closure_not_cancellable`, … `''` when unstated. */
+          readonly reason: string;
+      })
+    | (ApiFailureBase & {
+          readonly code: 'offboarding.refused';
+          /** `offboarding.transition_not_allowed`, … `''` when unstated. */
+          readonly reason: string;
+          /**
+           * The transitions that *are* legal from where the wind-down actually is.
+           *
+           * The surface draws its buttons from this rather than from a copy of the state machine,
+           * so a backend that gains a state does not leave a panel offering one that no longer
+           * exists. Empty means the server named none — a terminal row, or an older deployment.
+           */
+          readonly allowedTransitions: readonly string[];
+      })
+    | (ApiFailureBase & {
+          readonly code: 'offboarding.settlement_outstanding';
+          /**
+           * Every unsettled check, by name — `open_buyer_orders`, … — never just the first.
+           *
+           * A panel that revealed them one refusal at a time would make settling a wind-down a
+           * guessing game played against the server.
+           */
+          readonly blockers: readonly string[];
       });
 
 /** Codes where retrying the same request unchanged is pointless or harmful. */
@@ -271,6 +379,17 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
+    // The six refusals. Every one of them is a *verdict* about the request as sent: a duration the
+    // plan does not offer stays unoffered, a change inside the cut-off is still inside it a second
+    // later, a closure already in flight is still in flight, a transition the state machine refuses
+    // is refused again, unsettled money stays unsettled, and a bundle that is still building does
+    // not finish because somebody asked twice. Each needs a person to change something first.
+    'subscription.refused',
+    'subscription.change_refused',
+    'closure.refused',
+    'offboarding.refused',
+    'offboarding.settlement_outstanding',
+    'record_export.unavailable',
     // Retrying cannot conjure an endpoint that has not been built.
     'prototype.not_implemented',
 ]);
@@ -339,6 +458,13 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'b2b.application_state_invalid': 'This application has moved on since you opened it.',
     'b2b.documents_incomplete': 'Some required documents are still missing.',
     'b2b.signatory_required': 'Confirm the code we sent before signing.',
+    'subscription.refused': 'This plan cannot be subscribed to as configured.',
+    'subscription.change_refused': 'This change to your subscription was not accepted.',
+    'closure.refused': 'This closure request could not be taken any further.',
+    'offboarding.refused': 'This wind-down cannot move that way from where it is.',
+    'offboarding.settlement_outstanding':
+        'Settlement is not resolved, so this cannot be signed off.',
+    'record_export.unavailable': 'This bundle is not available to download.',
     network: 'Healthy360 could not be reached.',
     server: 'Something went wrong on our side.',
     'prototype.not_implemented':
@@ -481,6 +607,83 @@ export function otpLockedFailure(
     };
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * The refusal builders (S1, J2, B2).
+ *
+ * Five of the six codes carry structured detail and so need a builder each, on the same terms as
+ * the OTP three: the mock and the wire both go through these, so the failure a screen branches on
+ * is identical whichever produced it. `record_export.unavailable` is plain and goes through
+ * `apiFailure`.
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * A subscription that cannot be bought, or a change that cannot be made.
+ *
+ * One builder for two codes, because the *shape* is one shape — a list of named reasons with their
+ * context — and the two codes differ only in which screen is asking. Splitting it would be two
+ * identical functions whose bodies drift.
+ */
+export function subscriptionRefusedFailure(
+    code: 'subscription.refused' | 'subscription.change_refused',
+    reasons: readonly SubscriptionRefusal[],
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code,
+        reasons,
+        message: options.message ?? FALLBACK_MESSAGES[code],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/** The closure request itself refused — already in flight, or past the step being attempted. */
+export function closureRefusedFailure(reason: string, options: FailureOptions = {}): ApiFailure {
+    return {
+        code: 'closure.refused',
+        reason,
+        message: options.message ?? FALLBACK_MESSAGES['closure.refused'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/**
+ * The wind-down state machine refusing a transition.
+ *
+ * `allowedTransitions` is passed explicitly even when empty, for the reason `otpLockedFailure`
+ * passes an empty channel list: "there is nowhere to go from here" is a statement the surface has
+ * to be able to make, and it is not the same as the server having said nothing.
+ */
+export function offboardingRefusedFailure(
+    reason: string,
+    allowedTransitions: readonly string[],
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code: 'offboarding.refused',
+        reason,
+        allowedTransitions,
+        message: options.message ?? FALLBACK_MESSAGES['offboarding.refused'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/** Sign-off refused because money is unsettled. `blockers` names every outstanding check. */
+export function settlementOutstandingFailure(
+    blockers: readonly string[],
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code: 'offboarding.settlement_outstanding',
+        blockers,
+        message: options.message ?? FALLBACK_MESSAGES['offboarding.settlement_outstanding'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
 /** Narrows anything caught in a `catch` or handed to a query error boundary. */
 export function asApiFailure(error: unknown): ApiFailure | null {
     if (error instanceof ApiError) return error.failure;
@@ -541,6 +744,39 @@ export function isOtpLockedFailure(
     failure: ApiFailure,
 ): failure is Extract<ApiFailure, { code: 'otp.attempts_exceeded' }> {
     return failure.code === 'otp.attempts_exceeded';
+}
+
+/**
+ * Either subscription refusal, so a configurator can ask "is this mine?" before reaching for the
+ * reasons — the same convenience {@link isOtpFailure} gives a passcode panel.
+ */
+export function isSubscriptionRefusalFailure(
+    failure: ApiFailure,
+): failure is Extract<
+    ApiFailure,
+    { code: 'subscription.refused' | 'subscription.change_refused' }
+> {
+    return (
+        failure.code === 'subscription.refused' || failure.code === 'subscription.change_refused'
+    );
+}
+
+export function isClosureRefusedFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: 'closure.refused' }> {
+    return failure.code === 'closure.refused';
+}
+
+export function isOffboardingRefusedFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: 'offboarding.refused' }> {
+    return failure.code === 'offboarding.refused';
+}
+
+export function isSettlementOutstandingFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: 'offboarding.settlement_outstanding' }> {
+    return failure.code === 'offboarding.settlement_outstanding';
 }
 
 /**

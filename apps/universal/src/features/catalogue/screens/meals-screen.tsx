@@ -30,7 +30,12 @@ import { FilterBar, useMarketplaceFilters } from '../../marketplace/filter-bar.t
 import { MealCard } from '../../marketplace/meal-card.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
-import { MEAL_RANGE_KEYS, MealRangeFilters, toMealFilter, useMealRanges } from '../meal-filters.tsx';
+import {
+    MEAL_RANGE_KEYS,
+    MealRangeFilters,
+    toMealFilter,
+    useMealRanges,
+} from '../meal-filters.tsx';
 
 /**
  * `/meals` — the whole marketplace catalogue, filterable.
@@ -134,7 +139,10 @@ export function MealsScreen() {
     const sort = (selected['sort']?.[0] ?? 'relevance') as MealSort;
 
     // How many *hidden* filters are active — chips and ranges, not the always-visible search or sort.
-    const chipCount = CHIP_GROUP_KEYS.reduce((total, key) => total + (selected[key]?.length ?? 0), 0);
+    const chipCount = CHIP_GROUP_KEYS.reduce(
+        (total, key) => total + (selected[key]?.length ?? 0),
+        0,
+    );
     const rangeCount = MEAL_RANGE_KEYS.filter(
         (key) => rangeValues[key].min !== null || rangeValues[key].max !== null,
     ).length;

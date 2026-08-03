@@ -6,11 +6,14 @@ namespace Healthy360\Subscriptions\Http\Controllers;
 
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Subscriptions\Models\SubscriptionMealChoice;
+use Healthy360\Subscriptions\Presenters\SubscriptionLocale;
 use Healthy360\Subscriptions\Presenters\SubscriptionPresenter;
 use Healthy360\Subscriptions\Services\SubscriptionLocator;
+use Healthy360\Subscriptions\Services\SubscriptionProjection;
 use Healthy360\Subscriptions\Services\SubscriptionService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -50,6 +53,7 @@ final class MySubscriptionDeliveryIndexController
         private readonly SubscriptionLocator $locator,
         private readonly SubscriptionService $subscriptions,
         private readonly SubscriptionPresenter $presenter,
+        private readonly SubscriptionProjection $projection,
     ) {}
 
     /**
@@ -66,12 +70,23 @@ final class MySubscriptionDeliveryIndexController
             ->orderByDesc('id')
             ->get();
 
-        $choices = $this->choicesFor($record->getKey(), $deliveries->isNotEmpty());
+        $rows = $this->choiceRows($record->getKey(), $deliveries->isNotEmpty());
+        $choices = $this->groupByDate($rows);
+
+        // One catalogue read for the whole page. A dish's name is the only part
+        // of a choice a person can actually read, and resolving it server-side
+        // is what stops a client holding its own copy of the menu.
+        $mealNames = $this->projection->mealNames(
+            $rows,
+            $record->organisation_id,
+            SubscriptionLocale::from($request->header('Accept-Language')),
+        );
 
         return ApiResponse::data(
             $deliveries->map(fn (SubscriptionDelivery $delivery): array => $this->presenter->delivery(
                 $delivery,
                 $choices[$delivery->delivery_date->toDateString()] ?? [],
+                $mealNames,
             ))->all(),
             [
                 'count' => $deliveries->count(),
@@ -98,21 +113,31 @@ final class MySubscriptionDeliveryIndexController
      * row yet, and they are correctly invisible here, because this endpoint
      * lists the days that *happened* rather than the days somebody has planned.
      *
-     * @return array<string, list<SubscriptionMealChoice>>
+     * @return Collection<int, SubscriptionMealChoice>
      */
-    private function choicesFor(mixed $subscriptionId, bool $hasDeliveries): array
+    private function choiceRows(mixed $subscriptionId, bool $hasDeliveries): Collection
     {
         if (! $hasDeliveries) {
-            return [];
+            /** @var Collection<int, SubscriptionMealChoice> $empty */
+            $empty = new Collection;
+
+            return $empty;
         }
 
-        $grouped = [];
-
-        $rows = SubscriptionMealChoice::query()
+        return SubscriptionMealChoice::query()
             ->where('subscription_id', $subscriptionId)
             ->orderBy('slot')
             ->orderBy('sequence')
             ->get();
+    }
+
+    /**
+     * @param  Collection<int, SubscriptionMealChoice>  $rows
+     * @return array<string, list<SubscriptionMealChoice>>
+     */
+    private function groupByDate(Collection $rows): array
+    {
+        $grouped = [];
 
         foreach ($rows as $row) {
             $grouped[$row->delivery_date->toDateString()][] = $row;

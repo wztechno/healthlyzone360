@@ -110,6 +110,31 @@ function openOrderCount(store: PrototypeStore): number {
         .filter((order) => order.state !== 'delivered' && order.state !== 'cancelled').length;
 }
 
+/**
+ * How many organisations the signed-in person is an **active** member of.
+ *
+ * Active only, and that is the whole check: a `pending` invitation is not a seat somebody holds, and
+ * counting it would block a closure on an organisation the person has never joined. It is the same
+ * predicate `MockStore` applies when it decides whether to resolve an active context at all, which
+ * is what makes "you are in the way of your own closure" and "you can switch into this workspace"
+ * the same statement.
+ *
+ * **Signed out answers zero rather than throwing.** `requireAccount` rejects an absent or revoked
+ * token, and a blocker registry is not the place to discover that: the closure wizard lives behind
+ * the session guard and can only be reached signed in, so the guard is the honest answer here — no
+ * signed-in person, no memberships of theirs to be in the way. A port that threw would turn a
+ * missing session into an unhandled rejection inside a preconditions read.
+ */
+function activeMembershipCount(store: MockStore, token: string | null): number {
+    try {
+        return store
+            .requireAccount(token)
+            .memberships.filter((membership) => membership.status === 'active').length;
+    } catch {
+        return 0;
+    }
+}
+
 export function createMockRepositories(options: MockRepositoriesOptions = {}): MockRepositories {
     const scenario = resolveScenario(options.scenario ?? DEFAULT_MOCK_SCENARIO);
     const latency = options.latencyMs ?? DEFAULT_MOCK_LATENCY_MS;
@@ -133,6 +158,29 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
     const prototype = createPrototypeRepositories({ scenario: scenario.name, settle });
 
     /**
+     * The B1 B2B world, on the same terms as the account world.
+     *
+     * Not scenario-dependent either: which fixture an applicant holds is a property of how far
+     * *they* have got, not of which demo account signed in, and a test that needs a different state
+     * builds its own world with `createB2bMockRepositories({ fixture })` or drives this one through
+     * `b2bApplicationStore`.
+     *
+     * **Built before the account world**, which is a change from the order these two were first
+     * written in. The J2 blocker registry reads this world for pending signatures, and while a lazy
+     * port would have been evaluated late enough to work either way, a closure port that referred
+     * upward to a `const` declared below it is a temporal-dead-zone bug waiting for the first person
+     * who calls the registry during construction. Declaring the dependency first makes the direction
+     * of the arrow visible.
+     */
+    const b2bWorld = createB2bMockRepositories({
+        latencyMs: latency,
+        // The settlement registry's one real check. Unbound it answers zero; bound to the prototype
+        // world it reads the orders this world actually holds, which is what makes "re-run the
+        // checks" a question with an answer rather than a button that always says yes.
+        openOrders: () => openOrderCount(prototype.store),
+    });
+
+    /**
      * The J1 account world, built here for the same reason the prototype world is: everything
      * behind the mock dynamic import stays behind it.
      *
@@ -153,11 +201,28 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
          * one makes `unsettled_credit_memos` genuinely advisory — both derived from the store,
          * neither fabricated.
          *
-         * `organisation_memberships` and `pending_b2b_signatures` are deliberately **left
-         * unbound**: this world's memberships live in the foundation `MockStore` under a different
-         * identity model, and pretending to have checked them would be exactly the false
-         * `clear` the registry exists to refuse. They report `not_applicable`, and the wizard says
-         * so.
+         * **All six are bound now**, including the two that were not. The note that stood here said
+         * `organisation_memberships` and `pending_b2b_signatures` were left unbound because this
+         * world's memberships live in the foundation `MockStore` "under a different identity
+         * model" — and that caution was right about the identities and wrong about the remedy.
+         * `not_applicable` is the registry's word for *nobody asked*, and it was being used to mean
+         * *we asked and the answer is awkward*, which is the one thing that vocabulary must never
+         * be spent on: two of the seven checks were permanently reporting that a module does not
+         * exist, when both modules are right here.
+         *
+         * The identity caveat is real and is now stated where it belongs rather than used as a
+         * reason not to look. Three fixed people live in this bundle — the scenario's signed-in user
+         * (Layla Haddad under the default `multi-org-dietitian`), the account world's own seed
+         * (always Nour Saleh), and the B2B applicant (Northwind's procurement address) — and no
+         * fixture reconciles them. So each port answers the question *its own* world can answer
+         * truthfully: memberships are the **signed-in** person's, signatures are **this
+         * applicant's**. Both are facts about the world the wizard is running in, which is more than
+         * `not_applicable` was ever saying, and neither is a fabricated `clear`.
+         *
+         * The payoff is that both paths are now reachable from a seeded world instead of only from a
+         * hand-built test double: the default dietitian scenario has two active memberships and
+         * blocks, every consumer scenario has none and clears, and the `agreement-pending` B2B
+         * fixture blocks on a signature the default `draft-half-complete` one does not have.
          */
         closureWorld: {
             openOrders: () => openOrderCount(prototype.store),
@@ -176,6 +241,22 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
                     .filter((subscription) => subscription.nextDeliveryDate !== null).length,
             unsettledCreditMemos: () =>
                 prototype.store.creditMemos().filter((memo) => memo.status === 'recorded').length,
+            // The signed-in person's active seats — see the note above on whose they are.
+            organisationMemberships: () => activeMembershipCount(store, tokenStore.get()),
+            /**
+             * An agreement waiting for this applicant's signature.
+             *
+             * `application()` rather than `agreement(id)`: the latter throws `resource.not_found`
+             * for a world with no application, and a blocker registry must not raise. This store
+             * holds at most one application and one agreement, so the count is `0` or `1` by
+             * construction rather than by a rule somebody has to maintain.
+             *
+             * It tracks the wizard live — signing moves the agreement out of `pending_signature`,
+             * which clears the blocker in the same breath, so a person who signs and then closes
+             * their account is not told to go back and sign.
+             */
+            pendingB2bSignatures: () =>
+                b2bWorld.store.application()?.agreement?.status === 'pending_signature' ? 1 : 0,
         },
         /**
          * Closing the account signs the person out, in the same breath.
@@ -190,22 +271,6 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
             if (token !== null) store.logout(token);
             tokenStore.clear();
         },
-    });
-
-    /**
-     * The B1 B2B world, on the same terms as the account world.
-     *
-     * Not scenario-dependent either: which fixture an applicant holds is a property of how far
-     * *they* have got, not of which demo account signed in, and a test that needs a different state
-     * builds its own world with `createB2bMockRepositories({ fixture })` or drives this one through
-     * `b2bApplicationStore`.
-     */
-    const b2bWorld = createB2bMockRepositories({
-        latencyMs: latency,
-        // The settlement registry's one real check. Unbound it answers zero; bound to the prototype
-        // world it reads the orders this world actually holds, which is what makes "re-run the
-        // checks" a question with an answer rather than a button that always says yes.
-        openOrders: () => openOrderCount(prototype.store),
     });
 
     /**

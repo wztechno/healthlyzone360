@@ -61,23 +61,37 @@ it('quotes, buys, skips, pauses and cancels without ever losing a balance day', 
 
     // ------------------------------------------------------------------ quote
 
+    // Three coordinates, and every one of them is a fact the public plan read
+    // already publishes. The channel is resolved from the plan's own kitchen and
+    // the run from its number of days — a shopper can obtain neither a channel
+    // identifier nor a duration identifier, which is what made the earlier
+    // four-parameter shape uncallable from the storefront it was built for.
     $quote = $this->getJson('/api/v1/subscriptions/quote?'.http_build_query([
-        'sales_channel_id' => (string) $this->world->channel->getKey(),
         'catalogue_item_id' => (string) $this->world->plan->getKey(),
         'catalogue_item_variant_id' => (string) $this->world->configuration->getKey(),
-        'plan_duration_id' => (string) $this->world->duration->getKey(),
+        'plan_duration_days' => $this->world->duration->duration_days,
     ]), firstPartyHeaders())
         ->assertOk()
         ->assertJsonPath('data.quote.days', 20)
         ->assertJsonPath('data.quote.list_price_minor', 2000)
         ->assertJsonPath('data.quote.discount_percent', '10.00')
         ->assertJsonPath('data.quote.per_day_minor', 1800)
-        ->assertJsonPath('data.quote.total_minor', 36000);
+        ->assertJsonPath('data.quote.total_minor', 36000)
+        ->assertJsonPath('data.quote.duration_code', $this->world->duration->code)
+        ->assertJsonPath('data.quote.allows_free_selection', true)
+        ->assertJsonPath('data.quote.change_cutoff_hours', 24);
+
+    // The seven-probe hack's replacement: one read, and the configurator knows
+    // which days it may offer.
+    expect($quote->json('data.quote.available_weekdays'))->toBeArray()->not->toBeEmpty();
 
     // The provenance is never on a customer's screen: it names a kitchen's
     // tariff structure to the person being charged by it.
     expect($quote->json('data.quote'))->not->toHaveKey('price_list_id')
-        ->and($quote->json('data.quote'))->not->toHaveKey('price_list_item_id');
+        ->and($quote->json('data.quote'))->not->toHaveKey('price_list_item_id')
+        // Nor is the channel it was resolved through: the shopper did not name
+        // it and does not need it.
+        ->and($quote->json('data.quote'))->not->toHaveKey('sales_channel_id');
 
     // --------------------------------------------------------------------- buy
 

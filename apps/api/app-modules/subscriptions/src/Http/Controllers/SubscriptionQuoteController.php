@@ -8,13 +8,14 @@ use Carbon\CarbonImmutable;
 use Healthy360\Subscriptions\Exceptions\SubscriptionRefused;
 use Healthy360\Subscriptions\Http\Requests\SubscriptionQuoteRequest;
 use Healthy360\Subscriptions\Services\PlanQuote;
-use Healthy360\Subscriptions\Services\SubscriptionPricing;
+use Healthy360\Subscriptions\Services\StorefrontQuoting;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
 
 /**
- * GET /api/v1/subscriptions/quote — what this configuration would cost.
+ * GET /api/v1/subscriptions/quote — what this configuration would cost, and
+ * when it would arrive.
  *
  * **A quote and not a hold.** Nothing is reserved, nothing is written, and the
  * number is only guaranteed for as long as the tariff behind it stands.
@@ -22,29 +23,34 @@ use Illuminate\Http\JsonResponse;
  * one the customer is grandfathered at — so a client must never send a price
  * back, and there is no field for it to send one in.
  *
- * **Authenticated and verified rather than anonymous**, which is the one thing
- * about this endpoint worth arguing over. `price_list_items` is the single
- * catalogue table with a row-level security policy, on the ground that a
- * negotiated price says what a kitchen will accept and from whom; an
- * `agreement` list is one customer's position. The marketplace's plan pages
- * already carry a *published consumer* price through `PublicProjection`, which
- * is a different number reached a different way. Serving this resolver
- * anonymously would hand anybody a probe for every tariff a kitchen has ever
- * attached to a channel, one configuration at a time.
+ * **Reachable from what the storefront publishes.** The endpoint used to demand
+ * a `sales_channel_id` and a `plan_duration_id`, neither of which a shopper can
+ * obtain: channels are a tenant surface and the public plan read publishes
+ * durations without identifiers. Both are now resolved server-side from the
+ * plan itself (`StorefrontQuoting`), which is what makes this the one read a
+ * configurator needs rather than a well-formed endpoint nobody could call.
  *
- * **A refusal is a 409, not an empty 200.** `unpriced`,
- * `duration_not_offered`, `duration_not_fixed` and `pricing_basis_unsupported`
- * are the reasons, and every one of them is a fact about the world rather than
- * about the request's shape — the same argument `order.placement_refused`
- * makes. `pricing_basis_unsupported` in particular has to name itself: a
- * per-week plan is refused on principle (a weekly price divided by seven
- * charges a three-day-a-week customer for four days they never receive), and
- * collapsing it into "unpriced" would send a kitchen hunting for a missing
- * tariff row that is not missing.
+ * **`available_weekdays` is the point of the enrichment.** Until it existed a
+ * configurator discovered which days a plan delivers on by pricing the same
+ * subscription seven times, once per weekday, and reading which answers carried
+ * a warning. That was honest and it was seven round trips for a fact the
+ * platform already holds. It is one field now, and it travels beside
+ * `allows_free_selection` and `change_cutoff_hours` because a configurator that
+ * knows the price but not the cut-off can draw a control it cannot honour.
+ *
+ * **A refusal is a 409, not an empty 200.** `unpriced`, `duration_not_offered`,
+ * `duration_ambiguous`, `duration_not_fixed`, `plan_not_subscription` and
+ * `pricing_basis_unsupported` are the reasons, and every one of them is a fact
+ * about the world rather than about the request's shape — the same argument
+ * `order.placement_refused` makes. `pricing_basis_unsupported` in particular
+ * has to name itself: a per-week plan is refused on principle (a weekly price
+ * divided by seven charges a three-day-a-week customer for four days they never
+ * receive), and collapsing it into "unpriced" would send a kitchen hunting for
+ * a missing tariff row that is not missing.
  */
 final class SubscriptionQuoteController
 {
-    public function __construct(private readonly SubscriptionPricing $pricing) {}
+    public function __construct(private readonly StorefrontQuoting $storefront) {}
 
     /**
      * @throws ApiException
@@ -53,17 +59,20 @@ final class SubscriptionQuoteController
     {
         $payload = $request->payload();
 
-        [$quote, $reasons] = $this->pricing->quote(
-            $payload['sales_channel_id'],
+        $result = $this->storefront->quote(
             $payload['catalogue_item_id'],
             $payload['catalogue_item_variant_id'],
-            $payload['plan_duration_id'],
+            $payload['plan_duration_days'],
             CarbonImmutable::now(),
         );
 
+        $quote = $result['quote'];
+
         if (! $quote instanceof PlanQuote) {
-            throw new SubscriptionRefused($reasons);
+            throw new SubscriptionRefused($result['reasons']);
         }
+
+        $duration = $result['duration'];
 
         return ApiResponse::data([
             'quote' => [
@@ -76,6 +85,15 @@ final class SubscriptionQuoteController
                 'discount_percent' => $quote->discountPercent,
                 'per_day_minor' => $quote->perDayMinor,
                 'total_minor' => $quote->perDayMinor * $quote->days,
+                // The run that was actually resolved, echoed so a configurator
+                // can show the kitchen's own wording for it rather than the day
+                // count it asked with.
+                'duration_code' => $duration?->code,
+                'duration_kind' => $duration?->duration_kind->value,
+                // The seven-probe hack's replacement.
+                'available_weekdays' => $result['available_weekdays'],
+                'allows_free_selection' => $result['allows_free_selection'],
+                'change_cutoff_hours' => $result['change_cutoff_hours'],
                 // Deliberately absent: `price_list_id` and `price_list_item_id`.
                 // They are the provenance the *capture* keeps so a price stays
                 // explainable years later, and on a customer's screen they name

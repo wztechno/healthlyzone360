@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4592 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4598 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1889,12 +1889,15 @@ export interface NamespaceKeys {
     | 'failure.b2b_documents_incomplete'
     | 'failure.b2b_signatory_required'
     | 'failure.cart_line_refused'
+    | 'failure.closure_refused'
     | 'failure.contact_already_in_use'
     | 'failure.context_branch_out_of_scope'
     | 'failure.context_organisation_forbidden'
     | 'failure.context_organisation_required'
     | 'failure.guest_session_invalid'
     | 'failure.network'
+    | 'failure.offboarding_refused'
+    | 'failure.offboarding_settlement_outstanding'
     | 'failure.order_placement_refused'
     | 'failure.otp_attempts_exceeded'
     | 'failure.otp_channel_unavailable'
@@ -1903,11 +1906,14 @@ export interface NamespaceKeys {
     | 'failure.otp_invalid'
     | 'failure.prototype_not_implemented'
     | 'failure.rate_limit_exceeded'
+    | 'failure.record_export_unavailable'
     | 'failure.request_idempotency_key_reused'
     | 'failure.request_precondition_required'
     | 'failure.resource_conflict'
     | 'failure.resource_not_found'
     | 'failure.server'
+    | 'failure.subscription_change_refused'
+    | 'failure.subscription_refused'
     | 'failure.validation_failed'
     | 'generic.body'
     | 'generic.reference'
@@ -6500,12 +6506,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.b2b_documents_incomplete',
   'errors:failure.b2b_signatory_required',
   'errors:failure.cart_line_refused',
+  'errors:failure.closure_refused',
   'errors:failure.contact_already_in_use',
   'errors:failure.context_branch_out_of_scope',
   'errors:failure.context_organisation_forbidden',
   'errors:failure.context_organisation_required',
   'errors:failure.guest_session_invalid',
   'errors:failure.network',
+  'errors:failure.offboarding_refused',
+  'errors:failure.offboarding_settlement_outstanding',
   'errors:failure.order_placement_refused',
   'errors:failure.otp_attempts_exceeded',
   'errors:failure.otp_channel_unavailable',
@@ -6514,11 +6523,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.otp_invalid',
   'errors:failure.prototype_not_implemented',
   'errors:failure.rate_limit_exceeded',
+  'errors:failure.record_export_unavailable',
   'errors:failure.request_idempotency_key_reused',
   'errors:failure.request_precondition_required',
   'errors:failure.resource_conflict',
   'errors:failure.resource_not_found',
   'errors:failure.server',
+  'errors:failure.subscription_change_refused',
+  'errors:failure.subscription_refused',
   'errors:failure.validation_failed',
   'errors:generic.body',
   'errors:generic.reference',

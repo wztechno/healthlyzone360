@@ -6,9 +6,11 @@ namespace Healthy360\Subscriptions\Http\Controllers;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Subscriptions\Http\Requests\StoreSubscriptionRequest;
+use Healthy360\Subscriptions\Presenters\SubscriptionLocale;
 use Healthy360\Subscriptions\Presenters\SubscriptionPresenter;
 use Healthy360\Subscriptions\Services\NewSubscription;
 use Healthy360\Subscriptions\Services\SubscriptionLocator;
+use Healthy360\Subscriptions\Services\SubscriptionProjection;
 use Healthy360\Subscriptions\Services\SubscriptionService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -54,6 +56,7 @@ final class SubscriptionStoreController
         private readonly SubscriptionLocator $locator,
         private readonly SubscriptionService $subscriptions,
         private readonly SubscriptionPresenter $presenter,
+        private readonly SubscriptionProjection $projection,
     ) {}
 
     /**
@@ -83,7 +86,12 @@ final class SubscriptionStoreController
         ));
 
         return ApiResponse::data(
-            ['subscription' => $this->presenter->customer($subscription, $this->subscriptions->balance($subscription))],
+            ['subscription' => $this->presenter->customer(
+                $subscription,
+                $this->subscriptions->balance($subscription),
+                $this->projection->for($subscription),
+                SubscriptionLocale::from($request->header('Accept-Language')),
+            )],
             status: 201,
         );
     }

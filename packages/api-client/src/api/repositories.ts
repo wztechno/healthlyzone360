@@ -46,6 +46,7 @@ import {
     apiKitchenAdminRepository,
 } from './prototype-repositories.ts';
 import { createApiReferenceReads } from './reference-repository.ts';
+import { createApiSubscriptionReads } from './subscription-repository.ts';
 import { createApiVerificationRepository } from './verification-repository.ts';
 import {
     createBranchDirectory,
@@ -500,6 +501,10 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             // served, and it is the one command on this surface — which it may be only because it
             // takes no payment.
             placeOrder: createApiOrderPlacement(transport),
+            // All six S1 methods. Four of them needed the backend to serve a fact it was
+            // withholding — the storefront's own channel, the run that was bought, the plan's name,
+            // the dish's name — and `./subscription-repository.ts` records what each gap was.
+            ...createApiSubscriptionReads(transport),
         },
         kitchenAdmin: {
             ...apiKitchenAdminRepository,

@@ -8,8 +8,11 @@ use Carbon\CarbonImmutable;
 use Healthy360\Subscriptions\Http\Concerns\ReadsOptionalPrecondition;
 use Healthy360\Subscriptions\Http\Requests\ReplaceSubscriptionChoicesRequest;
 use Healthy360\Subscriptions\Models\SubscriptionMealChoice;
+use Healthy360\Subscriptions\Presenters\SubscriptionLocale;
+use Healthy360\Subscriptions\Presenters\SubscriptionPresenter;
 use Healthy360\Subscriptions\Services\MealChoiceService;
 use Healthy360\Subscriptions\Services\SubscriptionLocator;
+use Healthy360\Subscriptions\Services\SubscriptionProjection;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -45,6 +48,8 @@ final class SubscriptionChoiceReplaceController
     public function __construct(
         private readonly SubscriptionLocator $locator,
         private readonly MealChoiceService $choices,
+        private readonly SubscriptionPresenter $presenter,
+        private readonly SubscriptionProjection $projection,
     ) {}
 
     /**
@@ -66,15 +71,22 @@ final class SubscriptionChoiceReplaceController
             $this->optionalLockVersion($request),
         );
 
+        // The dish names come back with the choices, resolved from the catalogue
+        // rather than echoed from the request — the request has no field for a
+        // name and must not grow one. A caller-supplied label on a surface this
+        // close to safety could disagree with the item actually recorded, and
+        // the screen showing it would be describing food nobody will cook.
+        $mealNames = $this->projection->mealNames(
+            $written,
+            $record->organisation_id,
+            SubscriptionLocale::from($request->header('Accept-Language')),
+        );
+
         return ApiResponse::data([
             'delivery_date' => $day->toDateString(),
-            'meals' => $written->map(static fn (SubscriptionMealChoice $choice): array => [
-                'slot' => $choice->slot,
-                'sequence' => $choice->sequence,
-                'catalogue_item_id' => $choice->catalogue_item_id,
-                'catalogue_item_variant_id' => $choice->catalogue_item_variant_id,
-                'source' => $choice->source->value,
-            ])->all(),
+            'meals' => $written->map(
+                fn (SubscriptionMealChoice $choice): array => $this->presenter->mealChoice($choice, $mealNames),
+            )->all(),
         ]);
     }
 }

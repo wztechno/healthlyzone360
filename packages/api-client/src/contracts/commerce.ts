@@ -358,6 +358,15 @@ export const SUBSCRIPTION_QUOTE_REFUSALS = [
     'duration_unknown',
     'duration_not_fixed',
     'duration_not_offered',
+    /**
+     * Two runs offered for the same configuration with the same number of days.
+     *
+     * The quote names a run by its day count — the only identity a shopper holds, since the public
+     * plan read publishes durations without identifiers — so two runs sharing one cannot be told
+     * apart. It is a *kitchen's* configuration mistake rather than a limit on the customer, and the
+     * refusal carries the competing codes so the kitchen reading its own error can see which two.
+     */
+    'duration_ambiguous',
     'pricing_basis_unsupported',
     'unpriced',
 ] as const;

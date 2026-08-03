@@ -1,12 +1,16 @@
-import type { ApiFailure, ValidationFields } from '../contracts/failure.ts';
+import type { ApiFailure, SubscriptionRefusal, ValidationFields } from '../contracts/failure.ts';
 import {
     apiFailure,
+    closureRefusedFailure,
     conflictFailure,
+    offboardingRefusedFailure,
     otpCooldownFailure,
     otpInvalidFailure,
     otpLockedFailure,
     permissionDeniedFailure,
     rateLimitFailure,
+    settlementOutstandingFailure,
+    subscriptionRefusedFailure,
     validationFailure,
 } from '../contracts/failure.ts';
 import { OTP_CHANNELS } from '../contracts/verification.ts';
@@ -127,6 +131,44 @@ function readAvailableChannels(details: unknown): readonly OtpChannel[] {
     return channels;
 }
 
+/**
+ * `details.reasons` → the list a configurator draws.
+ *
+ * Each entry is `{ reason, ...context }` on the wire, and the split is done here rather than in the
+ * screen: `reason` is lifted out and *everything else is kept verbatim*, because what travels
+ * beside a reason differs per reason and is precisely what makes the sentence specific. An entry
+ * with no string `reason` is dropped — there is nothing a screen could say about it — and a
+ * `details.reasons` that is not an array yields the empty list, which the failure carries honestly.
+ */
+function readRefusalReasons(details: unknown): readonly SubscriptionRefusal[] {
+    const raw = isRecord(details) ? details['reasons'] : undefined;
+    if (!Array.isArray(raw)) return [];
+
+    const reasons: SubscriptionRefusal[] = [];
+    for (const entry of raw) {
+        if (!isRecord(entry)) continue;
+        const reason = entry['reason'];
+        if (typeof reason !== 'string' || reason === '') continue;
+
+        const { reason: _lifted, ...context } = entry;
+        reasons.push({ reason, context });
+    }
+    return reasons;
+}
+
+/**
+ * A `details` member that has to be an array of strings; anything else yields the empty list.
+ *
+ * Used for `offboarding.settlement_outstanding`'s `blockers` and `offboarding.refused`'s
+ * `allowed_transitions`. Non-string members are dropped rather than stringified: a transition
+ * nobody can name is a button nobody can draw.
+ */
+function readDetailStrings(details: unknown, key: string): readonly string[] {
+    const raw = isRecord(details) ? details[key] : undefined;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((entry): entry is string => typeof entry === 'string' && entry !== '');
+}
+
 function readRetryAfter(headerValue: string | null, details: unknown): number {
     const fromHeader = headerValue === null ? Number.NaN : Number.parseInt(headerValue, 10);
     if (Number.isFinite(fromHeader) && fromHeader >= 0) return fromHeader;
@@ -194,6 +236,10 @@ const DIRECT_CODES = {
     'b2b.application_state_invalid': 'b2b.application_state_invalid',
     'b2b.documents_incomplete': 'b2b.documents_incomplete',
     'b2b.signatory_required': 'b2b.signatory_required',
+
+    // The one of the six refusal codes that carries nothing structured. The other five are built by
+    // their own branches below, for the reason the OTP three are: the detail *is* the screen.
+    'record_export.unavailable': 'record_export.unavailable',
 } as const;
 
 export interface ErrorEnvelopeContext {
@@ -294,6 +340,46 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
         });
     }
 
+    /* ── the five refusal codes that carry structured detail (S1, J2, B2) ───────────────────────
+     *
+     * Each is built through the contract's own builder, so the detail a screen branches on is
+     * present by construction. The two subscription codes share a builder because they share a
+     * shape — a list of `{ reason, ...context }` — and differ only in which surface is asking.
+     */
+    if (code === 'subscription.refused' || code === 'subscription.change_refused') {
+        return subscriptionRefusedFailure(code, readRefusalReasons(details), {
+            message,
+            correlationId,
+        });
+    }
+
+    if (code === 'closure.refused') {
+        return closureRefusedFailure(readDetailString(details, 'reason'), {
+            message,
+            correlationId,
+        });
+    }
+
+    /**
+     * Settlement before the state machine: sign-off refused for unsettled money is its own code
+     * with its own remedy — settle the named checks, or waive them — and answering it with the
+     * generic transition refusal would send somebody to look for a button instead of an invoice.
+     */
+    if (code === 'offboarding.settlement_outstanding') {
+        return settlementOutstandingFailure(readDetailStrings(details, 'blockers'), {
+            message,
+            correlationId,
+        });
+    }
+
+    if (code === 'offboarding.refused') {
+        return offboardingRefusedFailure(
+            readDetailString(details, 'reason'),
+            readDetailStrings(details, 'allowed_transitions'),
+            { message, correlationId },
+        );
+    }
+
     /**
      * The branch picker is one control, and the branch step lives inside it. A client that told
      * these two apart would draw the same screen twice.
@@ -369,6 +455,12 @@ export const WIRE_ERROR_CODES: readonly ErrorCode[] = [
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
+    'subscription.refused',
+    'subscription.change_refused',
+    'closure.refused',
+    'offboarding.refused',
+    'offboarding.settlement_outstanding',
+    'record_export.unavailable',
     'rate_limit.exceeded',
     'server.internal_error',
 ];

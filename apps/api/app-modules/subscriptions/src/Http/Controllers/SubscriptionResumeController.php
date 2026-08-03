@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Healthy360\Subscriptions\Http\Controllers;
 
 use Healthy360\Subscriptions\Http\Concerns\ReadsOptionalPrecondition;
+use Healthy360\Subscriptions\Presenters\SubscriptionLocale;
 use Healthy360\Subscriptions\Presenters\SubscriptionPresenter;
 use Healthy360\Subscriptions\Services\SubscriptionLocator;
+use Healthy360\Subscriptions\Services\SubscriptionProjection;
 use Healthy360\Subscriptions\Services\SubscriptionService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -34,6 +36,7 @@ final class SubscriptionResumeController
         private readonly SubscriptionLocator $locator,
         private readonly SubscriptionService $subscriptions,
         private readonly SubscriptionPresenter $presenter,
+        private readonly SubscriptionProjection $projection,
     ) {}
 
     /**
@@ -47,7 +50,12 @@ final class SubscriptionResumeController
         $resumed = $this->subscriptions->resume($record, $this->optionalLockVersion($request));
 
         return ApiResponse::data([
-            'subscription' => $this->presenter->customer($resumed, $this->subscriptions->balance($resumed)),
+            'subscription' => $this->presenter->customer(
+                $resumed,
+                $this->subscriptions->balance($resumed),
+                $this->projection->for($resumed),
+                SubscriptionLocale::from($request->header('Accept-Language')),
+            ),
         ])->withHeaders(['ETag' => '"'.$resumed->lock_version.'"']);
     }
 }

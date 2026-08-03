@@ -642,39 +642,51 @@ export const apiCommerceRepository: CommerceRepository = {
     },
 
     /*
-     * S1. Written out rather than generated, for the reason the kitchen block below states: a
-     * method added to `CommerceRepository` has to break this file at compile time. The endpoints
-     * exist backend-side; the mappers land with the wave that switches this family over.
+     * S1 — **all six are served.**
+     *
+     * Declared here as rejections so this object stays a complete `CommerceRepository` — the
+     * compiler has to be able to prove that, and it is the whole reason every method is spelled
+     * out — and `createApiRepositories` overrides all six with the real implementations from
+     * `./subscription-repository.ts`, which is why none of them has a row in
+     * `PROTOTYPE_ENDPOINTS`.
+     *
+     * Four of the six were rejecting as recently as the previous wave, and not because the routes
+     * were missing: the wire could not answer them without the client inventing a `sales_channel_id`
+     * no consumer can obtain, a duration and a plan name the customer projection did not carry, or a
+     * meal name the choice payload omitted. Each gap was closed at its root — in the presenter, the
+     * request and the spec — rather than papered over with a default here. That history is worth the
+     * paragraph: the difference between "no endpoint" and "an endpoint that cannot be called from
+     * the surface it was built for" is the difference between a missing feature and a silent one.
      */
     getSubscriptionQuote(_request: SubscriptionQuoteRequest): Promise<SubscriptionQuote> {
-        return notImplemented(`GET ${BASE}/subscription-plans/{plan}/quote`);
+        return notImplemented(`GET ${BASE}/subscriptions/quote`);
     },
     getSubscriptionBalance(_subscriptionId: SubscriptionId): Promise<SubscriptionBalance> {
-        return notImplemented(`GET ${BASE}/subscriptions/{subscription}/balance`);
+        return notImplemented(`GET ${BASE}/me/subscriptions/{subscription}`);
     },
     listSubscriptionDeliveries(
         _subscriptionId: SubscriptionId,
         _filter?: SubscriptionDeliveryFilter,
     ): Promise<CursorPage<SubscriptionDelivery>> {
-        return notImplemented(`GET ${BASE}/subscriptions/{subscription}/deliveries`);
+        return notImplemented(`GET ${BASE}/me/subscriptions/{subscription}/deliveries`);
     },
     cancelSubscription(
         _subscriptionId: SubscriptionId,
         _request?: CancelSubscriptionRequest,
     ): Promise<SubscriptionCancellation> {
-        return notImplemented(`POST ${BASE}/subscriptions/{subscription}/cancel`);
+        return notImplemented(`POST ${BASE}/me/subscriptions/{subscription}/cancel`);
     },
     setSubscriptionWeekdays(
         _subscriptionId: SubscriptionId,
         _request: SetSubscriptionWeekdaysRequest,
     ): Promise<Subscription> {
-        return notImplemented(`PUT ${BASE}/subscriptions/{subscription}/weekdays`);
+        return notImplemented(`PUT ${BASE}/me/subscriptions/{subscription}/weekdays`);
     },
     setSubscriptionMealChoices(
         _subscriptionId: SubscriptionId,
         _request: SetSubscriptionMealChoicesRequest,
     ): Promise<readonly SubscriptionMealChoice[]> {
-        return notImplemented(`PUT ${BASE}/subscriptions/{subscription}/meal-choices`);
+        return notImplemented(`PUT ${BASE}/me/subscriptions/{subscription}/choices`);
     },
 };
 

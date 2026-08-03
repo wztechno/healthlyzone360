@@ -5553,6 +5553,32 @@ export type SubscriptionBalance = {
  * because this resource has a customer-facing writer. `If-Match` is
  * honoured on every write and demanded by none.
  *
+ * ## The named facts
+ *
+ * The row is a row of identifiers, which is the right shape for a table and
+ * the wrong one for the screen where somebody cancels something. `plan`,
+ * `kitchen`, `configuration`, `duration` and `delivery_address` are the
+ * joins that make it readable, and the only reason they were once absent
+ * was **projection thinness, not confidentiality** — nothing here is
+ * withheld from its owner because it is sensitive. They are gathered in a
+ * fixed number of queries for the whole list, so the unpaginated read did
+ * not become an N+1 in exchange.
+ *
+ * `duration.days` is the run that was bought and is **never**
+ * `balance_days_total`, which counts delivery days: a four-week plan
+ * delivering five weekdays buys twenty of them, not twenty-eight.
+ *
+ * `weekly_price_minor` is the effective per-day price times the number of
+ * delivery weekdays. It is served rather than left to the client because a
+ * client multiplying a price is a second implementation of the rule that
+ * decides what somebody pays.
+ *
+ * The sales channel's **name** is still not served — `SalesChannel` is
+ * classified `Internal`, and which desk a purchase was routed through is
+ * the kitchen's bookkeeping. Nor is `branch_id`, on the terms the customer
+ * order shape states: the kitchen's operating arrangements are not the
+ * customer's business.
+ *
  */
 export type Subscription = {
     id: Uuid;
@@ -5600,7 +5626,103 @@ export type Subscription = {
     completed_at?: string | null;
     lock_version: number;
     created_at?: string | null;
+    updated_at?: string | null;
+    plan?: SubscriptionPlanRef | null;
+    kitchen?: SubscriptionKitchenRef | null;
+    configuration?: SubscriptionConfigurationRef | null;
+    duration?: SubscriptionDurationRef | null;
+    delivery_address?: SubscriptionAddressRef | null;
+    /**
+     * The first delivery the ledger holds. Falls back to the next
+     * generation date for an arrangement bought moments ago whose first day
+     * has not been generated, and to the purchase date beyond that.
+     *
+     */
+    starts_on?: string | null;
+    /**
+     * The effective per-day price times the number of delivery weekdays.
+     */
+    weekly_price_minor?: number;
+    allows_free_selection?: boolean;
+    change_cutoff_hours?: number;
+    /**
+     * Days that were scheduled and skipped, whoever skipped them. They consumed nothing.
+     */
+    skipped_dates?: Array<string>;
+    /**
+     * The dishes the customer chose for themselves, distinct. Never the
+     * kitchen's defaults or its substitutions — presenting either as a
+     * choice would tell somebody they picked a meal they did not.
+     *
+     */
+    chosen_catalogue_item_ids?: Array<Uuid>;
     balance?: SubscriptionBalance;
+};
+
+/**
+ * The plan, named. One server-chosen language, per §4.8.
+ */
+export type SubscriptionPlanRef = {
+    id: Uuid;
+    name: string;
+    slug: string;
+};
+
+/**
+ * The kitchen that cooks it. `name` is served as the business registered
+ * it, whatever `Accept-Language` says — `organisations.name` is a single
+ * column, and a business name is not translated.
+ *
+ */
+export type SubscriptionKitchenRef = {
+    id: Uuid;
+    name: string;
+};
+
+/**
+ * The matrix cell — the variant of the plan that was bought.
+ */
+export type SubscriptionConfigurationRef = {
+    id: Uuid;
+    code: string;
+    /**
+     * Empty when the kitchen named the variant in neither language.
+     */
+    name: string;
+};
+
+/**
+ * The run that was bought. `days` is the duration's own length and is
+ * never `balance_days_total`, which counts delivery days.
+ *
+ */
+export type SubscriptionDurationRef = {
+    id: Uuid;
+    code: string;
+    kind: 'one_off' | 'fixed_days';
+    /**
+     * Null exactly when `kind` is `one_off`.
+     */
+    days: number | null;
+    name: string;
+};
+
+/**
+ * Where it goes, in full, to the person who typed it. A masked address
+ * book is a screen on which nobody can tell which address is which — the
+ * same reason the customer's own address list serves every line.
+ *
+ */
+export type SubscriptionAddressRef = {
+    id: Uuid;
+    label: string | null;
+    line_one: string;
+    line_two: string | null;
+    building?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    directions?: string | null;
+    delivery_area_id: Uuid;
 };
 
 export type SubscriptionEnvelope = {
@@ -5655,6 +5777,14 @@ export type CreditMemo = {
  * allergen classes attached to a named person's delivery is health data,
  * and what a customer needs from this row is that a substitution happened,
  * not a restatement of their medical profile.
+ * **`name` is server-derived and there is no request field for it.** The
+ * write sends a `catalogue_item_id` alone, which is the only defensible
+ * arrangement on a surface this close to safety: a caller-supplied label
+ * could disagree with the dish actually recorded, and the screen showing it
+ * would be describing food nobody is going to cook. It is resolved from the
+ * catalogue in the caller's language (§4.8) and is an empty string for an
+ * item since removed — an honest blank rather than a stale name kept alive
+ * by a client.
  *
  */
 export type SubscriptionMealChoice = {
@@ -5665,8 +5795,19 @@ export type SubscriptionMealChoice = {
     sequence: number;
     catalogue_item_id: Uuid;
     catalogue_item_variant_id?: Uuid | null;
+    /**
+     * The dish, in the caller's language. Empty when the item no longer exists.
+     */
+    name: string;
     source: MealChoiceSource;
     replaced_catalogue_item_id?: Uuid | null;
+    /**
+     * What the substituted dish was called. Null when nothing was
+     * substituted, so a client can tell "no substitution" from "a
+     * substitution whose item has since gone".
+     *
+     */
+    replaced_name?: string | null;
 };
 
 /**
@@ -5731,6 +5872,13 @@ export type SubscriptionCancellationEnvelope = {
  * chose the longer run and a screen showing only the final figure cannot
  * say what it saved them. `price_list_id` and `price_list_item_id` do not.
  *
+ * **The three non-price fields are what make this one read instead of
+ * eight.** A configurator needs the price, the days it may deliver on, and
+ * the two rules that decide what it may offer — whether the customer picks
+ * the dishes, and how long before a delivery a change stops being
+ * accepted. Splitting them across separate reads produced the seven-probe
+ * weekday hack this operation exists to delete.
+ *
  */
 export type PlanQuote = {
     currency_code: CurrencyCode;
@@ -5745,6 +5893,35 @@ export type PlanQuote = {
     discount_percent: string | null;
     per_day_minor: number;
     total_minor: number;
+    /**
+     * The kitchen's own code for the run that was resolved, echoed so a
+     * configurator can show its wording rather than the day count it asked
+     * with.
+     *
+     */
+    duration_code: string | null;
+    duration_kind: 'one_off' | 'fixed_days' | null;
+    /**
+     * ISO weekdays this kitchen delivers on, `1` Monday to `7` Sunday,
+     * ascending. Derived from its active delivery windows, where an empty
+     * `weekdays` means every day. A kitchen with no active window is
+     * **unconstrained rather than closed** and answers all seven: telling
+     * somebody a kitchen delivers on no day, when nobody has configured
+     * days at all, would empty a configurator on a configuration gap.
+     *
+     */
+    available_weekdays: Array<number>;
+    /**
+     * Whether the customer picks the dishes, or the kitchen decides.
+     */
+    allows_free_selection: boolean;
+    /**
+     * How long before a delivery a change stops being accepted. The plan's
+     * own `change_cutoff_hours`, not the platform default — the 24-hour
+     * rule is configuration.
+     *
+     */
+    change_cutoff_hours: number;
 };
 
 export type PlanQuoteEnvelope = {
@@ -20158,8 +20335,15 @@ export type CreateSubscriptionErrors = {
      * a twenty-day plan are not the same screen.
      *
      * `GET /subscriptions/quote` answers with this code too, for the subset of
-     * reasons that are about price — `unpriced`, `duration_not_offered`,
+     * reasons that are about the plan and its price — `plan_not_subscription`,
+     * `unpriced`, `duration_not_offered`, `duration_ambiguous`,
      * `duration_not_fixed`, `pricing_basis_unsupported`.
+     *
+     * `duration_ambiguous` is the one that names a *configuration mistake*
+     * rather than a limit: the quote resolves a run by its number of days, and
+     * two offered runs sharing a day count cannot be told apart. It carries the
+     * competing `codes`, so a kitchen reading its own error can see which two.
+     * Guessing between them would quote one discount and capture the other.
      *
      */
     409: ErrorEnvelope;
@@ -20201,10 +20385,6 @@ export type QuoteSubscriptionData = {
     path?: never;
     query: {
         /**
-         * The channel being bought through.
-         */
-        sales_channel_id: Uuid;
-        /**
          * The plan.
          */
         catalogue_item_id: Uuid;
@@ -20213,9 +20393,15 @@ export type QuoteSubscriptionData = {
          */
         catalogue_item_variant_id: Uuid;
         /**
-         * The run being priced.
+         * The run being priced, in delivery days — `MarketplacePlanDuration.days`
+         * from the public plan read. Days rather than the kitchen's own
+         * duration `code`, because the code is an authored slug and the day
+         * count is the fact; two offered runs sharing a day count are a
+         * configuration mistake and are refused `duration_ambiguous` rather
+         * than guessed between.
+         *
          */
-        plan_duration_id: Uuid;
+        plan_duration_days: number;
     };
     url: '/subscriptions/quote';
 };
@@ -20245,8 +20431,15 @@ export type QuoteSubscriptionErrors = {
      * a twenty-day plan are not the same screen.
      *
      * `GET /subscriptions/quote` answers with this code too, for the subset of
-     * reasons that are about price — `unpriced`, `duration_not_offered`,
+     * reasons that are about the plan and its price — `plan_not_subscription`,
+     * `unpriced`, `duration_not_offered`, `duration_ambiguous`,
      * `duration_not_fixed`, `pricing_basis_unsupported`.
+     *
+     * `duration_ambiguous` is the one that names a *configuration mistake*
+     * rather than a limit: the quote resolves a run by its number of days, and
+     * two offered runs sharing a day count cannot be told apart. It carries the
+     * competing `codes`, so a kitchen reading its own error can see which two.
+     * Guessing between them would quote one discount and capture the other.
      *
      */
     409: ErrorEnvelope;

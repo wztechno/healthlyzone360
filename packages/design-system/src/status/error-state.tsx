@@ -52,6 +52,17 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'b2b.application_state_invalid': 'errors:failure.b2b_application_state_invalid',
     'b2b.documents_incomplete': 'errors:failure.b2b_documents_incomplete',
     'b2b.signatory_required': 'errors:failure.b2b_signatory_required',
+    // The six refusal codes (S1, J2, B2). Five of them carry structured detail — the reasons a
+    // configurator lists, the checks a wind-down must settle, the transitions still open — and the
+    // owning surface renders that detail itself. These entries are what a *generic* error boundary
+    // shows when one surfaces somewhere with no such handling, so each states the refusal without
+    // the specifics it would otherwise be quoting from a list it did not read.
+    'subscription.refused': 'errors:failure.subscription_refused',
+    'subscription.change_refused': 'errors:failure.subscription_change_refused',
+    'closure.refused': 'errors:failure.closure_refused',
+    'offboarding.refused': 'errors:failure.offboarding_refused',
+    'offboarding.settlement_outstanding': 'errors:failure.offboarding_settlement_outstanding',
+    'record_export.unavailable': 'errors:failure.record_export_unavailable',
     // Raised by every prototype API repository. The record is exhaustive over `ApiFailure['code']`,
     // so a new failure code cannot be added upstream without this table being updated — which is
     // exactly the point of typing it that way.

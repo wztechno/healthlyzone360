@@ -62,6 +62,13 @@ describe('the failure vocabulary', () => {
             'b2b.application_state_invalid',
             'b2b.documents_incomplete',
             'b2b.signatory_required',
+            // The six refusal codes (S1, J2, B2), on the same terms as the ten above.
+            'subscription.refused',
+            'subscription.change_refused',
+            'closure.refused',
+            'offboarding.refused',
+            'offboarding.settlement_outstanding',
+            'record_export.unavailable',
             'network',
             'server',
             'prototype.not_implemented',

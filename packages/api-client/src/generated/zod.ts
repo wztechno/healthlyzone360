@@ -4262,6 +4262,66 @@ export const zSubscriptionBalance = z.object({
 });
 
 /**
+ * The plan, named. One server-chosen language, per §4.8.
+ */
+export const zSubscriptionPlanRef = z.object({
+    id: zUuid,
+    name: z.string(),
+    slug: z.string()
+});
+
+/**
+ * The kitchen that cooks it. `name` is served as the business registered
+ * it, whatever `Accept-Language` says — `organisations.name` is a single
+ * column, and a business name is not translated.
+ *
+ */
+export const zSubscriptionKitchenRef = z.object({
+    id: zUuid,
+    name: z.string()
+});
+
+/**
+ * The matrix cell — the variant of the plan that was bought.
+ */
+export const zSubscriptionConfigurationRef = z.object({
+    id: zUuid,
+    code: z.string(),
+    name: z.string()
+});
+
+/**
+ * The run that was bought. `days` is the duration's own length and is
+ * never `balance_days_total`, which counts delivery days.
+ *
+ */
+export const zSubscriptionDurationRef = z.object({
+    id: zUuid,
+    code: z.string(),
+    kind: z.enum(['one_off', 'fixed_days']),
+    days: z.int().nullable(),
+    name: z.string()
+});
+
+/**
+ * Where it goes, in full, to the person who typed it. A masked address
+ * book is a screen on which nobody can tell which address is which — the
+ * same reason the customer's own address list serves every line.
+ *
+ */
+export const zSubscriptionAddressRef = z.object({
+    id: zUuid,
+    label: z.string().nullable(),
+    line_one: z.string(),
+    line_two: z.string().nullable(),
+    building: z.string().nullish(),
+    floor: z.string().nullish(),
+    apartment: z.string().nullish(),
+    directions: z.string().nullish(),
+    delivery_area_id: zUuid
+});
+
+/**
  * A customer's own standing arrangement.
  *
  * **The captured price is shown in full** — all three columns of it — and
@@ -4282,6 +4342,32 @@ export const zSubscriptionBalance = z.object({
  * **`lock_version` is served, unlike on the customer's order shape**,
  * because this resource has a customer-facing writer. `If-Match` is
  * honoured on every write and demanded by none.
+ *
+ * ## The named facts
+ *
+ * The row is a row of identifiers, which is the right shape for a table and
+ * the wrong one for the screen where somebody cancels something. `plan`,
+ * `kitchen`, `configuration`, `duration` and `delivery_address` are the
+ * joins that make it readable, and the only reason they were once absent
+ * was **projection thinness, not confidentiality** — nothing here is
+ * withheld from its owner because it is sensitive. They are gathered in a
+ * fixed number of queries for the whole list, so the unpaginated read did
+ * not become an N+1 in exchange.
+ *
+ * `duration.days` is the run that was bought and is **never**
+ * `balance_days_total`, which counts delivery days: a four-week plan
+ * delivering five weekdays buys twenty of them, not twenty-eight.
+ *
+ * `weekly_price_minor` is the effective per-day price times the number of
+ * delivery weekdays. It is served rather than left to the client because a
+ * client multiplying a price is a second implementation of the rule that
+ * decides what somebody pays.
+ *
+ * The sales channel's **name** is still not served — `SalesChannel` is
+ * classified `Internal`, and which desk a purchase was routed through is
+ * the kitchen's bookkeeping. Nor is `branch_id`, on the terms the customer
+ * order shape states: the kitchen's operating arrangements are not the
+ * customer's business.
  *
  */
 export const zSubscription = z.object({
@@ -4312,6 +4398,18 @@ export const zSubscription = z.object({
     completed_at: z.iso.datetime({ offset: true }).nullish(),
     lock_version: z.int(),
     created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish(),
+    plan: zSubscriptionPlanRef.nullish(),
+    kitchen: zSubscriptionKitchenRef.nullish(),
+    configuration: zSubscriptionConfigurationRef.nullish(),
+    duration: zSubscriptionDurationRef.nullish(),
+    delivery_address: zSubscriptionAddressRef.nullish(),
+    starts_on: z.iso.date().nullish(),
+    weekly_price_minor: z.int().optional(),
+    allows_free_selection: z.boolean().optional(),
+    change_cutoff_hours: z.int().optional(),
+    skipped_dates: z.array(z.iso.date()).optional(),
+    chosen_catalogue_item_ids: z.array(zUuid).optional(),
     balance: zSubscriptionBalance.optional()
 });
 
@@ -4361,6 +4459,14 @@ export const zCreditMemo = z.object({
  * allergen classes attached to a named person's delivery is health data,
  * and what a customer needs from this row is that a substitution happened,
  * not a restatement of their medical profile.
+ * **`name` is server-derived and there is no request field for it.** The
+ * write sends a `catalogue_item_id` alone, which is the only defensible
+ * arrangement on a surface this close to safety: a caller-supplied label
+ * could disagree with the dish actually recorded, and the screen showing it
+ * would be describing food nobody is going to cook. It is resolved from the
+ * catalogue in the caller's language (§4.8) and is an empty string for an
+ * item since removed — an honest blank rather than a stale name kept alive
+ * by a client.
  *
  */
 export const zSubscriptionMealChoice = z.object({
@@ -4368,8 +4474,10 @@ export const zSubscriptionMealChoice = z.object({
     sequence: z.int(),
     catalogue_item_id: zUuid,
     catalogue_item_variant_id: zUuid.nullish(),
+    name: z.string(),
     source: zMealChoiceSource,
-    replaced_catalogue_item_id: zUuid.nullish()
+    replaced_catalogue_item_id: zUuid.nullish(),
+    replaced_name: z.string().nullish()
 });
 
 /**
@@ -4428,6 +4536,13 @@ export const zSubscriptionCancellationEnvelope = z.object({
  * chose the longer run and a screen showing only the final figure cannot
  * say what it saved them. `price_list_id` and `price_list_item_id` do not.
  *
+ * **The three non-price fields are what make this one read instead of
+ * eight.** A configurator needs the price, the days it may deliver on, and
+ * the two rules that decide what it may offer — whether the customer picks
+ * the dishes, and how long before a delivery a change stops being
+ * accepted. Splitting them across separate reads produced the seven-probe
+ * weekday hack this operation exists to delete.
+ *
  */
 export const zPlanQuote = z.object({
     currency_code: zCurrencyCode,
@@ -4435,7 +4550,12 @@ export const zPlanQuote = z.object({
     list_price_minor: z.int(),
     discount_percent: z.string().nullable(),
     per_day_minor: z.int(),
-    total_minor: z.int()
+    total_minor: z.int(),
+    duration_code: z.string().nullable(),
+    duration_kind: z.enum(['one_off', 'fixed_days']).nullable(),
+    available_weekdays: z.array(z.int().gte(1).lte(7)),
+    allows_free_selection: z.boolean(),
+    change_cutoff_hours: z.int()
 });
 
 export const zPlanQuoteEnvelope = z.object({
@@ -8696,10 +8816,9 @@ export const zQuoteSubscriptionHeaders = z.object({
 });
 
 export const zQuoteSubscriptionQuery = z.object({
-    sales_channel_id: zUuid,
     catalogue_item_id: zUuid,
     catalogue_item_variant_id: zUuid,
-    plan_duration_id: zUuid
+    plan_duration_days: z.int().gte(1).lte(400)
 });
 
 /**

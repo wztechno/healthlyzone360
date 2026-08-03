@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Healthy360\Subscriptions\Http\Controllers;
 
 use Healthy360\Subscriptions\Models\Subscription;
+use Healthy360\Subscriptions\Presenters\SubscriptionLocale;
 use Healthy360\Subscriptions\Presenters\SubscriptionPresenter;
 use Healthy360\Subscriptions\Services\SubscriptionLocator;
+use Healthy360\Subscriptions\Services\SubscriptionProjection;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -40,6 +42,7 @@ final class MySubscriptionIndexController
     public function __construct(
         private readonly SubscriptionLocator $locator,
         private readonly SubscriptionPresenter $presenter,
+        private readonly SubscriptionProjection $projection,
     ) {}
 
     /**
@@ -59,8 +62,22 @@ final class MySubscriptionIndexController
             ->orderByDesc('id')
             ->get();
 
+        // Gathered once for the whole list. `SubscriptionProjection` is `whereIn`
+        // throughout precisely so this stays a fixed number of queries: the
+        // named facts are why anybody can read the list, and an N+1 per row is
+        // what would have made serving them a bad trade.
+        $facts = $this->projection->forMany($subscriptions);
+        $locale = SubscriptionLocale::from($request->header('Accept-Language'));
+
         return ApiResponse::data(
-            $subscriptions->map(fn (Subscription $subscription): array => $this->presenter->customer($subscription))->all(),
+            $subscriptions->map(fn (Subscription $subscription): array => $this->presenter->customer(
+                $subscription,
+                // Still no balance on the list: it costs a query per row, and
+                // the rows carry the three counts a summary card renders.
+                null,
+                $facts[(string) $subscription->getKey()] ?? [],
+                $locale,
+            ))->all(),
             ['count' => $subscriptions->count()],
         );
     }

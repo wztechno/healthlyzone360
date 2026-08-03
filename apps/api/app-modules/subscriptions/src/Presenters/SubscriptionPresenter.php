@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace Healthy360\Subscriptions\Presenters;
 
+use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Customers\Models\CustomerAddress;
+use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Subscriptions\Models\CreditMemo;
 use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Subscriptions\Models\SubscriptionMealChoice;
+use Healthy360\Subscriptions\Services\ChangeWindow;
 
 /**
  * The wire shapes of a standing arrangement.
@@ -56,11 +63,45 @@ final class SubscriptionPresenter
     /**
      * A customer's own subscription.
      *
+     * ## The named facts, and why they belong here
+     *
+     * The row is a row of identifiers, which is the right shape for a table and
+     * the wrong one for the screen where somebody cancels something. A customer
+     * looking at their own subscription is owed its plan's name, the kitchen
+     * that cooks it, the address it goes to and the run they bought — and the
+     * only reason those were ever absent was **projection thinness, not
+     * confidentiality**. Nothing here is withheld from its owner because it is
+     * sensitive; it was withheld because nobody had joined it yet.
+     *
+     * `SubscriptionProjection` does the joining, batched, so the unpaginated
+     * list read stays a fixed number of queries. `$facts` is what it gathered;
+     * an empty array degrades to the identifiers alone rather than to a fatal,
+     * because a presenter is not the place to discover a missing join.
+     *
+     * ## What stays out
+     *
+     * `captured_price_list_id` and `captured_price_list_item_id` — the
+     * provenance a capture keeps so a price stays explainable years later, and
+     * on a customer's screen a name for the kitchen's tariff structure to the
+     * person being charged by it. `organisation_id`, `created_by`, `updated_by`
+     * — the seller's internal key and the staff who touched the row; the
+     * kitchen travels as `kitchen`, which is a *fact about the food*, not the
+     * tenant key. `branch_id`, on the terms `OrderPresenter` states: the
+     * kitchen's operating arrangements are not the customer's business. And the
+     * sales channel's **name**, because `SalesChannel` is classified `Internal`
+     * — the identifier already travels because generation prices against it.
+     *
      * @param  array<string, mixed>|null  $balance  `SubscriptionService::balance()`, when the caller asked for it
+     * @param  array<string, mixed>  $facts  `SubscriptionProjection::for()`, when the caller gathered them
+     * @param  string  $locale  the language the names are served in (§4.8)
      * @return array<string, mixed>
      */
-    public function customer(Subscription $subscription, ?array $balance = null): array
-    {
+    public function customer(
+        Subscription $subscription,
+        ?array $balance = null,
+        array $facts = [],
+        string $locale = 'en',
+    ): array {
         $shape = [
             'id' => (string) $subscription->getKey(),
             'status' => $subscription->status->value,
@@ -95,13 +136,147 @@ final class SubscriptionPresenter
 
             'lock_version' => $subscription->lock_version,
             'created_at' => $subscription->created_at?->toIso8601String(),
+            'updated_at' => $subscription->updated_at?->toIso8601String(),
         ];
+
+        if ($facts !== []) {
+            $shape += $this->namedFacts($subscription, $facts, $locale);
+        }
 
         if ($balance !== null) {
             $shape['balance'] = $balance;
         }
 
         return $shape;
+    }
+
+    /**
+     * The joined half of the shape.
+     *
+     * Split out so `customer()` stays readable and so the "what is a fact about
+     * the food" boundary has one place to be argued about.
+     *
+     * `weekly_price_minor` is arithmetic on two numbers already on the wire —
+     * the effective per-day price and the count of delivery weekdays — and not a
+     * new fact. It is served rather than left to the client because a client
+     * dividing or multiplying a price is a second implementation of the rule
+     * that decides what somebody pays, and the two would eventually disagree
+     * about a plan that delivers three days a week.
+     *
+     * @param  array<string, mixed>  $facts
+     * @return array<string, mixed>
+     */
+    private function namedFacts(Subscription $subscription, array $facts, string $locale): array
+    {
+        $plan = $facts['plan'] ?? null;
+        $variant = $facts['variant'] ?? null;
+        $duration = $facts['duration'] ?? null;
+        $profile = $facts['profile'] ?? null;
+        $kitchen = $facts['kitchen'] ?? null;
+        $address = $facts['address'] ?? null;
+
+        $weekdayCount = count($subscription->weekdays);
+
+        return [
+            'plan' => $plan instanceof CatalogueItem ? [
+                'id' => (string) $plan->getKey(),
+                'name' => SubscriptionLocale::pick($locale, $plan->name_en, $plan->name_ar),
+                'slug' => $plan->slug,
+            ] : null,
+
+            // `kitchen`, never `organisation` — the established name on every
+            // customer-facing shape, and the one the smoke test pins as absent
+            // at the top level.
+            'kitchen' => $kitchen instanceof Organisation ? [
+                'id' => (string) $kitchen->getKey(),
+                // A business name is not translated: `organisations.name` is a
+                // single column and is served as it was registered, whatever
+                // `Accept-Language` says.
+                'name' => $kitchen->name,
+            ] : null,
+
+            'configuration' => $variant instanceof CatalogueItemVariant ? [
+                'id' => (string) $variant->getKey(),
+                'code' => $variant->code,
+                'name' => SubscriptionLocale::pick($locale, $variant->name_en, $variant->name_ar),
+            ] : null,
+
+            // `kind` and `days` rather than a derived label. The run bought is
+            // the duration's own day count and never `balance_days_total`,
+            // which counts *delivery* days: a four-week plan delivering five
+            // weekdays buys twenty of them, not twenty-eight.
+            'duration' => $duration instanceof PlanDuration ? [
+                'id' => (string) $duration->getKey(),
+                'code' => $duration->code,
+                'kind' => $duration->duration_kind->value,
+                'days' => $duration->duration_days,
+                'name' => SubscriptionLocale::pick($locale, $duration->name_en, $duration->name_ar),
+            ] : null,
+
+            // The whole address, to the person who typed it. `CustomerAddressPresenter`
+            // states the reason: a masked address book is a screen on which
+            // nobody can tell which address is which.
+            'delivery_address' => $address instanceof CustomerAddress ? [
+                'id' => (string) $address->getKey(),
+                'label' => $address->label,
+                'line_one' => $address->line_one,
+                'line_two' => $address->line_two,
+                'building' => $address->building,
+                'floor' => $address->floor,
+                'apartment' => $address->apartment,
+                'directions' => $address->directions,
+                'delivery_area_id' => $address->delivery_area_id,
+            ] : null,
+
+            'starts_on' => $facts['started_on'] ?? null,
+            'weekly_price_minor' => $subscription->effective_day_price_minor * $weekdayCount,
+
+            'allows_free_selection' => $profile instanceof SubscriptionPlanProfile
+                ? $profile->allows_free_selection
+                : false,
+            'change_cutoff_hours' => $profile instanceof SubscriptionPlanProfile
+                ? $profile->change_cutoff_hours
+                : ChangeWindow::DEFAULT_CUTOFF_HOURS,
+
+            'skipped_dates' => $facts['skipped_dates'] ?? [],
+            // What the customer chose for themselves, distinct — never the
+            // kitchen's defaults or its substitutions.
+            'chosen_catalogue_item_ids' => $facts['chosen_catalogue_item_ids'] ?? [],
+        ];
+    }
+
+    /**
+     * One chosen dish.
+     *
+     * **`name` is server-derived, always.** The client sends a
+     * `catalogue_item_id` and never a display name, which is the only defensible
+     * arrangement on a surface this close to safety: a caller-supplied label
+     * could disagree with the dish actually recorded, and the screen that showed
+     * it would be describing food nobody is going to cook. It is resolved from
+     * the catalogue in the caller's language and falls back to the empty string
+     * for an item that has since been removed — an honest blank rather than a
+     * stale name kept alive by a client.
+     *
+     * @param  array<string, string>  $mealNames
+     * @return array<string, mixed>
+     */
+    public function mealChoice(SubscriptionMealChoice $choice, array $mealNames = []): array
+    {
+        return [
+            'slot' => $choice->slot,
+            'sequence' => $choice->sequence,
+            'catalogue_item_id' => $choice->catalogue_item_id,
+            'catalogue_item_variant_id' => $choice->catalogue_item_variant_id,
+            'name' => $mealNames[$choice->catalogue_item_id] ?? '',
+            'source' => $choice->source->value,
+            // What the original was, when generation replaced it. The customer
+            // is owed the difference between "you chose this" and "we sent this
+            // instead", which is the §6 substitution promise.
+            'replaced_catalogue_item_id' => $choice->replaced_catalogue_item_id,
+            'replaced_name' => $choice->replaced_catalogue_item_id === null
+                ? null
+                : ($mealNames[$choice->replaced_catalogue_item_id] ?? ''),
+        ];
     }
 
     /**
@@ -113,24 +288,18 @@ final class SubscriptionPresenter
      * disagree with the balance.
      *
      * @param  iterable<int, SubscriptionMealChoice>  $choices
+     * @param  array<string, string>  $mealNames  catalogue item id → the dish's name, already localised
      * @return array<string, mixed>
      */
-    public function delivery(SubscriptionDelivery $delivery, iterable $choices = []): array
-    {
+    public function delivery(
+        SubscriptionDelivery $delivery,
+        iterable $choices = [],
+        array $mealNames = [],
+    ): array {
         $meals = [];
 
         foreach ($choices as $choice) {
-            $meals[] = [
-                'slot' => $choice->slot,
-                'sequence' => $choice->sequence,
-                'catalogue_item_id' => $choice->catalogue_item_id,
-                'catalogue_item_variant_id' => $choice->catalogue_item_variant_id,
-                'source' => $choice->source->value,
-                // What the original was, when generation replaced it. The
-                // customer is owed the difference between "you chose this" and
-                // "we sent this instead", which is the §6 substitution promise.
-                'replaced_catalogue_item_id' => $choice->replaced_catalogue_item_id,
-            ];
+            $meals[] = $this->mealChoice($choice, $mealNames);
         }
 
         return [

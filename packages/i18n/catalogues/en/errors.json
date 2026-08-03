@@ -61,6 +61,12 @@
         "order_placement_refused": "This order could not be placed. Nothing has been charged. Review your basket and try again.",
         "b2b_application_state_invalid": "This application has moved on since you opened it. Reload to see where it stands.",
         "b2b_documents_incomplete": "Some required documents are still missing. Add them before submitting.",
-        "b2b_signatory_required": "Confirm the code we sent before signing."
+        "b2b_signatory_required": "Confirm the code we sent before signing.",
+        "subscription_refused": "This plan cannot be subscribed to with the options you chose. Adjust them and try again.",
+        "subscription_change_refused": "This change to your subscription was not accepted. Review the details and try again.",
+        "closure_refused": "This closure request could not be taken any further. Reload to see where it stands.",
+        "offboarding_refused": "This wind-down cannot move that way from where it is. Reload to see what is possible now.",
+        "offboarding_settlement_outstanding": "Settlement is not resolved yet, so this cannot be signed off. Settle or waive the outstanding checks first.",
+        "record_export_unavailable": "This bundle is not available to download yet. Check back once it is ready."
     }
 }

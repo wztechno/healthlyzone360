@@ -17,8 +17,11 @@ import type {
     B2BVolumeBand,
     DocumentDownload,
     KycDocument,
+    OffboardingTrigger,
     ProvisioningProgress,
     ReviewerRequest,
+    SettlementCheck,
+    SettlementCheckCode,
     SignAgreementRequest,
     SignOffOffboardingRequest,
     SignatureEvidence,
@@ -31,7 +34,9 @@ import {
     B2B_ORDER_FREQUENCIES,
     B2B_PRODUCT_CATEGORIES,
     B2B_VOLUME_BANDS,
+    OFFBOARDING_TRIGGERS,
     PROVISIONING_STEPS,
+    SETTLEMENT_CHECK_CODES,
 } from '../contracts/b2b-application.ts';
 import type { OtpChallenge } from '../contracts/verification.ts';
 import type {
@@ -39,10 +44,15 @@ import type {
     B2bApplication as WireApplication,
     KycDocument as WireDocument,
     KycDocumentDownload as WireDownload,
+    Offboarding as WireOffboarding,
+    OffboardingEnvelope,
+    OtpChallengeEnvelope,
+    SignOffOffboardingRequest as WireSignoffBody,
     UpdateB2bApplicationSectionRequest,
 } from '../generated/types.ts';
 import { MultipartBody } from './transport.ts';
 import type { Transport } from './transport.ts';
+import { mapIssuedChallenge } from './verification-repository.ts';
 
 /**
  * The applicant's side of B2B onboarding, over HTTP (plan Phase B1).
@@ -400,9 +410,152 @@ export function base64ToBlob(content: string, mimeType: string): Blob {
     return new Blob([bytes], { type: mimeType });
 }
 
+/*
+ * The wind-down (B2), over the wire that exists.
+ *
+ * The backend landed the offboarding family under `/platform/b2b/offboardings/{offboarding}` — a
+ * platform-operator surface — where the contract anticipated an organisation-scoped one. The four
+ * methods below are honest translations onto that wire, and the three places the two models
+ * genuinely differ are recorded here, in the manner of the file header above.
+ *
+ * ## 8. There is no organisation → wind-down lookup
+ *
+ * The only read is `GET /platform/b2b/offboardings/{offboarding}`, resolved by the wind-up's own
+ * key; no list and no by-organisation query exists. `getOffboarding` therefore sends the identifier
+ * it is given as that path parameter — the caller must hold the wind-up's identifier, which the
+ * platform operator who started it does — and a `404` answers `null` ("not winding down"), the same
+ * shape `getApplication` gives "never applied". The argument keeps the contract's `organisationId`
+ * name so the signature cannot drift from the mock, and the row that comes back carries the true
+ * `organisationId` for the cache key. Asking this method about an organisation whose wind-up
+ * identifier nobody holds is a question the wire cannot answer, and it answers `null` rather than
+ * inventing.
+ *
+ * ## 9. The consent wording is client-authored, and the sign-off is two calls
+ *
+ * The contract calls `consentStatement` server-authored; the backend deliberately made it the
+ * caller's echo ("the evidence has to be what the person actually read" — its request docblock),
+ * and serves no wording before signing. So the wording lives here, once, as
+ * {@link OFFBOARDING_SIGNOFF_CONSENT_STATEMENT}: the mapper serves it on every row, a signing
+ * screen renders what the mapper served, and `signOffOffboarding` echoes the same constant — the
+ * chain "what was served is what was shown is what was recorded" holds by construction. The wire
+ * also wants the passcode *consumed before* sign-off (`otp_challenge_id` names a spent challenge),
+ * so the one-call contract becomes two requests here: the `<challengeId>:<code>` token — the same
+ * packing `signAgreement` documents — is spent through the generic verification endpoint, then the
+ * sign-off travels with the challenge identifier. `lockVersion` is deliberately not sent on either
+ * write: the offboarding actions take no `If-Match`, because the state machine is the stronger
+ * guard (`signed_off → signed_off` is illegal whatever validator you hold). The mock still checks
+ * it, so a stale screen is caught in development where the wire would shrug.
+ *
+ * ## 10. Facts the wire does not serve are derived from ones it does
+ *
+ * `signoff.otpVerified` has no wire field: the service refuses every sign-off that lacks a
+ * consumed, owned challenge, so a recorded `signed_off_at` *is* the proof, and the flag is derived
+ * from it — before signing it is honestly `false`. The archive's `completedAt` is the wind-up's
+ * own `completed_at` (the `archiving → completed` transition is the archive finishing), its counts
+ * come from the summary map's named keys, and `legalEntityRetained` defaults `true` — the platform
+ * always retains the legal entity, and the wire states it only once a summary exists. A settlement
+ * check whose code this build does not know is dropped (§versioning: clients ignore unknown enum
+ * members); the top-level `documentSha256` is the empty-string sentinel until a signed digest
+ * exists, and `signOffOffboarding` sends `null` for an empty echo, which the wire documents as "no
+ * document beyond the agreement already on file".
+ */
+
+/**
+ * The wording a signatory ties their sign-off to.
+ *
+ * Client-authored (§9 above) and stated once. The mock world fixes the same sentence
+ * (`../mock/b2b-application/offboarding.ts`), so a screen rehearsed against the mock shows the
+ * wording production records.
+ */
+export const OFFBOARDING_SIGNOFF_CONSENT_STATEMENT =
+    'I confirm I am authorised to bind this company, that I have read the wind-down notice, and ' +
+    'that I agree to end the commercial relationship on the effective date shown.';
+
+function knownSettlementCheck(value: string): value is SettlementCheckCode {
+    return (SETTLEMENT_CHECK_CODES as readonly string[]).includes(value);
+}
+
+export function mapSettlementChecks(
+    checks: WireOffboarding['settlement']['checks'],
+): readonly SettlementCheck[] {
+    return checks
+        .filter((check): check is (typeof checks)[number] & { check: SettlementCheckCode } =>
+            knownSettlementCheck(check.check),
+        )
+        .map((check) => ({
+            check: check.check,
+            outcome: check.outcome,
+            reason: check.reason ?? null,
+            detail: check.detail ?? null,
+        }));
+}
+
+export function mapOffboarding(wire: WireOffboarding): B2BOffboarding {
+    const summary = wire.archive.summary ?? {};
+    const signedOffAt = wire.signoff.signed_off_at ?? null;
+
+    return {
+        id: wire.id,
+        organisationId: wire.organisation_id,
+        status: wire.status,
+        // Unreachable fallback: the backend requires a trigger to start a wind-up, and nothing
+        // clears the column. It exists for the type system, not for a screen.
+        trigger: oneOf<OffboardingTrigger>(OFFBOARDING_TRIGGERS, wire.trigger) ?? 'client_request',
+        reasonNote: wire.reason_note ?? null,
+        effectiveOn: wire.effective_on ?? null,
+        // Copied onto the row when notice is served; `0` only for a row that predates serving.
+        noticePeriodDays: wire.notice_period_days ?? 0,
+        settlement: {
+            status: wire.settlement.status,
+            checks: mapSettlementChecks(wire.settlement.checks),
+            startedAt: wire.settlement.started_at ?? null,
+            resolvedAt: wire.settlement.resolved_at ?? null,
+            waiverReason: wire.settlement.waiver_reason ?? null,
+        },
+        signoff: {
+            awaitingSince: wire.signoff.awaiting_since ?? null,
+            signedOffAt,
+            signatoryName: wire.signoff.signatory_name ?? null,
+            signatoryTitle: wire.signoff.signatory_title ?? null,
+            consentStatement: wire.signoff.consent_statement ?? null,
+            documentSha256: wire.signoff.document_sha256 ?? null,
+            // §10 above: derived, because the service refuses a sign-off without a consumed
+            // challenge — a recorded sign-off is a proved one.
+            otpVerified: signedOffAt !== null,
+        },
+        revocation: {
+            startedAt: wire.revocation.started_at ?? null,
+            completedAt: wire.revocation.completed_at ?? null,
+            membershipsRevoked: wire.revocation.memberships_revoked ?? 0,
+            tokensDeleted: wire.revocation.tokens_deleted ?? 0,
+        },
+        archive: {
+            startedAt: wire.archive.started_at ?? null,
+            // §10 above: the `archiving → completed` transition is the archive finishing.
+            completedAt: wire.completed_at ?? null,
+            legalEntityRetained: wire.archive.legal_entity_retained ?? true,
+            applicationContactsPurged: summary['application_contacts_purged'] ?? 0,
+            applicationSignatoriesPurged: summary['application_signatories_purged'] ?? 0,
+            kycDocumentsStampedForPurge: summary['kyc_documents_stamped_for_purge'] ?? 0,
+        },
+        consentStatement: OFFBOARDING_SIGNOFF_CONSENT_STATEMENT,
+        documentSha256: wire.signoff.document_sha256 ?? '',
+        allowedTransitions: wire.allowed_transitions,
+        startedAt: wire.requested_at,
+        cancelledAt: wire.cancelled_at ?? null,
+        cancelledReason: wire.cancellation_reason ?? null,
+        lockVersion: wire.lock_version,
+    };
+}
+
 export function createApiB2bApplicationRepository(transport: Transport): B2BApplicationRepository {
     function path(applicationId: string, suffix = ''): string {
         return `/b2b/applications/${encodeURIComponent(applicationId)}${suffix}`;
+    }
+
+    /** The platform wind-down surface — the only place the offboarding family lives (§8 above). */
+    function offboardingPath(offboardingId: string, suffix = ''): string {
+        return `/platform/b2b/offboardings/${encodeURIComponent(offboardingId)}${suffix}`;
     }
 
     /** The optimistic-concurrency header every write on this family carries (plan §4.13). */
@@ -732,49 +885,129 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             return hydrate(wire);
         },
 
-        /*
-         * The wind-down (B2).
+        /* ── B2: the wind-down — see notes §8–§10 above the mappers ──────────────────────────── */
+
+        /**
+         * The wind-down, or `null`.
          *
-         * Declared as rejections so this object stays a complete `B2BApplicationRepository`, on the
-         * same terms as the stubs in `./prototype-repositories.ts`. The routes exist backend-side;
-         * the mappers land with the micro-wire that switches this family over, and until then a
-         * screen that reaches them fails loudly rather than quietly succeeding against nothing.
+         * §8 above: the identifier this method sends is the wind-up's own, because the by-key show
+         * is the only read the platform publishes. A `404` is the state the screen draws — "this
+         * company is not winding down" — never an error.
          */
-        getOffboarding(_request: {
+        async getOffboarding(request: {
             readonly organisationId: string;
         }): Promise<B2BOffboarding | null> {
-            return offboardingNotImplemented('GET /organisations/{organisation}/offboarding');
+            try {
+                const wire = await transport.request<OffboardingEnvelope['data']>({
+                    method: 'GET',
+                    path: offboardingPath(request.organisationId),
+                });
+                return mapOffboarding(wire.offboarding);
+            } catch (caught: unknown) {
+                if (caught instanceof ApiError && caught.code === 'resource.not_found') return null;
+                throw caught;
+            }
         },
-        runSettlementChecks(_request: {
+
+        /**
+         * Re-run the four checks.
+         *
+         * Idempotent by nature — the answer is whatever the financial modules say *now* — and
+         * `settlement_pending → settlement_pending` is legal, so re-running is the normal case.
+         * `lockVersion` is accepted and not sent (§9 above): the action takes no `If-Match`
+         * because the state machine is the stronger guard.
+         */
+        async runSettlementChecks(request: {
             readonly offboardingId: string;
             readonly lockVersion: number;
         }): Promise<B2BOffboarding> {
-            return offboardingNotImplemented(
-                'POST /organisations/{organisation}/offboarding/settlement-checks',
-            );
+            const wire = await transport.request<OffboardingEnvelope['data']>({
+                method: 'POST',
+                path: offboardingPath(request.offboardingId, '/settlement-checks'),
+            });
+            return mapOffboarding(wire.offboarding);
         },
-        issueSignoffChallenge(_request: { readonly offboardingId: string }): Promise<OtpChallenge> {
-            return offboardingNotImplemented(
-                'POST /organisations/{organisation}/offboarding/signoff-challenge',
-            );
+
+        /**
+         * Send the signatory a code.
+         *
+         * A `202` — the message is a queued job — carrying the challenge with its masked
+         * destination and countdown, never the code. The destination is the **agreement's**
+         * signatory through their login contact, not whoever is driving the wind-up; the panel
+         * pairs this challenge's identifier with the code the signatory types, which is the
+         * `<challengeId>:<code>` token `signOffOffboarding` unpacks.
+         */
+        async issueSignoffChallenge(request: {
+            readonly offboardingId: string;
+        }): Promise<OtpChallenge> {
+            const wire = await transport.request<OtpChallengeEnvelope['data']>({
+                method: 'POST',
+                path: offboardingPath(request.offboardingId, '/signoff-challenges'),
+            });
+            return mapIssuedChallenge(wire.challenge);
         },
-        signOffOffboarding(_request: SignOffOffboardingRequest): Promise<B2BOffboarding> {
-            return offboardingNotImplemented(
-                'POST /organisations/{organisation}/offboarding/signoff',
-            );
+
+        /**
+         * The only irreversible act a signatory performs in this flow.
+         *
+         * Two requests over one method (§9 above): the packed `<challengeId>:<code>` token is
+         * spent through the generic verification endpoint — the wire demands a *consumed*
+         * challenge, and evidence a caller asserts is not evidence — then the sign-off travels
+         * with the spent challenge's identifier. A wrong code rejects with `otp.invalid` before
+         * anything is signed; a challenge that is not the caller's own rejects the sign-off with
+         * `b2b.signatory_required`, indistinguishably from every other way it can fail.
+         *
+         * `authorityConfirmed` is checked here as well as implied server-side, on the same terms
+         * as {@link signAgreement}: it is a separate claim from the typed name, and a request that
+         * reached the wire with it false would have lost the one statement a dispute turns on.
+         */
+        async signOffOffboarding(request: SignOffOffboardingRequest): Promise<B2BOffboarding> {
+            if (!request.authorityConfirmed) {
+                throw new ApiError(
+                    validationFailure({
+                        authorityConfirmed: ['Confirm that you may bind this company.'],
+                    }),
+                );
+            }
+
+            const separator = request.verificationToken.indexOf(':');
+            if (separator <= 0) {
+                throw new ApiError(
+                    apiFailure('b2b.signatory_required', {
+                        message: 'Confirm the code we sent before signing off.',
+                    }),
+                );
+            }
+
+            const challengeId = request.verificationToken.slice(0, separator);
+            const code = request.verificationToken.slice(separator + 1);
+
+            await transport.request({
+                method: 'POST',
+                path: `/verification/challenges/${encodeURIComponent(challengeId)}/verify`,
+                body: { code },
+            });
+
+            const body: WireSignoffBody = {
+                signatory_name: request.typedName,
+                signatory_title: request.signatoryTitle,
+                // §9 above: the same constant the mapper serves, so what was shown is what is
+                // recorded.
+                consent_statement: OFFBOARDING_SIGNOFF_CONSENT_STATEMENT,
+                // Echoed from the row the person read; an empty echo means the wind-up published
+                // no digest yet, which the wire spells `null`.
+                document_sha256: request.documentSha256 === '' ? null : request.documentSha256,
+                otp_challenge_id: challengeId,
+            };
+
+            const wire = await transport.request<OffboardingEnvelope['data']>({
+                method: 'POST',
+                path: offboardingPath(request.offboardingId, '/signoff'),
+                body,
+            });
+            return mapOffboarding(wire.offboarding);
         },
     };
-}
-
-function offboardingNotImplemented<T>(endpoint: string): Promise<T> {
-    return Promise.reject(
-        new ApiError(
-            apiFailure('prototype.not_implemented', {
-                message: `${endpoint} is not wired to this client yet.`,
-                retryable: false,
-            }),
-        ),
-    );
 }
 
 /**

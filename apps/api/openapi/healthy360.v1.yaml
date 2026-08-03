@@ -11025,18 +11025,29 @@ paths:
         configuration at a time.
 
         A refusal is a `409`, not an empty `200`: `unpriced`,
-        `duration_not_offered`, `duration_not_fixed` and
-        `pricing_basis_unsupported` are all facts about the world rather than
-        about the request's shape. The last one names itself deliberately — a
-        per-week plan is refused on principle, and collapsing it into "unpriced"
-        would send a kitchen hunting for a tariff row that is not missing.
+        `duration_not_offered`, `duration_ambiguous`, `duration_not_fixed`,
+        `plan_not_subscription` and `pricing_basis_unsupported` are all facts
+        about the world rather than about the request's shape.
+        `pricing_basis_unsupported` names itself deliberately — a per-week plan
+        is refused on principle, and collapsing it into "unpriced" would send a
+        kitchen hunting for a tariff row that is not missing.
+
+        **Reachable from what the storefront publishes.** The operation used to
+        take a `sales_channel_id` and a `plan_duration_id`, and a shopper could
+        obtain neither: sales channels live behind `/catalogue/sales-channels`,
+        a tenant surface, and the public plan read publishes durations as
+        `{code, kind, days}` with no identifier. Both are resolved server-side
+        now. The channel comes from the plan's own kitchen and is restricted to
+        its *consumer* channels, which is narrower than the validator it
+        replaced — a `b2b`, `corporate` or `insurance` tariff can no longer be
+        probed through this operation at all. The run is named by its number of
+        days, the fact the public projection already carries; nothing was added
+        to that projection to make this work.
+
+        `available_weekdays` is the point of the enrichment. Until it existed a
+        configurator learnt which days a plan delivers on by pricing the same
+        subscription seven times and reading which answers carried a warning.
       parameters:
-        - name: sales_channel_id
-          in: query
-          required: true
-          description: The channel being bought through.
-          schema:
-            $ref: '#/components/schemas/Uuid'
         - name: catalogue_item_id
           in: query
           required: true
@@ -11049,12 +11060,20 @@ paths:
           description: The configuration — the matrix cell.
           schema:
             $ref: '#/components/schemas/Uuid'
-        - name: plan_duration_id
+        - name: plan_duration_days
           in: query
           required: true
-          description: The run being priced.
+          description: |
+            The run being priced, in delivery days — `MarketplacePlanDuration.days`
+            from the public plan read. Days rather than the kitchen's own
+            duration `code`, because the code is an authored slug and the day
+            count is the fact; two offered runs sharing a day count are a
+            configuration mistake and are refused `duration_ambiguous` rather
+            than guessed between.
           schema:
-            $ref: '#/components/schemas/Uuid'
+            type: integer
+            minimum: 1
+            maximum: 400
         - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
@@ -13959,8 +13978,15 @@ components:
         a twenty-day plan are not the same screen.
 
         `GET /subscriptions/quote` answers with this code too, for the subset of
-        reasons that are about price — `unpriced`, `duration_not_offered`,
+        reasons that are about the plan and its price — `plan_not_subscription`,
+        `unpriced`, `duration_not_offered`, `duration_ambiguous`,
         `duration_not_fixed`, `pricing_basis_unsupported`.
+
+        `duration_ambiguous` is the one that names a *configuration mistake*
+        rather than a limit: the quote resolves a run by its number of days, and
+        two offered runs sharing a day count cannot be told apart. It carries the
+        competing `codes`, so a kitchen reading its own error can see which two.
+        Guessing between them would quote one discount and capture the other.
       headers:
         X-Correlation-Id:
           $ref: '#/components/headers/XCorrelationId'
@@ -22575,6 +22601,32 @@ components:
         **`lock_version` is served, unlike on the customer's order shape**,
         because this resource has a customer-facing writer. `If-Match` is
         honoured on every write and demanded by none.
+
+        ## The named facts
+
+        The row is a row of identifiers, which is the right shape for a table and
+        the wrong one for the screen where somebody cancels something. `plan`,
+        `kitchen`, `configuration`, `duration` and `delivery_address` are the
+        joins that make it readable, and the only reason they were once absent
+        was **projection thinness, not confidentiality** — nothing here is
+        withheld from its owner because it is sensitive. They are gathered in a
+        fixed number of queries for the whole list, so the unpaginated read did
+        not become an N+1 in exchange.
+
+        `duration.days` is the run that was bought and is **never**
+        `balance_days_total`, which counts delivery days: a four-week plan
+        delivering five weekdays buys twenty of them, not twenty-eight.
+
+        `weekly_price_minor` is the effective per-day price times the number of
+        delivery weekdays. It is served rather than left to the client because a
+        client multiplying a price is a second implementation of the rule that
+        decides what somebody pays.
+
+        The sales channel's **name** is still not served — `SalesChannel` is
+        classified `Internal`, and which desk a purchase was routed through is
+        the kitchen's bookkeeping. Nor is `branch_id`, on the terms the customer
+        order shape states: the kitchen's operating arrangements are not the
+        customer's business.
       required: [id, status, catalogue_item_id, catalogue_item_variant_id, plan_duration_id, sales_channel_id, currency_code, captured_unit_price_minor, captured_discount_percent, effective_day_price_minor, captured_at, weekdays, delivery_window_code, customer_address_id, no_substitutions, balance_days_total, balance_days_consumed, remaining_days, next_delivery_date, pause_count, lock_version]
       properties:
         id:
@@ -22650,8 +22702,139 @@ components:
         created_at:
           type: [string, 'null']
           format: date-time
+        updated_at:
+          type: [string, 'null']
+          format: date-time
+        plan:
+          oneOf:
+            - $ref: '#/components/schemas/SubscriptionPlanRef'
+            - type: 'null'
+        kitchen:
+          oneOf:
+            - $ref: '#/components/schemas/SubscriptionKitchenRef'
+            - type: 'null'
+        configuration:
+          oneOf:
+            - $ref: '#/components/schemas/SubscriptionConfigurationRef'
+            - type: 'null'
+        duration:
+          oneOf:
+            - $ref: '#/components/schemas/SubscriptionDurationRef'
+            - type: 'null'
+        delivery_address:
+          oneOf:
+            - $ref: '#/components/schemas/SubscriptionAddressRef'
+            - type: 'null'
+        starts_on:
+          type: [string, 'null']
+          format: date
+          description: |
+            The first delivery the ledger holds. Falls back to the next
+            generation date for an arrangement bought moments ago whose first day
+            has not been generated, and to the purchase date beyond that.
+        weekly_price_minor:
+          type: integer
+          description: The effective per-day price times the number of delivery weekdays.
+        allows_free_selection:
+          type: boolean
+        change_cutoff_hours:
+          type: integer
+        skipped_dates:
+          type: array
+          description: Days that were scheduled and skipped, whoever skipped them. They consumed nothing.
+          items:
+            type: string
+            format: date
+        chosen_catalogue_item_ids:
+          type: array
+          description: |
+            The dishes the customer chose for themselves, distinct. Never the
+            kitchen's defaults or its substitutions — presenting either as a
+            choice would tell somebody they picked a meal they did not.
+          items:
+            $ref: '#/components/schemas/Uuid'
         balance:
           $ref: '#/components/schemas/SubscriptionBalance'
+    SubscriptionPlanRef:
+      type: object
+      description: The plan, named. One server-chosen language, per §4.8.
+      required: [id, name, slug]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        slug:
+          type: string
+    SubscriptionKitchenRef:
+      type: object
+      description: |
+        The kitchen that cooks it. `name` is served as the business registered
+        it, whatever `Accept-Language` says — `organisations.name` is a single
+        column, and a business name is not translated.
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+    SubscriptionConfigurationRef:
+      type: object
+      description: The matrix cell — the variant of the plan that was bought.
+      required: [id, code, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name:
+          type: string
+          description: Empty when the kitchen named the variant in neither language.
+    SubscriptionDurationRef:
+      type: object
+      description: |
+        The run that was bought. `days` is the duration's own length and is
+        never `balance_days_total`, which counts delivery days.
+      required: [id, code, kind, days, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        kind:
+          type: string
+          enum: [one_off, fixed_days]
+        days:
+          type: [integer, 'null']
+          description: Null exactly when `kind` is `one_off`.
+        name:
+          type: string
+    SubscriptionAddressRef:
+      type: object
+      description: |
+        Where it goes, in full, to the person who typed it. A masked address
+        book is a screen on which nobody can tell which address is which — the
+        same reason the customer's own address list serves every line.
+      required: [id, label, line_one, line_two, delivery_area_id]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: [string, 'null']
+        line_one:
+          type: string
+        line_two:
+          type: [string, 'null']
+        building:
+          type: [string, 'null']
+        floor:
+          type: [string, 'null']
+        apartment:
+          type: [string, 'null']
+        directions:
+          type: [string, 'null']
+        delivery_area_id:
+          $ref: '#/components/schemas/Uuid'
     SubscriptionEnvelope:
       type: object
       required: [data, meta]
@@ -22728,7 +22911,15 @@ components:
         allergen classes attached to a named person's delivery is health data,
         and what a customer needs from this row is that a substitution happened,
         not a restatement of their medical profile.
-      required: [slot, sequence, catalogue_item_id, source]
+        **`name` is server-derived and there is no request field for it.** The
+        write sends a `catalogue_item_id` alone, which is the only defensible
+        arrangement on a surface this close to safety: a caller-supplied label
+        could disagree with the dish actually recorded, and the screen showing it
+        would be describing food nobody is going to cook. It is resolved from the
+        catalogue in the caller's language (§4.8) and is an empty string for an
+        item since removed — an honest blank rather than a stale name kept alive
+        by a client.
+      required: [slot, sequence, catalogue_item_id, name, source]
       properties:
         slot:
           type: string
@@ -22742,12 +22933,22 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        name:
+          type: string
+          description: The dish, in the caller's language. Empty when the item no longer exists.
+          examples: ['Grilled Chicken & Quinoa']
         source:
           $ref: '#/components/schemas/MealChoiceSource'
         replaced_catalogue_item_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        replaced_name:
+          type: [string, 'null']
+          description: |
+            What the substituted dish was called. Null when nothing was
+            substituted, so a client can tell "no substitution" from "a
+            substitution whose item has since gone".
     SubscriptionDelivery:
       type: object
       description: |
@@ -22849,7 +23050,27 @@ components:
         All three numbers travel, because the discount is the reason somebody
         chose the longer run and a screen showing only the final figure cannot
         say what it saved them. `price_list_id` and `price_list_item_id` do not.
-      required: [currency_code, days, list_price_minor, discount_percent, per_day_minor, total_minor]
+
+        **The three non-price fields are what make this one read instead of
+        eight.** A configurator needs the price, the days it may deliver on, and
+        the two rules that decide what it may offer — whether the customer picks
+        the dishes, and how long before a delivery a change stops being
+        accepted. Splitting them across separate reads produced the seven-probe
+        weekday hack this operation exists to delete.
+      required:
+        [
+          currency_code,
+          days,
+          list_price_minor,
+          discount_percent,
+          per_day_minor,
+          total_minor,
+          duration_code,
+          duration_kind,
+          available_weekdays,
+          allows_free_selection,
+          change_cutoff_hours,
+        ]
       properties:
         currency_code:
           $ref: '#/components/schemas/CurrencyCode'
@@ -22865,6 +23086,37 @@ components:
           type: integer
         total_minor:
           type: integer
+        duration_code:
+          type: [string, 'null']
+          description: |
+            The kitchen's own code for the run that was resolved, echoed so a
+            configurator can show its wording rather than the day count it asked
+            with.
+        duration_kind:
+          type: [string, 'null']
+          enum: [one_off, fixed_days, null]
+        available_weekdays:
+          type: array
+          description: |
+            ISO weekdays this kitchen delivers on, `1` Monday to `7` Sunday,
+            ascending. Derived from its active delivery windows, where an empty
+            `weekdays` means every day. A kitchen with no active window is
+            **unconstrained rather than closed** and answers all seven: telling
+            somebody a kitchen delivers on no day, when nobody has configured
+            days at all, would empty a configurator on a configuration gap.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        allows_free_selection:
+          type: boolean
+          description: Whether the customer picks the dishes, or the kitchen decides.
+        change_cutoff_hours:
+          type: integer
+          description: |
+            How long before a delivery a change stops being accepted. The plan's
+            own `change_cutoff_hours`, not the platform default — the 24-hour
+            rule is configuration.
     PlanQuoteEnvelope:
       type: object
       required: [data, meta]
