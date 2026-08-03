@@ -72,9 +72,41 @@ import type { OtpChannel } from './verification.ts';
  *   channel with no real driver in this environment). The panel removes the channel rather than
  *   letting the person press it again.
  *
- * None of the five is in the *current* generated `ErrorCode` union either; the backend enum gains
- * them with J1's OTP endpoints (additive within v1). They are declared here now because the mock
- * repositories raise them today.
+ * All five are now in the generated `ErrorCode` union, which gained them — and eleven more — with
+ * the four journey backends. `api/failures.ts` speaks every one of them directly.
+ *
+ * ## The ten journey codes (J1, G1, B1)
+ *
+ * The wire grew fifteen codes with the four journeys. Five of them are the `otp.*` set above, which
+ * this union already carried; `otp.locked` is projected onto `otp.attempts_exceeded` because the
+ * two say the same thing to a screen — you are locked out, here is when it lifts, here is what else
+ * you may try. The remaining ten are here because each one changes what a screen *does*, which is
+ * the only test for membership:
+ *
+ * - **`contact.already_in_use`** — the address or number belongs to another account. The contact
+ *   form keeps what was typed and offers sign-in, rather than clearing the field the way a
+ *   validation failure would.
+ * - **`account.verification_required`** — the action needs a verified contact the account does not
+ *   have yet. The screen sends the person to the verification panel and back; it is a *route*, not
+ *   an error state.
+ * - **`address.area_not_served`** — the delivery area is outside every zone. The address editor
+ *   marks the area select rather than the street lines, because the street is not the problem.
+ * - **`guest.session_invalid`** — the guest token expired, was revoked by a sign-in, or was spent
+ *   by a conversion. The checkout clears the store and starts a new session instead of retrying
+ *   into the same rejection.
+ * - **`cart.line_refused`** — a line cannot be ordered: unpublished, out of area, past the cut-off.
+ *   The basket marks the line and keeps the rest, which a whole-request failure cannot express.
+ * - **`order.placement_refused`** — the basket priced but the order was refused as a whole. The
+ *   checkout returns to the basket rather than showing a confirmation nobody will honour.
+ * - **`b2b.application_state_invalid`** — the write is legal for some state and not this one,
+ *   usually because a reviewer moved the application in another tab. The wizard refetches.
+ * - **`b2b.documents_incomplete`** — submission was refused for missing documents rather than
+ *   missing fields. The screen scrolls to the vault, not to the form.
+ * - **`b2b.signatory_required`** — signing was attempted without the step-up. The panel reopens the
+ *   passcode step.
+ * - **`request.idempotency_key_reused`** — the same key arrived with a *different* body. It is a
+ *   client defect, like `request.precondition_required`, and must be reported rather than retried:
+ *   a retry with a fresh key would place a second order.
  */
 export const API_FAILURE_CODES = [
     'auth.invalid_credentials',
@@ -89,6 +121,7 @@ export const API_FAILURE_CODES = [
     'resource.not_found',
     'resource.conflict',
     'request.precondition_required',
+    'request.idempotency_key_reused',
     'validation.failed',
     'rate_limit.exceeded',
     'otp.invalid',
@@ -96,6 +129,15 @@ export const API_FAILURE_CODES = [
     'otp.cooldown_active',
     'otp.attempts_exceeded',
     'otp.channel_unavailable',
+    'contact.already_in_use',
+    'account.verification_required',
+    'address.area_not_served',
+    'guest.session_invalid',
+    'cart.line_refused',
+    'order.placement_refused',
+    'b2b.application_state_invalid',
+    'b2b.documents_incomplete',
+    'b2b.signatory_required',
     'network',
     'server',
     'prototype.not_implemented',
@@ -200,6 +242,9 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'resource.not_found',
     'resource.conflict',
     'request.precondition_required',
+    // The same key with the same body is *replayed*, which is a success. Reaching this code means
+    // the body differed, and repeating a request whose body is the problem cannot help.
+    'request.idempotency_key_reused',
     'validation.failed',
     'rate_limit.exceeded',
     // The same wrong code stays wrong, an expired challenge does not un-expire, a cooldown does not
@@ -211,6 +256,21 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'otp.cooldown_active',
     'otp.attempts_exceeded',
     'otp.channel_unavailable',
+    // Every journey rejection names something a *person* or another screen has to change: a contact
+    // that belongs elsewhere, a verification that has not happened, an area nobody drives to, a
+    // credential that is spent, a basket line that cannot be sold, an application a reviewer has
+    // moved. None of them resolves by asking again with the identical request — and `place_order`
+    // in particular must never be retried automatically, because the one thing worse than a refused
+    // order is two accepted ones.
+    'contact.already_in_use',
+    'account.verification_required',
+    'address.area_not_served',
+    'guest.session_invalid',
+    'cart.line_refused',
+    'order.placement_refused',
+    'b2b.application_state_invalid',
+    'b2b.documents_incomplete',
+    'b2b.signatory_required',
     // Retrying cannot conjure an endpoint that has not been built.
     'prototype.not_implemented',
 ]);
@@ -262,6 +322,7 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'resource.not_found': 'That record no longer exists.',
     'resource.conflict': 'Somebody else changed this while you were editing it.',
     'request.precondition_required': 'This change was sent without the version it was based on.',
+    'request.idempotency_key_reused': 'This request repeated a key with different details.',
     'validation.failed': 'Some of the details need correcting.',
     'rate_limit.exceeded': 'Too many attempts. Wait a moment and try again.',
     'otp.invalid': 'That code is not right.',
@@ -269,6 +330,15 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'otp.cooldown_active': 'Another code cannot be sent quite yet.',
     'otp.attempts_exceeded': 'Too many incorrect codes. This is locked for a while.',
     'otp.channel_unavailable': 'A code cannot be sent that way.',
+    'contact.already_in_use': 'That contact is already in use on another account.',
+    'account.verification_required': 'Confirm a contact before continuing.',
+    'address.area_not_served': 'Healthy360 does not deliver to that area yet.',
+    'cart.line_refused': 'Something in your basket cannot be ordered right now.',
+    'guest.session_invalid': 'This guest session has ended.',
+    'order.placement_refused': 'This order could not be placed.',
+    'b2b.application_state_invalid': 'This application has moved on since you opened it.',
+    'b2b.documents_incomplete': 'Some required documents are still missing.',
+    'b2b.signatory_required': 'Confirm the code we sent before signing.',
     network: 'Healthy360 could not be reached.',
     server: 'Something went wrong on our side.',
     'prototype.not_implemented':

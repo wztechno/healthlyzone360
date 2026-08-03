@@ -29,6 +29,7 @@ import {
 import {
     DISPLAY_SIZE_THRESHOLD,
     FONT_SIZE_NAMES,
+    displayFamilies,
     displayLineHeightMultipliers,
     fontFamilies,
     fontSizes,
@@ -146,6 +147,12 @@ describe('typography', () => {
         }
         expect(fontFamilies.arabic.stack).toContain('IBM Plex Sans Arabic');
         expect(fontFamilies.latin.stack).toContain('Inter');
+
+        // Display family: Space Grotesk for Latin, with an Arabic-capable face next in the stack so
+        // per-glyph fallback keeps mixed headings legible; Arabic display stays on Plex.
+        expect(displayFamilies.latin.stack).toContain('Space Grotesk');
+        expect(displayFamilies.latin.stack).toContain('IBM Plex Sans Arabic');
+        expect(displayFamilies.arabic.stack).toContain('IBM Plex Sans Arabic');
     });
 });
 

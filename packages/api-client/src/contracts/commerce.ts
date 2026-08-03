@@ -190,6 +190,23 @@ export interface CommerceRepository {
     /** `POST /api/v1/checkouts/preview` — a priced quotation. Reserves nothing, charges nothing. */
     previewCheckout(request: PreviewCheckoutRequest): Promise<CheckoutPreview>;
 
+    /**
+     * `POST /api/v1/orders` — turn the priced basket into an order.
+     *
+     * **Still payment-free, and that is why it may exist.** The one-off order is cash on delivery:
+     * placing it creates an obligation to cook and to drive, and takes nothing. That is the whole
+     * reason this method can be added to a contract whose header refuses to grow a payment surface
+     * — there is no instrument field here, no token, no provider reference, and adding one would be
+     * a visible change to this signature rather than a value quietly passed through.
+     *
+     * `addressId` rather than an address value object: delivery is resolved from the address's
+     * service area — a zone, a window, a fee — and a typed street line resolves to none of them.
+     * The idempotency key is the repository's business, not the caller's: it is generated per
+     * attempt so a retry after a dropped connection returns the order that was already placed
+     * instead of placing a second one, and no screen can forget to send it.
+     */
+    placeOrder(request: PlaceOrderRequest): Promise<PlacedOrder>;
+
     /** `POST /api/v1/subscriptions/preview`. */
     previewSubscription(configuration: SubscriptionConfiguration): Promise<SubscriptionPreview>;
 
@@ -216,5 +233,48 @@ export interface CommerceRepository {
 /** Placed orders. Declared for completeness of the identifier vocabulary; not read in Phase 2. */
 export interface OrderReference {
     readonly id: OrderId;
+    readonly placedAt: IsoDateTime;
+}
+
+export interface PlaceOrderRequest {
+    readonly cartId: CartId;
+    /** A saved delivery address. The zone, the window and the fee are all resolved from it. */
+    readonly addressId: string;
+    /** The delivery window the person chose, e.g. `morning`. Empty when they expressed no choice. */
+    readonly slotCode?: string | undefined;
+    /** `YYYY-MM-DD`. Absent means the earliest the kitchen can manage. */
+    readonly deliveryDate?: string | undefined;
+}
+
+export const ORDER_STATES = ['placed', 'confirmed', 'preparing', 'delivered', 'cancelled'] as const;
+export type OrderState = (typeof ORDER_STATES)[number];
+
+export interface PlacedOrderLine {
+    readonly id: string;
+    readonly name: string;
+    readonly quantity: number;
+    readonly unitPrice: Money;
+    readonly lineTotal: Money;
+}
+
+/**
+ * An order that exists.
+ *
+ * `reference` is the human-quotable string — what somebody writes down, reads over a phone or finds
+ * in a confirmation message — and `id` is what the system uses. Both, because conflating them
+ * produces either an unreadable reference or a guessable identifier. The shape deliberately mirrors
+ * `GuestOrder` (`./guest.ts`): the same person may place one order as a guest and the next as an
+ * account holder, and a confirmation screen that had to branch on which would be two screens.
+ */
+export interface PlacedOrder {
+    readonly id: OrderId;
+    readonly reference: string;
+    readonly state: OrderState;
+    readonly lines: readonly PlacedOrderLine[];
+    readonly priceLines: readonly PriceLine[];
+    readonly total: Money;
+    readonly address: DeliveryAddress;
+    readonly slotCode: string;
+    readonly deliveryDate: string;
     readonly placedAt: IsoDateTime;
 }

@@ -216,7 +216,10 @@ export function FileUploadField({
                         ? {}
                         : { accessibilityHint: control.accessibilityHint })}
                     aria-invalid={control['aria-invalid']}
-                    aria-required={control['aria-required']}
+                    // No `aria-required` here: the control the label points at is a `role="group"`,
+                    // and ARIA 1.2 does not support `aria-required` on that role — axe reports it as
+                    // an `aria-allowed-attr` critical (the same reason `Select` omits it on its
+                    // button). The required state is carried by the label's marker instead.
                     className={cx(
                         'flex-col gap-2 rounded-lg border border-dashed p-3',
                         control['aria-invalid'] ? 'border-danger-border' : 'border-stroke',

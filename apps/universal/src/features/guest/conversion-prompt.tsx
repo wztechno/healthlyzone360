@@ -1,3 +1,4 @@
+import type { GuestConversionPrefill } from '@healthy360/api-client/contracts';
 import {
     Button,
     Callout,
@@ -13,7 +14,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure, useConvertGuestMutation } from '../../data/guest-hooks.ts';
-import type { GuestConversionPrefill } from './repositories-shim.ts';
 
 /**
  * "Keep this order in an account?" — offered after the order is placed, and refusable.

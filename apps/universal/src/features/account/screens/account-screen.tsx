@@ -1,3 +1,4 @@
+import type { AccountChecklistItem, ConsentState } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -19,7 +20,6 @@ import {
     toFailure,
 } from '../../../data/account-hooks.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import type { AccountChecklistItem, ConsentState } from '../repositories-shim.ts';
 
 /**
  * `/customer/account` — the setup checklist, and the switches a person can flip afterwards.

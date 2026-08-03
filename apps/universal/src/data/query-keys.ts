@@ -350,10 +350,11 @@ export const queryKeys = {
          * The closed list of areas an address may point at.
          *
          * Under `account` rather than `reference` despite being non-personal lookup data, because
-         * the operation that answers it does not exist yet (see
-         * `features/account/repositories-shim.ts`). Classifying it as `reference` would make it
-         * persistable, and persisting a delivery-area list that a shim currently invents is exactly
-         * the kind of stale answer §21 is written to prevent.
+         * `AccountRepository` is the contract that answers it and the address editor is the only
+         * thing that asks. Classifying it as `reference` would additionally make it persistable,
+         * and a delivery-area list cached across sessions is a list that can offer an area the
+         * platform has since stopped serving — a save refused on a value the screen supplied, which
+         * is exactly the kind of stale answer §21 is written to prevent.
          */
         serviceAreas: () => ['account', 'service-areas'] as const,
     },

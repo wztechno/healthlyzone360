@@ -29,13 +29,14 @@ import type { GuestMockStoreOptions } from './store.ts';
  * Until then this is a standalone factory, which is enough for the world's own tests and for a
  * screen that is handed it through the application's shim.
  *
- * ## Resend and re-read are on the bundle, not on the contract
+ * ## Resend and re-read moved onto the contract
  *
- * `GuestRepository` has no `resendChallenge` or `getChallenge`: the guest journey's passcode is a
- * *step inside* verifying a contact, and the contract deliberately does not grow a second copy of
- * the OTP surface that `VerificationRepository` already publishes. But the panel needs both, and a
- * guest has no `contactPointId` to address `VerificationRepository` with — so the two live here, on
- * the returned bundle, named for what they are and impossible to mistake for contract methods.
+ * They were bare functions on this bundle for one release, because `GuestRepository` was
+ * unregistered and a screen could only be handed the contract. The integrator wave registered it,
+ * and a bare function is not something a `Repositories` bundle can carry — so `getChallenge` and
+ * `resendChallenge` are contract methods now (`contracts/guest.ts` says why they belong to the
+ * guest repository rather than to `VerificationRepository`: a guest has no contact point to address
+ * the account's OTP surface with).
  */
 export interface GuestMockRepositories {
     readonly kind: 'mock-guest';
@@ -44,13 +45,6 @@ export interface GuestMockRepositories {
     readonly store: GuestMockStore;
     /** The token store the world writes to, so a caller can clear it on sign-in. */
     readonly tokenStore: GuestTokenStore;
-    /** Re-read a live challenge after a reload, with its cooldown intact. */
-    readonly getGuestChallenge: (challengeId: string) => Promise<OtpChallenge>;
-    /** Resend — and supersede, exactly as the account world's resend does. */
-    readonly resendGuestChallenge: (
-        challengeId: string,
-        channel?: OtpChannel,
-    ) => Promise<OtpChallenge>;
 }
 
 export interface GuestMockRepositoriesOptions extends GuestMockStoreOptions {
@@ -134,20 +128,20 @@ export function createGuestMockRepositories(
             await settle();
             return store.confirmDeletion(request);
         },
+
+        async getChallenge(request: { readonly challengeId: string }): Promise<OtpChallenge> {
+            await settle();
+            return store.getChallenge(request.challengeId);
+        },
+
+        async resendChallenge(request: {
+            readonly challengeId: string;
+            readonly channel?: OtpChannel | undefined;
+        }): Promise<OtpChallenge> {
+            await settle();
+            return store.resendChallenge(request.challengeId, request.channel);
+        },
     };
 
-    return {
-        kind: 'mock-guest',
-        guest,
-        store,
-        tokenStore: store.tokenStore,
-        getGuestChallenge: async (challengeId: string) => {
-            await settle();
-            return store.getChallenge(challengeId);
-        },
-        resendGuestChallenge: async (challengeId: string, channel?: OtpChannel) => {
-            await settle();
-            return store.resendChallenge(challengeId, channel);
-        },
-    };
+    return { kind: 'mock-guest', guest, store, tokenStore: store.tokenStore };
 }

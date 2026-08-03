@@ -4,6 +4,7 @@ import { breakpoints, focusRing, MIN_TOUCH_TARGET, radius, spacing, zIndex } fro
 import { DURATION_NAMES, durations, easings } from '../motion.ts';
 import {
     FONT_SIZE_NAMES,
+    displayFamilies,
     fontFamilies,
     fontSizes,
     fontWeights,
@@ -115,6 +116,7 @@ export function renderTailwindPreset(): string {
                 fontFamily: {
                     latin: [fontFamilies.latin.regular, ...fontFamilies.latin.stack.split(', ')],
                     arabic: [fontFamilies.arabic.regular, ...fontFamilies.arabic.stack.split(', ')],
+                    display: [displayFamilies.latin.bold, ...displayFamilies.latin.stack.split(', ')],
                 },
                 fontSize: fontSizeScale(),
                 lineHeight: lineHeightScale(),

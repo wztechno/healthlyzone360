@@ -1,9 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
-
-import { useAccountRepositories } from '../features/account/repositories-shim.ts';
 import type {
     AccountOverview,
+    AccountServiceArea,
     AccountSetupChecklist,
     AddContactPointRequest,
     ConsentState,
@@ -14,25 +11,22 @@ import type {
     IssueOtpRequest,
     OtpChallenge,
     OtpVerificationResult,
+    ResendOtpRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
-    ServiceAreaOption,
-} from '../features/account/repositories-shim.ts';
+} from '@healthy360/api-client/contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
+
 import { queryKeys } from './query-keys.ts';
+import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
 /**
  * The D2C account area and the one-time-code surface (plan Phase J1).
  *
  * Same rules as every other hook module here: one hook per repository operation, `enabled` guards
- * and invalidation written once, and no screen ever holding a repository. Four things are specific
+ * and invalidation written once, and no screen ever holding a repository. Three things are specific
  * to this pair of contracts.
- *
- * ## The repositories come through a shim, and that is temporary
- *
- * `VerificationRepository` and `AccountRepository` are not in the `Repositories` bundle yet, so
- * `useAccountRepositories()` (`../features/account/repositories-shim.ts`) resolves them from the
- * bundle when they are there and from the standalone mock world when they are not. The *only* line
- * that changes when the integrator wave registers them is the import at the top of this file.
  *
  * ## Nothing here is a query over a code
  *
@@ -64,50 +58,65 @@ export { toFailure } from './hooks.ts';
 /* ── account: overview, checklist ────────────────────────────────────────────────────────────── */
 
 export function useAccountOverviewQuery(enabled = true): UseQueryResult<AccountOverview> {
-    const { account, ready } = useAccountRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.account.overview(),
-        enabled: enabled && ready,
-        queryFn: () => account.getOverview(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.getOverview();
+        },
     });
 }
 
 export function useAccountChecklistQuery(enabled = true): UseQueryResult<AccountSetupChecklist> {
-    const { account, ready } = useAccountRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.account.checklist(),
-        enabled: enabled && ready,
-        queryFn: () => account.getChecklist(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.getChecklist();
+        },
     });
 }
 
 /* ── account: addresses ──────────────────────────────────────────────────────────────────────── */
 
 export function useAddressesQuery(enabled = true): UseQueryResult<readonly CustomerAddress[]> {
-    const { account, ready } = useAccountRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.account.addresses(),
-        enabled: enabled && ready,
-        queryFn: () => account.listAddresses(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.listAddresses();
+        },
     });
 }
 
 /**
  * The closed list of areas an address may point at.
  *
- * A **contract gap**, honestly routed: no consumer-facing operation lists service areas, so the
- * shim answers from the mock world and API mode rejects. See the shim's header.
+ * A consumer-facing operation of its own rather than a reach into `KitchenAdminRepository`, which
+ * covers the same rows for a *management* audience — with zone membership, activation state and a
+ * tenant context a customer has neither the permission nor the need for.
  */
-export function useServiceAreasQuery(enabled = true): UseQueryResult<readonly ServiceAreaOption[]> {
-    const { listServiceAreas, ready } = useAccountRepositories();
+export function useServiceAreasQuery(
+    enabled = true,
+): UseQueryResult<readonly AccountServiceArea[]> {
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.account.serviceAreas(),
-        enabled: enabled && ready,
-        queryFn: () => listServiceAreas(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.listServiceAreas();
+        },
     });
 }
 
@@ -116,11 +125,11 @@ export function useAddAddressMutation(): UseMutationResult<
     unknown,
     SaveAddressRequest
 > {
-    const { account } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: SaveAddressRequest) => account.addAddress(request),
+        mutationFn: (request: SaveAddressRequest) => repositories.account.addAddress(request),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
         },
@@ -137,12 +146,12 @@ export function useUpdateAddressMutation(): UseMutationResult<
     unknown,
     UpdateAddressVariables
 > {
-    const { account } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ addressId, request }: UpdateAddressVariables) =>
-            account.updateAddress({ ...request, addressId }),
+            repositories.account.updateAddress({ ...request, addressId }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
         },
@@ -150,11 +159,11 @@ export function useUpdateAddressMutation(): UseMutationResult<
 }
 
 export function useRemoveAddressMutation(): UseMutationResult<void, unknown, string> {
-    const { account } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (addressId: string) => account.removeAddress({ addressId }),
+        mutationFn: (addressId: string) => repositories.account.removeAddress({ addressId }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
         },
@@ -164,12 +173,15 @@ export function useRemoveAddressMutation(): UseMutationResult<void, unknown, str
 /* ── account: the allergy declaration ────────────────────────────────────────────────────────── */
 
 export function useDietaryProfileQuery(enabled = true): UseQueryResult<DietaryProfile> {
-    const { account, ready } = useAccountRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.account.dietaryProfile(),
-        enabled: enabled && ready,
-        queryFn: () => account.getDietaryProfile(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.getDietaryProfile();
+        },
     });
 }
 
@@ -178,11 +190,12 @@ export function useSaveDietaryProfileMutation(): UseMutationResult<
     unknown,
     SaveDietaryProfileRequest
 > {
-    const { account } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: SaveDietaryProfileRequest) => account.saveDietaryProfile(request),
+        mutationFn: (request: SaveDietaryProfileRequest) =>
+            repositories.account.saveDietaryProfile(request),
         onSuccess: async (profile) => {
             queryClient.setQueryData(queryKeys.account.dietaryProfile(), profile);
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
@@ -193,12 +206,15 @@ export function useSaveDietaryProfileMutation(): UseMutationResult<
 /* ── account: consents ───────────────────────────────────────────────────────────────────────── */
 
 export function useConsentsQuery(enabled = true): UseQueryResult<readonly ConsentState[]> {
-    const { account, ready } = useAccountRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.account.consents(),
-        enabled: enabled && ready,
-        queryFn: () => account.listConsents(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.listConsents();
+        },
     });
 }
 
@@ -212,11 +228,11 @@ export function useSetConsentMutation(): UseMutationResult<
     unknown,
     SetConsentVariables
 > {
-    const { account } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: SetConsentVariables) => account.setConsent(request),
+        mutationFn: (request: SetConsentVariables) => repositories.account.setConsent(request),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
         },
@@ -226,12 +242,15 @@ export function useSetConsentMutation(): UseMutationResult<
 /* ── verification: contact points ────────────────────────────────────────────────────────────── */
 
 export function useContactPointsQuery(enabled = true): UseQueryResult<readonly ContactPoint[]> {
-    const { verification, ready } = useAccountRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.verification.contacts(),
-        enabled: enabled && ready,
-        queryFn: () => verification.listContactPoints(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.verification.listContactPoints();
+        },
     });
 }
 
@@ -246,11 +265,12 @@ export function useAddContactPointMutation(): UseMutationResult<
     unknown,
     AddContactPointRequest
 > {
-    const { verification } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: AddContactPointRequest) => verification.addContactPoint(request),
+        mutationFn: (request: AddContactPointRequest) =>
+            repositories.verification.addContactPoint(request),
         onSuccess: async (added) => {
             if (added.challenge !== null) {
                 queryClient.setQueryData(
@@ -265,11 +285,12 @@ export function useAddContactPointMutation(): UseMutationResult<
 }
 
 export function useRemoveContactPointMutation(): UseMutationResult<void, unknown, string> {
-    const { verification } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (contactPointId: string) => verification.removeContactPoint({ contactPointId }),
+        mutationFn: (contactPointId: string) =>
+            repositories.verification.removeContactPoint({ contactPointId }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.verification.all() });
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
@@ -290,14 +311,15 @@ export function useOtpChallengeQuery(
     challengeId: string | null,
     enabled = true,
 ): UseQueryResult<OtpChallenge> {
-    const { verification, ready } = useAccountRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.verification.challenge(challengeId ?? 'none'),
-        enabled: enabled && ready && challengeId !== null,
+        enabled: enabled && repositories !== null && challengeId !== null,
         queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
             if (challengeId === null) throw new Error('No challenge to read.');
-            return verification.getChallenge({ challengeId });
+            return repositories.verification.getChallenge({ challengeId });
         },
     });
 }
@@ -307,11 +329,11 @@ export function useIssueChallengeMutation(): UseMutationResult<
     unknown,
     IssueOtpRequest
 > {
-    const { verification } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: IssueOtpRequest) => verification.issueChallenge(request),
+        mutationFn: (request: IssueOtpRequest) => repositories.verification.issueChallenge(request),
         onSuccess: (challenge) => {
             queryClient.setQueryData(queryKeys.verification.challenge(challenge.id), challenge);
         },
@@ -335,19 +357,18 @@ export function useResendChallengeMutation(): UseMutationResult<
     unknown,
     ResendChallengeVariables
 > {
-    const { verification } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ challengeId, channel }: ResendChallengeVariables) =>
-            verification.resendChallenge(
+            repositories.verification.resendChallenge(
                 channel === undefined
                     ? { challengeId }
-                    : // The channel union is the contract's; the variables keep it as a string so
-                      // this module needs no second copy of it.
-                      ({ challengeId, channel } as Parameters<
-                          typeof verification.resendChallenge
-                      >[0]),
+                    : // The channel union is the contract's; the variables keep it as a plain
+                      // string so a caller holding a channel from a panel's own view type passes it
+                      // straight through rather than converting between two spellings of one thing.
+                      ({ challengeId, channel } as ResendOtpRequest),
             ),
         onSuccess: (challenge, variables) => {
             queryClient.removeQueries({
@@ -368,12 +389,12 @@ export function useVerifyChallengeMutation(): UseMutationResult<
     unknown,
     VerifyChallengeVariables
 > {
-    const { verification } = useAccountRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ challengeId, code }: VerifyChallengeVariables) =>
-            verification.verifyChallenge({ challengeId, code }),
+            repositories.verification.verifyChallenge({ challengeId, code }),
         onSuccess: async (_result, variables) => {
             // The challenge is consumed. Keeping it cached would let a stale render offer a resend
             // for something that has already succeeded.

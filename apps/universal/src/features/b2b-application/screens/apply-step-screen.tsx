@@ -1,3 +1,9 @@
+import type {
+    B2BApplication,
+    B2BApplicationSection,
+    B2BDocumentKind,
+    B2BSectionPayload,
+} from '@healthy360/api-client/contracts';
 import type { PickedFile } from '@healthy360/design-system';
 import {
     Button,
@@ -25,12 +31,6 @@ import {
 } from '../../../data/b2b-application-hooks.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { DocumentSlotList, buildSlots } from '../document-slot-list.tsx';
-import type {
-    B2BApplication,
-    B2BApplicationSection,
-    B2BDocumentKind,
-    B2BSectionPayload,
-} from '../repositories-shim.ts';
 import {
     B2B_STEP_COUNT,
     isApplicantEditable,

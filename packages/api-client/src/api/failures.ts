@@ -2,10 +2,15 @@ import type { ApiFailure, ValidationFields } from '../contracts/failure.ts';
 import {
     apiFailure,
     conflictFailure,
+    otpCooldownFailure,
+    otpInvalidFailure,
+    otpLockedFailure,
     permissionDeniedFailure,
     rateLimitFailure,
     validationFailure,
 } from '../contracts/failure.ts';
+import { OTP_CHANNELS } from '../contracts/verification.ts';
+import type { OtpChannel } from '../contracts/verification.ts';
 import type { ErrorCode, ErrorEnvelope } from '../generated/types.ts';
 
 /**
@@ -73,6 +78,55 @@ function readCurrentLockVersion(details: unknown): number | undefined {
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
+/**
+ * `details.attempts_remaining` → the number the panel prints after a wrong code.
+ *
+ * `0` when the server did not send one, and that is the safe direction rather than the convenient
+ * one: a missing count means the client cannot promise another try, and a panel that invented a
+ * spare attempt would invite the keystroke that locks the account.
+ */
+function readAttemptsRemaining(details: unknown): number {
+    if (!isRecord(details)) return 0;
+    const value = details['attempts_remaining'];
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+/**
+ * `details.locked_until` → when the lockout lifts.
+ *
+ * Falls back to *now* rather than to a fabricated future instant. A lockout screen counting down
+ * from a number nobody sent would be counting down to nothing; showing it as already lifted at
+ * least makes the missing field visible the moment somebody presses the button and is refused
+ * again.
+ */
+function readLockedUntil(details: unknown): string {
+    const value = isRecord(details) ? details['locked_until'] : undefined;
+    return typeof value === 'string' && value !== '' ? value : new Date().toISOString();
+}
+
+/**
+ * `details.available_channels` → the escape hatch a lockout offers.
+ *
+ * The wire sends either bare strings or `{ channel, simulated }` objects depending on the endpoint,
+ * so both are read. Anything that is not a channel this build knows is dropped: an empty list is a
+ * statement the screen can make ("there is nothing else to try"), and a list containing a string
+ * nobody can render is not.
+ */
+function readAvailableChannels(details: unknown): readonly OtpChannel[] {
+    const raw = isRecord(details) ? details['available_channels'] : undefined;
+    if (!Array.isArray(raw)) return [];
+
+    const channels: OtpChannel[] = [];
+    for (const entry of raw) {
+        const candidate =
+            typeof entry === 'string' ? entry : isRecord(entry) ? entry['channel'] : undefined;
+        if (typeof candidate !== 'string') continue;
+        if ((OTP_CHANNELS as readonly string[]).includes(candidate))
+            channels.push(candidate as OtpChannel);
+    }
+    return channels;
+}
+
 function readRetryAfter(headerValue: string | null, details: unknown): number {
     const fromHeader = headerValue === null ? Number.NaN : Number.parseInt(headerValue, 10);
     if (Number.isFinite(fromHeader) && fromHeader >= 0) return fromHeader;
@@ -96,16 +150,19 @@ function readRetryAfter(headerValue: string | null, details: unknown): number {
  * |----------------------------|----------------------------|--------------------------------------------|
  * | `auth.two_factor_invalid`  | `validation.failed` (code) | exactly what the mock does: the field is wrong, not the session |
  * | `auth.csrf_token_mismatch` | `auth.unauthenticated`     | session-only; a bearer client that sees it has no usable credential |
+ * | `otp.locked`               | `otp.attempts_exceeded`    | the same sentence to a screen — locked, until *this*, try *these* |
+ * | `context.branch_required`  | `context.organisation_required` | the picker is the same picker; the branch step is inside it |
+ * | `catalogue.*` (five)       | `validation.failed`        | publish/version/allergen refusals name the row, and the editors already render field messages |
  * | anything else              | `server`                   | see `mapErrorEnvelope` |
  *
  * `authz.permission_denied` and `resource.conflict` are one-for-one too, but they carry structured
  * detail and so get their own branches in `mapErrorEnvelope` rather than a row here — the same
  * reason `validation.failed` and `rate_limit.exceeded` are excluded from the derived type below.
+ * Three of the five `otp.*` codes are in that category as well.
  *
- * `request.precondition_required` is listed even though the *current* generated `ErrorCode` union
- * has no such member: the backend enum gains it with K1's first `If-Match`-guarded endpoint (plan
- * §4.13/§4.17), and having the row here already means the day it appears on the wire the client
- * speaks it rather than flattening a 428 onto `server`.
+ * The ten journey codes (`contact.already_in_use` … `b2b.signatory_required`) are one-for-one and
+ * carry nothing but the base three, so they are plain rows: the screen behaviour each one buys is
+ * documented on `API_FAILURE_CODES`, and none of them needs a number the message does not carry.
  */
 const DIRECT_CODES = {
     'validation.failed': 'validation.failed',
@@ -119,7 +176,24 @@ const DIRECT_CODES = {
     'context.branch_out_of_scope': 'context.branch_out_of_scope',
     'resource.not_found': 'resource.not_found',
     'request.precondition_required': 'request.precondition_required',
+    'request.idempotency_key_reused': 'request.idempotency_key_reused',
     'rate_limit.exceeded': 'rate_limit.exceeded',
+
+    // J1's OTP surface. `otp.invalid`, `otp.cooldown_active` and `otp.attempts_exceeded` are not
+    // here: each carries structured detail and is built by its own branch below.
+    'otp.expired': 'otp.expired',
+    'otp.channel_unavailable': 'otp.channel_unavailable',
+
+    // The ten journey rejections (J1, G1, B1).
+    'contact.already_in_use': 'contact.already_in_use',
+    'account.verification_required': 'account.verification_required',
+    'address.area_not_served': 'address.area_not_served',
+    'guest.session_invalid': 'guest.session_invalid',
+    'cart.line_refused': 'cart.line_refused',
+    'order.placement_refused': 'order.placement_refused',
+    'b2b.application_state_invalid': 'b2b.application_state_invalid',
+    'b2b.documents_incomplete': 'b2b.documents_incomplete',
+    'b2b.signatory_required': 'b2b.signatory_required',
 } as const;
 
 export interface ErrorEnvelopeContext {
@@ -194,6 +268,55 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
         });
     }
 
+    /* ── the three OTP codes that carry structured detail ───────────────────────────────────────
+     *
+     * Each is built through the contract's own builder rather than through `apiFailure`, so the
+     * detail the panel branches on is present by construction and the mock and the wire produce
+     * byte-identical failures. `otp.locked` joins `otp.attempts_exceeded` because the two are one
+     * outcome with two backend causes: too many wrong codes, or a lock the limiter applied. The
+     * screen shows the same thing and offers the same escape.
+     */
+    if (code === 'otp.invalid') {
+        return otpInvalidFailure(readAttemptsRemaining(details), { message, correlationId });
+    }
+
+    if (code === 'otp.cooldown_active') {
+        return otpCooldownFailure(readRetryAfter(context.retryAfterHeader ?? null, details), {
+            message,
+            correlationId,
+        });
+    }
+
+    if (code === 'otp.attempts_exceeded' || code === 'otp.locked') {
+        return otpLockedFailure(readLockedUntil(details), readAvailableChannels(details), {
+            message,
+            correlationId,
+        });
+    }
+
+    /**
+     * The branch picker is one control, and the branch step lives inside it. A client that told
+     * these two apart would draw the same screen twice.
+     */
+    if (code === 'context.branch_required') {
+        return apiFailure('context.organisation_required', { message, correlationId });
+    }
+
+    /**
+     * K1's five catalogue refusals. Every one of them names a row or a field the editor already
+     * renders messages against — an ingredient still in use, a published version somebody tried to
+     * edit, an unmapped allergen blocking a publish — so they reach the screen as a validation
+     * failure carrying the server's own sentence rather than as a generic `server`, which would
+     * hide the reason the save was refused.
+     */
+    if (code.startsWith('catalogue.')) {
+        const fields = readValidationFields(details);
+        return validationFailure(Object.keys(fields).length > 0 ? fields : { form: [message] }, {
+            message,
+            correlationId,
+        });
+    }
+
     const direct = DIRECT_CODES[code as keyof typeof DIRECT_CODES] as
         Exclude<keyof typeof DIRECT_CODES, 'validation.failed' | 'rate_limit.exceeded'> | undefined;
 
@@ -220,11 +343,32 @@ export const WIRE_ERROR_CODES: readonly ErrorCode[] = [
     'context.organisation_required',
     'context.organisation_forbidden',
     'context.branch_out_of_scope',
+    'context.branch_required',
     'authz.permission_denied',
     'request.invalid',
     'request.precondition_required',
+    'request.idempotency_key_reused',
     'resource.not_found',
     'resource.conflict',
+    'catalogue.in_use',
+    'catalogue.version_immutable',
+    'catalogue.allergen_unmapped',
+    'catalogue.publish_blocked',
+    'otp.invalid',
+    'otp.expired',
+    'otp.attempts_exceeded',
+    'otp.cooldown_active',
+    'otp.locked',
+    'otp.channel_unavailable',
+    'contact.already_in_use',
+    'account.verification_required',
+    'address.area_not_served',
+    'guest.session_invalid',
+    'cart.line_refused',
+    'order.placement_refused',
+    'b2b.application_state_invalid',
+    'b2b.documents_incomplete',
+    'b2b.signatory_required',
     'rate_limit.exceeded',
     'server.internal_error',
 ];

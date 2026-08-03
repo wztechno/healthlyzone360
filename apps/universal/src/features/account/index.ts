@@ -14,8 +14,11 @@
  *   see the TODO on `AllergyPicker` for what the pre-fill wave does with them.
  * * **The pure modules** (`./dietary.ts`, `./consents.ts`, `./phone.ts`) carry every rule worth
  *   testing without a rendered tree, which is the same split `features/commerce` uses.
- * * **`./repositories-shim.ts` is not exported.** It is temporary scaffolding that the integrator
- *   wave deletes, and nothing outside `data/account-hooks.ts` should learn to depend on it.
+ * * **No repositories, and no contract types.** The account and verification contracts are members
+ *   of the `Repositories` bundle, so a consumer reaches them through `data/account-hooks.ts` and
+ *   takes their types from `@healthy360/api-client/contracts` directly. This module re-exporting
+ *   them would put a second name on one contract and invite a screen to import the feature when
+ *   what it wanted was the package.
  */
 
 export { AllergyPicker } from './allergy-picker.tsx';

@@ -1,4 +1,4 @@
-import type { AllergenDeclaration, AllergenSeverity, DietaryProfile } from './repositories-shim.ts';
+import type { AllergenDeclaration, DietaryProfile } from '@healthy360/api-client/contracts';
 
 /**
  * The allergy declaration's rules, as functions rather than as branches inside a screen.
@@ -10,18 +10,15 @@ import type { AllergenDeclaration, AllergenSeverity, DietaryProfile } from './re
  */
 
 /**
- * The three severities, restated.
+ * The three severities.
  *
- * `contracts/account.ts` declares `ALLERGEN_SEVERITIES` and the contracts module is not exported
- * from the package yet (see `./repositories-shim.ts`), so the array is restated here while the type
- * is still derived from the contract. When the integrator wave exports the contracts, this becomes
- * a re-export and the `satisfies` below stops it having drifted in the meantime.
+ * A re-export rather than a second array. This module carried its own copy — kept honest by a
+ * `satisfies` — for as long as `contracts/account.ts` was a standalone contract the application
+ * could not import from. It can now, and a severity vocabulary that exists twice is a vocabulary
+ * that can disagree with the one the server validates against, which would surface as a declaration
+ * that saves and then cannot be read back.
  */
-export const ALLERGEN_SEVERITIES = [
-    'avoidance',
-    'intolerance',
-    'allergy',
-] as const satisfies readonly AllergenSeverity[];
+export { ALLERGEN_SEVERITIES } from '@healthy360/api-client/contracts';
 
 /** Only a declared `allergy` is a hard exclusion; the other two are filters a person may pass. */
 export function isHardExclusion(declaration: AllergenDeclaration): boolean {

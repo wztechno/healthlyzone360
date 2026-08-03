@@ -38,6 +38,33 @@ export const fontFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
     },
 };
 
+/**
+ * Display family — Space Grotesk (mood board Option 02) for headings, KPIs and numeric emphasis.
+ *
+ * Only its 500 and 700 cuts are shipped, so `regular`/`medium` both resolve to 500 and
+ * `semibold`/`bold` to 700. Space Grotesk carries no Arabic glyphs, so the web stack lists
+ * `IBM Plex Sans Arabic` next: font fallback is per-glyph on the web, so a mixed heading renders its
+ * Latin in Grotesk and its Arabic in Plex without a second class. On native (one family, no per-glyph
+ * fallback) the {@link Heading} applies the display face only in Latin locales, so Arabic headings
+ * keep Plex there too.
+ */
+export const displayFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
+    latin: {
+        regular: 'SpaceGrotesk_500Medium',
+        medium: 'SpaceGrotesk_500Medium',
+        semibold: 'SpaceGrotesk_700Bold',
+        bold: 'SpaceGrotesk_700Bold',
+        stack: "'Space Grotesk', 'IBM Plex Sans Arabic', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    },
+    arabic: {
+        regular: 'IBMPlexSansArabic_600SemiBold',
+        medium: 'IBMPlexSansArabic_600SemiBold',
+        semibold: 'IBMPlexSansArabic_700Bold',
+        bold: 'IBMPlexSansArabic_700Bold',
+        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
+    },
+};
+
 /** Line-height multipliers, per script. Applied to the font size to get a line height. */
 export const lineHeightMultipliers: Readonly<Record<Script, number>> = {
     latin: 1.5,

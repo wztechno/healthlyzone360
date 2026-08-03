@@ -93,7 +93,7 @@ async function renderAccount(
 
 /** Everything the seeded world needs for `canActivate` to be true. */
 async function completeSetup(repositories: MockRepositories): Promise<void> {
-    const areas = await repositories.accountServiceAreas();
+    const areas = await repositories.account.listServiceAreas();
     await repositories.account.addAddress({
         label: 'Home',
         areaId: areas[0]!.id as never,
@@ -275,7 +275,7 @@ describe('PhoneScreen', () => {
 describe('AddressEditorScreen', () => {
     it('saves an address against a chosen service area, never free text', async () => {
         const { repositories } = await renderAccount(<AddressEditorScreen addressId="new" />);
-        const areas = await repositories.accountServiceAreas();
+        const areas = await repositories.account.listServiceAreas();
         const area = areas[2]!;
 
         await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Home');

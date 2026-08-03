@@ -11,6 +11,7 @@ import { Platform } from 'react-native';
 
 import { appConfig } from '../config.ts';
 import { i18n } from '../i18n.ts';
+import { appGuestTokenStore } from '../session/guest-storage.ts';
 import { createKeyValueStore, createSessionTokenStore } from '../session/storage.ts';
 
 /** `X-Client-Platform`, and the platform recorded against the device on `POST /auth/token`. */
@@ -134,6 +135,11 @@ export function AppRepositoryProvider({
             appEnv: appConfig.appEnv,
             scenario,
             tokenStore,
+            // Supplied rather than left to the factory's memory fallback, because the guest
+            // repository *writes* this token and `data/guest-hooks.ts` subscribes to it. Two stores
+            // would be two answers to "is there a guest session", and the checkout would never see
+            // the one it had just started.
+            guestTokenStore: appGuestTokenStore,
             keyValueStorage: createKeyValueStore(),
             baseUrl: appConfig.apiUrl,
             appMode: appConfig.appMode,

@@ -5,6 +5,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import type { ReactNode } from 'react';
 
 import { AppProviders } from '../../providers.tsx';
+import { appGuestTokenStore } from '../../session/guest-storage.ts';
 import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
 import { servedAreas } from '../commerce/delivery.ts';
 import { validateGuestContact } from './contact.ts';
@@ -17,8 +18,14 @@ import { GuestOrderScreen } from './screens/guest-order-screen.tsx';
  *
  * Speed-mode coverage: the seven decisions this slice exists to make, plus the one pure rule a
  * rendered tree would only obscure. Screens are rendered over `createMockRepositories`, which
- * carries the guest repository as extra fields — so this suite exercises the same resolution path
- * the application uses, including the shim's runtime probe.
+ * satisfies the same `Repositories` bundle the application resolves at runtime, so this suite
+ * exercises the real path into `guest` rather than a stand-in for it.
+ *
+ * Every world built here is handed `appGuestTokenStore`, exactly as `data/repository-provider.tsx`
+ * hands it to `createRepositories`. Injecting repositories bypasses that factory, so without it the
+ * repository would write its own store while `useGuestToken` subscribed to the application's — two
+ * answers to "is there a guest session", and every screen gated on the token would render as though
+ * there were none.
  *
  * The OTP path uses `MOCK_OTP_CODE` and nothing else about the code is faked: the expiry, the
  * attempt budget, the cooldown and the supersession rule are the store's real mechanics, imported
@@ -50,6 +57,10 @@ beforeEach(() => {
     routerMock.__push.mockClear();
     globalThis.localStorage?.clear();
     globalThis.sessionStorage?.clear();
+    // The guest store caches its token in memory so that a blocked `sessionStorage` degrades to a
+    // checkout that works until the tab closes. Clearing the backing storage therefore does not
+    // reset it, and a token minted by one test would still be readable by the next.
+    appGuestTokenStore.clear();
 });
 
 interface Harness {
@@ -65,6 +76,7 @@ async function renderGuest(
         scenario: 'consumer-prototype',
         latencyMs: 0,
         tokenStore,
+        guestTokenStore: appGuestTokenStore,
     });
     if (seed !== undefined) await seed(repositories);
 
@@ -381,6 +393,7 @@ describe('the confirmation', () => {
         const repositories = createMockRepositories({
             scenario: 'consumer-prototype',
             latencyMs: 0,
+            guestTokenStore: appGuestTokenStore,
         });
         await verifiedSession(repositories);
         const cart = await repositories.commerce.getCart();

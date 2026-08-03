@@ -1,4 +1,5 @@
 import { createMemoryTokenStore } from '@healthy360/api-client';
+import type { B2BApplication, B2BApplicationState } from '@healthy360/api-client/contracts';
 import { B2B_FIXTURES, B2bMockStore, createMockRepositories } from '@healthy360/api-client/mock';
 import type { MockRepositories } from '@healthy360/api-client/mock';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -11,7 +12,6 @@ import { i18n } from '../../i18n.ts';
 import { AppProviders } from '../../providers.tsx';
 import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
 import { AgreementPanel } from './agreement-panel.tsx';
-import type { B2BApplication, B2BApplicationState } from './repositories-shim.ts';
 import { firstIncompleteStep, validateSection } from './sections.ts';
 import { ApplyStepScreen } from './screens/apply-step-screen.tsx';
 import { StatusPanel } from './status-panel.tsx';
@@ -24,9 +24,9 @@ import { StatusPanel } from './status-panel.tsx';
  * genuinely supersedes, all eleven status states rendering distinctly, and a signature that cannot be
  * produced without both the authority confirmation and a step-up token.
  *
- * Screens run over `createMockRepositories`, which carries the B2B repository as an extra field, so
- * this suite exercises the same resolution path the application uses including the shim's runtime
- * probe.
+ * Screens run over `createMockRepositories`, which satisfies the same `Repositories` bundle the
+ * application resolves at runtime, so this suite exercises the real path into `b2bApplication`
+ * rather than a stand-in for it.
  *
  * ## Two conventions this file follows, and why
  *

@@ -1,4 +1,5 @@
 import type { ApiFailure } from '@healthy360/api-client';
+import type { B2BAgreement } from '@healthy360/api-client/contracts';
 import {
     Button,
     Callout,
@@ -14,7 +15,6 @@ import { View } from 'react-native';
 
 import { OtpChallengePanel } from '../verification/otp-challenge-panel.tsx';
 import type { OtpChallengeView } from '../verification/otp-challenge-panel.tsx';
-import type { B2BAgreement } from './repositories-shim.ts';
 
 /**
  * Reading an agreement and accepting it.

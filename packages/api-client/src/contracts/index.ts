@@ -1,5 +1,8 @@
+import type { AccountRepository } from './account.ts';
 import type { AuthRepository } from './auth.ts';
+import type { B2BApplicationRepository } from './b2b-application.ts';
 import type { BusinessRepository } from './business.ts';
+import type { GuestRepository } from './guest.ts';
 import type { CommerceRepository } from './commerce.ts';
 import type { FoodRepository } from './foods.ts';
 import type { KitchenAdminRepository } from './kitchen-admin.ts';
@@ -8,6 +11,7 @@ import type { NutritionRepository } from './nutrition.ts';
 import type { MealPlanRepository } from './planner.ts';
 import type { ProfessionalRepository } from './professional.ts';
 import type { ContextRepository, DeviceRepository, SessionRepository } from './session.ts';
+import type { VerificationRepository } from './verification.ts';
 import type { VirtualDietitianRepository } from './virtual-dietitian.ts';
 
 export {
@@ -21,9 +25,16 @@ export {
     isApiFailureCode,
     isAutoRetryable,
     isConflictFailure,
+    isOtpCooldownFailure,
+    isOtpFailure,
+    isOtpInvalidFailure,
+    isOtpLockedFailure,
     isPermissionDeniedFailure,
     isRateLimitFailure,
     isValidationFailure,
+    otpCooldownFailure,
+    otpInvalidFailure,
+    otpLockedFailure,
     permissionDeniedFailure,
     rateLimitFailure,
     throwFailure,
@@ -170,6 +181,7 @@ export type {
     VirtualDietitianRepository,
 } from './virtual-dietitian.ts';
 
+export { ORDER_STATES } from './commerce.ts';
 export type {
     AddCartItemRequest,
     Cart,
@@ -182,7 +194,11 @@ export type {
     DeliveryAddress,
     DeliverySlot,
     OrderReference,
+    OrderState,
     PauseSubscriptionRequest,
+    PlaceOrderRequest,
+    PlacedOrder,
+    PlacedOrderLine,
     PreviewCheckoutRequest,
     PriceLine,
     SkipDayRequest,
@@ -322,6 +338,136 @@ export type {
     SetOverrideRequest,
 } from './professional.ts';
 
+/* ------------------------------------------------------------------------------------------------
+ * The four journey contracts (J1, G1, B1), registered by the integrator wave.
+ *
+ * Each was declared standalone and unregistered while its mock world and its screens were built,
+ * for the reason each file's header gives: adding a required field to a bundle nothing satisfies
+ * breaks every consumer at once. Both implementations now exist — the fixture worlds under
+ * `../mock/{account,guest,b2b-application}/` and the HTTP repositories under `../api/` — so the
+ * fields are required like the other thirteen and the three application-side shims that probed for
+ * them are deleted.
+ * ---------------------------------------------------------------------------------------------- */
+
+export { CONTACT_KINDS, OTP_CHANNELS, OTP_PURPOSES } from './verification.ts';
+export type {
+    AddContactPointRequest,
+    ContactKind,
+    ContactPoint,
+    ContactPointAdded,
+    IssueOtpRequest,
+    OtpChallenge,
+    OtpChannel,
+    OtpPurpose,
+    OtpVerificationResult,
+    ResendOtpRequest,
+    VerificationRepository,
+    VerifyOtpRequest,
+} from './verification.ts';
+
+export { ACCOUNT_CHECKLIST_STEPS, ACCOUNT_LIFECYCLES, ALLERGEN_SEVERITIES } from './account.ts';
+export type {
+    AccountChecklistItem,
+    AccountChecklistStep,
+    AccountLifecycle,
+    AccountOverview,
+    AccountRepository,
+    AccountServiceArea,
+    AccountSetupChecklist,
+    AllergenDeclaration,
+    AllergenSeverity,
+    ConsentDefinition,
+    ConsentState,
+    CustomerAccount,
+    CustomerAddress,
+    DietaryProfile,
+    SaveAddressRequest,
+    SaveDietaryProfileRequest,
+    SetConsentRequest,
+} from './account.ts';
+
+export {
+    GUEST_CAPABILITIES,
+    GUEST_ORDER_STATES,
+    GUEST_PAYMENT_METHODS,
+    GUEST_SESSION_GRADES,
+} from './guest.ts';
+export type {
+    ConfirmGuestContactRequest,
+    ConfirmGuestDeletionRequest,
+    ConvertGuestRequest,
+    GuestCapability,
+    GuestCheckoutDraft,
+    GuestContact,
+    GuestContactChallenge,
+    GuestConversionPrefill,
+    GuestConversionResult,
+    GuestDeletionAcknowledgement,
+    GuestDeletionOutcome,
+    GuestOrder,
+    GuestOrderLine,
+    GuestOrderState,
+    GuestPaymentMethod,
+    GuestRepository,
+    GuestSession,
+    GuestSessionGrade,
+    RequestGuestDeletionRequest,
+    StartGuestSessionRequest,
+    UpdateGuestContactRequest,
+} from './guest.ts';
+
+export {
+    AGREEMENT_SIGNATURE_KINDS,
+    AGREEMENT_STATUSES,
+    B2B_APPLICATION_SECTIONS,
+    B2B_APPLICATION_STATES,
+    B2B_BUSINESS_TYPES,
+    B2B_DELIVERY_WINDOWS,
+    B2B_DOCUMENT_KINDS,
+    B2B_ORDER_FREQUENCIES,
+    B2B_PAYMENT_TERMS,
+    B2B_PRODUCT_CATEGORIES,
+    B2B_VOLUME_BANDS,
+    KYC_REJECTION_REASONS,
+    KYC_REVIEW_STATUSES,
+    PROVISIONING_STEPS,
+} from './b2b-application.ts';
+export type {
+    AgreementSignatureKind,
+    AgreementStatus,
+    AgreementTerms,
+    B2BAgreement,
+    B2BApplication,
+    B2BApplicationRepository,
+    B2BApplicationSection,
+    B2BApplicationSectionState,
+    B2BApplicationSections,
+    B2BApplicationState,
+    B2BBusinessType,
+    B2BCompanySection,
+    B2BDeliveryWindow,
+    B2BDocumentKind,
+    B2BLogisticsSection,
+    B2BOrderFrequency,
+    B2BPaymentTerms,
+    B2BProductCategory,
+    B2BSectionPayload,
+    B2BSignatorySection,
+    B2BTradeTermsSection,
+    B2BVolumeBand,
+    DocumentDownload,
+    KycDocument,
+    KycRejectionReason,
+    KycReviewStatus,
+    ProvisioningProgress,
+    ProvisioningStep,
+    ProvisioningStepState,
+    ReviewerRequest,
+    SignAgreementRequest,
+    SignatureEvidence,
+    UploadDocumentRequest,
+} from './b2b-application.ts';
+
 /**
  * The complete data surface a screen may reach. Nothing else is exported to the application: a
  * screen depends on this bundle, never on a transport (plan §18).
@@ -347,12 +493,28 @@ export type {
  * `kitchenAdmin` joined in K1 as the thirteenth field. It is required like the rest — the kitchen
  * workspace is a route area, not an optional add-on, and an optional repository would put a `?.` in
  * front of every management call and stop the compiler proving the two implementations match.
+ *
+ * ## Thirteen became seventeen
+ *
+ * `verification`, `account`, `guest` and `b2bApplication` joined together in the integrator wave.
+ * They were declared standalone for two phases while their screens were built against the mock
+ * worlds, and the application reached them through three probing shims under
+ * `apps/universal/src/features/*` that resolved a field the bundle might or might not carry. That
+ * arrangement bought exactly one thing — the ability to ship the screens before the endpoints —
+ * and cost the property this bundle exists for: the compiler could not prove the two
+ * implementations covered the same surface, and in `api` mode every one of those screens called a
+ * `Proxy` that threw. The endpoints exist now, so the fields are required and the shims are gone.
  */
 export interface Repositories {
     readonly auth: AuthRepository;
     readonly session: SessionRepository;
     readonly context: ContextRepository;
     readonly devices: DeviceRepository;
+
+    readonly verification: VerificationRepository;
+    readonly account: AccountRepository;
+    readonly guest: GuestRepository;
+    readonly b2bApplication: B2BApplicationRepository;
 
     readonly marketplace: MarketplaceRepository;
     readonly nutrition: NutritionRepository;

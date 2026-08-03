@@ -1,3 +1,4 @@
+import type { AllergenDeclaration, DietaryProfile } from '@healthy360/api-client/contracts';
 import {
     Button,
     Callout,
@@ -21,7 +22,6 @@ import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AllergyPicker } from '../allergy-picker.tsx';
 import { DietaryTagsPicker } from '../dietary-tags-picker.tsx';
 import { declarationsFor, initialAllergyAnswer } from '../dietary.ts';
-import type { AllergenDeclaration, DietaryProfile } from '../repositories-shim.ts';
 
 /**
  * `/customer/account/allergies` — the store of record for what a person cannot eat.

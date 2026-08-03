@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4385 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4395 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1680,16 +1680,25 @@ export interface NamespaceKeys {
     | 'table.sortedAscending'
     | 'table.sortedDescending';
   readonly "errors":
+    | 'failure.account_verification_required'
+    | 'failure.address_area_not_served'
     | 'failure.auth_email_unverified'
     | 'failure.auth_invalid_credentials'
     | 'failure.auth_step_up_required'
     | 'failure.auth_two_factor_required'
     | 'failure.auth_unauthenticated'
     | 'failure.authz_permission_denied'
+    | 'failure.b2b_application_state_invalid'
+    | 'failure.b2b_documents_incomplete'
+    | 'failure.b2b_signatory_required'
+    | 'failure.cart_line_refused'
+    | 'failure.contact_already_in_use'
     | 'failure.context_branch_out_of_scope'
     | 'failure.context_organisation_forbidden'
     | 'failure.context_organisation_required'
+    | 'failure.guest_session_invalid'
     | 'failure.network'
+    | 'failure.order_placement_refused'
     | 'failure.otp_attempts_exceeded'
     | 'failure.otp_channel_unavailable'
     | 'failure.otp_cooldown_active'
@@ -1697,6 +1706,7 @@ export interface NamespaceKeys {
     | 'failure.otp_invalid'
     | 'failure.prototype_not_implemented'
     | 'failure.rate_limit_exceeded'
+    | 'failure.request_idempotency_key_reused'
     | 'failure.request_precondition_required'
     | 'failure.resource_conflict'
     | 'failure.resource_not_found'
@@ -6084,16 +6094,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:table.sortBy',
   'designSystem:table.sortedAscending',
   'designSystem:table.sortedDescending',
+  'errors:failure.account_verification_required',
+  'errors:failure.address_area_not_served',
   'errors:failure.auth_email_unverified',
   'errors:failure.auth_invalid_credentials',
   'errors:failure.auth_step_up_required',
   'errors:failure.auth_two_factor_required',
   'errors:failure.auth_unauthenticated',
   'errors:failure.authz_permission_denied',
+  'errors:failure.b2b_application_state_invalid',
+  'errors:failure.b2b_documents_incomplete',
+  'errors:failure.b2b_signatory_required',
+  'errors:failure.cart_line_refused',
+  'errors:failure.contact_already_in_use',
   'errors:failure.context_branch_out_of_scope',
   'errors:failure.context_organisation_forbidden',
   'errors:failure.context_organisation_required',
+  'errors:failure.guest_session_invalid',
   'errors:failure.network',
+  'errors:failure.order_placement_refused',
   'errors:failure.otp_attempts_exceeded',
   'errors:failure.otp_channel_unavailable',
   'errors:failure.otp_cooldown_active',
@@ -6101,6 +6120,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.otp_invalid',
   'errors:failure.prototype_not_implemented',
   'errors:failure.rate_limit_exceeded',
+  'errors:failure.request_idempotency_key_reused',
   'errors:failure.request_precondition_required',
   'errors:failure.resource_conflict',
   'errors:failure.resource_not_found',

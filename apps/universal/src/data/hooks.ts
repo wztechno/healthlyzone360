@@ -18,7 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 
-import { useGuestRepositories } from '../features/guest/repositories-shim.ts';
+import { appGuestTokenStore } from '../session/guest-storage.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 import { queryKeys } from './query-keys.ts';
 
@@ -98,7 +98,6 @@ export function useEmailVerificationQuery(
 export function useLoginMutation(): UseMutationResult<LoginResult, unknown, LoginRequest> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
-    const { tokenStore: guestTokenStore } = useGuestRepositories();
 
     return useMutation({
         mutationFn: (request: LoginRequest) => repositories.auth.login(request),
@@ -109,7 +108,7 @@ export function useLoginMutation(): UseMutationResult<LoginResult, unknown, Logi
                 // person is one credential too many: the guest token would keep resolving, and the
                 // cached guest session would keep a name, a contact and a delivery address on a
                 // device whose owner is now a signed-in account holder with a real one.
-                guestTokenStore.clear();
+                appGuestTokenStore.clear();
                 queryClient.removeQueries({ queryKey: queryKeys.guest.all() });
                 await queryClient.invalidateQueries({ queryKey: queryKeys.me() });
             }

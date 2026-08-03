@@ -37,6 +37,21 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'otp.cooldown_active': 'errors:failure.otp_cooldown_active',
     'otp.attempts_exceeded': 'errors:failure.otp_attempts_exceeded',
     'otp.channel_unavailable': 'errors:failure.otp_channel_unavailable',
+    // The ten journey codes (J1, G1, B1). Each one has a screen that handles it properly — the
+    // contact form offers sign-in, the checkout restarts a dead guest session, the wizard refetches
+    // an application a reviewer has moved. These entries are what a *generic* error boundary shows
+    // when the rejection surfaces somewhere that has no such handling, so each is worded as the
+    // plainest true sentence rather than as the remedy the owning screen would offer.
+    'request.idempotency_key_reused': 'errors:failure.request_idempotency_key_reused',
+    'contact.already_in_use': 'errors:failure.contact_already_in_use',
+    'account.verification_required': 'errors:failure.account_verification_required',
+    'address.area_not_served': 'errors:failure.address_area_not_served',
+    'guest.session_invalid': 'errors:failure.guest_session_invalid',
+    'cart.line_refused': 'errors:failure.cart_line_refused',
+    'order.placement_refused': 'errors:failure.order_placement_refused',
+    'b2b.application_state_invalid': 'errors:failure.b2b_application_state_invalid',
+    'b2b.documents_incomplete': 'errors:failure.b2b_documents_incomplete',
+    'b2b.signatory_required': 'errors:failure.b2b_signatory_required',
     // Raised by every prototype API repository. The record is exhaustive over `ApiFailure['code']`,
     // so a new failure code cannot be added upstream without this table being updated — which is
     // exactly the point of typing it that way.

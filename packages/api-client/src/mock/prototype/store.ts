@@ -41,6 +41,9 @@ import type {
     DeliveryAddress,
     DeliverySlot,
     PauseSubscriptionRequest,
+    PlaceOrderRequest,
+    PlacedOrder,
+    PlacedOrderLine,
     PreviewCheckoutRequest,
     PriceLine,
     SkipDayRequest,
@@ -154,6 +157,7 @@ import {
     cartIdAt,
     mealPlanEntryIdAt,
     mealPlanIdAt,
+    orderIdAt,
     quotationIdAt,
     subscriptionIdAt,
     vdSessionIdAt,
@@ -282,6 +286,8 @@ export class PrototypeStore {
 
     readonly #plans = new Map<string, MutablePlan>();
     readonly #carts = new Map<string, MutableCart>();
+    /** Placed one-off orders, by the reference a confirmation screen quotes. */
+    readonly #orders = new Map<string, PlacedOrder>();
     readonly #subscriptions = new Map<string, Subscription>();
     readonly #sessions = new Map<string, VdSession>();
     readonly #reviews = new Map<string, ReviewQueueItem>();
@@ -297,6 +303,7 @@ export class PrototypeStore {
     #nextSessionOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextMessageOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextSubscriptionOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
+    #nextOrderOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextQuotationOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextPlanOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #historyOrdinal = 0;
@@ -1243,6 +1250,80 @@ export class PrototypeStore {
             // Structurally true, not a promise: this contract has no method that takes a payment.
             paymentDeferred: true,
         };
+    }
+
+    /**
+     * Turn the priced basket into an order, and empty the basket.
+     *
+     * The mock's honesty rule: an order that is placed has to *exist* afterwards. The guest world
+     * already worked this way — it prices through the same port, records the order and clears the
+     * lines — and this mirrors it, over the same cart the catalogue screens filled, so a person can
+     * place an order in mock mode and see the basket empty behind the confirmation. A stub that
+     * resolved with an invented reference and left the basket full would put the two screens into a
+     * state the real API can never produce.
+     *
+     * The refusals are the real ones, not decoration: an empty basket is `validation.failed` on
+     * `cartId`, and a missing address is `validation.failed` on `addressId` — which is exactly what
+     * the API repository raises before it sends anything.
+     */
+    placeOrder(request: PlaceOrderRequest): PlacedOrder {
+        const cart = this.#projectCart(this.#mutableCart(request.cartId));
+
+        if (cart.items.length === 0) {
+            throwFailure(validationFailure({ cartId: ['The basket is empty.'] }));
+        }
+        if (request.addressId.trim() === '') {
+            throwFailure(
+                validationFailure({ addressId: ['Choose a delivery address before ordering.'] }),
+            );
+        }
+
+        const quotation = this.previewCheckout({ cartId: request.cartId });
+        const ordinal = this.#nextOrderOrdinal++;
+        const id = orderIdAt(ordinal);
+
+        const lines: readonly PlacedOrderLine[] = cart.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: item.lineTotal,
+        }));
+
+        // The fixture world holds one delivery address, which is the one this person has. The
+        // identifier is still required and still validated above, because it is required against
+        // the real API and a mock that let it through would hide the failure until switch day.
+        const address = PROTOTYPE_ADDRESS;
+
+        const order: PlacedOrder = {
+            id,
+            // The human-quotable half. Ordinal rather than random so a fixture world replays
+            // identically across runs, which is what makes a snapshot test worth having.
+            reference: `H360-${String(1000 + ordinal)}`,
+            state: 'placed',
+            lines,
+            priceLines: quotation.lines,
+            total: quotation.total,
+            address,
+            slotCode: request.slotCode ?? '',
+            deliveryDate: request.deliveryDate ?? quotation.earliestDeliveryDate ?? '',
+            placedAt: PROTOTYPE_NOW,
+        };
+
+        this.#orders.set(order.reference, order);
+
+        // The basket becomes the order. Leaving the lines behind would let somebody place the same
+        // basket twice from one screen, which no real checkout allows.
+        const mutable = this.#mutableCart(request.cartId);
+        mutable.items = [];
+        mutable.updatedAt = PROTOTYPE_NOW;
+
+        return order;
+    }
+
+    /** A placed order, by the reference the confirmation screen was given. */
+    order(reference: string): PlacedOrder | null {
+        return this.#orders.get(reference) ?? null;
     }
 
     /* ── subscriptions ─────────────────────────────────────────────────────────────────────── */

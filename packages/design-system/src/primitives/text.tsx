@@ -113,7 +113,18 @@ export function Heading({
             {...rest}
             accessibilityRole="header"
             aria-level={level}
-            className={cx(HEADING_CLASS[level], TONE_CLASS[tone], ALIGN_CLASS[align], className)}
+            // Headings carry the display face (Space Grotesk). It is a *static* class rather than one
+            // chosen by a runtime `useIsRtl()` hook on purpose: a hook-driven class differs between
+            // the static web export and client hydration and throws React #418, which strands the
+            // page un-hydrated. Arabic stays legible through the display stack's per-glyph fallback to
+            // IBM Plex Sans Arabic (see typography.ts).
+            className={cx(
+                HEADING_CLASS[level],
+                'font-display',
+                TONE_CLASS[tone],
+                ALIGN_CLASS[align],
+                className,
+            )}
         >
             {children}
         </RNText>

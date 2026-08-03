@@ -7,6 +7,8 @@ import type {
     CreateSubscriptionRequest,
     CursorPage,
     PauseSubscriptionRequest,
+    PlaceOrderRequest,
+    PlacedOrder,
     PreviewCheckoutRequest,
     SkipDayRequest,
     Subscription,
@@ -164,6 +166,51 @@ export function useCheckoutPreviewQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (request === null) throw new Error('No checkout to preview.');
             return repositories.commerce.previewCheckout(request);
+        },
+    });
+}
+
+/**
+ * Place the one-off order.
+ *
+ * The only **command** in this module, and the only one that had to be written carefully.
+ *
+ * `retry: 0`, explicitly and non-negotiably. TanStack Query's default retries a failed mutation
+ * zero times already, but this is the one call in the application where a future default change
+ * would be a second dinner rather than a second request — so it is stated rather than inherited.
+ * The idempotency key that would make a retry safe is generated *inside* the repository, per
+ * attempt, which means a retry here would carry a new key and place a new order.
+ *
+ * On success the basket is gone — the server turned it into the order — so the cart entry is
+ * invalidated rather than optimistically emptied: what a basket contains after a placement is the
+ * server's answer, and a client that emptied its own copy would be right until it was not.
+ *
+ * ## No screen calls this yet, and that is the honest state
+ *
+ * `POST /orders` requires a **saved address identifier**, because delivery is resolved from that
+ * address's service area — a zone, a window, a fee. The checkout screen predates saved addresses:
+ * it collects a typed address that nothing resolves to an area, and the D2C fixture person
+ * deliberately has no saved address at all, because "add an address" is one of the setup steps that
+ * screen area exists to walk somebody through. Wiring the button to this hook today would replace a
+ * working prototype checkout with a blocked one, which is the one thing this phase forbids.
+ *
+ * So the plumbing lands whole — contract, both repositories, this hook, all tested — and the screen
+ * change waits for the slice that gives the checkout a saved-address picker. That slice is a design
+ * change, not an integration one.
+ */
+export function usePlaceOrderMutation(): UseMutationResult<
+    PlacedOrder,
+    unknown,
+    PlaceOrderRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: 0,
+        mutationFn: (request: PlaceOrderRequest) => repositories.commerce.placeOrder(request),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart() });
         },
     });
 }

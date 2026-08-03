@@ -1,9 +1,3 @@
-import type { CartId } from '@healthy360/domain-types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
-import { useSyncExternalStore } from 'react';
-
-import { useGuestRepositories } from '../features/guest/repositories-shim.ts';
 import type {
     ConfirmGuestContactRequest,
     ConfirmGuestDeletionRequest,
@@ -20,8 +14,15 @@ import type {
     OtpChannel,
     RequestGuestDeletionRequest,
     UpdateGuestContactRequest,
-} from '../features/guest/repositories-shim.ts';
+} from '@healthy360/api-client/contracts';
+import type { CartId } from '@healthy360/domain-types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
+import { useSyncExternalStore } from 'react';
+
+import { appGuestTokenStore } from '../session/guest-storage.ts';
 import { queryKeys } from './query-keys.ts';
+import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
 /**
  * Ordering without an account (plan Phase G1).
@@ -30,12 +31,14 @@ import { queryKeys } from './query-keys.ts';
  * and invalidation written once, and no screen ever holding a repository. Four things are specific
  * to this contract.
  *
- * ## The repository comes through a shim, and that is temporary
+ * ## The credential is imported, not taken off the bundle
  *
- * `GuestRepository` is not in the `Repositories` bundle yet, so `useGuestRepositories()`
- * (`../features/guest/repositories-shim.ts`) resolves it from the bundle when it is there and
- * refuses when it is not. The *only* line that changes when the integrator wave registers it is the
- * import at the top of this file.
+ * `appGuestTokenStore` is reached directly (`../session/guest-storage.ts`) rather than through
+ * `Repositories`, for the same reason the session token store is not a member of it either: a
+ * credential store is not a data surface, and only the application knows whether this device has a
+ * `sessionStorage` or a keychain behind it. `./repository-provider.tsx` hands that same instance to
+ * `createRepositories`, so the store the guest repository writes and the store these hooks read are
+ * one object rather than two that agree at the start and diverge on the first write.
  *
  * ## The token is subscribed to, not read
  *
@@ -71,10 +74,9 @@ export { toFailure } from './hooks.ts';
  * almost every visitor, and is why every query below is disabled without it.
  */
 export function useGuestToken(): string | null {
-    const { tokenStore } = useGuestRepositories();
     return useSyncExternalStore(
-        (listener) => tokenStore.subscribe(listener),
-        () => tokenStore.get(),
+        (listener) => appGuestTokenStore.subscribe(listener),
+        () => appGuestTokenStore.get(),
         () => null,
     );
 }
@@ -82,13 +84,16 @@ export function useGuestToken(): string | null {
 /* ── the session ─────────────────────────────────────────────────────────────────────────────── */
 
 export function useGuestSessionQuery(enabled = true): UseQueryResult<GuestSession> {
-    const { guest, ready } = useGuestRepositories();
+    const { repositories } = useRepositoryContext();
     const token = useGuestToken();
 
     return useQuery({
         queryKey: queryKeys.guest.session(),
-        enabled: enabled && ready && token !== null,
-        queryFn: () => guest.getSession(),
+        enabled: enabled && repositories !== null && token !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.guest.getSession();
+        },
         // A dead token stays dead. See the header.
         retry: false,
     });
@@ -99,12 +104,12 @@ export function useStartGuestSessionMutation(): UseMutationResult<
     unknown,
     { readonly cartId?: CartId | undefined } | undefined
 > {
-    const { guest } = useGuestRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (request?: { readonly cartId?: CartId | undefined }) =>
-            guest.startSession(request),
+            repositories.guest.startSession(request),
         onSuccess: (session) => {
             // Seeded rather than invalidated: the answer *is* the session, and a refetch would
             // second-guess the one call that just created it. The token it carries is stripped —
@@ -121,11 +126,12 @@ export function useUpdateGuestContactMutation(): UseMutationResult<
     unknown,
     UpdateGuestContactRequest
 > {
-    const { guest } = useGuestRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: UpdateGuestContactRequest) => guest.updateContact(request),
+        mutationFn: (request: UpdateGuestContactRequest) =>
+            repositories.guest.updateContact(request),
         onSuccess: (result) => {
             if (result.challenge !== null) {
                 queryClient.setQueryData(
@@ -145,11 +151,12 @@ export function useConfirmGuestContactMutation(): UseMutationResult<
     unknown,
     ConfirmGuestContactRequest
 > {
-    const { guest } = useGuestRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: ConfirmGuestContactRequest) => guest.confirmContact(request),
+        mutationFn: (request: ConfirmGuestContactRequest) =>
+            repositories.guest.confirmContact(request),
         onSuccess: (session) => {
             queryClient.setQueryData(queryKeys.guest.session(), session);
         },
@@ -166,12 +173,16 @@ export function useGuestChallengeQuery(
     challengeId: string | null,
     enabled = true,
 ): UseQueryResult<OtpChallenge> {
-    const { getChallenge, ready } = useGuestRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.guest.challenge(challengeId ?? ''),
-        enabled: enabled && ready && challengeId !== null,
-        queryFn: () => getChallenge(challengeId ?? ''),
+        enabled: enabled && repositories !== null && challengeId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (challengeId === null) throw new Error('No challenge to read.');
+            return repositories.guest.getChallenge({ challengeId });
+        },
     });
 }
 
@@ -180,14 +191,14 @@ export function useResendGuestChallengeMutation(): UseMutationResult<
     unknown,
     { readonly challengeId: string; readonly channel?: OtpChannel | undefined }
 > {
-    const { resendChallenge } = useGuestRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (request: {
             readonly challengeId: string;
             readonly channel?: OtpChannel | undefined;
-        }) => resendChallenge(request.challengeId, request.channel),
+        }) => repositories.guest.resendChallenge(request),
         onSuccess: (next) => {
             // A resend supersedes: the answer carries a **new** identifier and the previous
             // challenge stops verifying. So the new key is seeded and the old one is left alone —
@@ -204,11 +215,11 @@ export function usePlaceGuestOrderMutation(): UseMutationResult<
     unknown,
     GuestCheckoutDraft
 > {
-    const { guest } = useGuestRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (draft: GuestCheckoutDraft) => guest.placeOrder(draft),
+        mutationFn: (draft: GuestCheckoutDraft) => repositories.guest.placeOrder(draft),
         onSuccess: (order) => {
             queryClient.setQueryData(queryKeys.guest.order(order.reference), order);
             // The basket became the order. Anything still holding the old cart is now wrong, and a
@@ -224,12 +235,16 @@ export function useGuestOrderQuery(
     reference: string | null,
     enabled = true,
 ): UseQueryResult<GuestOrder> {
-    const { guest, ready } = useGuestRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.guest.order(reference ?? ''),
-        enabled: enabled && ready && reference !== null && reference.length > 0,
-        queryFn: () => guest.getOrder(reference ?? ''),
+        enabled: enabled && repositories !== null && reference !== null && reference.length > 0,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (reference === null) throw new Error('No order to read.');
+            return repositories.guest.getOrder(reference);
+        },
     });
 }
 
@@ -238,13 +253,16 @@ export function useGuestOrderQuery(
 export function useGuestConversionPrefillQuery(
     enabled = true,
 ): UseQueryResult<GuestConversionPrefill> {
-    const { guest, ready } = useGuestRepositories();
+    const { repositories } = useRepositoryContext();
     const token = useGuestToken();
 
     return useQuery({
         queryKey: queryKeys.guest.conversionPrefill(),
-        enabled: enabled && ready && token !== null,
-        queryFn: () => guest.getConversionPrefill(),
+        enabled: enabled && repositories !== null && token !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.guest.getConversionPrefill();
+        },
         retry: false,
     });
 }
@@ -254,11 +272,11 @@ export function useConvertGuestMutation(): UseMutationResult<
     unknown,
     ConvertGuestRequest
 > {
-    const { guest } = useGuestRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: ConvertGuestRequest) => guest.convert(request),
+        mutationFn: (request: ConvertGuestRequest) => repositories.guest.convert(request),
         onSuccess: () => {
             // The guest identity is over. The repository has already revoked the token and cleared
             // the store; removing the root rather than invalidating it is the point — an
@@ -283,10 +301,11 @@ export function useRequestGuestDeletionMutation(): UseMutationResult<
     unknown,
     RequestGuestDeletionRequest
 > {
-    const { guest } = useGuestRepositories();
+    const repositories = useRepositories();
 
     return useMutation({
-        mutationFn: (request: RequestGuestDeletionRequest) => guest.requestDeletion(request),
+        mutationFn: (request: RequestGuestDeletionRequest) =>
+            repositories.guest.requestDeletion(request),
     });
 }
 
@@ -295,16 +314,17 @@ export function useConfirmGuestDeletionMutation(): UseMutationResult<
     unknown,
     ConfirmGuestDeletionRequest
 > {
-    const { guest, tokenStore } = useGuestRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (request: ConfirmGuestDeletionRequest) => guest.confirmDeletion(request),
+        mutationFn: (request: ConfirmGuestDeletionRequest) =>
+            repositories.guest.confirmDeletion(request),
         onSuccess: () => {
             // Whatever was on this device about this person is now gone server-side; leaving a
             // token and a cached order behind would be the interface keeping a copy of what was
             // just erased.
-            tokenStore.clear();
+            appGuestTokenStore.clear();
             queryClient.removeQueries({ queryKey: queryKeys.guest.all() });
         },
     });

@@ -1,3 +1,4 @@
+import type { ConsentState } from '@healthy360/api-client/contracts';
 import {
     Accordion,
     Badge,
@@ -22,7 +23,6 @@ import {
     listableConsents,
     outstandingRequired,
 } from '../consents.ts';
-import type { ConsentState } from '../repositories-shim.ts';
 
 /**
  * `/customer/account/consents` — what a person has agreed to, in the words they agreed to.

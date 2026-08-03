@@ -196,9 +196,30 @@ export interface AccountOverview {
     readonly checklist: AccountSetupChecklist;
 }
 
+/**
+ * One area a delivery address may point at.
+ *
+ * A consumer-facing projection of the platform's service areas, and the smallest one that works:
+ * an address editor needs the identifier to send and the name to show, and nothing else.
+ * `KitchenAdminRepository.listServiceAreas` covers the same rows for a *management* audience — with
+ * zone membership, activation state and a tenant context a consumer has neither the permission nor
+ * the need for — which is why this is a separate operation rather than a shared one.
+ *
+ * It became a repository method in the integrator wave. Before that the mock bundle carried the
+ * list as a bare `accountServiceAreas` function, deliberately not shaped like a contract, because
+ * no consumer-facing endpoint published one. `GET /api/v1/reference/delivery-areas` does.
+ */
+export interface AccountServiceArea {
+    readonly id: ServiceAreaId;
+    readonly name: string;
+}
+
 export interface AccountRepository {
     getOverview(): Promise<AccountOverview>;
     getChecklist(): Promise<AccountSetupChecklist>;
+
+    /** The closed list an address editor's area select is built from. */
+    listServiceAreas(): Promise<readonly AccountServiceArea[]>;
 
     listAddresses(): Promise<readonly CustomerAddress[]>;
     addAddress(request: SaveAddressRequest): Promise<CustomerAddress>;

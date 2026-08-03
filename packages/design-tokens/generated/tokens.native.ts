@@ -10,63 +10,63 @@ export const nativeTokens = {
   "themes": {
     "light": {
       "colours": {
-        "surfaceBase": "#f7f5ef",
+        "surfaceBase": "#f7fcf9",
         "surfaceRaised": "#ffffff",
-        "surfaceSunken": "#f1f2ea",
-        "surfaceInverse": "#18221e",
-        "textPrimary": "#18221e",
-        "textSecondary": "#636c67",
-        "textDisabled": "#6b746e",
-        "textInverse": "#f7f5ef",
+        "surfaceSunken": "#edf6f0",
+        "surfaceInverse": "#14231c",
+        "textPrimary": "#1f2937",
+        "textSecondary": "#5b6673",
+        "textDisabled": "#646e7c",
+        "textInverse": "#f7fcf9",
         "textOnBrand": "#ffffff",
-        "borderSubtle": "#e7e9e2",
-        "borderDefault": "#d5dcd4",
-        "borderStrong": "#767f79",
-        "focusRing": "#174c3c",
-        "brandSurface": "#174c3c",
-        "brandSurfaceSubtle": "#eaf4df",
-        "onBrandSurfaceSubtle": "#1c5031",
-        "accentSurface": "#ac4a26",
+        "borderSubtle": "#cceeda",
+        "borderDefault": "#aaddc0",
+        "borderStrong": "#5f8f76",
+        "focusRing": "#157043",
+        "brandSurface": "#157043",
+        "brandSurfaceSubtle": "#dcfce7",
+        "onBrandSurfaceSubtle": "#14532d",
+        "accentSurface": "#6d28d9",
         "onAccentSurface": "#ffffff",
         "ratingStar": "#b57d0d",
-        "overlay": "#18221ecc"
+        "overlay": "#14231ccc"
       },
       "semantic": {
         "success": {
-          "subtle": "#e8f4ec",
-          "onSubtle": "#1b4b2e",
-          "default": "#256c41",
+          "subtle": "#dcfce7",
+          "onSubtle": "#14532d",
+          "default": "#157347",
           "onDefault": "#ffffff",
-          "strong": "#194b2d",
+          "strong": "#0f5132",
           "onStrong": "#ffffff",
-          "border": "#458060"
+          "border": "#3f9d6a"
         },
         "warning": {
-          "subtle": "#fbf1de",
-          "onSubtle": "#5a3c07",
-          "default": "#7a5209",
+          "subtle": "#fdf2d6",
+          "onSubtle": "#79480a",
+          "default": "#8a5a09",
           "onDefault": "#ffffff",
-          "strong": "#573a06",
+          "strong": "#5f3d05",
           "onStrong": "#ffffff",
-          "border": "#8a691e"
+          "border": "#b3841f"
         },
         "danger": {
-          "subtle": "#fbeceb",
-          "onSubtle": "#7a201b",
-          "default": "#a52b24",
+          "subtle": "#fde5e3",
+          "onSubtle": "#8f1f1a",
+          "default": "#c02722",
           "onDefault": "#ffffff",
-          "strong": "#761d18",
+          "strong": "#8a1c17",
           "onStrong": "#ffffff",
-          "border": "#b6534b"
+          "border": "#d16a64"
         },
         "info": {
-          "subtle": "#e9f0f8",
-          "onSubtle": "#1d3f63",
-          "default": "#2a5a8a",
+          "subtle": "#e2f1fb",
+          "onSubtle": "#0b4a6f",
+          "default": "#0369a1",
           "onDefault": "#ffffff",
-          "strong": "#1e4062",
+          "strong": "#0b4a6f",
           "onStrong": "#ffffff",
-          "border": "#4874a2"
+          "border": "#3690bf"
         }
       },
       "nutrition": {
@@ -109,25 +109,25 @@ export const nativeTokens = {
     },
     "dark": {
       "colours": {
-        "surfaceBase": "#14160f",
-        "surfaceRaised": "#1f2018",
-        "surfaceSunken": "#0e0f09",
+        "surfaceBase": "#0e1712",
+        "surfaceRaised": "#16241b",
+        "surfaceSunken": "#0a110b",
         "surfaceInverse": "#f6f7f3",
-        "textPrimary": "#f2f4ea",
-        "textSecondary": "#c6ccbf",
-        "textDisabled": "#99a298",
-        "textInverse": "#18221e",
-        "textOnBrand": "#08160f",
-        "borderSubtle": "#31352a",
-        "borderDefault": "#454b3d",
-        "borderStrong": "#767f79",
-        "focusRing": "#a8d672",
-        "brandSurface": "#a8d672",
-        "brandSurfaceSubtle": "#153a2c",
-        "onBrandSurfaceSubtle": "#bde3a6",
-        "accentSurface": "#ef9f7b",
-        "onAccentSurface": "#331410",
-        "ratingStar": "#d99614",
+        "textPrimary": "#eef4ee",
+        "textSecondary": "#bcc7be",
+        "textDisabled": "#8b968c",
+        "textInverse": "#14231c",
+        "textOnBrand": "#06160c",
+        "borderSubtle": "#26352b",
+        "borderDefault": "#3a4b3f",
+        "borderStrong": "#79877e",
+        "focusRing": "#86efac",
+        "brandSurface": "#86efac",
+        "brandSurfaceSubtle": "#153a26",
+        "onBrandSurfaceSubtle": "#b6e8c2",
+        "accentSurface": "#a78bfa",
+        "onAccentSurface": "#1e1541",
+        "ratingStar": "#e0a92a",
         "overlay": "#000000b3"
       },
       "semantic": {
@@ -159,13 +159,13 @@ export const nativeTokens = {
           "border": "#a85049"
         },
         "info": {
-          "subtle": "#132335",
-          "onSubtle": "#9dc0e2",
-          "default": "#95bbe0",
-          "onDefault": "#0f2033",
-          "strong": "#bcd5ec",
-          "onStrong": "#0f2033",
-          "border": "#456e97"
+          "subtle": "#0e2636",
+          "onSubtle": "#9fcdec",
+          "default": "#8fc4ec",
+          "onDefault": "#0a2033",
+          "strong": "#bcdcf3",
+          "onStrong": "#0a2033",
+          "border": "#3f80ad"
         }
       },
       "nutrition": {

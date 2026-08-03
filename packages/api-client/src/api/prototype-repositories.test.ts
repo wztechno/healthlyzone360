@@ -56,14 +56,20 @@ describeRepositoryContract({
 });
 
 describe('the api bundle exposes the prototype repositories', () => {
-    it('createApiRepositories returns all nine alongside the foundation four', () => {
+    /**
+     * Which repositories are still the *shared rejection object*, and which are built per bundle.
+     *
+     * The distinction is not cosmetic: a repository that holds the transport cannot be shared, so
+     * "is it the shared object" is a reliable, cheap test for "has this family been switched on".
+     * Four are built per bundle now — the marketplace since M1, and `commerce` and `kitchenAdmin`
+     * since the integrator wave, each of which overrides a *part* of an otherwise-rejecting object.
+     */
+    it('shares the still-proposed repositories and builds the switched ones per bundle', () => {
         const repositories = createApiRepositories({
             baseUrl: 'https://api.example',
             tokenStore: createMemoryTokenStore(),
         });
 
-        // The marketplace is built per bundle now — it holds the transport — so it is deliberately
-        // *not* the shared rejection object the other eight still are.
         expect(repositories.marketplace).toBeDefined();
         expect(repositories.marketplace).not.toBe(
             (API_PROTOTYPE_REPOSITORIES as Record<string, unknown>).marketplace,
@@ -72,10 +78,44 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(repositories.planner).toBe(API_PROTOTYPE_REPOSITORIES.planner);
         expect(repositories.foods).toBe(API_PROTOTYPE_REPOSITORIES.foods);
         expect(repositories.virtualDietitian).toBe(API_PROTOTYPE_REPOSITORIES.virtualDietitian);
-        expect(repositories.commerce).toBe(API_PROTOTYPE_REPOSITORIES.commerce);
         expect(repositories.business).toBe(API_PROTOTYPE_REPOSITORIES.business);
         expect(repositories.professional).toBe(API_PROTOTYPE_REPOSITORIES.professional);
-        expect(repositories.kitchenAdmin).toBe(API_PROTOTYPE_REPOSITORIES.kitchenAdmin);
+
+        // Commerce is a copy with one real method spread over it: `POST /orders` is served.
+        expect(repositories.commerce).not.toBe(API_PROTOTYPE_REPOSITORIES.commerce);
+        expect(repositories.commerce.getCart).toBe(API_PROTOTYPE_REPOSITORIES.commerce.getCart);
+        expect(repositories.commerce.placeOrder).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.commerce.placeOrder,
+        );
+
+        // The kitchen workspace is the same arrangement with its two reference reads.
+        expect(repositories.kitchenAdmin).not.toBe(API_PROTOTYPE_REPOSITORIES.kitchenAdmin);
+        expect(repositories.kitchenAdmin.createMeal).toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.createMeal,
+        );
+        expect(repositories.kitchenAdmin.listAllergenClasses).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.listAllergenClasses,
+        );
+        expect(repositories.kitchenAdmin.listServiceAreas).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.listServiceAreas,
+        );
+    });
+
+    /**
+     * The four journey repositories are real, and the cheapest proof that they are is that they do
+     * not reject the way a stub does. Their behaviour is proven against a stubbed transport in
+     * `journeys-conformance.test.ts`; this is the registration check.
+     */
+    it('carries the four journey repositories as ordinary bundle members', () => {
+        const repositories = createApiRepositories({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore(),
+        });
+
+        expect(typeof repositories.verification.issueChallenge).toBe('function');
+        expect(typeof repositories.account.getOverview).toBe('function');
+        expect(typeof repositories.guest.startSession).toBe('function');
+        expect(typeof repositories.b2bApplication.getApplication).toBe('function');
     });
 
     /**

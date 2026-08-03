@@ -32,6 +32,8 @@ import type {
     CommerceRepository,
     CreateSubscriptionRequest,
     PauseSubscriptionRequest,
+    PlaceOrderRequest,
+    PlacedOrder,
     PreviewCheckoutRequest,
     SkipDayRequest,
     Subscription,
@@ -831,6 +833,11 @@ export function createPrototypeRepositories(
         async previewCheckout(request: PreviewCheckoutRequest): Promise<CheckoutPreview> {
             await settle();
             return store.previewCheckout(request);
+        },
+
+        async placeOrder(request: PlaceOrderRequest): Promise<PlacedOrder> {
+            await settle();
+            return store.placeOrder(request);
         },
 
         async previewSubscription(

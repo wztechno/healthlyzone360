@@ -14,19 +14,11 @@ import type {
     TwoFactorChallengeRequest,
     TwoFactorSetup,
 } from '../contracts/auth.ts';
-import type { AccountRepository } from '../contracts/account.ts';
 import type { Repositories } from '../contracts/index.ts';
-import type {
-    OtpChallenge,
-    OtpChannel,
-    VerificationRepository,
-} from '../contracts/verification.ts';
 import { createAccountMockRepositories } from './account/repositories.ts';
 import type { AccountMockStore } from './account/store.ts';
-import type { B2BApplicationRepository } from '../contracts/b2b-application.ts';
 import { createB2bMockRepositories } from './b2b-application/repositories.ts';
 import type { B2bMockStore } from './b2b-application/store.ts';
-import type { GuestRepository } from '../contracts/guest.ts';
 import type { GuestTokenStore } from '../session/guest-token-store.ts';
 import { createGuestTokenStore } from '../session/guest-token-store.ts';
 import { createGuestMockRepositories } from './guest/repositories.ts';
@@ -56,6 +48,8 @@ export interface MockRepositoriesOptions {
     /** Set to `0` in unit tests. */
     readonly latencyMs?: number | undefined;
     readonly tokenStore?: SessionTokenStore | undefined;
+    /** The application's guest credential store; a fresh platform one when nobody supplies it. */
+    readonly guestTokenStore?: GuestTokenStore | undefined;
     readonly now?: Clock | undefined;
     /** Persists last-applied contexts across page loads, mirroring the real backend. */
     readonly contexts?: ContextPersistence | undefined;
@@ -71,72 +65,25 @@ export interface MockRepositories extends Repositories {
      */
     readonly prototypeStore: PrototypeStore;
 
-    /* ── J1: the account world, carried ahead of its registration ───────────────────────────────
+    /* ── the three journey worlds' mutable stores ────────────────────────────────────────────────
      *
-     * `VerificationRepository` and `AccountRepository` are not members of the required
-     * `Repositories` bundle yet (`../contracts/index.ts` says why: registering them is the same
-     * commit that writes the API-side stub, and this is not that commit). Until then the mock
-     * bundle carries them as **extra** fields.
-     *
-     * That is what lets the account screens work in mock mode without importing the mock world:
-     * the application's own ESLint guard forbids a screen or a hook from reaching into
-     * `@healthy360/api-client/mock` at all (plan §5), and it is right to. The alternative — an
-     * exemption for one shim file — would open the door the guard exists to keep shut.
-     *
-     * A consumer discovers these with a runtime `typeof` test rather than a cast, so the day they
-     * become required members of `Repositories` nothing at the call site changes.
+     * `verification`, `account`, `guest` and `b2bApplication` are **not** listed here any more:
+     * they are required members of `Repositories` since the integrator wave, so declaring them
+     * again would be repeating what the base interface already says. What remains are the stores
+     * and the guest credential — the same "exposed for tests, never for screens" arrangement
+     * `prototypeStore` has.
      */
-    readonly verification: VerificationRepository;
-    readonly account: AccountRepository;
-    /** The account world's own mutable store, on the same terms as `prototypeStore`. */
     readonly accountStore: AccountMockStore;
-    /**
-     * The closed list of areas a delivery address may point at.
-     *
-     * **A contract gap, carried explicitly rather than disguised.** `CustomerAddress.areaId` is a
-     * foreign key and the store refuses an area it does not know, so an address editor needs the
-     * list — and no consumer-facing contract operation publishes one.
-     * `KitchenAdminRepository.listServiceAreas` exists but is an organisation-scoped management
-     * surface a consumer has neither the context nor the permission for.
-     *
-     * It is a bare function rather than a repository method precisely so it cannot be mistaken for
-     * part of a contract. It disappears when `AccountRepository` gains `listServiceAreas()`, or
-     * when a public `GET /api/v1/reference/service-areas` exists.
-     */
-    readonly accountServiceAreas: () => Promise<
-        readonly { readonly id: string; readonly name: string }[]
-    >;
-
-    /* ── G1: the guest world, carried on the same terms ──────────────────────────────────────────
-     *
-     * `GuestRepository` is not in the required `Repositories` bundle yet, for the reason above, so
-     * the mock bundle carries it as extra fields and the application discovers them with a runtime
-     * `typeof` test rather than a cast (`features/guest/repositories-shim.ts`).
-     *
-     * `guestTokenStore` is exposed because the guest credential outlives no single screen: signing
-     * in, converting and requesting deletion all end the guest identity, and each of those happens
-     * somewhere that is not the checkout. `getGuestChallenge` and `resendGuestChallenge` are bare
-     * functions rather than repository methods — `GuestRepository` deliberately does not grow a
-     * second copy of the OTP surface — so they cannot be mistaken for part of a contract.
-     */
-    readonly guest: GuestRepository;
     readonly guestStore: GuestMockStore;
-    readonly guestTokenStore: GuestTokenStore;
-    readonly getGuestChallenge: (challengeId: string) => Promise<OtpChallenge>;
-    readonly resendGuestChallenge: (
-        challengeId: string,
-        channel?: OtpChannel,
-    ) => Promise<OtpChallenge>;
-
-    /* ── B1: the B2B onboarding world, carried on the same terms ────────────────────────────────
+    /**
+     * The guest credential's store.
      *
-     * `B2BApplicationRepository` is not a member of the required `Repositories` bundle either, for
-     * exactly the reason the ones above are not. The B2B screens resolve it with the same runtime
-     * `typeof` probe (`features/b2b-application/repositories-shim.ts`), so the day it becomes a
-     * required member nothing at any call site changes — the shim is deleted and the import moves.
+     * Still on the bundle rather than in `Repositories`, because it is a *credential store* and not
+     * a data surface — the same reason `tokenStore` sits beside the contracts rather than inside
+     * them. The application supplies it (`MockRepositoriesOptions.guestTokenStore`) so that the one
+     * a hook reads through `useSyncExternalStore` is the one the repository writes to.
      */
-    readonly b2bApplication: B2BApplicationRepository;
-    /** The B2B world's own mutable store, on the same terms as `prototypeStore`. */
+    readonly guestTokenStore: GuestTokenStore;
     readonly b2bApplicationStore: B2bMockStore;
 }
 
@@ -205,7 +152,7 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
      * `sessionStorage` and dies with the tab. In Node and Jest there is no `sessionStorage` and it
      * degrades to memory, which is the correct behaviour for both.
      */
-    const guestTokenStore = createGuestTokenStore();
+    const guestTokenStore = options.guestTokenStore ?? createGuestTokenStore();
     const guestWorld = createGuestMockRepositories({
         latencyMs: latency,
         tokenStore: guestTokenStore,
@@ -353,12 +300,9 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         verification: accountWorld.verification,
         account: accountWorld.account,
         accountStore: accountWorld.store,
-        accountServiceAreas: () => Promise.resolve(accountWorld.store.serviceAreas()),
         guest: guestWorld.guest,
         guestStore: guestWorld.store,
         guestTokenStore,
-        getGuestChallenge: guestWorld.getGuestChallenge,
-        resendGuestChallenge: guestWorld.resendGuestChallenge,
         b2bApplication: b2bWorld.b2bApplication,
         b2bApplicationStore: b2bWorld.store,
         auth,

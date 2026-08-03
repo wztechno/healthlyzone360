@@ -36,6 +36,8 @@ import type {
     CommerceRepository,
     CreateSubscriptionRequest,
     PauseSubscriptionRequest,
+    PlaceOrderRequest,
+    PlacedOrder,
     PreviewCheckoutRequest,
     SkipDayRequest,
     Subscription,
@@ -223,6 +225,14 @@ export const PROTOTYPE_ENDPOINTS = {
      * The five that remain are not oversights. `listPlans`/`getPlan` have a backend that correctly
      * answers "no plan is publishable yet", and switching the plan pages onto it would replace a
      * working catalogue with an empty state. Dietitians and diet categories have no backend at all.
+     *
+     * **UPDATED (integrator wave): the plan mapper is written and the switch is not thrown.**
+     * `./plan-mappers.ts` speaks `GET /marketplace/meal-plans` in full — variants, durations,
+     * sample menus — and is not wired in. The rule that keeps it that way is the phase's own, *do
+     * not degrade the plan page*: the fixture catalogue is complete and the endpoint answers with
+     * whatever kitchens have actually published. The commit that can prove a real published plan
+     * exists is the one that spreads `createApiPlanReads(transport)` into the marketplace
+     * repository and deletes these two rows.
      */
     listPlans: `GET ${BASE}/marketplace/meal-plans`,
     getPlan: `GET ${BASE}/marketplace/meal-plans/{plan}`,
@@ -307,9 +317,16 @@ export const PROTOTYPE_ENDPOINTS = {
      * `getPlan`, `getRecipe` — already belong to a consumer endpoint that means something else.
      * Lifecycle actions are `POST …/publish`, never a status field on the `PATCH` (plan §4.15).
      */
-    adminListAllergenClasses: `GET ${BASE}/reference/allergen-classes`,
-    adminListServiceAreas: `GET ${BASE}/reference/service-areas`,
-
+    /**
+     * **The two reference reads are gone from this table** — `adminListAllergenClasses` and
+     * `adminListServiceAreas` left it in the integrator wave, on the same terms M1's kitchens and
+     * meals did. `GET /reference/allergen-classes` and `GET /reference/delivery-areas` are served,
+     * described and implemented (`./reference-repository.ts`), and the allergen payload now carries
+     * `severe_by_default`, which was the one field the switch was waiting for. The service-area
+     * read was blocked on `country_code` being required; it is optional now.
+     *
+     * Everything below is still a stub, and every one of these paths is still proposed.
+     */
     adminListIngredients: `GET ${BASE}/catalogue/ingredients`,
     adminGetIngredient: `GET ${BASE}/catalogue/ingredients/{ingredient}`,
     adminCreateIngredient: `POST ${BASE}/catalogue/ingredients`,
@@ -583,6 +600,15 @@ export const apiCommerceRepository: CommerceRepository = {
     previewCheckout(_request: PreviewCheckoutRequest): Promise<CheckoutPreview> {
         return notImplemented(PROTOTYPE_ENDPOINTS.previewCheckout);
     },
+    /**
+     * Declared as a rejection so this object stays a complete `CommerceRepository`, and overridden
+     * per bundle by `createApiRepositories` with the real implementation from
+     * `./order-repository.ts` — it holds the transport, which a shared stateless object cannot.
+     * `POST /orders` is served, so it has no row in `PROTOTYPE_ENDPOINTS`.
+     */
+    placeOrder(_request: PlaceOrderRequest): Promise<PlacedOrder> {
+        return notImplemented(`POST ${BASE}/orders`);
+    },
     previewSubscription(_configuration: SubscriptionConfiguration): Promise<SubscriptionPreview> {
         return notImplemented(PROTOTYPE_ENDPOINTS.previewSubscription);
     },
@@ -685,12 +711,21 @@ export const apiProfessionalRepository: ProfessionalRepository = {
  * omission is somebody's unsaved recipe.
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * The kitchen workspace, still a stub apart from its two reference reads.
+ *
+ * `listAllergenClasses` and `listServiceAreas` are declared here as rejections so this object stays
+ * a complete `KitchenAdminRepository` — the compiler has to be able to prove that, and it is the
+ * whole reason every method is spelled out. `createApiRepositories` overrides exactly those two
+ * with the real implementations from `./reference-repository.ts`, which is why their entries have
+ * left `PROTOTYPE_ENDPOINTS` while the other forty-six have not.
+ */
 export const apiKitchenAdminRepository: KitchenAdminRepository = {
     listAllergenClasses(): Promise<readonly AllergenClass[]> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListAllergenClasses);
+        return notImplemented(`GET ${BASE}/reference/allergen-classes`);
     },
     listServiceAreas(_filter?: ServiceAreaFilter): Promise<CursorPage<ServiceArea>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListServiceAreas);
+        return notImplemented(`GET ${BASE}/reference/delivery-areas`);
     },
 
     listIngredients(_filter?: IngredientAdminFilter): Promise<CursorPage<IngredientAdmin>> {

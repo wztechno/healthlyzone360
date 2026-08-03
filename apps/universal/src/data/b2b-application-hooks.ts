@@ -1,30 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
-
-import { useB2BApplicationRepositories } from '../features/b2b-application/repositories-shim.ts';
 import type {
     B2BAgreement,
     B2BApplication,
+    B2BApplicationRepository,
     DocumentDownload,
-    SaveSectionRequest,
     SignAgreementRequest,
     UploadDocumentRequest,
-} from '../features/b2b-application/repositories-shim.ts';
+} from '@healthy360/api-client/contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
+
 import { queryKeys } from './query-keys.ts';
+import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
 /**
  * B2B onboarding (plan Phase B1).
  *
  * Same rules as every other hook module here: one hook per repository operation, `enabled` guards
- * and invalidation written once, and no screen ever holding a repository. Three things are specific
+ * and invalidation written once, and no screen ever holding a repository. Two things are specific
  * to this contract.
- *
- * ## The repository comes through a shim, and that is temporary
- *
- * `B2BApplicationRepository` is not in the `Repositories` bundle yet, so
- * `useB2BApplicationRepositories()` resolves it from the bundle when it is there and refuses when it
- * is not. The *only* line that changes when the integrator wave registers it is the import at the
- * top of this file.
  *
  * ## Every write returns the whole application, and every write seeds the cache with it
  *
@@ -47,6 +40,15 @@ import { queryKeys } from './query-keys.ts';
 
 export { toFailure } from './hooks.ts';
 
+/**
+ * What a section save sends.
+ *
+ * Derived from the contract's own parameter rather than restated, because the shape is anonymous
+ * there: writing the object out again at the three places this module needs to name it would be
+ * three copies free to drift from the one the repository actually accepts.
+ */
+export type SaveSectionRequest = Parameters<B2BApplicationRepository['saveSection']>[0];
+
 /* ── reads ───────────────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -55,12 +57,15 @@ export { toFailure } from './hooks.ts';
  * `null` is a value, not an error: "you have not applied yet" is the entry screen's normal state.
  */
 export function useB2BApplicationQuery(enabled = true): UseQueryResult<B2BApplication | null> {
-    const { b2bApplication, ready } = useB2BApplicationRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.b2bApplication.current(),
-        enabled: enabled && ready,
-        queryFn: () => b2bApplication.getApplication(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.b2bApplication.getApplication();
+        },
     });
 }
 
@@ -76,14 +81,15 @@ export function useB2BAgreementQuery(
     applicationId: string | null,
     enabled = true,
 ): UseQueryResult<B2BAgreement | null> {
-    const { b2bApplication, ready } = useB2BApplicationRepositories();
+    const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.b2bApplication.agreement(applicationId ?? 'none'),
-        enabled: enabled && ready && applicationId !== null,
+        enabled: enabled && repositories !== null && applicationId !== null,
         queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
             if (applicationId === null) throw new Error('No application to read.');
-            return b2bApplication.getAgreement({ applicationId });
+            return repositories.b2bApplication.getAgreement({ applicationId });
         },
     });
 }
@@ -92,16 +98,13 @@ export function useB2BAgreementQuery(
 
 /** Seeds both entries from one answer. See the module header for why this is not an invalidation. */
 function useApplicationWrite<Variables>(
-    run: (
-        repository: ReturnType<typeof useB2BApplicationRepositories>['b2bApplication'],
-        variables: Variables,
-    ) => Promise<B2BApplication>,
+    run: (repository: B2BApplicationRepository, variables: Variables) => Promise<B2BApplication>,
 ): UseMutationResult<B2BApplication, unknown, Variables> {
-    const { b2bApplication } = useB2BApplicationRepositories();
+    const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (variables: Variables) => run(b2bApplication, variables),
+        mutationFn: (variables: Variables) => run(repositories.b2bApplication, variables),
         onSuccess: (application) => {
             queryClient.setQueryData(queryKeys.b2bApplication.current(), application);
             if (application.agreement !== null) {
@@ -200,10 +203,10 @@ export function useDocumentDownloadMutation(): UseMutationResult<
     unknown,
     RemoveDocumentVariables
 > {
-    const { b2bApplication } = useB2BApplicationRepositories();
+    const repositories = useRepositories();
 
     return useMutation({
         mutationFn: (request: RemoveDocumentVariables) =>
-            b2bApplication.getDocumentDownload(request),
+            repositories.b2bApplication.getDocumentDownload(request),
     });
 }

@@ -51,4 +51,14 @@ export function createAppGuestTokenStore(): GuestTokenStore {
     };
 }
 
+/**
+ * The one guest token store this application has, on this platform.
+ *
+ * Metro resolves this file instead of `./guest-storage.ts`, so the constant has to exist in both
+ * halves of the pair or the import resolves to nothing on iOS and Android. See the web half for why
+ * it is a module-scope singleton at all: subscribers survive, and the repository bundle and the
+ * hooks then read and write the same store.
+ */
+export const appGuestTokenStore: GuestTokenStore = createAppGuestTokenStore();
+
 export type { GuestTokenStore };

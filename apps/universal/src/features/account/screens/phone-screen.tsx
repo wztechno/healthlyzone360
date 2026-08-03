@@ -1,3 +1,4 @@
+import type { ContactPoint } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -23,7 +24,6 @@ import {
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { PhoneChallenge } from '../phone-challenge.tsx';
 import { DEFAULT_DIALING_CODE, DIALING_CODES, toE164, validatePhone } from '../phone.ts';
-import type { ContactPoint } from '../repositories-shim.ts';
 
 /**
  * `/customer/account/phone` — add a mobile number and confirm it.

@@ -5,6 +5,7 @@ import { DEFAULT_API_BASE_URL } from './api/config.ts';
 import { createMemoryTokenStore } from './contracts/session.ts';
 import type { Repositories, SessionTokenStore } from './contracts/index.ts';
 import type { MockScenarioName } from './mock/scenarios.ts';
+import type { GuestTokenStore } from './session/guest-token-store.ts';
 
 export const REPOSITORY_APP_ENVS = ['development', 'preview', 'production'] as const;
 export type RepositoryAppEnv = (typeof REPOSITORY_APP_ENVS)[number];
@@ -23,6 +24,13 @@ export interface RepositoryConfig {
     /** Simulated latency for the mock repositories; `0` in unit tests. */
     readonly latencyMs?: number | undefined;
     readonly tokenStore?: SessionTokenStore | undefined;
+    /**
+     * The guest credential's store (plan Phase G1). Supplied by the application in both modes, for
+     * the same reason `tokenStore` is: only the application knows whether this device has a
+     * `sessionStorage` or a keychain. Defaults to a memory store, which is correct in tests and in
+     * Node and merely forgetful in a browser.
+     */
+    readonly guestTokenStore?: GuestTokenStore | undefined;
     /**
      * Mock mode only: backs the mock server's context persistence so a page reload keeps the
      * last-applied organisation/branch context, exactly as the real backend does
@@ -129,6 +137,7 @@ export async function createRepositories(config: RepositoryConfig): Promise<Repo
             scenario: config.scenario,
             latencyMs: config.latencyMs,
             tokenStore: config.tokenStore,
+            guestTokenStore: config.guestTokenStore,
             contexts,
         });
     }
@@ -141,6 +150,9 @@ export async function createRepositories(config: RepositoryConfig): Promise<Repo
     return createApiRepositories({
         baseUrl: baseUrl === '' ? DEFAULT_API_BASE_URL : baseUrl,
         tokenStore: config.tokenStore ?? createMemoryTokenStore(),
+        ...(config.guestTokenStore === undefined
+            ? {}
+            : { guestTokenStore: config.guestTokenStore }),
         ...(config.appMode === undefined ? {} : { appMode: config.appMode }),
         ...(config.clientVersion === undefined ? {} : { clientVersion: config.clientVersion }),
         ...(config.platform === undefined ? {} : { platform: config.platform }),

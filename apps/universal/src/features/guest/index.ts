@@ -11,8 +11,11 @@
  *   more than one place — the prompt will also appear on the order-lookup page a later slice adds.
  * * **`./contact.ts`** carries every rule worth testing without a rendered tree, which is the same
  *   split `features/commerce` and `features/account` use.
- * * **`./repositories-shim.ts` is not exported.** It is temporary scaffolding the integrator wave
- *   deletes, and nothing outside `data/guest-hooks.ts` should learn to depend on it.
+ * * **No repository, and no contract types.** `GuestRepository` is a member of the `Repositories`
+ *   bundle, so a consumer reaches it through `data/guest-hooks.ts` and takes its types from
+ *   `@healthy360/api-client/contracts` directly. This module re-exporting them would put a second
+ *   name on one contract and invite a screen to import the feature when what it wanted was the
+ *   package.
  */
 
 export { GuestContactForm } from './guest-contact-form.tsx';

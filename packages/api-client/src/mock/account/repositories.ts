@@ -1,6 +1,9 @@
+import { ServiceAreaId } from '@healthy360/domain-types';
+
 import type {
     AccountOverview,
     AccountRepository,
+    AccountServiceArea,
     AccountSetupChecklist,
     ConsentState,
     CustomerAddress,
@@ -124,6 +127,13 @@ export function createAccountMockRepositories(
         async getChecklist(): Promise<AccountSetupChecklist> {
             await settle();
             return store.checklist();
+        },
+
+        async listServiceAreas(): Promise<readonly AccountServiceArea[]> {
+            await settle();
+            return store
+                .serviceAreas()
+                .map((area) => ({ id: ServiceAreaId.unsafe(area.id), name: area.name }));
         },
 
         async listAddresses(): Promise<readonly CustomerAddress[]> {

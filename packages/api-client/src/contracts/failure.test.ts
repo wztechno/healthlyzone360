@@ -42,6 +42,7 @@ describe('the failure vocabulary', () => {
             'resource.not_found',
             'resource.conflict',
             'request.precondition_required',
+            'request.idempotency_key_reused',
             'validation.failed',
             'rate_limit.exceeded',
             'otp.invalid',
@@ -49,6 +50,18 @@ describe('the failure vocabulary', () => {
             'otp.cooldown_active',
             'otp.attempts_exceeded',
             'otp.channel_unavailable',
+            // The ten journey codes (J1, G1, B1). Listed here in the order the union declares them
+            // so that adding one anywhere fails this assertion — which is the point of asserting
+            // the whole array rather than a membership test.
+            'contact.already_in_use',
+            'account.verification_required',
+            'address.area_not_served',
+            'guest.session_invalid',
+            'cart.line_refused',
+            'order.placement_refused',
+            'b2b.application_state_invalid',
+            'b2b.documents_incomplete',
+            'b2b.signatory_required',
             'network',
             'server',
             'prototype.not_implemented',

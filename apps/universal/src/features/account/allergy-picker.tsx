@@ -1,10 +1,10 @@
+import type { AllergenDeclaration, AllergenSeverity } from '@healthy360/api-client/contracts';
 import { FilterChip, Inline, Select, Stack, Text, TextInputField } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { ALLERGEN_CODES } from '../onboarding/vocabularies.ts';
 import { ALLERGEN_SEVERITIES } from './dietary.ts';
-import type { AllergenDeclaration, AllergenSeverity } from './repositories-shim.ts';
 
 /**
  * The allergy declaration control.

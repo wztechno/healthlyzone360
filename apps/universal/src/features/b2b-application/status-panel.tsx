@@ -1,14 +1,14 @@
-import { Badge, Button, Callout, Card, Stack, Text } from '@healthy360/design-system';
-import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-
 import type {
     B2BApplication,
     B2BApplicationSection,
     B2BApplicationState,
     B2BDocumentKind,
     ReviewerRequest,
-} from './repositories-shim.ts';
+} from '@healthy360/api-client/contracts';
+import { Badge, Button, Callout, Card, Stack, Text } from '@healthy360/design-system';
+import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
+
 import { stepForSection } from './sections.ts';
 import type { B2BStepSlug } from './sections.ts';
 

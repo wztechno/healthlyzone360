@@ -1,13 +1,18 @@
 /**
  * Colour tokens.
  *
- * Palette intent: an *editorial nutrition-marketplace* look. A **deep-forest** brand carries the
- * primary actions and navigation; **green is an accent, not a wash**, so the light page is a
- * **warm cream** with white cards lifted on top of it. A **fresh lime** (`brand.300`) is the bright
- * accent, **soft green** the panel tint, **terracotta** the appetite accent, and **gold** is
- * reserved for one job — the rating stars. Every semantic role ships as a background plus a matching
- * `on*` foreground, and the pair is contrast-tested (`colour.test.ts`) at WCAG AA for normal text in
- * both themes — the ramps are not decorative, they are the accessibility budget.
+ * Palette intent: **Wellness Green + AI** (mood board Option 02). A vital **emerald** brand carries
+ * the primary actions and navigation; the light page is a **mint white** with white cards lifted on
+ * top of it. A **fresh lime** (`brand.300`) is the bright green accent, **soft green** the panel
+ * tint, and a deep **violet** (`violet.700`) is the AI/premium accent that the signature
+ * green→violet gradients run into. **Gold** is reserved for one job — the rating stars.
+ *
+ * The mood board's vivid hexes (emerald `#16a34a`, amber `#f59e0b`, coral `#ef4444`, lime, sky) are
+ * the *surfaces, tints and accents* here; where a role needs legible text on a solid fill its
+ * `default`/`strong` stop is darkened to clear WCAG AA, because white on `#16a34a` is only 3.3:1.
+ * Every semantic role ships as a background plus a matching `on*` foreground, and the pair is
+ * contrast-tested (`colour.test.ts`) at WCAG AA in both themes — the ramps are the accessibility
+ * budget, not decoration.
  */
 
 export type ColourRamp = Readonly<Record<ColourStop, string>>;
@@ -15,55 +20,59 @@ export type ColourRamp = Readonly<Record<ColourStop, string>>;
 export const COLOUR_STOPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
 export type ColourStop = (typeof COLOUR_STOPS)[number];
 
-/** Brand — deep-forest green, with a fresh lime at the light end (`300`, the fresh-green accent). */
+/** Brand — vital green: fresh lime at the light end (`300`), emerald in the middle (`500`, the mood
+ * board's `#16a34a`), deep forest at the dark end. `brandSurface` sits below `500` so white text on it
+ * clears AA. */
 export const brand: ColourRamp = {
-    50: '#f3f8eb',
-    100: '#e4f1d2',
-    200: '#c9e6a9',
-    300: '#a8d672',
-    400: '#79b451',
-    500: '#4e8a37',
-    600: '#2c6533',
-    700: '#174c3c',
-    800: '#143f31',
-    900: '#103328',
-    950: '#08160f',
+    50: '#f2fcf4',
+    100: '#dcf7e1',
+    200: '#bbedc6',
+    300: '#8ad79b',
+    400: '#49b264',
+    500: '#16a34a',
+    600: '#158043',
+    700: '#146a3a',
+    800: '#11532e',
+    900: '#0d3d23',
+    950: '#07160e',
 };
 
-/** Accent — warm terracotta (appetite). `400` is the bright appetite accent; `600` is text-safe. */
-export const clay: ColourRamp = {
-    50: '#fdf3ee',
-    100: '#fbe0d3',
-    200: '#f5c2ab',
-    300: '#ef9f7b',
-    400: '#e9784a',
-    500: '#cf5a2d',
-    600: '#ac4a26',
-    700: '#8c3d22',
-    800: '#72331f',
-    900: '#5e2c1e',
-    950: '#331410',
+/** Accent — deep violet (AI / premium). `400` is the bright accent for dark surfaces; `700` is the
+ * mood board's `#6d28d9`, text-safe with white on light surfaces and the end of the AI gradient. */
+export const violet: ColourRamp = {
+    50: '#f5f3ff',
+    100: '#ede9fe',
+    200: '#ddd6fe',
+    300: '#c4b5fd',
+    400: '#a78bfa',
+    500: '#8b5cf6',
+    600: '#7c3aed',
+    700: '#6d28d9',
+    800: '#5b21b6',
+    900: '#4c1d95',
+    950: '#2e1065',
 };
 
-/** Cool green-grey neutrals — borders and text (the warm-cream page surface is a per-theme role). */
+/** Cool slate neutrals — borders and text (`800` is the mood board's `#1f2937`, `500` its `#6b7280`).
+ * The page surfaces are a per-theme role and carry the mint tint, not these. */
 export const neutral: ColourRamp = {
-    50: '#f6f7f3',
-    100: '#ecefe8',
-    200: '#dde3dd',
-    300: '#c4ccc2',
-    400: '#99a298',
-    500: '#66706b',
-    600: '#515a54',
-    700: '#3f4741',
-    800: '#2b322d',
-    900: '#18221e',
-    950: '#0d130f',
+    50: '#f8fafc',
+    100: '#f1f5f9',
+    200: '#e2e8f0',
+    300: '#cbd5e1',
+    400: '#94a3b8',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+    950: '#030712',
 };
 
 export const pureWhite = '#ffffff';
 export const pureBlack = '#000000';
 
-export const RAMPS = { brand, clay, neutral } as const;
+export const RAMPS = { brand, violet, neutral } as const;
 export type RampName = keyof typeof RAMPS;
 
 /**
@@ -87,40 +96,40 @@ export type SemanticRole = (typeof SEMANTIC_ROLES)[number];
 
 export const semanticLight: Readonly<Record<SemanticRole, SemanticColourSet>> = {
     success: {
-        subtle: '#e8f4ec',
-        onSubtle: '#1b4b2e',
-        default: '#256c41',
+        subtle: '#dcfce7',
+        onSubtle: '#14532d',
+        default: '#157347',
         onDefault: '#ffffff',
-        strong: '#194b2d',
+        strong: '#0f5132',
         onStrong: '#ffffff',
-        border: '#458060',
+        border: '#3f9d6a',
     },
     warning: {
-        subtle: '#fbf1de',
-        onSubtle: '#5a3c07',
-        default: '#7a5209',
+        subtle: '#fdf2d6',
+        onSubtle: '#79480a',
+        default: '#8a5a09',
         onDefault: '#ffffff',
-        strong: '#573a06',
+        strong: '#5f3d05',
         onStrong: '#ffffff',
-        border: '#8a691e',
+        border: '#b3841f',
     },
     danger: {
-        subtle: '#fbeceb',
-        onSubtle: '#7a201b',
-        default: '#a52b24',
+        subtle: '#fde5e3',
+        onSubtle: '#8f1f1a',
+        default: '#c02722',
         onDefault: '#ffffff',
-        strong: '#761d18',
+        strong: '#8a1c17',
         onStrong: '#ffffff',
-        border: '#b6534b',
+        border: '#d16a64',
     },
     info: {
-        subtle: '#e9f0f8',
-        onSubtle: '#1d3f63',
-        default: '#2a5a8a',
+        subtle: '#e2f1fb',
+        onSubtle: '#0b4a6f',
+        default: '#0369a1',
         onDefault: '#ffffff',
-        strong: '#1e4062',
+        strong: '#0b4a6f',
         onStrong: '#ffffff',
-        border: '#4874a2',
+        border: '#3690bf',
     },
 };
 
@@ -153,13 +162,13 @@ export const semanticDark: Readonly<Record<SemanticRole, SemanticColourSet>> = {
         border: '#a85049',
     },
     info: {
-        subtle: '#132335',
-        onSubtle: '#9dc0e2',
-        default: '#95bbe0',
-        onDefault: '#0f2033',
-        strong: '#bcd5ec',
-        onStrong: '#0f2033',
-        border: '#456e97',
+        subtle: '#0e2636',
+        onSubtle: '#9fcdec',
+        default: '#8fc4ec',
+        onDefault: '#0a2033',
+        strong: '#bcdcf3',
+        onStrong: '#0a2033',
+        border: '#3f80ad',
     },
 };
 
@@ -287,48 +296,48 @@ export interface ThemeColours {
 }
 
 export const themeLight: ThemeColours = {
-    surfaceBase: '#f7f5ef', // warm-cream page canvas — green is an accent here, not a wash
-    surfaceRaised: '#ffffff', // cards and the top bar sit white on the cream page
-    surfaceSunken: '#f1f2ea',
-    surfaceInverse: '#18221e',
-    textPrimary: '#18221e',
-    textSecondary: '#636c67', // ~#66706b, nudged so neutral secondary text clears AA on danger/info-subtle panels too
-    textDisabled: '#6b746e',
-    textInverse: '#f7f5ef',
+    surfaceBase: '#f7fcf9', // mint-white page canvas
+    surfaceRaised: '#ffffff', // cards and the top bar sit white on the mint page
+    surfaceSunken: '#edf6f0',
+    surfaceInverse: '#14231c',
+    textPrimary: '#1f2937', // forest charcoal (mood board #1f2937)
+    textSecondary: '#5b6673', // slate grey, darkened from the mood board's #6b7280 so it clears AA on the semantic-subtle panels too
+    textDisabled: '#646e7c', // slate, still AA on white/mint/sunken — axe flags muted text even where the control is not marked disabled
+    textInverse: '#f7fcf9',
     textOnBrand: '#ffffff',
-    borderSubtle: '#e7e9e2',
-    borderDefault: '#d5dcd4',
-    borderStrong: '#767f79',
-    focusRing: '#174c3c',
-    brandSurface: '#174c3c', // deep forest — primary buttons, active nav
-    brandSurfaceSubtle: '#eaf4df', // soft green — panels, active pill
-    onBrandSurfaceSubtle: '#1c5031',
-    accentSurface: '#ac4a26', // terracotta, white-text-safe
+    borderSubtle: '#cceeda',
+    borderDefault: '#aaddc0',
+    borderStrong: '#5f8f76',
+    focusRing: '#157043',
+    brandSurface: '#157043', // emerald — primary buttons, active nav (below brand.500 so white text clears AA)
+    brandSurfaceSubtle: '#dcfce7', // soft green — panels, active pill
+    onBrandSurfaceSubtle: '#14532d',
+    accentSurface: '#6d28d9', // violet — the AI / premium accent, white-text-safe
     onAccentSurface: '#ffffff',
-    ratingStar: '#b57d0d', // gold, AA on cream and white
-    overlay: '#18221ecc',
+    ratingStar: '#b57d0d', // gold, AA on mint and white
+    overlay: '#14231ccc',
 };
 
 export const themeDark: ThemeColours = {
-    surfaceBase: '#14160f',
-    surfaceRaised: '#1f2018',
-    surfaceSunken: '#0e0f09',
+    surfaceBase: '#0e1712',
+    surfaceRaised: '#16241b',
+    surfaceSunken: '#0a110b',
     surfaceInverse: '#f6f7f3',
-    textPrimary: '#f2f4ea',
-    textSecondary: '#c6ccbf',
-    textDisabled: '#99a298',
-    textInverse: '#18221e',
-    textOnBrand: '#08160f',
-    borderSubtle: '#31352a',
-    borderDefault: '#454b3d',
-    borderStrong: '#767f79',
-    focusRing: '#a8d672',
-    brandSurface: '#a8d672', // fresh lime reads as the brand on dark surfaces
-    brandSurfaceSubtle: '#153a2c',
-    onBrandSurfaceSubtle: '#bde3a6',
-    accentSurface: '#ef9f7b',
-    onAccentSurface: '#331410',
-    ratingStar: '#d99614', // gold, brighter for dark surfaces
+    textPrimary: '#eef4ee',
+    textSecondary: '#bcc7be',
+    textDisabled: '#8b968c',
+    textInverse: '#14231c',
+    textOnBrand: '#06160c',
+    borderSubtle: '#26352b',
+    borderDefault: '#3a4b3f',
+    borderStrong: '#79877e',
+    focusRing: '#86efac',
+    brandSurface: '#86efac', // bright mint-emerald reads as the brand on dark surfaces
+    brandSurfaceSubtle: '#153a26',
+    onBrandSurfaceSubtle: '#b6e8c2',
+    accentSurface: '#a78bfa', // violet accent, lightened for dark surfaces
+    onAccentSurface: '#1e1541',
+    ratingStar: '#e0a92a', // gold, brighter for dark surfaces
     overlay: '#000000b3',
 };
 

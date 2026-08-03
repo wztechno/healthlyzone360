@@ -1,12 +1,11 @@
-import { z } from 'zod';
-
 import type {
     B2BApplication,
     B2BApplicationSection,
     B2BApplicationSectionState,
     B2BApplicationSections,
     B2BDocumentKind,
-} from './repositories-shim.ts';
+} from '@healthy360/api-client/contracts';
+import { z } from 'zod';
 
 /**
  * The wizard's steps, their per-step validation, and the reachability rule the router redirects on.

@@ -1,6 +1,7 @@
 import type { AppMode } from '@healthy360/domain-types';
 
 import type { SessionTokenStore } from '../contracts/session.ts';
+import type { GuestTokenStore } from '../session/guest-token-store.ts';
 
 /** The three platforms the API's `X-Client-Platform` header recognises. */
 export type ClientPlatform = 'web' | 'ios' | 'android';
@@ -19,6 +20,16 @@ export interface ApiClientConfig {
      */
     readonly baseUrl: string;
     readonly tokenStore: SessionTokenStore;
+    /**
+     * Where the guest credential lives (plan Phase G1).
+     *
+     * Supplied by the application for the same reason `tokenStore` is — the web implementation
+     * belongs in `sessionStorage` and the native one in the keychain, and only the application can
+     * make that choice. It defaults to a memory store rather than to `null`, because a guest
+     * repository with nowhere to keep a token is one whose every call is anonymous, which fails in
+     * a way that looks like a backend problem.
+     */
+    readonly guestTokenStore?: GuestTokenStore | undefined;
     /** `X-App-Mode`. Diagnostic only; never an authorisation input (docs/api/conventions.md). */
     readonly appMode?: AppMode | undefined;
     /** `X-Client-Version`. */

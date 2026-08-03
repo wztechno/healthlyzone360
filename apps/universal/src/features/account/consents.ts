@@ -1,4 +1,4 @@
-import type { ConsentState } from './repositories-shim.ts';
+import type { ConsentState } from '@healthy360/api-client/contracts';
 
 /**
  * Consent presentation rules, as functions.

@@ -51,6 +51,16 @@
         "otp_channel_unavailable": "A code cannot be sent that way. Choose another option.",
         "network": "We cannot reach Healthy360. Check your connection and try again.",
         "server": "Something went wrong on our side. Try again in a moment.",
-        "prototype_not_implemented": "This part of Healthy360 is not built yet. Nothing was changed."
+        "prototype_not_implemented": "This part of Healthy360 is not built yet. Nothing was changed.",
+        "request_idempotency_key_reused": "That request repeated an earlier one with different details, so nothing was sent. Start again.",
+        "contact_already_in_use": "That email address or number is already in use on another account. Sign in instead, or use a different one.",
+        "account_verification_required": "Confirm your email address or mobile number before continuing.",
+        "address_area_not_served": "Healthy360 does not deliver to that area yet. Choose another area.",
+        "guest_session_invalid": "This guest session has ended. Start again to continue without an account.",
+        "cart_line_refused": "Something in your basket cannot be ordered right now. Review the basket and try again.",
+        "order_placement_refused": "This order could not be placed. Nothing has been charged. Review your basket and try again.",
+        "b2b_application_state_invalid": "This application has moved on since you opened it. Reload to see where it stands.",
+        "b2b_documents_incomplete": "Some required documents are still missing. Add them before submitting.",
+        "b2b_signatory_required": "Confirm the code we sent before signing."
     }
 }

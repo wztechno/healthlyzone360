@@ -103,6 +103,9 @@ export const CONTRACT_METHODS: Readonly<Record<RepositoryKey, readonly string[]>
         'addCartItem',
         'removeCartItem',
         'previewCheckout',
+        // The one command on this surface, and the only one that could be added to a contract whose
+        // header refuses a payment method: a one-off order is cash on delivery.
+        'placeOrder',
         'previewSubscription',
         'createSubscription',
         'getSubscription',

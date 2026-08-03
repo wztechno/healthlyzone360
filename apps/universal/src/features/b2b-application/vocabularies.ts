@@ -1,43 +1,39 @@
-import type { B2BDocumentKind } from './repositories-shim.ts';
+import {
+    B2B_BUSINESS_TYPES,
+    B2B_DELIVERY_WINDOWS,
+    B2B_ORDER_FREQUENCIES,
+    B2B_PAYMENT_TERMS,
+    B2B_PRODUCT_CATEGORIES,
+    B2B_VOLUME_BANDS,
+} from '@healthy360/api-client/contracts';
+import type { B2BDocumentKind } from '@healthy360/api-client/contracts';
 
 /**
- * The closed lists the wizard's selects draw from.
+ * The closed lists the wizard's selects draw from, gathered under the names its field table uses.
  *
- * Mirrors of the contract's `as const` arrays rather than imports of them, for the same reason
- * `repositories-shim.ts` restates the types: `@healthy360/api-client/contracts` does not re-export
- * `b2b-application.ts` while the contract is unregistered. The integrator wave replaces this file
- * with the imports and nothing at any call site changes — the values are identical and the key
- * stems (`b2bApplication:businessTypes.<value>`) are derived from them.
+ * The arrays themselves are the contract's. This module mirrored them by hand for as long as
+ * `b2b-application.ts` was a standalone contract the application could not import from, and the
+ * mirrors are gone rather than kept: a select whose options are a private copy is a select free to
+ * offer a value the server has since retired, and that failure lands on the applicant as a rejected
+ * save with nothing on screen to explain it.
+ *
+ * What stays here is the **grouping and its names**. `businessTypes`, `paymentTerms` and the rest
+ * are what the step definitions and the translation stems (`b2bApplication:businessTypes.<value>`)
+ * are written against, and a field table should not have to know that the business-type list is
+ * spelled `B2B_BUSINESS_TYPES` upstream.
  *
  * The **order is the display order**, and it is not alphabetical: a person picking a business type
  * is far more likely to be a restaurant than a gym, and a list sorted by likelihood is a list where
- * most people stop at the top. The vocabulary's own order comes from sheet-4.
+ * most people stop at the top. That order is the contract's own, from sheet-4 — which is the second
+ * reason to take the arrays rather than re-type them.
  */
 export const VOCABULARIES = {
-    businessTypes: [
-        'restaurant',
-        'cafe',
-        'hotel',
-        'catering',
-        'retail',
-        'corporate_office',
-        'school',
-        'hospital',
-        'gym',
-        'other',
-    ],
-    paymentTerms: ['prepaid', 'net_15', 'net_30', 'net_60'],
-    volumeBands: ['under_50', 'from_50_to_200', 'from_200_to_500', 'from_500_to_2000', 'over_2000'],
-    orderFrequencies: ['daily', 'weekdays', 'weekly', 'fortnightly', 'monthly', 'ad_hoc'],
-    productCategories: [
-        'meals',
-        'meal_plans',
-        'bulk_catering',
-        'snacks',
-        'beverages',
-        'ingredients',
-    ],
-    deliveryWindows: ['early_morning', 'morning', 'afternoon', 'evening'],
+    businessTypes: B2B_BUSINESS_TYPES,
+    paymentTerms: B2B_PAYMENT_TERMS,
+    volumeBands: B2B_VOLUME_BANDS,
+    orderFrequencies: B2B_ORDER_FREQUENCIES,
+    productCategories: B2B_PRODUCT_CATEGORIES,
+    deliveryWindows: B2B_DELIVERY_WINDOWS,
 } as const satisfies Readonly<Record<string, readonly string[]>>;
 
 export type VocabularyName = keyof typeof VOCABULARIES;

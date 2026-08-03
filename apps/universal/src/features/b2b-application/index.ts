@@ -12,8 +12,11 @@
  *   workspace and the corporate hub both have a reason to draw "where does this stand".
  * * **The pure modules** (`./sections.ts`, `./vocabularies.ts`) carry every rule worth testing
  *   without a rendered tree, which is the same split `features/account` and `features/commerce` use.
- * * **`./repositories-shim.ts` is not exported.** It is temporary scaffolding the integrator wave
- *   deletes, and nothing outside `data/b2b-application-hooks.ts` should learn to depend on it.
+ * * **No repository, and no contract types.** `B2BApplicationRepository` is a member of the
+ *   `Repositories` bundle, so a consumer reaches it through `data/b2b-application-hooks.ts` and
+ *   takes its types from `@healthy360/api-client/contracts` directly. This module re-exporting them
+ *   would put a second name on one contract and invite a screen to import the feature when what it
+ *   wanted was the package.
  */
 
 export { AgreementPanel } from './agreement-panel.tsx';

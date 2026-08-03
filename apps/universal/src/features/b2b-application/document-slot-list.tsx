@@ -1,9 +1,8 @@
+import type { B2BDocumentKind, KycDocument } from '@healthy360/api-client/contracts';
 import { Badge, Callout, FileUploadField, Stack, Text } from '@healthy360/design-system';
 import type { PickedFile } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-
-import type { B2BDocumentKind, KycDocument } from './repositories-shim.ts';
 
 /**
  * The document vault, drawn as slots rather than as a list of files.

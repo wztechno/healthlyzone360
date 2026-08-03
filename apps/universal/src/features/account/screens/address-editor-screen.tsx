@@ -1,3 +1,4 @@
+import type { CustomerAddress, SaveAddressRequest } from '@healthy360/api-client/contracts';
 import {
     Button,
     Callout,
@@ -24,7 +25,6 @@ import {
     useUpdateAddressMutation,
 } from '../../../data/account-hooks.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import type { CustomerAddress, SaveAddressRequest } from '../repositories-shim.ts';
 
 /**
  * `/customer/account/addresses/{address}` — one address, added or amended.

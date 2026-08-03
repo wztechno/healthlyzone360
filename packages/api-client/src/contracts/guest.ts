@@ -165,6 +165,17 @@ export type GuestPaymentMethod = (typeof GUEST_PAYMENT_METHODS)[number];
 export interface GuestCheckoutDraft {
     readonly cartId: CartId;
     readonly address: DeliveryAddress;
+    /**
+     * The saved address row this order is delivered to.
+     *
+     * Separate from {@link GuestCheckoutDraft.address}, which is the value object a review screen
+     * *renders*. The order is placed against an identifier because delivery is resolved from the
+     * address's service area — a zone, a window, a fee — and a typed street line cannot be resolved
+     * to any of them. Optional because the fixture world matches on the value object and has no row
+     * to point at; against the real API it is required, and a draft without it is refused naming
+     * this field rather than silently placing an order nobody can deliver.
+     */
+    readonly addressId?: string | undefined;
     readonly slotCode: string;
     /** `YYYY-MM-DD`. */
     readonly deliveryDate: string;
@@ -343,6 +354,21 @@ export interface GuestRepository {
     updateContact(request: UpdateGuestContactRequest): Promise<GuestContactChallenge>;
     /** A correct code promotes the session to `place_order`. The answer is the promoted session. */
     confirmContact(request: ConfirmGuestContactRequest): Promise<GuestSession>;
+
+    /**
+     * Re-read a live challenge, and ask for another one — the guest half of the OTP surface.
+     *
+     * These two live here rather than on `VerificationRepository` because they are reached with a
+     * *guest* token and no account: the verification repository's challenges hang off contact
+     * points on an account that, for a guest, does not exist yet. They were bare functions on the
+     * mock bundle until the integrator wave, for the same reason everything else here was — the
+     * contract was unregistered — and a bare function is not something a screen can be given.
+     */
+    getChallenge(request: { readonly challengeId: string }): Promise<OtpChallenge>;
+    resendChallenge(request: {
+        readonly challengeId: string;
+        readonly channel?: OtpChannel | undefined;
+    }): Promise<OtpChallenge>;
 
     /** `POST /api/v1/guest/orders`. Refused with `guest.contact_unverified` below `place_order`. */
     placeOrder(draft: GuestCheckoutDraft): Promise<GuestOrder>;

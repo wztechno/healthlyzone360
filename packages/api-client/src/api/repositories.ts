@@ -35,8 +35,18 @@ import type {
 } from '../generated/types.ts';
 import type { ApiClientConfig } from './config.ts';
 import { generateRequestId } from './config.ts';
+import { createApiAccountRepository } from './account-repository.ts';
+import { createApiB2bApplicationRepository } from './b2b-repository.ts';
+import { createApiGuestRepository } from './guest-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
-import { API_PROTOTYPE_REPOSITORIES } from './prototype-repositories.ts';
+import { createApiOrderPlacement } from './order-repository.ts';
+import {
+    API_PROTOTYPE_REPOSITORIES,
+    apiCommerceRepository,
+    apiKitchenAdminRepository,
+} from './prototype-repositories.ts';
+import { createApiReferenceReads } from './reference-repository.ts';
+import { createApiVerificationRepository } from './verification-repository.ts';
 import {
     createBranchDirectory,
     mapActiveContext,
@@ -95,6 +105,14 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
     let currentUserId: UserIdType | null = null;
     let currentDeviceId: string | null = null;
     let permissionsVersion: string | null = null;
+    /**
+     * The sign-in address, as `/me` and the token exchange report it.
+     *
+     * Held here because `GET /customer-account` does not carry it and `CustomerAccount.loginEmail`
+     * requires it — the account header says "signed in as …", and the alternative was a second
+     * `/me` from inside the account repository on every overview read.
+     */
+    let currentLoginEmail = '';
 
     /**
      * Credentials held for the length of a two-factor challenge.
@@ -112,6 +130,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         transport.tokenStore.set(payload.token);
         currentUserId = UserId.unsafe(payload.user.id);
         currentDeviceId = payload.device.id;
+        currentLoginEmail = payload.user.email;
         return { token: payload.token, userId: currentUserId, expiresAt: null };
     }
 
@@ -122,6 +141,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         currentUserId = null;
         currentDeviceId = null;
         permissionsVersion = null;
+        currentLoginEmail = '';
     }
 
     /** The user whose data we are showing. Known after any `/auth/token` exchange or `me()`. */
@@ -376,6 +396,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             const me = mapMeResponse(envelope.data, permissionsVersion, branches);
 
             currentUserId = me.user.id;
+            currentLoginEmail = me.user.email;
             transport.context.set(
                 me.activeContext?.organisationId ?? null,
                 me.activeContext?.branchId ?? null,
@@ -435,10 +456,31 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         },
     };
 
-    // The remaining eight Prompt 2 repositories are stateless rejections
-    // (`./prototype-repositories.ts`), so they are one shared object rather than eight closures
-    // built per bundle. The marketplace is not among them any more: kitchens and meals are real
-    // endpoints (M1), so it needs the transport and is built per bundle like the foundation four.
+    /**
+     * The four journey repositories, and the reference reads two of them share.
+     *
+     * `verification` is built first because `account` reads contacts through it: the overview
+     * re-exposes them read-only so a checklist screen does not need two round trips, and going
+     * through the repository rather than repeating the request means one place decides how a
+     * contact is shaped.
+     */
+    const reference = createApiReferenceReads(transport);
+    const verification = createApiVerificationRepository(transport);
+    const account = createApiAccountRepository({
+        transport,
+        reference,
+        verification,
+        // `/customer-account` carries no sign-in address. The one `/me` reported is remembered by
+        // the session machinery above; an empty string before the first `me()` is honest — the
+        // account screens are behind the session guard and never render before it resolves.
+        loginEmail: () => currentLoginEmail,
+    });
+
+    // The remaining prototype repositories are stateless rejections
+    // (`./prototype-repositories.ts`), so they are one shared object rather than a closure each.
+    // Three families have left that object in this wave: the marketplace since M1, and now the two
+    // *reference* reads on `kitchenAdmin`, which are real endpoints served to every client. The
+    // rest of `kitchenAdmin` is deliberately untouched and still rejects.
     return {
         kind: 'api',
         transport,
@@ -446,7 +488,23 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         session,
         context,
         devices,
+        verification,
+        account,
+        guest: createApiGuestRepository(transport),
+        b2bApplication: createApiB2bApplicationRepository(transport),
         marketplace: createApiMarketplaceRepository(transport),
         ...API_PROTOTYPE_REPOSITORIES,
+        commerce: {
+            ...apiCommerceRepository,
+            // The basket and the preview are still proposed. Placement is not: `POST /orders` is
+            // served, and it is the one command on this surface — which it may be only because it
+            // takes no payment.
+            placeOrder: createApiOrderPlacement(transport),
+        },
+        kitchenAdmin: {
+            ...apiKitchenAdminRepository,
+            listAllergenClasses: reference.listAllergenClasses,
+            listServiceAreas: reference.listServiceAreas,
+        },
     };
 }
