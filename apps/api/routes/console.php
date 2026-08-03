@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use Healthy360\B2b\Jobs\PurgeExpiredInvitations;
 use Healthy360\B2b\Jobs\PurgeExpiredKycDocuments;
+use Healthy360\B2b\Jobs\PurgeExpiredRecordExports;
 use Healthy360\Cart\Jobs\ExpireStaleCarts;
+use Healthy360\Customers\Closure\Jobs\ProcessScheduledClosures;
 use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
+use Healthy360\Subscriptions\Jobs\GenerateSubscriptionDeliveries;
 use Healthy360\Support\Http\Middleware\EnforceIdempotency;
 use Healthy360\Verification\Jobs\PurgeExpiredOtpChallenges;
 use Illuminate\Support\Facades\Schedule;
@@ -176,5 +179,94 @@ Schedule::call(static fn (): int => EnforceIdempotency::purgeExpired())
     ->dailyAt('05:30')
     ->timezone('UTC')
     ->name('support:purge-idempotency-keys')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// B2
+
+/*
+| B2 — daily at 05:45 UTC. A records export is the most concentrated
+| collection of one company's data the platform ever produces, and a copy of it
+| sitting in a bucket after its download window has closed is a liability the
+| reason for making it does not justify.
+|
+| Daily rather than the weekly cadence the KYC sweep uses, because the two
+| windows are different orders of magnitude: KYC retention is measured in years
+| and nothing is urgent, whereas an export expires in days and one that lapsed
+| on Tuesday must not still be downloadable on Friday.
+|
+| The row survives its object. `expired` is a state the purge writes and the
+| manifest stays behind, so "what did we hand this company, and when" remains
+| answerable after the bytes are gone.
+|
+| Offset again rather than sharing an hour with the sweeps above, and carrying
+| `withoutOverlapping()` and `onOneServer()` for the reasons every entry on
+| this list carries them.
+*/
+Schedule::job(new PurgeExpiredRecordExports)
+    ->dailyAt('05:45')
+    ->timezone('UTC')
+    ->name('b2b:purge-expired-record-exports')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// S1 — the subscription generation tick. Appended at the tail so parallel
+// phases can each add their own entries without touching one another's.
+
+/*
+| S1 — hourly, on the hour. The one scheduled entry on this list that *creates*
+| something rather than tidying up: it turns each subscription delivery whose
+| change window has just closed into a real order.
+|
+| Hourly rather than daily because the boundary is a per-plan, per-branch,
+| per-timezone instant — 24 hours before a Beirut Tuesday is not the same clock
+| reading as 24 hours before a Dubai one, and a kitchen may configure 36 hours
+| instead of 24. A daily sweep would either generate orders up to 23 hours
+| early, which is exactly the pre-creation the incremental design forbids
+| (semantics §4), or up to 23 hours late, by which time the kitchen has planned
+| its production without them. Hourly bounds the error at an hour, and only in
+| the late direction.
+|
+| No timezone is set, deliberately: unlike the retention sweeps above there is
+| no hour of the day this should prefer, and the job's own comparisons are all
+| made in the branch's timezone rather than the scheduler's.
+|
+| `withoutOverlapping()` and `onOneServer()` for the reasons the J1 entries
+| give, and one more specific to this job: it places orders, and two concurrent
+| ticks racing for the same delivery day would both be refused by the
+| `subscription_deliveries` unique index — correct, but a refusal is a worse
+| way to discover a scheduling mistake than never making it. `name()` is
+| explicit because both mutex keys derive from it.
+*/
+Schedule::job(new GenerateSubscriptionDeliveries)
+    ->hourly()
+    ->name('subscriptions:generate-deliveries')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| J2 — daily at 06:15 UTC. The safety net under the closure grace window.
+|
+| Every verified closure already dispatches its own delayed
+| `FinaliseAccountClosure`, so on a healthy day this sweep finds nothing. It
+| exists for the days that are not healthy: a queue flushed during a deploy, a
+| Redis restart, a worker that died holding a reserved job. A dropped delayed
+| job is the one failure in this module that looks exactly like success — the
+| customer was told their account would close, the request row says
+| `scheduled`, and nothing ever runs. A daily pass turns that into a one-day
+| delay instead of a promise silently broken.
+|
+| 06:15 UTC, offset from every sweep above rather than sharing an hour, for the
+| same reason those are offset from each other. UTC explicitly: the platform
+| spans Asia/Beirut and Asia/Dubai, and a schedule drifting with a server's
+| local timezone would run at a different hour depending on where it was
+| deployed. `withoutOverlapping()` and `onOneServer()` because it is a
+| cluster-wide sweep that dispatches work, and `name()` explicitly because both
+| mutex keys derive from it.
+*/
+Schedule::job(new ProcessScheduledClosures)
+    ->dailyAt('06:15')
+    ->timezone('UTC')
+    ->name('customers:process-scheduled-closures')
     ->withoutOverlapping()
     ->onOneServer();
