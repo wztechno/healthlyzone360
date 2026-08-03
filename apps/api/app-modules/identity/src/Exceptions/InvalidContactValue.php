@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Healthy360\Identity\Exceptions;
 
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 
 /**
@@ -16,7 +19,7 @@ use RuntimeException;
  * mean two vocabularies to reconcile later. The follow-up that adds the
  * controllers maps `reason()` onto `contact.*` codes in one place.
  */
-final class InvalidContactValue extends RuntimeException
+final class InvalidContactValue extends RuntimeException implements ProvidesApiError
 {
     private function __construct(private readonly string $reason, string $message)
     {
@@ -57,5 +60,26 @@ final class InvalidContactValue extends RuntimeException
     public function reason(): string
     {
         return $this->reason;
+    }
+
+    /**
+     * A malformed value is a field-level validation failure and is reported as
+     * one, so a form can put the message under the input the person typed it
+     * into. A value already *proven* by somebody else is a 409 and gets its own
+     * code, because there is nothing wrong with what was typed — the answer is
+     * "that address belongs to an account already", and no form field is at
+     * fault.
+     */
+    public function toApiError(): ApiError
+    {
+        return match ($this->reason) {
+            'contact.already_verified' => ApiError::make(ErrorCode::ContactAlreadyInUse, $this->getMessage()),
+            'contact.retired' => ApiError::make(ErrorCode::ResourceConflict, $this->getMessage(), ['reason' => $this->reason]),
+            default => ApiError::make(
+                ErrorCode::ValidationFailed,
+                $this->getMessage(),
+                ['reason' => $this->reason, 'fields' => ['value' => [$this->getMessage()]]],
+            ),
+        };
     }
 }

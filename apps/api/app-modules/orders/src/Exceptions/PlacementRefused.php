@@ -43,12 +43,15 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *    the offending `catalogue_item_id` attached, because at checkout they are
  *    reasons the *order* was refused.
  *
- * Carried under `ErrorCode::ResourceConflict` (409): the request is
- * well-formed and the customer meant it, but the world it describes has moved
- * — which is a conflict rather than a validation failure. The error vocabulary
- * belongs to the integration wave, so a dedicated `order.placement_refused`
- * may be introduced there without any call site changing, since every caller
- * throws this class rather than choosing a code.
+ * Carried under `ErrorCode::OrderPlacementRefused`
+ * (`order.placement_refused`, 409) since C1's HTTP layer. It was the generic
+ * `resource.conflict` while the vocabulary was still the integration wave's to
+ * extend, and the promotion cost exactly this line, because every caller throws
+ * this class rather than choosing a code. Still a **409**, and for the original
+ * reason: the request is well-formed and the customer meant it, but the world it
+ * describes has moved. What the dedicated code buys is that a checkout screen
+ * can branch on it — a lost `If-Match` race and a withdrawn article are both
+ * `resource.conflict` and want completely different screens.
  */
 final class PlacementRefused extends ApiException
 {
@@ -58,7 +61,7 @@ final class PlacementRefused extends ApiException
     public function __construct(array $reasons)
     {
         parent::__construct(
-            ErrorCode::ResourceConflict,
+            ErrorCode::OrderPlacementRefused,
             'This order cannot be placed as it stands.',
             ['reasons' => $reasons],
         );

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Customers\Exceptions;
 
 use Healthy360\Customers\Enums\CustomerAccountStatus;
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 
 /**
@@ -13,7 +16,7 @@ use RuntimeException;
  * Stable reason strings rather than error codes, per the J1 convention: the
  * wire vocabulary belongs to the HTTP follow-up.
  */
-final class AccountTransitionRejected extends RuntimeException
+final class AccountTransitionRejected extends RuntimeException implements ProvidesApiError
 {
     /**
      * @param  array<string, scalar|list<string>>  $details
@@ -65,5 +68,24 @@ final class AccountTransitionRejected extends RuntimeException
     public function details(): array
     {
         return $this->details;
+    }
+
+    /**
+     * An unmet activation requirement is a 403 rather than a 409: nothing
+     * conflicts, the person simply has steps left, and `details.outstanding`
+     * names them so a client can send them to the right one instead of saying
+     * "something is wrong with your account".
+     */
+    public function toApiError(): ApiError
+    {
+        if ($this->reason === 'account.activation_requirements_unmet') {
+            return ApiError::make(
+                ErrorCode::AccountVerificationRequired,
+                $this->getMessage(),
+                ['outstanding' => $this->details['reasons'] ?? []],
+            );
+        }
+
+        return ApiError::make(ErrorCode::ResourceConflict, $this->getMessage(), ['reason' => $this->reason] + $this->details);
     }
 }

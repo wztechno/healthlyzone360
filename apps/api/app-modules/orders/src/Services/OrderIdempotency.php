@@ -9,6 +9,7 @@ use Healthy360\Orders\Models\Order;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Models\IdempotencyKey;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -50,15 +51,16 @@ use Throwable;
  * fingerprint is a hash, so the table records *that* two requests differed
  * without recording what either of them said.
  *
- * **A subject with no user is not protected, and says so.** The table's
- * `user_id` is `NOT NULL` and references `users`, which is right for every
- * caller that exists today and wrong for a guest, whose customer account has
- * no identity behind it. Rather than inventing a placeholder user or writing a
- * second key table, this service returns "unprotected" for that case and the
- * caller places the order without replay protection — the behaviour before
- * this class existed. G1 or PAY1 makes `user_id` nullable beside a subject
- * discriminator; until then the limitation is stated here rather than hidden
- * behind a key that silently protects nothing.
+ * **Guests are protected too, as of the integration wave.** C1 shipped this
+ * class with an honest hole: `idempotency_keys.user_id` was `NOT NULL`, a
+ * guest has no user, and rather than invent a placeholder identity the service
+ * returned "unprotected" and let the order through without a guard. That was
+ * the wrong population to leave out — a guest checking out on a phone is
+ * exactly who double-taps. The column is now nullable beside
+ * `customer_account_id`, exactly one is set (a database CHECK, not a
+ * convention), and the unique key is built over the coalesced subject, so one
+ * key means one thing whichever kind of subject holds it. The unprotected
+ * branch is gone.
  */
 final readonly class OrderIdempotency
 {
@@ -81,6 +83,7 @@ final readonly class OrderIdempotency
      *
      * @param  string|null  $key  the client's idempotency key; null means no protection was asked for
      * @param  string|null  $userId  the identity behind the customer account; null for a guest
+     * @param  string|null  $customerAccountId  the guest account; null when a user holds the key
      * @param  string  $fingerprint  a hash of the salient request, from `fingerprint()`
      * @return array{claimed: bool, replay: array<string, mixed>|null}
      *                                                                 `claimed` is true when the caller now owns the key and must call
@@ -88,9 +91,9 @@ final readonly class OrderIdempotency
      *
      * @throws ApiException
      */
-    public function claim(?string $key, ?string $userId, string $fingerprint): array
+    public function claim(?string $key, ?string $userId, ?string $customerAccountId, string $fingerprint): array
     {
-        if ($key === null || $key === '' || $userId === null) {
+        if ($key === null || $key === '' || ($userId === null && $customerAccountId === null)) {
             return ['claimed' => false, 'replay' => null];
         }
 
@@ -101,10 +104,11 @@ final readonly class OrderIdempotency
             // poisons the whole transaction it ran in — so without the
             // savepoint a second identical request would take the surrounding
             // work down with it instead of being answered with a replay.
-            DB::transaction(function () use ($key, $userId, $fingerprint): void {
+            DB::transaction(function () use ($key, $userId, $customerAccountId, $fingerprint): void {
                 IdempotencyKey::query()->create([
                     'key' => $key,
                     'user_id' => $userId,
+                    'customer_account_id' => $customerAccountId,
                     'endpoint' => self::ENDPOINT,
                     'request_fingerprint' => $fingerprint,
                     'expires_at' => CarbonImmutable::now()->addHours(self::TTL_HOURS),
@@ -119,11 +123,7 @@ final readonly class OrderIdempotency
             }
         }
 
-        $existing = IdempotencyKey::query()
-            ->where('key', $key)
-            ->where('user_id', $userId)
-            ->where('endpoint', self::ENDPOINT)
-            ->first();
+        $existing = $this->subjectScope($key, $userId, $customerAccountId)->first();
 
         if (! $existing instanceof IdempotencyKey) {
             // The row was removed between the failed insert and this read —
@@ -159,16 +159,13 @@ final readonly class OrderIdempotency
      * The envelope and nothing else: enough for a replay to answer with the
      * same order, and not enough to reconstruct the request.
      */
-    public function complete(?string $key, ?string $userId, Order $order): void
+    public function complete(?string $key, ?string $userId, ?string $customerAccountId, Order $order): void
     {
-        if ($key === null || $key === '' || $userId === null) {
+        if ($key === null || $key === '' || ($userId === null && $customerAccountId === null)) {
             return;
         }
 
-        IdempotencyKey::query()
-            ->where('key', $key)
-            ->where('user_id', $userId)
-            ->where('endpoint', self::ENDPOINT)
+        $this->subjectScope($key, $userId, $customerAccountId)
             ->update([
                 'response_status' => '201',
                 'response_snapshot' => [
@@ -187,18 +184,33 @@ final readonly class OrderIdempotency
      * retry would be answered with the in-flight conflict above. A key
      * protects against duplicating a *success*; it must not lock in a failure.
      */
-    public function release(?string $key, ?string $userId): void
+    public function release(?string $key, ?string $userId, ?string $customerAccountId): void
     {
-        if ($key === null || $key === '' || $userId === null) {
+        if ($key === null || $key === '' || ($userId === null && $customerAccountId === null)) {
             return;
         }
 
-        IdempotencyKey::query()
-            ->where('key', $key)
-            ->where('user_id', $userId)
-            ->where('endpoint', self::ENDPOINT)
+        $this->subjectScope($key, $userId, $customerAccountId)
             ->whereNull('response_snapshot')
             ->delete();
+    }
+
+    /**
+     * One key row, addressed by whichever subject holds it.
+     *
+     * A single helper rather than the three copies this class used to carry:
+     * the subject is now a choice, and three places that each had to remember
+     * to make the same choice is three places to get it wrong.
+     *
+     * @return Builder<IdempotencyKey>
+     */
+    private function subjectScope(string $key, ?string $userId, ?string $customerAccountId): Builder
+    {
+        return IdempotencyKey::query()
+            ->where('key', $key)
+            ->where('endpoint', self::ENDPOINT)
+            ->when($userId !== null, fn (Builder $query): Builder => $query->where('user_id', $userId))
+            ->when($userId === null, fn (Builder $query): Builder => $query->where('customer_account_id', $customerAccountId));
     }
 
     /**
@@ -240,9 +252,9 @@ final readonly class OrderIdempotency
      *
      * @throws ApiException
      */
-    public function around(?string $key, ?string $userId, string $fingerprint, callable $place): array
+    public function around(?string $key, ?string $userId, ?string $customerAccountId, string $fingerprint, callable $place): array
     {
-        $claim = $this->claim($key, $userId, $fingerprint);
+        $claim = $this->claim($key, $userId, $customerAccountId, $fingerprint);
 
         if ($claim['replay'] !== null) {
             return ['order' => null, 'replay' => $claim['replay']];
@@ -256,14 +268,14 @@ final readonly class OrderIdempotency
             // half-built order — which is precisely why it has to be released
             // here rather than left for an expiry sweep a day later.
             if ($claim['claimed']) {
-                $this->release($key, $userId);
+                $this->release($key, $userId, $customerAccountId);
             }
 
             throw $throwable;
         }
 
         if ($claim['claimed']) {
-            $this->complete($key, $userId, $order);
+            $this->complete($key, $userId, $customerAccountId, $order);
         }
 
         return ['order' => $order, 'replay' => null];

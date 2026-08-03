@@ -30,9 +30,13 @@ use Illuminate\Support\Facades\DB;
  * of each move — the timestamps, the audit event, the fields that reopen.
  * Every transition goes through one private method, so there is exactly one
  * place a state can change and exactly one place that can be wrong. An illegal
- * move is `409 resource.conflict` naming both states, never a silent no-op:
- * a client that asked to approve an already-declined application has a bug,
- * and hiding it makes the bug somebody else's.
+ * move is `409 b2b.application_state_invalid` naming both states and the moves
+ * that *are* legal, never a silent no-op: a client that asked to approve an
+ * already-declined application has a bug, and hiding it makes the bug somebody
+ * else's. The dedicated code replaced the generic `resource.conflict` when the
+ * HTTP surface landed — a reviewer's console has to distinguish "somebody got
+ * there first" from "that is not a move this application can make", and those
+ * are different screens.
  *
  * ## Section PATCH semantics
  *
@@ -59,7 +63,12 @@ use Illuminate\Support\Facades\DB;
  *
  * Both failures come back in one response — `details.missing_fields` and
  * `details.missing_documents` — rather than one at a time. An applicant should
- * learn everything that is wrong in one round trip.
+ * learn everything that is wrong in one round trip. The *code* is
+ * `422 b2b.documents_incomplete` when anything is missing from the document
+ * checklist and `422 validation.failed` when only form fields are, because
+ * fixing a missing certificate is a different journey from fixing a blank
+ * field and a client should not have to read a details bag to know which
+ * screen to open.
  *
  * ## Duplicates
  *
@@ -369,8 +378,15 @@ final readonly class ApplicationService
         $missingDocuments = $this->missingRequiredDocuments($application);
 
         if ($missingFields !== [] || $missingDocuments !== []) {
+            // Two failures, two codes, one payload. A missing *document* has
+            // its own code because it is a different act to fix — go and find
+            // a certificate, photograph it, come back — and a client that
+            // wants to send the applicant to the upload step rather than to
+            // the form has to be able to tell the two apart without parsing a
+            // details bag. Both lists travel either way, so nothing is hidden
+            // by the choice of code.
             throw new ApiException(
-                ErrorCode::ValidationFailed,
+                $missingDocuments === [] ? ErrorCode::ValidationFailed : ErrorCode::B2bDocumentsIncomplete,
                 'This application is not complete enough to send yet.',
                 [
                     'missing_fields' => $missingFields,
@@ -638,7 +654,7 @@ final readonly class ApplicationService
 
         if (! $current->canTransitionTo($next)) {
             throw new ApiException(
-                ErrorCode::ResourceConflict,
+                ErrorCode::B2bApplicationStateInvalid,
                 "An application that is {$current->value} cannot become {$next->value}.",
                 [
                     'status' => $current->value,

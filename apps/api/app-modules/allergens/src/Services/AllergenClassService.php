@@ -41,6 +41,7 @@ final readonly class AllergenClassService
      *     is_us_big_9: bool,
      *     us_declaration_required?: bool,
      *     us_threshold_ppm?: int|null,
+     *     severe_by_default?: bool,
      *     display_order?: int|null
      * }  $attributes
      *
@@ -96,7 +97,7 @@ final readonly class AllergenClassService
 
         $changed = [];
 
-        foreach (['name_en', 'name_ar', 'description_en', 'description_ar', 'regulatory_ref', 'is_eu_14', 'is_us_big_9', 'us_declaration_required', 'us_threshold_ppm', 'display_order'] as $field) {
+        foreach (['name_en', 'name_ar', 'description_en', 'description_ar', 'regulatory_ref', 'is_eu_14', 'is_us_big_9', 'us_declaration_required', 'us_threshold_ppm', 'severe_by_default', 'display_order'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -165,6 +166,7 @@ final readonly class AllergenClassService
         $allergen->us_threshold_ppm = isset($attributes['us_threshold_ppm']) && is_numeric($attributes['us_threshold_ppm'])
             ? (int) $attributes['us_threshold_ppm']
             : null;
+        $allergen->severe_by_default = (bool) ($attributes['severe_by_default'] ?? false);
     }
 
     private function trimmedOrNull(mixed $value): ?string

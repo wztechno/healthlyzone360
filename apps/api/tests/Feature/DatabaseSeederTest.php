@@ -292,7 +292,15 @@ it('seeds exactly the registered permission set', function (): void {
     // subscription is, and the single delivery code K1.7 adds — one rather
     // than a pair, because no screen could sensibly show a kitchen its
     // delivery map while withholding the ability to change it.
-    expect(Permission::query()->count())->toBe(34)
+    //
+    // The integration wave adds seven: the `order.*` pair, because reading the
+    // day's orders and cancelling somebody's dinner are held by different
+    // people; and five platform codes for B2B onboarding — four splitting the
+    // review workflow into view, review, decide and provision, plus
+    // `kyc_document.view_platform`, deliberately narrower than the application
+    // read because working a queue is not by itself a reason to open somebody's
+    // passport photograph.
+    expect(Permission::query()->count())->toBe(41)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -302,7 +310,10 @@ it('keeps the platform permissions out of every organisation template role', fun
         ->whereIn('code', array_keys(PermissionRegistry::platformPermissions()))
         ->pluck('id');
 
-    expect($platformIds)->toHaveCount(2)
+    // Seven since the integration wave: the two reference codes plus B1's five.
+    // The count is pinned rather than derived so that adding a platform code
+    // without thinking about this test is impossible.
+    expect($platformIds)->toHaveCount(7)
         ->and(RolePermission::withoutTenancy()
             ->whereIn('permission_id', $platformIds)
             ->whereIn('role_id', Role::withoutTenancy()->whereNull('organisation_id')->select('id'))
@@ -322,14 +333,14 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 32],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 31],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 34],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 33],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans and draws the delivery map' => ['kitchen_manager', 16],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans and draws the delivery map' => ['kitchen_manager', 18],
     'chef edits recipes and their costs but never publishes one and never sees a price' => ['kitchen_chef', 5],
     'kitchen staff read the catalogue and recipes, and no money at all' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans and prices delivery' => ['commercial_manager', 9],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans and prices delivery' => ['commercial_manager', 10],
 ]);
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
@@ -715,9 +726,18 @@ it('grants the platform permissions only inside the platform operator organisati
         ->pluck('code')
         ->all();
 
+    // Every platform code the registry declares, and only inside this
+    // organisation. B1's five join the two reference codes: admitting a company
+    // to trade is a platform decision by construction, because there is no
+    // organisation to scope it to until the decision has been made.
     expect($codes)->toEqualCanonicalizing([
         'reference.view_platform',
         'reference.manage_platform',
+        'b2b_application.view_platform',
+        'b2b_application.review_platform',
+        'b2b_application.decide_platform',
+        'b2b_application.provision_platform',
+        'kyc_document.view_platform',
         'catalogue.view_organisation',
         'catalogue.manage_organisation',
     ]);
@@ -754,15 +774,53 @@ it('seeds the feature catalogue', function (): void {
 });
 
 it('seeds version one of the consent texts, marked as drafts', function (): void {
+    // Seven since J1: the three platform texts plus the consumer set. The list
+    // is pinned rather than counted, because each addition changes what a
+    // person is asked to agree to and must be a deliberate act.
     $definitions = ConsentDefinition::query()->get();
 
     expect($definitions->pluck('code')->all())->toEqualCanonicalizing([
         'consent.terms', 'consent.privacy', 'consent.health_data_processing',
+        'consent.age_confirmation', 'consent.allergen_declaration_accuracy',
+        'consent.marketing_email', 'consent.marketing_whatsapp',
     ])->and($definitions->pluck('version')->unique()->all())->toBe([1]);
 
     foreach ($definitions as $definition) {
         expect($definition->body_en)->toContain('Draft pending legal review')
             ->and($definition->body_ar)->not->toBe('');
+    }
+});
+
+it('marks every consent text with an audience and says which ones gate a lifecycle', function (): void {
+    $definitions = ConsentDefinition::query()->get()->keyBy('code');
+
+    // Marketing is the assertion that matters: consent to be advertised at is
+    // the one thing on this list that must be declinable, and a required
+    // marketing text would be a contradiction in terms.
+    expect($definitions['consent.terms']->audience)->toBe('all')
+        ->and($definitions['consent.terms']->is_required)->toBeTrue()
+        ->and($definitions['consent.age_confirmation']->audience)->toBe('d2c')
+        ->and($definitions['consent.age_confirmation']->is_required)->toBeTrue()
+        ->and($definitions['consent.marketing_email']->is_required)->toBeFalse()
+        ->and($definitions['consent.marketing_whatsapp']->is_required)->toBeFalse();
+});
+
+it('never presents an unauthored Arabic consent body as finished copy', function (): void {
+    // Legal text is not machine-translated (OQ-033). The four J1 additions
+    // carry a conspicuous marker instead of a translation, and this is what
+    // stops one being quietly replaced by a plausible-looking string that no
+    // reviewer approved.
+    $pending = ConsentDefinition::query()
+        ->whereIn('code', [
+            'consent.age_confirmation', 'consent.allergen_declaration_accuracy',
+            'consent.marketing_email', 'consent.marketing_whatsapp',
+        ])
+        ->get();
+
+    expect($pending)->toHaveCount(4);
+
+    foreach ($pending as $definition) {
+        expect($definition->body_ar)->toContain('AR PENDING');
     }
 });
 

@@ -15,6 +15,9 @@ use Healthy360\Pricing\Enums\CustomerScope;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Verification\Enums\OtpChallengeStatus;
+use Healthy360\Verification\Enums\OtpPurpose;
+use Healthy360\Verification\Models\OtpChallenge;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,21 +33,25 @@ use Illuminate\Support\Facades\DB;
  * state rather than on a permission — the record somebody accepted has to stay
  * the record somebody accepted.
  *
- * ## Signing — a shell, and honest about it
+ * ## Signing — click-wrap evidence, now with the signatory proved
  *
  * `sign()` records click-wrap evidence: the digest of the exact document
  * shown, the signatory's typed name and stated title, the consent wording
  * verbatim, and hashed session corroboration. That evidence is real and is
  * what a dispute would rest on.
  *
- * **What it does not do is verify an OTP.** `signature_otp_challenge_id` is
- * recorded if the caller supplies one, and is not checked against anything:
- * the verification module is being built in parallel (J1) and B1 has no way to
- * confirm a challenge was ever completed. The column carries no foreign key
- * for the same reason. `SigningEvidence::$otpVerified` is `false` on every
- * signature this phase produces, and the flag exists so that a later reader
- * can tell a stepped-up signature from an un-stepped-up one rather than
- * assuming.
+ * **A verified passcode is now required, not recorded hopefully.** B1 shipped
+ * `signature_otp_challenge_id` unchecked and said so: the verification module
+ * was being built in parallel and there was nothing to check against. There is
+ * now. Signing demands a challenge that exists, carries purpose
+ * `b2b_signatory`, has been *consumed* (status `verified`), and whose subject
+ * is the person signing — and refuses with `b2b.signatory_required` otherwise.
+ * The column carries a real foreign key with `ON DELETE RESTRICT`, because
+ * evidence a purge job can delete is not evidence.
+ *
+ * `SigningEvidence::$otpVerified` is therefore no longer decorative: it is
+ * true exactly when that check passed, and the service overrides whatever the
+ * caller claimed. A caller cannot assert its own proof.
  *
  * **This is never a qualified electronic signature** and no surface may
  * describe it as one (master plan v2 Phase B1; INT-007 covers real e-sign).
@@ -175,8 +182,7 @@ final readonly class AgreementService
     }
 
     /**
-     * Record acceptance — evidence only, no OTP verification (see the class
-     * comment).
+     * Record acceptance, against a passcode the signatory has already spent.
      *
      * @throws ApiException
      */
@@ -189,6 +195,9 @@ final readonly class AgreementService
                 ['status' => $agreement->status->value],
             );
         }
+
+        $challenge = $this->provenSignatoryChallenge($evidence, $actor);
+        $evidence = $evidence->proved((string) $challenge->getKey());
 
         $agreement->signature_document_sha256 = $evidence->documentSha256;
         $agreement->signatory_name = $evidence->signatoryName;
@@ -251,6 +260,40 @@ final readonly class AgreementService
             'terminated_at' => CarbonImmutable::now(),
             'termination_reason' => mb_substr($trimmed, 0, 40),
         ]);
+    }
+
+    /**
+     * The spent passcode that proves the signatory was present.
+     *
+     * Four conditions, and all four are the same condition seen from different
+     * sides: the challenge must exist, must have been raised for *signing*
+     * rather than for logging in or deleting something, must have been
+     * answered correctly (`verified` — a pending challenge proves nothing),
+     * and must belong to the person now signing. The last is what stops one
+     * employee's step-up from signing on a colleague's behalf.
+     *
+     * All four failures answer with the same code and no detail about which
+     * one it was. A caller holding somebody else's challenge id learns only
+     * that it did not work.
+     *
+     * @throws ApiException
+     */
+    private function provenSignatoryChallenge(SigningEvidence $evidence, User $actor): OtpChallenge
+    {
+        $challenge = $evidence->otpChallengeId === null
+            ? null
+            : OtpChallenge::query()->whereKey($evidence->otpChallengeId)->first();
+
+        $proved = $challenge instanceof OtpChallenge
+            && $challenge->purpose === OtpPurpose::B2bSignatory
+            && $challenge->status === OtpChallengeStatus::Verified
+            && $challenge->user_id === (string) $actor->getKey();
+
+        if (! $proved) {
+            throw new ApiException(ErrorCode::B2bSignatoryRequired);
+        }
+
+        return $challenge;
     }
 
     /**

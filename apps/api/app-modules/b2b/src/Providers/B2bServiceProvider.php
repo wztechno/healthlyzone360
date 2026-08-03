@@ -16,39 +16,42 @@ use Illuminate\Support\ServiceProvider;
  * the same reason: an interface with one implementation is indirection
  * pretending to be a boundary.
  *
- * There are no routes here either, deliberately. B1's HTTP surface, its
- * OpenAPI paths, its error codes and its permission codes are wired by the
- * integrator wave, so this module ships the domain and nothing that would
- * collide with another agent's edits to the shared spec and route files.
+ * The module's HTTP surface — the applicant's own application, the KYC
+ * upload and download, the platform review queue, agreement signing,
+ * provisioning and organisation invitations — is declared centrally in
+ * `routes/api-v1.php` like every other family on the platform. This provider
+ * still registers nothing.
  *
- * ## Seams the integrator closes
+ * ## Seams B1 declared, and what closed them
  *
- * 1. **Provisioning.** Approval records the decision; it does not create the
- *    corporate organisation, the customer account, the memberships or the
- *    first invitations. That is one idempotent transaction spanning
- *    Organisations, Customers and AccessControl.
- *    `b2b_applications` needs `provisioned_organisation_id` and
- *    `customer_account_id` (both nullable, both added by that wave — they are
- *    excluded here rather than added empty, so no column exists that a reader
- *    could mistake for wired-up behaviour); `b2b_agreements` needs
- *    `organisation_id` alongside its application anchor.
- * 2. **The signatory OTP.** `b2b_agreements.signature_otp_challenge_id` is a
- *    nullable uuid with no foreign key, and `AgreementService::sign()`
- *    verifies nothing. The integrator adds the constraint against
- *    `otp_challenges` and the challenge check.
- * 3. **`contact_points`.** J1's exactly-one-owner CHECK is named
- *    `contact_points_owner_check` precisely so it can be widened for
- *    `b2b_application_id`. B1 does not widen it: the applicant's contacts are
- *    unverified claims about their own staff (see
- *    `b2b_application_contacts`), and they become contact points at
- *    provisioning, not before.
- * 4. **Permissions.** Every service method takes an explicit authorised actor
- *    and trusts the caller. B1's platform permission codes and the middleware
- *    that enforces them belong to the permission wave.
- * 5. **Row-level security.** No B1 table takes a PostgreSQL policy, and
- *    `organisation_invitations` is the one that should — see its migration for
- *    why the policy has to arrive with the accept endpoint rather than before
- *    it.
+ * 1. **Provisioning.** Closed. `ProvisionApplication` creates the corporate
+ *    organisation, opens the B2B customer account, stamps
+ *    `b2b_applications.provisioned_organisation_id` and `customer_account_id`
+ *    and the agreement's `organisation_id`, and issues the first invitations —
+ *    all in one transaction behind a **required** `Idempotency-Key`, because a
+ *    provisioned tenant cannot be un-provisioned.
+ * 2. **The signatory OTP.** Closed, and it is the seam that most needed
+ *    closing. `signature_otp_challenge_id` now carries a real foreign key with
+ *    `ON DELETE RESTRICT`, and `AgreementService::sign()` demands a *consumed*
+ *    `b2b_signatory` challenge belonging to the person signing. Evidence a
+ *    purge job can delete is not evidence, and a flag a caller can assert is
+ *    not a check.
+ * 3. **`contact_points`.** Closed by widening the named CHECK additively
+ *    (§4.9): `b2b_application_id` is the third owner kind, and it is how the
+ *    signatory's nominated destination is recorded before any account exists.
+ * 4. **Permissions.** Closed. Four platform codes for the review workflow —
+ *    view, review, decide, provision — plus `kyc_document.view_platform`,
+ *    which is deliberately narrower than the application read: working a queue
+ *    is not by itself a reason to open somebody's passport photograph.
+ * 5. **Row-level security.** Decided rather than closed.
+ *    `organisation_invitations` gets **no** policy, and the reasoning is
+ *    recorded in D-066 and in the invitation controllers: the accept path
+ *    resolves by hashed token before the acceptor is a member of anything, so
+ *    an org-match policy would fail closed on the one request the table exists
+ *    to serve.
+ *
+ * What is still genuinely absent is B2's: offboarding and record export are
+ * table shells with no service and no surface.
  */
 class B2bServiceProvider extends ServiceProvider
 {

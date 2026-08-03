@@ -11,13 +11,12 @@ namespace Healthy360\B2b\Services;
  * that a signature cannot be recorded by passing four loose strings in the
  * wrong order.
  *
- * `$otpVerified` is **false in B1, always**. The verification module is built
- * in parallel and this module cannot confirm a challenge was completed; the
- * flag is what lets a later reader tell a stepped-up signature from one that
- * was never stepped up, instead of inferring it from the presence of a
- * challenge identifier that nothing checked. `$otpChallengeId` is recorded if
- * the caller has one and is not validated against anything — see
- * `AgreementService::sign()`.
+ * **`$otpVerified` is not something a caller may assert.** It is `false` on
+ * every instance a caller constructs, and becomes true only through `proved()`,
+ * which `AgreementService::sign()` calls after it has found a consumed
+ * `b2b_signatory` challenge belonging to the person signing. A flag the caller
+ * could set would record its own claim rather than an observation, which is
+ * the opposite of what this type is for.
  *
  * `$ipHash` and `$userAgentHash` are hashes because their purpose is
  * corroboration — did the acceptance come from the same session as the rest of
@@ -36,4 +35,22 @@ final readonly class SigningEvidence
         public ?string $otpChallengeId = null,
         public bool $otpVerified = false,
     ) {}
+
+    /**
+     * The same evidence, with the passcode proof the service has just
+     * confirmed. Only `AgreementService::sign()` calls this.
+     */
+    public function proved(string $otpChallengeId): self
+    {
+        return new self(
+            documentSha256: $this->documentSha256,
+            signatoryName: $this->signatoryName,
+            signatoryTitle: $this->signatoryTitle,
+            consentStatement: $this->consentStatement,
+            ipHash: $this->ipHash,
+            userAgentHash: $this->userAgentHash,
+            otpChallengeId: $otpChallengeId,
+            otpVerified: true,
+        );
+    }
 }

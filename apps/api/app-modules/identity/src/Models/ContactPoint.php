@@ -23,7 +23,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * the duplicate-detection index into an oracle for "does this address have an
  * account here".
  *
- * The owner is exactly one of `user_id` / `customer_account_id`, enforced by a
+ * The owner is exactly one of `user_id` / `customer_account_id` /
+ * `b2b_application_id`, enforced by a
  * database CHECK rather than by this class. `customer_account_id` has no
  * relation declared here on purpose: the dependency edge runs Customers →
  * Identity, and a `belongsTo(CustomerAccount::class)` would reverse it.
@@ -31,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $id
  * @property string|null $user_id
  * @property string|null $customer_account_id
+ * @property string|null $b2b_application_id
  * @property ContactChannel $channel
  * @property string $value_normalised
  * @property string $value_hash

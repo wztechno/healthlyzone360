@@ -22,11 +22,18 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  * `channel_not_trading`, `channel_unavailable`, `unpriced` and
  * `currency_mismatch`.
  *
- * Carried under `ErrorCode::ValidationFailed` because that is the honest
- * existing code for "the server will not accept this as sent", and because the
- * error vocabulary is owned by the integration wave: a dedicated
- * `cart.line_refused` may be introduced there without any call site here
- * changing, since every caller throws this class rather than choosing a code.
+ * Carried under `ErrorCode::CartLineRefused` (`cart.line_refused`, 422) since
+ * C1's HTTP layer. It was `validation.failed` while the vocabulary was still
+ * the integration wave's to extend — the honest existing code for "the server
+ * will not accept this as sent" — and the promotion cost exactly this line,
+ * because every caller throws this class rather than choosing a code. The
+ * dedicated code earns its place by being *branchable*: a client that must
+ * re-render one basket line has to tell that refusal apart from a malformed
+ * body, and `validation.failed` carrying a `reasons` array instead of a
+ * `fields` map was a shape clients had to sniff.
+ *
+ * Still a 422 rather than a 409: the request is what the server will not
+ * accept, and nothing about the basket has moved underneath the caller.
  */
 final class LineRefused extends ApiException
 {
@@ -36,7 +43,7 @@ final class LineRefused extends ApiException
     public function __construct(array $reasons)
     {
         parent::__construct(
-            ErrorCode::ValidationFailed,
+            ErrorCode::CartLineRefused,
             'This item cannot be added to the basket as asked for.',
             ['reasons' => $reasons],
         );

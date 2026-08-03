@@ -8,6 +8,7 @@ use Healthy360\Cart\Jobs\ExpireStaleCarts;
 use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
+use Healthy360\Support\Http\Middleware\EnforceIdempotency;
 use Healthy360\Verification\Jobs\PurgeExpiredOtpChallenges;
 use Illuminate\Support\Facades\Schedule;
 
@@ -155,5 +156,25 @@ Schedule::job(new ExpireStaleCarts)
     ->dailyAt('05:15')
     ->timezone('UTC')
     ->name('cart:expire-stale-carts')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| The integration wave — daily at 05:30 UTC. Idempotency keys expire after
+| twenty-four hours; this removes the rows that have.
+|
+| Deliberately **not** done on the request path. A client retrying a checkout is
+| the last caller who should be made to wait while the platform tidies up after
+| everybody else, and a sweep that ran per request would do the same work
+| thousands of times a day to no better effect.
+|
+| A closure rather than a job, because there is nothing to queue: one DELETE
+| against one index. `EnforceIdempotency::purgeExpired()` is where the window is
+| defined, so the schedule cannot drift from the middleware that wrote the rows.
+*/
+Schedule::call(static fn (): int => EnforceIdempotency::purgeExpired())
+    ->dailyAt('05:30')
+    ->timezone('UTC')
+    ->name('support:purge-idempotency-keys')
     ->withoutOverlapping()
     ->onOneServer();

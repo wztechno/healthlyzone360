@@ -93,6 +93,42 @@ final class ContactPointRegistry
     }
 
     /**
+     * The same, for a destination named on a B2B application before any
+     * account exists — a signatory's address, a billing contact's number.
+     *
+     * The application is the owner because at this point nothing else is: the
+     * applicant has a user, but the signatory they have named may have no
+     * relationship with the platform at all. Recording the destination here
+     * rather than as a loose column on the application means it is normalised,
+     * hashed and retirable like every other contact, and that the duplicate
+     * rules apply to it — a signatory address already proven by somebody else
+     * is refused before an application can be built on it.
+     *
+     * @throws InvalidContactValue
+     */
+    public function rememberForApplication(
+        string $applicationId,
+        ContactChannel $channel,
+        string $value,
+        bool $isPrimary = false,
+        string $source = 'self_service',
+        ?string $label = null,
+        ?string $createdBy = null,
+    ): ContactPoint {
+        return $this->remember(
+            ownerColumn: 'b2b_application_id',
+            ownerId: $applicationId,
+            channel: $channel,
+            value: $value,
+            isLoginIdentity: false,
+            isPrimary: $isPrimary,
+            source: $source,
+            label: $label,
+            createdBy: $createdBy,
+        );
+    }
+
+    /**
      * Mark a destination proven.
      *
      * The duplicate check happens here rather than only at insert time,

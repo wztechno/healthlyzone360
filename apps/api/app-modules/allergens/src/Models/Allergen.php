@@ -34,6 +34,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @property bool $is_us_big_9
  * @property bool $us_declaration_required
  * @property int|null $us_threshold_ppm
+ * @property bool $severe_by_default
  * @property int $display_order
  * @property bool $is_active
  * @property CarbonImmutable|null $created_at
@@ -72,6 +73,7 @@ class Allergen extends BaseModel
             'is_eu_14' => 'boolean',
             'is_us_big_9' => 'boolean',
             'us_declaration_required' => 'boolean',
+            'severe_by_default' => 'boolean',
             'is_active' => 'boolean',
             'us_threshold_ppm' => 'integer',
             'display_order' => 'integer',

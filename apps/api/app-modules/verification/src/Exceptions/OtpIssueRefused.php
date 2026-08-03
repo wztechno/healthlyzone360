@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Verification\Exceptions;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 
 /**
@@ -18,7 +21,7 @@ use RuntimeException;
  * has to say when, and a lockout has to say until when, or the client has
  * nothing to count down.
  */
-final class OtpIssueRefused extends RuntimeException
+final class OtpIssueRefused extends RuntimeException implements ProvidesApiError
 {
     /**
      * @param  array<string, scalar>  $details
@@ -89,5 +92,29 @@ final class OtpIssueRefused extends RuntimeException
     public function details(): array
     {
         return $this->details;
+    }
+
+    /**
+     * The wire shape of a refusal to issue.
+     *
+     * Five reasons, four codes: a cooldown and a resend ceiling are both "too
+     * many, too fast" and share a status, while a challenge that is no longer
+     * live is the thing a client must respond to by asking for a new one. The
+     * `reason` string survives in `details` regardless, so a client that wants
+     * the finer distinction has it without the wire vocabulary growing a case
+     * per message.
+     */
+    public function toApiError(): ApiError
+    {
+        $code = match ($this->reason) {
+            'otp.resend_too_soon' => ErrorCode::OtpCooldownActive,
+            'otp.resend_limit_reached' => ErrorCode::OtpAttemptsExceeded,
+            'otp.locked_out' => ErrorCode::OtpLocked,
+            'otp.challenge_not_live' => ErrorCode::OtpExpired,
+            'otp.contact_unusable' => ErrorCode::OtpChannelUnavailable,
+            default => ErrorCode::RequestInvalid,
+        };
+
+        return ApiError::make($code, $this->getMessage(), ['reason' => $this->reason] + $this->details);
     }
 }

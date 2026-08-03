@@ -527,6 +527,43 @@ it('shows a person their own customer account and their organisation buyer, and 
         ->and($visible)->not->toContain($this->a->corporateCustomer->getKey());
 });
 
+it('reaches an ownerless guest account, and still refuses one that belongs to somebody', function (): void {
+    // The integration wave's third predicate arm, and the defect it fixed.
+    // A guest account has no user and no organisation — both NULL by CHECK —
+    // so under J1's two-armed policy it matched nothing and the whole guest
+    // journey would have answered `401 guest.session_invalid` in production
+    // while passing every Feature test, because those connect as the schema
+    // owner and bypass RLS by ownership.
+    //
+    // The assertion that matters is the second half: admitting ownerless rows
+    // must not widen access to a single row that belongs to anybody. A guest's
+    // isolation from other guests is the capability token, in the application
+    // layer, which is the strategy §4.12 names for it and the one
+    // `guest_sessions`, `carts` and `orders` already rely on entirely.
+    $guest = CustomerAccount::query()->create([
+        'account_number' => 'H360-GUESTRLS1',
+        'account_type' => 'guest',
+        'user_id' => null,
+        'organisation_id' => null,
+        'status' => 'provisional',
+        'origin' => 'guest',
+        'lock_version' => 0,
+    ]);
+
+    RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
+
+    [$visible, $renamed, $readOther] = RuntimeRole::run(fn (): array => [
+        DB::table('customer_accounts')->where('id', $guest->getKey())->pluck('account_number')->all(),
+        DB::table('customer_accounts')->where('id', $guest->getKey())->update(['display_name' => 'Guest']),
+        DB::table('customer_accounts')->where('id', $this->a->customer->getKey())->pluck('account_number')->all(),
+    ]);
+
+    expect($visible)->toBe(['H360-GUESTRLS1'])
+        ->and($renamed)->toBe(1)
+        // The whole point: ownerless is not a skeleton key.
+        ->and($readOther)->toBe([]);
+});
+
 it('never lets one tenant read, rewrite, erase or plant another customer account', function (): void {
     RuntimeRole::context((string) $this->b->user->getKey(), (string) $this->b->organisation->getKey());
 

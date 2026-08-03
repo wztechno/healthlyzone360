@@ -53,6 +53,15 @@ enum OtpPurpose: string
      * session to `place_order`, and `GuestDeletionService` issues
      * `guest_deletion` to prove an erasure request before anything is erased.
      *
+     * The integration wave adds the remaining three, each with the consumer
+     * that honours it: the two step-ups are issued and confirmed by
+     * `POST /verification/step-up/{challenges,confirm}`, which stamps the
+     * `otp` step-up method that `step-up:otp` reads; `b2b_signatory` is issued
+     * before an agreement is put in front of its signatory and is what
+     * `AgreementService::sign()` now demands. Nothing is reserved-but-unused
+     * any more, which is the state the whole `isIssuable()` gate exists to
+     * prevent.
+     *
      * The consumers are named in prose rather than through `@see`, because a
      * docblock reference to a Customers class is an import waiting to happen and
      * the dependency edge runs Customers → Verification, never the reverse.
@@ -63,6 +72,21 @@ enum OtpPurpose: string
             self::ContactVerification,
             self::GuestOrder,
             self::GuestDeletion,
+            self::ClosureStepUp,
+            self::PaymentDetailsStepUp,
+            self::B2bSignatory,
         ], true);
+    }
+
+    /**
+     * Whether confirming this purpose grants an `otp` step-up.
+     *
+     * Only the two step-up purposes do. A contact-verification code must never
+     * unlock a payment change, which is the replay the purpose column exists
+     * to make impossible.
+     */
+    public function grantsStepUp(): bool
+    {
+        return in_array($this, [self::ClosureStepUp, self::PaymentDetailsStepUp], true);
     }
 }

@@ -32,6 +32,7 @@ final class AllergenClassPresenter
      *     is_us_big_9: bool,
      *     us_declaration_required: bool,
      *     us_threshold_ppm: int|null,
+     *     severe_by_default: bool,
      *     display_order: int,
      *     is_active: bool
      * }
@@ -49,6 +50,7 @@ final class AllergenClassPresenter
             'is_us_big_9' => $allergen->is_us_big_9,
             'us_declaration_required' => $allergen->us_declaration_required,
             'us_threshold_ppm' => $allergen->us_threshold_ppm,
+            'severe_by_default' => $allergen->severe_by_default,
             'display_order' => $allergen->display_order,
             'is_active' => $allergen->is_active,
         ];
@@ -64,6 +66,7 @@ final class AllergenClassPresenter
      *     is_us_big_9: bool,
      *     us_declaration_required: bool,
      *     us_threshold_ppm: int|null,
+     *     severe_by_default: bool,
      *     display_order: int
      * }
      */
@@ -80,6 +83,7 @@ final class AllergenClassPresenter
             'is_us_big_9' => $allergen->is_us_big_9,
             'us_declaration_required' => $allergen->us_declaration_required,
             'us_threshold_ppm' => $allergen->us_threshold_ppm,
+            'severe_by_default' => $allergen->severe_by_default,
             'display_order' => $allergen->display_order,
         ];
     }

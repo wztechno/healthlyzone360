@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Healthy360\Customers\Guest\Exceptions;
 
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 
 /**
@@ -18,7 +21,7 @@ use RuntimeException;
  * registration itself intact and hands the integrator a named case, which is a
  * better outcome than a unique-violation surfacing as a 500 during sign-up.
  */
-final class GuestConversionRejected extends RuntimeException
+final class GuestConversionRejected extends RuntimeException implements ProvidesApiError
 {
     public const string REASON_NOT_GUEST = 'account_not_guest';
 
@@ -44,5 +47,10 @@ final class GuestConversionRejected extends RuntimeException
     public static function userAlreadyHasAccount(): self
     {
         return new self(self::REASON_USER_HAS_ACCOUNT, 'This person already holds a consumer account.');
+    }
+
+    public function toApiError(): ApiError
+    {
+        return ApiError::make(ErrorCode::ResourceConflict, $this->getMessage(), ['reason' => $this->reason]);
     }
 }

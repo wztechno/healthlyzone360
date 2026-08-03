@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Verification\Exceptions;
 
 use Healthy360\Identity\Enums\ContactChannel;
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Verification\Enums\OtpChannel;
 use RuntimeException;
 
@@ -17,7 +20,7 @@ use RuntimeException;
  * HTTP surface is a follow-up, and inventing a wire code here would mean two
  * vocabularies to reconcile.
  */
-final class ChannelUnavailable extends RuntimeException
+final class ChannelUnavailable extends RuntimeException implements ProvidesApiError
 {
     private function __construct(private readonly string $reason, string $message)
     {
@@ -37,5 +40,10 @@ final class ChannelUnavailable extends RuntimeException
     public function reason(): string
     {
         return $this->reason;
+    }
+
+    public function toApiError(): ApiError
+    {
+        return ApiError::make(ErrorCode::OtpChannelUnavailable, $this->getMessage(), ['reason' => $this->reason]);
     }
 }

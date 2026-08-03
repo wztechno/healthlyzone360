@@ -73,7 +73,11 @@ it('refuses an illegal transition and says what would have been legal', function
         $this->service->startReview($application, $this->reviewer);
         $this->fail('A declined application should not be reviewable.');
     } catch (ApiException $exception) {
-        expect($exception->errorCode->value)->toBe('resource.conflict')
+        // Promoted from the generic `resource.conflict` when the HTTP surface
+        // landed: a reviewer's console has to distinguish "somebody got there
+        // first" from "that is not a move this application can make", and
+        // those are different screens.
+        expect($exception->errorCode->value)->toBe('b2b.application_state_invalid')
             ->and($exception->details['status'])->toBe('declined')
             ->and($exception->details['requested_status'])->toBe('in_review')
             ->and($exception->details['allowed_transitions'])->toBe([]);
@@ -96,7 +100,14 @@ it('decides completeness itself, and reports every gap at once', function (): vo
         $this->service->submit($application, $this->applicant);
         $this->fail('An empty application should not be submittable.');
     } catch (ApiException $exception) {
-        expect($exception->errorCode->value)->toBe('validation.failed')
+        // `b2b.documents_incomplete` rather than `validation.failed`, because
+        // documents are missing here. Fixing a missing certificate — find it,
+        // photograph it, come back — is a different journey from filling in a
+        // blank field, and a client should not have to parse a details bag to
+        // know which screen to open. Both lists travel either way, so the
+        // choice of code hides nothing; a gap of fields *alone* stays
+        // `validation.failed`.
+        expect($exception->errorCode->value)->toBe('b2b.documents_incomplete')
             ->and($exception->details['missing_fields'])->toContain('legal_name', 'signatory_name', 'requested_payment_terms')
             ->and($exception->details['missing_documents'])->toBe(['commercial_registration', 'signatory_identification']);
     }

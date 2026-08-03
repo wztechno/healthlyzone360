@@ -289,7 +289,7 @@ modules:
     status: foundation
     phase: 2
     description: Customer accounts in their consumer, corporate and guest shapes with the provisional-to-active lifecycle and its server-authoritative activation evaluator, addresses anchored to the platform delivery gazetteer, and the dietary cluster — profile, allergen declarations and food exclusions — held as special-category data. Closure and anonymisation arrive with J2; the guest journey with G1.
-    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent, Audit, Verification, Delivery]
+    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent, Audit, Verification, Delivery, Allergens]
 
   # Flipped to `foundation` by J1: the OTP framework — challenges with peppered
   # code hashes, a five-minute window, three attempts counted before the
@@ -313,10 +313,17 @@ modules:
     description: One-time-passcode challenges and their channel drivers — email real, SMS and WhatsApp simulated behind the same interface until a provider is selected — with peppered code hashes, concurrency-safe verification, resend cooldowns and cross-channel lockout, plus the contact-verification journey and the email verification message that carries a link and a code together.
     depends_on: [Support, Identity, ReferenceData, Audit]
 
+  # Verification and Identity join the declared edges in the integration wave,
+  # and the reason is a security property rather than a convenience.
+  # `AgreementService::sign()` now demands a *consumed* `b2b_signatory` passcode
+  # belonging to the person signing, so B2B has to be able to read a challenge;
+  # and the signatory's destination is recorded as a contact point, which is
+  # Identity's single write path. Both edges run B2B → the other module and
+  # neither runs back, so the graph stays acyclic.
   - name: B2B
     status: foundation
-    description: Corporate wellness and insurer arrangements — enrolment, eligibility validation, corporate/insurer billing.
-    depends_on: [Organisations, Catalogues, Pricing, Consent, Customers]
+    description: Corporate wellness and insurer arrangements — applications and their KYC pack, versioned agreements signed against a verified one-time passcode, provisioning an approved application into a real organisation and trading account, and organisation invitations. Offboarding and record export arrive with B2.
+    depends_on: [Support, Identity, Organisations, AccessControl, Tenancy, Audit, Catalogues, Pricing, Consent, Customers, Verification]
 
   - name: Cart
     status: foundation

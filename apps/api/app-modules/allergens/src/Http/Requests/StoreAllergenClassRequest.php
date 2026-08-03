@@ -33,6 +33,7 @@ class StoreAllergenClassRequest extends FormRequest
             'is_us_big_9' => ['required', 'boolean'],
             'us_declaration_required' => ['nullable', 'boolean'],
             'us_threshold_ppm' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'severe_by_default' => ['nullable', 'boolean'],
             'display_order' => ['nullable', 'integer', 'min:0', 'max:100000'],
         ];
     }

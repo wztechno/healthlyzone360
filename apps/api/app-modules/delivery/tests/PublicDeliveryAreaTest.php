@@ -95,17 +95,27 @@ it('filters by country', function (): void {
         ->assertJsonPath('data.0.code', 'ae-demo-al-quoz');
 });
 
-it('requires a country and refuses one the platform does not know', function (): void {
-    // A default would serve Lebanon to a customer in Dubai; an empty page for
-    // `UK` would look like "we do not deliver there yet" rather than "that is
-    // not a country code".
-    $this->getJson('/api/v1/reference/delivery-areas')
-        ->assertStatus(400)
-        ->assertJsonPath('error.code', 'request.invalid')
-        ->assertJsonPath('error.details.parameter', 'country_code');
+it('serves every market when no country is named, and refuses one the platform does not know', function (): void {
+    // K1.7 made `country_code` required, arguing that a default would serve
+    // Lebanon to a customer in Dubai. That argument was right about *defaults*
+    // and wrong about *absence* (D-067): a client that has not asked for a
+    // country has not asked for the wrong one, and the consumer marketplace
+    // legitimately wants the whole gazetteer before it knows where the person
+    // is. `country_code` is embedded on every row, so an unfiltered page is
+    // unambiguous by construction.
+    DeliveryWorld::area('achrafieh');
 
+    $this->getJson('/api/v1/reference/delivery-areas')
+        ->assertOk()
+        ->assertJsonPath('meta.country_code', null)
+        ->assertJsonCount(1, 'data');
+
+    // An unknown code stays a 400 rather than an empty page, which would read
+    // as "we do not deliver there yet" rather than "that is not a country
+    // code".
     $this->getJson('/api/v1/reference/delivery-areas?country_code=UK')
         ->assertStatus(400)
+        ->assertJsonPath('error.code', 'request.invalid')
         ->assertJsonPath('error.details.parameter', 'country_code');
 });
 

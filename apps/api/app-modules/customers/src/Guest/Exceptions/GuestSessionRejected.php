@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Customers\Guest\Exceptions;
 
 use Healthy360\Customers\Guest\Enums\GuestSessionGrade;
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 
 /**
@@ -17,7 +20,7 @@ use RuntimeException;
  * reaches the grade refusals below. A guest surface that answered "that token
  * expired" would confirm the token had once existed.
  */
-final class GuestSessionRejected extends RuntimeException
+final class GuestSessionRejected extends RuntimeException implements ProvidesApiError
 {
     public const string REASON_NOT_LIVE = 'session_not_live';
 
@@ -53,5 +56,15 @@ final class GuestSessionRejected extends RuntimeException
     public static function contactNotVerified(): self
     {
         return new self(self::REASON_CONTACT_NOT_VERIFIED, 'This guest session has no proven contact point.');
+    }
+
+    /**
+     * One code for every reason, and the reason is deliberately **not** put in
+     * `details`. Which of the four it was is only useful to somebody who does
+     * not hold the token, and that is exactly who must not learn it.
+     */
+    public function toApiError(): ApiError
+    {
+        return ApiError::make(ErrorCode::GuestSessionInvalid);
     }
 }

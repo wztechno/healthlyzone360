@@ -38,12 +38,28 @@ export const zErrorCode = z.enum([
     'authz.permission_denied',
     'request.invalid',
     'request.precondition_required',
+    'request.idempotency_key_reused',
     'resource.not_found',
     'resource.conflict',
     'catalogue.in_use',
     'catalogue.version_immutable',
     'catalogue.allergen_unmapped',
     'catalogue.publish_blocked',
+    'otp.invalid',
+    'otp.expired',
+    'otp.attempts_exceeded',
+    'otp.cooldown_active',
+    'otp.locked',
+    'otp.channel_unavailable',
+    'contact.already_in_use',
+    'account.verification_required',
+    'address.area_not_served',
+    'guest.session_invalid',
+    'cart.line_refused',
+    'order.placement_refused',
+    'b2b.application_state_invalid',
+    'b2b.documents_incomplete',
+    'b2b.signatory_required',
     'rate_limit.exceeded',
     'server.internal_error'
 ]);
@@ -166,7 +182,8 @@ export const zRegisterRequest = z.object({
     country_code: z.string().length(2).nullish(),
     timezone: z.string().max(64).optional(),
     accepts_terms: z.literal(true),
-    accepts_privacy: z.literal(true)
+    accepts_privacy: z.literal(true),
+    account_type: z.enum(['b2c']).optional()
 });
 
 export const zLoginRequest = z.object({
@@ -789,6 +806,7 @@ export const zPublicAllergenClass = z.object({
     is_us_big_9: z.boolean(),
     us_declaration_required: z.boolean(),
     us_threshold_ppm: z.int().nullish(),
+    severe_by_default: z.boolean().optional(),
     display_order: z.int()
 });
 
@@ -808,6 +826,7 @@ export const zAdminAllergenClass = z.object({
     is_us_big_9: z.boolean(),
     us_declaration_required: z.boolean(),
     us_threshold_ppm: z.int().nullish(),
+    severe_by_default: z.boolean().optional(),
     display_order: z.int(),
     is_active: z.boolean()
 });
@@ -830,6 +849,7 @@ export const zCreateAllergenClassRequest = z.object({
     is_us_big_9: z.boolean(),
     us_declaration_required: z.boolean().nullish(),
     us_threshold_ppm: z.int().gte(1).nullish(),
+    severe_by_default: z.boolean().nullish(),
     display_order: z.int().gte(0).nullish()
 });
 
@@ -849,6 +869,7 @@ export const zUpdateAllergenClassRequest = z.object({
     is_us_big_9: z.boolean().optional(),
     us_declaration_required: z.boolean().optional(),
     us_threshold_ppm: z.int().gte(1).nullish(),
+    severe_by_default: z.boolean().optional(),
     display_order: z.int().gte(0).optional()
 });
 
@@ -2275,6 +2296,1891 @@ export const zReplaceBranchOperatingRequest = z.object({
 });
 
 /**
+ * Three states, two of them terminal. `converted` and `expired` both mean
+ * "no longer shoppable" and are kept apart because only one is a success:
+ * a converted cart has an order behind it, an expired one is somebody who
+ * changed their mind. Collapsing them would make basket abandonment
+ * unanswerable.
+ *
+ */
+export const zCartStatus = z.enum([
+    'open',
+    'converted',
+    'expired'
+]);
+
+/**
+ * `placed → confirmed → fulfilled`, with `cancelled` reachable from the
+ * first two and from nowhere else. A fulfilled order is not cancellable:
+ * the food has been delivered, and what happens next is a refund or a
+ * complaint — different objects with different money attached.
+ *
+ * Deliberately absent: anything about payment (there is one method and it
+ * happens at the door), anything about production stages (the kitchen
+ * display's vocabulary), and any `pending` or `draft` — an order that has
+ * not been placed is a cart.
+ *
+ */
+export const zOrderStatus = z.enum([
+    'placed',
+    'confirmed',
+    'fulfilled',
+    'cancelled'
+]);
+
+/**
+ * Why an order was cancelled. A fixed vocabulary rather than free text
+ * because the answer is read by machines as often as by people: free text
+ * turns a count into a search problem, and it is how personal data ends up
+ * in a column nobody classified.
+ *
+ * `delivery_unavailable` is separate from `kitchen_unable_to_fulfil`
+ * because the food could be made but not delivered — the kitchen's fault
+ * in a different way, and the one an operations team can fix.
+ * `payment_failed` is **not** here: there is nothing to fail.
+ *
+ */
+export const zCancellationReason = z.enum([
+    'customer_requested',
+    'kitchen_unable_to_fulfil',
+    'delivery_unavailable',
+    'address_unreachable'
+]);
+
+/**
+ * One value, and the field exists anyway: an order has to record how it
+ * was paid for, and a column that appears the day a second method does
+ * would leave every earlier order unable to say.
+ *
+ */
+export const zPaymentMethod = z.enum(['cash_on_delivery']);
+
+export const zOpenCartRequest = z.object({
+    channel_code: z.string().max(40)
+});
+
+export const zAddCartItemRequest = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    quantity: z.union([
+        z.number(),
+        z.string()
+    ]).optional(),
+    delivery_date: z.iso.date().nullish()
+});
+
+export const zSetCartItemQuantityRequest = z.object({
+    quantity: z.union([
+        z.number(),
+        z.string()
+    ])
+});
+
+export const zCartLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    quantity: z.string(),
+    delivery_date: z.iso.date().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * **No amount of any kind appears here, and none ever will.** The cart
+ * tables hold no price column: the server's probe establishes that a line
+ * is orderable and discards its price, because a cart price is advisory and
+ * every line is repriced at placement. A subtotal here would be a number no
+ * table holds and no checkout will honour.
+ *
+ */
+export const zCart = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zCartStatus,
+    currency_code: z.string().length(3),
+    expires_at: z.iso.datetime({ offset: true }),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zCartLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCartEnvelope = z.object({
+    data: z.object({
+        cart: zCart
+    }),
+    meta: zMeta
+});
+
+/**
+ * The line the request was about, **and** the basket around it. The write
+ * moved the cart's validator and pushed its expiry out, so a response
+ * carrying only the line would hand a client two stale facts.
+ *
+ */
+export const zCartLineEnvelope = z.object({
+    data: z.object({
+        line: zCartLine,
+        cart: zCart
+    }),
+    meta: zMeta
+});
+
+/**
+ * Four fields, and none of them is a price. Every amount is decided during
+ * placement, against the tariff standing at that moment; a body that could
+ * state a total would be a client quoting the server its own prices.
+ *
+ */
+export const zPlaceOrderRequest = z.object({
+    cart_id: zUuid,
+    customer_address_id: zUuid,
+    delivery_window_code: z.string().max(40).nullish(),
+    requested_delivery_date: z.iso.date().nullish()
+});
+
+export const zCancelOrderRequest = z.object({
+    reason: zCancellationReason
+});
+
+/**
+ * The customer-facing allergen label, and nothing else. The derivation and
+ * the source ingredient are dropped at snapshot time: a source ingredient
+ * names part of a formulation, and an order line is the most likely row on
+ * the platform to be handed to a courier or a marketplace partner.
+ *
+ */
+export const zOrderLineAllergen = z.object({
+    allergen_code: zAllergenCode,
+    containment: z.string()
+});
+
+/**
+ * The article as it stood the moment the order was placed — a snapshot,
+ * not a join. Renaming the catalogue item tomorrow does not rewrite what a
+ * customer bought.
+ *
+ * `price_list_id` and `price_list_item_id` exist on the row and are
+ * **never** on this shape: they answer "why was this the price?" a year
+ * later, and on a receipt they would name a kitchen's tariff structure to
+ * the person being charged by it.
+ *
+ */
+export const zCustomerOrderLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    variant_label: z.string().nullable(),
+    quantity: z.string(),
+    unit_price_minor: z.int(),
+    line_total_minor: z.int(),
+    currency_code: z.string().length(3),
+    allergens: z.array(zOrderLineAllergen),
+    pack_summary: z.record(z.string(), z.unknown()).nullable()
+});
+
+export const zKitchenOrderLine = zCustomerOrderLine.and(z.object({
+    price_list_id: z.uuid().nullable(),
+    price_list_item_id: z.uuid().nullable()
+}));
+
+/**
+ * The address as it stood when the order was placed, copied. Editing the
+ * address later must not change where this order was sent.
+ *
+ */
+export const zCustomerOrderDelivery = z.object({
+    label: z.string().nullable(),
+    line_one: z.string(),
+    line_two: z.string().nullable(),
+    city: z.string().nullable(),
+    area_name_en: z.string().nullable(),
+    area_name_ar: z.string().nullable(),
+    area_id: z.uuid().nullable(),
+    window_code: z.string().nullable(),
+    requested_date: z.iso.date().nullable()
+});
+
+export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
+    zone_id: z.uuid().nullable()
+}));
+
+/**
+ * The receipt. **Five things on the row are deliberately absent**, each
+ * for its own reason:
+ *
+ * * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
+ * named to the person being charged by it; on an agreement list, one
+ * customer's negotiated position is reconstructable from which list
+ * priced their line.
+ * * `organisation_id` — the seller's internal key. The customer bought
+ * from a kitchen, not from a UUID. *That this shape carries no kitchen
+ * identity at all is a stated gap*: naming the kitchen means a public
+ * projection of an organisation, which belongs to the marketplace
+ * family.
+ * * `created_by` — for a self-service order this is the customer and says
+ * nothing; for a staff-placed order it names an employee to a member of
+ * the public.
+ * * `lock_version` — the validator of a resource this audience cannot
+ * write. Serving one with no writer invites `If-Match` at an endpoint
+ * that would ignore it.
+ * * `branch_id`, `sales_channel_id`, `delivery_zone_id` — the kitchen's
+ * operating arrangements; none of them changes anything the customer can
+ * do.
+ *
+ * The **amounts are here**, and that is not an oversight. What somebody was
+ * charged is printed on their own receipt; what the food cost the kitchen
+ * is the confidential figure, and no column on either table carries it.
+ *
+ */
+export const zCustomerOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    delivery: zCustomerOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    line_count: z.int().gte(0),
+    lines: z.array(zCustomerOrderLine),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * The seller's view of the same row. Built independently of the customer
+ * shape rather than as a superset of it: a wide shape and a narrow one
+ * derived from it by subtraction is how a column added next year quietly
+ * reaches a receipt.
+ *
+ * `lock_version` is here because this is the audience that **writes** — a
+ * screen that could not read the validator could not send the `If-Match`
+ * the three lifecycle actions demand.
+ *
+ */
+export const zKitchenOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    organisation_id: zUuid,
+    customer_account_id: zUuid,
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    delivery: zKitchenOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    created_by: z.uuid().nullable(),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zKitchenOrderLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCustomerOrderEnvelope = z.object({
+    data: z.object({
+        order: zCustomerOrder
+    }),
+    meta: zMeta
+});
+
+export const zKitchenOrderEnvelope = z.object({
+    data: z.object({
+        order: zKitchenOrder
+    }),
+    meta: zMeta
+});
+
+/**
+ * How much a guest token is allowed to do — the entire authorisation model
+ * for the guest journey, in two values. `checkout_draft` is what an
+ * anonymous browser is handed on its first request: enough to build a
+ * basket, price it and choose a slot, none of which creates an obligation
+ * to anybody. `place_order` is what that becomes once a passcode has
+ * proven a contact point.
+ *
+ * The grade is raised only by an act the server witnessed, and the
+ * database refuses the higher value without a `contact_verified_at`.
+ *
+ */
+export const zGuestSessionGrade = z.enum(['checkout_draft', 'place_order']);
+
+/**
+ * What kind of destination a contact point names — deliberately not the
+ * transport. An address has one way to reach it; a number has three, and
+ * which is used is a property of the message.
+ *
+ */
+export const zGuestContactChannel = z.enum(['email', 'phone']);
+
+/**
+ * How a passcode travels. Optional on every request that accepts it: the
+ * server knows which drivers are real in this deployment and falls back
+ * when one is not, so a client that insisted would get a refusal where the
+ * server would have found a route.
+ *
+ */
+export const zGuestOtpDeliveryChannel = z.enum([
+    'email',
+    'sms',
+    'whatsapp'
+]);
+
+/**
+ * The guest's own customer account. A guest **is** a `customer_accounts`
+ * row in one of the three shapes that table has always enforced — not a
+ * new kind of thing — which is why addresses, orders and dietary
+ * declarations all work on one without knowing a guest exists.
+ *
+ * `account_number` is absent: it is confidential, no guest screen needs
+ * it, and the reference somebody quotes on the telephone is the order
+ * number.
+ *
+ */
+export const zGuestCustomerAccount = z.object({
+    id: zUuid,
+    account_type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]),
+    status: z.enum([
+        'provisional',
+        'active',
+        'suspended',
+        'closed'
+    ]),
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    preferred_language_code: z.string().length(2).nullable(),
+    country_code: z.string().length(2).nullable(),
+    guest_expires_at: z.iso.datetime({ offset: true }).nullable(),
+    converted_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * A guest session's own state. **There is no `token` field and there
+ * cannot be one**: the plaintext exists only in the response to
+ * `POST /guest/sessions`, and the digest is a credential derivative that is
+ * never served. The IP and User-Agent fingerprints are absent too — they
+ * exist for abuse investigation, and echoing a person's own pseudonymised
+ * fingerprint back to them helps nobody but whoever gets hold of the
+ * response.
+ *
+ */
+export const zGuestSession = z.object({
+    id: zUuid,
+    grade: zGuestSessionGrade,
+    contact_verified: z.boolean(),
+    contact_verified_at: z.iso.datetime({ offset: true }).nullable(),
+    expires_at: z.iso.datetime({ offset: true }),
+    last_used_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * The one payload in the API that carries a guest credential.
+ */
+export const zStartedGuestSession = z.object({
+    token: z.string(),
+    grade: zGuestSessionGrade,
+    expires_at: z.iso.datetime({ offset: true }),
+    account_expires_at: z.iso.datetime({ offset: true }),
+    customer_account: zGuestCustomerAccount
+});
+
+export const zGuestSessionEnvelope = z.object({
+    data: z.object({
+        session: zGuestSession,
+        customer_account: zGuestCustomerAccount
+    }),
+    meta: zMeta
+});
+
+/**
+ * Every field is optional and the empty body is the normal case. A
+ * required field here would mean a person cannot open a basket until they
+ * have answered a question, which is the friction the guest journey exists
+ * to remove. Both values are presentation hints, not references: an
+ * unrecognised code degrades to the platform default rather than refusing
+ * the session.
+ *
+ */
+export const zStartGuestSessionRequest = z.object({
+    preferred_language_code: z.string().length(2).nullish(),
+    country_code: z.string().length(2).nullish()
+});
+
+export const zRequestGuestContactVerificationRequest = z.object({
+    channel: zGuestContactChannel,
+    value: z.string().max(255),
+    delivery_channel: zGuestOtpDeliveryChannel.optional()
+});
+
+export const zConfirmGuestContactVerificationRequest = z.object({
+    challenge_id: zUuid,
+    code: z.string().max(16)
+});
+
+/**
+ * A passcode in flight. Every field exists because a screen cannot be
+ * built without it: the resend countdown is absolute so a client with a
+ * wrong clock still gets it right, `attempts_remaining` is the difference
+ * between retyping carefully and being locked out without warning, and
+ * `destination_masked` is server-authored because a client-side mask of a
+ * value the client was given would mean the value was given.
+ *
+ */
+export const zGuestOtpChallenge = z.object({
+    challenge_id: zUuid,
+    purpose: z.literal('guest_order'),
+    channel: zGuestOtpDeliveryChannel,
+    destination_masked: z.string(),
+    expires_at: z.iso.datetime({ offset: true }),
+    resend_available_at: z.iso.datetime({ offset: true }),
+    resend_cooldown_seconds: z.int().gte(0),
+    attempts_remaining: z.int().gte(0),
+    resends_remaining: z.int().gte(0),
+    available_channels: z.array(z.object({
+        channel: zGuestOtpDeliveryChannel,
+        simulated: z.boolean()
+    })),
+    simulated: z.boolean(),
+    debug_code: z.string().optional()
+});
+
+export const zGuestOtpChallengeEnvelope = z.object({
+    data: z.object({
+        challenge: zGuestOtpChallenge
+    }),
+    meta: zMeta
+});
+
+/**
+ * The same body as the authenticated `POST /orders`. Nothing about money
+ * and nothing about the seller: the currency, the totals, the organisation
+ * and the channel are all decided at placement from the cart and the
+ * tariff standing at that moment. A body carrying a total would make the
+ * client the authority on what the kitchen charges.
+ *
+ */
+export const zPlaceGuestOrderRequest = z.object({
+    cart_id: zUuid,
+    customer_address_id: zUuid,
+    delivery_window_code: z.string().max(40).nullish(),
+    requested_delivery_date: z.iso.date().nullish()
+});
+
+export const zGuestOrderStatus = z.enum([
+    'placed',
+    'confirmed',
+    'fulfilled',
+    'cancelled'
+]);
+
+/**
+ * Where the food goes, as it stood when the order was placed. The area
+ * name carries one server-chosen language; the free-text parts are the
+ * customer's own address, copied onto the order so a later edit to the
+ * address book cannot rewrite where a delivered order went.
+ *
+ */
+export const zGuestOrderDelivery = z.object({
+    label: z.string().nullable(),
+    line_one: z.string(),
+    line_two: z.string().nullable(),
+    city: z.string().nullable(),
+    area: z.string().nullable(),
+    window_code: z.string().nullable(),
+    requested_date: z.iso.date().nullable()
+});
+
+/**
+ * The frozen allergen statement, exactly as the customer was shown it.
+ * Never re-derived from the catalogue on read — a person told "contains
+ * sesame" must still be told it after the kitchen reformulates.
+ *
+ */
+export const zGuestOrderLineAllergen = z.object({
+    allergen_code: zAllergenCode,
+    containment: z.string()
+});
+
+/**
+ * One article on the order, as it stood the moment the order was placed.
+ * `name` is **one** server-chosen language rather than a pair of columns
+ * (master plan v2 §4.8), and the price-list identifiers behind the amount
+ * are absent: they exist so "why was this the price?" is answerable a year
+ * later and they never leave the server.
+ *
+ */
+export const zGuestOrderLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    name: z.string(),
+    variant_label: z.string().nullable(),
+    quantity: z.string(),
+    unit_price_minor: z.int().gte(0),
+    line_total_minor: z.int().gte(0),
+    currency_code: zCurrencyCode,
+    allergens: z.array(zGuestOrderLineAllergen),
+    pack_summary: z.record(z.string(), z.unknown()).nullable()
+});
+
+/**
+ * A guest's own order. Amounts are integers of minor units with the
+ * currency beside them and are never formatted server-side — `4500` with
+ * `AED`, never `"45.00 AED"` — because a server that formats money has
+ * decided a locale on the client's behalf and made the number unusable for
+ * arithmetic.
+ *
+ * `lock_version` is absent, and so is an `ETag`: a guest has no write
+ * surface on an order, so a validator would be a token for a request
+ * nobody can make. The seller's identifiers are absent too — naming the
+ * kitchen properly means a projection, and that shape already exists on
+ * the marketplace surface.
+ *
+ */
+export const zGuestOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    status: zGuestOrderStatus,
+    currency_code: zCurrencyCode,
+    subtotal_minor: z.int().gte(0),
+    delivery_fee_minor: z.int().gte(0).nullable(),
+    total_minor: z.int().gte(0),
+    payment_method: z.enum(['cash_on_delivery']),
+    delivery: zGuestOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: z.enum([
+        'customer_requested',
+        'kitchen_unable_to_fulfil',
+        'delivery_unavailable',
+        'address_unreachable'
+    ]).nullable(),
+    lines: z.array(zGuestOrderLine)
+});
+
+export const zGuestOrderEnvelope = z.object({
+    data: z.object({
+        order: zGuestOrder
+    }),
+    meta: zMeta.and(z.object({
+        replayed: z.boolean().optional()
+    }))
+});
+
+export const zGuestConversionEnvelope = z.object({
+    data: z.object({
+        customer_account: zGuestCustomerAccount
+    }),
+    meta: zMeta.and(z.object({
+        guest_token_revoked: z.literal(true)
+    }))
+});
+
+export const zRequestGuestDeletionRequest = z.object({
+    channel: zGuestContactChannel,
+    value: z.string().max(255),
+    delivery_channel: zGuestOtpDeliveryChannel.optional()
+});
+
+/**
+ * The address is submitted again rather than carried in a challenge
+ * identifier from step one, because step one has none to give: a nullable
+ * identifier is a boolean in disguise, and the boolean is "this address is
+ * known to us".
+ *
+ */
+export const zConfirmGuestDeletionRequest = z.object({
+    channel: zGuestContactChannel,
+    value: z.string().max(255),
+    code: z.string().max(16)
+});
+
+/**
+ * The same answer whether or not there is anything to delete. Every field
+ * is derived from the request: the mask comes from the value just
+ * submitted, and the two remaining fields come from configuration.
+ *
+ */
+export const zGuestDeletionAcknowledgement = z.object({
+    accepted: z.literal(true),
+    destination_masked: z.string(),
+    verification_required: z.boolean(),
+    expires_in_seconds: z.int().gte(30)
+});
+
+/**
+ * What the purge did — counts only, never identities. An erasure that
+ * recorded what it erased would have rebuilt in one place exactly what it
+ * removed from another.
+ *
+ */
+export const zGuestPurgeReport = z.object({
+    contacts_deleted: z.int().gte(0),
+    addresses_deleted: z.int().gte(0),
+    challenges_deleted: z.int().gte(0),
+    sessions_deleted: z.int().gte(0),
+    suppressions_written: z.int().gte(0),
+    account_anonymised: z.boolean(),
+    orders_retained: z.int().gte(0)
+});
+
+/**
+ * One indistinguishable shape for every refusal — a wrong code, any code
+ * against an unknown address, an expired challenge, a locked-out contact
+ * — and the report only for a caller who has proven they hold the
+ * destination.
+ *
+ */
+export const zGuestDeletionOutcome = z.object({
+    accepted: z.literal(true),
+    purged: z.boolean(),
+    report: zGuestPurgeReport.optional()
+});
+
+/**
+ * What a passcode is being asked for. The vocabulary is complete rather
+ * than grown per phase, because a purpose scopes the one-live-challenge
+ * index and is what a step-up consumer checks before honouring a
+ * verification — a code obtained for a harmless purpose must not be
+ * replayable against a dangerous one.
+ *
+ */
+export const zOtpPurpose = z.enum([
+    'contact_verification',
+    'guest_order',
+    'guest_deletion',
+    'closure_step_up',
+    'payment_details_step_up',
+    'b2b_signatory'
+]);
+
+/**
+ * The purposes that grant an `otp` step-up. Contact verification is
+ * deliberately absent: a code proving somebody holds an address must never
+ * unlock a payment change.
+ *
+ */
+export const zStepUpPurpose = z.enum(['closure_step_up', 'payment_details_step_up']);
+
+/**
+ * How a passcode travels. Distinct from a contact point's `channel`: an
+ * email address has one way to reach it, a phone number has three, and
+ * which is used is a property of the message rather than of the number.
+ *
+ */
+export const zOtpDeliveryChannel = z.enum([
+    'email',
+    'sms',
+    'whatsapp'
+]);
+
+/**
+ * The stored lifecycle of a challenge. Not sufficient on its own — expiry
+ * is a moment rather than an event, so a row stays `pending` past its
+ * window until something writes the transition. Read `is_live` instead.
+ *
+ */
+export const zOtpChallengeState = z.enum([
+    'pending',
+    'verified',
+    'expired',
+    'failed',
+    'superseded'
+]);
+
+export const zOtpAvailableChannel = z.object({
+    channel: zOtpDeliveryChannel,
+    simulated: z.boolean()
+});
+
+/**
+ * What a caller learns when a challenge is issued or resent. Every field
+ * exists because a screen cannot be built without it.
+ *
+ */
+export const zOtpChallengeResult = z.object({
+    challenge_id: zUuid,
+    purpose: zOtpPurpose,
+    channel: zOtpDeliveryChannel,
+    destination_masked: z.string(),
+    expires_at: z.iso.datetime({ offset: true }),
+    resend_available_at: z.iso.datetime({ offset: true }),
+    resend_cooldown_seconds: z.int().gte(0),
+    attempts_remaining: z.int().gte(0),
+    resends_remaining: z.int().gte(0),
+    available_channels: z.array(zOtpAvailableChannel),
+    simulated: z.boolean(),
+    debug_code: z.string().optional()
+});
+
+export const zOtpChallengeEnvelope = z.object({
+    data: z.object({
+        challenge: zOtpChallengeResult
+    }),
+    meta: zMeta
+});
+
+/**
+ * A challenge's state. Carries no passcode and no derivative of one — every
+ * field is drawn from columns that outlive the request.
+ *
+ */
+export const zVerificationChallenge = z.object({
+    challenge_id: zUuid,
+    purpose: zOtpPurpose,
+    channel: zOtpDeliveryChannel,
+    destination_masked: z.string(),
+    status: zOtpChallengeState,
+    is_live: z.boolean(),
+    attempts_remaining: z.int().gte(0),
+    resends_remaining: z.int().gte(0),
+    expires_at: z.iso.datetime({ offset: true }),
+    resend_available_at: z.iso.datetime({ offset: true }).nullish(),
+    last_sent_at: z.iso.datetime({ offset: true }).nullish(),
+    verified_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zVerificationChallengeEnvelope = z.object({
+    data: z.object({
+        challenge: zVerificationChallenge
+    }),
+    meta: zMeta
+});
+
+export const zStepUpConfirmationEnvelope = z.object({
+    data: z.object({
+        confirmed: z.literal(true),
+        method: z.literal('otp'),
+        expires_in_seconds: z.int().gte(1)
+    }),
+    meta: zMeta
+});
+
+export const zSubmitPasscodeRequest = z.object({
+    code: z.string().regex(/^[0-9]{4,10}$/)
+});
+
+/**
+ * `channel` is optional and its absence means "the same way as last time"
+ * rather than "the default for this contact" — somebody who chose WhatsApp
+ * once should not be quietly moved back to SMS by pressing resend.
+ *
+ */
+export const zResendChallengeRequest = z.object({
+    channel: zOtpDeliveryChannel.optional()
+});
+
+/**
+ * No `channel`. A step-up goes to the destination the account has already
+ * proven, and letting the caller pick the transport for a challenge that
+ * unlocks account closure would hand an attacker the one decision the
+ * server should be making.
+ *
+ */
+export const zStepUpChallengeRequest = z.object({
+    purpose: zStepUpPurpose
+});
+
+/**
+ * The challenge is named in the body rather than in the path, unlike every
+ * other verification endpoint: a client that has just been refused with
+ * `auth.step_up_required` holds an identifier and a code, not a resource it
+ * is navigating to.
+ *
+ */
+export const zConfirmStepUpRequest = z.object({
+    challenge_id: zUuid,
+    code: z.string().regex(/^[0-9]{4,10}$/)
+});
+
+/**
+ * The kind of destination a contact point names — deliberately not the
+ * transport. Modelling it as `sms | whatsapp | email` would mean storing
+ * the same number twice and asking a customer to verify it twice.
+ *
+ */
+export const zContactChannel = z.enum(['email', 'phone']);
+
+export const zVerifiedContact = z.object({
+    id: zUuid,
+    channel: zContactChannel,
+    destination_masked: z.string(),
+    is_primary: z.boolean(),
+    is_login_identity: z.boolean(),
+    verified_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zContactVerifiedEnvelope = z.object({
+    data: z.object({
+        verified: z.literal(true),
+        contact: zVerifiedContact
+    }),
+    meta: zMeta
+});
+
+/**
+ * `provisional` is a real state rather than a nicer word for incomplete:
+ * an account in it exists, holds addresses and declarations, and cannot
+ * order — which is what lets onboarding be interrupted and resumed.
+ * `active` is the activation evaluator's verdict made durable; nothing
+ * else writes it. Closure is terminal.
+ *
+ */
+export const zCustomerAccountStatus = z.enum([
+    'provisional',
+    'active',
+    'suspended',
+    'closed'
+]);
+
+/**
+ * One requirement, met or not, in a stable order. Distinct from
+ * `outstanding` because a checklist showing only what is missing loses the
+ * sense of progress that makes people finish it — and because "phone
+ * verification is not required here" is itself something the screen has to
+ * be able to say.
+ *
+ */
+export const zCustomerAccountChecklistItem = z.object({
+    code: z.enum([
+        'account.email_unverified',
+        'account.phone_unverified',
+        'account.no_served_address',
+        'account.dietary_declaration_missing',
+        'account.consents_outstanding'
+    ]),
+    satisfied: z.boolean(),
+    required: z.boolean()
+});
+
+export const zCustomerAccountOutstandingReason = z.object({
+    code: z.string(),
+    context: z.record(z.string(), z.unknown())
+});
+
+export const zCustomerAccount = z.object({
+    id: zUuid,
+    account_number: z.string(),
+    account_type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]),
+    status: zCustomerAccountStatus,
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    display_name: z.string().nullish(),
+    preferred_language_code: z.string().length(2).nullish(),
+    country_code: z.string().length(2).nullish(),
+    is_ready: z.boolean(),
+    outstanding: z.array(zCustomerAccountOutstandingReason),
+    checklist: z.array(zCustomerAccountChecklistItem),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    provisional_expires_at: z.iso.datetime({ offset: true }).nullish(),
+    last_activity_at: z.iso.datetime({ offset: true }).nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerAccountEnvelope = z.object({
+    data: z.object({
+        account: zCustomerAccount
+    }),
+    meta: zMeta
+});
+
+export const zCustomerContact = z.object({
+    id: zUuid,
+    channel: zContactChannel,
+    value: z.string(),
+    label: z.string().nullish(),
+    is_login_identity: z.boolean(),
+    is_primary: z.boolean(),
+    is_verified: z.boolean(),
+    verified_at: z.iso.datetime({ offset: true }).nullish(),
+    source: z.string(),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerContactEnvelope = z.object({
+    data: z.object({
+        contact: zCustomerContact
+    }),
+    meta: zMeta
+});
+
+export const zCustomerContactsEnvelope = z.object({
+    data: z.array(zCustomerContact),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+/**
+ * `is_login_identity` and `verified_at` are absent by construction. The
+ * login mirror is written once, at registration; and a contact one may
+ * declare proven is a contact nobody has proven.
+ *
+ */
+export const zAddCustomerContactRequest = z.object({
+    channel: zContactChannel,
+    value: z.string().max(255),
+    label: z.string().max(60).nullish(),
+    is_primary: z.boolean().nullish()
+});
+
+/**
+ * Only `delivery` is checked against the served areas. An invoice goes
+ * wherever the customer says.
+ *
+ */
+export const zCustomerAddressType = z.enum(['delivery', 'billing']);
+
+export const zCustomerAddress = z.object({
+    id: zUuid,
+    address_type: zCustomerAddressType,
+    delivery_area_id: zUuid,
+    label: z.string().nullish(),
+    line_one: z.string(),
+    line_two: z.string().nullish(),
+    building: z.string().nullish(),
+    floor: z.string().nullish(),
+    apartment: z.string().nullish(),
+    directions: z.string().nullish(),
+    postal_code: z.string().nullish(),
+    contact_point_id: zUuid.nullish(),
+    is_default: z.boolean(),
+    is_deliverable: z.boolean(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerAddressEnvelope = z.object({
+    data: z.object({
+        address: zCustomerAddress
+    }),
+    meta: zMeta
+});
+
+export const zCustomerAddressesEnvelope = z.object({
+    data: z.array(zCustomerAddress),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zAddCustomerAddressRequest = z.object({
+    address_type: zCustomerAddressType,
+    delivery_area_id: zUuid,
+    label: z.string().max(60).nullish(),
+    line_one: z.string().max(255),
+    line_two: z.string().max(255).nullish(),
+    building: z.string().max(120).nullish(),
+    floor: z.string().max(40).nullish(),
+    apartment: z.string().max(40).nullish(),
+    directions: z.string().max(1000).nullish(),
+    postal_code: z.string().max(20).nullish(),
+    contact_point_id: zUuid.nullish(),
+    is_default: z.boolean().nullish()
+});
+
+/**
+ * `address_type` and `is_default` are absent, and both would be quietly
+ * wrong rather than merely unsupported — see the operation description.
+ *
+ */
+export const zUpdateCustomerAddressRequest = z.object({
+    delivery_area_id: zUuid.optional(),
+    label: z.string().max(60).nullish(),
+    line_one: z.string().max(255).optional(),
+    line_two: z.string().max(255).nullish(),
+    building: z.string().max(120).nullish(),
+    floor: z.string().max(40).nullish(),
+    apartment: z.string().max(40).nullish(),
+    directions: z.string().max(1000).nullish(),
+    postal_code: z.string().max(20).nullish(),
+    contact_point_id: zUuid.nullish()
+});
+
+/**
+ * How badly this person reacts. `avoidance` is a preference;
+ * `anaphylaxis` excludes traces, and a kitchen reads the difference.
+ *
+ */
+export const zAllergenSeverity = z.enum([
+    'avoidance',
+    'intolerance',
+    'allergy',
+    'anaphylaxis'
+]);
+
+/**
+ * `forbidden` is frequently a belief rather than a preference, which is
+ * why an exclusion is handled as carefully as an allergy even though
+ * nobody's airway depends on it.
+ *
+ */
+export const zFoodExclusionKind = z.enum(['dislike', 'forbidden']);
+
+/**
+ * Carries no identifier of its own. The set is replaced whole on every
+ * write, so a row id would be a handle onto something that does not
+ * survive the next `PUT`; the allergen code is the identity that matters.
+ *
+ */
+export const zCustomerAllergenDeclaration = z.object({
+    allergen_code: z.string(),
+    severity: zAllergenSeverity,
+    notes: z.string().nullish(),
+    declared_at: z.iso.datetime({ offset: true })
+});
+
+export const zCustomerFoodExclusion = z.object({
+    id: zUuid,
+    kind: zFoodExclusionKind,
+    subject_kind: z.enum([
+        'ingredient',
+        'diet_classification',
+        'free_text'
+    ]),
+    ingredient_id: zUuid.nullish(),
+    diet_classification_id: zUuid.nullish(),
+    free_text: z.string().nullish()
+});
+
+export const zCustomerDietaryProfile = z.object({
+    id: zUuid.nullish(),
+    has_declared: z.boolean(),
+    declared_at: z.iso.datetime({ offset: true }).nullish(),
+    declares_no_allergens: z.boolean(),
+    diet_classification_id: zUuid.nullish(),
+    religious_requirement: z.string().nullish(),
+    notes: z.string().nullish(),
+    allergens: z.array(zCustomerAllergenDeclaration),
+    exclusions: z.array(zCustomerFoodExclusion),
+    lock_version: z.int().gte(0).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerDietaryProfileEnvelope = z.object({
+    data: z.object({
+        dietary_profile: zCustomerDietaryProfile
+    }),
+    meta: zMeta
+});
+
+export const zReplaceDietaryProfileRequest = z.object({
+    allergens: z.array(z.object({
+        allergen_code: z.string().max(60),
+        severity: zAllergenSeverity.optional(),
+        notes: z.string().max(500).nullish()
+    })).max(60),
+    exclusions: z.array(z.object({
+        kind: zFoodExclusionKind.optional(),
+        ingredient_id: zUuid.nullish(),
+        diet_classification_id: zUuid.nullish(),
+        free_text: z.string().max(200).nullish()
+    })).max(100).optional(),
+    diet_classification_id: zUuid.nullish(),
+    religious_requirement: z.string().max(120).nullish(),
+    notes: z.string().max(2000).nullish()
+});
+
+export const zCustomerConsent = z.object({
+    code: z.string(),
+    version: z.int().gte(1),
+    purpose: z.string(),
+    audience: z.enum(['all', 'd2c']),
+    is_required: z.boolean(),
+    status: z.enum(['granted', 'pending']),
+    display_order: z.int().gte(0)
+});
+
+export const zCustomerConsentsEnvelope = z.object({
+    data: z.array(zCustomerConsent),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+/**
+ * No version. A grant is written against the current version of each
+ * definition, read at the moment of writing — a body that named one could
+ * accept a text that has since been reissued.
+ *
+ */
+export const zGrantConsentsRequest = z.object({
+    codes: z.array(z.string().max(80)).min(1).max(40)
+});
+
+/**
+ * The seven states a B2B application passes through.
+ *
+ * `info_requested` is not a rejection and not a pause: it hands editing
+ * rights back for named sections while the application keeps its place
+ * in the queue, which is what lets a status panel say "we need two
+ * things from you" instead of the same "under review" it showed
+ * yesterday.
+ *
+ * `withdrawn` is the applicant's exit and `declined` is the platform's.
+ * Collapsing them would make "how many did we turn down" unanswerable.
+ *
+ */
+export const zB2bApplicationStatus = z.enum([
+    'draft',
+    'submitted',
+    'in_review',
+    'info_requested',
+    'approved',
+    'declined',
+    'withdrawn'
+]);
+
+/**
+ * The field group a wizard step writes. A section is the unit of
+ * writing: a PATCH names one and carries only its fields, and anything
+ * else is refused with the name of the section that owns it.
+ *
+ * Documents are deliberately **not** a section — they have their own
+ * lifecycle and their own review, and folding them in would put a PATCH
+ * of a text box and an upload of a passport on one code path.
+ *
+ */
+export const zB2bApplicationSection = z.enum([
+    'company',
+    'signatory',
+    'trade_terms',
+    'logistics'
+]);
+
+/**
+ * The four people an applicant company names, one per slot.
+ *
+ * `signatory` overlaps the `signatory_*` fields on the application and
+ * that is not duplication: the fields are the *declaration* about who
+ * can bind the company, and the contact row is where to reach that
+ * person about the paperwork. A company whose chief executive signs and
+ * whose office manager chases the emails has one of each.
+ *
+ */
+export const zB2bApplicationContactRole = z.enum([
+    'primary',
+    'billing',
+    'operations',
+    'signatory'
+]);
+
+/**
+ * How long a corporate buyer has to pay. The same vocabulary appears on
+ * the application (what was *asked for*) and on the agreement (what was
+ * *granted*), because the whole point of the review is to compare them.
+ *
+ * **Recorded, not enforced.** No invoicing exists — PAY1 is
+ * discovery-gated — so nothing in the platform will chase a net-30
+ * balance, and no surface may imply otherwise.
+ *
+ */
+export const zB2bPaymentTerms = z.enum([
+    'prepaid',
+    'net_15',
+    'net_30',
+    'net_60'
+]);
+
+/**
+ * What a document is supposed to prove. Two kinds are required before an
+ * application may be submitted — `commercial_registration` and
+ * `signatory_identification` — because one says the company exists and
+ * the other says the signatory is a real person who can be held to what
+ * they sign. Everything else is asked for when the case calls for it.
+ *
+ * `signed_agreement` is produced by the signing flow and is **not**
+ * accepted from a client: an applicant supplying their own idea of what
+ * they signed is the one document that must never be self-asserted.
+ *
+ * `other` exists because reviewers ask for things nobody anticipated,
+ * and the alternative is an applicant mislabelling a document.
+ *
+ */
+export const zB2bDocumentKind = z.enum([
+    'commercial_registration',
+    'tax_certificate',
+    'trade_licence',
+    'signatory_identification',
+    'authorisation_letter',
+    'proof_of_address',
+    'food_safety_certificate',
+    'insurance_certificate',
+    'signed_agreement',
+    'other'
+]);
+
+/**
+ * A human's verdict on a document. `superseded` is not a verdict anybody
+ * gives — it is what happens to an accepted document when a newer one of
+ * the same kind replaces it, so the earlier decision trail survives a
+ * re-upload.
+ *
+ */
+export const zKycDocumentReviewStatus = z.enum([
+    'pending',
+    'accepted',
+    'rejected',
+    'superseded'
+]);
+
+/**
+ * Why a reviewer turned a document down. A closed vocabulary rather than
+ * free text, because this is the half of a rejection the applicant is
+ * shown and "please re-upload, it was illegible" is actionable in a way
+ * a reviewer's internal note is not.
+ *
+ */
+export const zKycDocumentRejectionReason = z.enum([
+    'unreadable',
+    'wrong_document',
+    'expired',
+    'incomplete',
+    'mismatch',
+    'other'
+]);
+
+/**
+ * Whether anything has looked inside the file for malware. **Every
+ * document B1 stores is `not_scanned`**, and this field exists so that
+ * fact is in the data rather than only in a risk register.
+ *
+ * Sniffing the leading bytes proves a PDF is a PDF; it proves nothing
+ * about what the PDF contains. `clean` and `infected` are declared and
+ * unreachable in this phase, and nothing may present a document as safe
+ * until a scanner fills them in (INT-008).
+ *
+ */
+export const zKycDocumentScanStatus = z.enum([
+    'not_scanned',
+    'clean',
+    'infected'
+]);
+
+/**
+ * `draft → pending_signature → active → suspended ⇄ active →
+ * terminated`.
+ *
+ * The transition that is *not* here is any route back into `draft` once
+ * terms have been put in front of a counterparty. Changing what somebody
+ * was asked to sign, in place, is the failure this vocabulary is shaped
+ * against; the supported move is a new version that supersedes the old.
+ *
+ * `suspended` is reversible and `terminated` is not.
+ *
+ */
+export const zB2bAgreementStatus = z.enum([
+    'draft',
+    'pending_signature',
+    'active',
+    'suspended',
+    'terminated'
+]);
+
+/**
+ * **Derived, never stored.** `accepted_at`, `revoked_at` and
+ * `expires_at` are already on the row, and a status column would be a
+ * fourth copy that has to be kept in step with a clock — expiry being
+ * the first thing to drift.
+ *
+ */
+export const zOrganisationInvitationStatus = z.enum([
+    'live',
+    'accepted',
+    'revoked',
+    'expired'
+]);
+
+/**
+ * A company's request to become a corporate buyer, as the applicant sees
+ * it.
+ *
+ * `completed_sections` is the applicant's own **claim** about their
+ * progress and is never consulted by the submission gate; the server's
+ * definition of complete arrives as `missing_fields` /
+ * `missing_documents` on the refusal. A surface that treated the claim
+ * as the answer would show a green wizard next to a 422.
+ *
+ * `writable_sections` is computed. In `info_requested` it is the
+ * reviewer's narrowing rather than the whole form.
+ *
+ */
+export const zB2bApplication = z.object({
+    id: zUuid,
+    reference: z.string(),
+    status: zB2bApplicationStatus,
+    applicant_user_id: zUuid,
+    legal_name: z.string().nullish(),
+    legal_name_ar: z.string().nullish(),
+    trading_name: z.string().nullish(),
+    business_type: z.string().nullish(),
+    country_code: z.string().length(2).nullish(),
+    commercial_registration_number: z.string().nullish(),
+    tax_registration_number: z.string().nullish(),
+    incorporated_on: z.iso.date().nullish(),
+    website: z.string().nullish(),
+    signatory_name: z.string().nullish(),
+    signatory_title: z.string().nullish(),
+    signatory_email: z.email().nullish(),
+    signatory_phone: z.string().nullish(),
+    requested_payment_terms: zB2bPaymentTerms.nullish(),
+    requested_credit_limit_minor: z.int().gte(0).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    expected_volume_band: z.string().nullish(),
+    expected_order_frequency: z.string().nullish(),
+    product_categories: z.array(z.string()).optional(),
+    preferred_delivery_window: z.string().nullish(),
+    lead_time_days: z.int().gte(0).nullish(),
+    requires_invoice_per_location: z.boolean(),
+    delivery_notes: z.string().nullish(),
+    completed_sections: z.array(zB2bApplicationSection),
+    writable_sections: z.array(zB2bApplicationSection),
+    information_request: z.string().nullish(),
+    information_requested_sections: z.array(zB2bApplicationSection).optional(),
+    information_requested_at: z.iso.datetime({ offset: true }).nullish(),
+    applicant_message: z.string().nullish(),
+    submitted_at: z.iso.datetime({ offset: true }).nullish(),
+    review_started_at: z.iso.datetime({ offset: true }).nullish(),
+    decided_at: z.iso.datetime({ offset: true }).nullish(),
+    withdrawn_at: z.iso.datetime({ offset: true }).nullish(),
+    provisioned_organisation_id: zUuid.nullish(),
+    customer_account_id: zUuid.nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * The reviewer's view: everything the applicant sees, plus the internal
+ * half of the decision. `decision_note` never reaches the applicant —
+ * "we were not comfortable with the credit history" and "we are unable
+ * to approve your application at this time" can both be true, and only
+ * one of them travels.
+ *
+ */
+export const zB2bApplicationReview = zB2bApplication.and(z.object({
+    decision_note: z.string().nullish(),
+    reviewed_by: zUuid.nullish(),
+    duplicate_of_application_id: zUuid.nullish()
+}));
+
+/**
+ * The list row. Deliberately thin: a queue answers "which of these do I
+ * open next", and every confidential field carried in a list is a field
+ * displayed on a screen somebody walks past.
+ *
+ */
+export const zB2bApplicationSummary = z.object({
+    id: zUuid,
+    reference: z.string(),
+    status: zB2bApplicationStatus,
+    legal_name: z.string().nullish(),
+    trading_name: z.string().nullish(),
+    country_code: z.string().nullish(),
+    submitted_at: z.iso.datetime({ offset: true }).nullish(),
+    decided_at: z.iso.datetime({ offset: true }).nullish(),
+    reviewed_by: zUuid.nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * A person the applicant company named. **Transcribed paperwork, not a
+ * verified destination** — nothing here has been proved, which is why
+ * these are not contact points.
+ *
+ */
+export const zB2bApplicationContact = z.object({
+    id: zUuid,
+    role: zB2bApplicationContactRole,
+    name: z.string().max(160),
+    title: z.string().max(120).nullish(),
+    email: z.email().nullish(),
+    phone: z.string().nullish(),
+    notes: z.string().nullish()
+});
+
+/**
+ * Somewhere the company wants food delivered, anchored to the platform gazetteer where the gazetteer covers it.
+ */
+export const zB2bApplicationLocation = z.object({
+    id: zUuid,
+    label: z.string().max(120),
+    delivery_area_id: zUuid.nullish(),
+    address_line1: z.string(),
+    address_line2: z.string().nullish(),
+    city: z.string().nullish(),
+    country_code: z.string().length(2).nullish(),
+    contact_name: z.string().nullish(),
+    contact_phone: z.string().nullish(),
+    delivery_notes: z.string().nullish(),
+    is_primary: z.boolean(),
+    is_billing_address: z.boolean(),
+    expected_headcount: z.int().gte(1).nullish()
+});
+
+/**
+ * An identity, registration or licensing document — **metadata only**.
+ * There is no `url`, no `disk` and no `path` here and there never may
+ * be: the only route to the bytes is a short-lived signed link that
+ * expires and records who asked and why.
+ *
+ * `media_type_mismatch` is stated rather than left for a client to
+ * compute, because the difference between what the uploader claimed and
+ * what the bytes are is evidence.
+ *
+ */
+export const zKycDocument = z.object({
+    id: zUuid,
+    document_kind: zB2bDocumentKind,
+    original_filename: z.string(),
+    mime_type: z.string(),
+    declared_mime_type: z.string().nullish(),
+    media_type_mismatch: z.boolean(),
+    byte_size: z.int().gte(1),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    scan_status: zKycDocumentScanStatus,
+    review_status: zKycDocumentReviewStatus,
+    rejection_reason: zKycDocumentRejectionReason.nullish(),
+    reviewed_at: z.iso.datetime({ offset: true }).nullish(),
+    uploaded_by: zUuid.nullish(),
+    uploaded_at: z.iso.datetime({ offset: true }),
+    expires_on: z.iso.date().nullish(),
+    has_expired: z.boolean()
+});
+
+/**
+ * The platform shape: the same document plus the reviewer's private note
+ * and the retention deadline. `review_note` is internal and stays that
+ * way; `purge_after` is here rather than on the applicant shape because
+ * the retention window is a **placeholder** pending OQ-029, and showing
+ * an applicant a deadline the platform has not decided would present a
+ * guess as a commitment.
+ *
+ */
+export const zKycDocumentReview = zKycDocument.and(z.object({
+    review_note: z.string().nullish(),
+    reviewed_by: zUuid.nullish(),
+    owner_kind: z.enum([
+        'user',
+        'b2b_application',
+        'organisation'
+    ]).optional(),
+    b2b_application_id: zUuid.nullish(),
+    purge_after: z.iso.datetime({ offset: true }).optional()
+}));
+
+/**
+ * A signed, expiring grant against object storage. Handed over as data
+ * rather than as a redirect so a client knows it holds a credential with
+ * a deadline — it can show the expiry, refresh before acting, and
+ * decline to cache it.
+ *
+ */
+export const zKycDocumentDownload = z.object({
+    url: z.url(),
+    expires_at: z.iso.datetime({ offset: true })
+});
+
+/**
+ * One version of the terms between the platform and a corporate buyer.
+ *
+ * The signature block is **evidence**: the digest of the bytes shown,
+ * the typed name, the stated capacity and the consent wording verbatim.
+ * What is absent is anything replayable — the hashed address and user
+ * agent stay server-side, and the passcode challenge is reduced to
+ * `signature_otp_verified`.
+ *
+ * **Never a qualified electronic signature.** This is a record that
+ * somebody clicked, with good evidence about who and when (INT-007
+ * covers real e-sign).
+ *
+ * Money is integers of minor units beside `currency_code`, never
+ * formatted.
+ *
+ */
+export const zB2bAgreement = z.object({
+    id: zUuid,
+    b2b_application_id: zUuid,
+    organisation_id: zUuid.nullish(),
+    version: z.int().gte(1),
+    supersedes_agreement_id: zUuid.nullish(),
+    status: zB2bAgreementStatus,
+    title: z.string(),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).nullish(),
+    notice_period_days: z.int().gte(0).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean(),
+    terms_summary: z.string().nullish(),
+    signature_document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
+    signatory_name: z.string().nullish(),
+    signatory_title: z.string().nullish(),
+    signatory_user_id: zUuid.nullish(),
+    signature_consent_statement: z.string().nullish(),
+    signature_otp_verified: z.boolean(),
+    signed_at: z.iso.datetime({ offset: true }).nullish(),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    suspended_at: z.iso.datetime({ offset: true }).nullish(),
+    terminated_at: z.iso.datetime({ offset: true }).nullish(),
+    termination_reason: z.string().nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * An offer of membership. **There is no `token` field and there never
+ * may be** — the plaintext is delivered once, in the email, and only its
+ * SHA-256 is stored.
+ *
+ */
+export const zOrganisationInvitation = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullish(),
+    email: z.email(),
+    role_code: z.string(),
+    status: zOrganisationInvitationStatus,
+    message: z.string().nullish(),
+    expires_at: z.iso.datetime({ offset: true }),
+    accepted_at: z.iso.datetime({ offset: true }).nullish(),
+    accepted_by_user_id: zUuid.nullish(),
+    revoked_at: z.iso.datetime({ offset: true }).nullish(),
+    revoked_by: zUuid.nullish(),
+    invited_by: zUuid.nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * The trading account an approval earns. Deliberately thin — the
+ * addresses, dietary profile and consents hanging off a customer account
+ * are somebody else's endpoints, and a fat shape here would make this
+ * the accidental canonical read.
+ *
+ */
+export const zB2bCustomerAccount = z.object({
+    id: zUuid,
+    account_number: z.string(),
+    account_type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]),
+    organisation_id: zUuid.nullish(),
+    status: z.enum([
+        'provisional',
+        'active',
+        'suspended',
+        'closed'
+    ]),
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    display_name: z.string().nullish(),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * The fields of the section named in the path, and **only** those. A key
+ * belonging to another section is refused with the name of the section
+ * that owns it, rather than dropped — silently discarding a field
+ * somebody believed they were saving is how a five-minute bug becomes a
+ * support ticket six weeks later.
+ *
+ * `status`, `completed_sections` and `lock_version` are not accepted:
+ * they are the server's, and `completed_sections` in particular is
+ * written as a *consequence* of a section being saved rather than as a
+ * claim a client may post.
+ *
+ */
+export const zUpdateB2bApplicationSectionRequest = z.object({
+    legal_name: z.string().max(255).nullish(),
+    legal_name_ar: z.string().max(255).nullish(),
+    trading_name: z.string().max(255).nullish(),
+    business_type: z.string().max(80).nullish(),
+    country_code: z.string().length(2).nullish(),
+    commercial_registration_number: z.string().max(80).nullish(),
+    tax_registration_number: z.string().max(80).nullish(),
+    incorporated_on: z.iso.date().nullish(),
+    website: z.string().max(255).nullish(),
+    signatory_name: z.string().max(160).nullish(),
+    signatory_title: z.string().max(120).nullish(),
+    signatory_email: z.email().max(255).nullish(),
+    signatory_phone: z.string().max(32).nullish(),
+    requested_payment_terms: zB2bPaymentTerms.nullish(),
+    requested_credit_limit_minor: z.int().gte(0).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    expected_volume_band: z.string().max(40).nullish(),
+    expected_order_frequency: z.string().max(40).nullish(),
+    product_categories: z.array(z.string().max(80)).max(40).nullish(),
+    preferred_delivery_window: z.string().max(60).nullish(),
+    lead_time_days: z.int().gte(0).lte(365).nullish(),
+    requires_invoice_per_location: z.boolean().optional(),
+    delivery_notes: z.string().max(2000).nullish()
+});
+
+/**
+ * The complete set. `{"contacts": []}` is the payload that says "nobody,
+ * yet" — and is why the property is required-but-possibly-empty rather
+ * than optional.
+ *
+ */
+export const zReplaceB2bApplicationContactsRequest = z.object({
+    contacts: z.array(z.object({
+        role: zB2bApplicationContactRole,
+        name: z.string().max(160),
+        title: z.string().max(120).nullish(),
+        email: z.email().max(255).nullish(),
+        phone: z.string().max(32).nullish(),
+        notes: z.string().max(1000).nullish()
+    })).max(4)
+});
+
+/**
+ * The complete set. `{"locations": []}` is how a company says it has
+ * none yet.
+ *
+ */
+export const zReplaceB2bApplicationLocationsRequest = z.object({
+    locations: z.array(z.object({
+        label: z.string().max(120),
+        delivery_area_id: zUuid.nullish(),
+        address_line1: z.string().max(255),
+        address_line2: z.string().max(255).nullish(),
+        city: z.string().max(120).nullish(),
+        country_code: z.string().length(2).nullish(),
+        contact_name: z.string().max(160).nullish(),
+        contact_phone: z.string().max(32).nullish(),
+        delivery_notes: z.string().max(1000).nullish(),
+        is_primary: z.boolean().nullish(),
+        is_billing_address: z.boolean().nullish(),
+        expected_headcount: z.int().gte(1).lte(100000).nullish()
+    })).max(50)
+});
+
+/**
+ * A `multipart/form-data` body. The size bound is checked before the
+ * bytes are read; **what the file is** is decided by sniffing, not by
+ * the part's `Content-Type` or its filename.
+ *
+ */
+export const zUploadKycDocumentRequest = z.object({
+    file: z.string(),
+    document_kind: zB2bDocumentKind,
+    expires_on: z.iso.date().nullish()
+});
+
+export const zRequestB2bApplicationInformationRequest = z.object({
+    information_request: z.string().max(2000),
+    sections: z.array(zB2bApplicationSection).max(4).nullish()
+});
+
+/**
+ * Both fields optional. An approval is self-explanatory; demanding a sentence would produce "approved" typed four hundred times.
+ */
+export const zApproveB2bApplicationRequest = z.object({
+    internal_note: z.string().max(2000).nullish(),
+    applicant_message: z.string().max(2000).nullish()
+});
+
+/**
+ * `applicant_message` is required, and blank is refused. An unexplained
+ * refusal is not a decision the company can act on.
+ *
+ */
+export const zDeclineB2bApplicationRequest = z.object({
+    applicant_message: z.string().min(1).max(2000),
+    internal_note: z.string().max(2000).nullish()
+});
+
+/**
+ * Every field is evidence. There is no `signature_ip_hash` or
+ * `signature_user_agent_hash` here and there must not be: those are
+ * observations of the request, taken by the server, and a
+ * client-supplied corroboration is not corroboration.
+ *
+ */
+export const zSignB2bAgreementRequest = z.object({
+    challenge_id: zUuid,
+    code: z.string().max(16),
+    signatory_name: z.string().max(160),
+    signatory_title: z.string().max(120),
+    document_sha256: z.string().regex(/^[0-9a-fA-F]{64}$/),
+    consent_statement: z.string().max(2000)
+});
+
+export const zReviewKycDocumentRequest = z.object({
+    verdict: z.enum(['accepted', 'rejected']),
+    rejection_reason: zKycDocumentRejectionReason.nullish(),
+    note: z.string().max(2000).nullish()
+});
+
+export const zCreateOrganisationInvitationRequest = z.object({
+    email: z.email().max(255),
+    role_code: z.string().max(60),
+    branch_id: zUuid.nullish(),
+    message: z.string().max(1000).nullish()
+});
+
+export const zB2bApplicationEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplication
+    }),
+    meta: zMeta
+});
+
+export const zB2bApplicationDetailEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplication,
+        contacts: z.array(zB2bApplicationContact),
+        locations: z.array(zB2bApplicationLocation)
+    }),
+    meta: zMeta
+});
+
+export const zB2bApplicationReviewOnlyEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplicationReview
+    }),
+    meta: zMeta
+});
+
+export const zB2bApplicationReviewEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplicationReview,
+        contacts: z.array(zB2bApplicationContact),
+        locations: z.array(zB2bApplicationLocation),
+        documents: z.array(zKycDocumentReview),
+        missing_documents: z.array(zB2bDocumentKind),
+        duplicate_matches: z.int().gte(0),
+        duplicate_applications: z.array(zB2bApplicationSummary)
+    }),
+    meta: zMeta
+});
+
+export const zKycDocumentEnvelope = z.object({
+    data: z.object({
+        document: zKycDocument
+    }),
+    meta: zMeta
+});
+
+export const zKycDocumentReviewEnvelope = z.object({
+    data: z.object({
+        document: zKycDocumentReview
+    }),
+    meta: zMeta
+});
+
+export const zKycDocumentDownloadEnvelope = z.object({
+    data: z.object({
+        download: zKycDocumentDownload
+    }),
+    meta: zMeta
+});
+
+export const zB2bAgreementEnvelope = z.object({
+    data: z.object({
+        agreement: zB2bAgreement
+    }),
+    meta: zMeta
+});
+
+export const zOrganisationInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zOrganisationInvitation
+    }),
+    meta: zMeta
+});
+
+/**
+ * `membership` and `membership_created` are present and honest.
+ * Acceptance in B1 marks the invitation and stops there; the membership
+ * write belongs to Organisations and AccessControl. The keys exist now
+ * so the wire shape does not change when it lands.
+ *
+ */
+export const zAcceptedInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zOrganisationInvitation,
+        membership: zMembership.nullable(),
+        membership_created: z.boolean()
+    }),
+    meta: zMeta
+});
+
+/**
+ * What now exists. `agreement` is null when no version is in force —
+ * provisioning does not require a signed agreement, because approval is
+ * the gate and the terms may still be under negotiation.
+ *
+ */
+export const zB2bProvisioningEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplicationReview,
+        organisation: zOrganisation,
+        customer_account: zB2bCustomerAccount,
+        agreement: zB2bAgreement.nullable(),
+        invitations_issued: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -2341,6 +4247,29 @@ export const zXClientPlatform = z.enum([
  *
  */
 export const zIfMatch = z.string();
+
+/**
+ * A client-chosen key that makes this command safe to retry (§4.14). The
+ * same key with the same request body replays the original envelope,
+ * status included, and carries `Idempotency-Replayed: true`. The same key
+ * with a *different* body is **409** `request.idempotency_key_reused` —
+ * the caller has reused a key that already means something else.
+ *
+ * Keys are scoped per endpoint and per caller and are honoured for
+ * twenty-four hours. The client attaches one deliberately; it is never
+ * inferred server-side.
+ *
+ */
+export const zIdempotencyKey = z.string().max(255);
+
+/**
+ * As `Idempotency-Key`, but mandatory. Used where the command creates
+ * records that cannot be un-created — provisioning a tenant — and where
+ * a retry with no key would therefore be unrecoverable rather than
+ * merely wasteful. Absent is **400** `request.invalid`.
+ *
+ */
+export const zIdempotencyKeyRequired = z.string().max(255);
 
 /**
  * The `meta.next_cursor` of the previous page. Opaque — echo it back,
@@ -2482,6 +4411,89 @@ export const zDeliveryWindowPath = z.union([
     zUuid,
     z.string().max(30).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 ]);
+
+/**
+ * The basket identifier. An identifier only — a cart has no stable code a
+ * human would hold, and there is nothing to guess at.
+ *
+ */
+export const zCartPath = zUuid;
+
+/**
+ * The basket line identifier.
+ */
+export const zCartItemPath = zUuid;
+
+/**
+ * The order identifier. **Not** the order number, tempting though it is:
+ * the number is printed on a receipt that passes through a courier's
+ * hands, and a URL that accepted it would turn a scrap of paper into an
+ * address. The number is searchable through `GET /catalogue/orders`,
+ * behind the read permission.
+ *
+ */
+export const zOrderPath = zUuid;
+
+/**
+ * The application identifier, or its `reference`. Both are accepted
+ * because both are natural — a client that walked the list holds
+ * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+ * — and a reference cannot be mistaken for a UUID.
+ *
+ */
+export const zB2bApplicationPath = z.union([
+    zUuid,
+    z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+]);
+
+/**
+ * The wizard step being saved. The section is in the path so the server
+ * can refuse a payload that wandered outside it; an unknown value is
+ * `400 request.invalid` with `details.parameter`, not a 404.
+ *
+ */
+export const zB2bApplicationSectionPath = zB2bApplicationSection;
+
+/**
+ * The agreement version's identifier. Always resolved inside the application in the path.
+ */
+export const zB2bAgreementPath = zUuid;
+
+/**
+ * The document identifier.
+ */
+export const zKycDocumentPath = zUuid;
+
+/**
+ * Why the document is being opened, written verbatim onto the access
+ * audit event. Required and non-blank: a document read with no stated
+ * reason is the read an audit trail cannot explain afterwards, and an
+ * optional argument is one every call site eventually omits. Blank or
+ * absent is `400 request.invalid` with `details.parameter`.
+ *
+ */
+export const zKycAccessPurpose = z.string().min(1).max(160);
+
+/**
+ * The organisation identifier. Must match the organisation
+ * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+ * confirming that another tenant exists is not something this API does.
+ *
+ */
+export const zOrganisationPath = zUuid;
+
+/**
+ * The invitation identifier. Always resolved inside the organisation in the path.
+ */
+export const zOrganisationInvitationPath = zUuid;
+
+/**
+ * The single-use token from the invitation email. Never an identifier —
+ * only its SHA-256 is stored, so this value cannot be recovered from the
+ * platform and a lost one is replaced by re-inviting.
+ *
+ */
+export const zOrganisationInvitationTokenPath = z.string().min(32).max(128);
 
 export const zRegisterUserBody = zRegisterRequest;
 
@@ -4604,7 +6616,7 @@ export const zListDeliveryAreasHeaders = z.object({
 });
 
 export const zListDeliveryAreasQuery = z.object({
-    country_code: z.string().length(2),
+    country_code: z.string().length(2).optional(),
     cursor: z.string().max(200).optional(),
     limit: z.int().gte(1).lte(100).optional().default(25)
 });
@@ -4723,3 +6735,1101 @@ export const zGetMarketplaceMealPlanResponse = z.object({
     data: zMarketplacePlan,
     meta: zMeta
 });
+
+export const zOpenCartBody = zOpenCartRequest;
+
+export const zOpenCartHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's open basket on that channel, with its lines.
+ */
+export const zOpenCartResponse = zCartEnvelope;
+
+export const zAddCartItemBody = zAddCartItemRequest;
+
+export const zAddCartItemHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAddCartItemPath = z.object({
+    cart: zUuid
+});
+
+/**
+ * The line, and the basket it now belongs to.
+ */
+export const zAddCartItemResponse = zCartLineEnvelope;
+
+export const zRemoveCartItemHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveCartItemPath = z.object({
+    cart: zUuid,
+    item: zUuid
+});
+
+/**
+ * The line was removed.
+ */
+export const zRemoveCartItemResponse = z.void();
+
+export const zSetCartItemQuantityBody = zSetCartItemQuantityRequest;
+
+export const zSetCartItemQuantityHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetCartItemQuantityPath = z.object({
+    cart: zUuid,
+    item: zUuid
+});
+
+/**
+ * The line at its new quantity, and the basket around it.
+ */
+export const zSetCartItemQuantityResponse = zCartLineEnvelope;
+
+export const zPlaceOrderBody = zPlaceOrderRequest;
+
+export const zPlaceOrderHeaders = z.object({
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The order, with every line at the price it was placed at. A replay
+ * of a request this key already answered returns this same body and
+ * this same status, with `Idempotency-Replayed: true`; the command did
+ * not run a second time.
+ *
+ */
+export const zPlaceOrderResponse = zCustomerOrderEnvelope;
+
+export const zListMyOrdersHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMyOrdersQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of the caller's orders, newest first.
+ */
+export const zListMyOrdersResponse = z.object({
+    data: z.array(zCustomerOrder),
+    meta: zPaginationMeta
+});
+
+export const zShowMyOrderHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowMyOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order as the customer sees it.
+ */
+export const zShowMyOrderResponse = zCustomerOrderEnvelope;
+
+export const zListKitchenOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListKitchenOrdersQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: zOrderStatus.optional(),
+    requested_delivery_date: z.iso.date().optional(),
+    branch_id: zUuid.optional(),
+    query: z.string().max(60).optional()
+});
+
+/**
+ * A page of the organisation's orders, newest first.
+ */
+export const zListKitchenOrdersResponse = z.object({
+    data: z.array(zKitchenOrder),
+    meta: zPaginationMeta
+});
+
+export const zShowKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order with its lines and its delivery snapshot.
+ */
+export const zShowKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zConfirmKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zConfirmKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The confirmed order, with its new validator.
+ */
+export const zConfirmKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zFulfilKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zFulfilKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The fulfilled order, with its new validator.
+ */
+export const zFulfilKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zCancelKitchenOrderBody = zCancelOrderRequest;
+
+export const zCancelKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The cancelled order, carrying the reason it was cancelled for.
+ */
+export const zCancelKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zStartGuestSessionBody = zStartGuestSessionRequest;
+
+export const zStartGuestSessionHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'X-Client-Platform': z.enum([
+        'web',
+        'ios',
+        'android'
+    ]).optional()
+});
+
+/**
+ * The guest session was opened and the token issued.
+ */
+export const zStartGuestSessionResponse = z.object({
+    data: zStartedGuestSession,
+    meta: zMeta
+});
+
+export const zShowGuestSessionHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The session is live.
+ */
+export const zShowGuestSessionResponse = zGuestSessionEnvelope;
+
+export const zRequestGuestContactVerificationBody = zRequestGuestContactVerificationRequest;
+
+export const zRequestGuestContactVerificationHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * A passcode is on its way.
+ */
+export const zRequestGuestContactVerificationResponse = zGuestOtpChallengeEnvelope;
+
+export const zConfirmGuestContactVerificationBody = zConfirmGuestContactVerificationRequest;
+
+export const zConfirmGuestContactVerificationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The passcode held and the session was promoted.
+ */
+export const zConfirmGuestContactVerificationResponse = zGuestSessionEnvelope;
+
+export const zPlaceGuestOrderBody = zPlaceGuestOrderRequest;
+
+export const zPlaceGuestOrderHeaders = z.object({
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The order was placed. A replay of a request this
+ * `Idempotency-Key` already answered returns this same body and this
+ * same status, with `Idempotency-Replayed: true` to say which it was.
+ *
+ */
+export const zPlaceGuestOrderResponse = zGuestOrderEnvelope;
+
+export const zShowGuestOrderHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowGuestOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order.
+ */
+export const zShowGuestOrderResponse = zGuestOrderEnvelope;
+
+export const zConvertGuestAccountBody = zRegisterRequest;
+
+export const zConvertGuestAccountHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'X-Client-Platform': z.enum([
+        'web',
+        'ios',
+        'android'
+    ]).optional()
+});
+
+/**
+ * The account was created and the guest account converted.
+ */
+export const zConvertGuestAccountResponse = zGuestConversionEnvelope;
+
+export const zRequestGuestDeletionBody = zRequestGuestDeletionRequest;
+
+export const zRequestGuestDeletionHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Accepted. The same body whether or not the address is known to the
+ * platform.
+ *
+ */
+export const zRequestGuestDeletionResponse = z.object({
+    data: zGuestDeletionAcknowledgement,
+    meta: zMeta
+});
+
+export const zConfirmGuestDeletionBody = zConfirmGuestDeletionRequest;
+
+export const zConfirmGuestDeletionHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Accepted. One indistinguishable shape for every refusal; the purge
+ * report only when the passcode held.
+ *
+ */
+export const zConfirmGuestDeletionResponse = z.object({
+    data: zGuestDeletionOutcome,
+    meta: zMeta
+});
+
+export const zIssueEmailVerificationChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The passcode has been queued for delivery.
+ */
+export const zIssueEmailVerificationChallengeResponse = zOtpChallengeEnvelope;
+
+export const zVerifyEmailWithPasscodeBody = zSubmitPasscodeRequest;
+
+export const zVerifyEmailWithPasscodeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The address is now verified.
+ */
+export const zVerifyEmailWithPasscodeResponse = zContactVerifiedEnvelope;
+
+export const zShowVerificationChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowVerificationChallengePath = z.object({
+    challenge: zUuid
+});
+
+/**
+ * The challenge.
+ */
+export const zShowVerificationChallengeResponse = zVerificationChallengeEnvelope;
+
+export const zVerifyChallengeBody = zSubmitPasscodeRequest;
+
+export const zVerifyChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zVerifyChallengePath = z.object({
+    challenge: zUuid
+});
+
+/**
+ * The passcode was correct and the destination is proven.
+ */
+export const zVerifyChallengeResponse = zContactVerifiedEnvelope;
+
+export const zResendChallengeBody = zResendChallengeRequest;
+
+export const zResendChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResendChallengePath = z.object({
+    challenge: zUuid
+});
+
+/**
+ * A fresh passcode has been queued for delivery.
+ */
+export const zResendChallengeResponse = zOtpChallengeEnvelope;
+
+export const zIssueStepUpChallengeBody = zStepUpChallengeRequest;
+
+export const zIssueStepUpChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The step-up passcode has been queued for delivery.
+ */
+export const zIssueStepUpChallengeResponse = zOtpChallengeEnvelope;
+
+export const zConfirmStepUpBody = zConfirmStepUpRequest;
+
+export const zConfirmStepUpHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The step-up is confirmed for this credential.
+ */
+export const zConfirmStepUpResponse = zStepUpConfirmationEnvelope;
+
+export const zShowCustomerAccountHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The customer account.
+ */
+export const zShowCustomerAccountResponse = zCustomerAccountEnvelope;
+
+export const zOpenCustomerAccountHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The account already existed; its current state is returned.
+ */
+export const zOpenCustomerAccountResponse = zCustomerAccountEnvelope;
+
+export const zListMyContactsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's live contact points.
+ */
+export const zListMyContactsResponse = zCustomerContactsEnvelope;
+
+export const zAddMyContactBody = zAddCustomerContactRequest;
+
+export const zAddMyContactHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The contact point was recorded.
+ */
+export const zAddMyContactResponse = zCustomerContactEnvelope;
+
+export const zRemoveMyContactHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveMyContactPath = z.object({
+    contact: zUuid
+});
+
+/**
+ * The contact point was retired.
+ */
+export const zRemoveMyContactResponse = z.void();
+
+export const zMakeContactPrimaryHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMakeContactPrimaryPath = z.object({
+    contact: zUuid
+});
+
+/**
+ * The contact point is now primary for its channel.
+ */
+export const zMakeContactPrimaryResponse = zCustomerContactEnvelope;
+
+export const zListMyAddressesHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's addresses, defaults first within each type.
+ */
+export const zListMyAddressesResponse = zCustomerAddressesEnvelope;
+
+export const zAddMyAddressBody = zAddCustomerAddressRequest;
+
+export const zAddMyAddressHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The address was added.
+ */
+export const zAddMyAddressResponse = zCustomerAddressEnvelope;
+
+export const zRemoveMyAddressHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveMyAddressPath = z.object({
+    address: zUuid
+});
+
+/**
+ * The address was removed.
+ */
+export const zRemoveMyAddressResponse = z.void();
+
+export const zUpdateMyAddressBody = zUpdateCustomerAddressRequest;
+
+export const zUpdateMyAddressHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateMyAddressPath = z.object({
+    address: zUuid
+});
+
+/**
+ * The address as it now stands.
+ */
+export const zUpdateMyAddressResponse = zCustomerAddressEnvelope;
+
+export const zMakeAddressDefaultHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMakeAddressDefaultPath = z.object({
+    address: zUuid
+});
+
+/**
+ * The address is now the default for its type.
+ */
+export const zMakeAddressDefaultResponse = zCustomerAddressEnvelope;
+
+export const zShowMyDietaryProfileHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The dietary profile, declared or not.
+ */
+export const zShowMyDietaryProfileResponse = zCustomerDietaryProfileEnvelope;
+
+export const zReplaceMyDietaryProfileBody = zReplaceDietaryProfileRequest;
+
+export const zReplaceMyDietaryProfileHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The declaration as it now stands.
+ */
+export const zReplaceMyDietaryProfileResponse = zCustomerDietaryProfileEnvelope;
+
+export const zListMyConsentsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every consumer consent text and whether the caller holds it.
+ */
+export const zListMyConsentsResponse = zCustomerConsentsEnvelope;
+
+export const zGrantMyConsentsBody = zGrantConsentsRequest;
+
+export const zGrantMyConsentsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's consent position after the grant.
+ */
+export const zGrantMyConsentsResponse = zCustomerConsentsEnvelope;
+
+export const zWithdrawMyConsentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zWithdrawMyConsentPath = z.object({
+    code: z.string().max(80)
+});
+
+/**
+ * The consent is withdrawn, or was never held.
+ */
+export const zWithdrawMyConsentResponse = z.void();
+
+export const zListB2bApplicationsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListB2bApplicationsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of the caller's applications.
+ */
+export const zListB2bApplicationsResponse = z.object({
+    data: z.array(zB2bApplicationSummary),
+    meta: zPaginationMeta
+});
+
+export const zCreateB2bApplicationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The new draft.
+ */
+export const zCreateB2bApplicationResponse = zB2bApplicationEnvelope;
+
+export const zShowB2bApplicationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The application, its contacts and its locations.
+ */
+export const zShowB2bApplicationResponse = zB2bApplicationDetailEnvelope;
+
+export const zUpdateB2bApplicationSectionBody = zUpdateB2bApplicationSectionRequest;
+
+export const zUpdateB2bApplicationSectionHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateB2bApplicationSectionPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    section: zB2bApplicationSection
+});
+
+/**
+ * The application after the write.
+ */
+export const zUpdateB2bApplicationSectionResponse = zB2bApplicationEnvelope;
+
+export const zReplaceB2bApplicationContactsBody = zReplaceB2bApplicationContactsRequest;
+
+export const zReplaceB2bApplicationContactsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceB2bApplicationContactsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The stored contacts, as normalised.
+ */
+export const zReplaceB2bApplicationContactsResponse = z.object({
+    data: z.object({
+        contacts: z.array(zB2bApplicationContact)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceB2bApplicationLocationsBody = zReplaceB2bApplicationLocationsRequest;
+
+export const zReplaceB2bApplicationLocationsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceB2bApplicationLocationsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The stored locations, as normalised.
+ */
+export const zReplaceB2bApplicationLocationsResponse = z.object({
+    data: z.object({
+        locations: z.array(zB2bApplicationLocation)
+    }),
+    meta: zMeta
+});
+
+export const zListKycDocumentsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListKycDocumentsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * Every document filed against this application.
+ */
+export const zListKycDocumentsResponse = z.object({
+    data: z.array(zKycDocument),
+    meta: zMeta
+});
+
+export const zUploadKycDocumentBody = zUploadKycDocumentRequest;
+
+export const zUploadKycDocumentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUploadKycDocumentPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The stored document's metadata.
+ */
+export const zUploadKycDocumentResponse = zKycDocumentEnvelope;
+
+export const zDownloadKycDocumentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDownloadKycDocumentPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    document: zUuid
+});
+
+export const zDownloadKycDocumentQuery = z.object({
+    purpose: z.string().min(1).max(160)
+});
+
+/**
+ * A short-lived signed URL and when it stops working.
+ */
+export const zDownloadKycDocumentResponse = zKycDocumentDownloadEnvelope;
+
+export const zSubmitB2bApplicationHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSubmitB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The submitted application.
+ */
+export const zSubmitB2bApplicationResponse = zB2bApplicationEnvelope;
+
+export const zWithdrawB2bApplicationHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zWithdrawB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The withdrawn application.
+ */
+export const zWithdrawB2bApplicationResponse = zB2bApplicationEnvelope;
+
+export const zListB2bAgreementsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListB2bAgreementsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * Every agreement version, newest first.
+ */
+export const zListB2bAgreementsResponse = z.object({
+    data: z.array(zB2bAgreement),
+    meta: zMeta
+});
+
+export const zShowB2bAgreementHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowB2bAgreementPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    agreement: zUuid
+});
+
+/**
+ * The agreement version.
+ */
+export const zShowB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zCreateB2bSignatureChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateB2bSignatureChallengePath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    agreement: zUuid
+});
+
+/**
+ * The challenge, with a masked destination, a resend countdown and
+ * an attempts counter. `debug_code` appears only in local and
+ * testing environments with code exposure switched on.
+ *
+ */
+export const zCreateB2bSignatureChallengeResponse = zOtpChallengeEnvelope;
+
+export const zSignB2bAgreementBody = zSignB2bAgreementRequest;
+
+export const zSignB2bAgreementHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignB2bAgreementPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    agreement: zUuid
+});
+
+/**
+ * The agreement, now active.
+ */
+export const zSignB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zListPlatformB2bApplicationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformB2bApplicationsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: zB2bApplicationStatus.optional(),
+    query: z.string().max(160).optional()
+});
+
+/**
+ * A page of the review queue.
+ */
+export const zListPlatformB2bApplicationsResponse = z.object({
+    data: z.array(zB2bApplicationSummary),
+    meta: zPaginationMeta
+});
+
+export const zShowPlatformB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowPlatformB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The application, its people, its pack and its duplicates.
+ */
+export const zShowPlatformB2bApplicationResponse = zB2bApplicationReviewEnvelope;
+
+export const zClaimB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zClaimB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The claimed application.
+ */
+export const zClaimB2bApplicationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zRequestB2bApplicationInformationBody = zRequestB2bApplicationInformationRequest;
+
+export const zRequestB2bApplicationInformationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRequestB2bApplicationInformationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The application, now awaiting the applicant.
+ */
+export const zRequestB2bApplicationInformationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zApproveB2bApplicationBody = zApproveB2bApplicationRequest;
+
+export const zApproveB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zApproveB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The approved application.
+ */
+export const zApproveB2bApplicationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zDeclineB2bApplicationBody = zDeclineB2bApplicationRequest;
+
+export const zDeclineB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeclineB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The declined application.
+ */
+export const zDeclineB2bApplicationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zProvisionB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zProvisionB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * What now exists.
+ */
+export const zProvisionB2bApplicationResponse = zB2bProvisioningEnvelope;
+
+export const zDownloadPlatformKycDocumentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDownloadPlatformKycDocumentPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    document: zUuid
+});
+
+export const zDownloadPlatformKycDocumentQuery = z.object({
+    purpose: z.string().min(1).max(160)
+});
+
+/**
+ * A short-lived signed URL and when it stops working.
+ */
+export const zDownloadPlatformKycDocumentResponse = zKycDocumentDownloadEnvelope;
+
+export const zReviewKycDocumentBody = zReviewKycDocumentRequest;
+
+export const zReviewKycDocumentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReviewKycDocumentPath = z.object({
+    document: zUuid
+});
+
+/**
+ * The reviewed document, with the internal note.
+ */
+export const zReviewKycDocumentResponse = zKycDocumentReviewEnvelope;
+
+export const zListOrganisationInvitationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListOrganisationInvitationsPath = z.object({
+    organisation: zUuid
+});
+
+export const zListOrganisationInvitationsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: zOrganisationInvitationStatus.optional()
+});
+
+/**
+ * A page of invitations.
+ */
+export const zListOrganisationInvitationsResponse = z.object({
+    data: z.array(zOrganisationInvitation),
+    meta: zPaginationMeta
+});
+
+export const zCreateOrganisationInvitationBody = zCreateOrganisationInvitationRequest;
+
+export const zCreateOrganisationInvitationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateOrganisationInvitationPath = z.object({
+    organisation: zUuid
+});
+
+/**
+ * The invitation — without its token.
+ */
+export const zCreateOrganisationInvitationResponse = zOrganisationInvitationEnvelope;
+
+export const zRevokeOrganisationInvitationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevokeOrganisationInvitationPath = z.object({
+    organisation: zUuid,
+    invitation: zUuid
+});
+
+/**
+ * The offer is withdrawn. No body, per the envelope's documented exception.
+ */
+export const zRevokeOrganisationInvitationResponse = z.void();
+
+export const zAcceptOrganisationInvitationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAcceptOrganisationInvitationPath = z.object({
+    token: z.string().min(32).max(128)
+});
+
+/**
+ * The accepted invitation, and an honest statement that no membership was created.
+ */
+export const zAcceptOrganisationInvitationResponse = zAcceptedInvitationEnvelope;

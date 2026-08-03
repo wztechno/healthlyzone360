@@ -6,6 +6,38 @@ use Healthy360\Allergens\Http\Controllers\AllergenClassDeactivateController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassUpdateController;
 use Healthy360\Allergens\Http\Controllers\PublicAllergenClassIndexController;
+use Healthy360\B2b\Http\Controllers\B2bAgreementIndexController;
+use Healthy360\B2b\Http\Controllers\B2bAgreementShowController;
+use Healthy360\B2b\Http\Controllers\B2bAgreementSignatureChallengeController;
+use Healthy360\B2b\Http\Controllers\B2bAgreementSignController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationContactReplaceController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationIndexController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationLocationReplaceController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationSectionUpdateController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationShowController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationStoreController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationSubmitController;
+use Healthy360\B2b\Http\Controllers\B2bApplicationWithdrawController;
+use Healthy360\B2b\Http\Controllers\InvitationAcceptController;
+use Healthy360\B2b\Http\Controllers\KycDocumentDownloadController;
+use Healthy360\B2b\Http\Controllers\KycDocumentIndexController;
+use Healthy360\B2b\Http\Controllers\KycDocumentStoreController;
+use Healthy360\B2b\Http\Controllers\OrganisationInvitationIndexController;
+use Healthy360\B2b\Http\Controllers\OrganisationInvitationRevokeController;
+use Healthy360\B2b\Http\Controllers\OrganisationInvitationStoreController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationApproveController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationClaimController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationDeclineController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationIndexController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationProvisionController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationRequestInformationController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationShowController;
+use Healthy360\B2b\Http\Controllers\PlatformKycDocumentDownloadController;
+use Healthy360\B2b\Http\Controllers\PlatformKycDocumentReviewController;
+use Healthy360\Cart\Http\Controllers\CartItemDestroyController;
+use Healthy360\Cart\Http\Controllers\CartItemStoreController;
+use Healthy360\Cart\Http\Controllers\CartItemUpdateController;
+use Healthy360\Cart\Http\Controllers\CartStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergenIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
@@ -38,6 +70,29 @@ use Healthy360\Catalogues\Http\Controllers\SalesChannelIndexController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelShowController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelStoreController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelUpdateController;
+use Healthy360\Customers\Guest\Http\Controllers\GuestContactStoreController;
+use Healthy360\Customers\Guest\Http\Controllers\GuestContactVerifyController;
+use Healthy360\Customers\Guest\Http\Controllers\GuestConvertController;
+use Healthy360\Customers\Guest\Http\Controllers\GuestDeletionRequestStoreController;
+use Healthy360\Customers\Guest\Http\Controllers\GuestDeletionVerifyController;
+use Healthy360\Customers\Guest\Http\Controllers\GuestSessionShowController;
+use Healthy360\Customers\Guest\Http\Controllers\GuestSessionStoreController;
+use Healthy360\Customers\Http\Controllers\AddressDefaultController;
+use Healthy360\Customers\Http\Controllers\AddressDestroyController;
+use Healthy360\Customers\Http\Controllers\AddressIndexController;
+use Healthy360\Customers\Http\Controllers\AddressStoreController;
+use Healthy360\Customers\Http\Controllers\AddressUpdateController;
+use Healthy360\Customers\Http\Controllers\ConsentDestroyController;
+use Healthy360\Customers\Http\Controllers\ConsentIndexController;
+use Healthy360\Customers\Http\Controllers\ConsentStoreController;
+use Healthy360\Customers\Http\Controllers\ContactDestroyController;
+use Healthy360\Customers\Http\Controllers\ContactIndexController;
+use Healthy360\Customers\Http\Controllers\ContactPrimaryController;
+use Healthy360\Customers\Http\Controllers\ContactStoreController;
+use Healthy360\Customers\Http\Controllers\CustomerAccountShowController;
+use Healthy360\Customers\Http\Controllers\CustomerAccountStoreController;
+use Healthy360\Customers\Http\Controllers\DietaryProfileReplaceController;
+use Healthy360\Customers\Http\Controllers\DietaryProfileShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowStoreController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowUpdateController;
@@ -74,6 +129,16 @@ use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealShowController;
+use Healthy360\Orders\Http\Controllers\GuestOrderShowController;
+use Healthy360\Orders\Http\Controllers\GuestOrderStoreController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderCancelController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderConfirmController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderFulfilController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
+use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
+use Healthy360\Orders\Http\Controllers\MyOrderShowController;
+use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
@@ -103,6 +168,13 @@ use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionUpdateController;
+use Healthy360\Verification\Http\Controllers\ChallengeResendController;
+use Healthy360\Verification\Http\Controllers\ChallengeShowController;
+use Healthy360\Verification\Http\Controllers\ChallengeVerifyController;
+use Healthy360\Verification\Http\Controllers\EmailChallengeStoreController;
+use Healthy360\Verification\Http\Controllers\EmailVerifyController;
+use Healthy360\Verification\Http\Controllers\StepUpChallengeStoreController;
+use Healthy360\Verification\Http\Controllers\StepUpConfirmController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -134,6 +206,48 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
     Route::get('/me', MeController::class)->name('me.show');
     Route::get('/me/memberships', MembershipController::class)->name('me.memberships');
 
+    // ============================================================================
+    // BLOCK A — reachable before the email is verified
+    // ============================================================================
+    //
+    // Middleware: auth:sanctum, db.context, device.touch (from the enclosing group).
+    // Explicitly NOT `verified`.
+    //
+    // This is the one part of the API where the absence of `verified` is the whole
+    // point rather than a concession: a caller behind that gate could never reach
+    // the endpoints that make them verified. Everything here operates on the
+    // caller's own challenges, and a challenge belonging to somebody else is
+    // answered `resource.not_found` rather than 403 — a denial would confirm that a
+    // stolen identifier names something real.
+
+    Route::prefix('/verification')->group(function (): void {
+        // Issue a passcode to the caller's own login address. No body: an endpoint
+        // that accepted a destination would send codes to addresses the caller does
+        // not hold, and would answer "does this address have an account here" one
+        // attempt at a time.
+        Route::post('/email/challenges', EmailChallengeStoreController::class)
+            ->name('verification.email.challenges.store');
+
+        // The inline-OTP twin of the signed link (D-036). Finds the caller's live
+        // contact-verification challenge itself — there is at most one, by index —
+        // and settles both halves of the fact: the contact point and
+        // users.email_verified_at, in one transaction.
+        Route::post('/email/verify', EmailVerifyController::class)
+            ->name('verification.email.verify');
+
+        // Generic challenge surface. Read and resend serve every purpose in the
+        // table; verify is the contact-verification meaning, which is why it goes
+        // through ContactVerificationService while resend goes through OtpService.
+        Route::get('/challenges/{challenge}', ChallengeShowController::class)
+            ->name('verification.challenges.show');
+
+        Route::post('/challenges/{challenge}/verify', ChallengeVerifyController::class)
+            ->name('verification.challenges.verify');
+
+        Route::post('/challenges/{challenge}/resend', ChallengeResendController::class)
+            ->name('verification.challenges.resend');
+    });
+
     Route::middleware('verified')->group(function (): void {
         Route::put('/me/context', ContextController::class)->name('me.context.update');
 
@@ -145,11 +259,215 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             ->middleware('step-up')
             ->name('me.devices.destroy');
 
+        /*
+        |--------------------------------------------------------------------------
+        | Step-up by passcode (J1)
+        |--------------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum, db.context, device.touch, verified.
+        |
+        | Behind `verified`, unlike the rest of the verification module, and for the
+        | opposite reason: a step-up is sent to a destination the account has already
+        | proven, so a caller who has proven nothing has nowhere to receive one. The
+        | purpose is confined to those `OtpPurpose::grantsStepUp()` admits — the form
+        | request refuses an unlisted one at the door and the confirm endpoint refuses
+        | to honour a challenge whose purpose does not grant a step-up, because a code
+        | obtained for a harmless purpose must never be replayable against a dangerous
+        | one.
+        |
+        | Confirming stamps the `otp` method that `step-up:otp` reads. It is bound to
+        | the calling credential — the token, or the session when there is none — so a
+        | confirmation in a browser cannot unlock a sensitive action for a phone
+        | holding a stolen token.
+        |
+        */
+        Route::prefix('/verification/step-up')->group(function (): void {
+            Route::post('/challenges', StepUpChallengeStoreController::class)
+                ->name('verification.step-up.challenges.store');
+
+            Route::post('/confirm', StepUpConfirmController::class)
+                ->name('verification.step-up.confirm');
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Customer account and consumer self-service (J1)
+        |--------------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum, db.context, device.touch, verified.
+        |
+        | A verified email is the first activation requirement, so gating the whole
+        | surface on it costs nothing a caller could otherwise have had — and it keeps
+        | the onboarding order honest: prove the address, open the account, then fill
+        | it in.
+        |
+        | There is no account identifier in any path. A consumer surface that took one
+        | would need a rule about whose accounts a caller may name, the only correct
+        | rule is "their own", and the first bug in that rule would be somebody else's
+        | address book. Sub-resources are located by id *and* scoped to the caller's
+        | account; anything else is `resource.not_found`.
+        |
+        | `POST /customer-account` is idempotent and answers 201 the first time, 200
+        | every time after. An unmet activation requirement is not an error there: the
+        | account comes back with its outstanding list, because onboarding is
+        | interruptible by design and a 422 would turn a checklist into a form that must
+        | be completed in one sitting.
+        |
+        */
+        Route::get('/customer-account', CustomerAccountShowController::class)
+            ->name('customer-account.show');
+
+        Route::post('/customer-account', CustomerAccountStoreController::class)
+            ->name('customer-account.store');
+
+        Route::prefix('/me')->group(function (): void {
+            Route::get('/contacts', ContactIndexController::class)->name('me.contacts.index');
+            Route::post('/contacts', ContactStoreController::class)->name('me.contacts.store');
+
+            // Step-up: changing the primary destination is how an attacker holding a
+            // hijacked session redirects the codes that would otherwise stop them. The
+            // same class of act as revoking a device, guarded the same way.
+            //
+            // `step-up` means `step-up:password` — the original behaviour and the
+            // default. `step-up:otp` is available and would be the stronger choice once
+            // the passcode confirmation surface is in every client, because the code
+            // goes to the *current* primary and therefore cannot be received by whoever
+            // is trying to move it.
+            Route::post('/contacts/{contact}/primary', ContactPrimaryController::class)
+                ->middleware('step-up')
+                ->name('me.contacts.primary');
+
+            // Retires rather than deletes (D-042), and refuses the login mirror with
+            // `resource.conflict`: an account whose only route back in has been
+            // withdrawn is an account nobody can recover.
+            Route::delete('/contacts/{contact}', ContactDestroyController::class)
+                ->name('me.contacts.destroy');
+
+            Route::get('/addresses', AddressIndexController::class)->name('me.addresses.index');
+            Route::post('/addresses', AddressStoreController::class)->name('me.addresses.store');
+            Route::patch('/addresses/{address}', AddressUpdateController::class)->name('me.addresses.update');
+            Route::delete('/addresses/{address}', AddressDestroyController::class)->name('me.addresses.destroy');
+
+            // A POST sub-resource action, never a `PATCH is_default` (master plan v2
+            // §4.15): promoting means demoting the incumbent, the partial unique index
+            // refuses a second default per type, and a client doing it as two field
+            // writes would collide with itself between them.
+            Route::post('/addresses/{address}/default', AddressDefaultController::class)
+                ->name('me.addresses.default');
+
+            // PUT, not PATCH. The declaration is replaced whole because a person
+            // removing an allergy means they no longer have it, and a merge would make
+            // removal impossible through the ordinary path.
+            Route::get('/dietary-profile', DietaryProfileShowController::class)->name('me.dietary-profile.show');
+            Route::put('/dietary-profile', DietaryProfileReplaceController::class)->name('me.dietary-profile.replace');
+
+            // Consent is keyed by the definition's own code rather than by a grant id.
+            // The person is withdrawing "marketing", not row 4f3a…; and the grant they
+            // are withdrawing is whichever version they hold, which only the ledger
+            // knows.
+            Route::get('/consents', ConsentIndexController::class)->name('me.consents.index');
+            Route::post('/consents', ConsentStoreController::class)->name('me.consents.store');
+            Route::delete('/consents/{code}', ConsentDestroyController::class)->name('me.consents.destroy');
+        });
+
         // The organisation-scoped probe of the vertical slice: headers,
         // membership and permission proven end to end.
         Route::get('/organisations/current', CurrentOrganisationController::class)
             ->middleware(['org.context', 'branch.context', 'permission:organisation.view_current'])
             ->name('organisations.current');
+
+        /*
+        |------------------------------------------------------------------
+        | Baskets and checkout (C1)
+        |------------------------------------------------------------------
+        |
+        | **No permission codes anywhere in this family**, and that is the
+        | design rather than an omission. Every other authenticated surface on
+        | the platform is a member of an organisation acting inside it, and
+        | `permission:` is how the platform asks whether they may. A customer
+        | is a member of nothing: there is no membership to hang a role on, no
+        | organisation to scope one to, and a permission code would have to be
+        | granted to every account at sign-up — which is a code that answers
+        | "yes" for everybody and therefore answers nothing. The authority
+        | here is **ownership**, and it is enforced where ownership lives:
+        | `CartLocator` and `OrderLocator` scope every row to the caller's own
+        | `CustomerAccount` and answer `resource.not_found` otherwise. This is
+        | the foundation `/me/*` pattern, applied to the two resources a
+        | customer actually owns.
+        |
+        | `verified` rather than bare `auth:sanctum`: a basket leads to an
+        | order, an order is a promise that somebody will be told when it is
+        | late, and a promise made to an unproven address is a promise made to
+        | a typo. The account *activation* gate is a separate and later
+        | question — `CheckoutEligibility`, answered inside placement — because
+        | filling a basket before finishing onboarding is exactly how somebody
+        | is persuaded to finish onboarding.
+        |
+        | **`/carts` is not under `/me`, and `/me/orders` is.** Not an
+        | inconsistency: a cart is addressed by identifier because a customer
+        | may hold one per channel and the client always knows which one it
+        | means, while order history is a *collection of mine* — the same
+        | shape as `/me/devices`. The route names follow the resource, not the
+        | prefix.
+        |
+        | There is no `DELETE /carts/{cart}`. A basket expires on its own
+        | after a TTL and its lines are kept, because an expired cart is the
+        | record of what somebody nearly ordered and is what "resume my
+        | basket" restores from. Emptying one is removing its lines.
+        |
+        | No `precondition` on the cart writes, though `carts` carries
+        | `lock_version` and the responses serve it as an `ETag`. The header
+        | prevents a *lost update*, and a basket has exactly one author — the
+        | race would have to be run by a customer against themselves. The
+        | validator is there so a client can tell a stale render from a
+        | current one, not to arbitrate.
+        |
+        */
+        Route::post('/carts', CartStoreController::class)->name('carts.store');
+
+        Route::post('/carts/{cart}/items', CartItemStoreController::class)->name('carts.items.store');
+        Route::patch('/carts/{cart}/items/{item}', CartItemUpdateController::class)->name('carts.items.update');
+        Route::delete('/carts/{cart}/items/{item}', CartItemDestroyController::class)->name('carts.items.destroy');
+
+        /*
+        | The platform's **first genuinely non-idempotent command**, and the
+        | first consumer of the `idempotency` alias that has existed since the
+        | foundation. A double tap on a slow connection, a mobile client
+        | retrying a request whose response was lost, or a proxy replaying a
+        | POST all produce two orders for one intention, and the customer
+        | finds out when two couriers arrive.
+        |
+        | **Two guards, and neither is redundant.** The middleware answers a
+        | replay with the stored response *envelope*, which a service cannot
+        | do — by the time it runs, the response is gone.
+        | `OrderIdempotency`, inside the placement service, claims the key
+        | before the order row exists, which is what makes a genuine race an
+        | insert conflict rather than a check-then-act two requests can both
+        | pass — and it also protects a placement made by a queued job or a
+        | console command, which never passes through a middleware at all.
+        |
+        | The key is optional. A client that sends none gets no replay
+        | protection and is told so by its absence rather than by a 400: an
+        | endpoint that refused unkeyed requests would break every caller that
+        | has ever worked, to protect them from a risk they may not have.
+        */
+        Route::post('/orders', OrderStoreController::class)
+            ->middleware('idempotency')
+            ->name('orders.store');
+
+        /*
+        | Newest first, and the direction is a property of the endpoint rather
+        | than a query parameter: a collection walkable both ways from one
+        | cursor would need the direction inside the cursor to stay coherent.
+        |
+        | **No filters**, unlike the kitchen list below. A person has tens of
+        | orders and the whole history fits in a page or two; a parameter to
+        | document, version and test in exchange for saving a client one array
+        | filter is a bad trade. The kitchen reads a book that grows for as
+        | long as the kitchen trades, which is why that list has four.
+        */
+        Route::get('/me/orders', MyOrderIndexController::class)->name('me.orders.index');
+        Route::get('/me/orders/{order}', MyOrderShowController::class)->name('me.orders.show');
 
         /*
         |------------------------------------------------------------------
@@ -621,6 +939,83 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/delivery-windows', DeliveryWindowStoreController::class)->name('catalogue.delivery-windows.store');
                 Route::patch('/delivery-windows/{window}', DeliveryWindowUpdateController::class)->name('catalogue.delivery-windows.update');
             });
+
+            /*
+            |--------------------------------------------------------------
+            | Orders — the kitchen's book (C1)
+            |--------------------------------------------------------------
+            |
+            | A fifth permission domain, `order.*`, and **a genuine pair** rather
+            | than K1.7's single code. The two halves are held by different people
+            | for a reason no other family here has: reading the book is what a
+            | kitchen hand does all shift, and confirming an order commits the
+            | kitchen to cook it while cancelling one takes a customer's dinner
+            | away. Both codes already exist in the permission registry, granted to
+            | the kitchen-manager template; the read alone goes to kitchen staff.
+            |
+            | **Under `/catalogue` rather than a new prefix**, because the prefix
+            | means "the kitchen's own operating surface, reached with an
+            | organisation context" — everything a member of one organisation
+            | manages about what it sells. An order is what a listing became.
+            |
+            | Organisation-scoped, **not** branch-scoped, and deliberately so. A
+            | kitchen manager holding an organisation-wide membership selects no
+            | branch, and an endpoint reading `X-Branch-Id` would show them
+            | nothing until they picked one. Narrowing to one production site is
+            | the `branch_id` *query* filter on the index — a narrowing of a book
+            | the caller can already see, never a widening of one they cannot.
+            |
+            | The three lifecycle actions are **POST sub-resources, never a
+            | `PATCH status`** (master plan v2 §4.15). Three decisions, three
+            | consequences, three separate timestamps and three audit events; a
+            | status field would collapse them into one write a client could aim
+            | anywhere, and `placed → fulfilled` would become expressible by
+            | typing.
+            |
+            | `precondition` guards all three. It matters more here than anywhere
+            | else it is used on the platform: a kitchen screen showing an order
+            | list is stale the moment it renders, and two staff members
+            | confirming the same order at once is an ordinary Tuesday. The
+            | validator is checked inside the same conditional `UPDATE` that
+            | performs the transition, so there is no window between the read and
+            | the write.
+            |
+            | There is no DELETE and there never will be. A cancelled order keeps
+            | its number, its lines and the prices they were sold at, because a
+            | kitchen reconciling a week needs to know what it did not sell as
+            | much as what it did.
+            |
+            | `{order}` is an identifier only — no slug, no order number. The
+            | number *is* human-readable and it is tempting, but it is printed on
+            | a receipt that passes through a courier's hands, and a URL that
+            | accepted it would turn a scrap of paper into an address. It is
+            | searchable through the index's `query` filter, behind the read
+            | permission, which is the same convenience without the guessable
+            | path.
+            |
+            */
+            Route::middleware('permission:order.view_organisation')->group(function (): void {
+                Route::get('/orders', KitchenOrderIndexController::class)->name('catalogue.orders.index');
+                Route::get('/orders/{order}', KitchenOrderShowController::class)->name('catalogue.orders.show');
+            });
+
+            Route::middleware('permission:order.manage_organisation')->group(function (): void {
+                Route::post('/orders/{order}/confirm', KitchenOrderConfirmController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.confirm');
+
+                // `fulfil`, not `fulfill`. The platform is British throughout —
+                // `fulfilled_at`, `OrderStatus::Fulfilled`, `OrderLifecycle::fulfil()` —
+                // and a path disagreeing with the column, the enum and the method it
+                // drives would be one spelling nobody could predict from the other three.
+                Route::post('/orders/{order}/fulfil', KitchenOrderFulfilController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.fulfil');
+
+                Route::post('/orders/{order}/cancel', KitchenOrderCancelController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.cancel');
+            });
         });
 
         /*
@@ -682,6 +1077,296 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::patch('/allergen-classes/{code}', AllergenClassUpdateController::class)->name('reference.allergen-classes.update');
                 Route::post('/allergen-classes/{code}/deactivate', AllergenClassDeactivateController::class)->name('reference.allergen-classes.deactivate');
             });
+
+        /*
+        |--------------------------------------------------------------------------
+        | B2B applications — the applicant's own surface (B1)
+        |--------------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum + db.context + device.touch + verified.
+        | **No permission code, and none is missing.** An applicant is not a member
+        | of anything — the whole point of this journey is that they have no
+        | organisation — so there is nothing for an organisation-scoped permission
+        | to be scoped to, and no platform authority they could plausibly hold.
+        | What stands in for authorisation is *ownership*: `applicant_user_id` is
+        | stamped at creation and `ApplicationService` checks it on every write.
+        |
+        | A non-owner gets **404**, never 403, and that is deliberate rather than
+        | sloppy: telling a stranger "that application exists but is not yours"
+        | turns an identifier into a probe for which companies have applied.
+        |
+        | No `org.context` anywhere in this block. `b2b_applications` is the one
+        | business table in the platform that is not tenant-scoped, because it
+        | exists so that a tenant may.
+        |
+        | `precondition` guards the three writes that move state — the section
+        | PATCH, submit and withdraw. The set-replace endpoints carry no `If-Match`:
+        | each set is replaced whole in one transaction, so there is no half-list
+        | for a validator to protect, and the rows carry no `lock_version` of their
+        | own because a per-row validator would let two editors replace different
+        | halves of one roster.
+        |
+        | Submit and withdraw are POST sub-resource actions, never a `PATCH status`
+        | (master plan v2 §4.15).
+        |
+        */
+        Route::prefix('/b2b')->group(function (): void {
+            Route::post('/applications', B2bApplicationStoreController::class)
+                ->name('b2b.applications.store');
+
+            Route::get('/applications', B2bApplicationIndexController::class)
+                ->name('b2b.applications.index');
+
+            Route::get('/applications/{application}', B2bApplicationShowController::class)
+                ->name('b2b.applications.show');
+
+            // The section is in the path rather than the body, so the server can
+            // refuse a payload that wandered outside the step the client said it was
+            // saving. A key the section does not own is refused — never ignored — and
+            // the refusal names the section that does own it.
+            Route::patch('/applications/{application}/sections/{section}', B2bApplicationSectionUpdateController::class)
+                ->middleware('precondition')
+                ->name('b2b.applications.sections.update');
+
+            // Set-replace. `{"contacts": []}` and `{"locations": []}` are the payloads
+            // that express a deletion, which a merge-shaped PATCH cannot.
+            Route::put('/applications/{application}/contacts', B2bApplicationContactReplaceController::class)
+                ->name('b2b.applications.contacts.replace');
+
+            Route::put('/applications/{application}/locations', B2bApplicationLocationReplaceController::class)
+                ->name('b2b.applications.locations.replace');
+
+            // The one multipart endpoint in the family. Base64 in a JSON body would
+            // inflate every upload by a third and put ten megabytes through the
+            // request pipeline as a PHP value rather than as a file on disk.
+            Route::post('/applications/{application}/documents', KycDocumentStoreController::class)
+                ->name('b2b.applications.documents.store');
+
+            Route::get('/applications/{application}/documents', KycDocumentIndexController::class)
+                ->name('b2b.applications.documents.index');
+
+            // Answers with a signed URL *in the envelope*, never a 302. A redirect
+            // would put an expiring credential into browser history, the referrer
+            // chain and every proxy log on the way to the bucket. `?purpose=` is
+            // required and is written onto the access audit event.
+            Route::get('/applications/{application}/documents/{document}/download', KycDocumentDownloadController::class)
+                ->name('b2b.applications.documents.download');
+
+            Route::post('/applications/{application}/submit', B2bApplicationSubmitController::class)
+                ->middleware('precondition')
+                ->name('b2b.applications.submit');
+
+            Route::post('/applications/{application}/withdraw', B2bApplicationWithdrawController::class)
+                ->middleware('precondition')
+                ->name('b2b.applications.withdraw');
+
+            /*
+            |----------------------------------------------------------------------
+            | Agreements and the signatory's passcode
+            |----------------------------------------------------------------------
+            |
+            | Same middleware as the rest of the applicant surface. Two things are
+            | worth reading before the routes.
+            |
+            | **Signing requires a passcode the named signatory spent themselves.**
+            | The challenge endpoint records the application's `signatory_email` as
+            | an application-owned contact point — evidence of who was named — and
+            | then refuses unless the authenticated caller holds that same address
+            | as one of their own contacts. Failing that is 403
+            | `b2b.signatory_required`: an office manager who can reach the mailbox
+            | is not the person the company bound itself through.
+            |
+            | **No `precondition` on `/sign`.** `AgreementService::sign()` refuses on
+            | the agreement's *state* — only `pending_signature` may be signed — which
+            | is a stronger guarantee than "only if nobody edited it since you
+            | looked", and an active agreement is immutable anyway.
+            |
+            */
+            Route::get('/applications/{application}/agreements', B2bAgreementIndexController::class)
+                ->name('b2b.applications.agreements.index');
+
+            Route::get('/applications/{application}/agreements/{agreement}', B2bAgreementShowController::class)
+                ->name('b2b.applications.agreements.show');
+
+            Route::post('/applications/{application}/agreements/{agreement}/signature-challenges', B2bAgreementSignatureChallengeController::class)
+                ->name('b2b.applications.agreements.signature-challenges.store');
+
+            Route::post('/applications/{application}/agreements/{agreement}/sign', B2bAgreementSignController::class)
+                ->name('b2b.applications.agreements.sign');
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | B2B platform review (B1)
+        |--------------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum + db.context + device.touch + verified +
+        | org.context + platform.context + permission, plus `precondition` or
+        | `idempotency` where noted.
+        |
+        | Two gates, not one — the same shape K1.1 used for reference governance.
+        | `platform.context` asserts the selected organisation *is* the platform
+        | operator; `permission` asserts the member holds the code. A tenant that
+        | somehow acquired the permission still cannot reach these routes, because
+        | an organisation type is not something a tenant can grant itself.
+        |
+        | **Four codes rather than one**, because reviewing a B2B application is a
+        | workflow with genuinely separable authorities and a single `b2b.manage`
+        | would have made the separation unexpressible:
+        |
+        |   * `b2b_application.view_platform`      — read the queue and one file.
+        |   * `b2b_application.review_platform`    — claim one, ask for more.
+        |   * `b2b_application.decide_platform`    — approve or decline.
+        |   * `b2b_application.provision_platform` — turn an approval into a tenant.
+        |
+        | `kyc_document.view_platform` is deliberately narrower than the application
+        | read: a KYC pack is identity documents belonging to a named person, and
+        | being able to work a queue is not by itself a reason to open one.
+        |
+        | `precondition` guards every state move, and on the claim it is what makes
+        | the claim exclusive: two reviewers who both opened the queue hold the same
+        | validator, and the second write loses with a 409 naming the current state.
+        |
+        | Provisioning takes `idempotency` **and** refuses a missing `Idempotency-Key`
+        | in the controller, because the middleware only enforces semantics when a
+        | key is present — which is the right default everywhere else and the wrong
+        | one for a command that creates an organisation, a trading account and a
+        | set of invitations. No `precondition`: there is no lost update to prevent,
+        | and a validator would only stop a reviewer who had re-read the file in
+        | another tab.
+        |
+        */
+        Route::middleware(['org.context', 'platform.context'])->prefix('/platform/b2b')->group(function (): void {
+            Route::middleware('permission:b2b_application.view_platform')->group(function (): void {
+                // Oldest first, unlike every other list in the platform: this is a
+                // queue, and the fair order to work applications in is the order they
+                // arrived. Drafts are excluded unless `status=draft` asks for them —
+                // a half-typed form nobody has sent is not a reviewer's business.
+                Route::get('/applications', PlatformB2bApplicationIndexController::class)
+                    ->name('platform.b2b.applications.index');
+
+                Route::get('/applications/{application}', PlatformB2bApplicationShowController::class)
+                    ->name('platform.b2b.applications.show');
+            });
+
+            Route::middleware('permission:b2b_application.review_platform')->group(function (): void {
+                Route::post('/applications/{application}/claim', PlatformB2bApplicationClaimController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.applications.claim');
+
+                // Hands editing rights back for *named sections only*, while the
+                // application keeps its place in the queue. Naming no sections means
+                // "we need documents, not answers".
+                Route::post('/applications/{application}/request-information', PlatformB2bApplicationRequestInformationController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.applications.request-information');
+            });
+
+            Route::middleware('permission:b2b_application.decide_platform')->group(function (): void {
+                Route::post('/applications/{application}/approve', PlatformB2bApplicationApproveController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.applications.approve');
+
+                Route::post('/applications/{application}/decline', PlatformB2bApplicationDeclineController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.applications.decline');
+            });
+
+            // The irreversible half. Separate from deciding because an approval can be
+            // revisited and a provisioned tenant cannot be un-provisioned.
+            Route::post('/applications/{application}/provision', PlatformB2bApplicationProvisionController::class)
+                ->middleware(['permission:b2b_application.provision_platform', 'idempotency'])
+                ->name('platform.b2b.applications.provision');
+
+            Route::middleware('permission:kyc_document.view_platform')->group(function (): void {
+                Route::get('/applications/{application}/documents/{document}/download', PlatformKycDocumentDownloadController::class)
+                    ->name('platform.b2b.applications.documents.download');
+
+                // Both codes stack. Deciding whether a passport scan is acceptable
+                // needs the authority to look at it *and* the authority to work the
+                // case; either alone is the wrong answer. Middleware groups compose,
+                // so the inner declaration is an additional gate, not a replacement.
+                Route::post('/documents/{document}/review', PlatformKycDocumentReviewController::class)
+                    ->middleware('permission:b2b_application.review_platform')
+                    ->name('platform.b2b.documents.review');
+            });
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Organisation invitations (B1)
+        |--------------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum + db.context + device.touch + verified +
+        | org.context + permission. No `platform.context`: inviting a colleague is a
+        | tenant's own business.
+        |
+        | The `{organisation}` in the path is checked against the organisation
+        | `org.context` validated a membership against, and a mismatch is **404** —
+        | "no such organisation, as far as you are concerned" rather than a hint
+        | that another tenant exists.
+        |
+        | **The token never appears in a response body or a log.** `issue()` returns
+        | the plaintext once, for the mail; only its SHA-256 reaches the database.
+        | That is what makes a database read, a backup and a replica all useless for
+        | accepting an invitation — and it is why re-inviting issues a new token and
+        | revokes the old rather than resending the original.
+        |
+        | RLS NOTE — recorded here because it is a decision, not an omission.
+        | `organisation_invitations` carries **no PostgreSQL policy**. The accept
+        | path resolves a row by hashed token *before* the acceptor is a member of
+        | anything, so an org-match policy would fail closed on exactly the request
+        | the table exists to serve; and publishing the token hash into a session
+        | variable so a policy could match on it would be strictly worse than the
+        | token itself — it would put the credential onto the database connection,
+        | visible to every statement on it, to protect a row whose only secret is
+        | that credential. Isolation is the token plus the `organisation_id`
+        | predicate the locator and the list controller apply.
+        |
+        | DELETE stamps `revoked_at`; nothing is removed. Who was invited and who
+        | withdrew it is exactly the trail an access review reads.
+        |
+        */
+        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+            Route::post('/invitations', OrganisationInvitationStoreController::class)
+                ->middleware('permission:membership.invite_organisation')
+                ->name('organisations.invitations.store');
+
+            Route::get('/invitations', OrganisationInvitationIndexController::class)
+                ->middleware('permission:membership.view_organisation')
+                ->name('organisations.invitations.index');
+
+            // The same authority as ending a membership: withdrawing an offer somebody
+            // has not yet accepted and removing somebody who has are the same decision
+            // taken at two moments.
+            Route::delete('/invitations/{invitation}', OrganisationInvitationRevokeController::class)
+                ->middleware('permission:membership.end_organisation')
+                ->name('organisations.invitations.revoke');
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Accepting an invitation (B1)
+        |--------------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum + db.context + device.touch + verified. **No
+        | `org.context`, and that absence is the entire point** — the acceptor is
+        | not a member of anything yet, so requiring an organisation context would
+        | mean requiring the membership this request exists to create. They must be
+        | signed in, so acceptance is attributable, and email-verified, so the
+        | identity is reachable.
+        |
+        | Every failure — wrong token, expired, revoked, already accepted — is the
+        | same 404 with the same message. Distinguishing them would tell somebody
+        | holding a guessed token that they guessed right.
+        |
+        | B1 acceptance is a **shell**: the row is marked accepted and the membership
+        | write is not performed, so the response reports `membership_created: false`
+        | rather than implying a workspace the person cannot enter.
+        |
+        */
+        Route::post('/invitations/{token}/accept', InvitationAcceptController::class)
+            ->name('invitations.accept');
     });
 });
 
@@ -717,6 +1402,125 @@ Route::get('/reference/diet-classifications', PublicDietClassificationIndexContr
 // — area codes are unique within a country, not across the platform.
 Route::get('/reference/delivery-areas', PublicDeliveryAreaIndexController::class)
     ->name('reference.delivery-areas.index');
+
+/*
+|--------------------------------------------------------------------------
+| Guest journey (G1)
+|--------------------------------------------------------------------------
+|
+| Buying without an account, and asking to be forgotten afterwards.
+|
+| **Three credential regimes in one family, and the routing table is where they
+| are visible.** Two routes are anonymous because they must be — a session has
+| to be obtainable by somebody holding nothing, and an erasure request arrives
+| from somebody with no account to sign into. Six carry `guest.session`, the
+| capability-token counterpart to `auth:sanctum`: `X-Guest-Token` resolved into
+| a live session, with one indistinguishable `401 guest.session_invalid` for
+| unknown, expired, revoked and under-graded. One carries
+| `guest.session:place_order`, the grade a proven contact point buys.
+|
+| The grade is a middleware parameter rather than a check inside the controller
+| so that "this endpoint needs a verified contact" is readable beside the path.
+| An order is a promise that somebody will be told when it is late, and a
+| destination nobody proved is a promise made to a typo.
+|
+| **No `auth:sanctum`, no `db.context`, no `org.context` anywhere in this
+| family.** A guest is a member of no organisation and holds no user, so there
+| is no identity for the database session variables to carry and no membership
+| for an organisation context to validate. `OrderPlacementService` runs the
+| placement inside `SellerContext::during()`, which is where the seller's
+| tenancy is established — by the service, from the cart, rather than by a
+| header the caller chose.
+|
+| **`idempotency` runs after `guest.session`, and the order matters.**
+| `EnforceIdempotency` keys a replay on the authenticated user or, failing that,
+| on the guest customer account published by `guest.session`. Declared the other
+| way round it would find neither and pass every guest checkout straight
+| through, silently.
+|
+| `POST /guest/sessions` deliberately does **not** carry `idempotency`: a
+| replayed session start would have to return the original plaintext token,
+| which is not stored and cannot be reproduced. `POST /guest/convert` does not
+| either — a repeated registration is refused by the unique email, which is a
+| better answer than a replayed envelope claiming an account was made twice.
+|
+| Rate limiting is the `api` group's throttle (60/min per IP for an anonymous
+| caller). The two anonymous routes here are the ones that most want a tighter
+| bucket of their own; noted for the integrator rather than assumed.
+|
+*/
+
+// ANONYMOUS. The only response in the platform that carries a plaintext guest
+// token, and the only place it will ever exist — the row stores a digest. The
+// IP and User-Agent are hashed in the controller from what the connection
+// carried; neither is accepted in the body, because a caller who can choose
+// their own fingerprint does not have one.
+Route::post('/guest/sessions', GuestSessionStoreController::class)
+    ->name('guest.sessions.store');
+
+// `guest.session`. The session's own state, never the token. A dead token is
+// answered by the middleware's 401, which is the useful answer: the client
+// starts a new session rather than parsing a body that describes a session it
+// may not use.
+Route::get('/guest/session', GuestSessionShowController::class)
+    ->middleware('guest.session')
+    ->name('guest.session.show');
+
+// `guest.session`. Issues the `guest_order` passcode against a destination the
+// guest supplied. 202: a challenge is a message in flight, not a resource the
+// caller may then read.
+Route::post('/guest/contacts', GuestContactStoreController::class)
+    ->middleware('guest.session')
+    ->name('guest.contacts.store');
+
+// `guest.session`. The passcode comes back and the session is promoted to
+// `place_order`. The challenge is resolved scoped to the session's own customer
+// account — anything else is a 404, because "that challenge exists but is not
+// yours" only ever helps somebody it should not help.
+Route::post('/guest/contacts/verify', GuestContactVerifyController::class)
+    ->middleware('guest.session')
+    ->name('guest.contacts.verify');
+
+// `guest.session:place_order` then `idempotency`, in that order. The same body,
+// the same `OrderPlacementService` and the same refusals as the authenticated
+// `POST /orders`; what differs is only which credential got the caller here.
+// The cart and the address are loaded scoped to the session's account.
+Route::post('/guest/orders', GuestOrderStoreController::class)
+    ->middleware(['guest.session:place_order', 'idempotency'])
+    ->name('guest.orders.store');
+
+// `guest.session`. Scoped to the session's account; every miss is a 404. A
+// signed-URL alternative is deferred to the phase that owns customer messaging
+// — see the controller docblock for why a second credential with a longer life
+// and no revocation story is not worth minting in advance of the surface that
+// needs it.
+Route::get('/guest/orders/{order}', GuestOrderShowController::class)
+    ->middleware('guest.session')
+    ->name('guest.orders.show');
+
+// `guest.session`. Registration and conversion in one transaction: a registered
+// user whose guest account never converted, or a guest account pointed at a
+// user that was rolled back, are both states nobody can repair. Validation is
+// delegated wholesale to `CreateNewUser` rather than restated in a form
+// request. The guest token is revoked by the conversion and stops working with
+// this response.
+Route::post('/guest/convert', GuestConvertController::class)
+    ->middleware('guest.session')
+    ->name('guest.convert');
+
+// ANONYMOUS, necessarily. Always 202, always the same body, whether or not the
+// address is known: `GuestDeletionAcknowledgement` is built entirely from the
+// submitted value and from configuration, and `GuestDeletionEnumerationTest`
+// asserts that on the whole serialised result.
+Route::post('/guest/deletion-requests', GuestDeletionRequestStoreController::class)
+    ->name('guest.deletion-requests.store');
+
+// ANONYMOUS. Also always 202, with one indistinguishable refusal shape covering
+// a wrong code, any code against an unknown address, an expired challenge and a
+// locked-out contact. Enumeration resistance survives the second step or it was
+// never there.
+Route::post('/guest/deletion-requests/verify', GuestDeletionVerifyController::class)
+    ->name('guest.deletion-requests.verify');
 
 /*
 |--------------------------------------------------------------------------

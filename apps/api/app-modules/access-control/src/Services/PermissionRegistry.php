@@ -195,6 +195,22 @@ final class PermissionRegistry
             // manager who can open and close a branch can plainly state when it
             // is open.
             'delivery_zone.manage_organisation' => ['domain' => 'delivery_zone', 'description' => 'Manage delivery zones, the areas they serve and the delivery windows of the organisation'],
+
+            // C1. A fifth domain, and a genuine pair rather than the single
+            // code the delivery map got, because reading orders and acting on
+            // them are different authorities held by different people. Anyone
+            // who can see the day's list can see what customers have asked
+            // for, which is commercially interesting and personally sensitive
+            // — names, addresses, allergen declarations. Confirming, fulfilling
+            // and cancelling changes what a customer is owed, and a mistaken
+            // cancellation is not recoverable by editing a row.
+            //
+            // Not `catalogue.*`: an order is not part of the catalogue. The
+            // catalogue is what the kitchen offers; an order is what somebody
+            // asked for, and a merchandiser who can rename a product has no
+            // business cancelling somebody's dinner.
+            'order.view_organisation' => ['domain' => 'order', 'description' => 'View the orders placed with the organisation'],
+            'order.manage_organisation' => ['domain' => 'order', 'description' => 'Confirm, fulfil and cancel the orders placed with the organisation'],
         ];
     }
 
@@ -216,6 +232,35 @@ final class PermissionRegistry
         return [
             'reference.view_platform' => ['domain' => 'reference', 'description' => 'View platform reference vocabularies, including inactive entries'],
             'reference.manage_platform' => ['domain' => 'reference', 'description' => 'Create, update and deactivate platform reference vocabularies'],
+
+            // B1. Admitting a company to trade on the platform is a platform
+            // decision by construction: there is no organisation to scope it
+            // to until the decision has been made. Four codes rather than one,
+            // because the review of a B2B application is a workflow with
+            // genuinely separable authorities and a single `b2b.manage` would
+            // have made the separation unexpressible.
+            //
+            //  * `view_platform`   — read the queue and one application.
+            //  * `review_platform` — claim one and ask the applicant for more.
+            //    Moves the file along without settling anything.
+            //  * `decide_platform` — approve or decline. The judgement.
+            //  * `provision_platform` — turn an approval into a real
+            //    organisation, a trading account and a set of invitations.
+            //    Separate from deciding because it is the irreversible half:
+            //    an approval can be revisited, a provisioned tenant cannot be
+            //    un-provisioned, and the person who signs off commercially is
+            //    not necessarily the person trusted to create tenants.
+            'b2b_application.view_platform' => ['domain' => 'b2b_application', 'description' => 'View B2B applications submitted to the platform'],
+            'b2b_application.review_platform' => ['domain' => 'b2b_application', 'description' => 'Claim a B2B application for review and request further information'],
+            'b2b_application.decide_platform' => ['domain' => 'b2b_application', 'description' => 'Approve or decline a B2B application'],
+            'b2b_application.provision_platform' => ['domain' => 'b2b_application', 'description' => 'Provision the organisation and trading account an approved application earns'],
+
+            // Its own code, deliberately narrower than the application read.
+            // A KYC pack is identity documents belonging to a named person —
+            // a passport photograph, a registration certificate — and being
+            // able to work a review queue is not by itself a reason to open
+            // one. Every download is audited with a stated purpose.
+            'kyc_document.view_platform' => ['domain' => 'kyc_document', 'description' => 'Open and download the identity documents attached to a B2B application'],
         ];
     }
 
@@ -332,6 +377,13 @@ final class PermissionRegistry
                     // cannot run the kitchen. The branch manager keeps it.
                     'delivery_zone.manage_organisation',
                     'branch.manage_current',
+
+                    // C1. Both order codes. Running the kitchen is what this
+                    // role is for, and an order nobody may confirm is an order
+                    // that never gets cooked.
+                    'order.view_organisation',
+                    'order.manage_organisation',
+
                     'organisation.view_current',
                     'branch.view_current',
                     'membership.view_organisation',
@@ -415,6 +467,13 @@ final class PermissionRegistry
                     // commercial manager who could rewrite them could close a
                     // kitchen from a spreadsheet.
                     'delivery_zone.manage_organisation',
+
+                    // C1. The read, and not the write, on the same argument.
+                    // What customers are buying is commercial intelligence and
+                    // this role's business; whether tonight's order gets
+                    // cooked, delayed or cancelled is an operational call
+                    // belonging to whoever is standing in the kitchen.
+                    'order.view_organisation',
                 ],
             ],
         ];

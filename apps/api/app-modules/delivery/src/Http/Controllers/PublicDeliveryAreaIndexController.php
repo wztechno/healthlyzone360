@@ -35,9 +35,20 @@ use Illuminate\Http\Request;
  * `(created_at, id)` like every other cursor in this API — which, for a seeded
  * gazetteer, is insertion order and therefore source order.
  *
- * `country_code` is **required**. A default would serve Lebanon to a customer
- * in Dubai, and an unfiltered list would serve every market's places in one
- * response and make `code` look ambiguous when it is unique per country.
+ * `country_code` is **optional**, revised from K1.7's "required" and recorded
+ * as such (M1 blocker 2). The original argument — that a default would serve
+ * Lebanon to a customer in Dubai — was right about *defaults* and wrong about
+ * *absence*. A client that has not asked for a country has not asked for the
+ * wrong one, and the consumer app's first screen legitimately wants the whole
+ * gazetteer before it knows where the person is. What made `code` ambiguous
+ * was never the filter but the field: `country_code` is embedded on every row,
+ * so an unfiltered page is unambiguous by construction, and a caller that does
+ * send a country still gets exactly what it always got.
+ *
+ * An unknown country is still a 400 rather than an empty page: a client that
+ * sent `country_code=UK` has a bug, and an empty list would read as "we do not
+ * deliver there yet".
+ *
  * Rate limiting comes from the `api` group (60/min per IP for an anonymous
  * caller).
  */
@@ -54,7 +65,7 @@ final class PublicDeliveryAreaIndexController
         $locale = DeliveryAreaPresenter::locale($request->header('Accept-Language'));
 
         $query = DeliveryArea::query()
-            ->where('country_code', $countryCode)
+            ->when($countryCode !== null, fn ($scoped) => $scoped->where('country_code', $countryCode))
             ->where('is_active', true);
 
         $limit = CursorPage::limit($request);
@@ -71,14 +82,18 @@ final class PublicDeliveryAreaIndexController
     /**
      * @throws ApiException
      */
-    private function countryCode(Request $request): string
+    private function countryCode(Request $request): ?string
     {
         $raw = $request->query('country_code');
 
-        if (! is_string($raw) || trim($raw) === '') {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        if (! is_string($raw)) {
             throw new ApiException(
                 ErrorCode::RequestInvalid,
-                'A country_code is required — area codes are unique within a country, not across the platform.',
+                'The country_code filter must be a single ISO 3166-1 alpha-2 code.',
                 ['parameter' => 'country_code'],
             );
         }

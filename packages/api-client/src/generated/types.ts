@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -190,6 +190,14 @@ export type RegisterRequest = {
      * Acknowledgement of the privacy notice. Recorded as a consent grant.
      */
     accepts_privacy: true;
+    /**
+     * Opens the provisional consumer account in the same transaction as
+     * the identity (J1). Omitted for a kitchen operator, who has an
+     * identity and no customer account; `b2b` and `guest` accounts are
+     * provisioned by their own journeys and may not be declared here.
+     *
+     */
+    account_type?: 'b2c';
 };
 
 export type LoginRequest = {
@@ -1058,6 +1066,16 @@ export type PublicAllergenClass = {
      * The declaration threshold in parts per million — 10 for sulphites.
      */
     us_threshold_ppm?: number | null;
+    /**
+     * Whether a declaration form should pre-mark this class as serious.
+     * A **presentation default, never a diagnosis**: what a particular
+     * person's reaction is remains theirs to state, and nothing here
+     * overrides it. Seven classes carry it — crustaceans, egg, fish,
+     * peanut, tree nut, sesame, mollusc — because their reactions are
+     * most often systemic rather than local.
+     *
+     */
+    severe_by_default?: boolean;
     display_order: number;
 };
 
@@ -1077,6 +1095,7 @@ export type AdminAllergenClass = {
     is_us_big_9: boolean;
     us_declaration_required: boolean;
     us_threshold_ppm?: number | null;
+    severe_by_default?: boolean;
     display_order: number;
     is_active: boolean;
 };
@@ -1099,6 +1118,7 @@ export type CreateAllergenClassRequest = {
     is_us_big_9: boolean;
     us_declaration_required?: boolean | null;
     us_threshold_ppm?: number | null;
+    severe_by_default?: boolean | null;
     display_order?: number | null;
 };
 
@@ -1118,6 +1138,7 @@ export type UpdateAllergenClassRequest = {
     is_us_big_9?: boolean;
     us_declaration_required?: boolean;
     us_threshold_ppm?: number | null;
+    severe_by_default?: boolean;
     display_order?: number;
 };
 
@@ -3163,6 +3184,2290 @@ export type ReplaceBranchOperatingRequest = {
 };
 
 /**
+ * Three states, two of them terminal. `converted` and `expired` both mean
+ * "no longer shoppable" and are kept apart because only one is a success:
+ * a converted cart has an order behind it, an expired one is somebody who
+ * changed their mind. Collapsing them would make basket abandonment
+ * unanswerable.
+ *
+ */
+export type CartStatus = 'open' | 'converted' | 'expired';
+
+/**
+ * `placed → confirmed → fulfilled`, with `cancelled` reachable from the
+ * first two and from nowhere else. A fulfilled order is not cancellable:
+ * the food has been delivered, and what happens next is a refund or a
+ * complaint — different objects with different money attached.
+ *
+ * Deliberately absent: anything about payment (there is one method and it
+ * happens at the door), anything about production stages (the kitchen
+ * display's vocabulary), and any `pending` or `draft` — an order that has
+ * not been placed is a cart.
+ *
+ */
+export type OrderStatus = 'placed' | 'confirmed' | 'fulfilled' | 'cancelled';
+
+/**
+ * Why an order was cancelled. A fixed vocabulary rather than free text
+ * because the answer is read by machines as often as by people: free text
+ * turns a count into a search problem, and it is how personal data ends up
+ * in a column nobody classified.
+ *
+ * `delivery_unavailable` is separate from `kitchen_unable_to_fulfil`
+ * because the food could be made but not delivered — the kitchen's fault
+ * in a different way, and the one an operations team can fix.
+ * `payment_failed` is **not** here: there is nothing to fail.
+ *
+ */
+export type CancellationReason = 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable';
+
+/**
+ * One value, and the field exists anyway: an order has to record how it
+ * was paid for, and a column that appears the day a second method does
+ * would leave every earlier order unable to say.
+ *
+ */
+export type PaymentMethod = 'cash_on_delivery';
+
+export type OpenCartRequest = {
+    /**
+     * The sales channel's own code, resolved across organisations. Which
+     * kitchen owns it is the server's answer, not the client's assertion —
+     * which is why there is no `organisation_id` here.
+     *
+     */
+    channel_code: string;
+};
+
+export type AddCartItemRequest = {
+    catalogue_item_id: Uuid;
+    /**
+     * The pack or plan configuration, when the article has variants.
+     */
+    catalogue_item_variant_id?: Uuid | null;
+    /**
+     * How many, defaulting to 1. Numeric rather than integer because a
+     * line can be 0.35 kg, and accepted as a string as well as a number so
+     * a client holding a decimal can send it without a float round trip.
+     * Zero is refused: removing a line is its own action, not a quantity
+     * of nothing.
+     *
+     */
+    quantity?: number | string;
+    /**
+     * The day the line is wanted, `YYYY-MM-DD`. Part of the line's
+     * identity rather than a decoration: two quantities of the same meal
+     * for two different days are two lines.
+     *
+     */
+    delivery_date?: string | null;
+};
+
+export type SetCartItemQuantityRequest = {
+    /**
+     * The quantity the customer wants, not a delta. Reprobed by the
+     * server, and refusable — raising can cross a tier priced in another
+     * currency, lowering can fall below the only tier that priced the
+     * article at all.
+     *
+     */
+    quantity: number | string;
+};
+
+export type CartLine = {
+    id: Uuid;
+    catalogue_item_id: Uuid;
+    catalogue_item_variant_id: string | null;
+    /**
+     * A decimal **string**, never a number. It is matched against pricing
+     * tiers of the same scale, and a 0.3 kg line that arrived back as
+     * 0.29999999 would sit on the wrong side of a tier boundary.
+     *
+     */
+    quantity: string;
+    delivery_date: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+/**
+ * **No amount of any kind appears here, and none ever will.** The cart
+ * tables hold no price column: the server's probe establishes that a line
+ * is orderable and discards its price, because a cart price is advisory and
+ * every line is repriced at placement. A subtotal here would be a number no
+ * table holds and no checkout will honour.
+ *
+ */
+export type Cart = {
+    id: Uuid;
+    organisation_id: Uuid;
+    sales_channel_id: Uuid;
+    /**
+     * Where the food would be produced. Null until the customer has
+     * chosen: naming one for them would silently pick whose cut-off and
+     * whose delivery terms apply.
+     *
+     */
+    branch_id: string | null;
+    status: CartStatus;
+    currency_code: string;
+    /**
+     * When an untouched basket is closed by the sweep. Carried because a
+     * basket that quietly vanishes is the complaint the TTL would
+     * otherwise generate; every line write pushes it out.
+     *
+     */
+    expires_at: string;
+    /**
+     * Served as an `ETag` so a client can tell a stale render from a
+     * current one. **No cart write demands `If-Match`**: the header
+     * prevents a lost update, and a basket has exactly one author.
+     *
+     */
+    lock_version: number;
+    line_count: number;
+    lines: Array<CartLine>;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+export type CartEnvelope = {
+    data: {
+        cart: Cart;
+    };
+    meta: Meta;
+};
+
+/**
+ * The line the request was about, **and** the basket around it. The write
+ * moved the cart's validator and pushed its expiry out, so a response
+ * carrying only the line would hand a client two stale facts.
+ *
+ */
+export type CartLineEnvelope = {
+    data: {
+        line: CartLine;
+        cart: Cart;
+    };
+    meta: Meta;
+};
+
+/**
+ * Four fields, and none of them is a price. Every amount is decided during
+ * placement, against the tariff standing at that moment; a body that could
+ * state a total would be a client quoting the server its own prices.
+ *
+ */
+export type PlaceOrderRequest = {
+    cart_id: Uuid;
+    customer_address_id: Uuid;
+    /**
+     * The slot the customer chose, as the window's own code. Whether that
+     * slot is offered on that day by that branch is a scheduling question
+     * answered during placement, with the cut-off rules in hand.
+     *
+     */
+    delivery_window_code?: string | null;
+    /**
+     * The day asked for. Wins over a day the basket's lines name, and a
+     * disagreement is `mixed_delivery_dates` rather than a silent
+     * preference: this phase's order carries exactly one delivery date.
+     *
+     */
+    requested_delivery_date?: string | null;
+};
+
+export type CancelOrderRequest = {
+    reason: CancellationReason;
+};
+
+/**
+ * The customer-facing allergen label, and nothing else. The derivation and
+ * the source ingredient are dropped at snapshot time: a source ingredient
+ * names part of a formulation, and an order line is the most likely row on
+ * the platform to be handed to a courier or a marketplace partner.
+ *
+ */
+export type OrderLineAllergen = {
+    allergen_code: AllergenCode;
+    containment: string;
+};
+
+/**
+ * The article as it stood the moment the order was placed — a snapshot,
+ * not a join. Renaming the catalogue item tomorrow does not rewrite what a
+ * customer bought.
+ *
+ * `price_list_id` and `price_list_item_id` exist on the row and are
+ * **never** on this shape: they answer "why was this the price?" a year
+ * later, and on a receipt they would name a kitchen's tariff structure to
+ * the person being charged by it.
+ *
+ */
+export type CustomerOrderLine = {
+    id: Uuid;
+    catalogue_item_id: Uuid;
+    catalogue_item_variant_id: string | null;
+    name_en: string;
+    name_ar: string;
+    variant_label: string | null;
+    /**
+     * The decimal string the line total was computed from, never a number.
+     */
+    quantity: string;
+    /**
+     * Minor units. Never formatted server-side — `4500` with `AED`, never `"45.00 AED"`.
+     */
+    unit_price_minor: number;
+    /**
+     * Rounded exactly once, here. The unit price times the quantity is an
+     * integer times a decimal, and rounding the unit price instead would
+     * compound the error across the order.
+     *
+     */
+    line_total_minor: number;
+    currency_code: string;
+    allergens: Array<OrderLineAllergen>;
+    /**
+     * The pack as the customer bought it — size, unit, pieces, net weight.
+     * Never a cost and never a supplier.
+     *
+     */
+    pack_summary: {
+        [key: string]: unknown;
+    } | null;
+};
+
+export type KitchenOrderLine = CustomerOrderLine & {
+    price_list_id: string | null;
+    price_list_item_id: string | null;
+};
+
+/**
+ * The address as it stood when the order was placed, copied. Editing the
+ * address later must not change where this order was sent.
+ *
+ */
+export type CustomerOrderDelivery = {
+    label: string | null;
+    line_one: string;
+    line_two: string | null;
+    /**
+     * The gazetteer's region — the governorate or district. Usually null:
+     * the platform data leaves it unpopulated, and the field exists because
+     * a courier manifest has a city line and a snapshot that could not fill
+     * it would send somebody back to a table that has since changed.
+     *
+     */
+    city: string | null;
+    area_name_en: string | null;
+    area_name_ar: string | null;
+    area_id: string | null;
+    window_code: string | null;
+    requested_date: string | null;
+};
+
+export type KitchenOrderDelivery = CustomerOrderDelivery & {
+    /**
+     * Which slice of the kitchen's delivery map the address fell into,
+     * and what set the fee. The seller's operating arrangement, so it
+     * is not on the customer's shape.
+     *
+     */
+    zone_id: string | null;
+};
+
+/**
+ * The receipt. **Five things on the row are deliberately absent**, each
+ * for its own reason:
+ *
+ * * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
+ * named to the person being charged by it; on an agreement list, one
+ * customer's negotiated position is reconstructable from which list
+ * priced their line.
+ * * `organisation_id` — the seller's internal key. The customer bought
+ * from a kitchen, not from a UUID. *That this shape carries no kitchen
+ * identity at all is a stated gap*: naming the kitchen means a public
+ * projection of an organisation, which belongs to the marketplace
+ * family.
+ * * `created_by` — for a self-service order this is the customer and says
+ * nothing; for a staff-placed order it names an employee to a member of
+ * the public.
+ * * `lock_version` — the validator of a resource this audience cannot
+ * write. Serving one with no writer invites `If-Match` at an endpoint
+ * that would ignore it.
+ * * `branch_id`, `sales_channel_id`, `delivery_zone_id` — the kitchen's
+ * operating arrangements; none of them changes anything the customer can
+ * do.
+ *
+ * The **amounts are here**, and that is not an oversight. What somebody was
+ * charged is printed on their own receipt; what the food cost the kitchen
+ * is the confidential figure, and no column on either table carries it.
+ *
+ */
+export type CustomerOrder = {
+    id: Uuid;
+    /**
+     * The human-readable reference, unique across the platform.
+     */
+    order_number: string;
+    status: OrderStatus;
+    currency_code: string;
+    subtotal_minor: number;
+    /**
+     * Null when no zone charged one — which is not the same as zero.
+     */
+    delivery_fee_minor: number | null;
+    total_minor: number;
+    payment_method: PaymentMethod;
+    delivery: CustomerOrderDelivery;
+    placed_at: string;
+    confirmed_at: string | null;
+    fulfilled_at: string | null;
+    cancelled_at: string | null;
+    cancellation_reason: CancellationReason | null;
+    line_count: number;
+    lines: Array<CustomerOrderLine>;
+    created_at: string | null;
+};
+
+/**
+ * The seller's view of the same row. Built independently of the customer
+ * shape rather than as a superset of it: a wide shape and a narrow one
+ * derived from it by subtraction is how a column added next year quietly
+ * reaches a receipt.
+ *
+ * `lock_version` is here because this is the audience that **writes** — a
+ * screen that could not read the validator could not send the `If-Match`
+ * the three lifecycle actions demand.
+ *
+ */
+export type KitchenOrder = {
+    id: Uuid;
+    order_number: string;
+    organisation_id: Uuid;
+    customer_account_id: Uuid;
+    sales_channel_id: Uuid;
+    branch_id: string | null;
+    status: OrderStatus;
+    currency_code: string;
+    subtotal_minor: number;
+    delivery_fee_minor: number | null;
+    total_minor: number;
+    payment_method: PaymentMethod;
+    delivery: KitchenOrderDelivery;
+    placed_at: string;
+    confirmed_at: string | null;
+    fulfilled_at: string | null;
+    cancelled_at: string | null;
+    cancellation_reason: CancellationReason | null;
+    created_by: string | null;
+    lock_version: number;
+    line_count: number;
+    lines: Array<KitchenOrderLine>;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+export type CustomerOrderEnvelope = {
+    data: {
+        order: CustomerOrder;
+    };
+    meta: Meta;
+};
+
+export type KitchenOrderEnvelope = {
+    data: {
+        order: KitchenOrder;
+    };
+    meta: Meta;
+};
+
+/**
+ * How much a guest token is allowed to do — the entire authorisation model
+ * for the guest journey, in two values. `checkout_draft` is what an
+ * anonymous browser is handed on its first request: enough to build a
+ * basket, price it and choose a slot, none of which creates an obligation
+ * to anybody. `place_order` is what that becomes once a passcode has
+ * proven a contact point.
+ *
+ * The grade is raised only by an act the server witnessed, and the
+ * database refuses the higher value without a `contact_verified_at`.
+ *
+ */
+export type GuestSessionGrade = 'checkout_draft' | 'place_order';
+
+/**
+ * What kind of destination a contact point names — deliberately not the
+ * transport. An address has one way to reach it; a number has three, and
+ * which is used is a property of the message.
+ *
+ */
+export type GuestContactChannel = 'email' | 'phone';
+
+/**
+ * How a passcode travels. Optional on every request that accepts it: the
+ * server knows which drivers are real in this deployment and falls back
+ * when one is not, so a client that insisted would get a refusal where the
+ * server would have found a route.
+ *
+ */
+export type GuestOtpDeliveryChannel = 'email' | 'sms' | 'whatsapp';
+
+/**
+ * The guest's own customer account. A guest **is** a `customer_accounts`
+ * row in one of the three shapes that table has always enforced — not a
+ * new kind of thing — which is why addresses, orders and dietary
+ * declarations all work on one without knowing a guest exists.
+ *
+ * `account_number` is absent: it is confidential, no guest screen needs
+ * it, and the reference somebody quotes on the telephone is the order
+ * number.
+ *
+ */
+export type GuestCustomerAccount = {
+    id: Uuid;
+    /**
+     * `guest` until conversion, `b2c` after it.
+     */
+    account_type: 'b2c' | 'b2b' | 'guest';
+    status: 'provisional' | 'active' | 'suspended' | 'closed';
+    /**
+     * Stays `guest` after conversion. Origin is history: an account that
+     * arrived through the guest door came from there permanently.
+     *
+     */
+    origin: 'self_service' | 'guest' | 'b2b_provisioning' | 'staff' | 'import';
+    preferred_language_code: string | null;
+    country_code: string | null;
+    /**
+     * When the guest identity itself lapses and its data is purged. Null
+     * once the account has converted — an account with a user is no longer
+     * on a retention clock.
+     *
+     */
+    guest_expires_at: string | null;
+    converted_at: string | null;
+};
+
+/**
+ * A guest session's own state. **There is no `token` field and there
+ * cannot be one**: the plaintext exists only in the response to
+ * `POST /guest/sessions`, and the digest is a credential derivative that is
+ * never served. The IP and User-Agent fingerprints are absent too — they
+ * exist for abuse investigation, and echoing a person's own pseudonymised
+ * fingerprint back to them helps nobody but whoever gets hold of the
+ * response.
+ *
+ */
+export type GuestSession = {
+    id: Uuid;
+    grade: GuestSessionGrade;
+    /**
+     * What a checkout screen branches on. Carried beside the timestamp
+     * rather than derived from it, so the schema's own CHECK constraint
+     * does not have to be reimplemented in JavaScript.
+     *
+     */
+    contact_verified: boolean;
+    contact_verified_at: string | null;
+    /**
+     * Absolute, never a countdown. A "seconds remaining" computed on the
+     * server is stale the moment it is serialised.
+     *
+     */
+    expires_at: string;
+    last_used_at: string | null;
+};
+
+/**
+ * The one payload in the API that carries a guest credential.
+ */
+export type StartedGuestSession = {
+    /**
+     * The plaintext bearer token, sent as `X-Guest-Token` on every
+     * subsequent guest request. **Returned exactly once and stored
+     * nowhere** — the row keeps a digest. It must never be logged, and a
+     * client that loses it has lost the basket.
+     *
+     */
+    token: string;
+    grade: GuestSessionGrade;
+    /**
+     * When this token stops being accepted.
+     */
+    expires_at: string;
+    /**
+     * When the guest identity behind the token lapses. The longer of the
+     * two windows, so a client whose token expired can be told honestly
+     * that the basket is gone rather than that the person never existed.
+     *
+     */
+    account_expires_at: string;
+    customer_account: GuestCustomerAccount;
+};
+
+export type GuestSessionEnvelope = {
+    data: {
+        session: GuestSession;
+        customer_account: GuestCustomerAccount;
+    };
+    meta: Meta;
+};
+
+/**
+ * Every field is optional and the empty body is the normal case. A
+ * required field here would mean a person cannot open a basket until they
+ * have answered a question, which is the friction the guest journey exists
+ * to remove. Both values are presentation hints, not references: an
+ * unrecognised code degrades to the platform default rather than refusing
+ * the session.
+ *
+ */
+export type StartGuestSessionRequest = {
+    preferred_language_code?: string | null;
+    country_code?: string | null;
+};
+
+export type RequestGuestContactVerificationRequest = {
+    channel: GuestContactChannel;
+    /**
+     * The address or number itself. Carries no format rule beyond a length
+     * guard: what counts as a valid destination is the normaliser's single
+     * judgement, and a second opinion in the request layer would refuse
+     * values the store accepts.
+     *
+     */
+    value: string;
+    delivery_channel?: GuestOtpDeliveryChannel;
+};
+
+export type ConfirmGuestContactVerificationRequest = {
+    challenge_id: Uuid;
+    /**
+     * A string, never an integer — a passcode with a leading zero is a
+     * passcode, and JSON numbers eat leading zeros. No length rule: how
+     * long a code is belongs to the verification configuration, and a
+     * client-facing rule restating it would start refusing valid codes the
+     * day an operator lengthened them.
+     *
+     */
+    code: string;
+};
+
+/**
+ * A passcode in flight. Every field exists because a screen cannot be
+ * built without it: the resend countdown is absolute so a client with a
+ * wrong clock still gets it right, `attempts_remaining` is the difference
+ * between retyping carefully and being locked out without warning, and
+ * `destination_masked` is server-authored because a client-side mask of a
+ * value the client was given would mean the value was given.
+ *
+ */
+export type GuestOtpChallenge = {
+    challenge_id: Uuid;
+    purpose: 'guest_order';
+    channel: GuestOtpDeliveryChannel;
+    destination_masked: string;
+    expires_at: string;
+    resend_available_at: string;
+    resend_cooldown_seconds: number;
+    attempts_remaining: number;
+    resends_remaining: number;
+    /**
+     * What "try another way" may offer in this deployment.
+     */
+    available_channels: Array<{
+        channel: GuestOtpDeliveryChannel;
+        simulated: boolean;
+    }>;
+    /**
+     * Whether this challenge was delivered by a driver that does not
+     * really send anything. Never true outside local and testing.
+     *
+     */
+    simulated: boolean;
+    /**
+     * Present only when the deployment exposes codes *and* the environment
+     * is local or testing, so the developer affordance for channels that
+     * do not really deliver cannot exist in production.
+     *
+     */
+    debug_code?: string;
+};
+
+export type GuestOtpChallengeEnvelope = {
+    data: {
+        challenge: GuestOtpChallenge;
+    };
+    meta: Meta;
+};
+
+/**
+ * The same body as the authenticated `POST /orders`. Nothing about money
+ * and nothing about the seller: the currency, the totals, the organisation
+ * and the channel are all decided at placement from the cart and the
+ * tariff standing at that moment. A body carrying a total would make the
+ * client the authority on what the kitchen charges.
+ *
+ */
+export type PlaceGuestOrderRequest = {
+    cart_id: Uuid;
+    customer_address_id: Uuid;
+    /**
+     * The chosen slot, as the delivery window's own code.
+     */
+    delivery_window_code?: string | null;
+    /**
+     * A plain date, never a datetime. The order stores a day; accepting an
+     * instant would invite a timezone argument nobody can win about which
+     * day `2026-08-02T23:30:00Z` is.
+     *
+     */
+    requested_delivery_date?: string | null;
+};
+
+export type GuestOrderStatus = 'placed' | 'confirmed' | 'fulfilled' | 'cancelled';
+
+/**
+ * Where the food goes, as it stood when the order was placed. The area
+ * name carries one server-chosen language; the free-text parts are the
+ * customer's own address, copied onto the order so a later edit to the
+ * address book cannot rewrite where a delivered order went.
+ *
+ */
+export type GuestOrderDelivery = {
+    label: string | null;
+    line_one: string;
+    line_two: string | null;
+    city: string | null;
+    area: string | null;
+    window_code: string | null;
+    requested_date: string | null;
+};
+
+/**
+ * The frozen allergen statement, exactly as the customer was shown it.
+ * Never re-derived from the catalogue on read — a person told "contains
+ * sesame" must still be told it after the kitchen reformulates.
+ *
+ */
+export type GuestOrderLineAllergen = {
+    allergen_code: AllergenCode;
+    containment: string;
+};
+
+/**
+ * One article on the order, as it stood the moment the order was placed.
+ * `name` is **one** server-chosen language rather than a pair of columns
+ * (master plan v2 §4.8), and the price-list identifiers behind the amount
+ * are absent: they exist so "why was this the price?" is answerable a year
+ * later and they never leave the server.
+ *
+ */
+export type GuestOrderLine = {
+    id: Uuid;
+    catalogue_item_id: Uuid;
+    name: string;
+    variant_label: string | null;
+    /**
+     * A decimal string, not a number. `2.0000` survives a round trip
+     * through JSON and back into PostgreSQL's numeric; `2.0` does not
+     * reliably survive anything.
+     *
+     */
+    quantity: string;
+    unit_price_minor: number;
+    line_total_minor: number;
+    currency_code: CurrencyCode;
+    allergens: Array<GuestOrderLineAllergen>;
+    pack_summary: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * A guest's own order. Amounts are integers of minor units with the
+ * currency beside them and are never formatted server-side — `4500` with
+ * `AED`, never `"45.00 AED"` — because a server that formats money has
+ * decided a locale on the client's behalf and made the number unusable for
+ * arithmetic.
+ *
+ * `lock_version` is absent, and so is an `ETag`: a guest has no write
+ * surface on an order, so a validator would be a token for a request
+ * nobody can make. The seller's identifiers are absent too — naming the
+ * kitchen properly means a projection, and that shape already exists on
+ * the marketplace surface.
+ *
+ */
+export type GuestOrder = {
+    id: Uuid;
+    /**
+     * The reference a person quotes on the telephone.
+     */
+    order_number: string;
+    status: GuestOrderStatus;
+    currency_code: CurrencyCode;
+    subtotal_minor: number;
+    /**
+     * Null is a value: nobody decided a fee for this zone. Never
+     * flattened to `0`, which would say delivery is free.
+     *
+     */
+    delivery_fee_minor: number | null;
+    total_minor: number;
+    /**
+     * One case, and no reserved others: a reserved case is a value
+     * something eventually writes.
+     *
+     */
+    payment_method: 'cash_on_delivery';
+    delivery: GuestOrderDelivery;
+    placed_at: string;
+    confirmed_at: string | null;
+    cancelled_at: string | null;
+    cancellation_reason: 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable' | null;
+    lines: Array<GuestOrderLine>;
+};
+
+export type GuestOrderEnvelope = {
+    data: {
+        order: GuestOrder;
+    };
+    meta: Meta & {
+        /**
+         * True when this envelope is an idempotent replay of a
+         * placement that already happened. Present on
+         * `POST /guest/orders` only.
+         *
+         */
+        replayed?: boolean;
+    };
+};
+
+export type GuestConversionEnvelope = {
+    data: {
+        customer_account: GuestCustomerAccount;
+    };
+    meta: Meta & {
+        /**
+         * The `X-Guest-Token` used to reach this endpoint stopped
+         * working with this response. Stated in the body so a client
+         * does not discover it as a `401` on its next request.
+         *
+         */
+        guest_token_revoked: true;
+    };
+};
+
+export type RequestGuestDeletionRequest = {
+    channel: GuestContactChannel;
+    value: string;
+    delivery_channel?: GuestOtpDeliveryChannel;
+};
+
+/**
+ * The address is submitted again rather than carried in a challenge
+ * identifier from step one, because step one has none to give: a nullable
+ * identifier is a boolean in disguise, and the boolean is "this address is
+ * known to us".
+ *
+ */
+export type ConfirmGuestDeletionRequest = {
+    channel: GuestContactChannel;
+    value: string;
+    code: string;
+};
+
+/**
+ * The same answer whether or not there is anything to delete. Every field
+ * is derived from the request: the mask comes from the value just
+ * submitted, and the two remaining fields come from configuration.
+ *
+ */
+export type GuestDeletionAcknowledgement = {
+    accepted: true;
+    /**
+     * Masked from the value the caller just submitted, so the echo needs
+     * no lookup and therefore cannot depend on one.
+     *
+     */
+    destination_masked: string;
+    verification_required: boolean;
+    expires_in_seconds: number;
+};
+
+/**
+ * What the purge did — counts only, never identities. An erasure that
+ * recorded what it erased would have rebuilt in one place exactly what it
+ * removed from another.
+ *
+ */
+export type GuestPurgeReport = {
+    contacts_deleted: number;
+    addresses_deleted: number;
+    challenges_deleted: number;
+    sessions_deleted: number;
+    /**
+     * The one thing an erasure is allowed to leave behind: a hash of each
+     * destination, so the next import does not silently re-add the person
+     * who asked to be forgotten.
+     *
+     */
+    suppressions_written: number;
+    account_anonymised: boolean;
+    /**
+     * How many order records this purge deliberately left alone. A guest
+     * order is a commercial and tax record with a statutory retention of
+     * its own; saying so is what stops "purged" being read as "everything
+     * is gone".
+     *
+     */
+    orders_retained: number;
+};
+
+/**
+ * One indistinguishable shape for every refusal — a wrong code, any code
+ * against an unknown address, an expired challenge, a locked-out contact
+ * — and the report only for a caller who has proven they hold the
+ * destination.
+ *
+ */
+export type GuestDeletionOutcome = {
+    accepted: true;
+    purged: boolean;
+    report?: GuestPurgeReport;
+};
+
+/**
+ * What a passcode is being asked for. The vocabulary is complete rather
+ * than grown per phase, because a purpose scopes the one-live-challenge
+ * index and is what a step-up consumer checks before honouring a
+ * verification — a code obtained for a harmless purpose must not be
+ * replayable against a dangerous one.
+ *
+ */
+export type OtpPurpose = 'contact_verification' | 'guest_order' | 'guest_deletion' | 'closure_step_up' | 'payment_details_step_up' | 'b2b_signatory';
+
+/**
+ * The purposes that grant an `otp` step-up. Contact verification is
+ * deliberately absent: a code proving somebody holds an address must never
+ * unlock a payment change.
+ *
+ */
+export type StepUpPurpose = 'closure_step_up' | 'payment_details_step_up';
+
+/**
+ * How a passcode travels. Distinct from a contact point's `channel`: an
+ * email address has one way to reach it, a phone number has three, and
+ * which is used is a property of the message rather than of the number.
+ *
+ */
+export type OtpDeliveryChannel = 'email' | 'sms' | 'whatsapp';
+
+/**
+ * The stored lifecycle of a challenge. Not sufficient on its own — expiry
+ * is a moment rather than an event, so a row stays `pending` past its
+ * window until something writes the transition. Read `is_live` instead.
+ *
+ */
+export type OtpChallengeState = 'pending' | 'verified' | 'expired' | 'failed' | 'superseded';
+
+export type OtpAvailableChannel = {
+    channel: OtpDeliveryChannel;
+    /**
+     * The driver writes to a log rather than delivering. Never true
+     * outside local and testing, so a production client can offer every
+     * listed channel without checking.
+     *
+     */
+    simulated: boolean;
+};
+
+/**
+ * What a caller learns when a challenge is issued or resent. Every field
+ * exists because a screen cannot be built without it.
+ *
+ */
+export type OtpChallengeResult = {
+    challenge_id: Uuid;
+    purpose: OtpPurpose;
+    channel: OtpDeliveryChannel;
+    /**
+     * **Server-authored.** The client never sees the address, so it cannot
+     * mask it — and a client-side mask of a value the client was given
+     * would mean the value was given.
+     *
+     */
+    destination_masked: string;
+    expires_at: string;
+    /**
+     * When the resend button unlocks. Sent as an instant rather than left
+     * to the client to compute, because a client using its own clock gets
+     * it wrong for exactly the users whose clocks are wrong.
+     *
+     */
+    resend_available_at: string;
+    resend_cooldown_seconds: number;
+    /**
+     * "2 tries left" is the difference between a person retyping carefully
+     * and a person locked out without warning.
+     *
+     */
+    attempts_remaining: number;
+    resends_remaining: number;
+    /**
+     * What "try another way" may offer.
+     */
+    available_channels: Array<OtpAvailableChannel>;
+    simulated: boolean;
+    /**
+     * The plaintext passcode. Present **only** when
+     * `verification.otp.expose_codes` is set *and* the environment is
+     * local or testing, so the developer affordance for channels that do
+     * not really deliver cannot exist in production. Never present on a
+     * deployed environment.
+     *
+     */
+    debug_code?: string;
+};
+
+export type OtpChallengeEnvelope = {
+    data: {
+        challenge: OtpChallengeResult;
+    };
+    meta: Meta;
+};
+
+/**
+ * A challenge's state. Carries no passcode and no derivative of one — every
+ * field is drawn from columns that outlive the request.
+ *
+ */
+export type VerificationChallenge = {
+    challenge_id: Uuid;
+    purpose: OtpPurpose;
+    channel: OtpDeliveryChannel;
+    destination_masked: string;
+    status: OtpChallengeState;
+    /**
+     * Still `pending` **and** still inside its window. The field a client
+     * branches on; `status` alone would offer an attempt that cannot
+     * succeed.
+     *
+     */
+    is_live: boolean;
+    attempts_remaining: number;
+    resends_remaining: number;
+    expires_at: string;
+    resend_available_at?: string | null;
+    last_sent_at?: string | null;
+    verified_at?: string | null;
+};
+
+export type VerificationChallengeEnvelope = {
+    data: {
+        challenge: VerificationChallenge;
+    };
+    meta: Meta;
+};
+
+export type VerifiedContact = {
+    id: Uuid;
+    channel: ContactChannel;
+    /**
+     * Taken from the challenge rather than recomputed: the challenge
+     * recorded what the person was shown when the code was sent, and
+     * answering with anything else would tell them a code went somewhere
+     * it did not.
+     *
+     */
+    destination_masked: string;
+    is_primary: boolean;
+    is_login_identity: boolean;
+    verified_at?: string | null;
+};
+
+export type ContactVerifiedEnvelope = {
+    data: {
+        /**
+         * Always `true` when this envelope is served. Every other outcome
+         * is an error with its own `otp.*` code, because the remedies
+         * differ and a boolean cannot carry them.
+         *
+         */
+        verified: true;
+        contact: VerifiedContact;
+    };
+    meta: Meta;
+};
+
+export type StepUpConfirmationEnvelope = {
+    data: {
+        confirmed: true;
+        /**
+         * Never `password`. The two methods are tracked separately and
+         * neither satisfies the other — a shared flag would mean a
+         * password confirmation silently unlocking a passcode-gated
+         * action, defeating the only reason to ask for a passcode.
+         *
+         */
+        method: 'otp';
+        /**
+         * Much shorter than a password confirmation's, because the
+         * assurance is about the present moment rather than a secret the
+         * person knows: a passcode confirmed at breakfast says nothing
+         * about who is at the keyboard after lunch.
+         *
+         */
+        expires_in_seconds: number;
+    };
+    meta: Meta;
+};
+
+export type SubmitPasscodeRequest = {
+    /**
+     * A **string** of digits, never a number. Leading zeros are half the
+     * reason the generator pads them: `012345` cast to an integer becomes
+     * a different code, and throwing a tenth of a million-wide keyspace
+     * away at the parsing layer is not a rounding error.
+     *
+     */
+    code: string;
+};
+
+/**
+ * `channel` is optional and its absence means "the same way as last time"
+ * rather than "the default for this contact" — somebody who chose WhatsApp
+ * once should not be quietly moved back to SMS by pressing resend.
+ *
+ */
+export type ResendChallengeRequest = {
+    channel?: OtpDeliveryChannel;
+};
+
+/**
+ * No `channel`. A step-up goes to the destination the account has already
+ * proven, and letting the caller pick the transport for a challenge that
+ * unlocks account closure would hand an attacker the one decision the
+ * server should be making.
+ *
+ */
+export type StepUpChallengeRequest = {
+    purpose: StepUpPurpose;
+};
+
+/**
+ * The challenge is named in the body rather than in the path, unlike every
+ * other verification endpoint: a client that has just been refused with
+ * `auth.step_up_required` holds an identifier and a code, not a resource it
+ * is navigating to.
+ *
+ */
+export type ConfirmStepUpRequest = {
+    challenge_id: Uuid;
+    code: string;
+};
+
+/**
+ * The kind of destination a contact point names — deliberately not the
+ * transport. Modelling it as `sms | whatsapp | email` would mean storing
+ * the same number twice and asking a customer to verify it twice.
+ *
+ */
+export type ContactChannel = 'email' | 'phone';
+
+/**
+ * `provisional` is a real state rather than a nicer word for incomplete:
+ * an account in it exists, holds addresses and declarations, and cannot
+ * order — which is what lets onboarding be interrupted and resumed.
+ * `active` is the activation evaluator's verdict made durable; nothing
+ * else writes it. Closure is terminal.
+ *
+ */
+export type CustomerAccountStatus = 'provisional' | 'active' | 'suspended' | 'closed';
+
+/**
+ * One requirement, met or not, in a stable order. Distinct from
+ * `outstanding` because a checklist showing only what is missing loses the
+ * sense of progress that makes people finish it — and because "phone
+ * verification is not required here" is itself something the screen has to
+ * be able to say.
+ *
+ */
+export type CustomerAccountChecklistItem = {
+    code: 'account.email_unverified' | 'account.phone_unverified' | 'account.no_served_address' | 'account.dietary_declaration_missing' | 'account.consents_outstanding';
+    satisfied: boolean;
+    /**
+     * `account.phone_unverified` is **not** required by default. Demanding
+     * a proven phone while the SMS driver writes to a log file would lock
+     * every real customer out of their own account, so the requirement is
+     * configuration plus the existence of a channel that really delivers.
+     *
+     */
+    required: boolean;
+};
+
+export type CustomerAccountOutstandingReason = {
+    code: string;
+    /**
+     * Structured detail the screen needs. `account.no_served_address`
+     * carries `has_address`, because "add an address" and "we do not
+     * deliver there yet" need different words.
+     *
+     */
+    context: {
+        [key: string]: unknown;
+    };
+};
+
+export type CustomerAccount = {
+    id: Uuid;
+    /**
+     * `Confidential` on the record and served anyway, because this shape
+     * reaches only the person the number belongs to — it is what they
+     * quote to support.
+     *
+     */
+    account_number: string;
+    account_type: 'b2c' | 'b2b' | 'guest';
+    status: CustomerAccountStatus;
+    origin: 'self_service' | 'guest' | 'b2b_provisioning' | 'staff' | 'import';
+    display_name?: string | null;
+    preferred_language_code?: string | null;
+    country_code?: string | null;
+    /**
+     * Nothing is outstanding. Not the same as `status == active`: an
+     * account can be ready and still provisional for as long as it takes
+     * the activation attempt to run.
+     *
+     */
+    is_ready: boolean;
+    outstanding: Array<CustomerAccountOutstandingReason>;
+    checklist: Array<CustomerAccountChecklistItem>;
+    activated_at?: string | null;
+    /**
+     * Stamped at creation and never recomputed — an account opened under a
+     * thirty-day window must not silently acquire a shorter one when the
+     * setting changes. Coming back resets nothing but does protect the
+     * account from the abandonment purge.
+     *
+     */
+    provisional_expires_at?: string | null;
+    last_activity_at?: string | null;
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type CustomerAccountEnvelope = {
+    data: {
+        account: CustomerAccount;
+    };
+    meta: Meta;
+};
+
+export type CustomerContact = {
+    id: Uuid;
+    channel: ContactChannel;
+    /**
+     * The canonical form — lowercased for an address, E.164 for a number —
+     * served **in the clear**, because the audience is the person who
+     * typed it and a masked address book is one on which nobody can tell
+     * which number is the old one.
+     *
+     */
+    value: string;
+    label?: string | null;
+    /**
+     * The notification mirror of `users.email`. Cannot be retired: an
+     * account whose only route back in has been withdrawn is one nobody
+     * can recover.
+     *
+     */
+    is_login_identity: boolean;
+    is_primary: boolean;
+    is_verified: boolean;
+    verified_at?: string | null;
+    source: string;
+    created_at?: string | null;
+};
+
+export type CustomerContactEnvelope = {
+    data: {
+        contact: CustomerContact;
+    };
+    meta: Meta;
+};
+
+export type CustomerContactsEnvelope = {
+    data: Array<CustomerContact>;
+    meta: Meta & {
+        count: number;
+    };
+};
+
+/**
+ * `is_login_identity` and `verified_at` are absent by construction. The
+ * login mirror is written once, at registration; and a contact one may
+ * declare proven is a contact nobody has proven.
+ *
+ */
+export type AddCustomerContactRequest = {
+    channel: ContactChannel;
+    /**
+     * An email address, or a phone number **already in E.164**. The
+     * platform does not infer a country code: guessing one would send
+     * somebody else's handset a passcode that unlocks this account.
+     *
+     */
+    value: string;
+    label?: string | null;
+    is_primary?: boolean | null;
+};
+
+/**
+ * Only `delivery` is checked against the served areas. An invoice goes
+ * wherever the customer says.
+ *
+ */
+export type CustomerAddressType = 'delivery' | 'billing';
+
+export type CustomerAddress = {
+    id: Uuid;
+    address_type: CustomerAddressType;
+    delivery_area_id: Uuid;
+    label?: string | null;
+    line_one: string;
+    line_two?: string | null;
+    building?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    directions?: string | null;
+    postal_code?: string | null;
+    /**
+     * The number a driver calls, when it is not the primary one.
+     */
+    contact_point_id?: Uuid | null;
+    is_default: boolean;
+    /**
+     * Whether anybody serves this area **today**, recomputed on every read.
+     * Not the same as "was accepted": a zone can be paused after an address
+     * was saved, and a book that showed only what was true at save time
+     * would let somebody choose an address nothing can be sent to.
+     *
+     */
+    is_deliverable: boolean;
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type CustomerAddressEnvelope = {
+    data: {
+        address: CustomerAddress;
+    };
+    meta: Meta;
+};
+
+export type CustomerAddressesEnvelope = {
+    data: Array<CustomerAddress>;
+    meta: Meta & {
+        count: number;
+    };
+};
+
+export type AddCustomerAddressRequest = {
+    address_type: CustomerAddressType;
+    delivery_area_id: Uuid;
+    label?: string | null;
+    line_one: string;
+    line_two?: string | null;
+    building?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    directions?: string | null;
+    postal_code?: string | null;
+    contact_point_id?: Uuid | null;
+    /**
+     * The first address of a type becomes the default whether or not this
+     * is set. An address book with no default makes the checkout ask a
+     * question that has one possible answer.
+     *
+     */
+    is_default?: boolean | null;
+};
+
+/**
+ * `address_type` and `is_default` are absent, and both would be quietly
+ * wrong rather than merely unsupported — see the operation description.
+ *
+ */
+export type UpdateCustomerAddressRequest = {
+    delivery_area_id?: Uuid;
+    label?: string | null;
+    line_one?: string;
+    line_two?: string | null;
+    building?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    directions?: string | null;
+    postal_code?: string | null;
+    contact_point_id?: Uuid | null;
+};
+
+/**
+ * How badly this person reacts. `avoidance` is a preference;
+ * `anaphylaxis` excludes traces, and a kitchen reads the difference.
+ *
+ */
+export type AllergenSeverity = 'avoidance' | 'intolerance' | 'allergy' | 'anaphylaxis';
+
+/**
+ * `forbidden` is frequently a belief rather than a preference, which is
+ * why an exclusion is handled as carefully as an allergy even though
+ * nobody's airway depends on it.
+ *
+ */
+export type FoodExclusionKind = 'dislike' | 'forbidden';
+
+/**
+ * Carries no identifier of its own. The set is replaced whole on every
+ * write, so a row id would be a handle onto something that does not
+ * survive the next `PUT`; the allergen code is the identity that matters.
+ *
+ */
+export type CustomerAllergenDeclaration = {
+    allergen_code: string;
+    severity: AllergenSeverity;
+    notes?: string | null;
+    declared_at: string;
+};
+
+export type CustomerFoodExclusion = {
+    id: Uuid;
+    kind: FoodExclusionKind;
+    /**
+     * Which of the three columns is the one to read, so a client can render
+     * an exclusion without inspecting all three and guessing.
+     *
+     */
+    subject_kind: 'ingredient' | 'diet_classification' | 'free_text';
+    ingredient_id?: Uuid | null;
+    diet_classification_id?: Uuid | null;
+    free_text?: string | null;
+};
+
+export type CustomerDietaryProfile = {
+    /**
+     * Null when nothing has ever been written.
+     */
+    id?: Uuid | null;
+    /**
+     * **The field to branch on.** An unanswered question and a confident
+     * "I have none" are different facts, and only the second may activate
+     * an account that is about to be sent food.
+     *
+     */
+    has_declared: boolean;
+    declared_at?: string | null;
+    declares_no_allergens: boolean;
+    diet_classification_id?: Uuid | null;
+    religious_requirement?: string | null;
+    notes?: string | null;
+    allergens: Array<CustomerAllergenDeclaration>;
+    exclusions: Array<CustomerFoodExclusion>;
+    lock_version?: number | null;
+    updated_at?: string | null;
+};
+
+export type CustomerDietaryProfileEnvelope = {
+    data: {
+        dietary_profile: CustomerDietaryProfile;
+    };
+    meta: Meta;
+};
+
+export type ReplaceDietaryProfileRequest = {
+    /**
+     * **Required even when empty.** An omitted key and an empty array would
+     * otherwise mean the same thing on the wire and different things to the
+     * person.
+     *
+     */
+    allergens: Array<{
+        allergen_code: string;
+        severity?: AllergenSeverity;
+        notes?: string | null;
+    }>;
+    exclusions?: Array<{
+        kind?: FoodExclusionKind;
+        ingredient_id?: Uuid | null;
+        diet_classification_id?: Uuid | null;
+        free_text?: string | null;
+    }>;
+    diet_classification_id?: Uuid | null;
+    religious_requirement?: string | null;
+    notes?: string | null;
+};
+
+export type CustomerConsent = {
+    code: string;
+    version: number;
+    purpose: string;
+    /**
+     * `all` is what everybody accepts; `d2c` is written for consumers.
+     * Without the filter this surface would start asking a kitchen's chef
+     * to confirm they are old enough to order food.
+     *
+     */
+    audience: 'all' | 'd2c';
+    /**
+     * Read from the consent catalogue rather than hard-coded, so a new
+     * required text takes effect by being seeded. A required consent still
+     * blocks activation when withdrawn — and may still be withdrawn.
+     *
+     */
+    is_required: boolean;
+    /**
+     * Computed against **this** version. A code granted at version 1 is
+     * `pending` again once version 2 is published, because a status
+     * computed from the code alone would report somebody as having
+     * accepted words they have never seen.
+     *
+     */
+    status: 'granted' | 'pending';
+    display_order: number;
+};
+
+export type CustomerConsentsEnvelope = {
+    data: Array<CustomerConsent>;
+    meta: Meta & {
+        count: number;
+    };
+};
+
+/**
+ * No version. A grant is written against the current version of each
+ * definition, read at the moment of writing — a body that named one could
+ * accept a text that has since been reissued.
+ *
+ */
+export type GrantConsentsRequest = {
+    codes: Array<string>;
+};
+
+/**
+ * The seven states a B2B application passes through.
+ *
+ * `info_requested` is not a rejection and not a pause: it hands editing
+ * rights back for named sections while the application keeps its place
+ * in the queue, which is what lets a status panel say "we need two
+ * things from you" instead of the same "under review" it showed
+ * yesterday.
+ *
+ * `withdrawn` is the applicant's exit and `declined` is the platform's.
+ * Collapsing them would make "how many did we turn down" unanswerable.
+ *
+ */
+export type B2bApplicationStatus = 'draft' | 'submitted' | 'in_review' | 'info_requested' | 'approved' | 'declined' | 'withdrawn';
+
+/**
+ * The field group a wizard step writes. A section is the unit of
+ * writing: a PATCH names one and carries only its fields, and anything
+ * else is refused with the name of the section that owns it.
+ *
+ * Documents are deliberately **not** a section — they have their own
+ * lifecycle and their own review, and folding them in would put a PATCH
+ * of a text box and an upload of a passport on one code path.
+ *
+ */
+export type B2bApplicationSection = 'company' | 'signatory' | 'trade_terms' | 'logistics';
+
+/**
+ * The four people an applicant company names, one per slot.
+ *
+ * `signatory` overlaps the `signatory_*` fields on the application and
+ * that is not duplication: the fields are the *declaration* about who
+ * can bind the company, and the contact row is where to reach that
+ * person about the paperwork. A company whose chief executive signs and
+ * whose office manager chases the emails has one of each.
+ *
+ */
+export type B2bApplicationContactRole = 'primary' | 'billing' | 'operations' | 'signatory';
+
+/**
+ * How long a corporate buyer has to pay. The same vocabulary appears on
+ * the application (what was *asked for*) and on the agreement (what was
+ * *granted*), because the whole point of the review is to compare them.
+ *
+ * **Recorded, not enforced.** No invoicing exists — PAY1 is
+ * discovery-gated — so nothing in the platform will chase a net-30
+ * balance, and no surface may imply otherwise.
+ *
+ */
+export type B2bPaymentTerms = 'prepaid' | 'net_15' | 'net_30' | 'net_60';
+
+/**
+ * What a document is supposed to prove. Two kinds are required before an
+ * application may be submitted — `commercial_registration` and
+ * `signatory_identification` — because one says the company exists and
+ * the other says the signatory is a real person who can be held to what
+ * they sign. Everything else is asked for when the case calls for it.
+ *
+ * `signed_agreement` is produced by the signing flow and is **not**
+ * accepted from a client: an applicant supplying their own idea of what
+ * they signed is the one document that must never be self-asserted.
+ *
+ * `other` exists because reviewers ask for things nobody anticipated,
+ * and the alternative is an applicant mislabelling a document.
+ *
+ */
+export type B2bDocumentKind = 'commercial_registration' | 'tax_certificate' | 'trade_licence' | 'signatory_identification' | 'authorisation_letter' | 'proof_of_address' | 'food_safety_certificate' | 'insurance_certificate' | 'signed_agreement' | 'other';
+
+/**
+ * A human's verdict on a document. `superseded` is not a verdict anybody
+ * gives — it is what happens to an accepted document when a newer one of
+ * the same kind replaces it, so the earlier decision trail survives a
+ * re-upload.
+ *
+ */
+export type KycDocumentReviewStatus = 'pending' | 'accepted' | 'rejected' | 'superseded';
+
+/**
+ * Why a reviewer turned a document down. A closed vocabulary rather than
+ * free text, because this is the half of a rejection the applicant is
+ * shown and "please re-upload, it was illegible" is actionable in a way
+ * a reviewer's internal note is not.
+ *
+ */
+export type KycDocumentRejectionReason = 'unreadable' | 'wrong_document' | 'expired' | 'incomplete' | 'mismatch' | 'other';
+
+/**
+ * Whether anything has looked inside the file for malware. **Every
+ * document B1 stores is `not_scanned`**, and this field exists so that
+ * fact is in the data rather than only in a risk register.
+ *
+ * Sniffing the leading bytes proves a PDF is a PDF; it proves nothing
+ * about what the PDF contains. `clean` and `infected` are declared and
+ * unreachable in this phase, and nothing may present a document as safe
+ * until a scanner fills them in (INT-008).
+ *
+ */
+export type KycDocumentScanStatus = 'not_scanned' | 'clean' | 'infected';
+
+/**
+ * `draft → pending_signature → active → suspended ⇄ active →
+ * terminated`.
+ *
+ * The transition that is *not* here is any route back into `draft` once
+ * terms have been put in front of a counterparty. Changing what somebody
+ * was asked to sign, in place, is the failure this vocabulary is shaped
+ * against; the supported move is a new version that supersedes the old.
+ *
+ * `suspended` is reversible and `terminated` is not.
+ *
+ */
+export type B2bAgreementStatus = 'draft' | 'pending_signature' | 'active' | 'suspended' | 'terminated';
+
+/**
+ * **Derived, never stored.** `accepted_at`, `revoked_at` and
+ * `expires_at` are already on the row, and a status column would be a
+ * fourth copy that has to be kept in step with a clock — expiry being
+ * the first thing to drift.
+ *
+ */
+export type OrganisationInvitationStatus = 'live' | 'accepted' | 'revoked' | 'expired';
+
+/**
+ * A company's request to become a corporate buyer, as the applicant sees
+ * it.
+ *
+ * `completed_sections` is the applicant's own **claim** about their
+ * progress and is never consulted by the submission gate; the server's
+ * definition of complete arrives as `missing_fields` /
+ * `missing_documents` on the refusal. A surface that treated the claim
+ * as the answer would show a green wizard next to a 422.
+ *
+ * `writable_sections` is computed. In `info_requested` it is the
+ * reviewer's narrowing rather than the whole form.
+ *
+ */
+export type B2bApplication = {
+    id: Uuid;
+    /**
+     * The code a person reads down a phone line.
+     */
+    reference: string;
+    status: B2bApplicationStatus;
+    applicant_user_id: Uuid;
+    legal_name?: string | null;
+    legal_name_ar?: string | null;
+    trading_name?: string | null;
+    business_type?: string | null;
+    country_code?: string | null;
+    commercial_registration_number?: string | null;
+    tax_registration_number?: string | null;
+    incorporated_on?: string | null;
+    website?: string | null;
+    signatory_name?: string | null;
+    signatory_title?: string | null;
+    /**
+     * The address the company says can bind it. The signature challenge
+     * requires the authenticated caller to hold this same address.
+     *
+     */
+    signatory_email?: string | null;
+    signatory_phone?: string | null;
+    requested_payment_terms?: B2bPaymentTerms | null;
+    /**
+     * Minor units of `currency_code`. **Null is a value**: an applicant
+     * asking for nothing is asking to pay up front, which is a complete
+     * answer and why this is not required at submission.
+     *
+     */
+    requested_credit_limit_minor?: number | null;
+    currency_code?: string | null;
+    expected_volume_band?: string | null;
+    expected_order_frequency?: string | null;
+    product_categories?: Array<string>;
+    preferred_delivery_window?: string | null;
+    lead_time_days?: number | null;
+    requires_invoice_per_location: boolean;
+    delivery_notes?: string | null;
+    completed_sections: Array<B2bApplicationSection>;
+    writable_sections: Array<B2bApplicationSection>;
+    /**
+     * What the reviewer asked for, verbatim. The applicant reads this.
+     */
+    information_request?: string | null;
+    information_requested_sections?: Array<B2bApplicationSection>;
+    information_requested_at?: string | null;
+    /**
+     * The half of a verdict the applicant is shown. Required on a decline.
+     */
+    applicant_message?: string | null;
+    submitted_at?: string | null;
+    review_started_at?: string | null;
+    decided_at?: string | null;
+    withdrawn_at?: string | null;
+    /**
+     * Null until the approval has been provisioned. Moves together with `customer_account_id` — a CHECK says so.
+     */
+    provisioned_organisation_id?: Uuid | null;
+    customer_account_id?: Uuid | null;
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+/**
+ * The reviewer's view: everything the applicant sees, plus the internal
+ * half of the decision. `decision_note` never reaches the applicant —
+ * "we were not comfortable with the credit history" and "we are unable
+ * to approve your application at this time" can both be true, and only
+ * one of them travels.
+ *
+ */
+export type B2bApplicationReview = B2bApplication & {
+    /**
+     * The reviewer's own record of why. Internal, always.
+     */
+    decision_note?: string | null;
+    reviewed_by?: Uuid | null;
+    /**
+     * Set only by a human confirming that two applications are the same company.
+     */
+    duplicate_of_application_id?: Uuid | null;
+};
+
+/**
+ * The list row. Deliberately thin: a queue answers "which of these do I
+ * open next", and every confidential field carried in a list is a field
+ * displayed on a screen somebody walks past.
+ *
+ */
+export type B2bApplicationSummary = {
+    id: Uuid;
+    reference: string;
+    status: B2bApplicationStatus;
+    legal_name?: string | null;
+    trading_name?: string | null;
+    country_code?: string | null;
+    submitted_at?: string | null;
+    decided_at?: string | null;
+    reviewed_by?: Uuid | null;
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+/**
+ * A person the applicant company named. **Transcribed paperwork, not a
+ * verified destination** — nothing here has been proved, which is why
+ * these are not contact points.
+ *
+ */
+export type B2bApplicationContact = {
+    id: Uuid;
+    role: B2bApplicationContactRole;
+    name: string;
+    title?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    notes?: string | null;
+};
+
+/**
+ * Somewhere the company wants food delivered, anchored to the platform gazetteer where the gazetteer covers it.
+ */
+export type B2bApplicationLocation = {
+    id: Uuid;
+    label: string;
+    delivery_area_id?: Uuid | null;
+    address_line1: string;
+    address_line2?: string | null;
+    city?: string | null;
+    country_code?: string | null;
+    contact_name?: string | null;
+    contact_phone?: string | null;
+    delivery_notes?: string | null;
+    is_primary: boolean;
+    is_billing_address: boolean;
+    expected_headcount?: number | null;
+};
+
+/**
+ * An identity, registration or licensing document — **metadata only**.
+ * There is no `url`, no `disk` and no `path` here and there never may
+ * be: the only route to the bytes is a short-lived signed link that
+ * expires and records who asked and why.
+ *
+ * `media_type_mismatch` is stated rather than left for a client to
+ * compute, because the difference between what the uploader claimed and
+ * what the bytes are is evidence.
+ *
+ */
+export type KycDocument = {
+    id: Uuid;
+    document_kind: B2bDocumentKind;
+    /**
+     * Kept for a human to read. Never used to locate the object.
+     */
+    original_filename: string;
+    /**
+     * What the leading bytes actually are — never the client's claim.
+     */
+    mime_type: string;
+    /**
+     * What the client said. Kept because a mismatch is evidence.
+     */
+    declared_mime_type?: string | null;
+    media_type_mismatch: boolean;
+    byte_size: number;
+    /**
+     * What an agreement's signature evidence names.
+     */
+    sha256: string;
+    scan_status: KycDocumentScanStatus;
+    review_status: KycDocumentReviewStatus;
+    rejection_reason?: KycDocumentRejectionReason | null;
+    reviewed_at?: string | null;
+    uploaded_by?: Uuid | null;
+    uploaded_at: string;
+    expires_on?: string | null;
+    has_expired: boolean;
+};
+
+/**
+ * The platform shape: the same document plus the reviewer's private note
+ * and the retention deadline. `review_note` is internal and stays that
+ * way; `purge_after` is here rather than on the applicant shape because
+ * the retention window is a **placeholder** pending OQ-029, and showing
+ * an applicant a deadline the platform has not decided would present a
+ * guess as a commitment.
+ *
+ */
+export type KycDocumentReview = KycDocument & {
+    review_note?: string | null;
+    reviewed_by?: Uuid | null;
+    owner_kind?: 'user' | 'b2b_application' | 'organisation';
+    b2b_application_id?: Uuid | null;
+    purge_after?: string;
+};
+
+/**
+ * A signed, expiring grant against object storage. Handed over as data
+ * rather than as a redirect so a client knows it holds a credential with
+ * a deadline — it can show the expiry, refresh before acting, and
+ * decline to cache it.
+ *
+ */
+export type KycDocumentDownload = {
+    /**
+     * Treat as a secret. Do not log it, cache it or share it.
+     */
+    url: string;
+    /**
+     * Computed before the signature is minted, so it is never later than the moment the link stops working.
+     */
+    expires_at: string;
+};
+
+/**
+ * One version of the terms between the platform and a corporate buyer.
+ *
+ * The signature block is **evidence**: the digest of the bytes shown,
+ * the typed name, the stated capacity and the consent wording verbatim.
+ * What is absent is anything replayable — the hashed address and user
+ * agent stay server-side, and the passcode challenge is reduced to
+ * `signature_otp_verified`.
+ *
+ * **Never a qualified electronic signature.** This is a record that
+ * somebody clicked, with good evidence about who and when (INT-007
+ * covers real e-sign).
+ *
+ * Money is integers of minor units beside `currency_code`, never
+ * formatted.
+ *
+ */
+export type B2bAgreement = {
+    id: Uuid;
+    b2b_application_id: Uuid;
+    /**
+     * Stamped by provisioning. Null until the company is a tenant.
+     */
+    organisation_id?: Uuid | null;
+    version: number;
+    supersedes_agreement_id?: Uuid | null;
+    status: B2bAgreementStatus;
+    title: string;
+    currency_code?: string | null;
+    /**
+     * Always a list whose `customer_scope` is `agreement`. Pointing an
+     * agreement at a public tariff would quietly publish a negotiated
+     * position.
+     *
+     */
+    price_list_id?: Uuid | null;
+    payment_terms?: B2bPaymentTerms | null;
+    credit_limit_minor?: number | null;
+    minimum_order_minor?: number | null;
+    delivery_lead_time_days?: number | null;
+    notice_period_days?: number | null;
+    starts_on?: string | null;
+    ends_on?: string | null;
+    auto_renews: boolean;
+    terms_summary?: string | null;
+    signature_document_sha256?: string | null;
+    signatory_name?: string | null;
+    signatory_title?: string | null;
+    signatory_user_id?: Uuid | null;
+    /**
+     * The wording the signatory accepted, verbatim — not a version number pointing at copy somebody may later edit.
+     */
+    signature_consent_statement?: string | null;
+    /**
+     * True exactly when a consumed `b2b_signatory` challenge belonging
+     * to the signatory is on file. Derived from the column, never from a
+     * caller's claim.
+     *
+     */
+    signature_otp_verified: boolean;
+    signed_at?: string | null;
+    activated_at?: string | null;
+    suspended_at?: string | null;
+    terminated_at?: string | null;
+    termination_reason?: string | null;
+    lock_version: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+/**
+ * An offer of membership. **There is no `token` field and there never
+ * may be** — the plaintext is delivered once, in the email, and only its
+ * SHA-256 is stored.
+ *
+ */
+export type OrganisationInvitation = {
+    id: Uuid;
+    organisation_id: Uuid;
+    branch_id?: Uuid | null;
+    email: string;
+    /**
+     * The role the person is being invited into. A platform template role, or one this organisation defined.
+     */
+    role_code: string;
+    status: OrganisationInvitationStatus;
+    /**
+     * The sentence that travelled with the invitation. An invitation with no context is an email people assume is phishing, and rightly.
+     */
+    message?: string | null;
+    expires_at: string;
+    accepted_at?: string | null;
+    accepted_by_user_id?: Uuid | null;
+    revoked_at?: string | null;
+    revoked_by?: Uuid | null;
+    invited_by?: Uuid | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+/**
+ * The trading account an approval earns. Deliberately thin — the
+ * addresses, dietary profile and consents hanging off a customer account
+ * are somebody else's endpoints, and a fat shape here would make this
+ * the accidental canonical read.
+ *
+ */
+export type B2bCustomerAccount = {
+    id: Uuid;
+    /**
+     * The human-quotable identity — what a support conversation starts with.
+     */
+    account_number: string;
+    account_type: 'b2c' | 'b2b' | 'guest';
+    organisation_id?: Uuid | null;
+    status: 'provisional' | 'active' | 'suspended' | 'closed';
+    origin: 'self_service' | 'guest' | 'b2b_provisioning' | 'staff' | 'import';
+    display_name?: string | null;
+    activated_at?: string | null;
+    created_at?: string | null;
+};
+
+/**
+ * The fields of the section named in the path, and **only** those. A key
+ * belonging to another section is refused with the name of the section
+ * that owns it, rather than dropped — silently discarding a field
+ * somebody believed they were saving is how a five-minute bug becomes a
+ * support ticket six weeks later.
+ *
+ * `status`, `completed_sections` and `lock_version` are not accepted:
+ * they are the server's, and `completed_sections` in particular is
+ * written as a *consequence* of a section being saved rather than as a
+ * claim a client may post.
+ *
+ */
+export type UpdateB2bApplicationSectionRequest = {
+    legal_name?: string | null;
+    legal_name_ar?: string | null;
+    trading_name?: string | null;
+    business_type?: string | null;
+    country_code?: string | null;
+    commercial_registration_number?: string | null;
+    tax_registration_number?: string | null;
+    incorporated_on?: string | null;
+    website?: string | null;
+    signatory_name?: string | null;
+    signatory_title?: string | null;
+    signatory_email?: string | null;
+    signatory_phone?: string | null;
+    requested_payment_terms?: B2bPaymentTerms | null;
+    requested_credit_limit_minor?: number | null;
+    currency_code?: string | null;
+    expected_volume_band?: string | null;
+    expected_order_frequency?: string | null;
+    product_categories?: Array<string> | null;
+    preferred_delivery_window?: string | null;
+    lead_time_days?: number | null;
+    requires_invoice_per_location?: boolean;
+    delivery_notes?: string | null;
+};
+
+/**
+ * The complete set. `{"contacts": []}` is the payload that says "nobody,
+ * yet" — and is why the property is required-but-possibly-empty rather
+ * than optional.
+ *
+ */
+export type ReplaceB2bApplicationContactsRequest = {
+    contacts: Array<{
+        role: B2bApplicationContactRole;
+        name: string;
+        title?: string | null;
+        email?: string | null;
+        phone?: string | null;
+        notes?: string | null;
+    }>;
+};
+
+/**
+ * The complete set. `{"locations": []}` is how a company says it has
+ * none yet.
+ *
+ */
+export type ReplaceB2bApplicationLocationsRequest = {
+    locations: Array<{
+        label: string;
+        delivery_area_id?: Uuid | null;
+        address_line1: string;
+        address_line2?: string | null;
+        city?: string | null;
+        country_code?: string | null;
+        contact_name?: string | null;
+        contact_phone?: string | null;
+        delivery_notes?: string | null;
+        is_primary?: boolean | null;
+        is_billing_address?: boolean | null;
+        expected_headcount?: number | null;
+    }>;
+};
+
+/**
+ * A `multipart/form-data` body. The size bound is checked before the
+ * bytes are read; **what the file is** is decided by sniffing, not by
+ * the part's `Content-Type` or its filename.
+ *
+ */
+export type UploadKycDocumentRequest = {
+    /**
+     * At most 10 MB. A PDF or a photograph — enforced on the sniffed type, never on the declared one.
+     */
+    file: Blob | File;
+    /**
+     * `signed_agreement` is refused: it is produced by the signing flow, never supplied by an applicant.
+     */
+    document_kind: B2bDocumentKind;
+    /**
+     * Accepted for every kind, stored only for the kinds that expire.
+     */
+    expires_on?: string | null;
+};
+
+export type RequestB2bApplicationInformationRequest = {
+    /**
+     * Prose, and required. What a reviewer needs is rarely a field, and
+     * a closed vocabulary would force every real question through an
+     * `other` that says nothing. The applicant reads this verbatim.
+     *
+     */
+    information_request: string;
+    /**
+     * The sections to reopen. **An empty or absent list is meaningful**:
+     * it means the reviewer wants documents rather than answers, so
+     * nothing on the form reopens.
+     *
+     */
+    sections?: Array<B2bApplicationSection> | null;
+};
+
+/**
+ * Both fields optional. An approval is self-explanatory; demanding a sentence would produce "approved" typed four hundred times.
+ */
+export type ApproveB2bApplicationRequest = {
+    /**
+     * The reviewer's own record. Never served to the applicant.
+     */
+    internal_note?: string | null;
+    /**
+     * What the company reads.
+     */
+    applicant_message?: string | null;
+};
+
+/**
+ * `applicant_message` is required, and blank is refused. An unexplained
+ * refusal is not a decision the company can act on.
+ *
+ */
+export type DeclineB2bApplicationRequest = {
+    applicant_message: string;
+    internal_note?: string | null;
+};
+
+/**
+ * Every field is evidence. There is no `signature_ip_hash` or
+ * `signature_user_agent_hash` here and there must not be: those are
+ * observations of the request, taken by the server, and a
+ * client-supplied corroboration is not corroboration.
+ *
+ */
+export type SignB2bAgreementRequest = {
+    challenge_id: Uuid;
+    /**
+     * The passcode from the signature challenge. Spent by this request.
+     */
+    code: string;
+    signatory_name: string;
+    /**
+     * The capacity they sign in. Recorded because "who signed" without "on what authority" is half an answer.
+     */
+    signatory_title: string;
+    /**
+     * The digest of the exact bytes shown. Sixty-four hexadecimal
+     * characters or nothing — a truncated or base64 value would be
+     * recorded, would look plausible, and would prove nothing when it
+     * mattered.
+     *
+     */
+    document_sha256: string;
+    /**
+     * The wording accepted, verbatim. A version number would be a pointer into copy somebody may later edit.
+     */
+    consent_statement: string;
+};
+
+export type ReviewKycDocumentRequest = {
+    /**
+     * The two values a human may give. `pending` is where a document
+     * starts and `superseded` is what happens to an accepted one when a
+     * newer scan replaces it — neither is a decision.
+     *
+     */
+    verdict: 'accepted' | 'rejected';
+    /**
+     * Required when rejecting. This half is what the applicant is shown.
+     */
+    rejection_reason?: KycDocumentRejectionReason | null;
+    /**
+     * The reviewer's private note. Never served to the applicant.
+     */
+    note?: string | null;
+};
+
+export type CreateOrganisationInvitationRequest = {
+    /**
+     * A live offer already outstanding to this address is superseded rather than refused.
+     */
+    email: string;
+    /**
+     * A platform template role, or one this organisation defined. Resolved inside the tenant scope.
+     */
+    role_code: string;
+    /**
+     * Must belong to this organisation.
+     */
+    branch_id?: Uuid | null;
+    message?: string | null;
+};
+
+export type B2bApplicationEnvelope = {
+    data: {
+        application: B2bApplication;
+    };
+    meta: Meta;
+};
+
+export type B2bApplicationDetailEnvelope = {
+    data: {
+        application: B2bApplication;
+        contacts: Array<B2bApplicationContact>;
+        locations: Array<B2bApplicationLocation>;
+    };
+    meta: Meta;
+};
+
+export type B2bApplicationReviewOnlyEnvelope = {
+    data: {
+        application: B2bApplicationReview;
+    };
+    meta: Meta;
+};
+
+export type B2bApplicationReviewEnvelope = {
+    data: {
+        application: B2bApplicationReview;
+        contacts: Array<B2bApplicationContact>;
+        locations: Array<B2bApplicationLocation>;
+        documents: Array<KycDocumentReview>;
+        /**
+         * The document kinds the checklist still owes. Computed from the data, never from the applicant's progress claim.
+         */
+        missing_documents: Array<B2bDocumentKind>;
+        /**
+         * How many other applications claim the same registration or tax number. Surfaces; never decides.
+         */
+        duplicate_matches: number;
+        duplicate_applications: Array<B2bApplicationSummary>;
+    };
+    meta: Meta;
+};
+
+export type KycDocumentEnvelope = {
+    data: {
+        document: KycDocument;
+    };
+    meta: Meta;
+};
+
+export type KycDocumentReviewEnvelope = {
+    data: {
+        document: KycDocumentReview;
+    };
+    meta: Meta;
+};
+
+export type KycDocumentDownloadEnvelope = {
+    data: {
+        download: KycDocumentDownload;
+    };
+    meta: Meta;
+};
+
+export type B2bAgreementEnvelope = {
+    data: {
+        agreement: B2bAgreement;
+    };
+    meta: Meta;
+};
+
+export type OrganisationInvitationEnvelope = {
+    data: {
+        invitation: OrganisationInvitation;
+    };
+    meta: Meta;
+};
+
+/**
+ * `membership` and `membership_created` are present and honest.
+ * Acceptance in B1 marks the invitation and stops there; the membership
+ * write belongs to Organisations and AccessControl. The keys exist now
+ * so the wire shape does not change when it lands.
+ *
+ */
+export type AcceptedInvitationEnvelope = {
+    data: {
+        invitation: OrganisationInvitation;
+        /**
+         * Always null in B1. See the description above.
+         */
+        membership: Membership | null;
+        /**
+         * Always false in B1. A response that quietly implied a provisioned member would let a client show somebody a workspace they cannot enter.
+         */
+        membership_created: boolean;
+    };
+    meta: Meta;
+};
+
+/**
+ * What now exists. `agreement` is null when no version is in force —
+ * provisioning does not require a signed agreement, because approval is
+ * the gate and the terms may still be under negotiation.
+ *
+ */
+export type B2bProvisioningEnvelope = {
+    data: {
+        application: B2bApplicationReview;
+        organisation: Organisation;
+        customer_account: B2bCustomerAccount;
+        agreement: B2bAgreement | null;
+        /**
+         * How many invitations **this call** sent. Zero on a replay, so
+         * a caller can tell a repeat from fresh work. A named contact
+         * whose email address is malformed is skipped rather than
+         * aborting the transaction — the alternative would strand an
+         * approved company behind a field its applicant can no longer
+         * edit.
+         *
+         */
+        invitations_issued: number;
+    };
+    meta: Meta;
+};
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -3219,6 +5524,29 @@ export type XClientPlatform = 'web' | 'ios' | 'android';
  *
  */
 export type IfMatch = string;
+
+/**
+ * A client-chosen key that makes this command safe to retry (§4.14). The
+ * same key with the same request body replays the original envelope,
+ * status included, and carries `Idempotency-Replayed: true`. The same key
+ * with a *different* body is **409** `request.idempotency_key_reused` —
+ * the caller has reused a key that already means something else.
+ *
+ * Keys are scoped per endpoint and per caller and are honoured for
+ * twenty-four hours. The client attaches one deliberately; it is never
+ * inferred server-side.
+ *
+ */
+export type IdempotencyKey = string;
+
+/**
+ * As `Idempotency-Key`, but mandatory. Used where the command creates
+ * records that cannot be un-created — provisioning a tenant — and where
+ * a retry with no key would therefore be unrecoverable rather than
+ * merely wasteful. Absent is **400** `request.invalid`.
+ *
+ */
+export type IdempotencyKeyRequired = string;
 
 /**
  * The `meta.next_cursor` of the previous page. Opaque — echo it back,
@@ -3333,6 +5661,86 @@ export type DeliveryZonePath = Uuid | string;
  * The delivery window identifier, or its `code`.
  */
 export type DeliveryWindowPath = Uuid | string;
+
+/**
+ * The basket identifier. An identifier only — a cart has no stable code a
+ * human would hold, and there is nothing to guess at.
+ *
+ */
+export type CartPath = Uuid;
+
+/**
+ * The basket line identifier.
+ */
+export type CartItemPath = Uuid;
+
+/**
+ * The order identifier. **Not** the order number, tempting though it is:
+ * the number is printed on a receipt that passes through a courier's
+ * hands, and a URL that accepted it would turn a scrap of paper into an
+ * address. The number is searchable through `GET /catalogue/orders`,
+ * behind the read permission.
+ *
+ */
+export type OrderPath = Uuid;
+
+/**
+ * The application identifier, or its `reference`. Both are accepted
+ * because both are natural — a client that walked the list holds
+ * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+ * — and a reference cannot be mistaken for a UUID.
+ *
+ */
+export type B2bApplicationPath = Uuid | string;
+
+/**
+ * The wizard step being saved. The section is in the path so the server
+ * can refuse a payload that wandered outside it; an unknown value is
+ * `400 request.invalid` with `details.parameter`, not a 404.
+ *
+ */
+export type B2bApplicationSectionPath = B2bApplicationSection;
+
+/**
+ * The agreement version's identifier. Always resolved inside the application in the path.
+ */
+export type B2bAgreementPath = Uuid;
+
+/**
+ * The document identifier.
+ */
+export type KycDocumentPath = Uuid;
+
+/**
+ * Why the document is being opened, written verbatim onto the access
+ * audit event. Required and non-blank: a document read with no stated
+ * reason is the read an audit trail cannot explain afterwards, and an
+ * optional argument is one every call site eventually omits. Blank or
+ * absent is `400 request.invalid` with `details.parameter`.
+ *
+ */
+export type KycAccessPurpose = string;
+
+/**
+ * The organisation identifier. Must match the organisation
+ * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+ * confirming that another tenant exists is not something this API does.
+ *
+ */
+export type OrganisationPath = Uuid;
+
+/**
+ * The invitation identifier. Always resolved inside the organisation in the path.
+ */
+export type OrganisationInvitationPath = Uuid;
+
+/**
+ * The single-use token from the invitation email. Never an identifier —
+ * only its SHA-256 is stored, so this value cannot be recovered from the
+ * platform and a lost one is replaced by re-inviting.
+ *
+ */
+export type OrganisationInvitationTokenPath = string;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -11686,11 +14094,13 @@ export type ListDeliveryAreasData = {
         'X-Client-Request-Id'?: string;
     };
     path?: never;
-    query: {
+    query?: {
         /**
-         * ISO 3166-1 alpha-2. Case-insensitive.
+         * ISO 3166-1 alpha-2, case-insensitive. Omit for every active area
+         * in every market the platform serves.
+         *
          */
-        country_code: string;
+        country_code?: string;
         /**
          * The `meta.next_cursor` of the previous page. Opaque — echo it back,
          * never construct one. A cursor this endpoint did not issue is
@@ -12098,3 +14508,4672 @@ export type GetMarketplaceMealPlanResponses = {
 };
 
 export type GetMarketplaceMealPlanResponse = GetMarketplaceMealPlanResponses[keyof GetMarketplaceMealPlanResponses];
+
+export type OpenCartData = {
+    body: OpenCartRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/carts';
+};
+
+export type OpenCartErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type OpenCartError = OpenCartErrors[keyof OpenCartErrors];
+
+export type OpenCartResponses = {
+    /**
+     * The caller's open basket on that channel, with its lines.
+     */
+    200: CartEnvelope;
+};
+
+export type OpenCartResponse = OpenCartResponses[keyof OpenCartResponses];
+
+export type AddCartItemData = {
+    body: AddCartItemRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The basket identifier. An identifier only — a cart has no stable code a
+         * human would hold, and there is nothing to guess at.
+         *
+         */
+        cart: Uuid;
+    };
+    query?: never;
+    url: '/carts/{cart}/items';
+};
+
+export type AddCartItemErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddCartItemError = AddCartItemErrors[keyof AddCartItemErrors];
+
+export type AddCartItemResponses = {
+    /**
+     * The line, and the basket it now belongs to.
+     */
+    201: CartLineEnvelope;
+};
+
+export type AddCartItemResponse = AddCartItemResponses[keyof AddCartItemResponses];
+
+export type RemoveCartItemData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The basket identifier. An identifier only — a cart has no stable code a
+         * human would hold, and there is nothing to guess at.
+         *
+         */
+        cart: Uuid;
+        /**
+         * The basket line identifier.
+         */
+        item: Uuid;
+    };
+    query?: never;
+    url: '/carts/{cart}/items/{item}';
+};
+
+export type RemoveCartItemErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveCartItemError = RemoveCartItemErrors[keyof RemoveCartItemErrors];
+
+export type RemoveCartItemResponses = {
+    /**
+     * The line was removed.
+     */
+    204: void;
+};
+
+export type RemoveCartItemResponse = RemoveCartItemResponses[keyof RemoveCartItemResponses];
+
+export type SetCartItemQuantityData = {
+    body: SetCartItemQuantityRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The basket identifier. An identifier only — a cart has no stable code a
+         * human would hold, and there is nothing to guess at.
+         *
+         */
+        cart: Uuid;
+        /**
+         * The basket line identifier.
+         */
+        item: Uuid;
+    };
+    query?: never;
+    url: '/carts/{cart}/items/{item}';
+};
+
+export type SetCartItemQuantityErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SetCartItemQuantityError = SetCartItemQuantityErrors[keyof SetCartItemQuantityErrors];
+
+export type SetCartItemQuantityResponses = {
+    /**
+     * The line at its new quantity, and the basket around it.
+     */
+    200: CartLineEnvelope;
+};
+
+export type SetCartItemQuantityResponse = SetCartItemQuantityResponses[keyof SetCartItemQuantityResponses];
+
+export type PlaceOrderData = {
+    body: PlaceOrderRequest;
+    headers?: {
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/orders';
+};
+
+export type PlaceOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PlaceOrderError = PlaceOrderErrors[keyof PlaceOrderErrors];
+
+export type PlaceOrderResponses = {
+    /**
+     * The order, with every line at the price it was placed at. A replay
+     * of a request this key already answered returns this same body and
+     * this same status, with `Idempotency-Replayed: true`; the command did
+     * not run a second time.
+     *
+     */
+    201: CustomerOrderEnvelope;
+};
+
+export type PlaceOrderResponse = PlaceOrderResponses[keyof PlaceOrderResponses];
+
+export type ListMyOrdersData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/me/orders';
+};
+
+export type ListMyOrdersErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMyOrdersError = ListMyOrdersErrors[keyof ListMyOrdersErrors];
+
+export type ListMyOrdersResponses = {
+    /**
+     * A page of the caller's orders, newest first.
+     */
+    200: {
+        data: Array<CustomerOrder>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListMyOrdersResponse = ListMyOrdersResponses[keyof ListMyOrdersResponses];
+
+export type ShowMyOrderData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/me/orders/{order}';
+};
+
+export type ShowMyOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowMyOrderError = ShowMyOrderErrors[keyof ShowMyOrderErrors];
+
+export type ShowMyOrderResponses = {
+    /**
+     * The order as the customer sees it.
+     */
+    200: CustomerOrderEnvelope;
+};
+
+export type ShowMyOrderResponse = ShowMyOrderResponses[keyof ShowMyOrderResponses];
+
+export type ListKitchenOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Restrict to one lifecycle state. Omitted, everything is listed.
+         */
+        status?: OrderStatus;
+        /**
+         * The day the food is wanted, `YYYY-MM-DD`. Deliberately strict: a
+         * relative expression resolves to a different day depending on when
+         * the request lands, which is not a filter a kitchen can plan against.
+         *
+         */
+        requested_delivery_date?: string;
+        /**
+         * Narrow the organisation's book to one production site.
+         */
+        branch_id?: Uuid;
+        /**
+         * Case-insensitive substring match on the order number, and on nothing else.
+         */
+        query?: string;
+    };
+    url: '/catalogue/orders';
+};
+
+export type ListKitchenOrdersErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListKitchenOrdersError = ListKitchenOrdersErrors[keyof ListKitchenOrdersErrors];
+
+export type ListKitchenOrdersResponses = {
+    /**
+     * A page of the organisation's orders, newest first.
+     */
+    200: {
+        data: Array<KitchenOrder>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListKitchenOrdersResponse = ListKitchenOrdersResponses[keyof ListKitchenOrdersResponses];
+
+export type ShowKitchenOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}';
+};
+
+export type ShowKitchenOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowKitchenOrderError = ShowKitchenOrderErrors[keyof ShowKitchenOrderErrors];
+
+export type ShowKitchenOrderResponses = {
+    /**
+     * The order with its lines and its delivery snapshot.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type ShowKitchenOrderResponse = ShowKitchenOrderResponses[keyof ShowKitchenOrderResponses];
+
+export type ConfirmKitchenOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/confirm';
+};
+
+export type ConfirmKitchenOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ConfirmKitchenOrderError = ConfirmKitchenOrderErrors[keyof ConfirmKitchenOrderErrors];
+
+export type ConfirmKitchenOrderResponses = {
+    /**
+     * The confirmed order, with its new validator.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type ConfirmKitchenOrderResponse = ConfirmKitchenOrderResponses[keyof ConfirmKitchenOrderResponses];
+
+export type FulfilKitchenOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/fulfil';
+};
+
+export type FulfilKitchenOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type FulfilKitchenOrderError = FulfilKitchenOrderErrors[keyof FulfilKitchenOrderErrors];
+
+export type FulfilKitchenOrderResponses = {
+    /**
+     * The fulfilled order, with its new validator.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type FulfilKitchenOrderResponse = FulfilKitchenOrderResponses[keyof FulfilKitchenOrderResponses];
+
+export type CancelKitchenOrderData = {
+    body: CancelOrderRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/cancel';
+};
+
+export type CancelKitchenOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelKitchenOrderError = CancelKitchenOrderErrors[keyof CancelKitchenOrderErrors];
+
+export type CancelKitchenOrderResponses = {
+    /**
+     * The cancelled order, carrying the reason it was cancelled for.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type CancelKitchenOrderResponse = CancelKitchenOrderResponses[keyof CancelKitchenOrderResponses];
+
+export type StartGuestSessionData = {
+    body?: StartGuestSessionRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * The client platform.
+         */
+        'X-Client-Platform'?: 'web' | 'ios' | 'android';
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/sessions';
+};
+
+export type StartGuestSessionErrors = {
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StartGuestSessionError = StartGuestSessionErrors[keyof StartGuestSessionErrors];
+
+export type StartGuestSessionResponses = {
+    /**
+     * The guest session was opened and the token issued.
+     */
+    201: {
+        data: StartedGuestSession;
+        meta: Meta;
+    };
+};
+
+export type StartGuestSessionResponse = StartGuestSessionResponses[keyof StartGuestSessionResponses];
+
+export type ShowGuestSessionData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/session';
+};
+
+export type ShowGuestSessionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowGuestSessionError = ShowGuestSessionErrors[keyof ShowGuestSessionErrors];
+
+export type ShowGuestSessionResponses = {
+    /**
+     * The session is live.
+     */
+    200: GuestSessionEnvelope;
+};
+
+export type ShowGuestSessionResponse = ShowGuestSessionResponses[keyof ShowGuestSessionResponses];
+
+export type RequestGuestContactVerificationData = {
+    body: RequestGuestContactVerificationRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/contacts';
+};
+
+export type RequestGuestContactVerificationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RequestGuestContactVerificationError = RequestGuestContactVerificationErrors[keyof RequestGuestContactVerificationErrors];
+
+export type RequestGuestContactVerificationResponses = {
+    /**
+     * A passcode is on its way.
+     */
+    202: GuestOtpChallengeEnvelope;
+};
+
+export type RequestGuestContactVerificationResponse = RequestGuestContactVerificationResponses[keyof RequestGuestContactVerificationResponses];
+
+export type ConfirmGuestContactVerificationData = {
+    body: ConfirmGuestContactVerificationRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/contacts/verify';
+};
+
+export type ConfirmGuestContactVerificationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ConfirmGuestContactVerificationError = ConfirmGuestContactVerificationErrors[keyof ConfirmGuestContactVerificationErrors];
+
+export type ConfirmGuestContactVerificationResponses = {
+    /**
+     * The passcode held and the session was promoted.
+     */
+    200: GuestSessionEnvelope;
+};
+
+export type ConfirmGuestContactVerificationResponse = ConfirmGuestContactVerificationResponses[keyof ConfirmGuestContactVerificationResponses];
+
+export type PlaceGuestOrderData = {
+    body: PlaceGuestOrderRequest;
+    headers?: {
+        /**
+         * A client-chosen replay key, scoped to this endpoint and this guest
+         * account. Replaying it with the same body returns the original
+         * envelope with `Idempotency-Replayed: true`; replaying it with a
+         * different body answers `409 request.idempotency_key_reused`.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/orders';
+};
+
+export type PlaceGuestOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PlaceGuestOrderError = PlaceGuestOrderErrors[keyof PlaceGuestOrderErrors];
+
+export type PlaceGuestOrderResponses = {
+    /**
+     * The order was placed. A replay of a request this
+     * `Idempotency-Key` already answered returns this same body and this
+     * same status, with `Idempotency-Replayed: true` to say which it was.
+     *
+     */
+    201: GuestOrderEnvelope;
+};
+
+export type PlaceGuestOrderResponse = PlaceGuestOrderResponses[keyof PlaceGuestOrderResponses];
+
+export type ShowGuestOrderData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order's identifier.
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/guest/orders/{order}';
+};
+
+export type ShowGuestOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowGuestOrderError = ShowGuestOrderErrors[keyof ShowGuestOrderErrors];
+
+export type ShowGuestOrderResponses = {
+    /**
+     * The order.
+     */
+    200: GuestOrderEnvelope;
+};
+
+export type ShowGuestOrderResponse = ShowGuestOrderResponses[keyof ShowGuestOrderResponses];
+
+export type ConvertGuestAccountData = {
+    body: RegisterRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * The client platform.
+         */
+        'X-Client-Platform'?: 'web' | 'ios' | 'android';
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/convert';
+};
+
+export type ConvertGuestAccountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ConvertGuestAccountError = ConvertGuestAccountErrors[keyof ConvertGuestAccountErrors];
+
+export type ConvertGuestAccountResponses = {
+    /**
+     * The account was created and the guest account converted.
+     */
+    201: GuestConversionEnvelope;
+};
+
+export type ConvertGuestAccountResponse = ConvertGuestAccountResponses[keyof ConvertGuestAccountResponses];
+
+export type RequestGuestDeletionData = {
+    body: RequestGuestDeletionRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/deletion-requests';
+};
+
+export type RequestGuestDeletionErrors = {
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RequestGuestDeletionError = RequestGuestDeletionErrors[keyof RequestGuestDeletionErrors];
+
+export type RequestGuestDeletionResponses = {
+    /**
+     * Accepted. The same body whether or not the address is known to the
+     * platform.
+     *
+     */
+    202: {
+        data: GuestDeletionAcknowledgement;
+        meta: Meta;
+    };
+};
+
+export type RequestGuestDeletionResponse = RequestGuestDeletionResponses[keyof RequestGuestDeletionResponses];
+
+export type ConfirmGuestDeletionData = {
+    body: ConfirmGuestDeletionRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/guest/deletion-requests/verify';
+};
+
+export type ConfirmGuestDeletionErrors = {
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ConfirmGuestDeletionError = ConfirmGuestDeletionErrors[keyof ConfirmGuestDeletionErrors];
+
+export type ConfirmGuestDeletionResponses = {
+    /**
+     * Accepted. One indistinguishable shape for every refusal; the purge
+     * report only when the passcode held.
+     *
+     */
+    202: {
+        data: GuestDeletionOutcome;
+        meta: Meta;
+    };
+};
+
+export type ConfirmGuestDeletionResponse = ConfirmGuestDeletionResponses[keyof ConfirmGuestDeletionResponses];
+
+export type IssueEmailVerificationChallengeData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/verification/email/challenges';
+};
+
+export type IssueEmailVerificationChallengeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type IssueEmailVerificationChallengeError = IssueEmailVerificationChallengeErrors[keyof IssueEmailVerificationChallengeErrors];
+
+export type IssueEmailVerificationChallengeResponses = {
+    /**
+     * The passcode has been queued for delivery.
+     */
+    202: OtpChallengeEnvelope;
+};
+
+export type IssueEmailVerificationChallengeResponse = IssueEmailVerificationChallengeResponses[keyof IssueEmailVerificationChallengeResponses];
+
+export type VerifyEmailWithPasscodeData = {
+    body: SubmitPasscodeRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/verification/email/verify';
+};
+
+export type VerifyEmailWithPasscodeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type VerifyEmailWithPasscodeError = VerifyEmailWithPasscodeErrors[keyof VerifyEmailWithPasscodeErrors];
+
+export type VerifyEmailWithPasscodeResponses = {
+    /**
+     * The address is now verified.
+     */
+    200: ContactVerifiedEnvelope;
+};
+
+export type VerifyEmailWithPasscodeResponse = VerifyEmailWithPasscodeResponses[keyof VerifyEmailWithPasscodeResponses];
+
+export type ShowVerificationChallengeData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The challenge identifier, as issued.
+         */
+        challenge: Uuid;
+    };
+    query?: never;
+    url: '/verification/challenges/{challenge}';
+};
+
+export type ShowVerificationChallengeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowVerificationChallengeError = ShowVerificationChallengeErrors[keyof ShowVerificationChallengeErrors];
+
+export type ShowVerificationChallengeResponses = {
+    /**
+     * The challenge.
+     */
+    200: VerificationChallengeEnvelope;
+};
+
+export type ShowVerificationChallengeResponse = ShowVerificationChallengeResponses[keyof ShowVerificationChallengeResponses];
+
+export type VerifyChallengeData = {
+    body: SubmitPasscodeRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The challenge identifier, as issued.
+         */
+        challenge: Uuid;
+    };
+    query?: never;
+    url: '/verification/challenges/{challenge}/verify';
+};
+
+export type VerifyChallengeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type VerifyChallengeError = VerifyChallengeErrors[keyof VerifyChallengeErrors];
+
+export type VerifyChallengeResponses = {
+    /**
+     * The passcode was correct and the destination is proven.
+     */
+    200: ContactVerifiedEnvelope;
+};
+
+export type VerifyChallengeResponse = VerifyChallengeResponses[keyof VerifyChallengeResponses];
+
+export type ResendChallengeData = {
+    body?: ResendChallengeRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The challenge identifier, as issued.
+         */
+        challenge: Uuid;
+    };
+    query?: never;
+    url: '/verification/challenges/{challenge}/resend';
+};
+
+export type ResendChallengeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ResendChallengeError = ResendChallengeErrors[keyof ResendChallengeErrors];
+
+export type ResendChallengeResponses = {
+    /**
+     * A fresh passcode has been queued for delivery.
+     */
+    202: OtpChallengeEnvelope;
+};
+
+export type ResendChallengeResponse = ResendChallengeResponses[keyof ResendChallengeResponses];
+
+export type IssueStepUpChallengeData = {
+    body: StepUpChallengeRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/verification/step-up/challenges';
+};
+
+export type IssueStepUpChallengeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type IssueStepUpChallengeError = IssueStepUpChallengeErrors[keyof IssueStepUpChallengeErrors];
+
+export type IssueStepUpChallengeResponses = {
+    /**
+     * The step-up passcode has been queued for delivery.
+     */
+    202: OtpChallengeEnvelope;
+};
+
+export type IssueStepUpChallengeResponse = IssueStepUpChallengeResponses[keyof IssueStepUpChallengeResponses];
+
+export type ConfirmStepUpData = {
+    body: ConfirmStepUpRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/verification/step-up/confirm';
+};
+
+export type ConfirmStepUpErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ConfirmStepUpError = ConfirmStepUpErrors[keyof ConfirmStepUpErrors];
+
+export type ConfirmStepUpResponses = {
+    /**
+     * The step-up is confirmed for this credential.
+     */
+    200: StepUpConfirmationEnvelope;
+};
+
+export type ConfirmStepUpResponse = ConfirmStepUpResponses[keyof ConfirmStepUpResponses];
+
+export type ShowCustomerAccountData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/customer-account';
+};
+
+export type ShowCustomerAccountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowCustomerAccountError = ShowCustomerAccountErrors[keyof ShowCustomerAccountErrors];
+
+export type ShowCustomerAccountResponses = {
+    /**
+     * The customer account.
+     */
+    200: CustomerAccountEnvelope;
+};
+
+export type ShowCustomerAccountResponse = ShowCustomerAccountResponses[keyof ShowCustomerAccountResponses];
+
+export type OpenCustomerAccountData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/customer-account';
+};
+
+export type OpenCustomerAccountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type OpenCustomerAccountError = OpenCustomerAccountErrors[keyof OpenCustomerAccountErrors];
+
+export type OpenCustomerAccountResponses = {
+    /**
+     * The account already existed; its current state is returned.
+     */
+    200: CustomerAccountEnvelope;
+    /**
+     * The account was opened.
+     */
+    201: CustomerAccountEnvelope;
+};
+
+export type OpenCustomerAccountResponse = OpenCustomerAccountResponses[keyof OpenCustomerAccountResponses];
+
+export type ListMyContactsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/contacts';
+};
+
+export type ListMyContactsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMyContactsError = ListMyContactsErrors[keyof ListMyContactsErrors];
+
+export type ListMyContactsResponses = {
+    /**
+     * The caller's live contact points.
+     */
+    200: CustomerContactsEnvelope;
+};
+
+export type ListMyContactsResponse = ListMyContactsResponses[keyof ListMyContactsResponses];
+
+export type AddMyContactData = {
+    body: AddCustomerContactRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/contacts';
+};
+
+export type AddMyContactErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddMyContactError = AddMyContactErrors[keyof AddMyContactErrors];
+
+export type AddMyContactResponses = {
+    /**
+     * The contact point was recorded.
+     */
+    201: CustomerContactEnvelope;
+};
+
+export type AddMyContactResponse = AddMyContactResponses[keyof AddMyContactResponses];
+
+export type RemoveMyContactData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The contact point identifier.
+         */
+        contact: Uuid;
+    };
+    query?: never;
+    url: '/me/contacts/{contact}';
+};
+
+export type RemoveMyContactErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveMyContactError = RemoveMyContactErrors[keyof RemoveMyContactErrors];
+
+export type RemoveMyContactResponses = {
+    /**
+     * The contact point was retired.
+     */
+    204: void;
+};
+
+export type RemoveMyContactResponse = RemoveMyContactResponses[keyof RemoveMyContactResponses];
+
+export type MakeContactPrimaryData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The contact point identifier.
+         */
+        contact: Uuid;
+    };
+    query?: never;
+    url: '/me/contacts/{contact}/primary';
+};
+
+export type MakeContactPrimaryErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The action is sensitive and needs a recent password confirmation.
+     * **HTTP 403, never 423** (plan §13).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type MakeContactPrimaryError = MakeContactPrimaryErrors[keyof MakeContactPrimaryErrors];
+
+export type MakeContactPrimaryResponses = {
+    /**
+     * The contact point is now primary for its channel.
+     */
+    200: CustomerContactEnvelope;
+};
+
+export type MakeContactPrimaryResponse = MakeContactPrimaryResponses[keyof MakeContactPrimaryResponses];
+
+export type ListMyAddressesData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/addresses';
+};
+
+export type ListMyAddressesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMyAddressesError = ListMyAddressesErrors[keyof ListMyAddressesErrors];
+
+export type ListMyAddressesResponses = {
+    /**
+     * The caller's addresses, defaults first within each type.
+     */
+    200: CustomerAddressesEnvelope;
+};
+
+export type ListMyAddressesResponse = ListMyAddressesResponses[keyof ListMyAddressesResponses];
+
+export type AddMyAddressData = {
+    body: AddCustomerAddressRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/addresses';
+};
+
+export type AddMyAddressErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddMyAddressError = AddMyAddressErrors[keyof AddMyAddressErrors];
+
+export type AddMyAddressResponses = {
+    /**
+     * The address was added.
+     */
+    201: CustomerAddressEnvelope;
+};
+
+export type AddMyAddressResponse = AddMyAddressResponses[keyof AddMyAddressResponses];
+
+export type RemoveMyAddressData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The address identifier.
+         */
+        address: Uuid;
+    };
+    query?: never;
+    url: '/me/addresses/{address}';
+};
+
+export type RemoveMyAddressErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveMyAddressError = RemoveMyAddressErrors[keyof RemoveMyAddressErrors];
+
+export type RemoveMyAddressResponses = {
+    /**
+     * The address was removed.
+     */
+    204: void;
+};
+
+export type RemoveMyAddressResponse = RemoveMyAddressResponses[keyof RemoveMyAddressResponses];
+
+export type UpdateMyAddressData = {
+    body: UpdateCustomerAddressRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The address identifier.
+         */
+        address: Uuid;
+    };
+    query?: never;
+    url: '/me/addresses/{address}';
+};
+
+export type UpdateMyAddressErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateMyAddressError = UpdateMyAddressErrors[keyof UpdateMyAddressErrors];
+
+export type UpdateMyAddressResponses = {
+    /**
+     * The address as it now stands.
+     */
+    200: CustomerAddressEnvelope;
+};
+
+export type UpdateMyAddressResponse = UpdateMyAddressResponses[keyof UpdateMyAddressResponses];
+
+export type MakeAddressDefaultData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The address identifier.
+         */
+        address: Uuid;
+    };
+    query?: never;
+    url: '/me/addresses/{address}/default';
+};
+
+export type MakeAddressDefaultErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type MakeAddressDefaultError = MakeAddressDefaultErrors[keyof MakeAddressDefaultErrors];
+
+export type MakeAddressDefaultResponses = {
+    /**
+     * The address is now the default for its type.
+     */
+    200: CustomerAddressEnvelope;
+};
+
+export type MakeAddressDefaultResponse = MakeAddressDefaultResponses[keyof MakeAddressDefaultResponses];
+
+export type ShowMyDietaryProfileData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/dietary-profile';
+};
+
+export type ShowMyDietaryProfileErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowMyDietaryProfileError = ShowMyDietaryProfileErrors[keyof ShowMyDietaryProfileErrors];
+
+export type ShowMyDietaryProfileResponses = {
+    /**
+     * The dietary profile, declared or not.
+     */
+    200: CustomerDietaryProfileEnvelope;
+};
+
+export type ShowMyDietaryProfileResponse = ShowMyDietaryProfileResponses[keyof ShowMyDietaryProfileResponses];
+
+export type ReplaceMyDietaryProfileData = {
+    body: ReplaceDietaryProfileRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/dietary-profile';
+};
+
+export type ReplaceMyDietaryProfileErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceMyDietaryProfileError = ReplaceMyDietaryProfileErrors[keyof ReplaceMyDietaryProfileErrors];
+
+export type ReplaceMyDietaryProfileResponses = {
+    /**
+     * The declaration as it now stands.
+     */
+    200: CustomerDietaryProfileEnvelope;
+};
+
+export type ReplaceMyDietaryProfileResponse = ReplaceMyDietaryProfileResponses[keyof ReplaceMyDietaryProfileResponses];
+
+export type ListMyConsentsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/consents';
+};
+
+export type ListMyConsentsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMyConsentsError = ListMyConsentsErrors[keyof ListMyConsentsErrors];
+
+export type ListMyConsentsResponses = {
+    /**
+     * Every consumer consent text and whether the caller holds it.
+     */
+    200: CustomerConsentsEnvelope;
+};
+
+export type ListMyConsentsResponse = ListMyConsentsResponses[keyof ListMyConsentsResponses];
+
+export type GrantMyConsentsData = {
+    body: GrantConsentsRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/consents';
+};
+
+export type GrantMyConsentsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GrantMyConsentsError = GrantMyConsentsErrors[keyof GrantMyConsentsErrors];
+
+export type GrantMyConsentsResponses = {
+    /**
+     * The caller's consent position after the grant.
+     */
+    200: CustomerConsentsEnvelope;
+};
+
+export type GrantMyConsentsResponse = GrantMyConsentsResponses[keyof GrantMyConsentsResponses];
+
+export type WithdrawMyConsentData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The consent definition's stable code, never a grant identifier. The
+         * person is withdrawing "marketing", and which version of it they hold
+         * is something only the ledger knows.
+         *
+         */
+        code: string;
+    };
+    query?: never;
+    url: '/me/consents/{code}';
+};
+
+export type WithdrawMyConsentErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type WithdrawMyConsentError = WithdrawMyConsentErrors[keyof WithdrawMyConsentErrors];
+
+export type WithdrawMyConsentResponses = {
+    /**
+     * The consent is withdrawn, or was never held.
+     */
+    204: void;
+};
+
+export type WithdrawMyConsentResponse = WithdrawMyConsentResponses[keyof WithdrawMyConsentResponses];
+
+export type ListB2bApplicationsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/b2b/applications';
+};
+
+export type ListB2bApplicationsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListB2bApplicationsError = ListB2bApplicationsErrors[keyof ListB2bApplicationsErrors];
+
+export type ListB2bApplicationsResponses = {
+    /**
+     * A page of the caller's applications.
+     */
+    200: {
+        data: Array<B2bApplicationSummary>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListB2bApplicationsResponse = ListB2bApplicationsResponses[keyof ListB2bApplicationsResponses];
+
+export type CreateB2bApplicationData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/b2b/applications';
+};
+
+export type CreateB2bApplicationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateB2bApplicationError = CreateB2bApplicationErrors[keyof CreateB2bApplicationErrors];
+
+export type CreateB2bApplicationResponses = {
+    /**
+     * The new draft.
+     */
+    201: B2bApplicationEnvelope;
+};
+
+export type CreateB2bApplicationResponse = CreateB2bApplicationResponses[keyof CreateB2bApplicationResponses];
+
+export type ShowB2bApplicationData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}';
+};
+
+export type ShowB2bApplicationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowB2bApplicationError = ShowB2bApplicationErrors[keyof ShowB2bApplicationErrors];
+
+export type ShowB2bApplicationResponses = {
+    /**
+     * The application, its contacts and its locations.
+     */
+    200: B2bApplicationDetailEnvelope;
+};
+
+export type ShowB2bApplicationResponse = ShowB2bApplicationResponses[keyof ShowB2bApplicationResponses];
+
+export type UpdateB2bApplicationSectionData = {
+    body: UpdateB2bApplicationSectionRequest;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+        /**
+         * The wizard step being saved. The section is in the path so the server
+         * can refuse a payload that wandered outside it; an unknown value is
+         * `400 request.invalid` with `details.parameter`, not a 404.
+         *
+         */
+        section: B2bApplicationSection;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/sections/{section}';
+};
+
+export type UpdateB2bApplicationSectionErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateB2bApplicationSectionError = UpdateB2bApplicationSectionErrors[keyof UpdateB2bApplicationSectionErrors];
+
+export type UpdateB2bApplicationSectionResponses = {
+    /**
+     * The application after the write.
+     */
+    200: B2bApplicationEnvelope;
+};
+
+export type UpdateB2bApplicationSectionResponse = UpdateB2bApplicationSectionResponses[keyof UpdateB2bApplicationSectionResponses];
+
+export type ReplaceB2bApplicationContactsData = {
+    body: ReplaceB2bApplicationContactsRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/contacts';
+};
+
+export type ReplaceB2bApplicationContactsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceB2bApplicationContactsError = ReplaceB2bApplicationContactsErrors[keyof ReplaceB2bApplicationContactsErrors];
+
+export type ReplaceB2bApplicationContactsResponses = {
+    /**
+     * The stored contacts, as normalised.
+     */
+    200: {
+        data: {
+            contacts: Array<B2bApplicationContact>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceB2bApplicationContactsResponse = ReplaceB2bApplicationContactsResponses[keyof ReplaceB2bApplicationContactsResponses];
+
+export type ReplaceB2bApplicationLocationsData = {
+    body: ReplaceB2bApplicationLocationsRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/locations';
+};
+
+export type ReplaceB2bApplicationLocationsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceB2bApplicationLocationsError = ReplaceB2bApplicationLocationsErrors[keyof ReplaceB2bApplicationLocationsErrors];
+
+export type ReplaceB2bApplicationLocationsResponses = {
+    /**
+     * The stored locations, as normalised.
+     */
+    200: {
+        data: {
+            locations: Array<B2bApplicationLocation>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceB2bApplicationLocationsResponse = ReplaceB2bApplicationLocationsResponses[keyof ReplaceB2bApplicationLocationsResponses];
+
+export type ListKycDocumentsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/documents';
+};
+
+export type ListKycDocumentsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListKycDocumentsError = ListKycDocumentsErrors[keyof ListKycDocumentsErrors];
+
+export type ListKycDocumentsResponses = {
+    /**
+     * Every document filed against this application.
+     */
+    200: {
+        data: Array<KycDocument>;
+        meta: Meta;
+    };
+};
+
+export type ListKycDocumentsResponse = ListKycDocumentsResponses[keyof ListKycDocumentsResponses];
+
+export type UploadKycDocumentData = {
+    body: UploadKycDocumentRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/documents';
+};
+
+export type UploadKycDocumentErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UploadKycDocumentError = UploadKycDocumentErrors[keyof UploadKycDocumentErrors];
+
+export type UploadKycDocumentResponses = {
+    /**
+     * The stored document's metadata.
+     */
+    201: KycDocumentEnvelope;
+};
+
+export type UploadKycDocumentResponse = UploadKycDocumentResponses[keyof UploadKycDocumentResponses];
+
+export type DownloadKycDocumentData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+        /**
+         * The document identifier.
+         */
+        document: Uuid;
+    };
+    query: {
+        /**
+         * Why the document is being opened, written verbatim onto the access
+         * audit event. Required and non-blank: a document read with no stated
+         * reason is the read an audit trail cannot explain afterwards, and an
+         * optional argument is one every call site eventually omits. Blank or
+         * absent is `400 request.invalid` with `details.parameter`.
+         *
+         */
+        purpose: string;
+    };
+    url: '/b2b/applications/{application}/documents/{document}/download';
+};
+
+export type DownloadKycDocumentErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DownloadKycDocumentError = DownloadKycDocumentErrors[keyof DownloadKycDocumentErrors];
+
+export type DownloadKycDocumentResponses = {
+    /**
+     * A short-lived signed URL and when it stops working.
+     */
+    200: KycDocumentDownloadEnvelope;
+};
+
+export type DownloadKycDocumentResponse = DownloadKycDocumentResponses[keyof DownloadKycDocumentResponses];
+
+export type SubmitB2bApplicationData = {
+    body?: never;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/submit';
+};
+
+export type SubmitB2bApplicationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The application is not complete enough to send. **Both lists come back
+     * at once** — `details.missing_fields` and `details.missing_documents` —
+     * because an applicant should learn everything that is wrong in one
+     * round trip rather than one field at a time.
+     *
+     * This code is used when the *document* checklist is short. When only
+     * form fields are missing the answer is `422 validation.failed` with the
+     * same two lists, because finding a certificate and filling a blank
+     * field are different journeys and a client should not have to parse a
+     * details bag to know which screen to open.
+     *
+     * `missing_documents` names **kinds**, not files. A rejected or
+     * superseded document does not count towards the requirement; a pending
+     * one does, because review happens after submission and requiring an
+     * accepted document to submit would be a loop with no entrance.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SubmitB2bApplicationError = SubmitB2bApplicationErrors[keyof SubmitB2bApplicationErrors];
+
+export type SubmitB2bApplicationResponses = {
+    /**
+     * The submitted application.
+     */
+    200: B2bApplicationEnvelope;
+};
+
+export type SubmitB2bApplicationResponse = SubmitB2bApplicationResponses[keyof SubmitB2bApplicationResponses];
+
+export type WithdrawB2bApplicationData = {
+    body?: never;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/withdraw';
+};
+
+export type WithdrawB2bApplicationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type WithdrawB2bApplicationError = WithdrawB2bApplicationErrors[keyof WithdrawB2bApplicationErrors];
+
+export type WithdrawB2bApplicationResponses = {
+    /**
+     * The withdrawn application.
+     */
+    200: B2bApplicationEnvelope;
+};
+
+export type WithdrawB2bApplicationResponse = WithdrawB2bApplicationResponses[keyof WithdrawB2bApplicationResponses];
+
+export type ListB2bAgreementsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/agreements';
+};
+
+export type ListB2bAgreementsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListB2bAgreementsError = ListB2bAgreementsErrors[keyof ListB2bAgreementsErrors];
+
+export type ListB2bAgreementsResponses = {
+    /**
+     * Every agreement version, newest first.
+     */
+    200: {
+        data: Array<B2bAgreement>;
+        meta: Meta;
+    };
+};
+
+export type ListB2bAgreementsResponse = ListB2bAgreementsResponses[keyof ListB2bAgreementsResponses];
+
+export type ShowB2bAgreementData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+        /**
+         * The agreement version's identifier. Always resolved inside the application in the path.
+         */
+        agreement: Uuid;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/agreements/{agreement}';
+};
+
+export type ShowB2bAgreementErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowB2bAgreementError = ShowB2bAgreementErrors[keyof ShowB2bAgreementErrors];
+
+export type ShowB2bAgreementResponses = {
+    /**
+     * The agreement version.
+     */
+    200: B2bAgreementEnvelope;
+};
+
+export type ShowB2bAgreementResponse = ShowB2bAgreementResponses[keyof ShowB2bAgreementResponses];
+
+export type CreateB2bSignatureChallengeData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+        /**
+         * The agreement version's identifier. Always resolved inside the application in the path.
+         */
+        agreement: Uuid;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/agreements/{agreement}/signature-challenges';
+};
+
+export type CreateB2bSignatureChallengeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * Signing requires the person the company **named** as its signatory,
+     * proving they are present with a passcode sent to the address on the
+     * application.
+     *
+     * One code covers every way of failing that, and carries no detail about
+     * which: the application has not named a signatory; the caller does not
+     * hold the named address; the challenge does not exist, belongs to
+     * somebody else, was raised for another purpose, or has not been spent.
+     * A caller holding somebody else's challenge identifier learns only that
+     * it did not work.
+     *
+     * The fix is never a permission. The named signatory signs in and signs
+     * for themselves — an office manager who can reach the mailbox is not
+     * the person the company bound itself through.
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateB2bSignatureChallengeError = CreateB2bSignatureChallengeErrors[keyof CreateB2bSignatureChallengeErrors];
+
+export type CreateB2bSignatureChallengeResponses = {
+    /**
+     * The challenge, with a masked destination, a resend countdown and
+     * an attempts counter. `debug_code` appears only in local and
+     * testing environments with code exposure switched on.
+     *
+     */
+    202: OtpChallengeEnvelope;
+};
+
+export type CreateB2bSignatureChallengeResponse = CreateB2bSignatureChallengeResponses[keyof CreateB2bSignatureChallengeResponses];
+
+export type SignB2bAgreementData = {
+    body: SignB2bAgreementRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+        /**
+         * The agreement version's identifier. Always resolved inside the application in the path.
+         */
+        agreement: Uuid;
+    };
+    query?: never;
+    url: '/b2b/applications/{application}/agreements/{agreement}/sign';
+};
+
+export type SignB2bAgreementErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * Signing requires the person the company **named** as its signatory,
+     * proving they are present with a passcode sent to the address on the
+     * application.
+     *
+     * One code covers every way of failing that, and carries no detail about
+     * which: the application has not named a signatory; the caller does not
+     * hold the named address; the challenge does not exist, belongs to
+     * somebody else, was raised for another purpose, or has not been spent.
+     * A caller holding somebody else's challenge identifier learns only that
+     * it did not work.
+     *
+     * The fix is never a permission. The named signatory signs in and signs
+     * for themselves — an office manager who can reach the mailbox is not
+     * the person the company bound itself through.
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SignB2bAgreementError = SignB2bAgreementErrors[keyof SignB2bAgreementErrors];
+
+export type SignB2bAgreementResponses = {
+    /**
+     * The agreement, now active.
+     */
+    200: B2bAgreementEnvelope;
+};
+
+export type SignB2bAgreementResponse = SignB2bAgreementResponses[keyof SignB2bAgreementResponses];
+
+export type ListPlatformB2bApplicationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Restrict to one workflow state. Omitted, everything except `draft`
+         * is listed.
+         *
+         */
+        status?: B2bApplicationStatus;
+        /**
+         * Case-insensitive substring match over the legal name, the trading name and the reference.
+         */
+        query?: string;
+    };
+    url: '/platform/b2b/applications';
+};
+
+export type ListPlatformB2bApplicationsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPlatformB2bApplicationsError = ListPlatformB2bApplicationsErrors[keyof ListPlatformB2bApplicationsErrors];
+
+export type ListPlatformB2bApplicationsResponses = {
+    /**
+     * A page of the review queue.
+     */
+    200: {
+        data: Array<B2bApplicationSummary>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListPlatformB2bApplicationsResponse = ListPlatformB2bApplicationsResponses[keyof ListPlatformB2bApplicationsResponses];
+
+export type ShowPlatformB2bApplicationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}';
+};
+
+export type ShowPlatformB2bApplicationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowPlatformB2bApplicationError = ShowPlatformB2bApplicationErrors[keyof ShowPlatformB2bApplicationErrors];
+
+export type ShowPlatformB2bApplicationResponses = {
+    /**
+     * The application, its people, its pack and its duplicates.
+     */
+    200: B2bApplicationReviewEnvelope;
+};
+
+export type ShowPlatformB2bApplicationResponse = ShowPlatformB2bApplicationResponses[keyof ShowPlatformB2bApplicationResponses];
+
+export type ClaimB2bApplicationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/claim';
+};
+
+export type ClaimB2bApplicationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ClaimB2bApplicationError = ClaimB2bApplicationErrors[keyof ClaimB2bApplicationErrors];
+
+export type ClaimB2bApplicationResponses = {
+    /**
+     * The claimed application.
+     */
+    200: B2bApplicationReviewOnlyEnvelope;
+};
+
+export type ClaimB2bApplicationResponse = ClaimB2bApplicationResponses[keyof ClaimB2bApplicationResponses];
+
+export type RequestB2bApplicationInformationData = {
+    body: RequestB2bApplicationInformationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/request-information';
+};
+
+export type RequestB2bApplicationInformationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RequestB2bApplicationInformationError = RequestB2bApplicationInformationErrors[keyof RequestB2bApplicationInformationErrors];
+
+export type RequestB2bApplicationInformationResponses = {
+    /**
+     * The application, now awaiting the applicant.
+     */
+    200: B2bApplicationReviewOnlyEnvelope;
+};
+
+export type RequestB2bApplicationInformationResponse = RequestB2bApplicationInformationResponses[keyof RequestB2bApplicationInformationResponses];
+
+export type ApproveB2bApplicationData = {
+    body?: ApproveB2bApplicationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/approve';
+};
+
+export type ApproveB2bApplicationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ApproveB2bApplicationError = ApproveB2bApplicationErrors[keyof ApproveB2bApplicationErrors];
+
+export type ApproveB2bApplicationResponses = {
+    /**
+     * The approved application.
+     */
+    200: B2bApplicationReviewOnlyEnvelope;
+};
+
+export type ApproveB2bApplicationResponse = ApproveB2bApplicationResponses[keyof ApproveB2bApplicationResponses];
+
+export type DeclineB2bApplicationData = {
+    body: DeclineB2bApplicationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/decline';
+};
+
+export type DeclineB2bApplicationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeclineB2bApplicationError = DeclineB2bApplicationErrors[keyof DeclineB2bApplicationErrors];
+
+export type DeclineB2bApplicationResponses = {
+    /**
+     * The declined application.
+     */
+    200: B2bApplicationReviewOnlyEnvelope;
+};
+
+export type DeclineB2bApplicationResponse = DeclineB2bApplicationResponses[keyof DeclineB2bApplicationResponses];
+
+export type ProvisionB2bApplicationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * As `Idempotency-Key`, but mandatory. Used where the command creates
+         * records that cannot be un-created — provisioning a tenant — and where
+         * a retry with no key would therefore be unrecoverable rather than
+         * merely wasteful. Absent is **400** `request.invalid`.
+         *
+         */
+        'Idempotency-Key': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/provision';
+};
+
+export type ProvisionB2bApplicationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ProvisionB2bApplicationError = ProvisionB2bApplicationErrors[keyof ProvisionB2bApplicationErrors];
+
+export type ProvisionB2bApplicationResponses = {
+    /**
+     * What now exists.
+     */
+    200: B2bProvisioningEnvelope;
+};
+
+export type ProvisionB2bApplicationResponse = ProvisionB2bApplicationResponses[keyof ProvisionB2bApplicationResponses];
+
+export type DownloadPlatformKycDocumentData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+        /**
+         * The document identifier.
+         */
+        document: Uuid;
+    };
+    query: {
+        /**
+         * Why the document is being opened, written verbatim onto the access
+         * audit event. Required and non-blank: a document read with no stated
+         * reason is the read an audit trail cannot explain afterwards, and an
+         * optional argument is one every call site eventually omits. Blank or
+         * absent is `400 request.invalid` with `details.parameter`.
+         *
+         */
+        purpose: string;
+    };
+    url: '/platform/b2b/applications/{application}/documents/{document}/download';
+};
+
+export type DownloadPlatformKycDocumentErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DownloadPlatformKycDocumentError = DownloadPlatformKycDocumentErrors[keyof DownloadPlatformKycDocumentErrors];
+
+export type DownloadPlatformKycDocumentResponses = {
+    /**
+     * A short-lived signed URL and when it stops working.
+     */
+    200: KycDocumentDownloadEnvelope;
+};
+
+export type DownloadPlatformKycDocumentResponse = DownloadPlatformKycDocumentResponses[keyof DownloadPlatformKycDocumentResponses];
+
+export type ReviewKycDocumentData = {
+    body: ReviewKycDocumentRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The document identifier.
+         */
+        document: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/documents/{document}/review';
+};
+
+export type ReviewKycDocumentErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReviewKycDocumentError = ReviewKycDocumentErrors[keyof ReviewKycDocumentErrors];
+
+export type ReviewKycDocumentResponses = {
+    /**
+     * The reviewed document, with the internal note.
+     */
+    200: KycDocumentReviewEnvelope;
+};
+
+export type ReviewKycDocumentResponse = ReviewKycDocumentResponses[keyof ReviewKycDocumentResponses];
+
+export type ListOrganisationInvitationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Restrict to one derived state.
+         */
+        status?: OrganisationInvitationStatus;
+    };
+    url: '/organisations/{organisation}/invitations';
+};
+
+export type ListOrganisationInvitationsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrganisationInvitationsError = ListOrganisationInvitationsErrors[keyof ListOrganisationInvitationsErrors];
+
+export type ListOrganisationInvitationsResponses = {
+    /**
+     * A page of invitations.
+     */
+    200: {
+        data: Array<OrganisationInvitation>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListOrganisationInvitationsResponse = ListOrganisationInvitationsResponses[keyof ListOrganisationInvitationsResponses];
+
+export type CreateOrganisationInvitationData = {
+    body: CreateOrganisationInvitationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/invitations';
+};
+
+export type CreateOrganisationInvitationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateOrganisationInvitationError = CreateOrganisationInvitationErrors[keyof CreateOrganisationInvitationErrors];
+
+export type CreateOrganisationInvitationResponses = {
+    /**
+     * The invitation — without its token.
+     */
+    201: OrganisationInvitationEnvelope;
+};
+
+export type CreateOrganisationInvitationResponse = CreateOrganisationInvitationResponses[keyof CreateOrganisationInvitationResponses];
+
+export type RevokeOrganisationInvitationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * The invitation identifier. Always resolved inside the organisation in the path.
+         */
+        invitation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/invitations/{invitation}';
+};
+
+export type RevokeOrganisationInvitationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RevokeOrganisationInvitationError = RevokeOrganisationInvitationErrors[keyof RevokeOrganisationInvitationErrors];
+
+export type RevokeOrganisationInvitationResponses = {
+    /**
+     * The offer is withdrawn. No body, per the envelope's documented exception.
+     */
+    204: void;
+};
+
+export type RevokeOrganisationInvitationResponse = RevokeOrganisationInvitationResponses[keyof RevokeOrganisationInvitationResponses];
+
+export type AcceptOrganisationInvitationData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The single-use token from the invitation email. Never an identifier —
+         * only its SHA-256 is stored, so this value cannot be recovered from the
+         * platform and a lost one is replaced by re-inviting.
+         *
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/invitations/{token}/accept';
+};
+
+export type AcceptOrganisationInvitationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AcceptOrganisationInvitationError = AcceptOrganisationInvitationErrors[keyof AcceptOrganisationInvitationErrors];
+
+export type AcceptOrganisationInvitationResponses = {
+    /**
+     * The accepted invitation, and an honest statement that no membership was created.
+     */
+    200: AcceptedInvitationEnvelope;
+};
+
+export type AcceptOrganisationInvitationResponse = AcceptOrganisationInvitationResponses[keyof AcceptOrganisationInvitationResponses];

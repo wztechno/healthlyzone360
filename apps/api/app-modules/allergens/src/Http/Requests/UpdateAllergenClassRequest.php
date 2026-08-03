@@ -37,6 +37,7 @@ class UpdateAllergenClassRequest extends FormRequest
             'is_us_big_9' => ['sometimes', 'required', 'boolean'],
             'us_declaration_required' => ['sometimes', 'required', 'boolean'],
             'us_threshold_ppm' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000000'],
+            'severe_by_default' => ['sometimes', 'required', 'boolean'],
             'display_order' => ['sometimes', 'required', 'integer', 'min:0', 'max:100000'],
         ];
     }

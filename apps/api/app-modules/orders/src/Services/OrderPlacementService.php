@@ -141,9 +141,13 @@ final readonly class OrderPlacementService
             'requested_date' => $requestedDate?->toDateString(),
         ]);
 
+        // Exactly one subject, which is what the table's CHECK now demands: a
+        // registered customer keys on their identity, a guest on the account
+        // that is the only durable thing about them.
         $outcome = $this->idempotency->around(
             $idempotencyKey,
             $account->user_id,
+            $account->user_id === null ? (string) $account->getKey() : null,
             $fingerprint,
             fn (): Order => $this->seller->during(
                 $cart->organisation_id,

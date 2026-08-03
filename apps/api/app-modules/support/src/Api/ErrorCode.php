@@ -55,6 +55,16 @@ enum ErrorCode: string
      */
     case RequestPreconditionRequired = 'request.precondition_required';
 
+    /**
+     * An `Idempotency-Key` was replayed against a *different* request body
+     * (master plan v2 §4.14). Distinct from `resource.conflict`: nothing about
+     * the resource has changed under the caller — the caller has reused a key
+     * that already means something else, and the fix is a new key rather than
+     * a reload. Replaying the *same* body is not an error at all; it returns
+     * the original envelope with `Idempotency-Replayed: true`.
+     */
+    case RequestIdempotencyKeyReused = 'request.idempotency_key_reused';
+
     case ResourceNotFound = 'resource.not_found';
     case ResourceConflict = 'resource.conflict';
 
@@ -93,6 +103,125 @@ enum ErrorCode: string
      */
     case CataloguePublishBlocked = 'catalogue.publish_blocked';
 
+    /**
+     * The submitted passcode does not match the live challenge (J1). A 422
+     * rather than a 401: the caller is authenticated perfectly well — or is a
+     * guest who never claimed to be — and what failed is one attempt at a
+     * short-lived proof. `details.attempts_remaining` says how many are left,
+     * because a client that cannot show that has to guess when to stop.
+     */
+    case OtpInvalid = 'otp.invalid';
+
+    /**
+     * The challenge is no longer live: five minutes have passed, it was
+     * superseded by a newer one, or it has already been spent. Distinct from
+     * `otp.invalid` because the remedy is different — ask for a new code
+     * rather than re-read the message.
+     */
+    case OtpExpired = 'otp.expired';
+
+    /**
+     * Three wrong codes against one challenge. A 429, not a 422: the challenge
+     * is now closed and no further attempt against it can succeed, so this is
+     * a limit reached rather than a value rejected.
+     */
+    case OtpAttemptsExceeded = 'otp.attempts_exceeded';
+
+    /**
+     * A resend arrived inside the 45-second cooldown.
+     * `details.retry_after_seconds` carries the wait, mirrored into the
+     * `Retry-After` header.
+     */
+    case OtpCooldownActive = 'otp.cooldown_active';
+
+    /**
+     * Too many failures across challenges have locked this destination for
+     * fifteen minutes. Distinct from `otp.attempts_exceeded`, which closes one
+     * challenge: this closes the *contact*, so issuing a fresh challenge will
+     * not help either. `details.locked_until` says when it lifts.
+     */
+    case OtpLocked = 'otp.locked';
+
+    /**
+     * No driver can reach this destination on the requested channel — SMS and
+     * WhatsApp have no provider in this deployment (OQ-034), and an email
+     * challenge cannot be sent to a phone. `details.available_channels` names
+     * what *would* work, so a client can offer the person a real alternative
+     * rather than a dead end.
+     */
+    case OtpChannelUnavailable = 'otp.channel_unavailable';
+
+    /**
+     * The destination is already *proven* by somebody else (J1). Deliberately
+     * only ever raised on a **verified** collision: two people may both claim
+     * an address — a typo, a shared family mailbox — and refusing the claim
+     * would let anybody deny an address to its real owner by typing it first.
+     */
+    case ContactAlreadyInUse = 'contact.already_in_use';
+
+    /**
+     * The customer account is not activated, and the endpoint reached needs it
+     * to be. A 403 rather than a 409: nothing about the request conflicts with
+     * anything, the caller simply lacks a standing the platform has not yet
+     * granted them. `details.outstanding` carries the checklist codes that are
+     * still unsatisfied, so the client can send the person to the right step.
+     */
+    case AccountVerificationRequired = 'account.verification_required';
+
+    /**
+     * No kitchen delivers to the delivery area named on the address. A 422:
+     * the area exists and is a perfectly valid reference, and what fails is
+     * the *usefulness* of the combination rather than its shape.
+     */
+    case AddressAreaNotServed = 'address.area_not_served';
+
+    /**
+     * The `X-Guest-Token` presented is unknown, expired, revoked, or does not
+     * carry the grade the endpoint requires (G1). One code for all four on
+     * purpose: distinguishing them would tell a token-guesser which of their
+     * guesses was closest. A 401, because the fix is to obtain a credential.
+     */
+    case GuestSessionInvalid = 'guest.session_invalid';
+
+    /**
+     * A cart line was refused — an unbuyable item, a branch that cannot make
+     * it on the requested day, a currency that does not match the cart's
+     * (C1). `details.reason` names which, and no partial line is written.
+     */
+    case CartLineRefused = 'cart.line_refused';
+
+    /**
+     * Checkout was refused. A 409 rather than a 422, because what changed is
+     * the *world* — a branch closed, a price was withdrawn, a cut-off passed
+     * between building the cart and submitting it — and the remedy is to
+     * re-read the cart. `details.reasons` carries one structured entry per
+     * blocker so a client can show all of them at once.
+     */
+    case OrderPlacementRefused = 'order.placement_refused';
+
+    /**
+     * The action is not available from the application's current state — a
+     * submitted application cannot be edited, a declined one cannot be
+     * approved (B1). `details.status` carries the state it is actually in.
+     */
+    case B2bApplicationStateInvalid = 'b2b.application_state_invalid';
+
+    /**
+     * Submission or approval was refused because the KYC pack is not complete:
+     * a required document kind is missing, or one is still pending review or
+     * was rejected. `details.missing` names the kinds — never the documents
+     * themselves, which stay behind the platform review surface.
+     */
+    case B2bDocumentsIncomplete = 'b2b.documents_incomplete';
+
+    /**
+     * Signing was attempted without proof that the *signatory* is present: no
+     * verified OTP challenge of purpose `b2b_signatory`, or one belonging to
+     * somebody else. A 403 — click-wrap evidence with no identity proof behind
+     * it is not evidence, and the agreement is what a court would be shown.
+     */
+    case B2bSignatoryRequired = 'b2b.signatory_required';
+
     case RateLimitExceeded = 'rate_limit.exceeded';
 
     case ServerInternalError = 'server.internal_error';
@@ -105,26 +234,41 @@ enum ErrorCode: string
     {
         return match ($this) {
             self::ContextOrganisationRequired, self::ContextBranchRequired, self::RequestInvalid => 400,
-            self::AuthUnauthenticated => 401,
+            self::AuthUnauthenticated, self::GuestSessionInvalid => 401,
             self::AuthEmailUnverified,
             self::AuthTwoFactorRequired,
             self::AuthStepUpRequired,
             self::AuthInvalidSignature,
             self::ContextOrganisationForbidden,
             self::ContextBranchOutOfScope,
+            self::AccountVerificationRequired,
+            self::B2bSignatoryRequired,
             self::AuthzPermissionDenied => 403,
             self::ResourceNotFound => 404,
             self::ResourceConflict,
             self::CatalogueInUse,
             self::CatalogueVersionImmutable,
-            self::CataloguePublishBlocked => 409,
+            self::CataloguePublishBlocked,
+            self::RequestIdempotencyKeyReused,
+            self::ContactAlreadyInUse,
+            self::OrderPlacementRefused,
+            self::B2bApplicationStateInvalid => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
             self::AuthInvalidCredentials,
             self::AuthTwoFactorInvalid,
-            self::CatalogueAllergenUnmapped => 422,
-            self::RateLimitExceeded => 429,
+            self::CatalogueAllergenUnmapped,
+            self::OtpInvalid,
+            self::OtpExpired,
+            self::OtpChannelUnavailable,
+            self::AddressAreaNotServed,
+            self::CartLineRefused,
+            self::B2bDocumentsIncomplete => 422,
+            self::RateLimitExceeded,
+            self::OtpAttemptsExceeded,
+            self::OtpCooldownActive,
+            self::OtpLocked => 429,
             self::ServerInternalError => 500,
         };
     }
@@ -158,6 +302,22 @@ enum ErrorCode: string
             self::CatalogueVersionImmutable => 'A published or retired recipe version cannot be changed. Create a new draft version instead.',
             self::CatalogueAllergenUnmapped => 'Every ingredient in a published recipe must carry an allergen determination.',
             self::CataloguePublishBlocked => 'This recipe version is not ready to be published.',
+            self::RequestIdempotencyKeyReused => 'This Idempotency-Key has already been used for a different request.',
+            self::OtpInvalid => 'That code is not correct. Check the message and try again.',
+            self::OtpExpired => 'That code is no longer valid. Ask for a new one.',
+            self::OtpAttemptsExceeded => 'Too many incorrect codes. Ask for a new one.',
+            self::OtpCooldownActive => 'A code was sent a moment ago. Wait before asking for another.',
+            self::OtpLocked => 'Too many attempts on this contact. Try again later.',
+            self::OtpChannelUnavailable => 'A code cannot be sent to that destination on this channel.',
+            self::ContactAlreadyInUse => 'That contact is already verified on another account.',
+            self::AccountVerificationRequired => 'Your account is not fully set up yet.',
+            self::AddressAreaNotServed => 'No kitchen currently delivers to that area.',
+            self::GuestSessionInvalid => 'This guest session is not valid for that action.',
+            self::CartLineRefused => 'This item cannot be added to the basket as asked for.',
+            self::OrderPlacementRefused => 'This order cannot be placed as it stands.',
+            self::B2bApplicationStateInvalid => 'This application cannot be changed from its current state.',
+            self::B2bDocumentsIncomplete => 'The required documents are not all present and accepted.',
+            self::B2bSignatoryRequired => 'Signing requires a verified passcode from the named signatory.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
         };

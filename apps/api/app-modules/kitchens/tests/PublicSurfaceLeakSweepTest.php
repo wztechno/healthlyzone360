@@ -102,6 +102,13 @@ function anonymousGetPaths(): array
         '{kitchen}' => 'verdant-kitchen',
         '{meal}' => 'grilled-chicken-freekeh',
         '{plan}' => 'balanced-plan',
+
+        // G1. `GET /guest/orders/{order}` carries no `auth:sanctum` — its
+        // credential is `X-Guest-Token` — so the discovery below finds it, and
+        // rightly: an endpoint an anonymous caller can *reach* belongs in a
+        // sweep of what an anonymous caller can *see*. Any identifier will do,
+        // because the interesting response is the refusal.
+        '{order}' => '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c',
     ];
 
     $queries = [
@@ -180,7 +187,12 @@ function sweptResponse(object $test, string $path): array
     /** @var TestResponse $response */
     $response = $test->getJson($path);
 
-    expect($response->getStatusCode())->toBeIn([200, 404], "{$path} answered an unexpected status.");
+    // 401 joins the set with G1's token-gated reads. They are credentialled
+    // rather than anonymous, but an anonymous caller reaches them, and their
+    // refusal envelope is swept like every other body here — the `details` of a
+    // refusal being a perfectly good place to leak a row somebody loaded before
+    // deciding to refuse.
+    expect($response->getStatusCode())->toBeIn([200, 401, 404], "{$path} answered an unexpected status.");
 
     return ['content' => $response->content(), 'json' => $response->json()];
 }

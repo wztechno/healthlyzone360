@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Healthy360\Customers\Exceptions;
 
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 
 /**
@@ -15,7 +18,7 @@ use RuntimeException;
  * The narrower branch-aware check still happens at checkout (C1), where the
  * kitchen is known.
  */
-final class AreaNotServed extends RuntimeException
+final class AreaNotServed extends RuntimeException implements ProvidesApiError
 {
     public function __construct(public readonly string $areaId)
     {
@@ -33,5 +36,10 @@ final class AreaNotServed extends RuntimeException
     public function details(): array
     {
         return ['delivery_area_id' => $this->areaId];
+    }
+
+    public function toApiError(): ApiError
+    {
+        return ApiError::make(ErrorCode::AddressAreaNotServed, $this->getMessage(), $this->details());
     }
 }

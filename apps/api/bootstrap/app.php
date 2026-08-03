@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Http\Middleware\RequirePermission;
 use Healthy360\AccessControl\Http\Middleware\RequirePlatformContext;
+use Healthy360\Customers\Guest\Http\Middleware\ResolveGuestSession;
 use Healthy360\Identity\Http\Middleware\EnsureEmailIsVerified;
 use Healthy360\Identity\Http\Middleware\EnsureStatefulRequest;
 use Healthy360\Identity\Http\Middleware\RequireStepUp;
 use Healthy360\Identity\Http\Middleware\TouchUserDevice;
 use Healthy360\Support\Api\ApiExceptionRenderer;
 use Healthy360\Support\Http\Middleware\AssignCorrelationId;
+use Healthy360\Support\Http\Middleware\EnforceIdempotency;
 use Healthy360\Support\Http\Middleware\RequirePrecondition;
 use Healthy360\Tenancy\Http\Middleware\ResolveBranchContext;
 use Healthy360\Tenancy\Http\Middleware\ResolveOrganisationContext;
@@ -65,6 +67,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'permission' => RequirePermission::class,
             'step-up' => RequireStepUp::class,
+
+            // The capability-token credential (G1). Resolves X-Guest-Token
+            // into a live session and gates its grade; runs before
+            // `idempotency`, which reads the account it publishes.
+            'guest.session' => ResolveGuestSession::class,
+
+            // Idempotency-Key at the HTTP boundary (§4.14). Applied per route
+            // to the commands that document the header, never globally.
+            'idempotency' => EnforceIdempotency::class,
 
             // Optimistic concurrency: a write to a lock-versioned resource
             // must carry the version it was written against (428 without).
