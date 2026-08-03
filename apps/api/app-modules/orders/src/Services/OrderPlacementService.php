@@ -97,6 +97,36 @@ use Illuminate\Support\Facades\DB;
  * live in organisation-scoped tables that fail closed. Stating once that a
  * checkout is transacted in the seller's context is the alternative to
  * re-deriving both of those rules here with a tenancy bypass.
+ *
+ * ## Orders the platform composes — S1's additive entry point
+ *
+ * `placeComposed()` places an order that has no basket behind it. S1's
+ * subscription generation is the first and only caller: a delivery day crosses
+ * its cut-off and one real order has to exist for it, placed by a scheduled
+ * command with no request, no session and no cart.
+ *
+ * It is a second entry point rather than a second service, because everything
+ * after "where do the lines come from" is identical and having two of it is how
+ * a subscription order eventually stops checking the delivery zone. The
+ * eligibility gate, the address-ownership rule, the zone resolution, the branch
+ * cut-off, the seller context, the idempotency guarantee and the audit event
+ * are all the same code; only `repriced()` has a sibling.
+ *
+ * **Two things differ, and both are deliberate.**
+ *
+ * 1. **There is no cart to convert.** `ComposedPlacement` states the seller,
+ *    channel, branch and currency a cart used to carry; see that class for why
+ *    a transient basket was the wrong answer.
+ * 2. **A line may carry a `PriceOverride`.** This is the one exception to
+ *    "every line is repriced at placement", and it exists because S1's approved
+ *    semantics grandfather a subscription's per-day price for the whole of its
+ *    balance (§5). The line is still probed — the article must be published,
+ *    the channel must offer it that day, the variant must be active — and only
+ *    the *price* half of the probe's answer is replaced. `unpriced` and
+ *    `currency_mismatch` stop being refusals for an overridden line, because
+ *    the caller has supplied both; everything else still refuses. The
+ *    provenance is written to `order_lines.price_source`, so a reconciliation
+ *    can read why the number disagrees with the standing tariff.
  */
 final readonly class OrderPlacementService
 {
@@ -179,6 +209,139 @@ final readonly class OrderPlacementService
     }
 
     /**
+     * Place an order the platform composed — S1's subscription deliveries.
+     *
+     * Same gates, same seller context, same idempotency guarantee as `place()`;
+     * the lines are supplied rather than read from a basket, and any of them
+     * may carry a grandfathered price. See the class docblock.
+     *
+     * @param  string|null  $idempotencyKey  the caller's replay key — subscription generation keys on subscription + date
+     *
+     * @throws PlacementRefused|ApiException
+     */
+    public function placeComposed(ComposedPlacement $placement, ?string $idempotencyKey = null): PlacementResult
+    {
+        $account = $placement->account;
+
+        $fingerprint = $this->idempotency->fingerprint([
+            'composed' => 'v1',
+            'customer_account_id' => (string) $account->getKey(),
+            'address_id' => (string) $placement->address->getKey(),
+            'sales_channel_id' => $placement->salesChannelId,
+            'delivery_window' => $placement->deliveryWindowCode,
+            'requested_date' => $placement->requestedDate?->toDateString(),
+            'lines' => (string) json_encode(array_map(
+                static fn (ComposedLine $line): array => [
+                    $line->catalogueItemId,
+                    $line->catalogueItemVariantId,
+                    $line->quantity,
+                    $line->price?->unitPriceMinor,
+                ],
+                $placement->lines,
+            ), JSON_THROW_ON_ERROR),
+        ]);
+
+        $outcome = $this->idempotency->around(
+            $idempotencyKey,
+            $account->user_id,
+            $account->user_id === null ? (string) $account->getKey() : null,
+            $fingerprint,
+            fn (): Order => $this->seller->during(
+                $placement->organisationId,
+                $placement->branchId,
+                fn (): Order => $this->composeNow($placement),
+            ),
+        );
+
+        if ($outcome['replay'] !== null) {
+            $replayed = Order::query()->whereKey($outcome['replay']['order_id'] ?? null)->first();
+
+            if ($replayed instanceof Order) {
+                return new PlacementResult($replayed, replayed: true);
+            }
+
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This request was already answered, but that order can no longer be read.',
+            );
+        }
+
+        /** @var Order $order */
+        $order = $outcome['order'];
+
+        return new PlacementResult($order);
+    }
+
+    /**
+     * @throws PlacementRefused|ApiException
+     */
+    private function composeNow(ComposedPlacement $placement): Order
+    {
+        $now = CarbonImmutable::now();
+
+        if ($placement->lines === []) {
+            throw new PlacementRefused([['reason' => 'cart_empty']]);
+        }
+
+        $reasons = $this->eligibility->outstanding($placement->account);
+        $reasons = [...$reasons, ...$this->addressReasons((string) $placement->account->getKey(), $placement->address)];
+
+        $effectiveDate = $placement->requestedDate;
+
+        [$zone, $zoneReasons] = $this->zoneFor($placement->branchId, $placement->address);
+        $reasons = [...$reasons, ...$zoneReasons];
+
+        if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $placement->currencyCode) {
+            $reasons[] = [
+                'reason' => 'currency_mismatch',
+                'subject' => 'delivery_fee',
+                'expected_currency' => $placement->currencyCode,
+                'offered_currency' => $zone->currency_code,
+            ];
+        }
+
+        $reasons = [...$reasons, ...$this->scheduleReasons($placement->branchId, $effectiveDate, $now)];
+
+        [$snapshots, $lineReasons] = $this->composedSnapshots($placement, $effectiveDate);
+        $reasons = [...$reasons, ...$lineReasons];
+
+        if ($reasons !== []) {
+            throw new PlacementRefused($reasons);
+        }
+
+        $order = $this->persist(
+            account: $placement->account,
+            address: $placement->address,
+            organisationId: $placement->organisationId,
+            salesChannelId: $placement->salesChannelId,
+            branchId: $placement->branchId,
+            currencyCode: $placement->currencyCode,
+            snapshots: $snapshots,
+            zone: $zone,
+            deliveryWindowCode: $placement->deliveryWindowCode,
+            effectiveDate: $effectiveDate,
+            now: $now,
+        );
+
+        $this->audit->record(
+            'order.placed',
+            actorUserId: $this->context->userId(),
+            subjectType: 'order',
+            subjectId: (string) $order->getKey(),
+            metadata: [
+                'composed' => true,
+                'customer_account_id' => (string) $placement->account->getKey(),
+                'line_count' => count($snapshots),
+                'total_minor' => $order->total_minor,
+                'currency' => $order->currency_code,
+                'payment_method' => $order->payment_method->value,
+            ],
+        );
+
+        return $order;
+    }
+
+    /**
      * @throws PlacementRefused|ApiException
      */
     private function placeNow(
@@ -206,11 +369,11 @@ final readonly class OrderPlacementService
         }
 
         $reasons = [...$reasons, ...$this->eligibility->outstanding($account)];
-        $reasons = [...$reasons, ...$this->addressReasons($cart, $address)];
+        $reasons = [...$reasons, ...$this->addressReasons($cart->customer_account_id, $address)];
 
         $effectiveDate = $this->effectiveDate($lines, $requestedDate, $reasons);
 
-        [$zone, $zoneReasons] = $this->zoneFor($cart, $address);
+        [$zone, $zoneReasons] = $this->zoneFor($cart->branch_id, $address);
         $reasons = [...$reasons, ...$zoneReasons];
 
         if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $cart->currency_code) {
@@ -222,18 +385,7 @@ final readonly class OrderPlacementService
             ];
         }
 
-        if ($cart->branch_id !== null && $effectiveDate instanceof CarbonImmutable) {
-            $schedule = $this->scheduling->explain($cart->branch_id, $effectiveDate, $now);
-
-            if (! $schedule['accepted']) {
-                $reasons[] = [
-                    'reason' => $schedule['reason'] ?? 'cut_off_passed',
-                    'branch_id' => $cart->branch_id,
-                    'requested_date' => $effectiveDate->toDateString(),
-                    'cut_off_at' => $schedule['cut_off_at'],
-                ];
-            }
-        }
+        $reasons = [...$reasons, ...$this->scheduleReasons($cart->branch_id, $effectiveDate, $now)];
 
         [$snapshots, $lineReasons] = $this->repriced($cart, $lines, $effectiveDate);
         $reasons = [...$reasons, ...$lineReasons];
@@ -242,18 +394,85 @@ final readonly class OrderPlacementService
             throw new PlacementRefused($reasons);
         }
 
+        $order = $this->persist(
+            account: $account,
+            address: $address,
+            organisationId: $cart->organisation_id,
+            salesChannelId: $cart->sales_channel_id,
+            branchId: $cart->branch_id,
+            currencyCode: $cart->currency_code,
+            snapshots: $snapshots,
+            zone: $zone,
+            deliveryWindowCode: $deliveryWindowCode,
+            effectiveDate: $effectiveDate,
+            now: $now,
+            // Same transaction, deliberately. An order beside a still-open
+            // basket is how a customer orders the same food twice.
+            within: fn (Order $order): mixed => $this->carts->markConverted($cart, (string) $order->getKey()),
+        );
+
+        $this->audit->record(
+            'order.placed',
+            actorUserId: $this->context->userId(),
+            subjectType: 'order',
+            subjectId: (string) $order->getKey(),
+            metadata: [
+                'cart_id' => (string) $cart->getKey(),
+                'customer_account_id' => (string) $account->getKey(),
+                'line_count' => count($snapshots),
+                'total_minor' => $order->total_minor,
+                'currency' => $order->currency_code,
+                'payment_method' => $order->payment_method->value,
+            ],
+        );
+
+        return $order;
+    }
+
+    /**
+     * Write the order and its lines, in one transaction.
+     *
+     * Extracted so a basket placement and a composed one cannot drift: the
+     * address snapshot, the zone fee, the payment method and the line copy are
+     * the same act whoever asked for it, and two copies of this would be two
+     * copies of the §4.8 denylist decision about what an order line may carry.
+     *
+     * `$within` runs inside the same transaction after the order exists. The
+     * basket path uses it to mark the cart converted; the composed path passes
+     * nothing, because there is no basket to convert.
+     *
+     * @param  list<array<string, mixed>>  $snapshots
+     * @param  (callable(Order): mixed)|null  $within
+     */
+    private function persist(
+        CustomerAccount $account,
+        CustomerAddress $address,
+        string $organisationId,
+        string $salesChannelId,
+        ?string $branchId,
+        string $currencyCode,
+        array $snapshots,
+        ?DeliveryZone $zone,
+        ?string $deliveryWindowCode,
+        ?CarbonImmutable $effectiveDate,
+        CarbonImmutable $now,
+        ?callable $within = null,
+    ): Order {
         $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
         $fee = $zone instanceof DeliveryZone ? $zone->delivery_fee_minor : null;
 
-        $order = DB::transaction(function () use ($cart, $account, $address, $zone, $fee, $subtotal, $snapshots, $deliveryWindowCode, $effectiveDate, $now): Order {
+        return DB::transaction(function () use (
+            $account, $address, $organisationId, $salesChannelId, $branchId, $currencyCode,
+            $snapshots, $zone, $fee, $subtotal, $deliveryWindowCode, $effectiveDate, $now, $within,
+        ): Order {
             $order = new Order;
             $order->order_number = $this->numbers->next();
-            $order->organisation_id = $cart->organisation_id;
+            $order->organisation_id = $organisationId;
             $order->customer_account_id = (string) $account->getKey();
-            $order->sales_channel_id = $cart->sales_channel_id;
-            $order->branch_id = $cart->branch_id;
+            $order->sales_channel_id = $salesChannelId;
+            $order->branch_id = $branchId;
             $order->status = OrderStatus::Placed;
-            $order->currency_code = $cart->currency_code;
+            $order->currency_code = $currencyCode;
             $order->subtotal_minor = $subtotal;
             $order->delivery_fee_minor = $fee;
             $order->total_minor = $subtotal + ($fee ?? 0);
@@ -299,32 +518,146 @@ final readonly class OrderPlacementService
                 $line->pack_summary = $snapshot['pack_summary'];
                 $line->price_list_id = $snapshot['price_list_id'];
                 $line->price_list_item_id = $snapshot['price_list_item_id'];
+                // NULL for every line the resolver priced — which is every
+                // line except a subscription's grandfathered one.
+                $line->price_source = $snapshot['price_source'] ?? null;
                 $line->save();
             }
 
-            // Same transaction, deliberately. An order beside a still-open
-            // basket is how a customer orders the same food twice.
-            $this->carts->markConverted($cart, (string) $order->getKey());
+            if ($within !== null) {
+                $within($order);
+            }
 
             return $order;
         });
+    }
 
-        $this->audit->record(
-            'order.placed',
-            actorUserId: $this->context->userId(),
-            subjectType: 'order',
-            subjectId: (string) $order->getKey(),
-            metadata: [
-                'cart_id' => (string) $cart->getKey(),
-                'customer_account_id' => (string) $account->getKey(),
-                'line_count' => count($snapshots),
-                'total_minor' => $order->total_minor,
-                'currency' => $order->currency_code,
-                'payment_method' => $order->payment_method->value,
-            ],
-        );
+    /**
+     * Whether the branch will still take an order for that day, as refusals.
+     *
+     * Shared by both entry points so there is one definition of "too late".
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function scheduleReasons(?string $branchId, ?CarbonImmutable $effectiveDate, CarbonImmutable $now): array
+    {
+        if ($branchId === null || ! $effectiveDate instanceof CarbonImmutable) {
+            return [];
+        }
 
-        return $order;
+        $schedule = $this->scheduling->explain($branchId, $effectiveDate, $now);
+
+        if ($schedule['accepted']) {
+            return [];
+        }
+
+        return [[
+            'reason' => $schedule['reason'] ?? 'cut_off_passed',
+            'branch_id' => $branchId,
+            'requested_date' => $effectiveDate->toDateString(),
+            'cut_off_at' => $schedule['cut_off_at'],
+        ]];
+    }
+
+    /**
+     * Probe and snapshot the lines of a composed placement.
+     *
+     * The sibling of `repriced()`, and it runs the *same* probe: a composed
+     * order is refused for a withdrawn article, an unoffered one or an inactive
+     * variant exactly as a basket is. The one difference is what happens to the
+     * price half of the answer — see `PriceOverride`. Two refusals become
+     * inapplicable when an override is supplied, `unpriced` and
+     * `currency_mismatch`, because the caller has supplied both halves of the
+     * thing that was missing; every other refusal stands, including a
+     * `currency_mismatch` in the override itself, which is checked here rather
+     * than trusted.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function composedSnapshots(ComposedPlacement $placement, ?CarbonImmutable $on): array
+    {
+        $channel = SalesChannel::withoutTenancy()->whereKey($placement->salesChannelId)->first();
+
+        if (! $channel instanceof SalesChannel) {
+            return [[], [['reason' => 'channel_unknown', 'sales_channel_id' => $placement->salesChannelId]]];
+        }
+
+        $snapshots = [];
+        $refusals = [];
+
+        foreach ($placement->lines as $line) {
+            $override = $line->price;
+
+            $result = $this->probe->probe(
+                $channel,
+                $line->catalogueItemId,
+                $line->catalogueItemVariantId,
+                $line->quantity,
+                $on,
+                $placement->currencyCode,
+            );
+
+            $blocking = $override === null
+                ? $result->refusals
+                : array_values(array_filter(
+                    $result->refusals,
+                    static fn (array $refusal): bool => ! in_array($refusal['reason'] ?? null, ['unpriced', 'currency_mismatch'], true),
+                ));
+
+            if ($override !== null && $override->currencyCode !== $placement->currencyCode) {
+                $blocking[] = [
+                    'reason' => 'currency_mismatch',
+                    'catalogue_item_id' => $line->catalogueItemId,
+                    'expected_currency' => $placement->currencyCode,
+                    'offered_currency' => $override->currencyCode,
+                ];
+            }
+
+            $item = $result->item;
+
+            if ($blocking !== [] || ! $item instanceof CatalogueItem) {
+                foreach ($blocking as $refusal) {
+                    $refusals[] = $refusal + ['catalogue_item_id' => $line->catalogueItemId];
+                }
+
+                continue;
+            }
+
+            $variant = $result->variant;
+            $unitPriceMinor = $override === null ? $result->price?->amountMinor : $override->unitPriceMinor;
+
+            if ($unitPriceMinor === null) {
+                $refusals[] = ['reason' => 'unpriced', 'catalogue_item_id' => $line->catalogueItemId];
+
+                continue;
+            }
+
+            // Minor units, so the rounding happens exactly once, at the line
+            // total — the same arithmetic `repriced()` performs.
+            $lineTotal = (int) round($unitPriceMinor * (float) $line->quantity);
+
+            $snapshots[] = [
+                'catalogue_item_id' => (string) $item->getKey(),
+                'catalogue_item_variant_id' => $variant?->getKey() === null ? null : (string) $variant->getKey(),
+                'name_en' => $item->name_en,
+                'name_ar' => $item->name_ar,
+                'variant_label' => $variant === null ? null : ($variant->name_en ?? $variant->code),
+                'quantity' => $line->quantity,
+                'unit_price_minor' => $unitPriceMinor,
+                'line_total_minor' => $lineTotal,
+                'currency_code' => $placement->currencyCode,
+                'allergens' => $this->publicAllergens($item),
+                'pack_summary' => $variant === null ? null : $this->packSummary((string) $variant->getKey()),
+                // The tariff row is still recorded when there was one, even
+                // behind an override: "which row said so today" is worth
+                // knowing beside "what we actually charged".
+                'price_list_id' => $result->price?->priceListId,
+                'price_list_item_id' => $result->price?->priceListItemId,
+                'price_source' => $override?->source,
+            ];
+        }
+
+        return [$snapshots, $refusals];
     }
 
     /**
@@ -444,9 +777,9 @@ final readonly class OrderPlacementService
     /**
      * @return list<array<string, mixed>>
      */
-    private function addressReasons(Cart $cart, CustomerAddress $address): array
+    private function addressReasons(string $customerAccountId, CustomerAddress $address): array
     {
-        if ($address->customer_account_id !== $cart->customer_account_id) {
+        if ($address->customer_account_id !== $customerAccountId) {
             // Deliberately the same answer as "no such address": confirming
             // that an identifier belongs to somebody else is a disclosure.
             return [['reason' => 'address_not_owned']];
@@ -471,11 +804,11 @@ final readonly class OrderPlacementService
      *
      * @return array{0: DeliveryZone|null, 1: list<array<string, mixed>>}
      */
-    private function zoneFor(Cart $cart, CustomerAddress $address): array
+    private function zoneFor(?string $branchId, CustomerAddress $address): array
     {
         $areaId = $address->delivery_area_id;
 
-        $explained = $this->zones->explain($areaId, $cart->branch_id);
+        $explained = $this->zones->explain($areaId, $branchId);
 
         if ($explained['serves'] && $explained['zone'] instanceof DeliveryZone) {
             return [$explained['zone'], []];

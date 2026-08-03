@@ -28,6 +28,7 @@
         "healthy360/pricing": "^1.0",
         "healthy360/recipes": "^1.0",
         "healthy360/reference-data": "^1.0",
+        "healthy360/subscriptions": "*",
         "healthy360/support": "^1.0",
         "healthy360/tenancy": "^1.0",
         "healthy360/verification": "*",

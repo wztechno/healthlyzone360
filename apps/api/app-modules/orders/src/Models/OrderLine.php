@@ -43,12 +43,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, mixed>|null $pack_summary
  * @property string|null $price_list_id
  * @property string|null $price_list_item_id
+ * @property string|null $price_source
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read Order|null $order
  */
 #[Classified(DataClassification::Public, 'name_en', 'name_ar', 'variant_label', 'quantity', 'allergens', 'pack_summary')]
-#[Classified(DataClassification::Internal, 'unit_price_minor', 'line_total_minor', 'price_list_id', 'price_list_item_id')]
+#[Classified(DataClassification::Internal, 'unit_price_minor', 'line_total_minor', 'price_list_id', 'price_list_item_id', 'price_source')]
 class OrderLine extends BaseModel
 {
     /** @use HasFactory<OrderLineFactory> */

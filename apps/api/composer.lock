@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b6f3884db423a6859641f797b3ee4b72",
+    "content-hash": "0cf1eafa1d03ec6127bc2c5b0cbdb7d8",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2540,6 +2540,38 @@
                     "Healthy360\\ReferenceData\\Tests\\": "tests/",
                     "Healthy360\\ReferenceData\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\ReferenceData\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/subscriptions",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/subscriptions",
+                "reference": "478f7189300fbcea3a191f93f499a21ca8f6350f"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Subscriptions\\Providers\\SubscriptionsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Subscriptions\\": "src/",
+                    "Healthy360\\Subscriptions\\Tests\\": "tests/",
+                    "Healthy360\\Subscriptions\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Subscriptions\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [

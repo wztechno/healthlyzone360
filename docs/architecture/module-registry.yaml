@@ -337,10 +337,35 @@ modules:
     description: Order capture — placement that reprices every line authoritatively, snapshots the commercial half of each article and the delivery address, resolves the zone fee and the branch cut-off, and refuses in one answer carrying every reason; the placed/confirmed/fulfilled/cancelled state machine; service-level idempotency over the shared key table; cash on delivery only, with no payment column of any kind. Fulfilment orchestration and delivery operations arrive with F1.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Kitchens, Cart]
 
+  # Flipped to `foundation` by S1, with the scope narrowed to what the approved
+  # semantics actually build (docs/s1-subscription-semantics-proposal.md): a
+  # customer subscription as a consumable balance of delivery days, the 24-hour
+  # change window, incremental one-delivery-ahead order generation, the absolute
+  # allergen gate on substitution, grandfathered per-day pricing, and a credit
+  # memo recorded for manual settlement on cancellation. Trials, upgrades,
+  # downgrades and B2B recurring arrangements are **not** built and are no
+  # longer claimed by this description.
+  #
+  # The declared edges are the imports the architecture test can see, and both
+  # of the P0 edges are gone. **Payments** because it is `planned` and a module
+  # that may hold code may not depend on one that may not — S1 moves no money by
+  # construction, which is what `credit_memos` records. **Features** because
+  # nothing here reads an entitlement; a subscription is a purchase, not a
+  # feature flag, and declaring the edge would be a licence to import something
+  # nothing imports.
+  #
+  # Orders is the load-bearing new edge: generation places a real order through
+  # `OrderPlacementService::placeComposed()`, and reads `CheckoutEligibility`
+  # and `SellerContext` rather than restating either. Cart joins it because
+  # `LineProbe` is the single definition of "orderable" and both the plan check
+  # and the substitution search ask it. The edges all run
+  # Subscriptions → the other module and none runs back, so the graph stays
+  # acyclic — nothing that may hold code depends on Subscriptions.
   - name: Subscriptions
-    status: planned
-    description: Consumer and partner subscription lifecycles, trials, upgrades and downgrades.
-    depends_on: [Features, Payments]
+    status: foundation
+    phase: 3
+    description: Customer subscriptions as a consumable balance of delivery days — weekday selection, the plan's own 24-hour change window over skip, pause, resume, address and window changes, incremental order generation one delivery ahead with a grandfathered per-day price, an absolute allergen gate on automatic substitution, a schedule projection for kitchen demand, renewal at exhaustion, and cancellation with the unused balance recorded as a credit memo for manual settlement. No money movement, no trials, no upgrades or downgrades, and no B2B recurring orders.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Cart, Orders]
 
   - name: Payments
     status: planned
