@@ -240,6 +240,81 @@ tags:
       **Read-only, and permanently so.** What a customer *does* — a cart, an
       order, a subscription — belongs to later phases and to their own tables.
 
+  - name: Subscriptions
+    description: |
+      A standing arrangement to be fed: starting one, changing it, and reading
+      what it has left.
+
+      **A subscription is a balance, not a calendar range.** A twenty-day plan
+      is twenty *deliveries*, and skipping or pausing stretches it into the
+      future rather than burning it — nothing a customer does to a subscription
+      consumes a balance day, only generation does, and only when a real order
+      exists.
+
+      **The price is captured once, at purchase.** The grandfathering promise
+      is a set of columns rather than a policy, because a policy is a thing a
+      later query forgets. Nothing re-resolves a live subscription's price;
+      `GET /subscriptions/quote` and the renewal offer are the only two moments
+      the tariff is consulted.
+
+      **Every change asks the same two questions**: is the transition legal,
+      and is it still in time. The second is the plan's own
+      `change_cutoff_hours`, computed in the branch's timezone, and the refusal
+      carries `cut_off_at` and `effective_from` so a client can say which day
+      is the earliest one a customer can still change.
+
+      **No permission codes anywhere in the customer family** — the authority is
+      ownership. The kitchen's forward view is the one exception and carries
+      `subscription.view_organisation`.
+  - name: Account closure
+    description: |
+      Asking to be let go of: "stop emailing me", or "forget me".
+
+      **One journey with two scopes, because it is one screen.**
+      `marketing_opt_out` withdraws the marketing consents, writes a
+      suppression so the next list import cannot silently re-add the person,
+      and completes before the response returns — no passcode, because there is
+      nothing irreversible to protect and friction on the reversible choice is
+      how people are pushed toward the irreversible one. `full` is an erasure
+      and is step-up proven.
+
+      **A blocker is not an error.** Open orders, live subscriptions,
+      organisation memberships and pending signatures come back inside a
+      *successful* acknowledgement with `blocked` and `blockers`, and the
+      request survives so somebody can return when their last order has
+      arrived. A verdict of `advisory` — an unsettled credit memo — is
+      disclosed and does not stop anything.
+
+      **The proof is bound to the request, not to the session.** The passcode
+      is issued by the request and recorded on its row, so a code obtained for
+      one closure cannot finalise another — including one support opened
+      moments earlier that the customer never agreed to.
+  - name: B2B offboarding
+    description: |
+      Ending a corporate relationship, one deliberate step at a time.
+
+      **Nothing cascades.** Nine states and eight separate commands: it would
+      be shorter to have sign-off revoke and archive in one transaction, and it
+      would be wrong — revocation ends people's access to a system they use for
+      work, and the platform should have to be told to do it rather than doing
+      it as a side effect of a signature. The states exist so an operator can
+      see where a wind-up has stalled.
+
+      **Notice is copied, not referenced.** `notice_period_days` is read from
+      the agreement in force and written onto the offboarding row, and
+      `effective_on` is computed once from it, so an amendment signed next week
+      cannot shorten notice that has already been served.
+
+      **A waiver is never a clearance.** Setting aside an outstanding
+      settlement position needs a second permission and a written reason, and
+      writes its own audit action — a waiver recorded as a clearance erases the
+      only difference a dispute turns on.
+
+      **Archiving purges the people and keeps the company.** Named contacts and
+      the signatory block go; the legal entity — legal name, registration
+      number, tax number, incorporation date — survives, because a corporate
+      record carries retention obligations the people named on it do not.
+
 security:
   - sessionCookie: []
   - bearerToken: []
@@ -10871,6 +10946,1663 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /subscriptions:
+    post:
+      operationId: createSubscription
+      tags: [Subscriptions]
+      summary: Start a subscription
+      description: |
+        Buying twenty days of food.
+
+        **Not under `/me`, and the asymmetry with `GET /me/subscriptions` is the
+        one `/carts` and `/me/orders` already draw**: a creation names no
+        existing resource of the caller's, while a list of standing arrangements
+        is a *collection of mine*.
+
+        **`Idempotency-Key`, exactly as `POST /orders` carries it**, and this is
+        the more expensive of the two: a double tap on a slow connection produces
+        a second standing arrangement and the customer finds out when twice the
+        food starts arriving every morning. A replay repeats the original
+        response exactly — `201` again, with `Idempotency-Replayed: true`. The
+        key is optional for the reason it is everywhere: refusing unkeyed
+        requests would break every caller that has ever worked, to protect them
+        from a risk they may not have.
+
+        The refusal carries **every** reason at once, and the price is resolved
+        and captured server-side — there is no field a client could quote a price
+        in.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '201':
+          description: The subscription, with its captured price and its opening balance.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /subscriptions/quote:
+    get:
+      operationId: quoteSubscription
+      tags: [Subscriptions]
+      summary: What a plan configuration would cost
+      description: |
+        A quote and not a hold: nothing is reserved and nothing is written.
+
+        **Authenticated rather than anonymous**, which is the one thing about
+        this operation worth arguing over. `price_list_items` is the single
+        catalogue table with a row-level-security policy, on the ground that a
+        negotiated price says what a kitchen will accept and from whom. The
+        marketplace's plan pages already carry a *published consumer* price
+        through the public projection, which is a different number reached a
+        different way; serving this resolver anonymously would hand anybody a
+        probe for every tariff a kitchen has attached to a channel, one
+        configuration at a time.
+
+        A refusal is a `409`, not an empty `200`: `unpriced`,
+        `duration_not_offered`, `duration_not_fixed` and
+        `pricing_basis_unsupported` are all facts about the world rather than
+        about the request's shape. The last one names itself deliberately — a
+        per-week plan is refused on principle, and collapsing it into "unpriced"
+        would send a kitchen hunting for a tariff row that is not missing.
+      parameters:
+        - name: sales_channel_id
+          in: query
+          required: true
+          description: The channel being bought through.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: catalogue_item_id
+          in: query
+          required: true
+          description: The plan.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: catalogue_item_variant_id
+          in: query
+          required: true
+          description: The configuration — the matrix cell.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: plan_duration_id
+          in: query
+          required: true
+          description: The run being priced.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The current quote for this configuration on this run.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanQuoteEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '409':
+          $ref: '#/components/responses/SubscriptionRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions:
+    get:
+      operationId: listMySubscriptions
+      tags: [Subscriptions]
+      summary: The caller's own standing arrangements
+      description: |
+        **Unpaginated, and unlike the order history that is not a shortcut.** A
+        person holds one subscription, or two, or a handful across kitchens; the
+        collection has a natural ceiling that order history does not, and a
+        cursor on a list nobody can fill would be a parameter to document,
+        version and test in exchange for nothing.
+
+        **Live ones first, then the rest by recency.** Somebody opening this
+        screen is nearly always looking at what is running now.
+
+        **No `balance` on the list rows.** Computing it counts skipped days per
+        subscription, which is a query per row; the list carries
+        `remaining_days` and `next_delivery_date` from columns the row already
+        holds, and the single read carries the full balance.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every subscription the caller holds, live ones first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}:
+    get:
+      operationId: showMySubscription
+      tags: [Subscriptions]
+      summary: One of the caller's own subscriptions, with its balance
+      description: |
+        Somebody else's is `404 resource.not_found`, never 403: the row carries a
+        delivery address, a weekday pattern and a price somebody negotiated, and
+        confirming that a guessed identifier names a real standing arrangement is
+        a disclosure on its own.
+
+        Carries an `ETag`. Nothing requires the client to send it back — the
+        writes accept `If-Match` rather than demanding it, because a subscription
+        has one author and the race would have to be run by a customer against
+        themselves — but a client holding two tabs open cannot protect itself
+        with a validator it was never given.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The subscription and its balance.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/pause:
+    post:
+      operationId: pauseSubscription
+      tags: [Subscriptions]
+      summary: Stop the deliveries, keep the days
+      description: |
+        A POST sub-resource action, never a `PATCH status`. Pausing, resuming and
+        cancelling are three decisions with three consequences, three timestamps
+        and three journal events; a status field would collapse them into one
+        write a client could aim anywhere.
+
+        **Nothing here consumes a balance day**, and the response carries the
+        balance so the screen can say so rather than implying it. A paused
+        subscription has no `next_delivery_date` at all.
+
+        The refusal a customer most often sees is `inside_cut_off`: the next
+        delivery is nearer than the plan's window allows, so it proceeds and the
+        pause takes effect after it.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The paused subscription and its untouched balance.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/resume:
+    post:
+      operationId: resumeSubscription
+      tags: [Subscriptions]
+      summary: Start again from the first day a change can still reach
+      description: |
+        The response's `next_delivery_date` is the whole answer, and is why this
+        is not a `PATCH status`: resuming does not restart from tomorrow, it
+        restarts from the first weekday the subscription delivers on that is
+        still outside the plan's change window — because a resume producing a
+        delivery the customer had no chance to stop would be worse than one that
+        waited a day.
+
+        `exhausted` is the refusal worth knowing about: a spent balance cannot be
+        resumed, and the answer is a renewal rather than a change.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The resumed subscription, with the recomputed next delivery date.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/cancel:
+    post:
+      operationId: cancelSubscription
+      tags: [Subscriptions]
+      summary: End a subscription and record what is owed
+      description: |
+        **The credit memo comes back in the same response, and that is the point
+        of the operation rather than a convenience.** The refund is recorded as
+        an obligation for manual settlement — no money moves — and a customer
+        who cancels twelve unused days of a plan they paid for is owed a number
+        on the screen at that moment. A client that had to make a second call
+        would render "cancelled" with nothing beside it, which reads as "and that
+        is that".
+
+        `credit_memo` is **null** when nothing is owed, which is not the same as
+        an empty object: a zero memo would be an obligation somebody eventually
+        tries to settle.
+
+        There is no DELETE. A cancelled subscription keeps its captured price and
+        its history, because the memo multiplies the price it actually paid and a
+        deleted row could not explain the number.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelSubscriptionRequest'
+      responses:
+        '200':
+          description: The cancelled subscription and the credit memo, or null when nothing is owed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionCancellationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/skips:
+    post:
+      operationId: skipSubscriptionDay
+      tags: [Subscriptions]
+      summary: Skip one delivery day
+      description: |
+        **A sub-collection rather than an action, because a skip is a thing that
+        exists afterwards**: it creates a delivery row for the named day with
+        `status: skipped_customer` and `consumed: false`, which the ledger then
+        shows. `201` for the same reason.
+
+        **It costs nothing, and the response proves it** — the balance comes back
+        beside the created day so the screen can show `remaining_days` unchanged.
+
+        The row is written *before* the day is ever generated, which is what
+        makes the unique index on `(subscription_id, delivery_date)` the thing
+        that stops generation producing an order for a day already skipped.
+        Skipping a settled day is `already_settled` rather than a silent no-op:
+        the food is coming and the customer needs to know.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkipSubscriptionDayRequest'
+      responses:
+        '201':
+          description: The skipped day, and the unchanged balance beside it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionSkipEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/address:
+    put:
+      operationId: updateSubscriptionAddress
+      tags: [Subscriptions]
+      summary: Move a subscription to another of the caller's addresses
+      description: |
+        **A `PUT` on a named sub-resource rather than a `PATCH` on the
+        subscription**, and the three of address, window and weekdays are
+        separated because each asks a different question of the world. Changing
+        the address re-runs the delivery map — the kitchen may not go to the new
+        area at all — while changing the window asks nothing of it. A single
+        `PATCH` accepting all three would have to run every check on every call,
+        and a client changing a delivery slot would be refused because it moved
+        house in the same body.
+
+        **The subscription follows the customer; the orders already placed do
+        not.** Each generated order snapshots the address at placement, so
+        somebody who moves has tomorrow's delivery follow them while last week's
+        still says where it went.
+
+        `area_not_served` and `zone_suspended` are worth rendering distinctly:
+        the first means nobody delivers there, the second that this kitchen's
+        zone is suspended and somebody else might.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubscriptionAddressRequest'
+      responses:
+        '200':
+          description: The subscription, now delivering to the named address.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/window:
+    put:
+      operationId: updateSubscriptionWindow
+      tags: [Subscriptions]
+      summary: Change which slot the food arrives in
+      description: |
+        The lightest of the three replacements: it asks nothing of the delivery
+        map and nothing of the plan's rights, only whether the next delivery is
+        still changeable.
+
+        `null` is a legal value and means "no preference"; the field is required
+        and nullable so that both saying and unsaying are expressible.
+
+        The code is **not** checked against the branch's configured windows.
+        Which slots a kitchen offers on which weekdays is scheduling data that
+        changes without reference to standing subscriptions, and validating here
+        would turn a kitchen retiring a slot into a refusal on somebody else's
+        unrelated edit.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubscriptionWindowRequest'
+      responses:
+        '200':
+          description: The subscription, with its new delivery window.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/weekdays:
+    put:
+      operationId: updateSubscriptionWeekdays
+      tags: [Subscriptions]
+      summary: Change which weekdays the subscription delivers on
+      description: |
+        A replacement rather than a merge: dropping Wednesday means no longer
+        wanting Wednesday, and a merge cannot express a removal.
+
+        **The generation cursor is recomputed, and the response is where a client
+        sees it.** The old one may name a day the subscription no longer delivers
+        on, and a cursor pointing at a day that will never come is a subscription
+        that silently stops.
+
+        **The balance does not change.** Fewer weekdays means the same number of
+        days spread over more calendar time, not fewer days.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubscriptionWeekdaysRequest'
+      responses:
+        '200':
+          description: The subscription, with the new weekday set and the recomputed next delivery date.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/choices:
+    put:
+      operationId: replaceSubscriptionChoices
+      tags: [Subscriptions]
+      summary: Choose ahead on a Free Selection day
+      description: |
+        **One day per call, named in the body rather than in the path.** A date
+        is not an identifier of anything — the delivery row usually does not
+        exist yet, which is the whole point — so `.../choices/{date}` would be a
+        path segment that looks like a resource and is not one.
+
+        **An empty `meals` array is a real payload**: it is a customer saying "I
+        have not chosen; send me the kitchen's default".
+
+        Only `customer`-source rows are replaced. A `substituted` row is
+        generation's record that something chosen was unsafe and what went
+        instead, and letting a later `PUT` delete it would erase the substitution
+        audit — the one audit an allergy complaint needs most. A day that has
+        already been generated is refused outright rather than partially
+        rewritten.
+
+        **No allergen verdict in the response, and that is deliberate.** Safety
+        is checked at generation against the customer's declarations as they
+        stand *then*; answering "this is safe" here would be a verdict that goes
+        stale the moment somebody adds an allergy, and a client once told "safe"
+        would have no reason to ask again.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceSubscriptionChoicesRequest'
+      responses:
+        '200':
+          description: The day's chosen meals as recorded.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionChoicesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SubscriptionChangeRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/subscriptions/{subscription}/deliveries:
+    get:
+      operationId: listSubscriptionDeliveries
+      tags: [Subscriptions]
+      summary: The subscription's ledger
+      description: |
+        **The rows that exist, and only those.** Deliberately *not* the
+        customer's version of the kitchen's projection: it lists real delivery
+        days — generated, skipped, delivered — newest first. What is *coming* is
+        `next_delivery_date` plus the weekday pattern, which the client already
+        holds; serving projections here would put days into somebody's ledger
+        that nothing has committed to, and the first support question would be
+        why a delivery "disappeared" when the plan was paused.
+
+        **The meal choices ride along**, carrying `source` and
+        `replaced_catalogue_item_id`: the substitution promise is worth nothing
+        if the only place it is recorded is an audit table.
+
+        `unsafe_allergen_classes` is not served — it is health data, and what a
+        customer needs from this screen is that a substitution happened, not a
+        restatement of their medical profile on a delivery row.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every delivery day this subscription has, newest first, with the balance in `meta`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionDeliveriesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/subscription-schedule:
+    get:
+      operationId: listSubscriptionSchedule
+      tags: [Subscriptions]
+      summary: The kitchen's forward book of standing arrangements
+      description: |
+        **The operation that makes one-day-ahead generation affordable.** A
+        single delivery is generated ahead so the order book stays truthful, and
+        the obvious objection is that a kitchen then cannot see next week. It
+        sees next week here: the delivery rows that exist, laid over the weekday
+        patterns of every active subscription, bounded by each one's remaining
+        balance. **Nothing on this path writes anything** — a projection that
+        materialised rows would be the phantom orders the design exists to avoid,
+        and would have to be un-materialised on every skip, pause and
+        cancellation.
+
+        **Every row says whether it is `actual` or `projected`**, and a kitchen
+        planning production must never confuse them: an actual day has an order
+        behind it, and a projected one is a customer who has not yet had the
+        chance to skip. `meta.daily_counts` is the number a production plan is
+        built from, with skipped and cancelled days already excluded.
+
+        `subscription.view_organisation` — not `order.view_organisation`, because
+        a subscription is a standing commercial arrangement with a captured price
+        and reading today's order list is not by itself a reason to see who is
+        committed to what and for how long; and not
+        `plan.manage_organisation`, because a production planner needs to read
+        the schedule without being able to change what the kitchen sells.
+
+        Organisation-scoped, not branch-scoped: a manager with an
+        organisation-wide membership selects no branch, and an operation reading
+        `X-Branch-Id` would show them nothing until they picked one.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SubscriptionScheduleFrom'
+        - $ref: '#/components/parameters/SubscriptionScheduleTo'
+        - $ref: '#/components/parameters/SubscriptionScheduleBranch'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The window's deliveries, actual and projected, with the daily counts in `meta`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionScheduleEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/closure-requests:
+    post:
+      operationId: openClosureRequest
+      tags: [Account closure]
+      summary: Ask to stop the marketing, or to be forgotten
+      description: |
+        **One operation for both scopes, because it is one screen.** Somebody who
+        has decided to stop hearing from a service is frequently deciding whether
+        to stop being a customer, and making them find two different pages is how
+        a platform ends up with an opt-out nobody could find and a closure nobody
+        meant.
+
+        **The status says which half happened.** `marketing_opt_out` comes back
+        `200` already `completed` — the consents are withdrawn and the
+        suppression written before the response returns, because the expectation
+        is that "stop emailing me" has taken effect by the time the page reloads.
+        `full` comes back `202`: accepted, passcode in flight, nothing erased.
+
+        **A blocked request is a `202`, not an error.** `blocked` and `blockers`
+        are fields in a successful body and the request survives so somebody can
+        come back when their last order has arrived. No passcode is sent for a
+        request that cannot proceed — asking somebody to prove their identity for
+        an act already decided against is friction for nothing.
+
+        **No step-up middleware**, and this is the most destructive act a
+        customer can perform. The journey carries a stronger proof of its own: a
+        passcode sent to the account's verified destination and bound to *this
+        request* on its row. A purpose-scoped step-up flag would stop a
+        contact-verification code unlocking a closure and would not stop *a*
+        closure code finalising *another* one.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenClosureRequestRequest'
+      responses:
+        '200':
+          description: A marketing opt-out, already completed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosureAcknowledgementEnvelope'
+        '202':
+          description: A full closure, accepted. A passcode is in flight, or the request is blocked and says so.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosureAcknowledgementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '409':
+          $ref: '#/components/responses/ClosureRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/closure-requests/live:
+    get:
+      operationId: showLiveClosureRequest
+      tags: [Account closure]
+      summary: The closure request in flight, and what stands in its way
+      description: |
+        **`/live` rather than an index, because there is at most one.** A
+        collection would be a list that is always empty or a singleton, and every
+        client would have to write `[0]`. Completed and cancelled requests are
+        deliberately not listed at all: a history of somebody's previous attempts
+        to leave is not something the platform has a reason to hand back.
+
+        **`closure_request` is null when nothing is in flight, and `blockers` is
+        filled in regardless.** That pairing is the operation: a closure screen
+        has to render *before* anybody asks, and re-evaluating on render is what
+        makes it truthful — a subscription started this morning is exactly what a
+        verdict cached on the request row would miss.
+
+        The verdicts include `advisory` ones, so a client must branch on `status`
+        rather than on the presence of a row. `blocked` summarises the `blocking`
+        ones alone.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The live request if there is one, and the freshly evaluated blockers either way.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveClosureRequestEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/closure-requests/{closureRequest}/verify:
+    post:
+      operationId: verifyClosureRequest
+      tags: [Account closure]
+      summary: Prove a closure with the passcode
+      description: |
+        **The authenticated user is the actor, always**, and that is not
+        decoration: the server refuses when the actor is not the person the
+        request is about. Support may *open* a closure on somebody's behalf and
+        may never finish one, because staff who could do both would be staff who
+        can erase anybody.
+
+        **There is no separate challenge operation.** The passcode is issued when
+        the request is opened and bound to it on the row, which is what stops a
+        code obtained for one closure finalising another. A client that needs a
+        fresh code uses `POST /verification/challenges/{challenge}/resend`; a
+        second issuing surface here would be a second place for the binding to be
+        got wrong.
+
+        **A blocked request comes back `200` and stays `verified`.** The person
+        proved who they were, and making them do it again after their last order
+        arrives would be punishing them for the platform's scheduling.
+
+        Otherwise the request moves to `scheduled` and finalisation is queued for
+        the moment the grace window closes — zero-length by default.
+        `scheduled_for` is the moment after which there is nothing left to
+        cancel.
+
+        Every way of failing the passcode — mistyped, expired, superseded, locked
+        out — answers `422 otp.invalid` with nothing that tells them apart.
+      parameters:
+        - $ref: '#/components/parameters/ClosureRequestPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyClosureRequestRequest'
+      responses:
+        '200':
+          description: The proven request — scheduled, or still verified and blocked.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosureAcknowledgementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ClosureRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/closure-requests/{closureRequest}:
+    delete:
+      operationId: cancelClosureRequest
+      tags: [Account closure]
+      summary: Call off a closure request
+      description: |
+        **A `DELETE` that stamps rather than removes.** The row is marked
+        `cancelled` with `cancelled_because`, and who asked to leave and then
+        changed their mind is exactly the trail a data-protection enquiry reads.
+        Nothing is erased by cancelling an erasure.
+
+        **It answers with the row rather than `204`.** Somebody calling off an
+        account deletion needs to see that it is off, not an empty body.
+
+        Legal up to and including `scheduled`. After finalisation there is
+        nothing left to cancel — the data is gone — and offering it would be an
+        undo that does not exist.
+      parameters:
+        - $ref: '#/components/parameters/ClosureRequestPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The cancelled request.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelledClosureRequestEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ClosureRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/customer-accounts/{account}/closure-requests:
+    post:
+      operationId: openClosureRequestForCustomer
+      tags: [Account closure]
+      summary: Open a closure on a customer's behalf
+      description: |
+        Support opening a closure — a phone call, an accessibility need.
+
+        **Support may open one and may never finish one**, and that asymmetry is
+        the entire reason this is separate from the customer's own operation.
+        There is no platform `verify` route and there never will be: the passcode
+        goes to the *customer's* verified destination, the server refuses a
+        support actor entering it, and the customer's inbox is the second factor
+        — the only one they have.
+
+        **Two gates.** `platform.context` asserts the selected organisation *is*
+        the platform operator; `customer_account.close_platform` asserts the
+        member holds the code. A tenant that somehow acquired the permission
+        still cannot reach this, because an organisation type is not something a
+        tenant can grant itself — and this is the one operation on the platform
+        that starts the deletion of a named person's data.
+
+        **Keyed on the customer account rather than the user**: an agent is
+        looking at an account, and an operation taking a `users` identifier would
+        make "which person is this login" a lookup against a table they have no
+        other reason to read. `b2c` only — a corporate account belongs to the
+        company, outlives the individual who opened it, and is offboarding's to
+        end. An account with no owner is `422`: closure is about an identity, and
+        a guest has their own deletion journey.
+
+        The actor is recorded and every audit row carries
+        `purpose_of_use = support` rather than `self_service`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          description: The customer account whose owner is being closed.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenClosureRequestRequest'
+      responses:
+        '200':
+          description: A marketing opt-out, already completed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosureAcknowledgementEnvelope'
+        '202':
+          description: A full closure, accepted. The passcode has gone to the customer.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosureAcknowledgementEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ClosureRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings:
+    post:
+      operationId: startOffboarding
+      tags: [B2B offboarding]
+      summary: Serve notice and open a wind-up
+      description: |
+        **Platform-driven, with no organisation-side variant.** A tenant does not
+        decide that its own trading relationship ends. An organisation *request*
+        to be offboarded is a real future need and is deferred rather than
+        approximated: it needs a state before `notice_served` and a human
+        decision at the platform, and an operation that let a company put itself
+        straight into `notice_served` would look like the same thing while ending
+        its own trading with nobody in the loop.
+
+        **`201`, and what it creates is the wind-up rather than the ending.**
+        Notice is served, `effective_on` is computed once from the agreement's
+        own `notice_period_days` and copied onto the row, and nothing has been
+        taken away from anybody. Every subsequent step is a separate deliberate
+        act, because revocation ends people's access to a system they use for
+        work.
+
+        An organisation already being wound up is refused here as well as by the
+        partial unique index, so an operator gets a sentence rather than a
+        constraint violation.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartOffboardingRequest'
+      responses:
+        '201':
+          description: The wind-up, at `notice_served`, with its computed effective date.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}:
+    get:
+      operationId: showOffboarding
+      tags: [B2B offboarding]
+      summary: Where a wind-up has got to
+      description: |
+        **The states exist so an operator can see where a wind-up has stalled**,
+        which is the whole reason nothing cascades. So the shape carries every
+        stage's timestamps rather than a single `status` and a guess.
+
+        `allowed_transitions` travels with the row: a screen renders buttons, and
+        a client that had to reimplement the state machine to know which ones to
+        enable would be a second copy of it — the one that disagrees after the
+        first change.
+
+        The `ETag` is served, and none of the actions demands `If-Match`: the
+        transitions are guarded by the state machine, which is a stronger
+        guarantee than "only if nobody touched it since you looked" —
+        `signed_off` to `signed_off` is illegal whatever validator a caller
+        holds.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The wind-up in full.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/settlement-checks:
+    post:
+      operationId: runOffboardingSettlementChecks
+      tags: [B2B offboarding]
+      summary: Run every settlement check and record what each found
+      description: |
+        **A sub-collection rather than an action, because re-running is the
+        normal case.** The company pays, somebody runs the checks again, and
+        `settlement_pending` to `settlement_pending` is a legal transition for
+        exactly that reason.
+
+        **The response is where the honesty lands.** A check that cannot run
+        reports `not_applicable` with a reason rather than `clear`, so a screen
+        renders "2 clear, 1 not checked (no payments module)" instead of "all
+        clear" — a summary that reads as an all-clear when it is a gap is the
+        specific failure this shape exists to prevent.
+
+        A clear assessment moves the wind-up to `awaiting_signoff` in the same
+        call and writes **two** audit rows: "the checks ran" and "settlement
+        resolved" are separate facts, and a wind-up that jumped straight to
+        `awaiting_signoff` would leave no record that anything was ever checked.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The wind-up with the assessment recorded, moved to `awaiting_signoff` if everything was clear.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/settlement-waiver:
+    post:
+      operationId: waiveOffboardingSettlement
+      tags: [B2B offboarding]
+      summary: Set aside an outstanding settlement position
+      description: |
+        The escape hatch, treated as one.
+
+        **A second permission, stacked on top.**
+        `b2b_offboarding.waive_settlement_platform` beside
+        `b2b_offboarding.manage_platform`: driving a wind-up is an operational
+        job, while deciding that a company may stop owing money and leave anyway
+        is a commercial concession, and the two are not the same person on any
+        organisation chart. A waiver reachable by everybody who can click through
+        the other eight steps would be the escape hatch quietly becoming the
+        path.
+
+        The service demands a **callable authoriser** rather than reading a code
+        itself, and the argument is required so a call site cannot default it to
+        true by omission — which is what keeps a console command or a queued job
+        from reaching this without consulting anything.
+
+        **The waiver writes its own audit action**, never `settlement_cleared`,
+        because a waiver recorded as a clearance erases the only difference a
+        dispute turns on. The reason is required and is carried on the row.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaiveOffboardingSettlementRequest'
+      responses:
+        '200':
+          description: The wind-up, settlement waived, at `awaiting_signoff`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/signoff-challenges:
+    post:
+      operationId: issueOffboardingSignoffChallenge
+      tags: [B2B offboarding]
+      summary: Send the signatory their sign-off passcode
+      description: |
+        **To the agreement's signatory, never to whoever is driving the
+        wind-up.** The destination is resolved from the agreement's
+        `signatory_user_id` through that person's login contact — the one row
+        that must agree with the login identity — so there is no question which
+        of somebody's addresses is meant and no way for an operator to nominate
+        one. The person who signed a company in is the person who signs it out.
+
+        **That makes this different in kind from the agreement-signing
+        challenge**, where the caller *is* the signatory and the code goes to
+        their own contact. Here the caller is a platform operator and the
+        recipient is somebody else entirely, which is why the response says only
+        that a code was sent and where, in the masked form the verification
+        module authors.
+
+        `202`: a challenge is a message in flight, not a resource the caller may
+        then read.
+
+        An agreement naming a signatory the platform cannot reach is a `422` and
+        a real state rather than a defect — the answer is to amend the agreement,
+        not to invent a destination.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '202':
+          description: The challenge, with a masked destination and a countdown. Never the code.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallengeEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/signoff:
+    post:
+      operationId: signOffOffboarding
+      tags: [B2B offboarding]
+      summary: Record the signatory's acceptance
+      description: |
+        **The permission is necessary and nowhere near sufficient.** The server
+        demands a challenge that exists, carries purpose `b2b_signatory`, has
+        been *consumed*, and belongs to the caller — so an operator driving the
+        wind-up cannot sign it off from their own session, because they hold no
+        such challenge. All four failures answer identically as
+        `403 b2b.signatory_required`.
+
+        **The passcode is verified before this operation, not by it.** The
+        challenge must already be spent through
+        `POST /verification/challenges/{challenge}/verify`, which is deliberate:
+        evidence a caller asserts is not evidence, and an operation that also
+        accepted the code would be one round trip in which both the proof and the
+        thing it proves are claimed by the same request.
+
+        Settlement is checked before the evidence: a wind-up whose settlement is
+        neither cleared nor waived answers
+        `409 offboarding.settlement_outstanding` with every blocker named.
+
+        The two session hashes are computed server-side from what the connection
+        carried and are deliberately not served back.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignOffOffboardingRequest'
+      responses:
+        '200':
+          description: The wind-up, signed off, with the evidence recorded.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingSettlementOutstanding'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/revoke-access:
+    post:
+      operationId: revokeOffboardingAccess
+      tags: [B2B offboarding]
+      summary: Start taking access away
+      description: |
+        **The irreversible one, and the only step in this family that carries
+        `Idempotency-Key`.** Everything before it can be called off; from here it
+        cannot, because "cancelling" a revocation would mean silently re-granting
+        access somebody deliberately removed.
+
+        The key is optional, as everywhere else. The state machine already
+        refuses a second call — `revoking` to `revoking` is not a legal
+        transition — so the key buys a clean replayed envelope rather than the
+        only line of defence.
+
+        **`202`: the transition is written here and the work is done by a job.**
+        Ending every membership in an organisation, deleting tokens and closing
+        the organisation is more work than a request should hold, and a queued job
+        can be retried — the property the one step that can partially fail most
+        needs. The response comes back at `revoking` with the counts still null;
+        read the wind-up to see them fill in.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '202':
+          description: The wind-up at `revoking`. The work is queued.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/archive:
+    post:
+      operationId: archiveOffboarding
+      tags: [B2B offboarding]
+      summary: Purge the people, keep the company
+      description: |
+        **Re-runnable on purpose, which is why it has no `Idempotency-Key`.**
+        `archiving` to `archiving` is a legal transition so a partial failure is
+        retried rather than declared finished, and every write inside is
+        idempotent — nulling an already-null column and bringing forward an
+        already-past retention deadline both do nothing the second time. A replay
+        guard would refuse the retry this step is designed to accept.
+
+        **What goes and what stays is the decision worth reading.** The named
+        contacts' names, emails, phones and notes go; the signatory block on the
+        application goes; identity documents are made *due* rather than deleted,
+        so the purge job removes them through the one code path that knows to
+        delete the object before the row. What survives is the legal entity —
+        legal name, registration number, tax number, incorporation date — because
+        a corporate record carries retention obligations the people named on it do
+        not.
+
+        `archive.legal_entity_retained` is stated rather than left to be inferred
+        from the summary's silence.
+
+        The wind-up reaches `completed` in the same call — the one place this
+        family does cascade, and barely: the purge either finished or it threw,
+        and a state between "archived everything" and "done" would be one nothing
+        could ever leave.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The completed wind-up, with the purge summary.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/cancel:
+    post:
+      operationId: cancelOffboarding
+      tags: [B2B offboarding]
+      summary: Call a wind-up off
+      description: |
+        **A POST rather than a DELETE**, unlike a customer's own closure request,
+        and the difference is what the caller is doing: an operator cancelling a
+        wind-up is recording a commercial decision about a relationship that
+        continues, and it needs a written reason a `DELETE` has nowhere to put.
+
+        Legal right up to the moment memberships start ending, and not
+        afterwards. From `revoking` the only legal transition is `archiving`: the
+        honest answer to "can we undo this" is no, and re-granting access
+        somebody deliberately removed is a different act needing a different
+        door.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOffboardingRequest'
+      responses:
+        '200':
+          description: The cancelled wind-up, with the reason on the row.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OffboardingRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/exports:
+    post:
+      operationId: requestRecordExport
+      tags: [B2B offboarding]
+      summary: Ask for the company's records, packaged
+      description: |
+        **Nested under the wind-up rather than under the organisation**, which is
+        a deliberate narrowing: a top-level export operation would package every
+        record a company holds, available whenever anybody wanted one. Nesting it
+        means an export is always attached to a reason. A standalone export
+        surface is a real future need — a data-subject request against a
+        corporate customer — and it should arrive with its own reason rather than
+        by widening this one.
+
+        **Its own permission, stacked on top.**
+        `record_export.create_platform` beside
+        `b2b_offboarding.manage_platform`: taking a complete copy of everything a
+        company gave the platform is a different act with a different risk, the
+        same argument that makes the KYC document read narrower than the
+        application read.
+
+        **`202`, because requesting is not building.** Assembling the bundle
+        reads an organisation's whole history and hashes it; doing that inside a
+        request would make the latency a function of how long a company has been
+        a customer. The response comes back `requested` with no size and no
+        digest.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '202':
+          description: The bundle request. Building is queued.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordExportEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /platform/b2b/offboardings/{offboarding}/exports/{export}:
+    get:
+      operationId: showRecordExport
+      tags: [B2B offboarding]
+      summary: Read a bundle, and optionally take a copy
+      description: |
+        **One operation for the status and the download, and `?purpose=` is what
+        separates them.** Without it this is a read — the manifest, the row
+        counts, the digest, whether it is ready. With it, a fifteen-minute signed
+        URL is minted and the access is recorded as a `Confidential` read with
+        the stated reason. Two operations would mean a client polling for
+        readiness had to poll one and then call the other, and the second would
+        be the one whose audit rows said "downloaded" for every poll.
+
+        **The URL is in the envelope, never a 302.** A redirect would put an
+        expiring credential into browser history, the referrer chain and every
+        proxy log on the way to the bucket.
+
+        **Fifteen minutes rather than the five a KYC document gets**: a bundle is
+        a large download over whatever connection the recipient has, and a URL
+        that expires mid-transfer is a failure the person cannot diagnose.
+        Fifteen rather than a day, because a signed URL is a bearer credential
+        and every extra hour is another hour it can be forwarded.
+
+        A bundle that is still building, that failed, or whose window has closed
+        is `409 record_export.unavailable` with `details.status` — never a 404,
+        because the caller is looking at a row they may see.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OffboardingPath'
+        - $ref: '#/components/parameters/RecordExportPath'
+        - $ref: '#/components/parameters/RecordExportPurpose'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The bundle, with a signed download URL when a purpose was stated.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordExportEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/RecordExportUnavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -11363,6 +13095,92 @@ components:
         type: string
         minLength: 32
         maxLength: 128
+    SubscriptionPath:
+      name: subscription
+      in: path
+      required: true
+      description: |
+        The subscription identifier. Always resolved inside the caller's own
+        customer account: somebody else's is `404 resource.not_found`, never a
+        403, because the row carries a delivery address, a weekday pattern and
+        a price somebody negotiated.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ClosureRequestPath:
+      name: closureRequest
+      in: path
+      required: true
+      description: |
+        The closure request identifier, always resolved inside the caller's own
+        identity. Somebody else's is `404 resource.not_found`: the row says that
+        a named person is leaving and why.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    OffboardingPath:
+      name: offboarding
+      in: path
+      required: true
+      description: The offboarding identifier. Platform-only; there is no tenant read path.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    RecordExportPath:
+      name: export
+      in: path
+      required: true
+      description: |
+        The records bundle identifier, always resolved *through* the offboarding
+        in the path. An export resolved by identifier alone would let a caller
+        read one company's bundle through another company's wind-up.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    RecordExportPurpose:
+      name: purpose
+      in: query
+      required: false
+      description: |
+        Why the bundle is being taken, written verbatim onto the access audit
+        event. **Its presence is what turns a status check into a download**:
+        without it the operation reads the manifest and nothing is issued; with
+        it a fifteen-minute signed URL is minted in the envelope and the access
+        is recorded as a `Confidential` read. Blank is
+        `400 request.invalid` with `details.parameter` — an access with no
+        stated reason is the access an audit trail cannot explain afterwards.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 160
+        examples: ['handover_to_customer', 'dsar_response_4821']
+    SubscriptionScheduleFrom:
+      name: from
+      in: query
+      required: false
+      description: The first day of the window. Defaults to today.
+      schema:
+        type: string
+        format: date
+    SubscriptionScheduleTo:
+      name: to
+      in: query
+      required: false
+      description: |
+        The last day of the window. Defaults to thirteen days after `from`, and
+        may be at most **sixty** days after it: the projection is
+        O(subscriptions x days), so an unbounded window is a request a client can
+        make that the kitchen cannot afford. Beyond that is
+        `400 request.invalid` with `details.max_window_days`.
+      schema:
+        type: string
+        format: date
+    SubscriptionScheduleBranch:
+      name: branch_id
+      in: query
+      required: false
+      description: |
+        Narrow to one production site. A *narrowing* of a book the caller can
+        already see, never a widening of one they cannot — which is why it is a
+        query filter and not `X-Branch-Id`.
+      schema:
+        $ref: '#/components/schemas/Uuid'
 
   responses:
     Accepted:
@@ -12124,6 +13942,208 @@ components:
               details: {}
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
 
+    SubscriptionRefused:
+      description: |
+        The subscription cannot be started as it stands, with **every** reason
+        at once. `details.reasons` is a list of `{reason, ...context}`.
+
+        All of them rather than the first, and the argument is sharper than it
+        is for a checkout: a plan is a longer, more considered purchase, and
+        telling somebody one problem per attempt — the plan is not published,
+        now the duration is not offered, now nobody delivers to your address —
+        is three round trips through a form they have already filled in.
+
+        Its own code rather than `order.placement_refused`, which the domain
+        borrowed while the error vocabulary was closed to it: a client branches
+        on the code to decide which screen to render, and a checkout basket and
+        a twenty-day plan are not the same screen.
+
+        `GET /subscriptions/quote` answers with this code too, for the subset of
+        reasons that are about price — `unpriced`, `duration_not_offered`,
+        `duration_not_fixed`, `pricing_basis_unsupported`.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: subscription.refused
+              message: This subscription cannot be started as it stands.
+              details:
+                reasons:
+                  - reason: duration_not_offered
+                    plan_duration_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
+                  - reason: area_not_served
+                    delivery_area_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d40
+                    served_by_anyone: false
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    SubscriptionChangeRefused:
+      description: |
+        The change cannot be made to the subscription as it stands.
+
+        **Mostly this is the change window.** Skip, pause, resume, address,
+        window, weekdays and meal choices all take effect only for deliveries
+        more than the plan's `change_cutoff_hours` away, and inside that window
+        the next delivery proceeds as scheduled. `inside_cut_off` carries
+        `cut_off_at` and `effective_from`, so a client can say "changes to
+        Tuesday closed at 18:00 on Monday; the earliest day you can change is
+        Wednesday" rather than "no".
+
+        The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+        right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+        assumption), `invalid_transition`, `already_settled`,
+        `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+        is a renewal), `stale_version`, `address_not_owned`,
+        `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+        `weekdays_empty`, `weekdays_invalid`, and for meal choices
+        `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+
+        A 409 rather than a validation failure: the request is well-formed and
+        the customer meant it. What has happened is that time passed.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: subscription.change_refused
+              message: This change cannot be made to the subscription as it stands.
+              details:
+                reasons:
+                  - reason: inside_cut_off
+                    delivery_date: '2026-08-11'
+                    cut_off_hours: 24
+                    cut_off_at: '2026-08-09T21:00:00+00:00'
+                    effective_from: '2026-08-13'
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    ClosureRefused:
+      description: |
+        A closure request the platform will not handle as asked.
+        `details.reason` is a stable string.
+
+        **This is not the code for a blocked closure**, and the distinction is
+        the whole shape of the journey. A blocker — open orders, a live
+        subscription, a pending signature — is information a customer acts on,
+        comes back inside a `200`/`202` acknowledgement as `blocked` and
+        `blockers`, and leaves the request alive so they can return when their
+        last order has arrived. An error code there would turn a checklist into
+        a failure.
+
+        What this code covers: `closure_already_in_flight` (a second request
+        while one is still going somewhere — refused rather than silently
+        returning the existing one, because the two may differ in scope and
+        quietly handing back an older request would answer a question nobody
+        asked), `closure_not_awaiting_verification`, `closure_not_cancellable`,
+        and `closure_no_verifiable_contact`.
+
+        Three closure refusals deliberately answer with **other** codes: a
+        support actor trying to finish somebody else's erasure is
+        `403 authz.permission_denied`, a passcode that did not verify is
+        `422 otp.invalid` (one indistinguishable shape for wrong, expired,
+        superseded and locked out), and a reason outside the vocabulary is
+        `422 validation.failed`.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: closure.refused
+              message: A closure request is already in progress for this account.
+              details:
+                reason: closure_already_in_flight
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    OffboardingRefused:
+      description: |
+        The offboarding cannot do that from where it is. `details.reason` names
+        which — `offboarding.already_in_flight`,
+        `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+        — and `details.allowed_transitions` names what *is* legal from here, so
+        a wind-up screen renders buttons from the refusal rather than
+        reimplementing the state machine.
+
+        `already_in_flight` is refused here as well as by the partial unique
+        index, so an operator gets a sentence rather than a constraint
+        violation, and the index stays as the thing nothing can route around.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: offboarding.refused
+              message: An offboarding that is revoking cannot become cancelled.
+              details:
+                reason: offboarding.transition_not_allowed
+                status: revoking
+                requested_status: cancelled
+                allowed_transitions: [archiving]
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    OffboardingSettlementOutstanding:
+      description: |
+        Sign-off refused because settlement is neither cleared nor waived.
+        `details.blockers` names **every** outstanding check rather than the
+        first: somebody winding up a relationship wants the list, not a sequence
+        of discoveries.
+
+        Its own code rather than `offboarding.refused` because the remedy is
+        different and a client has to branch on it — settle, or waive through
+        `POST .../settlement-waiver` with a written reason and the second
+        permission.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: offboarding.settlement_outstanding
+              message: Settlement is not resolved, so this offboarding cannot move to sign-off.
+              details:
+                reason: offboarding.settlement_outstanding
+                blockers: [open_buyer_orders]
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    RecordExportUnavailable:
+      description: |
+        The bundle exists and cannot be downloaded. `details.status` says which
+        of the three it is: still `building` or `requested`, `failed`, or
+        `expired` — the window has closed and `purgeExpired` has deleted the
+        bytes while keeping the row, because deleting the row would erase the
+        evidence that an export was ever made.
+
+        A 409 rather than a 404 deliberately: the caller is looking at an export
+        that exists and that they may see, and a 404 would be a lie about a row
+        in front of them.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: record_export.unavailable
+              message: This bundle is not available to download.
+              details:
+                reason: record_export.not_downloadable
+                status: building
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
   schemas:
     Uuid:
       type: string
@@ -12186,6 +14206,12 @@ components:
         - b2b.application_state_invalid
         - b2b.documents_incomplete
         - b2b.signatory_required
+        - subscription.refused
+        - subscription.change_refused
+        - closure.refused
+        - offboarding.refused
+        - offboarding.settlement_outstanding
+        - record_export.unavailable
         - rate_limit.exceeded
         - server.internal_error
 
@@ -20457,3 +22483,1198 @@ components:
                 edit.
         meta:
           $ref: '#/components/schemas/Meta'
+    SubscriptionStatus:
+      type: string
+      description: |
+        `active` generates; `paused` keeps the balance and stops the cursor;
+        `cancelled` and `completed` are terminal. A paused subscription has no
+        `next_delivery_date` at all — nulling the cursor is what takes it out of
+        the sweep, rather than a status predicate the sweep has to remember.
+      enum: [active, paused, cancelled, completed]
+    SubscriptionDeliveryStatus:
+      type: string
+      description: |
+        Where one delivery day got to. The three `skipped_*` values are kept
+        apart on purpose: a customer skipping a Tuesday, a day nobody could
+        assemble a safe meal for, and a day the kitchen could not serve are
+        three different conversations, and only the first is the customer's
+        doing.
+      enum: [scheduled, generated, skipped_customer, skipped_no_safe_meal, skipped_unavailable, delivered, cancelled]
+    MealChoiceSource:
+      type: string
+      description: |
+        Who chose the meal on a Free Selection day. `customer` picked it before
+        the cut-off; `kitchen_default` filled the slot because they did not; and
+        `substituted` means something chosen was unavailable or unsafe and
+        generation replaced it. Collapsing these into one value would make the
+        substitution audit unreadable, which is the one audit an allergy
+        complaint needs most.
+      enum: [customer, kitchen_default, substituted]
+    CreditMemoStatus:
+      type: string
+      description: |
+        `recorded` means the platform has computed what is owed; `settled`
+        means a human has told it the money changed hands. There is deliberately
+        no `paid` or `refunded` — the platform has no payment rail, and a status
+        implying it had one would be the first thing a report believed.
+      enum: [recorded, settled]
+    SubscriptionBalance:
+      type: object
+      description: |
+        What is left, what was used, and what is coming. **`skipped_days` is
+        beside them rather than subtracted from them**: a skip costs nothing,
+        and the number a customer most wants to check is that the two facts are
+        both true at once.
+      required: [status, balance_days_total, balance_days_consumed, remaining_days, per_day_minor, currency_code, weekdays, next_delivery_date, skipped_days]
+      properties:
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        balance_days_total:
+          type: integer
+        balance_days_consumed:
+          type: integer
+          description: A cached count of the delivery rows that consumed a day. The ledger is the truth; this is the index.
+        remaining_days:
+          type: integer
+        per_day_minor:
+          type: integer
+          description: The grandfathered price actually paid, in minor units. A cancellation refund is this multiplied by the unused days.
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        weekdays:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        next_delivery_date:
+          type: [string, 'null']
+          format: date
+        skipped_days:
+          type: integer
+    Subscription:
+      type: object
+      description: |
+        A customer's own standing arrangement.
+
+        **The captured price is shown in full** — all three columns of it — and
+        that is a deliberate exception to its `Confidential` classification. The
+        classification is a statement about *other* readers: what one customer
+        was grandfathered at is not what the plan costs today, and publishing it
+        would advertise a price nobody else can have. The person paying it is not
+        another reader, and showing `captured_unit_price_minor` beside
+        `effective_day_price_minor` is what makes "why am I paying 1 800 when the
+        plan says 2 000" answerable on the screen instead of through support.
+
+        **`captured_price_list_id` and `captured_price_list_item_id` are not
+        served.** The provenance exists so the platform can explain a price years
+        later; on a customer's own screen it names a kitchen's tariff structure
+        to the person being charged by it. Nor is `organisation_id`,
+        `created_by` or `updated_by`.
+
+        **`lock_version` is served, unlike on the customer's order shape**,
+        because this resource has a customer-facing writer. `If-Match` is
+        honoured on every write and demanded by none.
+      required: [id, status, catalogue_item_id, catalogue_item_variant_id, plan_duration_id, sales_channel_id, currency_code, captured_unit_price_minor, captured_discount_percent, effective_day_price_minor, captured_at, weekdays, delivery_window_code, customer_address_id, no_substitutions, balance_days_total, balance_days_consumed, remaining_days, next_delivery_date, pause_count, lock_version]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        plan_duration_id:
+          $ref: '#/components/schemas/Uuid'
+        sales_channel_id:
+          $ref: '#/components/schemas/Uuid'
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        captured_unit_price_minor:
+          type: integer
+          description: What the tariff said per day at purchase, before the duration discount.
+        captured_discount_percent:
+          type: [string, 'null']
+          description: |
+            What the duration took off. **Null is a value**: it means nobody
+            stated a discount, which is commercially different from stating
+            there is none, and it is never returned as `0`.
+        effective_day_price_minor:
+          type: integer
+          description: The grandfathered per-day price actually paid.
+        captured_at:
+          type: string
+          format: date-time
+        weekdays:
+          type: array
+          description: ISO weekdays, 1 = Monday through 7 = Sunday. Never empty.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        delivery_window_code:
+          type: [string, 'null']
+        customer_address_id:
+          $ref: '#/components/schemas/Uuid'
+        no_substitutions:
+          type: boolean
+          description: The opt-out — skip the slot rather than substitute. Per subscription, not per customer, because two arrangements can reasonably differ.
+        balance_days_total:
+          type: integer
+        balance_days_consumed:
+          type: integer
+        remaining_days:
+          type: integer
+        next_delivery_date:
+          type: [string, 'null']
+          format: date
+        paused_at:
+          type: [string, 'null']
+          format: date-time
+        resumed_at:
+          type: [string, 'null']
+          format: date-time
+        pause_count:
+          type: integer
+        cancelled_at:
+          type: [string, 'null']
+          format: date-time
+        cancellation_reason:
+          type: [string, 'null']
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+        lock_version:
+          type: integer
+        created_at:
+          type: [string, 'null']
+          format: date-time
+        balance:
+          $ref: '#/components/schemas/SubscriptionBalance'
+    SubscriptionEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [subscription]
+          properties:
+            subscription:
+              $ref: '#/components/schemas/Subscription'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SubscriptionsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subscription'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                count:
+                  type: integer
+    CreditMemo:
+      type: object
+      description: |
+        What a kitchen owes a customer whose subscription was cancelled early —
+        a record of an **obligation**, never of a payment.
+
+        `settlement` is stated on the wire rather than left to be inferred from
+        the status vocabulary. It is the one sentence a customer cancelling most
+        needs: no money has moved, and somebody will be in touch. A client left
+        to infer it would eventually render `recorded` as "refunded".
+      required: [id, reason, unused_days, per_day_minor, amount_minor, currency_code, status, settlement, recorded_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        reason:
+          type: string
+          examples: ['subscription_cancelled']
+        unused_days:
+          type: integer
+        per_day_minor:
+          type: integer
+          description: The effective price actually paid, so the discount already enjoyed on delivered days is not clawed back.
+        amount_minor:
+          type: integer
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        status:
+          $ref: '#/components/schemas/CreditMemoStatus'
+        settlement:
+          type: string
+          enum: [manual]
+          description: Always `manual` in this phase. The platform has no payment rail.
+        recorded_at:
+          type: string
+          format: date-time
+        settled_at:
+          type: [string, 'null']
+          format: date-time
+    SubscriptionMealChoice:
+      type: object
+      description: |
+        What fills one slot of one day. `replaced_catalogue_item_id` is what the
+        choice stands in for when generation substituted it — the customer is
+        owed the difference between "you chose this" and "we sent this instead".
+
+        `unsafe_allergen_classes` is deliberately **not** served: a list of
+        allergen classes attached to a named person's delivery is health data,
+        and what a customer needs from this row is that a substitution happened,
+        not a restatement of their medical profile.
+      required: [slot, sequence, catalogue_item_id, source]
+      properties:
+        slot:
+          type: string
+          examples: ['lunch']
+        sequence:
+          type: integer
+          description: The kitchen that sells "lunch, twice" — a slot alone would collapse it.
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        source:
+          $ref: '#/components/schemas/MealChoiceSource'
+        replaced_catalogue_item_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+    SubscriptionDelivery:
+      type: object
+      description: |
+        One delivery day — the row a balance day is spent on.
+
+        **`consumed` is stored, not derived from `status`**, and reading it is
+        the only correct way to ask whether a day was spent. A client
+        recomputing it from the status would eventually disagree with the
+        balance.
+      required: [id, delivery_date, status, consumed, meals]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        delivery_date:
+          type: string
+          format: date
+        delivery_window_code:
+          type: [string, 'null']
+        status:
+          $ref: '#/components/schemas/SubscriptionDeliveryStatus'
+        consumed:
+          type: boolean
+        skip_reason:
+          type: [string, 'null']
+        order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        generated_at:
+          type: [string, 'null']
+          format: date-time
+        settled_at:
+          type: [string, 'null']
+          format: date-time
+        meals:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionMealChoice'
+    SubscriptionDeliveriesEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionDelivery'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count, balance]
+              properties:
+                count:
+                  type: integer
+                balance:
+                  $ref: '#/components/schemas/SubscriptionBalance'
+    SubscriptionSkipEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [delivery, balance]
+          properties:
+            delivery:
+              $ref: '#/components/schemas/SubscriptionDelivery'
+            balance:
+              $ref: '#/components/schemas/SubscriptionBalance'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SubscriptionCancellationEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [subscription, credit_memo]
+          properties:
+            subscription:
+              $ref: '#/components/schemas/Subscription'
+            credit_memo:
+              description: |
+                Null when nothing is owed, and that is not the same as an empty
+                object: a zero memo would be an obligation somebody eventually
+                tries to settle, so none is written.
+              oneOf:
+                - $ref: '#/components/schemas/CreditMemo'
+                - type: 'null'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PlanQuote:
+      type: object
+      description: |
+        What a configuration would cost. **A quote and not a hold**: nothing is
+        reserved, nothing is written, and the number is guaranteed only for as
+        long as the tariff behind it stands. `POST /subscriptions` re-resolves it
+        and captures *that* answer.
+
+        All three numbers travel, because the discount is the reason somebody
+        chose the longer run and a screen showing only the final figure cannot
+        say what it saved them. `price_list_id` and `price_list_item_id` do not.
+      required: [currency_code, days, list_price_minor, discount_percent, per_day_minor, total_minor]
+      properties:
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        days:
+          type: integer
+        list_price_minor:
+          type: integer
+          description: The per-day list price, before the duration discount.
+        discount_percent:
+          type: [string, 'null']
+          description: Null means nobody stated one. Never returned as `0`.
+        per_day_minor:
+          type: integer
+        total_minor:
+          type: integer
+    PlanQuoteEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [quote]
+          properties:
+            quote:
+              $ref: '#/components/schemas/PlanQuote'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SubscriptionScheduleRow:
+      type: object
+      description: |
+        One day of the kitchen's forward book. **`basis` is the field that must
+        never be ignored**: an `actual` day has a delivery row and possibly an
+        order behind it, and a `projected` one is computed from the weekday
+        pattern and the remaining balance — a customer who has not yet had the
+        chance to skip.
+
+        No customer name, no address and no allergen list: a production planner
+        counts portions per window per day, and every one of those would be
+        personal data on a screen that does not need it.
+      required: [delivery_date, subscription_id, customer_account_id, basis, status]
+      properties:
+        delivery_date:
+          type: string
+          format: date
+        subscription_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_account_id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        delivery_window_code:
+          type: [string, 'null']
+        basis:
+          type: string
+          enum: [actual, projected]
+        status:
+          $ref: '#/components/schemas/SubscriptionDeliveryStatus'
+    SubscriptionScheduleEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionScheduleRow'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [from, to, count, daily_counts]
+              properties:
+                from:
+                  type: string
+                  format: date
+                to:
+                  type: string
+                  format: date
+                count:
+                  type: integer
+                daily_counts:
+                  type: object
+                  description: Deliveries per day, with skipped and cancelled days already excluded. The number a production plan is built from.
+                  additionalProperties:
+                    type: integer
+    CreateSubscriptionRequest:
+      type: object
+      description: |
+        Checkout-shaped on purpose: the same three coordinates a plan is sold on
+        — the plan, the configuration cell, the duration — plus everything a
+        delivery needs.
+
+        **No price field exists.** Every amount is decided by the server at
+        purchase and captured onto the row; a body that could state a per-day
+        price would be a client quoting the server its own prices, and the first
+        thing anybody would do with it is quote a lower one.
+      required: [sales_channel_id, catalogue_item_id, catalogue_item_variant_id, plan_duration_id, customer_address_id, weekdays]
+      properties:
+        sales_channel_id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        plan_duration_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_address_id:
+          $ref: '#/components/schemas/Uuid'
+        weekdays:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        delivery_window_code:
+          type: [string, 'null']
+          maxLength: 40
+        no_substitutions:
+          type: boolean
+        start_from:
+          type: [string, 'null']
+          format: date
+          description: |
+            The earliest delivery date wanted. A **request, not a promise**: the
+            server moves it forward to the first weekday the subscription
+            actually delivers on that is still outside the plan's change window,
+            because a first delivery already inside its own cut-off would be an
+            order the customer could never have changed.
+    SkipSubscriptionDayRequest:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          format: date
+          description: |
+            The day to skip. A **date**, not a delivery identifier: the day
+            usually has no row yet, so an endpoint keyed on one could only ever
+            skip the day it is nearly too late to skip.
+    UpdateSubscriptionAddressRequest:
+      type: object
+      required: [customer_address_id]
+      properties:
+        customer_address_id:
+          $ref: '#/components/schemas/Uuid'
+    UpdateSubscriptionWindowRequest:
+      type: object
+      required: [delivery_window_code]
+      properties:
+        delivery_window_code:
+          type: [string, 'null']
+          maxLength: 40
+          description: |
+            Present and nullable, which is the difference between "no
+            preference" and "leave it alone": a `PUT` replaces the field whole,
+            so `null` is how a customer says they no longer mind.
+    UpdateSubscriptionWeekdaysRequest:
+      type: object
+      required: [weekdays]
+      properties:
+        weekdays:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+    ReplaceSubscriptionChoicesRequest:
+      type: object
+      description: |
+        One day's chosen meals, replaced whole. An **empty `meals` array is a
+        real payload**: it is a customer saying "I have not chosen; send me the
+        kitchen's default", and a merge-shaped write could not express it.
+      required: [date, meals]
+      properties:
+        date:
+          type: string
+          format: date
+        meals:
+          type: array
+          maxItems: 12
+          items:
+            type: object
+            required: [slot, catalogue_item_id]
+            properties:
+              slot:
+                type: string
+                maxLength: 20
+                examples: ['lunch']
+              sequence:
+                type: [integer, 'null']
+                minimum: 1
+                maximum: 20
+              catalogue_item_id:
+                $ref: '#/components/schemas/Uuid'
+              catalogue_item_variant_id:
+                oneOf:
+                  - $ref: '#/components/schemas/Uuid'
+                  - type: 'null'
+    SubscriptionChoicesEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [delivery_date, meals]
+          properties:
+            delivery_date:
+              type: string
+              format: date
+            meals:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubscriptionMealChoice'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CancelSubscriptionRequest:
+      type: object
+      properties:
+        reason:
+          type: [string, 'null']
+          maxLength: 40
+          pattern: '^[a-z][a-z0-9_]*$'
+          description: |
+            A short vocabulary word, never prose. The journal writes it into
+            audit metadata, and a free-text box filled in by somebody in an
+            unhappy moment is how a name or a complaint about a named member of
+            staff ends up in a column nobody classified. Defaults to
+            `customer_request`.
+    ClosureScope:
+      type: string
+      description: |
+        Two values, and they are not degrees of the same thing.
+        `marketing_opt_out` is a preference change that deletes nothing; `full`
+        is an erasure. They live on one journey because they are one journey
+        from the customer's side.
+      enum: [marketing_opt_out, full]
+    ClosureReasonCode:
+      type: string
+      description: |
+        Why somebody is leaving. A fixed vocabulary rather than free text: the
+        answer is read by machines as often as by people — "how many customers
+        left because we do not deliver to them any more" is a count, not a
+        search — and free text is how personal data ends up in a column nobody
+        classified. `other` is last and deliberately vague: a vocabulary without
+        an escape hatch makes people pick the nearest wrong answer, which is
+        indistinguishable from a real signal.
+      enum: [no_longer_needed, too_expensive, moving_away, dietary_needs_unmet, service_quality, privacy_concerns, duplicate_account, other]
+    ClosureRequestStatus:
+      type: string
+      description: |
+        `requested` is asked but unproven; `verified` is the passcode accepted
+        and bound to this request; `scheduled` is the grace window running — the
+        state that exists so "I changed my mind" has somewhere to land.
+        `completed` and `cancelled` are terminal.
+      enum: [requested, verified, scheduled, completed, cancelled]
+    ClosureBlockerStatus:
+      type: string
+      description: |
+        **Four values, and two of them are not "fine".** `not_applicable` means
+        nothing was checked — because no module in this deployment could answer
+        — and it is never a synonym for `clear`: a closure screen saying "no
+        outstanding payments" when no payment module exists has not checked
+        anything, and the customer cannot tell the difference. `advisory` means
+        something real *was* found and it does not stop the closure; today that
+        is an unsettled credit memo, which is a debt the kitchen owes the
+        customer and therefore not something the kitchen may hold their erasure
+        hostage to.
+      enum: [blocking, clear, advisory, not_applicable]
+    ClosureBlockerVerdict:
+      type: object
+      description: |
+        What one blocker found. **`count` and `reason` are present on every
+        verdict, including the clear ones**, so a screen rendering "2 open
+        orders" from `count` and "no subscriptions module is bound" from
+        `reason` reads the same shape in both cases — which is what stops the
+        honest answer being the one that needs a special case.
+
+        `reason` is a code, never a sentence: it is rendered in the customer's
+        language and it goes into audit metadata. The vocabulary is each
+        blocker's own — `orders_in_flight`, `subscriptions_live`,
+        `deliveries_upcoming`, `memberships_live`, `signatures_pending`,
+        `credit_memos_unsettled`, and the `*_module_absent` family.
+      required: [code, status, count, reason]
+      properties:
+        code:
+          type: string
+          enum: [open_orders, active_subscriptions, organisation_memberships, pending_b2b_signatures, unsettled_credit_memos, wallet_balance, payment_methods]
+        status:
+          $ref: '#/components/schemas/ClosureBlockerStatus'
+        count:
+          type: integer
+        reason:
+          type: [string, 'null']
+    ClosureAcknowledgement:
+      type: object
+      description: |
+        One shape for both scopes and every stage, because the screen behind it
+        is one screen. A client that had to branch on the response *type* would
+        be a client that renders the blocked case by accident.
+
+        **The verdicts travel with the acknowledgement rather than behind a
+        second call.** "Why can I not close my account" is the only question a
+        refusal raises, and answering it in a separate request is how a screen
+        ends up saying "you cannot close your account" with no explanation while
+        the second call is in flight.
+
+        `destination_masked` is server-authored from the contact point and never
+        echoed from client input: the client is told where the code went, and is
+        not in a position to be told anything it could have made up.
+      required: [request_id, scope, status, blocked, blockers, verification_required]
+      properties:
+        request_id:
+          $ref: '#/components/schemas/Uuid'
+        scope:
+          $ref: '#/components/schemas/ClosureScope'
+        status:
+          $ref: '#/components/schemas/ClosureRequestStatus'
+        blocked:
+          type: boolean
+          description: Whether anything found **stops** the closure. An `advisory` verdict does not set this.
+        blockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClosureBlockerVerdict'
+        verification_required:
+          type: boolean
+        destination_masked:
+          type: [string, 'null']
+        expires_in_seconds:
+          type: [integer, 'null']
+        scheduled_for:
+          type: [string, 'null']
+          format: date-time
+    ClosureAcknowledgementEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [closure_request]
+          properties:
+            closure_request:
+              $ref: '#/components/schemas/ClosureAcknowledgement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    LiveClosureRequestEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [closure_request, blockers]
+          properties:
+            closure_request:
+              description: Null when nothing is in flight. There is at most one, by index.
+              oneOf:
+                - $ref: '#/components/schemas/ClosureAcknowledgement'
+                - type: 'null'
+            blockers:
+              type: array
+              description: |
+                Re-evaluated on every call and filled in **regardless** of
+                whether a request exists, so a closure screen can render "here is
+                what would stand in your way" before anybody asks. A cached
+                verdict would miss a subscription started this morning.
+              items:
+                $ref: '#/components/schemas/ClosureBlockerVerdict'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CancelledClosureRequestEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [closure_request]
+          properties:
+            closure_request:
+              type: object
+              required: [request_id, scope, status]
+              properties:
+                request_id:
+                  $ref: '#/components/schemas/Uuid'
+                scope:
+                  $ref: '#/components/schemas/ClosureScope'
+                status:
+                  $ref: '#/components/schemas/ClosureRequestStatus'
+                cancelled_at:
+                  type: [string, 'null']
+                  format: date-time
+                cancelled_because:
+                  type: [string, 'null']
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OpenClosureRequestRequest:
+      type: object
+      description: |
+        **`scope` is required and has no default.** A default would have to be
+        either `marketing_opt_out`, so a client with a bug silently downgrades an
+        erasure somebody asked for, or `full`, so a client with a bug erases
+        somebody who asked only to stop being emailed. Neither is a mistake this
+        endpoint should be able to make on a caller's behalf.
+      required: [reason_code, scope]
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/ClosureReasonCode'
+        reason_note:
+          type: [string, 'null']
+          maxLength: 2000
+          description: |
+            Optional prose, and the one free-text field in the journey. Never
+            written into an audit row, and deleted at finalisation with
+            everything else. Optional for **every** reason: insisting somebody
+            explain themselves before they may leave is a dark pattern wearing a
+            form label.
+        scope:
+          $ref: '#/components/schemas/ClosureScope'
+        delivery_channel:
+          description: |
+            Where the passcode should go. SMS and WhatsApp have no provider in
+            this deployment, so asking for one answers
+            `422 otp.channel_unavailable` with the channels that would work — a
+            better dead end than silently sending an email to somebody waiting
+            on a text.
+          oneOf:
+            - $ref: '#/components/schemas/OtpDeliveryChannel'
+            - type: 'null'
+    VerifyClosureRequestRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 12
+          description: |
+            There is no `request_id` beside it. The request is in the path and
+            the challenge is bound to it on the row, which is what stops a code
+            obtained for one closure finalising another.
+    OffboardingStatus:
+      type: string
+      description: |
+        Where a wind-up has got to. `revoking` is separate from `completed` on
+        purpose: revoking every member's access is the step that can partially
+        fail, and a status collapsing it into the terminal state would make a
+        half-revoked organisation look finished.
+      enum: [requested, notice_served, settlement_pending, awaiting_signoff, signed_off, revoking, archiving, completed, cancelled]
+    OffboardingTrigger:
+      type: string
+      description: |
+        Four different stories about the same act, and every one of them is what
+        somebody will read a year later when the company asks why. Required, with
+        no default: a default would put one of those stories on the record
+        without anybody choosing it.
+      enum: [contract_end, termination, non_renewal, client_request]
+    SettlementStatus:
+      type: string
+      description: |
+        `cleared` means every check answered clear or stated why it could not
+        run; `waived` means somebody with the second permission set an
+        outstanding position aside and wrote down why. The two are never
+        collapsed — a waiver recorded as a clearance erases the only difference
+        a dispute turns on.
+      enum: [pending, cleared, waived]
+    SettlementCheckOutcome:
+      type: string
+      description: |
+        `not_applicable` carries a `reason` and is **not** a green tick: a check
+        that cannot tell "we looked and found nothing" from "nobody was there to
+        look" produces a settlement summary that reads as an all-clear when it is
+        a gap.
+      enum: [clear, outstanding, not_applicable]
+    SettlementCheck:
+      type: object
+      required: [check, outcome]
+      properties:
+        check:
+          type: string
+          examples: ['open_buyer_orders']
+        outcome:
+          $ref: '#/components/schemas/SettlementCheckOutcome'
+        reason:
+          type: [string, 'null']
+        detail:
+          type: [string, 'null']
+    Offboarding:
+      type: object
+      description: |
+        A corporate wind-up in progress.
+
+        **`notice_period_days` and `effective_on` are copied onto the row** at
+        the moment notice is served, never read back through the agreement, so an
+        amendment signed next week cannot shorten notice already served.
+
+        **The signatory block travels in full** — name, title, the consent
+        wording accepted, the document digest — because evidence that cannot be
+        read is not evidence. The two session hashes do **not**: they exist for
+        corroboration inside the platform, and serving them would put a stable
+        pseudonymous identifier for a named person onto an API response.
+
+        `allowed_transitions` travels so a wind-up screen renders buttons without
+        reimplementing the state machine — the one that disagrees after the first
+        change.
+      required: [id, organisation_id, status, requested_at, settlement, signoff, revocation, archive, lock_version, allowed_transitions]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        b2b_agreement_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/OffboardingStatus'
+        trigger:
+          oneOf:
+            - $ref: '#/components/schemas/OffboardingTrigger'
+            - type: 'null'
+        reason:
+          type: [string, 'null']
+        reason_note:
+          type: [string, 'null']
+        requested_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        requested_at:
+          type: string
+          format: date-time
+        notice_period_days:
+          type: [integer, 'null']
+        notice_served_at:
+          type: [string, 'null']
+          format: date-time
+        effective_on:
+          type: [string, 'null']
+          format: date
+        settlement:
+          type: object
+          required: [status, checks]
+          properties:
+            status:
+              $ref: '#/components/schemas/SettlementStatus'
+            note:
+              type: [string, 'null']
+            checks:
+              type: array
+              items:
+                $ref: '#/components/schemas/SettlementCheck'
+            started_at:
+              type: [string, 'null']
+              format: date-time
+            resolved_at:
+              type: [string, 'null']
+              format: date-time
+            waived_by:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+            waiver_reason:
+              type: [string, 'null']
+        signoff:
+          type: object
+          properties:
+            awaiting_since:
+              type: [string, 'null']
+              format: date-time
+            signed_off_at:
+              type: [string, 'null']
+              format: date-time
+            signed_off_by:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+            signatory_name:
+              type: [string, 'null']
+            signatory_title:
+              type: [string, 'null']
+            consent_statement:
+              type: [string, 'null']
+            document_sha256:
+              type: [string, 'null']
+        revocation:
+          type: object
+          properties:
+            started_at:
+              type: [string, 'null']
+              format: date-time
+            completed_at:
+              type: [string, 'null']
+              format: date-time
+            memberships_revoked:
+              type: [integer, 'null']
+            tokens_deleted:
+              type: [integer, 'null']
+        archive:
+          type: object
+          properties:
+            started_at:
+              type: [string, 'null']
+              format: date-time
+            summary:
+              type: [object, 'null']
+              additionalProperties:
+                type: integer
+            legal_entity_retained:
+              type: [boolean, 'null']
+              description: Said out loud rather than left to be inferred from the summary's silence. Keeping the company record was a decision, not an omission.
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+        cancelled_at:
+          type: [string, 'null']
+          format: date-time
+        cancelled_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        cancellation_reason:
+          type: [string, 'null']
+        lock_version:
+          type: integer
+        allowed_transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OffboardingStatus'
+    OffboardingEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [offboarding]
+          properties:
+            offboarding:
+              $ref: '#/components/schemas/Offboarding'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    RecordExportStatus:
+      type: string
+      description: |
+        `expired` is a **state rather than a comparison** against `expires_at`:
+        expiry here is an act, the transition is what deletes the bytes, and the
+        status is the record of it having happened. The row survives, because
+        deleting it would erase the evidence that an export was ever made.
+      enum: [requested, building, ready, delivered, expired, failed]
+    RecordExport:
+      type: object
+      description: |
+        A company's own records, packaged.
+
+        **No `disk`, no `path` and no permanent URL.** The object key is one half
+        of a credential, and the only route to the bytes is this operation with
+        `?purpose=`, which mints a fresh fifteen-minute signature and records who
+        took a copy. `sha256` does travel — it is what a recipient checks the
+        download against, and it names nothing.
+      required: [id, organisation_id, status, format, requested_at, download_count]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        b2b_offboarding_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/RecordExportStatus'
+        format:
+          type: string
+          examples: ['zip']
+        requested_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        requested_at:
+          type: string
+          format: date-time
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+        byte_size:
+          type: [integer, 'null']
+        sha256:
+          type: [string, 'null']
+        row_counts:
+          type: [object, 'null']
+          additionalProperties:
+            type: integer
+        manifest:
+          type: [object, 'null']
+          additionalProperties: true
+        expires_at:
+          type: [string, 'null']
+          format: date-time
+        downloaded_at:
+          type: [string, 'null']
+          format: date-time
+        download_count:
+          type: integer
+        purged_at:
+          type: [string, 'null']
+          format: date-time
+        failure_reason:
+          type: [string, 'null']
+        download_url:
+          type: string
+          description: |
+            Present **only** when `?purpose=` was sent. In the envelope and never
+            a 302: a redirect would put an expiring credential into browser
+            history, the referrer chain and every proxy log on the way to the
+            bucket.
+        download_url_expires_at:
+          type: string
+          format: date-time
+          description: |
+            Computed before the URL is minted, so it is always at or before the
+            moment the signature actually stops working. A client that stops
+            trusting the link a fraction early retries; one that trusts it too
+            long gets an opaque 403 from object storage.
+    RecordExportEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [export]
+          properties:
+            export:
+              $ref: '#/components/schemas/RecordExport'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    StartOffboardingRequest:
+      type: object
+      description: |
+        **`organisation_id` is in the body rather than the path**, and the reason
+        is what the prefix already means: `/platform/b2b` is reached with the
+        *platform operator's* organisation selected, so a `{organisation}`
+        segment would be a second organisation in the same request with
+        completely different meaning. Here they cannot agree — the whole point is
+        that an operator is acting on somebody else's company — so it goes in the
+        body where it reads as a subject rather than as a scope.
+      required: [organisation_id, trigger]
+      properties:
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        trigger:
+          $ref: '#/components/schemas/OffboardingTrigger'
+        reason_note:
+          type: [string, 'null']
+          maxLength: 2000
+        effective_on:
+          type: [string, 'null']
+          format: date
+          description: |
+            A negotiated end date, overriding the computed notice date — the
+            parties agreed March 31st, and the alternative would be an operator
+            editing the agreement to make the arithmetic come out. Never in the
+            past: backdating notice is not a data-entry convenience, it is a claim
+            that somebody was told earlier than they were.
+    WaiveOffboardingSettlementRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          description: |
+            Required prose. A waiver nobody explained is not a waiver, and "ok"
+            is not something anybody can review a year later. The minimum does
+            not make somebody thoughtful; it makes the empty gesture take as long
+            as typing a real one. There is no `authorised_by` field — who is
+            waiving is the authenticated caller, and a body that could name
+            somebody else would be an audit row attributing a decision to a
+            person who did not make it.
+    SignOffOffboardingRequest:
+      type: object
+      description: |
+        **`otp_challenge_id` names a challenge and is not proof.** The server
+        demands that it exists, carries purpose `b2b_signatory`, has been
+        *consumed*, and belongs to the person signing — and all four failures
+        answer identically, so a caller holding somebody else's identifier learns
+        only that it did not work. There is no `otp_verified` field and there
+        never will be: a flag a caller can assert records its own claim rather
+        than an observation.
+
+        `consent_statement` is the exact wording shown on screen, echoed back
+        rather than looked up server-side, because the evidence has to be what
+        the person actually read.
+      required: [signatory_name, signatory_title, consent_statement, otp_challenge_id]
+      properties:
+        signatory_name:
+          type: string
+          maxLength: 160
+        signatory_title:
+          type: string
+          maxLength: 120
+        consent_statement:
+          type: string
+          maxLength: 2000
+        document_sha256:
+          type: [string, 'null']
+          pattern: '^[0-9a-f]{64}$'
+        otp_challenge_id:
+          $ref: '#/components/schemas/Uuid'
+    CancelOffboardingRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          description: '"Why did we stop offboarding Acme" is a question somebody asks when Acme is still trading eighteen months later.'

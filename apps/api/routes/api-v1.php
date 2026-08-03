@@ -22,6 +22,15 @@ use Healthy360\B2b\Http\Controllers\InvitationAcceptController;
 use Healthy360\B2b\Http\Controllers\KycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\KycDocumentIndexController;
 use Healthy360\B2b\Http\Controllers\KycDocumentStoreController;
+use Healthy360\B2b\Http\Controllers\OffboardingArchiveController;
+use Healthy360\B2b\Http\Controllers\OffboardingCancelController;
+use Healthy360\B2b\Http\Controllers\OffboardingRevokeAccessController;
+use Healthy360\B2b\Http\Controllers\OffboardingSettlementCheckController;
+use Healthy360\B2b\Http\Controllers\OffboardingSettlementWaiverController;
+use Healthy360\B2b\Http\Controllers\OffboardingShowController;
+use Healthy360\B2b\Http\Controllers\OffboardingSignoffChallengeController;
+use Healthy360\B2b\Http\Controllers\OffboardingSignoffController;
+use Healthy360\B2b\Http\Controllers\OffboardingStoreController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationIndexController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationRevokeController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationStoreController;
@@ -34,6 +43,8 @@ use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationRequestInformationCont
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationShowController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentReviewController;
+use Healthy360\B2b\Http\Controllers\RecordExportShowController;
+use Healthy360\B2b\Http\Controllers\RecordExportStoreController;
 use Healthy360\Cart\Http\Controllers\CartItemDestroyController;
 use Healthy360\Cart\Http\Controllers\CartItemStoreController;
 use Healthy360\Cart\Http\Controllers\CartItemUpdateController;
@@ -70,6 +81,11 @@ use Healthy360\Catalogues\Http\Controllers\SalesChannelIndexController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelShowController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelStoreController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelUpdateController;
+use Healthy360\Customers\Closure\Http\Controllers\ClosureRequestCancelController;
+use Healthy360\Customers\Closure\Http\Controllers\ClosureRequestLiveController;
+use Healthy360\Customers\Closure\Http\Controllers\ClosureRequestStoreController;
+use Healthy360\Customers\Closure\Http\Controllers\ClosureRequestVerifyController;
+use Healthy360\Customers\Closure\Http\Controllers\PlatformClosureRequestStoreController;
 use Healthy360\Customers\Guest\Http\Controllers\GuestContactStoreController;
 use Healthy360\Customers\Guest\Http\Controllers\GuestContactVerifyController;
 use Healthy360\Customers\Guest\Http\Controllers\GuestConvertController;
@@ -168,6 +184,20 @@ use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionUpdateController;
+use Healthy360\Subscriptions\Http\Controllers\KitchenSubscriptionScheduleController;
+use Healthy360\Subscriptions\Http\Controllers\MySubscriptionDeliveryIndexController;
+use Healthy360\Subscriptions\Http\Controllers\MySubscriptionIndexController;
+use Healthy360\Subscriptions\Http\Controllers\MySubscriptionShowController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionAddressUpdateController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionCancelController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionChoiceReplaceController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionPauseController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionQuoteController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionResumeController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionSkipStoreController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionStoreController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionWeekdaysUpdateController;
+use Healthy360\Subscriptions\Http\Controllers\SubscriptionWindowUpdateController;
 use Healthy360\Verification\Http\Controllers\ChallengeResendController;
 use Healthy360\Verification\Http\Controllers\ChallengeShowController;
 use Healthy360\Verification\Http\Controllers\ChallengeVerifyController;
@@ -468,6 +498,150 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::get('/me/orders', MyOrderIndexController::class)->name('me.orders.index');
         Route::get('/me/orders/{order}', MyOrderShowController::class)->name('me.orders.show');
+
+        /*
+        |------------------------------------------------------------------
+        | Subscriptions — the customer's own standing arrangements (S1)
+        |------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum, db.context, device.touch, verified.
+        |
+        | **No permission codes, for the C1 reason restated.** A customer is a
+        | member of no organisation: there is no membership to hang a role on,
+        | no organisation to scope one to, and a code granted to every account
+        | at sign-up answers "yes" for everybody and therefore answers nothing.
+        | The authority here is **ownership**, enforced where ownership lives —
+        | `SubscriptionLocator` scopes every row to the caller's own
+        | `CustomerAccount` and answers `resource.not_found` otherwise.
+        |
+        | **`POST /subscriptions` is not under `/me` and the rest is**, the same
+        | split `/carts` and `/me/orders` already draw: a creation names no
+        | existing resource of the caller's, while a list of somebody's standing
+        | arrangements is a *collection of mine*. `GET /subscriptions/quote`
+        | sits with the creation because it is the price of a thing that does
+        | not exist yet.
+        |
+        | **`idempotency` on the creation, and nowhere else in the family.** A
+        | replayed POST produces a second twenty-day arrangement and the
+        | customer finds out when twice the food arrives every morning. Every
+        | other write here is a change to a row that already exists, guarded by
+        | the state machine and the change window; a replayed pause pauses an
+        | already-paused subscription and is refused as an invalid transition.
+        |
+        | **No `precondition` anywhere, though `subscriptions` carries
+        | `lock_version` and every response serves it as an `ETag`.** The
+        | `/carts` argument: the header prevents a *lost update*, a lost update
+        | needs two authors, and a subscription has one — the race would have to
+        | be run by a customer against themselves in two tabs. `If-Match` is
+        | honoured when sent (see `ReadsOptionalPrecondition`) so a careful
+        | client can protect itself; a 428 on every pause would break every
+        | caller that has ever worked to protect them from a race they are not
+        | in. Contrast the kitchen's order actions, where two staff confirming
+        | the same order at once is an ordinary Tuesday and `precondition` is
+        | mandatory.
+        |
+        | **Pause, resume, cancel and skip are POST sub-resources; address,
+        | window, weekdays and choices are PUT replacements.** Never a `PATCH
+        | status` and never one `PATCH` accepting all four fields (master plan
+        | v2 §4.15): the lifecycle actions have separate consequences,
+        | timestamps and journal events, and the three settings ask different
+        | questions of the world — an address change re-runs the delivery map,
+        | a window change asks nothing of it, and a client changing a slot
+        | should not be refused because it also moved house.
+        |
+        | `…/skips` is a sub-**collection** because a skip is a row that exists
+        | afterwards, and it is keyed by date rather than by delivery id: the
+        | day a customer wants to skip usually has no row yet, which is the
+        | whole point of one-day-ahead generation.
+        |
+        | There is no DELETE. A cancelled subscription keeps its captured price,
+        | its balance and its history, because the credit memo multiplies the
+        | price it actually paid and a deleted row could not explain the number.
+        |
+        */
+        Route::post('/subscriptions', SubscriptionStoreController::class)
+            ->middleware('idempotency')
+            ->name('subscriptions.store');
+
+        Route::get('/subscriptions/quote', SubscriptionQuoteController::class)
+            ->name('subscriptions.quote');
+
+        Route::get('/me/subscriptions', MySubscriptionIndexController::class)->name('me.subscriptions.index');
+        Route::get('/me/subscriptions/{subscription}', MySubscriptionShowController::class)->name('me.subscriptions.show');
+
+        Route::post('/me/subscriptions/{subscription}/pause', SubscriptionPauseController::class)->name('me.subscriptions.pause');
+        Route::post('/me/subscriptions/{subscription}/resume', SubscriptionResumeController::class)->name('me.subscriptions.resume');
+        Route::post('/me/subscriptions/{subscription}/cancel', SubscriptionCancelController::class)->name('me.subscriptions.cancel');
+
+        Route::post('/me/subscriptions/{subscription}/skips', SubscriptionSkipStoreController::class)->name('me.subscriptions.skips.store');
+
+        Route::put('/me/subscriptions/{subscription}/address', SubscriptionAddressUpdateController::class)->name('me.subscriptions.address.update');
+        Route::put('/me/subscriptions/{subscription}/window', SubscriptionWindowUpdateController::class)->name('me.subscriptions.window.update');
+        Route::put('/me/subscriptions/{subscription}/weekdays', SubscriptionWeekdaysUpdateController::class)->name('me.subscriptions.weekdays.update');
+
+        // Free Selection choose-ahead (§7). One day per call, named in the body
+        // rather than in the path: a date is not an identifier of anything, and
+        // the delivery row usually does not exist yet.
+        Route::put('/me/subscriptions/{subscription}/choices', SubscriptionChoiceReplaceController::class)->name('me.subscriptions.choices.replace');
+
+        // The rows that exist, newest first — never the projection. What is
+        // *coming* is `next_delivery_date` plus the weekday pattern the client
+        // already holds; serving projections into somebody's ledger would put
+        // days there that nothing has committed to.
+        Route::get('/me/subscriptions/{subscription}/deliveries', MySubscriptionDeliveryIndexController::class)->name('me.subscriptions.deliveries.index');
+
+        /*
+        |------------------------------------------------------------------
+        | Account closure — the customer's own (J2)
+        |------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum, db.context, device.touch, verified.
+        |
+        | **No permission codes, and no `step-up` middleware either.** The first
+        | is ownership again. The second is the interesting one: this is the
+        | most destructive act a customer can perform and it is deliberately
+        | *not* behind `step-up`, because the journey carries its own stronger
+        | proof — a passcode sent to the account's verified destination and
+        | bound to this specific request on the row
+        | (`account_closure_requests.otp_challenge_id`). A purpose-scoped
+        | step-up flag would be enough to stop a contact-verification code
+        | unlocking a closure, and not enough to stop *a* closure code
+        | finalising *another* closure, including one support opened moments
+        | earlier that the customer never agreed to. Stacking `step-up` on top
+        | would add a password prompt that proves less than what is already
+        | there.
+        |
+        | **`/live` rather than an index.** There is at most one request in
+        | flight — the table's partial unique index says so and the service
+        | refuses a second — and a collection endpoint would be a list that is
+        | always empty or a singleton. Completed and cancelled requests are not
+        | listed at all: a history of somebody's previous attempts to leave is
+        | not something the platform has a reason to hand back.
+        |
+        | **There is no `…/challenges` endpoint.** `ClosureService::request()`
+        | issues the passcode as part of opening the request and binds it to the
+        | row, which is what stops a code obtained for one closure finalising
+        | another. A client that needs a fresh code uses the generic
+        | `POST /verification/challenges/{challenge}/resend`, which already
+        | serves every purpose in the table; a second issuing surface here would
+        | be a second place for the binding to be got wrong.
+        |
+        | `DELETE` stamps `cancelled` and removes nothing. Who asked to leave
+        | and then changed their mind is exactly the trail a data-protection
+        | enquiry reads.
+        |
+        */
+        Route::post('/me/closure-requests', ClosureRequestStoreController::class)
+            ->name('me.closure-requests.store');
+
+        Route::get('/me/closure-requests/live', ClosureRequestLiveController::class)
+            ->name('me.closure-requests.live');
+
+        Route::post('/me/closure-requests/{closureRequest}/verify', ClosureRequestVerifyController::class)
+            ->name('me.closure-requests.verify');
+
+        Route::delete('/me/closure-requests/{closureRequest}', ClosureRequestCancelController::class)
+            ->name('me.closure-requests.cancel');
 
         /*
         |------------------------------------------------------------------
@@ -1016,6 +1190,50 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->middleware('precondition')
                     ->name('catalogue.orders.cancel');
             });
+
+            /*
+            |--------------------------------------------------------------
+            | The forward book of standing arrangements (S1)
+            |--------------------------------------------------------------
+            |
+            | **The endpoint that makes one-day-ahead generation affordable.**
+            | §4 generates a single delivery ahead so the order book stays
+            | truthful, and the obvious objection is that a kitchen then cannot
+            | see next week. It sees next week here: `ScheduleProjection` lays
+            | the delivery rows that exist over the weekday patterns of every
+            | active subscription, bounded by each one's remaining balance.
+            | Nothing on that path writes anything, which is the whole
+            | guarantee — a projection that materialised rows would be the
+            | phantom orders the design exists to avoid, and would have to be
+            | un-materialised on every skip, pause and cancellation.
+            |
+            | **A sixth permission domain gets its first endpoint.**
+            | `subscription.view_organisation` has been in the registry since
+            | the foundation as a proposal with nothing behind it; K1.6 and C1
+            | both declined to spend it. It is not `order.view_organisation`: a
+            | subscription is a standing commercial arrangement carrying a
+            | captured price, and reading today's order list is not by itself a
+            | reason to see who is committed to what and for how long. It is not
+            | `plan.manage_organisation` either — that is the authority to
+            | *design* plans, and a production planner needs to read the
+            | schedule without being able to change what the kitchen sells.
+            | Granted to the kitchen manager and the commercial manager.
+            |
+            | Organisation-scoped, not branch-scoped, exactly as the order book
+            | is: a manager with an organisation-wide membership selects no
+            | branch, and an endpoint reading `X-Branch-Id` would show them
+            | nothing until they picked one. `branch_id` is a query filter — a
+            | narrowing of a view the caller already has.
+            |
+            | Read-only, and structurally so. There is no writer here and there
+            | will not be one: what a *customer* does to a subscription is the
+            | `/me/subscriptions` family, against their own ownership.
+            |
+            */
+            Route::middleware('permission:subscription.view_organisation')->group(function (): void {
+                Route::get('/subscription-schedule', KitchenSubscriptionScheduleController::class)
+                    ->name('catalogue.subscription-schedule.index');
+            });
         });
 
         /*
@@ -1290,7 +1508,154 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->middleware('permission:b2b_application.review_platform')
                     ->name('platform.b2b.documents.review');
             });
+
+            /*
+            |----------------------------------------------------------------------
+            | Offboarding — ending a corporate relationship (B2)
+            |----------------------------------------------------------------------
+            |
+            | **Under `/platform/b2b`, not the applicant's `/b2b`.** The two gates
+            | this block inherits — `platform.context` and a platform permission —
+            | cannot exist in the applicant prefix, which has no organisation
+            | context at all because an applicant is a member of nothing. Ending a
+            | relationship is the other end of admitting one, and it lives beside
+            | it.
+            |
+            | **Platform-driven, with no organisation-side variant.** A tenant does
+            | not decide that its own trading relationship ends. An organisation
+            | *request* to be offboarded is a real future need and is deferred
+            | rather than approximated: it needs a state before `notice_served` and
+            | a human decision at the platform, and an endpoint that let a company
+            | put itself straight into `notice_served` would look like the same
+            | thing while ending its own trading with nobody in the loop.
+            |
+            | **Nothing here cascades, and the route table is where that is
+            | visible.** Nine states and eight separate commands: it would be
+            | shorter to have sign-off revoke and archive in one transaction and it
+            | would be wrong, because revocation ends people's access to a system
+            | they use for work and the platform should have to be told to do it
+            | rather than doing it as a side effect of a signature.
+            |
+            | **Three codes, not one.**
+            |
+            |   * `b2b_offboarding.manage_platform` — drive the wind-up. The
+            |     operational job.
+            |   * `b2b_offboarding.waive_settlement_platform` — stacked on the
+            |     waiver alone. Letting a company stop owing money and leave anyway
+            |     is a commercial concession, not an operational step; a waiver
+            |     reachable by everybody who can click through the other eight steps
+            |     would be the escape hatch quietly becoming the path.
+            |   * `record_export.create_platform` — stacked on the two export
+            |     routes. Taking a complete copy of everything a company gave the
+            |     platform is a different act with a different risk, the same
+            |     argument that makes `kyc_document.view_platform` narrower than
+            |     reading an application.
+            |
+            | **`idempotency` on `revoke-access` and nowhere else.** It is the
+            | irreversible step: everything before it can be cancelled, and from
+            | there it cannot, because "cancelling" a revocation would mean silently
+            | re-granting access somebody deliberately removed. `archive` is
+            | deliberately *without* it — `archiving → archiving` is legal so a
+            | partial purge is retried, and a replay guard would refuse the retry
+            | that step is designed to accept.
+            |
+            | **No `precondition` anywhere.** The transitions are guarded by the
+            | state machine, which is a stronger guarantee than "only if nobody
+            | touched it since you looked": `signed_off → signed_off` is illegal
+            | whatever validator a caller holds. The `ETag` is served so a client
+            | can tell a stale render from a current one.
+            |
+            | Sign-off is **not** reachable by whoever is driving the wind-up.
+            | `OffboardingService::signOff()` demands a consumed `b2b_signatory`
+            | challenge belonging to the caller, and the challenge endpoint sends it
+            | to the *agreement's* signatory. The permission is necessary and
+            | nowhere near sufficient.
+            |
+            | There is no DELETE. `cancel` stamps a status and a reason, because why
+            | a wind-up stopped is the question somebody asks when the company is
+            | still trading eighteen months later.
+            |
+            */
+            Route::middleware('permission:b2b_offboarding.manage_platform')->prefix('/offboardings')->group(function (): void {
+                Route::post('/', OffboardingStoreController::class)
+                    ->name('platform.b2b.offboardings.store');
+
+                Route::get('/{offboarding}', OffboardingShowController::class)
+                    ->name('platform.b2b.offboardings.show');
+
+                Route::post('/{offboarding}/settlement-checks', OffboardingSettlementCheckController::class)
+                    ->name('platform.b2b.offboardings.settlement-checks.store');
+
+                Route::post('/{offboarding}/settlement-waiver', OffboardingSettlementWaiverController::class)
+                    ->middleware('permission:b2b_offboarding.waive_settlement_platform')
+                    ->name('platform.b2b.offboardings.settlement-waiver');
+
+                Route::post('/{offboarding}/signoff-challenges', OffboardingSignoffChallengeController::class)
+                    ->name('platform.b2b.offboardings.signoff-challenges.store');
+
+                Route::post('/{offboarding}/signoff', OffboardingSignoffController::class)
+                    ->name('platform.b2b.offboardings.signoff');
+
+                Route::post('/{offboarding}/revoke-access', OffboardingRevokeAccessController::class)
+                    ->middleware('idempotency')
+                    ->name('platform.b2b.offboardings.revoke-access');
+
+                Route::post('/{offboarding}/archive', OffboardingArchiveController::class)
+                    ->name('platform.b2b.offboardings.archive');
+
+                Route::post('/{offboarding}/cancel', OffboardingCancelController::class)
+                    ->name('platform.b2b.offboardings.cancel');
+
+                Route::middleware('permission:record_export.create_platform')->group(function (): void {
+                    Route::post('/{offboarding}/exports', RecordExportStoreController::class)
+                        ->name('platform.b2b.offboardings.exports.store');
+
+                    // One endpoint for the status and the download; `?purpose=`
+                    // is what separates them. Without it this is a read of the
+                    // manifest; with it, a fifteen-minute signed URL is minted
+                    // *in the envelope* — never a 302, which would put an
+                    // expiring credential into browser history, the referrer
+                    // chain and every proxy log on the way to the bucket — and
+                    // the access is audited as a Confidential read with the
+                    // stated reason.
+                    Route::get('/{offboarding}/exports/{export}', RecordExportShowController::class)
+                        ->name('platform.b2b.offboardings.exports.show');
+                });
+            });
         });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Closure opened on a customer's behalf (J2)
+        |--------------------------------------------------------------------------
+        |
+        | Middleware: auth:sanctum + db.context + device.touch + verified +
+        | org.context + platform.context + permission:customer_account.close_platform.
+        |
+        | **The one endpoint on the platform that starts the deletion of a named
+        | person's data**, so it takes the two-gate shape K1.1 and B1 use rather
+        | than a permission alone: `platform.context` asserts the selected
+        | organisation *is* the platform operator, and a tenant that somehow
+        | acquired the code still cannot reach it, because an organisation type is
+        | not something a tenant can grant itself.
+        |
+        | **There is no platform `verify` route, and there never will be.**
+        | `ClosureService::verify()` refuses when the caller is the support actor;
+        | the passcode goes to the *customer's* verified destination and is entered
+        | by the customer. Support may open a closure and may never finish one,
+        | because staff who could do both would be staff who can erase anybody —
+        | the customer's inbox is the second factor and the only one they have.
+        |
+        | Keyed on the customer account rather than the user: an agent is looking at
+        | an account, and an endpoint taking a `users` identifier would make "which
+        | person is this login" a lookup against a table they have no other reason
+        | to read. `b2c` only — a corporate account belongs to the company and is
+        | B2's to offboard.
+        |
+        */
+        Route::middleware(['org.context', 'platform.context', 'permission:customer_account.close_platform'])
+            ->post('/platform/customer-accounts/{account}/closure-requests', PlatformClosureRequestStoreController::class)
+            ->name('platform.customer-accounts.closure-requests.store');
 
         /*
         |--------------------------------------------------------------------------

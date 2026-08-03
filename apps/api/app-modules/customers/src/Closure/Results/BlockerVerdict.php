@@ -50,6 +50,19 @@ final readonly class BlockerVerdict
     }
 
     /**
+     * Something real was found, and it does not stop the closure.
+     *
+     * `$count` and `$reason` are both required, for the same reason they are on
+     * `blocking()`: an advisory a screen cannot quantify or name is an advisory
+     * nobody renders, and an advisory nobody renders is a `clear` with extra
+     * steps.
+     */
+    public static function advisory(string $code, int $count, string $reason): self
+    {
+        return new self($code, BlockerStatus::Advisory, $count, $reason);
+    }
+
+    /**
      * Nothing was checked, and this is why.
      *
      * The reason is mandatory. A `not_applicable` without one is exactly the

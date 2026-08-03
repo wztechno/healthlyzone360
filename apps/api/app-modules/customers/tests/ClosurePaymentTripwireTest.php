@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Healthy360\Customers\Closure\Blockers\CreditMemoBlocker;
 use Healthy360\Customers\Closure\Blockers\PaymentMethodsBlocker;
 use Healthy360\Customers\Closure\Blockers\WalletBalanceBlocker;
 use Healthy360\Customers\Closure\Contracts\ClosureBlocker;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 | The payment tripwire
 |--------------------------------------------------------------------------
 |
-| Two of the six closure blockers report `not_applicable` today: there are no
+| Two of the seven closure blockers report `not_applicable` today: there are no
 | wallets and no stored payment instruments on this platform, so nothing was
 | checked and both say so. That is honest right now and it is a lie waiting to
 | happen. The failure mode is specific and it is not hypothetical:
@@ -31,12 +32,18 @@ use Illuminate\Support\Facades\DB;
 | which is why the master plan (decision 13) keeps this one by name and why the
 | reviewer endorsed it.
 |
-| So: any table whose name contains `wallet`, `payment` or `card` must be
-| claimed by a registered blocker that declares the fragment in `COVERS`, and
-| any blocker claiming a table that now exists must have stopped saying
-| `not_applicable`. The two assertions are a pair — the first catches a new
-| table nobody wired up, the second catches a wired-up table whose blocker was
-| never made real.
+| So: any table whose name contains `wallet`, `payment`, `card` or
+| `credit_memo` must be claimed by a registered blocker that declares the
+| fragment in `COVERS`, and any blocker claiming a table that now exists must
+| have stopped saying `not_applicable`. The two assertions are a pair — the
+| first catches a new table nobody wired up, the second catches a wired-up
+| table whose blocker was never made real.
+|
+| **`credit_memo` is the fragment that already matches.** The integration wave
+| added `CreditMemoBlocker` over an S1 port, and `credit_memos` exists today, so
+| the second assertion is a live check rather than a promise about PAY1: lose
+| the S1 binding and the blocker falls back to the null default, answers
+| `not_applicable` against a table that is plainly there, and this file fails.
 |
 | **What this test deliberately does not do** is invent the payment blockers'
 | eventual logic. It asserts that somebody will be forced to write it, at the
@@ -77,6 +84,19 @@ final class J2ClosureTripwireSchema
 
         foreach (PaymentMethodsBlocker::COVERS as $fragment) {
             $map[$fragment] = (new PaymentMethodsBlocker)->code();
+        }
+
+        // The integration wave's third claimant. `credit_memos` is the one
+        // money table that already exists, so unlike the other two this
+        // fragment matches something today — which makes the second assertion
+        // below a live check on S1's binding rather than a promise about PAY1.
+        //
+        // Resolved through the container rather than constructed, because this
+        // blocker takes a port: `new CreditMemoBlocker` would need an
+        // implementation of it, and the code() a stub returned would be the
+        // stub's rather than the registry's.
+        foreach (CreditMemoBlocker::COVERS as $fragment) {
+            $map[$fragment] = app(CreditMemoBlocker::class)->code();
         }
 
         return $map;
@@ -167,7 +187,9 @@ it('claims every wallet, payment or card table with a registered closure blocker
     // asserting nothing — and would keep passing if somebody removed both
     // blockers from the registry, which is precisely the state it exists to
     // prevent.
-    expect($registered)->toContain('wallet_balance')->toContain('payment_methods');
+    expect($registered)->toContain('wallet_balance')
+        ->toContain('payment_methods')
+        ->toContain('unsettled_credit_memos');
 
     foreach (J2ClosureTripwireSchema::suspectTables() as $table) {
         $claimant = J2ClosureTripwireSchema::claimantFor($table);

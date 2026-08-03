@@ -63,11 +63,25 @@ use Illuminate\Support\Facades\Schema;
  * next_generation_date)` is what keeps the sweep from reading every row in the
  * table every hour.
  *
- * Isolation strategy: **application scope, no PostgreSQL policy** — the C1
- * decision for `carts` and `orders`, taken here for the same reason. The owner
- * of a subscription is a customer, and a customer is not a member of the
- * kitchen they buy from; an organisation policy would hide every row from the
- * person who owns it. The eleven-table policy pin in `RlsTest` stays eleven.
+ * Isolation strategy: **`app-scope`, no PostgreSQL policy** — the C1 decision
+ * for `carts` and `orders`, taken here for the same reason. The owner of a
+ * subscription is a customer, and a customer is not a member of the kitchen
+ * they buy from; an organisation policy would hide every row from the person
+ * who owns it. The eleven-table policy pin in `RlsTest` stays eleven.
+ *
+ * **Re-examined and upheld in the integration wave (D-071).** The obvious
+ * refinement — an org arm plus a user arm through
+ * `customer_account_id IN (SELECT id FROM customer_accounts WHERE user_id = …)`
+ * — serves `/me/subscriptions` and `ScheduleProjection` and then makes
+ * `GenerationService::tick()` read **zero rows** in every scheduler run: the
+ * hourly sweep is platform-wide by design, runs as `healthy360_app` with no
+ * context published, and would have failed *silently*, reporting
+ * `generated: 0` while customers waited for food. Making it work would mean
+ * rewriting the sweep to iterate organisations, in exchange for database
+ * isolation on a table whose sibling `orders` — which holds the delivery
+ * address — deliberately has none. Every read names its scope instead:
+ * `SubscriptionLocator` on `customer_account_id`, `ScheduleProjection` on
+ * `organisation_id`.
  */
 return new class extends Migration
 {

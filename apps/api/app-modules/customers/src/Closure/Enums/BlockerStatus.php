@@ -19,6 +19,16 @@ namespace Healthy360\Customers\Closure\Enums;
  * and a blocker that returns it permanently is a defect rather than a state —
  * which is what the payment tripwire test asserts by failing the build the
  * moment a `%payment%` table appears without a blocker that can see it.
+ *
+ * **`advisory` is the fourth, added by the integration wave for
+ * `CreditMemoBlocker`.** It is "checked, found something real, and it does not
+ * stop the closure" — a state none of the other three can express. `clear`
+ * cannot: it is the *absence* of a finding, and `BlockerVerdict::clear()`
+ * carries no count for that reason. `not_applicable` cannot: something was very
+ * much checked. `blocking` would be wrong on the merits — see
+ * `CreditMemoBlocker` for the policy argument. Collapsing an advisory into
+ * either neighbour is how a real finding becomes invisible, which is the same
+ * dishonesty `not_applicable` exists to prevent, one step along.
  */
 enum BlockerStatus: string
 {
@@ -27,6 +37,13 @@ enum BlockerStatus: string
 
     /** Checked, and there is nothing here. */
     case Clear = 'clear';
+
+    /**
+     * Checked, something was found, and it does not stop the closure. The
+     * customer is told; they decide. Never presented as `clear`, because a
+     * count of zero and a count of two are different sentences.
+     */
+    case Advisory = 'advisory';
 
     /**
      * Not checked, because there is nothing in this deployment to check
@@ -40,7 +57,9 @@ enum BlockerStatus: string
      * `not_applicable` does not, and that is a considered risk rather than an
      * oversight: refusing every closure until every future module exists would
      * make the journey unusable, so the honesty is carried in the reporting and
-     * in the tripwire instead.
+     * in the tripwire instead. `advisory` does not either, and that one is a
+     * product decision rather than a risk — the finding is disclosed and the
+     * person leaves anyway if they want to.
      */
     public function stopsClosure(): bool
     {

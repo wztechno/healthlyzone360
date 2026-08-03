@@ -20,20 +20,21 @@ use RuntimeException;
  * it maps onto codes that **already exist** — B2 adds none, because the
  * `ErrorCode` enum is a shared file the integration wave owns.
  *
- * **For integrator-2.** Four of these deserve codes of their own, and the
- * reasons say so:
+ * **The integration wave settled the codes B2 asked for**, in the two places
+ * the reasons said they mattered:
  *
- * | reason | today | wants |
- * |---|---|---|
- * | `offboarding.already_in_flight` | `resource.conflict` | fine as is |
- * | `offboarding.transition_not_allowed` | `resource.conflict` | fine as is |
- * | `offboarding.settlement_outstanding` | `resource.conflict` | `b2b.settlement_outstanding` — the client needs to branch on it to render the blocker list |
- * | `offboarding.waiver_not_permitted` | `authz.permission_denied` | fine as is |
- * | `offboarding.not_a_corporate_customer` | `validation.failed` | fine as is |
- * | `offboarding.no_active_agreement` | `resource.conflict` | fine as is |
+ * | reason | code |
+ * |---|---|
+ * | `offboarding.already_in_flight` | `offboarding.refused` |
+ * | `offboarding.transition_not_allowed` | `offboarding.refused` |
+ * | `offboarding.no_active_agreement` | `offboarding.refused` |
+ * | `offboarding.settlement_outstanding` | `offboarding.settlement_outstanding` — a client branches on it to render the blocker list |
+ * | `offboarding.waiver_not_permitted` | `authz.permission_denied` |
+ * | `offboarding.not_a_corporate_customer` and the three shape refusals | `validation.failed` |
+ * | `offboarding.signatory_required` | `b2b.signatory_required` |
  *
- * Until then `details` carries the reason string, so a client can branch on
- * `details.reason` and nothing has to wait for a code to ship.
+ * `details.reason` still carries the string on every one of them, so a client
+ * that wants finer granularity than the code has it without a second lookup.
  */
 final class OffboardingRefused extends RuntimeException implements ProvidesApiError
 {
@@ -170,7 +171,8 @@ final class OffboardingRefused extends RuntimeException implements ProvidesApiEr
             'offboarding.signoff_evidence_incomplete',
             'offboarding.no_signatory_contact' => ErrorCode::ValidationFailed,
             'offboarding.signatory_required' => ErrorCode::B2bSignatoryRequired,
-            default => ErrorCode::ResourceConflict,
+            'offboarding.settlement_outstanding' => ErrorCode::OffboardingSettlementOutstanding,
+            default => ErrorCode::OffboardingRefused,
         };
 
         return ApiError::make($code, $this->getMessage(), ['reason' => $this->reason] + $this->details);

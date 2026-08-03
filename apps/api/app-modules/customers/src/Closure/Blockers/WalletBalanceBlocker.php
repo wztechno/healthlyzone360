@@ -52,9 +52,16 @@ final class WalletBalanceBlocker implements ClosureBlocker
      * The fragment is `wallet` alone, deliberately. Widening it to `balance` or
      * `credit` would be a unilateral decision about tables other modules own —
      * `credit_memos` (S1) is customer-held value that this blocker does **not**
-     * yet consider, and quietly claiming it here would convert an open question
-     * into a false all-clear. It is raised for the integrator instead, which is
-     * what an honest blocker does with something outside its remit.
+     * consider, and quietly claiming it here would convert an open question
+     * into a false all-clear. It was raised for the integrator instead, which
+     * is what an honest blocker does with something outside its remit.
+     *
+     * **The integration wave answered it.** `CreditMemoBlocker` claims
+     * `credit_memo` with a port of its own, and the tripwire reads its `COVERS`
+     * alongside these two. The question stays out of this class because the
+     * direction of the money is different — a wallet is value the customer put
+     * in, a memo is a debt the kitchen owes out — and one blocker answering
+     * both would have to pick one of two opposite policies.
      *
      * @var list<string>
      */

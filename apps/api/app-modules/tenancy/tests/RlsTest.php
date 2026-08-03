@@ -88,6 +88,34 @@ use Illuminate\Support\Str;
 | through this row and cascade-deleted with it, and a second policy would be a
 | second place to get the same predicate wrong.
 |
+| The final backend wave gave read paths to four more tables and the set stays
+| at **eleven** (D-071). Each was evaluated on its own and each declined for a
+| different reason, so none of this is one blanket answer:
+|
+|   * `subscriptions` — S1 declared `app-scope` on the C1 `carts`/`orders`
+|     precedent, and the wave honoured it. A user-arm-via-account subquery
+|     would have served `/me/subscriptions` perfectly and made
+|     `GenerationService::tick()` read **zero rows** in every scheduler run:
+|     the hourly sweep is platform-wide by design, runs as `healthy360_app`
+|     with no context published, and would have failed *silently* — the tick
+|     reporting `generated: 0` while customers waited for food. The gain would
+|     have been database isolation on a table whose sibling `orders`, which
+|     holds the delivery address, deliberately has none.
+|   * `account_closure_requests` — a user-owner policy fits
+|     `/me/closure-requests/live` exactly and breaks `ProcessScheduledClosures`
+|     the same way. The safety net for a delayed job the queue lost is
+|     precisely the thing that must not depend on a session variable.
+|   * `b2b_offboardings`, `record_exports` — B1 proposed `org-rls` and it is
+|     the wrong word. The only reader is a platform operator whose
+|     `X-Organisation-Id` is the *platform operator's* organisation, while the
+|     row's `organisation_id` is the corporate customer's, so an org-match
+|     policy would hide every row from the one surface that reads it. That is
+|     the D-066 finding again, and their strategy is `platform-only`.
+|
+| Isolation for all four is the application layer, and every read names its
+| scope: `SubscriptionLocator`, `ResolvesClosureRequest`, `ResolvesOffboarding`
+| and `ScheduleProjection::forOrganisation()`.
+|
 */
 
 uses()->group('rls');

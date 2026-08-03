@@ -39,11 +39,12 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *  * `weekdays_empty`, `weekdays_invalid` — the delivery weekday set.
  *  * `guest_may_not_subscribe` — see above.
  *
- * Carried under `ErrorCode::OrderPlacementRefused` (409) deliberately rather
- * than under a new code: adding to the `ErrorCode` enum is integrator-2's, and
- * a placeholder code invented here would have to be renamed in a published
- * contract. The status and the shape are already right — the request is
- * well-formed and meant, and the world it describes refuses it.
+ * Carried under `ErrorCode::SubscriptionRefused` (409). S1 shipped this against
+ * `order.placement_refused` while the shared enum was closed to it, and the
+ * integration wave gave it the code it asked for: a client branches on the code
+ * to decide which screen to render, and a checkout basket and a twenty-day plan
+ * are not the same screen. The status and the shape were already right — the
+ * request is well-formed and meant, and the world it describes refuses it.
  */
 final class SubscriptionRefused extends ApiException
 {
@@ -53,7 +54,7 @@ final class SubscriptionRefused extends ApiException
     public function __construct(array $reasons)
     {
         parent::__construct(
-            ErrorCode::OrderPlacementRefused,
+            ErrorCode::SubscriptionRefused,
             'This subscription cannot be started as it stands.',
             ['reasons' => $reasons],
         );

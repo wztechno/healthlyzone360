@@ -8,6 +8,7 @@ use Healthy360\B2b\Enums\OffboardingStatus;
 use Healthy360\B2b\Enums\OffboardingTrigger;
 use Healthy360\B2b\Enums\SettlementStatus;
 use Healthy360\B2b\Exceptions\OffboardingRefused;
+use Healthy360\B2b\Services\NoSellerOpenOrders;
 use Healthy360\B2b\Services\OffboardingService;
 use Healthy360\B2b\Services\SettlementRegistry;
 use Healthy360\B2b\Tests\Fixtures\B2bWorld;
@@ -32,6 +33,15 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 |     under its own action — never `settlement_cleared`. A waiver recorded as a
 |     clearance would erase the only difference a dispute turns on.
 |
+| INTEGRATION WAVE. `SellerOpenOrders` is now bound to the orders module's
+| `BuyerOpenOrderQuery`, so the `open_orders` check is real and answers `clear`
+| for an organisation with nothing in flight. The first case therefore states
+| the absent deployment explicitly, by binding `NoSellerOpenOrders` back — the
+| same move `ClosureBlockerHonestyTest` makes for its three ports, and for the
+| same reason: an assertion about "what happens when nobody can answer" that
+| relied on nobody having bound anything stops asserting it the moment somebody
+| does. A fourth case pins the seam itself.
+|
 */
 
 beforeEach(function (): void {
@@ -44,8 +54,20 @@ beforeEach(function (): void {
 });
 
 it('records what it could not check instead of showing a green tick', function (): void {
-    $offboarding = $this->offboardings->start($this->organisation, OffboardingTrigger::NonRenewal, $this->operator);
-    $offboarding = $this->offboardings->runSettlementChecks($offboarding, $this->operator);
+    // The deployment this case is about: one where the orders module was never
+    // built. Stated by binding the null default rather than by relying on
+    // nobody having bound anything, which stopped being true the moment the
+    // integration wave closed the seam.
+    //
+    // The service is re-resolved afterwards, and that is not incidental: the
+    // registry is constructor-injected, so the instance `beforeEach` built is
+    // still holding the *real* port and would answer for it.
+    $this->app->bind(SellerOpenOrders::class, NoSellerOpenOrders::class);
+
+    $offboardings = app(OffboardingService::class);
+
+    $offboarding = $offboardings->start($this->organisation, OffboardingTrigger::NonRenewal, $this->operator);
+    $offboarding = $offboardings->runSettlementChecks($offboarding, $this->operator);
 
     $outcomes = collect($offboarding->settlement_checks)->keyBy('check');
 
@@ -63,6 +85,23 @@ it('records what it could not check instead of showing a green tick', function (
     // Not blocking, and on the record. Both halves matter.
     expect($offboarding->settlement_status)->toBe(SettlementStatus::Cleared)
         ->and($offboarding->status)->toBe(OffboardingStatus::AwaitingSignoff);
+});
+
+it('runs the orders check for real once the integration wave has bound it', function (): void {
+    // No stub and no rebinding: whatever the service providers registered. The
+    // difference from the case above is the whole point of the seam — the same
+    // check, over the same organisation, reporting `clear` because something
+    // actually looked rather than `not_applicable` because nothing could.
+    $offboarding = $this->offboardings->start($this->organisation, OffboardingTrigger::NonRenewal, $this->operator);
+    $offboarding = $this->offboardings->runSettlementChecks($offboarding, $this->operator);
+
+    $outcomes = collect($offboarding->settlement_checks)->keyBy('check');
+
+    expect($outcomes['open_orders']['outcome'])->toBe('clear')
+        ->and($outcomes['open_orders']['reason'])->toBeNull()
+        // The three PAY1-gated checks are still honest about themselves. A
+        // closed seam next door must not make an open one look shut.
+        ->and($outcomes['outstanding_invoices']['outcome'])->toBe('not_applicable');
 });
 
 it('holds the wind-up when a bound port reports orders in flight, and refuses sign-off', function (): void {

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Healthy360\Customers\Closure\Contracts\B2bSignatoryPresence;
+use Healthy360\Customers\Closure\Contracts\CustomerCreditPresence;
 use Healthy360\Customers\Closure\Contracts\SubscriptionPresence;
 use Healthy360\Customers\Closure\Enums\BlockerStatus;
 use Healthy360\Customers\Closure\Services\ClosureBlockerRegistry;
+use Healthy360\Customers\Closure\Services\NullB2bSignatoryPresence;
+use Healthy360\Customers\Closure\Services\NullCustomerCreditPresence;
+use Healthy360\Customers\Closure\Services\NullSubscriptionPresence;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\Organisation;
@@ -43,6 +47,15 @@ use Healthy360\Organisations\Models\OrganisationMembership;
 | blocker reports `clear` for somebody who works in four kitchens — a false
 | negative arriving through a correct-looking query.
 |
+| INTEGRATION WAVE. Three of the ports this file was written against are now
+| bound — S1's `SubscriptionPresence` and `CustomerCreditPresence`, B2's
+| `B2bSignatoryPresence` — so the deployment-absent case is no longer the
+| ambient state and cannot be asserted by simply resolving the registry. It is
+| asserted by *unbinding*: the null defaults are put back explicitly, which is
+| the same statement about the same code and, unlike the original, keeps saying
+| it after the modules exist. The `becomes real the moment a port is bound` case
+| now runs against the genuine adapters rather than against inline stubs.
+|
 | SPEED MODE: one of the three kept smokes. See DEFERRED TESTS in the J2 report.
 |
 */
@@ -57,17 +70,28 @@ it('reports not_applicable with a reason where a module is absent, and never cle
     $user = User::factory()->create();
     $account = CustomerAccount::factory()->active()->create(['user_id' => $user->getKey()]);
 
+    // The deployment this file is about: one where the neighbouring modules
+    // were never built. Stated by binding the null defaults rather than by
+    // relying on nobody having bound anything, which stopped being true the
+    // moment S1 and B2 landed — and which would have made this assertion
+    // silently vacuous rather than failing.
+    app()->instance(SubscriptionPresence::class, new NullSubscriptionPresence);
+    app()->instance(B2bSignatoryPresence::class, new NullB2bSignatoryPresence);
+    app()->instance(CustomerCreditPresence::class, new NullCustomerCreditPresence);
+    app()->forgetInstance(ClosureBlockerRegistry::class);
+
     $verdicts = collect(app(ClosureBlockerRegistry::class)->evaluate($user, $account))
         ->keyBy(fn ($verdict) => $verdict->code);
 
-    // The two ports whose modules land in this same wave. Until integrator-2
-    // binds the adapters, the null defaults answer "we did not look" — and the
-    // reason names what is missing, so a reader after the wave can tell the
-    // answer is stale rather than reassuring.
+    // The three ports over neighbouring modules. With no module bound, the null
+    // defaults answer "we did not look" — and the reason names what is missing,
+    // so the answer is legible as a fact about the deployment.
     expect($verdicts['active_subscriptions']->status)->toBe(BlockerStatus::NotApplicable)
         ->and($verdicts['active_subscriptions']->reason)->toBe('subscriptions_module_absent')
         ->and($verdicts['pending_b2b_signatures']->status)->toBe(BlockerStatus::NotApplicable)
-        ->and($verdicts['pending_b2b_signatures']->reason)->toBe('b2b_module_absent');
+        ->and($verdicts['pending_b2b_signatures']->reason)->toBe('b2b_module_absent')
+        ->and($verdicts['unsettled_credit_memos']->status)->toBe(BlockerStatus::NotApplicable)
+        ->and($verdicts['unsettled_credit_memos']->reason)->toBe('subscriptions_module_absent');
 
     // The two that have no module to wait for.
     expect($verdicts['wallet_balance']->status)->toBe(BlockerStatus::NotApplicable)
@@ -89,7 +113,25 @@ it('reports not_applicable with a reason where a module is absent, and never cle
     // file exists to make: an unchecked question is never reported as a
     // checked one.
     expect($verdicts['active_subscriptions']->status)->not->toBe(BlockerStatus::Clear)
-        ->and($verdicts['pending_b2b_signatures']->status)->not->toBe(BlockerStatus::Clear);
+        ->and($verdicts['pending_b2b_signatures']->status)->not->toBe(BlockerStatus::Clear)
+        ->and($verdicts['unsettled_credit_memos']->status)->not->toBe(BlockerStatus::Clear);
+});
+
+it('runs the real adapters the integration wave bound, and none of them says not_applicable', function (): void {
+    // The seams closed, asserted end to end: no stubs, no instances swapped in,
+    // just whatever the service providers registered. A binding lost in a
+    // future refactor turns three of these back into `not_applicable`, which is
+    // the exact regression the wave exists to have prevented.
+    $user = User::factory()->create();
+    $account = CustomerAccount::factory()->active()->create(['user_id' => $user->getKey()]);
+
+    $verdicts = collect(app(ClosureBlockerRegistry::class)->evaluate($user, $account))
+        ->keyBy(fn ($verdict) => $verdict->code);
+
+    expect($verdicts['active_subscriptions']->status)->toBe(BlockerStatus::Clear)
+        ->and($verdicts['pending_b2b_signatures']->status)->toBe(BlockerStatus::Clear)
+        ->and($verdicts['unsettled_credit_memos']->status)->toBe(BlockerStatus::Clear)
+        ->and($verdicts['open_orders']->status)->toBe(BlockerStatus::Clear);
 });
 
 it('becomes real the moment a port is bound', function (): void {

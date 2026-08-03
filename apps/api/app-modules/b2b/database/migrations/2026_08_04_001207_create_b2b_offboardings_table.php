@@ -30,6 +30,15 @@ use Illuminate\Support\Facades\Schema;
  * Isolation strategy: **`org-rls`** in vocabulary, unimplemented in B1 for the
  * same reason as everything else here — B2 adds the policy in the commit that
  * adds the read path.
+ *
+ * **Superseded (D-071).** The read path landed in the final backend wave and
+ * `org-rls` turned out to be the wrong word: the only reader is a platform
+ * operator whose `X-Organisation-Id` is the *platform operator's* organisation,
+ * while this row's `organisation_id` is the corporate customer's — so an
+ * org-match policy would hide every row from the one surface that reads it.
+ * That is the D-066 finding again. The strategy is `platform-only`: no tenant
+ * read path exists, and every route carries `platform.context` plus
+ * `b2b_offboarding.manage_platform`.
  */
 return new class extends Migration
 {

@@ -8,6 +8,7 @@ use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Enums\OffboardingStatus;
 use Healthy360\B2b\Models\B2bAgreement;
 use Healthy360\B2b\Models\B2bOffboarding;
+use Healthy360\Customers\Closure\Contracts\B2bSignatoryPresence;
 
 /**
  * "Is this person on the hook as a B2B signatory?"
@@ -25,28 +26,45 @@ use Healthy360\B2b\Models\B2bOffboarding;
  * *reasons* rather than agreements — a closure screen needs to say "you are
  * the signatory for Acme Ltd", not render an agreement's credit limit.
  *
- * ## For integrator-2
+ * ## The seam, closed
  *
- * J2 declares `Healthy360\Customers\Contracts\PendingB2bSignatory` in the
- * customers module with a null default. This class is written to that shape
- * but does **not** yet name it in an `implements` clause, because the two
- * phases were built in parallel and B2 must not fail static analysis on a
- * contract that has not landed. Two lines close it:
+ * J2's port turned out to be named `B2bSignatoryPresence` and to live in
+ * `Healthy360\Customers\Closure\Contracts` — B2 wrote its note against a
+ * working name, which is what happens when two phases are built in parallel.
+ * The reconciliation is on **this** side, as B2's own note instructed: the port
+ * belongs to the module that asks, so `pendingSignatureCount()` and
+ * `isAvailable()` are added here rather than the customers interface being bent
+ * to fit. `hasPendingObligations()` and `pendingObligations()` stay exactly as
+ * they were — they are richer than the port needs and are what a B2B-side
+ * caller would reach for — and the two interface methods are expressed over
+ * them.
  *
- * ```php
- * // 1. this class:
- * final readonly class PendingB2bSignatoryQuery implements PendingB2bSignatory
+ * `isAvailable()` is true unconditionally, for the reason every adapter over
+ * one of these ports gives: the question is "is a B2B module bound", and the
+ * only way this class is reached is that one is.
  *
- * // 2. B2bServiceProvider::boot():
- * $this->app->bind(PendingB2bSignatory::class, PendingB2bSignatoryQuery::class);
- * ```
- *
- * If J2's method names differ from `hasPendingObligations()` /
- * `pendingObligations()`, rename here rather than in customers — the port
- * belongs to the module that asks.
+ * Bound in `B2bServiceProvider`, over the `NullB2bSignatoryPresence` the
+ * customers module registers with `bindIf`.
  */
-final readonly class PendingB2bSignatoryQuery
+final readonly class PendingB2bSignatoryQuery implements B2bSignatoryPresence
 {
+    public function isAvailable(): bool
+    {
+        return true;
+    }
+
+    /**
+     * How many companies are waiting on this person's signature.
+     *
+     * The port's method, expressed over this class's own richer answer rather
+     * than as a second query: two counts of the same thing computed two ways is
+     * how a blocker and the screen explaining it come to disagree.
+     */
+    public function pendingSignatureCount(string $userId): int
+    {
+        return count($this->pendingObligations($userId));
+    }
+
     /**
      * Whether closing this person's account would strand a company.
      */

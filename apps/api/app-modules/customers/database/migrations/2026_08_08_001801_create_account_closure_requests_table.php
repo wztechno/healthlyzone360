@@ -70,6 +70,18 @@ use Illuminate\Support\Facades\Schema;
  *
  * No soft deletes (§B.2). A closure request that has completed is the record of
  * a person's decision and stays; what goes is the personal data it pointed at.
+ *
+ * Isolation strategy: **`app-scope`, no PostgreSQL policy** (D-071, decided in
+ * the integration wave that added the read path). A `user-owner-rls` policy
+ * fits `GET /me/closure-requests/live` exactly — and would make
+ * `ProcessScheduledClosures` read zero rows in every scheduler run, because a
+ * maintenance sweep publishes no `app.user_id`. That job is the safety net for
+ * a delayed `FinaliseAccountClosure` the queue lost, which makes it precisely
+ * the thing that must not depend on a session variable, and it would have
+ * failed silently. Every read path names its owner instead:
+ * `ClosureService::liveRequestFor()` and `ResolvesClosureRequest` both scope on
+ * `user_id`, and the platform surface is behind `platform.context` plus
+ * `customer_account.close_platform`.
  */
 return new class extends Migration
 {

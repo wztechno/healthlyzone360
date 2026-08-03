@@ -4618,7 +4618,7 @@ export const zClosureBlockerStatus = z.enum([
  *
  * `reason` is a code, never a sentence: it is rendered in the customer's
  * language and it goes into audit metadata. The vocabulary is each
- * blocker's own — `open_orders_in_flight`, `subscriptions_live`,
+ * blocker's own — `orders_in_flight`, `subscriptions_live`,
  * `deliveries_upcoming`, `memberships_live`, `signatures_pending`,
  * `credit_memos_unsettled`, and the `*_module_absent` family.
  *

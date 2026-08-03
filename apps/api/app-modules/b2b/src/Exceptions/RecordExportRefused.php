@@ -13,14 +13,15 @@ use RuntimeException;
  * A records bundle could not be handed over.
  *
  * Stable reason strings rather than error codes, per the convention: the wire
- * vocabulary belongs to the HTTP follow-up. Both reasons map onto codes that
- * already exist, so B2 adds nothing to the shared `ErrorCode` enum.
+ * vocabulary belongs to the HTTP follow-up. The integration wave gave
+ * `not_downloadable` its own code — `record_export.unavailable` — because a
+ * download screen has to tell "still building, come back" from "gone, ask for
+ * another", and both of those from an ordinary lost race.
  *
- * `not_downloadable` deliberately answers with a conflict rather than a 404.
- * The caller is looking at an export that exists and that they may see — it is
- * still building, or its window has closed and the bytes are gone — and the
- * status is in `details` so a client can say which of those it is. A 404 would
- * be a lie about a row the caller can already list.
+ * It deliberately answers with a conflict rather than a 404. The caller is
+ * looking at an export that exists and that they may see, and the status is in
+ * `details` so a client can say which of the three it is. A 404 would be a lie
+ * about a row the caller can already list.
  */
 final class RecordExportRefused extends RuntimeException implements ProvidesApiError
 {
@@ -61,7 +62,7 @@ final class RecordExportRefused extends RuntimeException implements ProvidesApiE
     {
         $code = $this->reason === 'record_export.purpose_required'
             ? ErrorCode::ValidationFailed
-            : ErrorCode::ResourceConflict;
+            : ErrorCode::RecordExportUnavailable;
 
         return ApiError::make($code, $this->getMessage(), ['reason' => $this->reason] + $this->details);
     }

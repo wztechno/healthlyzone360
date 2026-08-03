@@ -31,6 +31,13 @@ use Illuminate\Support\Facades\Schema;
  *
  * Isolation strategy: **`org-rls`**, unimplemented in B1; B2 adds the policy
  * with the read path.
+ *
+ * **Superseded (D-071).** `platform-only`, for the reason
+ * `b2b_offboardings` records: the reader is a platform operator acting on
+ * somebody else's company, so an org-match predicate would never match. Reads
+ * are resolved *through* the offboarding that owns the bundle
+ * (`ResolvesOffboarding::recordExport()`), behind `platform.context` and
+ * `record_export.create_platform`.
  */
 return new class extends Migration
 {

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Healthy360\Customers\Closure\Exceptions;
 
+use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
+use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 
 /**
@@ -18,11 +21,20 @@ use RuntimeException;
  * account.
  *
  * Every named constructor carries a `reason` the API layer maps to an
- * `ErrorCode`. That mapping is integrator-2's (routes, spec and the error
- * vocabulary are theirs by scope), so the reasons are stable strings here
- * rather than enum cases this module would have to widen a shared enum to add.
+ * `ErrorCode`. The reasons stay stable strings — this module does not own the
+ * wire vocabulary — and `toApiError()` is where the two meet, added by the
+ * integration wave alongside `closure.refused`.
+ *
+ * **Three reasons deliberately do not land on `closure.refused`.** A support
+ * actor who tries to finish somebody else's erasure is `authz.permission_denied`
+ * — a statement about the actor, not about the request. A passcode that did not
+ * verify is `otp.invalid`, which is the one shape all four of wrong, expired,
+ * superseded and locked-out collapse into; a distinct answer here would tell an
+ * attacker holding a borrowed session which of their guesses was closest. And a
+ * reason outside the vocabulary is `validation.failed`, because it is an input
+ * that never should have been sent.
  */
-final class ClosureRefused extends RuntimeException
+final class ClosureRefused extends RuntimeException implements ProvidesApiError
 {
     private function __construct(string $message, public readonly string $reason)
     {
@@ -102,5 +114,17 @@ final class ClosureRefused extends RuntimeException
     public static function unknownReason(string $code): self
     {
         return new self("'{$code}' is not a closure reason.", 'closure_unknown_reason');
+    }
+
+    public function toApiError(): ApiError
+    {
+        $code = match ($this->reason) {
+            'closure_support_cannot_self_verify' => ErrorCode::AuthzPermissionDenied,
+            'closure_verification_failed' => ErrorCode::OtpInvalid,
+            'closure_unknown_reason' => ErrorCode::ValidationFailed,
+            default => ErrorCode::ClosureRefused,
+        };
+
+        return ApiError::make($code, $this->getMessage(), ['reason' => $this->reason]);
     }
 }

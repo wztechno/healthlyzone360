@@ -300,7 +300,24 @@ it('seeds exactly the registered permission set', function (): void {
     // `kyc_document.view_platform`, deliberately narrower than the application
     // read because working a queue is not by itself a reason to open somebody's
     // passport photograph.
-    expect(Permission::query()->count())->toBe(41)
+    //
+    // The final backend wave adds four, all of them platform codes, and none of
+    // them a pair with an organisation counterpart. Two split the corporate
+    // wind-up — `b2b_offboarding.manage_platform` drives the nine states, and
+    // `b2b_offboarding.waive_settlement_platform` stacks on the one step that
+    // lets a company stop owing money and leave anyway, which is a commercial
+    // concession rather than an operational move.
+    // `record_export.create_platform` is the authority to take a complete copy
+    // of everything a company gave the platform, deliberately narrower than
+    // driving the wind-up on the same argument that made the KYC read narrower
+    // than the application read. And `customer_account.close_platform` lets
+    // support *open* an account closure on somebody's behalf — with no
+    // counterpart authority to finish one, because the passcode goes to the
+    // customer and staff who could do both could erase anybody.
+    //
+    // `subscription.view_organisation` is **not** new; it has been in the
+    // registry since the foundation and this wave is the first to grant it.
+    expect(Permission::query()->count())->toBe(45)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -310,10 +327,13 @@ it('keeps the platform permissions out of every organisation template role', fun
         ->whereIn('code', array_keys(PermissionRegistry::platformPermissions()))
         ->pluck('id');
 
-    // Seven since the integration wave: the two reference codes plus B1's five.
-    // The count is pinned rather than derived so that adding a platform code
-    // without thinking about this test is impossible.
-    expect($platformIds)->toHaveCount(7)
+    // Eleven since the final backend wave: the two reference codes, B1's five,
+    // and B2/J2's four. The count is pinned rather than derived so that adding a
+    // platform code without thinking about this test is impossible — and the
+    // four newest are exactly the kind that would be tempting to hand to an
+    // organisation owner, since a wind-up and a closure are both about a
+    // specific organisation's or person's records.
+    expect($platformIds)->toHaveCount(11)
         ->and(RolePermission::withoutTenancy()
             ->whereIn('permission_id', $platformIds)
             ->whereIn('role_id', Role::withoutTenancy()->whereNull('organisation_id')->select('id'))
@@ -337,10 +357,10 @@ it('seeds the platform template roles with the expected grants', function (strin
     'organisation administrator cannot manage roles' => ['organisation_admin', 33],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans and draws the delivery map' => ['kitchen_manager', 18],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map and reads the subscription book' => ['kitchen_manager', 19],
     'chef edits recipes and their costs but never publishes one and never sees a price' => ['kitchen_chef', 5],
     'kitchen staff read the catalogue and recipes, and no money at all' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans and prices delivery' => ['commercial_manager', 10],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery and reads the subscription book' => ['commercial_manager', 11],
 ]);
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
@@ -729,7 +749,14 @@ it('grants the platform permissions only inside the platform operator organisati
     // Every platform code the registry declares, and only inside this
     // organisation. B1's five join the two reference codes: admitting a company
     // to trade is a platform decision by construction, because there is no
-    // organisation to scope it to until the decision has been made.
+    // organisation to scope it to until the decision has been made. The final
+    // backend wave adds the other end of the same relationship — the two
+    // offboarding codes and the record export — plus the support authority to
+    // open a customer's account closure.
+    //
+    // The list is written out rather than derived from `platformPermissions()`,
+    // and that is the point: a code added to the registry must be added here by
+    // somebody who has thought about whether a platform operator should hold it.
     expect($codes)->toEqualCanonicalizing([
         'reference.view_platform',
         'reference.manage_platform',
@@ -738,6 +765,10 @@ it('grants the platform permissions only inside the platform operator organisati
         'b2b_application.decide_platform',
         'b2b_application.provision_platform',
         'kyc_document.view_platform',
+        'b2b_offboarding.manage_platform',
+        'b2b_offboarding.waive_settlement_platform',
+        'record_export.create_platform',
+        'customer_account.close_platform',
         'catalogue.view_organisation',
         'catalogue.manage_organisation',
     ]);

@@ -7,6 +7,7 @@ use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Consent\Database\Seeders\ConsentDefinitionSeeder;
 use Healthy360\Consent\Services\ConsentLedger;
+use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
 use Healthy360\Customers\Closure\Enums\ClosureReasonCode;
 use Healthy360\Customers\Closure\Enums\ClosureRequestStatus;
 use Healthy360\Customers\Closure\Enums\ClosureScope;
@@ -16,6 +17,7 @@ use Healthy360\Customers\Closure\Models\ClosedAccountTombstone;
 use Healthy360\Customers\Closure\Services\AccountAnonymiser;
 use Healthy360\Customers\Closure\Services\ClosureBlockerRegistry;
 use Healthy360\Customers\Closure\Services\ClosureService;
+use Healthy360\Customers\Closure\Services\OrderSnapshotAnonymiser;
 use Healthy360\Customers\Enums\CustomerAccountStatus;
 use Healthy360\Customers\Guest\Models\MarketingSuppression;
 use Healthy360\Customers\Models\CustomerAccount;
@@ -26,6 +28,7 @@ use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Identity\Services\ContactValueHasher;
 use Healthy360\Orders\Enums\OrderStatus;
+use Healthy360\Orders\Services\OrderSnapshotRedaction;
 use Healthy360\Orders\Tests\Fixtures\OrderWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -64,10 +67,14 @@ use Illuminate\Support\Facades\DB;
 |     that merely nulled things would fail.
 |
 | **On the order anonymisation.** It runs through the `OrderAnonymisation`
-| port. The binding under test is `OrderSnapshotAnonymiser`, this module's
-| documented fallback; when the orders-module implementation lands and
-| integrator-2 rebinds, this file asserts the same properties of that one
-| without changing, which is the seam working as intended.
+| port. J2 wrote this file against `OrderSnapshotAnonymiser`, this module's
+| documented fallback, and said that when the orders-module implementation
+| landed the file would assert the same properties of that one without
+| changing. It landed, and it did — the assertions below are untouched. The
+| only addition is the case at the end, which pins *which* implementation is
+| bound: the seam working as intended is worth an assertion of its own,
+| because a lost binding would fall back to the fallback and every property
+| here would still hold.
 |
 | SPEED MODE: one of the three kept smokes. See DEFERRED TESTS in the J2 report.
 |
@@ -361,6 +368,22 @@ it('takes the reversible half without deleting anything', function (): void {
     expect($user->status)->not->toBe(UserStatus::Closed)
         ->and($user->anonymised_at)->toBeNull()
         ->and(ContactPoint::query()->where('user_id', $user->getKey())->exists())->toBeTrue();
+});
+
+it('runs the orders module implementation of the port rather than the fallback', function (): void {
+    // The seam closed, pinned. Every property this file asserts holds for
+    // `OrderSnapshotAnonymiser` too — it was written to hold for both — so a
+    // lost binding would leave the sweep green while the redaction ran through
+    // a schema-guarded stand-in that nobody maintains. This is the one
+    // assertion that would notice.
+    $bound = app(OrderAnonymisation::class);
+
+    expect($bound)->toBeInstanceOf(OrderSnapshotRedaction::class)
+        ->and($bound->isAvailable())->toBeTrue()
+        // The two implementations agree on the marker on purpose: rows redacted
+        // before the wave carry it, and a second marker would make "was this
+        // order redacted" a question with two answers.
+        ->and(OrderSnapshotRedaction::REDACTED)->toBe(OrderSnapshotAnonymiser::REDACTED);
 });
 
 /**

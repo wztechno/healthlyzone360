@@ -222,6 +222,69 @@ enum ErrorCode: string
      */
     case B2bSignatoryRequired = 'b2b.signatory_required';
 
+    /**
+     * A subscription could not be started (S1). Its own code rather than
+     * `order.placement_refused`, which S1 borrowed while this enum was closed
+     * to it: a client branches on the code to decide which screen to render,
+     * and a checkout basket and a twenty-day plan are not the same screen.
+     * `details.reasons` carries **every** blocker at once — a plan is a longer,
+     * more considered purchase than a single order, and revealing one problem
+     * per attempt is three round trips through a form already filled in.
+     */
+    case SubscriptionRefused = 'subscription.refused';
+
+    /**
+     * A change to a live subscription was refused — mostly the plan's own
+     * change window (§2), also a transition the state machine forbids, a right
+     * the plan withholds, a day already settled or a stale `lock_version`.
+     * Distinct from `subscription.refused`, which is about starting one:
+     * nothing is wrong with this subscription, and what has happened is that
+     * time passed. `details.reasons` carries `cut_off_at` and `effective_from`
+     * so a client can say when changes closed and which day is next.
+     */
+    case SubscriptionChangeRefused = 'subscription.change_refused';
+
+    /**
+     * An account closure the platform will not perform (J2) — a second request
+     * while one is in flight, proof offered for a request awaiting none, a
+     * cancellation after there is nothing to cancel, or no verified contact to
+     * send a passcode to. `details.reason` carries the stable reason string.
+     *
+     * **Deliberately not the code for a *blocked* closure.** A blocker is part
+     * of the journey — "you have two orders in flight" is information a
+     * customer acts on — and it comes back inside a 200 acknowledgement with
+     * `blocked` and `blockers`, because the request survives so they can come
+     * back when the food has arrived. An error code there would turn a
+     * checklist into a failure.
+     */
+    case ClosureRefused = 'closure.refused';
+
+    /**
+     * An offboarding was asked to do something it cannot (B2) — an
+     * organisation already being wound up, a transition the state machine
+     * forbids, no agreement in force to end. `details.reason` names which, and
+     * `details.allowed_transitions` names the moves that are legal from here.
+     */
+    case OffboardingRefused = 'offboarding.refused';
+
+    /**
+     * Sign-off was refused because settlement is not resolved.
+     * `details.blockers` names **every** outstanding check, so a wind-up screen
+     * renders the list rather than discovering it one attempt at a time. Its
+     * own code rather than `offboarding.refused` because a client has to branch
+     * on it: the remedy is to settle or to waive, not to retry.
+     */
+    case OffboardingSettlementOutstanding = 'offboarding.settlement_outstanding';
+
+    /**
+     * A records bundle exists and cannot be downloaded: it is still building,
+     * it failed, or its window has closed and the bytes are gone.
+     * `details.status` says which. A 409 rather than a 404 deliberately — the
+     * caller is looking at an export they may see and can already list, and a
+     * 404 would be a lie about a row in front of them.
+     */
+    case RecordExportUnavailable = 'record_export.unavailable';
+
     case RateLimitExceeded = 'rate_limit.exceeded';
 
     case ServerInternalError = 'server.internal_error';
@@ -252,7 +315,13 @@ enum ErrorCode: string
             self::RequestIdempotencyKeyReused,
             self::ContactAlreadyInUse,
             self::OrderPlacementRefused,
-            self::B2bApplicationStateInvalid => 409,
+            self::B2bApplicationStateInvalid,
+            self::SubscriptionRefused,
+            self::SubscriptionChangeRefused,
+            self::ClosureRefused,
+            self::OffboardingRefused,
+            self::OffboardingSettlementOutstanding,
+            self::RecordExportUnavailable => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
@@ -318,6 +387,12 @@ enum ErrorCode: string
             self::B2bApplicationStateInvalid => 'This application cannot be changed from its current state.',
             self::B2bDocumentsIncomplete => 'The required documents are not all present and accepted.',
             self::B2bSignatoryRequired => 'Signing requires a verified passcode from the named signatory.',
+            self::SubscriptionRefused => 'This subscription cannot be started as it stands.',
+            self::SubscriptionChangeRefused => 'This change cannot be made to the subscription as it stands.',
+            self::ClosureRefused => 'This closure request cannot be handled as asked for.',
+            self::OffboardingRefused => 'This offboarding cannot do that from its current state.',
+            self::OffboardingSettlementOutstanding => 'Settlement is not resolved, so this offboarding cannot move to sign-off.',
+            self::RecordExportUnavailable => 'This records bundle is not available to download.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
         };

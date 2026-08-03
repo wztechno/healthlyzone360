@@ -6,6 +6,8 @@ namespace Healthy360\B2b\Providers;
 
 use Healthy360\B2b\Contracts\SellerOpenOrders;
 use Healthy360\B2b\Services\NoSellerOpenOrders;
+use Healthy360\B2b\Services\PendingB2bSignatoryQuery;
+use Healthy360\Customers\Closure\Contracts\B2bSignatoryPresence;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -60,22 +62,24 @@ use Illuminate\Support\ServiceProvider;
  *    an org-match policy would fail closed on the one request the table exists
  *    to serve.
  *
- * ## What B2 closed, and what it left open
+ * ## What B2 closed, and what the integration wave closed after it
  *
  * Offboarding and record export are no longer table shells: `OffboardingService`
  * drives the nine-state wind-up, `RevokeBusinessAccess` removes access with the
  * sole-membership token rule, and `ExportService` builds, hands over and takes
- * back the bundles. What is still absent is the **HTTP surface** — routes, the
- * OpenAPI paths, the permission codes and the error codes are the integration
- * wave's, per master plan v2 §4.16, and this provider still registers no
- * routes.
+ * back the bundles. The **HTTP surface** B2 left open — routes, OpenAPI paths,
+ * the permission codes and the error codes — is declared centrally in
+ * `routes/api-v1.php` and `PermissionRegistry` like every other family, so this
+ * provider still registers no routes.
  *
- * Two bindings are the integrator's to make, both documented at their source:
+ * Both bindings B2 left to the integrator are made:
  *
- * 1. `SellerOpenOrders` → the orders module's implementation, replacing the
- *    null default registered below.
- * 2. `Healthy360\Customers\Contracts\PendingB2bSignatory` →
- *    `PendingB2bSignatoryQuery`, once J2's port has landed.
+ * 1. `SellerOpenOrders` → `BuyerOpenOrderQuery`, bound in
+ *    `OrdersServiceProvider` over the null default registered below.
+ * 2. J2's `B2bSignatoryPresence` → `PendingB2bSignatoryQuery`, bound below. B2
+ *    wrote its note against a working name for that port; the reconciliation is
+ *    on the B2B side, exactly as its note instructed, so the customers
+ *    interface is untouched.
  */
 class B2bServiceProvider extends ServiceProvider
 {
@@ -85,6 +89,15 @@ class B2bServiceProvider extends ServiceProvider
         // registered the real implementation, and a default that overwrote it
         // would silently disarm the one settlement check that works.
         $this->app->bindIf(SellerOpenOrders::class, NoSellerOpenOrders::class);
+
+        // `bind`, not `bindIf`, and the asymmetry with the line above is
+        // deliberate. There the default *is* this module's, so it must not
+        // clobber a better answer; here the default belongs to the customers
+        // module and is registered with `bindIf` precisely so that whichever
+        // module can genuinely answer wins. A `bindIf` on both sides would make
+        // the winner depend on provider order, which is how a closure screen
+        // comes to report "no B2B module" in a deployment that plainly has one.
+        $this->app->bind(B2bSignatoryPresence::class, PendingB2bSignatoryQuery::class);
     }
 
     public function boot(): void {}

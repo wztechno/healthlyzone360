@@ -33,8 +33,12 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *    new address, checked exactly as the original one was.
  *  * `stale_version` — the caller's `lock_version` is not the current one.
  *
- * `resource.conflict` rather than a validation failure: the request is
- * well-formed and the customer meant it. What has happened is that time passed.
+ * A 409 rather than a validation failure: the request is well-formed and the
+ * customer meant it. What has happened is that time passed. S1 shipped it under
+ * the generic `resource.conflict`; the integration wave gave it
+ * `subscription.change_refused`, because a client rendering "changes to Tuesday
+ * closed at 18:00" has to tell this apart from a lost race on any other
+ * resource, and `details.reasons` is only worth reading once it knows which.
  */
 final class SubscriptionChangeRefused extends ApiException
 {
@@ -44,7 +48,7 @@ final class SubscriptionChangeRefused extends ApiException
     public function __construct(array $reasons)
     {
         parent::__construct(
-            ErrorCode::ResourceConflict,
+            ErrorCode::SubscriptionChangeRefused,
             'This change cannot be made to the subscription as it stands.',
             ['reasons' => $reasons],
         );

@@ -255,6 +255,59 @@ final class PermissionRegistry
             'b2b_application.decide_platform' => ['domain' => 'b2b_application', 'description' => 'Approve or decline a B2B application'],
             'b2b_application.provision_platform' => ['domain' => 'b2b_application', 'description' => 'Provision the organisation and trading account an approved application earns'],
 
+            // B2. The other end of the same relationship, and a platform
+            // decision for the same structural reason admission is: a tenant
+            // does not decide that its own trading relationship ends, and there
+            // is no organisation the authority could be scoped to that is not
+            // the one being wound up.
+            //
+            // **Two codes, not one, and the split is the whole point.**
+            // `manage_platform` drives the nine-state wind-up — serve notice,
+            // run the settlement checks, take the sign-off, revoke, archive,
+            // cancel. That is an operational job. Waiving an outstanding
+            // settlement position is not: it is a commercial concession that
+            // lets a company stop owing money and leave anyway, it is the
+            // escape hatch around the only settlement check that can actually
+            // refuse, and it is written into its own audit action precisely so
+            // it can never be mistaken for a clearance. A waiver reachable by
+            // everybody who can click through the other eight steps would be
+            // the escape hatch quietly becoming the path, so it stacks on top —
+            // the shape `PlatformKycDocumentReviewController` uses when it
+            // demands the authority to look at a passport *and* to work the
+            // case.
+            //
+            // `OffboardingService::waiveSettlement()` takes a required
+            // authorisation callback rather than reading a code itself, so that
+            // a caller cannot default it to true by omission; the controller
+            // supplies a `Gate::allows()` against the code below.
+            'b2b_offboarding.manage_platform' => ['domain' => 'b2b_offboarding', 'description' => 'Serve notice on a corporate relationship and drive the wind-up: settlement checks, sign-off, revocation, archiving and cancellation'],
+            'b2b_offboarding.waive_settlement_platform' => ['domain' => 'b2b_offboarding', 'description' => 'Set aside an outstanding settlement position so an offboarding may proceed to sign-off'],
+
+            // B2. Its own code, deliberately narrower than driving a wind-up,
+            // on the same argument that makes `kyc_document.view_platform`
+            // narrower than reading an application: this is the authority to
+            // take a *complete copy* of everything a company gave the platform.
+            // Every issued download is audited as a `Confidential` access with a
+            // stated purpose, and the bundle is a bearer credential for fifteen
+            // minutes once minted.
+            'record_export.create_platform' => ['domain' => 'record_export', 'description' => 'Request and download the packaged records of a corporate customer'],
+
+            // J2. Support opening an account closure on a customer's behalf — a
+            // phone call, an accessibility need. It is a platform code because
+            // the subject is a consumer who belongs to no organisation, so
+            // there is nothing for an organisation-scoped permission to be
+            // scoped to.
+            //
+            // **It is deliberately not paired with a `verify` authority, and
+            // there is no endpoint one could be spent on.**
+            // `ClosureService::verify()` refuses when the caller is the support
+            // actor: the passcode goes to the customer's own verified
+            // destination and is entered by the customer. Staff who could both
+            // start and finish an erasure would be staff who can erase anybody,
+            // and the customer's inbox is the second factor — the only one they
+            // have.
+            'customer_account.close_platform' => ['domain' => 'customer_account', 'description' => "Open an account closure request on a customer's behalf; the customer still proves it themselves"],
+
             // Its own code, deliberately narrower than the application read.
             // A KYC pack is identity documents belonging to a named person —
             // a passport photograph, a registration certificate — and being
@@ -384,6 +437,19 @@ final class PermissionRegistry
                     'order.view_organisation',
                     'order.manage_organisation',
 
+                    // S1. `subscription.view_organisation` has existed in the
+                    // registry since the foundation as a proposal and had no
+                    // endpoint until the schedule projection; it is granted here
+                    // for the first time. A kitchen manager plans production,
+                    // and one-day-ahead generation is only affordable because
+                    // the forward view is a projection they can read.
+                    //
+                    // Not folded into `order.view_organisation`: a subscription
+                    // is a standing commercial arrangement with a captured
+                    // price, and reading today's order list is not by itself a
+                    // reason to see who is committed to what and for how long.
+                    'subscription.view_organisation',
+
                     'organisation.view_current',
                     'branch.view_current',
                     'membership.view_organisation',
@@ -474,6 +540,14 @@ final class PermissionRegistry
                     // cooked, delayed or cancelled is an operational call
                     // belonging to whoever is standing in the kitchen.
                     'order.view_organisation',
+
+                    // S1. The forward book of standing arrangements is
+                    // commercial intelligence of the sharpest kind — how much
+                    // of next month is already sold, and at prices captured
+                    // when. This role designs and publishes the plans; a
+                    // commercial manager who could not see what they had sold
+                    // would be designing in the dark.
+                    'subscription.view_organisation',
                 ],
             ],
         ];
