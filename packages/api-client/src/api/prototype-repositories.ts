@@ -110,8 +110,6 @@ import type {
     Dietitian,
     DietitianFilter,
     MarketplaceRepository,
-    PlanFilter,
-    SubscriptionPlan,
 } from '../contracts/marketplace.ts';
 import type {
     NutritionRepository,
@@ -222,20 +220,13 @@ export const PROTOTYPE_ENDPOINTS = {
      * real endpoints and implemented in `./marketplace-repository.ts`; this table is the ledger of
      * what is *still* a prototype, so an entry that outlived its stub would make the ledger a lie.
      *
-     * The five that remain are not oversights. `listPlans`/`getPlan` have a backend that correctly
-     * answers "no plan is publishable yet", and switching the plan pages onto it would replace a
-     * working catalogue with an empty state. Dietitians and diet categories have no backend at all.
+     * The three that remain are not oversights: dietitians and diet categories have no backend
+     * at all.
      *
-     * **UPDATED (integrator wave): the plan mapper is written and the switch is not thrown.**
-     * `./plan-mappers.ts` speaks `GET /marketplace/meal-plans` in full — variants, durations,
-     * sample menus — and is not wired in. The rule that keeps it that way is the phase's own, *do
-     * not degrade the plan page*: the fixture catalogue is complete and the endpoint answers with
-     * whatever kitchens have actually published. The commit that can prove a real published plan
-     * exists is the one that spreads `createApiPlanReads(transport)` into the marketplace
-     * repository and deletes these two rows.
+     * The plans rows are gone (DEC1): seven real GreenLife plans are priced and published, so
+     * `createApiPlanReads(transport)` is spread into the marketplace repository — the exact
+     * condition the earlier note demanded.
      */
-    listPlans: `GET ${BASE}/marketplace/meal-plans`,
-    getPlan: `GET ${BASE}/marketplace/meal-plans/{plan}`,
     listDietitians: `GET ${BASE}/marketplace/dietitians`,
     getDietitian: `GET ${BASE}/marketplace/dietitians/{dietitian}`,
     listDietCategories: `GET ${BASE}/marketplace/diet-categories`,
@@ -398,16 +389,10 @@ export const PROTOTYPE_ENDPOINTS = {
 /** The still-unimplemented half of {@link MarketplaceRepository}. */
 export type PrototypeMarketplaceRepository = Pick<
     MarketplaceRepository,
-    'listPlans' | 'getPlan' | 'listDietitians' | 'getDietitian' | 'listDietCategories'
+    'listDietitians' | 'getDietitian' | 'listDietCategories'
 >;
 
 export const apiMarketplacePrototypeRepository: PrototypeMarketplaceRepository = {
-    listPlans(_filter?: PlanFilter): Promise<CursorPage<SubscriptionPlan>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.listPlans);
-    },
-    getPlan(_planId: SubscriptionPlanId): Promise<SubscriptionPlan> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.getPlan);
-    },
     listDietitians(_filter?: DietitianFilter): Promise<CursorPage<Dietitian>> {
         return notImplemented(PROTOTYPE_ENDPOINTS.listDietitians);
     },

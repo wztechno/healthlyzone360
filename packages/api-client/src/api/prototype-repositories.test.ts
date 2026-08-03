@@ -39,14 +39,18 @@ const MARKETPLACE_SURFACE: MarketplaceRepository = {
     getKitchen: () => notImplemented(SWITCHED_ENDPOINTS.getKitchen),
     listMeals: () => notImplemented(SWITCHED_ENDPOINTS.listMeals),
     getMeal: () => notImplemented(SWITCHED_ENDPOINTS.getMeal),
+    listPlans: () => notImplemented(SWITCHED_ENDPOINTS.listPlans),
+    getPlan: () => notImplemented(SWITCHED_ENDPOINTS.getPlan),
 };
 
-/** The four the ledger no longer lists, named here only so the surface check has something to say. */
+/** The six the ledger no longer lists, named here only so the surface check has something to say. */
 const SWITCHED_ENDPOINTS = {
     listKitchens: 'GET /api/v1/marketplace/kitchens',
     getKitchen: 'GET /api/v1/marketplace/kitchens/{kitchen}',
     listMeals: 'GET /api/v1/marketplace/meals',
     getMeal: 'GET /api/v1/marketplace/meals/{meal}',
+    listPlans: 'GET /api/v1/marketplace/meal-plans',
+    getPlan: 'GET /api/v1/marketplace/meal-plans/{plan}',
 } as const;
 
 describeRepositoryContract({
@@ -151,15 +155,17 @@ describe('the api bundle exposes the prototype repositories', () => {
         // Captured rather than discarded: an unawaited rejected promise is an unhandled rejection,
         // which is exactly the failure mode this assertion is about.
         const started: Promise<unknown>[] = [];
-        expect(() => started.push(apiMarketplacePrototypeRepository.listPlans())).not.toThrow();
+        expect(() =>
+            started.push(apiMarketplacePrototypeRepository.listDietitians()),
+        ).not.toThrow();
         await expect(started[0]).rejects.toBeInstanceOf(Error);
     });
 
     it('names the endpoint it would have called', async () => {
         const failure = await apiMarketplacePrototypeRepository
-            .listPlans()
+            .listDietitians()
             .then(() => null, asApiFailure);
-        expect(failure?.message).toContain(PROTOTYPE_ENDPOINTS.listPlans);
+        expect(failure?.message).toContain(PROTOTYPE_ENDPOINTS.listDietitians);
     });
 
     /**
@@ -168,16 +174,18 @@ describe('the api bundle exposes the prototype repositories', () => {
      * for kitchens and meals, so their entries must be gone — an entry that outlived its stub would
      * make `PROTOTYPE_ENDPOINTS` a list of things that *are* implemented.
      */
-    it('no longer lists the marketplace families M1 switched', () => {
+    it('no longer lists the marketplace families that were switched', () => {
         const table = PROTOTYPE_ENDPOINTS as Record<string, string | undefined>;
 
         expect(table.listKitchens).toBeUndefined();
         expect(table.getKitchen).toBeUndefined();
         expect(table.listMeals).toBeUndefined();
         expect(table.getMeal).toBeUndefined();
+        // Plans switched when DEC1 published real plans (the ledger's own stated condition).
+        expect(table.listPlans).toBeUndefined();
+        expect(table.getPlan).toBeUndefined();
 
-        // And the five that are genuinely still prototypes are still listed.
-        expect(table.listPlans).toBe('GET /api/v1/marketplace/meal-plans');
+        // And the three that are genuinely still prototypes are still listed.
         expect(table.listDietitians).toBe('GET /api/v1/marketplace/dietitians');
         expect(table.listDietCategories).toBe('GET /api/v1/marketplace/diet-categories');
     });

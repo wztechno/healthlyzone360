@@ -338,14 +338,14 @@ describe('the api marketplace repository', () => {
     });
 
     /**
-     * The families M1 did not switch keep failing in the one nameable way they always did. A screen
-     * that reaches for a dietitian is told there is no backend, not shown an empty list.
+     * The families with no backend keep failing in the one nameable way they always did. A screen
+     * that reaches for a dietitian is told there is no backend, not shown an empty list. (Plans
+     * left this list when DEC1 published real plans and the prepared reads were spread in.)
      */
     it('still rejects the families with no backend', async () => {
         const repository = repositoryReturning(RECORDED_MEALS);
 
         for (const call of [
-            () => repository.listPlans(),
             () => repository.listDietitians(),
             () => repository.listDietCategories(),
         ]) {

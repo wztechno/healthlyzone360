@@ -1,4 +1,4 @@
-import type { DietitianId, KitchenId, MealId, SubscriptionPlanId } from '@healthy360/domain-types';
+import type { DietitianId, KitchenId, MealId } from '@healthy360/domain-types';
 
 import type {
     DietCategory,
@@ -9,8 +9,6 @@ import type {
     MarketplaceMeal,
     MarketplaceRepository,
     MealFilter,
-    PlanFilter,
-    SubscriptionPlan,
 } from '../contracts/marketplace.ts';
 import { ApiError, apiFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
@@ -28,6 +26,7 @@ import {
     pathSegment,
 } from './marketplace-mappers.ts';
 import { PROTOTYPE_ENDPOINTS, notImplemented } from './prototype-repositories.ts';
+import { createApiPlanReads } from './plan-mappers.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -165,12 +164,10 @@ export function createApiMarketplaceRepository(transport: Transport): Marketplac
             return meal;
         },
 
-        listPlans(_filter?: PlanFilter): Promise<CursorPage<SubscriptionPlan>> {
-            return notImplemented(PROTOTYPE_ENDPOINTS.listPlans);
-        },
-        getPlan(_planId: SubscriptionPlanId): Promise<SubscriptionPlan> {
-            return notImplemented(PROTOTYPE_ENDPOINTS.getPlan);
-        },
+        // Real published plans exist (DEC1: seven GreenLife plans priced under the
+        // owner-approved rule and published through readiness), so the prepared plan
+        // reads are spread in and their ledger rows are gone.
+        ...createApiPlanReads(transport),
         listDietitians(_filter?: DietitianFilter): Promise<CursorPage<Dietitian>> {
             return notImplemented(PROTOTYPE_ENDPOINTS.listDietitians);
         },
