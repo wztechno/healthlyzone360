@@ -3,6 +3,8 @@ import type {
     AccountServiceArea,
     AccountSetupChecklist,
     AddContactPointRequest,
+    ClosurePreconditions,
+    ClosureTicket,
     ConsentState,
     ContactPoint,
     ContactPointAdded,
@@ -11,9 +13,11 @@ import type {
     IssueOtpRequest,
     OtpChallenge,
     OtpVerificationResult,
+    RequestClosureRequest,
     ResendOtpRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
+    VerifyClosureRequest,
 } from '@healthy360/api-client/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
@@ -405,4 +409,102 @@ export function useVerifyChallengeMutation(): UseMutationResult<
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
         },
     });
+}
+
+/* ── J2: closure ─────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What is in the way, and what survives.
+ *
+ * `staleTime: 0` is not written here because it is the default, but it is the behaviour the wizard
+ * depends on: every step re-reads this, so a subscription created in another tab between step two
+ * and step four turns the checks step red instead of being closed over.
+ */
+export function useClosurePreconditionsQuery(enabled = true): UseQueryResult<ClosurePreconditions> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.account.closurePreconditions(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.getClosurePreconditions();
+        },
+    });
+}
+
+/** The one request in flight, or `null`. Read on mount so a reload resumes rather than restarts. */
+export function useLiveClosureRequestQuery(enabled = true): UseQueryResult<ClosureTicket | null> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.account.closureRequest(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.getLiveClosureRequest();
+        },
+    });
+}
+
+function useClosureWrite<TVariables>(
+    run: (
+        repositories: ReturnType<typeof useRepositories>,
+        variables: TVariables,
+    ) => Promise<ClosureTicket>,
+): UseMutationResult<ClosureTicket, unknown, TVariables> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        // Never retried. Every write here is either irreversible or one the server refuses a second
+        // time (`closure_already_in_flight`), and a retry after a dropped connection would turn a
+        // success into a conflict the person has no way to interpret.
+        retry: 0,
+        mutationFn: (variables: TVariables) => run(repositories, variables),
+        onSuccess: async (ticket) => {
+            queryClient.setQueryData(
+                queryKeys.account.closureRequest(),
+                ticket.status === 'completed' || ticket.status === 'cancelled' ? null : ticket,
+            );
+            // The whole account root: closing withdraws consents, deletes addresses and contacts,
+            // and flips the lifecycle. Invalidating one key would leave four screens stale.
+            await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.verification.all() });
+            // A completed full closure signs the person out. The session query has to notice.
+            if (ticket.status === 'completed' && ticket.scope === 'full') {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.me() });
+            }
+        },
+    });
+}
+
+export function useRequestClosureMutation(): UseMutationResult<
+    ClosureTicket,
+    unknown,
+    RequestClosureRequest
+> {
+    return useClosureWrite<RequestClosureRequest>((repositories, request) =>
+        repositories.account.requestClosure(request),
+    );
+}
+
+export function useVerifyClosureMutation(): UseMutationResult<
+    ClosureTicket,
+    unknown,
+    VerifyClosureRequest
+> {
+    return useClosureWrite<VerifyClosureRequest>((repositories, request) =>
+        repositories.account.verifyClosure(request),
+    );
+}
+
+export function useCancelClosureMutation(): UseMutationResult<
+    ClosureTicket,
+    unknown,
+    { readonly ticketId: string }
+> {
+    return useClosureWrite<{ readonly ticketId: string }>((repositories, request) =>
+        repositories.account.cancelClosure(request),
+    );
 }

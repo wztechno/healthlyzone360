@@ -27,6 +27,15 @@ export {
 } from './seed.ts';
 export type { B2bFixture, B2bFixtureName } from './seed.ts';
 
+export {
+    OFFBOARDING_CONSENT_STATEMENT,
+    OFFBOARDING_DOCUMENT_SHA256,
+    OFFBOARDING_ORGANISATION_ID,
+    OFFBOARDING_SEED_NOW,
+    OFFBOARDING_TRANSITIONS,
+    isTerminalOffboarding,
+} from './offboarding.ts';
+
 export { B2bMockStore, DOCUMENT_LINK_TTL_SECONDS, MOCK_SIGNING_TOKEN } from './store.ts';
 export type { B2bMockStoreOptions } from './store.ts';
 

@@ -2,13 +2,17 @@ import type {
     AccountChecklistItem,
     AccountSetupChecklist,
     AllergenDeclaration,
+    ClosurePreconditions,
+    ClosureTicket,
     ConsentState,
     CustomerAccount,
     CustomerAddress,
     DietaryProfile,
+    RequestClosureRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
     SetConsentRequest,
+    VerifyClosureRequest,
 } from '../../contracts/account.ts';
 import {
     apiFailure,
@@ -34,8 +38,11 @@ import type {
     VerifyOtpRequest,
 } from '../../contracts/verification.ts';
 import type { Clock } from '../store.ts';
+import { closurePreconditions } from './closure.ts';
+import type { ClosureWorldPorts } from './closure.ts';
 import {
     ACCOUNT_RUNTIME_ORDINAL_START,
+    closureRequestIdAt,
     contactPointIdAt,
     customerAddressIdAt,
     otpChallengeIdAt,
@@ -108,6 +115,18 @@ interface MutableChallenge {
     verifiedAt: string | null;
 }
 
+interface MutableClosure {
+    id: string;
+    scope: ClosureTicket['scope'];
+    status: ClosureTicket['status'];
+    reasonCode: ClosureTicket['reasonCode'];
+    reasonNote: string | null;
+    blockers: ClosureTicket['blockers'];
+    blocked: boolean;
+    challengeId: string | null;
+    completedAt: string | null;
+}
+
 interface Lockout {
     until: number;
     /** How many times this contact has been locked. The second and later lockouts are longer. */
@@ -133,6 +152,24 @@ export interface AccountMockStoreOptions {
      * is refused outright with `otp.channel_unavailable`.
      */
     readonly simulateChannels?: boolean | undefined;
+    /**
+     * What else exists, for the closure blocker registry.
+     *
+     * A **port**, on the same terms as the guest world's basket port: this world must not import the
+     * prototype store, and a closure check that could only be tested by building the whole universe
+     * would not get tested. Members that are absent report `not_applicable`, never `clear` — see
+     * `./closure.ts`.
+     */
+    readonly closureWorld?: ClosureWorldPorts | undefined;
+    /**
+     * What to do when a full closure finalises.
+     *
+     * The account world does not own the session, and it must not: signing somebody out is the
+     * bundle's business (clear the credential, end the server session). This is how the bundle is
+     * told, so that "the account is closed" and "you are signed out" are one event rather than a
+     * screen noticing later.
+     */
+    readonly onAccountClosed?: (() => void) | undefined;
 }
 
 /**
@@ -145,6 +182,8 @@ export interface AccountMockStoreOptions {
 export class AccountMockStore {
     readonly #now: Clock;
     readonly #simulate: boolean;
+    readonly #closureWorld: ClosureWorldPorts;
+    readonly #onAccountClosed: (() => void) | null;
 
     #account: CustomerAccount = SEED_ACCOUNT;
     readonly #contacts: MutableContact[] = SEED_CONTACTS.map((contact) => ({ ...contact }));
@@ -165,12 +204,18 @@ export class AccountMockStore {
         updatedAt: null,
     };
 
+    /** The one closure a person may have in flight. The backend's partial unique index, honestly. */
+    #closure: MutableClosure | null = null;
+
     #nextChallengeOrdinal = 0;
+    #nextClosureOrdinal = 0;
     #nextRuntimeOrdinal = ACCOUNT_RUNTIME_ORDINAL_START;
 
     constructor(options: AccountMockStoreOptions = {}) {
         this.#now = options.now ?? (() => Date.now());
         this.#simulate = options.simulateChannels ?? true;
+        this.#closureWorld = options.closureWorld ?? {};
+        this.#onAccountClosed = options.onAccountClosed ?? null;
         for (const definition of SEED_CONSENTS) {
             this.#consents.set(definition.key, { granted: false, at: null, off: null });
         }
@@ -405,6 +450,8 @@ export class AccountMockStore {
         ];
 
         const canActivate = items.every((entry) => !entry.required || entry.complete);
+        // A closed account is never re-activated by a checklist read. The evaluator only ever moves
+        // a *provisional* account forward; closure is terminal and the guard says so out loud.
         if (canActivate && this.#account.lifecycle === 'provisional') {
             this.#account = {
                 ...this.#account,
@@ -483,6 +530,214 @@ export class AccountMockStore {
     /** The closed list an address may point at. */
     serviceAreas(): readonly { readonly id: string; readonly name: string }[] {
         return SEED_SERVICE_AREAS;
+    }
+
+    // -- closure (J2) ---------------------------------------------------------------------------
+
+    /**
+     * Which consents a `marketing_opt_out` request withdraws.
+     *
+     * A **prefix**, not a fixed pair, and that is a recorded divergence rather than a shortcut. The
+     * backend's `ClosureService::MARKETING_CONSENT_CODES` names exactly two codes —
+     * `consent.marketing_email` and `consent.marketing_whatsapp` — while this world's consent set
+     * predates them and seeds `marketing_email` and `marketing_sms` (`./seed.ts`). Hard-coding the
+     * backend's two here would produce a short-circuit that withdrew nothing at all, which is the
+     * one outcome worse than withdrawing the wrong thing.
+     *
+     * Matching a prefix and nothing else is what keeps it safe: a short-circuit that withdrew
+     * *every* consent would also revoke the terms of service somebody is still trading under.
+     */
+    static readonly MARKETING_CONSENT_PREFIXES: readonly string[] = [
+        'marketing_',
+        'consent.marketing_',
+    ];
+
+    #marketingConsentKeys(): readonly string[] {
+        return [...this.#consents.keys()].filter((key) =>
+            AccountMockStore.MARKETING_CONSENT_PREFIXES.some((prefix) => key.startsWith(prefix)),
+        );
+    }
+
+    closurePreconditions(): ClosurePreconditions {
+        return closurePreconditions(this.#closureWorld);
+    }
+
+    liveClosureRequest(): ClosureTicket | null {
+        if (this.#closure === null) return null;
+        const status = this.#closure.status;
+        // Completed and cancelled requests are history, not something in flight.
+        if (status === 'completed' || status === 'cancelled') return null;
+        return this.#readClosure(this.#closure);
+    }
+
+    /**
+     * Ask to close -- and get the code in the same answer.
+     *
+     * Three outcomes, and the wizard draws all three:
+     *
+     * - **`marketing_opt_out`** short-circuits. The two marketing consents are withdrawn and the
+     *   request completes immediately: nothing was destroyed, so there is nothing to step up for.
+     * - **`full`, blocked.** The row exists, `blocked` is true and no challenge is issued. Refusing
+     *   to start is the answer, not an error, and the wizard renders the blockers as work to do.
+     * - **`full`, clear.** A `closure_step_up` challenge is issued against the sign-in address, and
+     *   `verifyClosure` is the irreversible step.
+     */
+    requestClosure(request: RequestClosureRequest): ClosureTicket {
+        if (this.liveClosureRequest() !== null) throwFailure(conflictFailure());
+
+        const id = closureRequestIdAt(this.#nextClosureOrdinal++);
+        const note = request.reasonNote?.trim() ?? '';
+
+        if (request.scope === 'marketing_opt_out') {
+            for (const key of this.#marketingConsentKeys()) {
+                this.setConsent({ key, granted: false });
+            }
+            this.#closure = {
+                id,
+                scope: 'marketing_opt_out',
+                status: 'completed',
+                reasonCode: request.reasonCode,
+                reasonNote: note.length === 0 ? null : note,
+                blockers: [],
+                blocked: false,
+                challengeId: null,
+                completedAt: this.#iso(),
+            };
+            return this.#readClosure(this.#closure);
+        }
+
+        const preconditions = this.closurePreconditions();
+        if (!preconditions.canClose) {
+            this.#closure = {
+                id,
+                scope: 'full',
+                status: 'requested',
+                reasonCode: request.reasonCode,
+                reasonNote: note.length === 0 ? null : note,
+                blockers: preconditions.blockers,
+                blocked: true,
+                challengeId: null,
+                completedAt: null,
+            };
+            return this.#readClosure(this.#closure);
+        }
+
+        const contact =
+            this.#contacts.find((candidate) => candidate.isLoginEmail) ?? this.#contacts[0];
+        if (contact === undefined) throwFailure(apiFailure('otp.channel_unavailable'));
+
+        const challenge = this.issueChallenge({
+            purpose: 'closure_step_up',
+            contactPointId: contact.id,
+        });
+
+        this.#closure = {
+            id,
+            scope: 'full',
+            status: 'requested',
+            reasonCode: request.reasonCode,
+            reasonNote: note.length === 0 ? null : note,
+            blockers: preconditions.blockers,
+            blocked: false,
+            challengeId: challenge.id,
+            completedAt: null,
+        };
+        return this.#readClosure(this.#closure);
+    }
+
+    /**
+     * The irreversible step.
+     *
+     * The blockers are **re-read** before the account is touched, not trusted from the request: a
+     * subscription can be created between step three and step four, and closing over an active one
+     * is the defect the whole registry exists to prevent. A closure that has become blocked comes
+     * back blocked with its challenge spent, which is the honest outcome.
+     */
+    verifyClosure(request: VerifyClosureRequest): ClosureTicket {
+        const closure = this.#requireLiveClosure(request.ticketId);
+        if (closure.challengeId === null) throwFailure(conflictFailure());
+
+        this.verifyChallenge({ challengeId: closure.challengeId, code: request.code });
+        closure.status = 'verified';
+
+        const preconditions = this.closurePreconditions();
+        closure.blockers = preconditions.blockers;
+        if (!preconditions.canClose) {
+            closure.blocked = true;
+            closure.challengeId = null;
+            return this.#readClosure(closure);
+        }
+
+        this.#finaliseClosure(closure);
+        return this.#readClosure(closure);
+    }
+
+    cancelClosure(ticketId: string): ClosureTicket {
+        const closure = this.#requireLiveClosure(ticketId);
+        closure.status = 'cancelled';
+        closure.challengeId = null;
+        return this.#readClosure(closure);
+    }
+
+    #requireLiveClosure(ticketId: string): MutableClosure {
+        const closure = this.#closure;
+        if (closure === null || closure.id !== ticketId) {
+            throwFailure(apiFailure('resource.not_found'));
+        }
+        if (closure.status === 'completed' || closure.status === 'cancelled') {
+            throwFailure(conflictFailure());
+        }
+        return closure;
+    }
+
+    /**
+     * What closing actually does to this world.
+     *
+     * Contacts, addresses and the dietary profile go; consents are withdrawn; the account lifecycle
+     * becomes `closed`. The free-text reason note is deleted here rather than kept for analytics --
+     * it is the one confidential field on the request and it has done its job. The bundle is then
+     * told, so the credential is cleared in the same breath.
+     */
+    #finaliseClosure(closure: MutableClosure): void {
+        const at = this.#iso();
+
+        for (const key of this.#consents.keys()) {
+            const state = this.#consents.get(key);
+            if (state?.granted === true)
+                this.#consents.set(key, { granted: false, at: state.at, off: at });
+        }
+
+        this.#contacts.splice(0, this.#contacts.length);
+        this.#addresses.splice(0, this.#addresses.length);
+        this.#dietary = {
+            dietCategoryCodes: [],
+            allergens: [],
+            excludedIngredientIds: [],
+            updatedAt: null,
+        };
+
+        this.#account = { ...this.#account, lifecycle: 'closed' };
+        closure.status = 'completed';
+        closure.completedAt = at;
+        closure.reasonNote = null;
+        closure.challengeId = null;
+
+        this.#onAccountClosed?.();
+    }
+
+    #readClosure(closure: MutableClosure): ClosureTicket {
+        return {
+            id: closure.id,
+            scope: closure.scope,
+            status: closure.status,
+            reasonCode: closure.reasonCode,
+            blockers: closure.blockers,
+            blocked: closure.blocked,
+            verificationRequired: closure.challengeId !== null,
+            challenge: closure.challengeId === null ? null : this.getChallenge(closure.challengeId),
+            scheduledFor: null,
+            completedAt: closure.completedAt,
+        };
     }
 
     // ── internals ───────────────────────────────────────────────────────────────────────────────

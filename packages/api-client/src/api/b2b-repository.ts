@@ -10,6 +10,7 @@ import type {
     B2BApplicationState,
     B2BBusinessType,
     B2BDeliveryWindow,
+    B2BOffboarding,
     B2BOrderFrequency,
     B2BProductCategory,
     B2BSectionPayload,
@@ -19,6 +20,7 @@ import type {
     ProvisioningProgress,
     ReviewerRequest,
     SignAgreementRequest,
+    SignOffOffboardingRequest,
     SignatureEvidence,
     UploadDocumentRequest,
 } from '../contracts/b2b-application.ts';
@@ -31,6 +33,7 @@ import {
     B2B_VOLUME_BANDS,
     PROVISIONING_STEPS,
 } from '../contracts/b2b-application.ts';
+import type { OtpChallenge } from '../contracts/verification.ts';
 import type {
     B2bAgreement as WireAgreement,
     B2bApplication as WireApplication,
@@ -728,7 +731,50 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             });
             return hydrate(wire);
         },
+
+        /*
+         * The wind-down (B2).
+         *
+         * Declared as rejections so this object stays a complete `B2BApplicationRepository`, on the
+         * same terms as the stubs in `./prototype-repositories.ts`. The routes exist backend-side;
+         * the mappers land with the micro-wire that switches this family over, and until then a
+         * screen that reaches them fails loudly rather than quietly succeeding against nothing.
+         */
+        getOffboarding(_request: {
+            readonly organisationId: string;
+        }): Promise<B2BOffboarding | null> {
+            return offboardingNotImplemented('GET /organisations/{organisation}/offboarding');
+        },
+        runSettlementChecks(_request: {
+            readonly offboardingId: string;
+            readonly lockVersion: number;
+        }): Promise<B2BOffboarding> {
+            return offboardingNotImplemented(
+                'POST /organisations/{organisation}/offboarding/settlement-checks',
+            );
+        },
+        issueSignoffChallenge(_request: { readonly offboardingId: string }): Promise<OtpChallenge> {
+            return offboardingNotImplemented(
+                'POST /organisations/{organisation}/offboarding/signoff-challenge',
+            );
+        },
+        signOffOffboarding(_request: SignOffOffboardingRequest): Promise<B2BOffboarding> {
+            return offboardingNotImplemented(
+                'POST /organisations/{organisation}/offboarding/signoff',
+            );
+        },
     };
+}
+
+function offboardingNotImplemented<T>(endpoint: string): Promise<T> {
+    return Promise.reject(
+        new ApiError(
+            apiFailure('prototype.not_implemented', {
+                message: `${endpoint} is not wired to this client yet.`,
+                retryable: false,
+            }),
+        ),
+    );
 }
 
 /**

@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -5468,6 +5468,860 @@ export type B2bProvisioningEnvelope = {
 };
 
 /**
+ * `active` generates; `paused` keeps the balance and stops the cursor;
+ * `cancelled` and `completed` are terminal. A paused subscription has no
+ * `next_delivery_date` at all — nulling the cursor is what takes it out of
+ * the sweep, rather than a status predicate the sweep has to remember.
+ *
+ */
+export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'completed';
+
+/**
+ * Where one delivery day got to. The three `skipped_*` values are kept
+ * apart on purpose: a customer skipping a Tuesday, a day nobody could
+ * assemble a safe meal for, and a day the kitchen could not serve are
+ * three different conversations, and only the first is the customer's
+ * doing.
+ *
+ */
+export type SubscriptionDeliveryStatus = 'scheduled' | 'generated' | 'skipped_customer' | 'skipped_no_safe_meal' | 'skipped_unavailable' | 'delivered' | 'cancelled';
+
+/**
+ * Who chose the meal on a Free Selection day. `customer` picked it before
+ * the cut-off; `kitchen_default` filled the slot because they did not; and
+ * `substituted` means something chosen was unavailable or unsafe and
+ * generation replaced it. Collapsing these into one value would make the
+ * substitution audit unreadable, which is the one audit an allergy
+ * complaint needs most.
+ *
+ */
+export type MealChoiceSource = 'customer' | 'kitchen_default' | 'substituted';
+
+/**
+ * `recorded` means the platform has computed what is owed; `settled`
+ * means a human has told it the money changed hands. There is deliberately
+ * no `paid` or `refunded` — the platform has no payment rail, and a status
+ * implying it had one would be the first thing a report believed.
+ *
+ */
+export type CreditMemoStatus = 'recorded' | 'settled';
+
+/**
+ * What is left, what was used, and what is coming. **`skipped_days` is
+ * beside them rather than subtracted from them**: a skip costs nothing,
+ * and the number a customer most wants to check is that the two facts are
+ * both true at once.
+ *
+ */
+export type SubscriptionBalance = {
+    status: SubscriptionStatus;
+    balance_days_total: number;
+    /**
+     * A cached count of the delivery rows that consumed a day. The ledger is the truth; this is the index.
+     */
+    balance_days_consumed: number;
+    remaining_days: number;
+    /**
+     * The grandfathered price actually paid, in minor units. A cancellation refund is this multiplied by the unused days.
+     */
+    per_day_minor: number;
+    currency_code: CurrencyCode;
+    weekdays: Array<number>;
+    next_delivery_date: string | null;
+    skipped_days: number;
+};
+
+/**
+ * A customer's own standing arrangement.
+ *
+ * **The captured price is shown in full** — all three columns of it — and
+ * that is a deliberate exception to its `Confidential` classification. The
+ * classification is a statement about *other* readers: what one customer
+ * was grandfathered at is not what the plan costs today, and publishing it
+ * would advertise a price nobody else can have. The person paying it is not
+ * another reader, and showing `captured_unit_price_minor` beside
+ * `effective_day_price_minor` is what makes "why am I paying 1 800 when the
+ * plan says 2 000" answerable on the screen instead of through support.
+ *
+ * **`captured_price_list_id` and `captured_price_list_item_id` are not
+ * served.** The provenance exists so the platform can explain a price years
+ * later; on a customer's own screen it names a kitchen's tariff structure
+ * to the person being charged by it. Nor is `organisation_id`,
+ * `created_by` or `updated_by`.
+ *
+ * **`lock_version` is served, unlike on the customer's order shape**,
+ * because this resource has a customer-facing writer. `If-Match` is
+ * honoured on every write and demanded by none.
+ *
+ */
+export type Subscription = {
+    id: Uuid;
+    status: SubscriptionStatus;
+    catalogue_item_id: Uuid;
+    catalogue_item_variant_id: Uuid;
+    plan_duration_id: Uuid;
+    sales_channel_id: Uuid;
+    currency_code: CurrencyCode;
+    /**
+     * What the tariff said per day at purchase, before the duration discount.
+     */
+    captured_unit_price_minor: number;
+    /**
+     * What the duration took off. **Null is a value**: it means nobody
+     * stated a discount, which is commercially different from stating
+     * there is none, and it is never returned as `0`.
+     *
+     */
+    captured_discount_percent: string | null;
+    /**
+     * The grandfathered per-day price actually paid.
+     */
+    effective_day_price_minor: number;
+    captured_at: string;
+    /**
+     * ISO weekdays, 1 = Monday through 7 = Sunday. Never empty.
+     */
+    weekdays: Array<number>;
+    delivery_window_code: string | null;
+    customer_address_id: Uuid;
+    /**
+     * The opt-out — skip the slot rather than substitute. Per subscription, not per customer, because two arrangements can reasonably differ.
+     */
+    no_substitutions: boolean;
+    balance_days_total: number;
+    balance_days_consumed: number;
+    remaining_days: number;
+    next_delivery_date: string | null;
+    paused_at?: string | null;
+    resumed_at?: string | null;
+    pause_count: number;
+    cancelled_at?: string | null;
+    cancellation_reason?: string | null;
+    completed_at?: string | null;
+    lock_version: number;
+    created_at?: string | null;
+    balance?: SubscriptionBalance;
+};
+
+export type SubscriptionEnvelope = {
+    data: {
+        subscription: Subscription;
+    };
+    meta: Meta;
+};
+
+export type SubscriptionsEnvelope = {
+    data: Array<Subscription>;
+    meta: Meta & {
+        count?: number;
+    };
+};
+
+/**
+ * What a kitchen owes a customer whose subscription was cancelled early —
+ * a record of an **obligation**, never of a payment.
+ *
+ * `settlement` is stated on the wire rather than left to be inferred from
+ * the status vocabulary. It is the one sentence a customer cancelling most
+ * needs: no money has moved, and somebody will be in touch. A client left
+ * to infer it would eventually render `recorded` as "refunded".
+ *
+ */
+export type CreditMemo = {
+    id: Uuid;
+    reason: string;
+    unused_days: number;
+    /**
+     * The effective price actually paid, so the discount already enjoyed on delivered days is not clawed back.
+     */
+    per_day_minor: number;
+    amount_minor: number;
+    currency_code: CurrencyCode;
+    status: CreditMemoStatus;
+    /**
+     * Always `manual` in this phase. The platform has no payment rail.
+     */
+    settlement: 'manual';
+    recorded_at: string;
+    settled_at?: string | null;
+};
+
+/**
+ * What fills one slot of one day. `replaced_catalogue_item_id` is what the
+ * choice stands in for when generation substituted it — the customer is
+ * owed the difference between "you chose this" and "we sent this instead".
+ *
+ * `unsafe_allergen_classes` is deliberately **not** served: a list of
+ * allergen classes attached to a named person's delivery is health data,
+ * and what a customer needs from this row is that a substitution happened,
+ * not a restatement of their medical profile.
+ *
+ */
+export type SubscriptionMealChoice = {
+    slot: string;
+    /**
+     * The kitchen that sells "lunch, twice" — a slot alone would collapse it.
+     */
+    sequence: number;
+    catalogue_item_id: Uuid;
+    catalogue_item_variant_id?: Uuid | null;
+    source: MealChoiceSource;
+    replaced_catalogue_item_id?: Uuid | null;
+};
+
+/**
+ * One delivery day — the row a balance day is spent on.
+ *
+ * **`consumed` is stored, not derived from `status`**, and reading it is
+ * the only correct way to ask whether a day was spent. A client
+ * recomputing it from the status would eventually disagree with the
+ * balance.
+ *
+ */
+export type SubscriptionDelivery = {
+    id: Uuid;
+    delivery_date: string;
+    delivery_window_code?: string | null;
+    status: SubscriptionDeliveryStatus;
+    consumed: boolean;
+    skip_reason?: string | null;
+    order_id?: Uuid | null;
+    generated_at?: string | null;
+    settled_at?: string | null;
+    meals: Array<SubscriptionMealChoice>;
+};
+
+export type SubscriptionDeliveriesEnvelope = {
+    data: Array<SubscriptionDelivery>;
+    meta: Meta & {
+        count: number;
+        balance: SubscriptionBalance;
+    };
+};
+
+export type SubscriptionSkipEnvelope = {
+    data: {
+        delivery: SubscriptionDelivery;
+        balance: SubscriptionBalance;
+    };
+    meta: Meta;
+};
+
+export type SubscriptionCancellationEnvelope = {
+    data: {
+        subscription: Subscription;
+        /**
+         * Null when nothing is owed, and that is not the same as an empty
+         * object: a zero memo would be an obligation somebody eventually
+         * tries to settle, so none is written.
+         *
+         */
+        credit_memo: CreditMemo | null;
+    };
+    meta: Meta;
+};
+
+/**
+ * What a configuration would cost. **A quote and not a hold**: nothing is
+ * reserved, nothing is written, and the number is guaranteed only for as
+ * long as the tariff behind it stands. `POST /subscriptions` re-resolves it
+ * and captures *that* answer.
+ *
+ * All three numbers travel, because the discount is the reason somebody
+ * chose the longer run and a screen showing only the final figure cannot
+ * say what it saved them. `price_list_id` and `price_list_item_id` do not.
+ *
+ */
+export type PlanQuote = {
+    currency_code: CurrencyCode;
+    days: number;
+    /**
+     * The per-day list price, before the duration discount.
+     */
+    list_price_minor: number;
+    /**
+     * Null means nobody stated one. Never returned as `0`.
+     */
+    discount_percent: string | null;
+    per_day_minor: number;
+    total_minor: number;
+};
+
+export type PlanQuoteEnvelope = {
+    data: {
+        quote: PlanQuote;
+    };
+    meta: Meta;
+};
+
+/**
+ * One day of the kitchen's forward book. **`basis` is the field that must
+ * never be ignored**: an `actual` day has a delivery row and possibly an
+ * order behind it, and a `projected` one is computed from the weekday
+ * pattern and the remaining balance — a customer who has not yet had the
+ * chance to skip.
+ *
+ * No customer name, no address and no allergen list: a production planner
+ * counts portions per window per day, and every one of those would be
+ * personal data on a screen that does not need it.
+ *
+ */
+export type SubscriptionScheduleRow = {
+    delivery_date: string;
+    subscription_id: Uuid;
+    customer_account_id: Uuid;
+    branch_id?: Uuid | null;
+    delivery_window_code?: string | null;
+    basis: 'actual' | 'projected';
+    status: SubscriptionDeliveryStatus;
+};
+
+export type SubscriptionScheduleEnvelope = {
+    data: Array<SubscriptionScheduleRow>;
+    meta: Meta & {
+        from: string;
+        to: string;
+        count: number;
+        /**
+         * Deliveries per day, with skipped and cancelled days already excluded. The number a production plan is built from.
+         */
+        daily_counts: {
+            [key: string]: number;
+        };
+    };
+};
+
+/**
+ * Checkout-shaped on purpose: the same three coordinates a plan is sold on
+ * — the plan, the configuration cell, the duration — plus everything a
+ * delivery needs.
+ *
+ * **No price field exists.** Every amount is decided by the server at
+ * purchase and captured onto the row; a body that could state a per-day
+ * price would be a client quoting the server its own prices, and the first
+ * thing anybody would do with it is quote a lower one.
+ *
+ */
+export type CreateSubscriptionRequest = {
+    sales_channel_id: Uuid;
+    branch_id?: Uuid | null;
+    catalogue_item_id: Uuid;
+    catalogue_item_variant_id: Uuid;
+    plan_duration_id: Uuid;
+    customer_address_id: Uuid;
+    weekdays: Array<number>;
+    delivery_window_code?: string | null;
+    no_substitutions?: boolean;
+    /**
+     * The earliest delivery date wanted. A **request, not a promise**: the
+     * server moves it forward to the first weekday the subscription
+     * actually delivers on that is still outside the plan's change window,
+     * because a first delivery already inside its own cut-off would be an
+     * order the customer could never have changed.
+     *
+     */
+    start_from?: string | null;
+};
+
+export type SkipSubscriptionDayRequest = {
+    /**
+     * The day to skip. A **date**, not a delivery identifier: the day
+     * usually has no row yet, so an endpoint keyed on one could only ever
+     * skip the day it is nearly too late to skip.
+     *
+     */
+    date: string;
+};
+
+export type UpdateSubscriptionAddressRequest = {
+    customer_address_id: Uuid;
+};
+
+export type UpdateSubscriptionWindowRequest = {
+    /**
+     * Present and nullable, which is the difference between "no
+     * preference" and "leave it alone": a `PUT` replaces the field whole,
+     * so `null` is how a customer says they no longer mind.
+     *
+     */
+    delivery_window_code: string | null;
+};
+
+export type UpdateSubscriptionWeekdaysRequest = {
+    weekdays: Array<number>;
+};
+
+/**
+ * One day's chosen meals, replaced whole. An **empty `meals` array is a
+ * real payload**: it is a customer saying "I have not chosen; send me the
+ * kitchen's default", and a merge-shaped write could not express it.
+ *
+ */
+export type ReplaceSubscriptionChoicesRequest = {
+    date: string;
+    meals: Array<{
+        slot: string;
+        sequence?: number | null;
+        catalogue_item_id: Uuid;
+        catalogue_item_variant_id?: Uuid | null;
+    }>;
+};
+
+export type SubscriptionChoicesEnvelope = {
+    data: {
+        delivery_date: string;
+        meals: Array<SubscriptionMealChoice>;
+    };
+    meta: Meta;
+};
+
+export type CancelSubscriptionRequest = {
+    /**
+     * A short vocabulary word, never prose. The journal writes it into
+     * audit metadata, and a free-text box filled in by somebody in an
+     * unhappy moment is how a name or a complaint about a named member of
+     * staff ends up in a column nobody classified. Defaults to
+     * `customer_request`.
+     *
+     */
+    reason?: string | null;
+};
+
+/**
+ * Two values, and they are not degrees of the same thing.
+ * `marketing_opt_out` is a preference change that deletes nothing; `full`
+ * is an erasure. They live on one journey because they are one journey
+ * from the customer's side.
+ *
+ */
+export type ClosureScope = 'marketing_opt_out' | 'full';
+
+/**
+ * Why somebody is leaving. A fixed vocabulary rather than free text: the
+ * answer is read by machines as often as by people — "how many customers
+ * left because we do not deliver to them any more" is a count, not a
+ * search — and free text is how personal data ends up in a column nobody
+ * classified. `other` is last and deliberately vague: a vocabulary without
+ * an escape hatch makes people pick the nearest wrong answer, which is
+ * indistinguishable from a real signal.
+ *
+ */
+export type ClosureReasonCode = 'no_longer_needed' | 'too_expensive' | 'moving_away' | 'dietary_needs_unmet' | 'service_quality' | 'privacy_concerns' | 'duplicate_account' | 'other';
+
+/**
+ * `requested` is asked but unproven; `verified` is the passcode accepted
+ * and bound to this request; `scheduled` is the grace window running — the
+ * state that exists so "I changed my mind" has somewhere to land.
+ * `completed` and `cancelled` are terminal.
+ *
+ */
+export type ClosureRequestStatus = 'requested' | 'verified' | 'scheduled' | 'completed' | 'cancelled';
+
+/**
+ * **Four values, and two of them are not "fine".** `not_applicable` means
+ * nothing was checked — because no module in this deployment could answer
+ * — and it is never a synonym for `clear`: a closure screen saying "no
+ * outstanding payments" when no payment module exists has not checked
+ * anything, and the customer cannot tell the difference. `advisory` means
+ * something real *was* found and it does not stop the closure; today that
+ * is an unsettled credit memo, which is a debt the kitchen owes the
+ * customer and therefore not something the kitchen may hold their erasure
+ * hostage to.
+ *
+ */
+export type ClosureBlockerStatus = 'blocking' | 'clear' | 'advisory' | 'not_applicable';
+
+/**
+ * What one blocker found. **`count` and `reason` are present on every
+ * verdict, including the clear ones**, so a screen rendering "2 open
+ * orders" from `count` and "no subscriptions module is bound" from
+ * `reason` reads the same shape in both cases — which is what stops the
+ * honest answer being the one that needs a special case.
+ *
+ * `reason` is a code, never a sentence: it is rendered in the customer's
+ * language and it goes into audit metadata. The vocabulary is each
+ * blocker's own — `open_orders_in_flight`, `subscriptions_live`,
+ * `deliveries_upcoming`, `memberships_live`, `signatures_pending`,
+ * `credit_memos_unsettled`, and the `*_module_absent` family.
+ *
+ */
+export type ClosureBlockerVerdict = {
+    code: 'open_orders' | 'active_subscriptions' | 'organisation_memberships' | 'pending_b2b_signatures' | 'unsettled_credit_memos' | 'wallet_balance' | 'payment_methods';
+    status: ClosureBlockerStatus;
+    count: number;
+    reason: string | null;
+};
+
+/**
+ * One shape for both scopes and every stage, because the screen behind it
+ * is one screen. A client that had to branch on the response *type* would
+ * be a client that renders the blocked case by accident.
+ *
+ * **The verdicts travel with the acknowledgement rather than behind a
+ * second call.** "Why can I not close my account" is the only question a
+ * refusal raises, and answering it in a separate request is how a screen
+ * ends up saying "you cannot close your account" with no explanation while
+ * the second call is in flight.
+ *
+ * `destination_masked` is server-authored from the contact point and never
+ * echoed from client input: the client is told where the code went, and is
+ * not in a position to be told anything it could have made up.
+ *
+ */
+export type ClosureAcknowledgement = {
+    request_id: Uuid;
+    scope: ClosureScope;
+    status: ClosureRequestStatus;
+    /**
+     * Whether anything found **stops** the closure. An `advisory` verdict does not set this.
+     */
+    blocked: boolean;
+    blockers: Array<ClosureBlockerVerdict>;
+    verification_required: boolean;
+    destination_masked?: string | null;
+    expires_in_seconds?: number | null;
+    scheduled_for?: string | null;
+};
+
+export type ClosureAcknowledgementEnvelope = {
+    data: {
+        closure_request: ClosureAcknowledgement;
+    };
+    meta: Meta;
+};
+
+export type LiveClosureRequestEnvelope = {
+    data: {
+        /**
+         * Null when nothing is in flight. There is at most one, by index.
+         */
+        closure_request: ClosureAcknowledgement | null;
+        /**
+         * Re-evaluated on every call and filled in **regardless** of
+         * whether a request exists, so a closure screen can render "here is
+         * what would stand in your way" before anybody asks. A cached
+         * verdict would miss a subscription started this morning.
+         *
+         */
+        blockers: Array<ClosureBlockerVerdict>;
+    };
+    meta: Meta;
+};
+
+export type CancelledClosureRequestEnvelope = {
+    data: {
+        closure_request: {
+            request_id: Uuid;
+            scope: ClosureScope;
+            status: ClosureRequestStatus;
+            cancelled_at?: string | null;
+            cancelled_because?: string | null;
+        };
+    };
+    meta: Meta;
+};
+
+/**
+ * **`scope` is required and has no default.** A default would have to be
+ * either `marketing_opt_out`, so a client with a bug silently downgrades an
+ * erasure somebody asked for, or `full`, so a client with a bug erases
+ * somebody who asked only to stop being emailed. Neither is a mistake this
+ * endpoint should be able to make on a caller's behalf.
+ *
+ */
+export type OpenClosureRequestRequest = {
+    reason_code: ClosureReasonCode;
+    /**
+     * Optional prose, and the one free-text field in the journey. Never
+     * written into an audit row, and deleted at finalisation with
+     * everything else. Optional for **every** reason: insisting somebody
+     * explain themselves before they may leave is a dark pattern wearing a
+     * form label.
+     *
+     */
+    reason_note?: string | null;
+    scope: ClosureScope;
+    /**
+     * Where the passcode should go. SMS and WhatsApp have no provider in
+     * this deployment, so asking for one answers
+     * `422 otp.channel_unavailable` with the channels that would work — a
+     * better dead end than silently sending an email to somebody waiting
+     * on a text.
+     *
+     */
+    delivery_channel?: OtpDeliveryChannel | null;
+};
+
+export type VerifyClosureRequestRequest = {
+    /**
+     * There is no `request_id` beside it. The request is in the path and
+     * the challenge is bound to it on the row, which is what stops a code
+     * obtained for one closure finalising another.
+     *
+     */
+    code: string;
+};
+
+/**
+ * Where a wind-up has got to. `revoking` is separate from `completed` on
+ * purpose: revoking every member's access is the step that can partially
+ * fail, and a status collapsing it into the terminal state would make a
+ * half-revoked organisation look finished.
+ *
+ */
+export type OffboardingStatus = 'requested' | 'notice_served' | 'settlement_pending' | 'awaiting_signoff' | 'signed_off' | 'revoking' | 'archiving' | 'completed' | 'cancelled';
+
+/**
+ * Four different stories about the same act, and every one of them is what
+ * somebody will read a year later when the company asks why. Required, with
+ * no default: a default would put one of those stories on the record
+ * without anybody choosing it.
+ *
+ */
+export type OffboardingTrigger = 'contract_end' | 'termination' | 'non_renewal' | 'client_request';
+
+/**
+ * `cleared` means every check answered clear or stated why it could not
+ * run; `waived` means somebody with the second permission set an
+ * outstanding position aside and wrote down why. The two are never
+ * collapsed — a waiver recorded as a clearance erases the only difference
+ * a dispute turns on.
+ *
+ */
+export type SettlementStatus = 'pending' | 'cleared' | 'waived';
+
+/**
+ * `not_applicable` carries a `reason` and is **not** a green tick: a check
+ * that cannot tell "we looked and found nothing" from "nobody was there to
+ * look" produces a settlement summary that reads as an all-clear when it is
+ * a gap.
+ *
+ */
+export type SettlementCheckOutcome = 'clear' | 'outstanding' | 'not_applicable';
+
+export type SettlementCheck = {
+    check: string;
+    outcome: SettlementCheckOutcome;
+    reason?: string | null;
+    detail?: string | null;
+};
+
+/**
+ * A corporate wind-up in progress.
+ *
+ * **`notice_period_days` and `effective_on` are copied onto the row** at
+ * the moment notice is served, never read back through the agreement, so an
+ * amendment signed next week cannot shorten notice already served.
+ *
+ * **The signatory block travels in full** — name, title, the consent
+ * wording accepted, the document digest — because evidence that cannot be
+ * read is not evidence. The two session hashes do **not**: they exist for
+ * corroboration inside the platform, and serving them would put a stable
+ * pseudonymous identifier for a named person onto an API response.
+ *
+ * `allowed_transitions` travels so a wind-up screen renders buttons without
+ * reimplementing the state machine — the one that disagrees after the first
+ * change.
+ *
+ */
+export type Offboarding = {
+    id: Uuid;
+    organisation_id: Uuid;
+    b2b_agreement_id?: Uuid | null;
+    status: OffboardingStatus;
+    trigger?: OffboardingTrigger | null;
+    reason?: string | null;
+    reason_note?: string | null;
+    requested_by?: Uuid | null;
+    requested_at: string;
+    notice_period_days?: number | null;
+    notice_served_at?: string | null;
+    effective_on?: string | null;
+    settlement: {
+        status: SettlementStatus;
+        note?: string | null;
+        checks: Array<SettlementCheck>;
+        started_at?: string | null;
+        resolved_at?: string | null;
+        waived_by?: Uuid | null;
+        waiver_reason?: string | null;
+    };
+    signoff: {
+        awaiting_since?: string | null;
+        signed_off_at?: string | null;
+        signed_off_by?: Uuid | null;
+        signatory_name?: string | null;
+        signatory_title?: string | null;
+        consent_statement?: string | null;
+        document_sha256?: string | null;
+    };
+    revocation: {
+        started_at?: string | null;
+        completed_at?: string | null;
+        memberships_revoked?: number | null;
+        tokens_deleted?: number | null;
+    };
+    archive: {
+        started_at?: string | null;
+        summary?: {
+            [key: string]: number;
+        } | null;
+        /**
+         * Said out loud rather than left to be inferred from the summary's silence. Keeping the company record was a decision, not an omission.
+         */
+        legal_entity_retained?: boolean | null;
+    };
+    completed_at?: string | null;
+    cancelled_at?: string | null;
+    cancelled_by?: Uuid | null;
+    cancellation_reason?: string | null;
+    lock_version: number;
+    allowed_transitions: Array<OffboardingStatus>;
+};
+
+export type OffboardingEnvelope = {
+    data: {
+        offboarding: Offboarding;
+    };
+    meta: Meta;
+};
+
+/**
+ * `expired` is a **state rather than a comparison** against `expires_at`:
+ * expiry here is an act, the transition is what deletes the bytes, and the
+ * status is the record of it having happened. The row survives, because
+ * deleting it would erase the evidence that an export was ever made.
+ *
+ */
+export type RecordExportStatus = 'requested' | 'building' | 'ready' | 'delivered' | 'expired' | 'failed';
+
+/**
+ * A company's own records, packaged.
+ *
+ * **No `disk`, no `path` and no permanent URL.** The object key is one half
+ * of a credential, and the only route to the bytes is this operation with
+ * `?purpose=`, which mints a fresh fifteen-minute signature and records who
+ * took a copy. `sha256` does travel — it is what a recipient checks the
+ * download against, and it names nothing.
+ *
+ */
+export type RecordExport = {
+    id: Uuid;
+    organisation_id: Uuid;
+    b2b_offboarding_id?: Uuid | null;
+    status: RecordExportStatus;
+    format: string;
+    requested_by?: Uuid | null;
+    requested_at: string;
+    started_at?: string | null;
+    completed_at?: string | null;
+    byte_size?: number | null;
+    sha256?: string | null;
+    row_counts?: {
+        [key: string]: number;
+    } | null;
+    manifest?: {
+        [key: string]: unknown;
+    } | null;
+    expires_at?: string | null;
+    downloaded_at?: string | null;
+    download_count: number;
+    purged_at?: string | null;
+    failure_reason?: string | null;
+    /**
+     * Present **only** when `?purpose=` was sent. In the envelope and never
+     * a 302: a redirect would put an expiring credential into browser
+     * history, the referrer chain and every proxy log on the way to the
+     * bucket.
+     *
+     */
+    download_url?: string;
+    /**
+     * Computed before the URL is minted, so it is always at or before the
+     * moment the signature actually stops working. A client that stops
+     * trusting the link a fraction early retries; one that trusts it too
+     * long gets an opaque 403 from object storage.
+     *
+     */
+    download_url_expires_at?: string;
+};
+
+export type RecordExportEnvelope = {
+    data: {
+        export: RecordExport;
+    };
+    meta: Meta;
+};
+
+/**
+ * **`organisation_id` is in the body rather than the path**, and the reason
+ * is what the prefix already means: `/platform/b2b` is reached with the
+ * *platform operator's* organisation selected, so a `{organisation}`
+ * segment would be a second organisation in the same request with
+ * completely different meaning. Here they cannot agree — the whole point is
+ * that an operator is acting on somebody else's company — so it goes in the
+ * body where it reads as a subject rather than as a scope.
+ *
+ */
+export type StartOffboardingRequest = {
+    organisation_id: Uuid;
+    trigger: OffboardingTrigger;
+    reason_note?: string | null;
+    /**
+     * A negotiated end date, overriding the computed notice date — the
+     * parties agreed March 31st, and the alternative would be an operator
+     * editing the agreement to make the arithmetic come out. Never in the
+     * past: backdating notice is not a data-entry convenience, it is a claim
+     * that somebody was told earlier than they were.
+     *
+     */
+    effective_on?: string | null;
+};
+
+export type WaiveOffboardingSettlementRequest = {
+    /**
+     * Required prose. A waiver nobody explained is not a waiver, and "ok"
+     * is not something anybody can review a year later. The minimum does
+     * not make somebody thoughtful; it makes the empty gesture take as long
+     * as typing a real one. There is no `authorised_by` field — who is
+     * waiving is the authenticated caller, and a body that could name
+     * somebody else would be an audit row attributing a decision to a
+     * person who did not make it.
+     *
+     */
+    reason: string;
+};
+
+/**
+ * **`otp_challenge_id` names a challenge and is not proof.** The server
+ * demands that it exists, carries purpose `b2b_signatory`, has been
+ * *consumed*, and belongs to the person signing — and all four failures
+ * answer identically, so a caller holding somebody else's identifier learns
+ * only that it did not work. There is no `otp_verified` field and there
+ * never will be: a flag a caller can assert records its own claim rather
+ * than an observation.
+ *
+ * `consent_statement` is the exact wording shown on screen, echoed back
+ * rather than looked up server-side, because the evidence has to be what
+ * the person actually read.
+ *
+ */
+export type SignOffOffboardingRequest = {
+    signatory_name: string;
+    signatory_title: string;
+    consent_statement: string;
+    document_sha256?: string | null;
+    otp_challenge_id: Uuid;
+};
+
+export type CancelOffboardingRequest = {
+    /**
+     * "Why did we stop offboarding Acme" is a question somebody asks when Acme is still trading eighteen months later.
+     */
+    reason: string;
+};
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -5741,6 +6595,71 @@ export type OrganisationInvitationPath = Uuid;
  *
  */
 export type OrganisationInvitationTokenPath = string;
+
+/**
+ * The subscription identifier. Always resolved inside the caller's own
+ * customer account: somebody else's is `404 resource.not_found`, never a
+ * 403, because the row carries a delivery address, a weekday pattern and
+ * a price somebody negotiated.
+ *
+ */
+export type SubscriptionPath = Uuid;
+
+/**
+ * The closure request identifier, always resolved inside the caller's own
+ * identity. Somebody else's is `404 resource.not_found`: the row says that
+ * a named person is leaving and why.
+ *
+ */
+export type ClosureRequestPath = Uuid;
+
+/**
+ * The offboarding identifier. Platform-only; there is no tenant read path.
+ */
+export type OffboardingPath = Uuid;
+
+/**
+ * The records bundle identifier, always resolved *through* the offboarding
+ * in the path. An export resolved by identifier alone would let a caller
+ * read one company's bundle through another company's wind-up.
+ *
+ */
+export type RecordExportPath = Uuid;
+
+/**
+ * Why the bundle is being taken, written verbatim onto the access audit
+ * event. **Its presence is what turns a status check into a download**:
+ * without it the operation reads the manifest and nothing is issued; with
+ * it a fifteen-minute signed URL is minted in the envelope and the access
+ * is recorded as a `Confidential` read. Blank is
+ * `400 request.invalid` with `details.parameter` — an access with no
+ * stated reason is the access an audit trail cannot explain afterwards.
+ *
+ */
+export type RecordExportPurpose = string;
+
+/**
+ * The first day of the window. Defaults to today.
+ */
+export type SubscriptionScheduleFrom = string;
+
+/**
+ * The last day of the window. Defaults to thirteen days after `from`, and
+ * may be at most **sixty** days after it: the projection is
+ * O(subscriptions x days), so an unbounded window is a request a client can
+ * make that the kitchen cannot afford. Beyond that is
+ * `400 request.invalid` with `details.max_window_days`.
+ *
+ */
+export type SubscriptionScheduleTo = string;
+
+/**
+ * Narrow to one production site. A *narrowing* of a book the caller can
+ * already see, never a widening of one they cannot — which is why it is a
+ * query filter and not `X-Branch-Id`.
+ *
+ */
+export type SubscriptionScheduleBranch = Uuid;
 
 export type RegisterUserData = {
     body: RegisterRequest;
@@ -19177,3 +20096,2575 @@ export type AcceptOrganisationInvitationResponses = {
 };
 
 export type AcceptOrganisationInvitationResponse = AcceptOrganisationInvitationResponses[keyof AcceptOrganisationInvitationResponses];
+
+export type CreateSubscriptionData = {
+    body: CreateSubscriptionRequest;
+    headers?: {
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/subscriptions';
+};
+
+export type CreateSubscriptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The subscription cannot be started as it stands, with **every** reason
+     * at once. `details.reasons` is a list of `{reason, ...context}`.
+     *
+     * All of them rather than the first, and the argument is sharper than it
+     * is for a checkout: a plan is a longer, more considered purchase, and
+     * telling somebody one problem per attempt — the plan is not published,
+     * now the duration is not offered, now nobody delivers to your address —
+     * is three round trips through a form they have already filled in.
+     *
+     * Its own code rather than `order.placement_refused`, which the domain
+     * borrowed while the error vocabulary was closed to it: a client branches
+     * on the code to decide which screen to render, and a checkout basket and
+     * a twenty-day plan are not the same screen.
+     *
+     * `GET /subscriptions/quote` answers with this code too, for the subset of
+     * reasons that are about price — `unpriced`, `duration_not_offered`,
+     * `duration_not_fixed`, `pricing_basis_unsupported`.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateSubscriptionError = CreateSubscriptionErrors[keyof CreateSubscriptionErrors];
+
+export type CreateSubscriptionResponses = {
+    /**
+     * The subscription, with its captured price and its opening balance.
+     */
+    201: SubscriptionEnvelope;
+};
+
+export type CreateSubscriptionResponse = CreateSubscriptionResponses[keyof CreateSubscriptionResponses];
+
+export type QuoteSubscriptionData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The channel being bought through.
+         */
+        sales_channel_id: Uuid;
+        /**
+         * The plan.
+         */
+        catalogue_item_id: Uuid;
+        /**
+         * The configuration — the matrix cell.
+         */
+        catalogue_item_variant_id: Uuid;
+        /**
+         * The run being priced.
+         */
+        plan_duration_id: Uuid;
+    };
+    url: '/subscriptions/quote';
+};
+
+export type QuoteSubscriptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The subscription cannot be started as it stands, with **every** reason
+     * at once. `details.reasons` is a list of `{reason, ...context}`.
+     *
+     * All of them rather than the first, and the argument is sharper than it
+     * is for a checkout: a plan is a longer, more considered purchase, and
+     * telling somebody one problem per attempt — the plan is not published,
+     * now the duration is not offered, now nobody delivers to your address —
+     * is three round trips through a form they have already filled in.
+     *
+     * Its own code rather than `order.placement_refused`, which the domain
+     * borrowed while the error vocabulary was closed to it: a client branches
+     * on the code to decide which screen to render, and a checkout basket and
+     * a twenty-day plan are not the same screen.
+     *
+     * `GET /subscriptions/quote` answers with this code too, for the subset of
+     * reasons that are about price — `unpriced`, `duration_not_offered`,
+     * `duration_not_fixed`, `pricing_basis_unsupported`.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type QuoteSubscriptionError = QuoteSubscriptionErrors[keyof QuoteSubscriptionErrors];
+
+export type QuoteSubscriptionResponses = {
+    /**
+     * The current quote for this configuration on this run.
+     */
+    200: PlanQuoteEnvelope;
+};
+
+export type QuoteSubscriptionResponse = QuoteSubscriptionResponses[keyof QuoteSubscriptionResponses];
+
+export type ListMySubscriptionsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/subscriptions';
+};
+
+export type ListMySubscriptionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMySubscriptionsError = ListMySubscriptionsErrors[keyof ListMySubscriptionsErrors];
+
+export type ListMySubscriptionsResponses = {
+    /**
+     * Every subscription the caller holds, live ones first.
+     */
+    200: SubscriptionsEnvelope;
+};
+
+export type ListMySubscriptionsResponse = ListMySubscriptionsResponses[keyof ListMySubscriptionsResponses];
+
+export type ShowMySubscriptionData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}';
+};
+
+export type ShowMySubscriptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowMySubscriptionError = ShowMySubscriptionErrors[keyof ShowMySubscriptionErrors];
+
+export type ShowMySubscriptionResponses = {
+    /**
+     * The subscription and its balance.
+     */
+    200: SubscriptionEnvelope;
+};
+
+export type ShowMySubscriptionResponse = ShowMySubscriptionResponses[keyof ShowMySubscriptionResponses];
+
+export type PauseSubscriptionData = {
+    body?: never;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/pause';
+};
+
+export type PauseSubscriptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PauseSubscriptionError = PauseSubscriptionErrors[keyof PauseSubscriptionErrors];
+
+export type PauseSubscriptionResponses = {
+    /**
+     * The paused subscription and its untouched balance.
+     */
+    200: SubscriptionEnvelope;
+};
+
+export type PauseSubscriptionResponse = PauseSubscriptionResponses[keyof PauseSubscriptionResponses];
+
+export type ResumeSubscriptionData = {
+    body?: never;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/resume';
+};
+
+export type ResumeSubscriptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ResumeSubscriptionError = ResumeSubscriptionErrors[keyof ResumeSubscriptionErrors];
+
+export type ResumeSubscriptionResponses = {
+    /**
+     * The resumed subscription, with the recomputed next delivery date.
+     */
+    200: SubscriptionEnvelope;
+};
+
+export type ResumeSubscriptionResponse = ResumeSubscriptionResponses[keyof ResumeSubscriptionResponses];
+
+export type CancelSubscriptionData = {
+    body?: CancelSubscriptionRequest;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/cancel';
+};
+
+export type CancelSubscriptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelSubscriptionError = CancelSubscriptionErrors[keyof CancelSubscriptionErrors];
+
+export type CancelSubscriptionResponses = {
+    /**
+     * The cancelled subscription and the credit memo, or null when nothing is owed.
+     */
+    200: SubscriptionCancellationEnvelope;
+};
+
+export type CancelSubscriptionResponse = CancelSubscriptionResponses[keyof CancelSubscriptionResponses];
+
+export type SkipSubscriptionDayData = {
+    body: SkipSubscriptionDayRequest;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/skips';
+};
+
+export type SkipSubscriptionDayErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SkipSubscriptionDayError = SkipSubscriptionDayErrors[keyof SkipSubscriptionDayErrors];
+
+export type SkipSubscriptionDayResponses = {
+    /**
+     * The skipped day, and the unchanged balance beside it.
+     */
+    201: SubscriptionSkipEnvelope;
+};
+
+export type SkipSubscriptionDayResponse = SkipSubscriptionDayResponses[keyof SkipSubscriptionDayResponses];
+
+export type UpdateSubscriptionAddressData = {
+    body: UpdateSubscriptionAddressRequest;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/address';
+};
+
+export type UpdateSubscriptionAddressErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateSubscriptionAddressError = UpdateSubscriptionAddressErrors[keyof UpdateSubscriptionAddressErrors];
+
+export type UpdateSubscriptionAddressResponses = {
+    /**
+     * The subscription, now delivering to the named address.
+     */
+    200: SubscriptionEnvelope;
+};
+
+export type UpdateSubscriptionAddressResponse = UpdateSubscriptionAddressResponses[keyof UpdateSubscriptionAddressResponses];
+
+export type UpdateSubscriptionWindowData = {
+    body: UpdateSubscriptionWindowRequest;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/window';
+};
+
+export type UpdateSubscriptionWindowErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateSubscriptionWindowError = UpdateSubscriptionWindowErrors[keyof UpdateSubscriptionWindowErrors];
+
+export type UpdateSubscriptionWindowResponses = {
+    /**
+     * The subscription, with its new delivery window.
+     */
+    200: SubscriptionEnvelope;
+};
+
+export type UpdateSubscriptionWindowResponse = UpdateSubscriptionWindowResponses[keyof UpdateSubscriptionWindowResponses];
+
+export type UpdateSubscriptionWeekdaysData = {
+    body: UpdateSubscriptionWeekdaysRequest;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/weekdays';
+};
+
+export type UpdateSubscriptionWeekdaysErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateSubscriptionWeekdaysError = UpdateSubscriptionWeekdaysErrors[keyof UpdateSubscriptionWeekdaysErrors];
+
+export type UpdateSubscriptionWeekdaysResponses = {
+    /**
+     * The subscription, with the new weekday set and the recomputed next delivery date.
+     */
+    200: SubscriptionEnvelope;
+};
+
+export type UpdateSubscriptionWeekdaysResponse = UpdateSubscriptionWeekdaysResponses[keyof UpdateSubscriptionWeekdaysResponses];
+
+export type ReplaceSubscriptionChoicesData = {
+    body: ReplaceSubscriptionChoicesRequest;
+    headers: {
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/choices';
+};
+
+export type ReplaceSubscriptionChoicesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change cannot be made to the subscription as it stands.
+     *
+     * **Mostly this is the change window.** Skip, pause, resume, address,
+     * window, weekdays and meal choices all take effect only for deliveries
+     * more than the plan's `change_cutoff_hours` away, and inside that window
+     * the next delivery proceeds as scheduled. `inside_cut_off` carries
+     * `cut_off_at` and `effective_from`, so a client can say "changes to
+     * Tuesday closed at 18:00 on Monday; the earliest day you can change is
+     * Wednesday" rather than "no".
+     *
+     * The rest of the vocabulary: `not_permitted` (the plan itself forbids the
+     * right — the kitchen's stored `skip_allowed` / `pause_allowed`, not an
+     * assumption), `invalid_transition`, `already_settled`,
+     * `not_a_delivery_day`, `exhausted` (the balance is spent and the answer
+     * is a renewal), `stale_version`, `address_not_owned`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `weekdays_empty`, `weekdays_invalid`, and for meal choices
+     * `meal_unknown`, `meal_not_a_meal` and `meal_not_published`.
+     *
+     * A 409 rather than a validation failure: the request is well-formed and
+     * the customer meant it. What has happened is that time passed.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceSubscriptionChoicesError = ReplaceSubscriptionChoicesErrors[keyof ReplaceSubscriptionChoicesErrors];
+
+export type ReplaceSubscriptionChoicesResponses = {
+    /**
+     * The day's chosen meals as recorded.
+     */
+    200: SubscriptionChoicesEnvelope;
+};
+
+export type ReplaceSubscriptionChoicesResponse = ReplaceSubscriptionChoicesResponses[keyof ReplaceSubscriptionChoicesResponses];
+
+export type ListSubscriptionDeliveriesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/deliveries';
+};
+
+export type ListSubscriptionDeliveriesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListSubscriptionDeliveriesError = ListSubscriptionDeliveriesErrors[keyof ListSubscriptionDeliveriesErrors];
+
+export type ListSubscriptionDeliveriesResponses = {
+    /**
+     * Every delivery day this subscription has, newest first, with the balance in `meta`.
+     */
+    200: SubscriptionDeliveriesEnvelope;
+};
+
+export type ListSubscriptionDeliveriesResponse = ListSubscriptionDeliveriesResponses[keyof ListSubscriptionDeliveriesResponses];
+
+export type ListSubscriptionScheduleData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * The first day of the window. Defaults to today.
+         */
+        from?: string;
+        /**
+         * The last day of the window. Defaults to thirteen days after `from`, and
+         * may be at most **sixty** days after it: the projection is
+         * O(subscriptions x days), so an unbounded window is a request a client can
+         * make that the kitchen cannot afford. Beyond that is
+         * `400 request.invalid` with `details.max_window_days`.
+         *
+         */
+        to?: string;
+        /**
+         * Narrow to one production site. A *narrowing* of a book the caller can
+         * already see, never a widening of one they cannot — which is why it is a
+         * query filter and not `X-Branch-Id`.
+         *
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/subscription-schedule';
+};
+
+export type ListSubscriptionScheduleErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListSubscriptionScheduleError = ListSubscriptionScheduleErrors[keyof ListSubscriptionScheduleErrors];
+
+export type ListSubscriptionScheduleResponses = {
+    /**
+     * The window's deliveries, actual and projected, with the daily counts in `meta`.
+     */
+    200: SubscriptionScheduleEnvelope;
+};
+
+export type ListSubscriptionScheduleResponse = ListSubscriptionScheduleResponses[keyof ListSubscriptionScheduleResponses];
+
+export type OpenClosureRequestData = {
+    body: OpenClosureRequestRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/closure-requests';
+};
+
+export type OpenClosureRequestErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * A closure request the platform will not handle as asked.
+     * `details.reason` is a stable string.
+     *
+     * **This is not the code for a blocked closure**, and the distinction is
+     * the whole shape of the journey. A blocker — open orders, a live
+     * subscription, a pending signature — is information a customer acts on,
+     * comes back inside a `200`/`202` acknowledgement as `blocked` and
+     * `blockers`, and leaves the request alive so they can return when their
+     * last order has arrived. An error code there would turn a checklist into
+     * a failure.
+     *
+     * What this code covers: `closure_already_in_flight` (a second request
+     * while one is still going somewhere — refused rather than silently
+     * returning the existing one, because the two may differ in scope and
+     * quietly handing back an older request would answer a question nobody
+     * asked), `closure_not_awaiting_verification`, `closure_not_cancellable`,
+     * and `closure_no_verifiable_contact`.
+     *
+     * Three closure refusals deliberately answer with **other** codes: a
+     * support actor trying to finish somebody else's erasure is
+     * `403 authz.permission_denied`, a passcode that did not verify is
+     * `422 otp.invalid` (one indistinguishable shape for wrong, expired,
+     * superseded and locked out), and a reason outside the vocabulary is
+     * `422 validation.failed`.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type OpenClosureRequestError = OpenClosureRequestErrors[keyof OpenClosureRequestErrors];
+
+export type OpenClosureRequestResponses = {
+    /**
+     * A marketing opt-out, already completed.
+     */
+    200: ClosureAcknowledgementEnvelope;
+    /**
+     * A full closure, accepted. A passcode is in flight, or the request is blocked and says so.
+     */
+    202: ClosureAcknowledgementEnvelope;
+};
+
+export type OpenClosureRequestResponse = OpenClosureRequestResponses[keyof OpenClosureRequestResponses];
+
+export type ShowLiveClosureRequestData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/me/closure-requests/live';
+};
+
+export type ShowLiveClosureRequestErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowLiveClosureRequestError = ShowLiveClosureRequestErrors[keyof ShowLiveClosureRequestErrors];
+
+export type ShowLiveClosureRequestResponses = {
+    /**
+     * The live request if there is one, and the freshly evaluated blockers either way.
+     */
+    200: LiveClosureRequestEnvelope;
+};
+
+export type ShowLiveClosureRequestResponse = ShowLiveClosureRequestResponses[keyof ShowLiveClosureRequestResponses];
+
+export type VerifyClosureRequestData = {
+    body: VerifyClosureRequestRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The closure request identifier, always resolved inside the caller's own
+         * identity. Somebody else's is `404 resource.not_found`: the row says that
+         * a named person is leaving and why.
+         *
+         */
+        closureRequest: Uuid;
+    };
+    query?: never;
+    url: '/me/closure-requests/{closureRequest}/verify';
+};
+
+export type VerifyClosureRequestErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * A closure request the platform will not handle as asked.
+     * `details.reason` is a stable string.
+     *
+     * **This is not the code for a blocked closure**, and the distinction is
+     * the whole shape of the journey. A blocker — open orders, a live
+     * subscription, a pending signature — is information a customer acts on,
+     * comes back inside a `200`/`202` acknowledgement as `blocked` and
+     * `blockers`, and leaves the request alive so they can return when their
+     * last order has arrived. An error code there would turn a checklist into
+     * a failure.
+     *
+     * What this code covers: `closure_already_in_flight` (a second request
+     * while one is still going somewhere — refused rather than silently
+     * returning the existing one, because the two may differ in scope and
+     * quietly handing back an older request would answer a question nobody
+     * asked), `closure_not_awaiting_verification`, `closure_not_cancellable`,
+     * and `closure_no_verifiable_contact`.
+     *
+     * Three closure refusals deliberately answer with **other** codes: a
+     * support actor trying to finish somebody else's erasure is
+     * `403 authz.permission_denied`, a passcode that did not verify is
+     * `422 otp.invalid` (one indistinguishable shape for wrong, expired,
+     * superseded and locked out), and a reason outside the vocabulary is
+     * `422 validation.failed`.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type VerifyClosureRequestError = VerifyClosureRequestErrors[keyof VerifyClosureRequestErrors];
+
+export type VerifyClosureRequestResponses = {
+    /**
+     * The proven request — scheduled, or still verified and blocked.
+     */
+    200: ClosureAcknowledgementEnvelope;
+};
+
+export type VerifyClosureRequestResponse = VerifyClosureRequestResponses[keyof VerifyClosureRequestResponses];
+
+export type CancelClosureRequestData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The closure request identifier, always resolved inside the caller's own
+         * identity. Somebody else's is `404 resource.not_found`: the row says that
+         * a named person is leaving and why.
+         *
+         */
+        closureRequest: Uuid;
+    };
+    query?: never;
+    url: '/me/closure-requests/{closureRequest}';
+};
+
+export type CancelClosureRequestErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * A closure request the platform will not handle as asked.
+     * `details.reason` is a stable string.
+     *
+     * **This is not the code for a blocked closure**, and the distinction is
+     * the whole shape of the journey. A blocker — open orders, a live
+     * subscription, a pending signature — is information a customer acts on,
+     * comes back inside a `200`/`202` acknowledgement as `blocked` and
+     * `blockers`, and leaves the request alive so they can return when their
+     * last order has arrived. An error code there would turn a checklist into
+     * a failure.
+     *
+     * What this code covers: `closure_already_in_flight` (a second request
+     * while one is still going somewhere — refused rather than silently
+     * returning the existing one, because the two may differ in scope and
+     * quietly handing back an older request would answer a question nobody
+     * asked), `closure_not_awaiting_verification`, `closure_not_cancellable`,
+     * and `closure_no_verifiable_contact`.
+     *
+     * Three closure refusals deliberately answer with **other** codes: a
+     * support actor trying to finish somebody else's erasure is
+     * `403 authz.permission_denied`, a passcode that did not verify is
+     * `422 otp.invalid` (one indistinguishable shape for wrong, expired,
+     * superseded and locked out), and a reason outside the vocabulary is
+     * `422 validation.failed`.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelClosureRequestError = CancelClosureRequestErrors[keyof CancelClosureRequestErrors];
+
+export type CancelClosureRequestResponses = {
+    /**
+     * The cancelled request.
+     */
+    200: CancelledClosureRequestEnvelope;
+};
+
+export type CancelClosureRequestResponse = CancelClosureRequestResponses[keyof CancelClosureRequestResponses];
+
+export type OpenClosureRequestForCustomerData = {
+    body: OpenClosureRequestRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The customer account whose owner is being closed.
+         */
+        account: Uuid;
+    };
+    query?: never;
+    url: '/platform/customer-accounts/{account}/closure-requests';
+};
+
+export type OpenClosureRequestForCustomerErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * A closure request the platform will not handle as asked.
+     * `details.reason` is a stable string.
+     *
+     * **This is not the code for a blocked closure**, and the distinction is
+     * the whole shape of the journey. A blocker — open orders, a live
+     * subscription, a pending signature — is information a customer acts on,
+     * comes back inside a `200`/`202` acknowledgement as `blocked` and
+     * `blockers`, and leaves the request alive so they can return when their
+     * last order has arrived. An error code there would turn a checklist into
+     * a failure.
+     *
+     * What this code covers: `closure_already_in_flight` (a second request
+     * while one is still going somewhere — refused rather than silently
+     * returning the existing one, because the two may differ in scope and
+     * quietly handing back an older request would answer a question nobody
+     * asked), `closure_not_awaiting_verification`, `closure_not_cancellable`,
+     * and `closure_no_verifiable_contact`.
+     *
+     * Three closure refusals deliberately answer with **other** codes: a
+     * support actor trying to finish somebody else's erasure is
+     * `403 authz.permission_denied`, a passcode that did not verify is
+     * `422 otp.invalid` (one indistinguishable shape for wrong, expired,
+     * superseded and locked out), and a reason outside the vocabulary is
+     * `422 validation.failed`.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type OpenClosureRequestForCustomerError = OpenClosureRequestForCustomerErrors[keyof OpenClosureRequestForCustomerErrors];
+
+export type OpenClosureRequestForCustomerResponses = {
+    /**
+     * A marketing opt-out, already completed.
+     */
+    200: ClosureAcknowledgementEnvelope;
+    /**
+     * A full closure, accepted. The passcode has gone to the customer.
+     */
+    202: ClosureAcknowledgementEnvelope;
+};
+
+export type OpenClosureRequestForCustomerResponse = OpenClosureRequestForCustomerResponses[keyof OpenClosureRequestForCustomerResponses];
+
+export type StartOffboardingData = {
+    body: StartOffboardingRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/platform/b2b/offboardings';
+};
+
+export type StartOffboardingErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The offboarding cannot do that from where it is. `details.reason` names
+     * which — `offboarding.already_in_flight`,
+     * `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+     * — and `details.allowed_transitions` names what *is* legal from here, so
+     * a wind-up screen renders buttons from the refusal rather than
+     * reimplementing the state machine.
+     *
+     * `already_in_flight` is refused here as well as by the partial unique
+     * index, so an operator gets a sentence rather than a constraint
+     * violation, and the index stays as the thing nothing can route around.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StartOffboardingError = StartOffboardingErrors[keyof StartOffboardingErrors];
+
+export type StartOffboardingResponses = {
+    /**
+     * The wind-up, at `notice_served`, with its computed effective date.
+     */
+    201: OffboardingEnvelope;
+};
+
+export type StartOffboardingResponse = StartOffboardingResponses[keyof StartOffboardingResponses];
+
+export type ShowOffboardingData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}';
+};
+
+export type ShowOffboardingErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowOffboardingError = ShowOffboardingErrors[keyof ShowOffboardingErrors];
+
+export type ShowOffboardingResponses = {
+    /**
+     * The wind-up in full.
+     */
+    200: OffboardingEnvelope;
+};
+
+export type ShowOffboardingResponse = ShowOffboardingResponses[keyof ShowOffboardingResponses];
+
+export type RunOffboardingSettlementChecksData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/settlement-checks';
+};
+
+export type RunOffboardingSettlementChecksErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The offboarding cannot do that from where it is. `details.reason` names
+     * which — `offboarding.already_in_flight`,
+     * `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+     * — and `details.allowed_transitions` names what *is* legal from here, so
+     * a wind-up screen renders buttons from the refusal rather than
+     * reimplementing the state machine.
+     *
+     * `already_in_flight` is refused here as well as by the partial unique
+     * index, so an operator gets a sentence rather than a constraint
+     * violation, and the index stays as the thing nothing can route around.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RunOffboardingSettlementChecksError = RunOffboardingSettlementChecksErrors[keyof RunOffboardingSettlementChecksErrors];
+
+export type RunOffboardingSettlementChecksResponses = {
+    /**
+     * The wind-up with the assessment recorded, moved to `awaiting_signoff` if everything was clear.
+     */
+    200: OffboardingEnvelope;
+};
+
+export type RunOffboardingSettlementChecksResponse = RunOffboardingSettlementChecksResponses[keyof RunOffboardingSettlementChecksResponses];
+
+export type WaiveOffboardingSettlementData = {
+    body: WaiveOffboardingSettlementRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/settlement-waiver';
+};
+
+export type WaiveOffboardingSettlementErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The offboarding cannot do that from where it is. `details.reason` names
+     * which — `offboarding.already_in_flight`,
+     * `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+     * — and `details.allowed_transitions` names what *is* legal from here, so
+     * a wind-up screen renders buttons from the refusal rather than
+     * reimplementing the state machine.
+     *
+     * `already_in_flight` is refused here as well as by the partial unique
+     * index, so an operator gets a sentence rather than a constraint
+     * violation, and the index stays as the thing nothing can route around.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type WaiveOffboardingSettlementError = WaiveOffboardingSettlementErrors[keyof WaiveOffboardingSettlementErrors];
+
+export type WaiveOffboardingSettlementResponses = {
+    /**
+     * The wind-up, settlement waived, at `awaiting_signoff`.
+     */
+    200: OffboardingEnvelope;
+};
+
+export type WaiveOffboardingSettlementResponse = WaiveOffboardingSettlementResponses[keyof WaiveOffboardingSettlementResponses];
+
+export type IssueOffboardingSignoffChallengeData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/signoff-challenges';
+};
+
+export type IssueOffboardingSignoffChallengeErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The offboarding cannot do that from where it is. `details.reason` names
+     * which — `offboarding.already_in_flight`,
+     * `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+     * — and `details.allowed_transitions` names what *is* legal from here, so
+     * a wind-up screen renders buttons from the refusal rather than
+     * reimplementing the state machine.
+     *
+     * `already_in_flight` is refused here as well as by the partial unique
+     * index, so an operator gets a sentence rather than a constraint
+     * violation, and the index stays as the thing nothing can route around.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type IssueOffboardingSignoffChallengeError = IssueOffboardingSignoffChallengeErrors[keyof IssueOffboardingSignoffChallengeErrors];
+
+export type IssueOffboardingSignoffChallengeResponses = {
+    /**
+     * The challenge, with a masked destination and a countdown. Never the code.
+     */
+    202: OtpChallengeEnvelope;
+};
+
+export type IssueOffboardingSignoffChallengeResponse = IssueOffboardingSignoffChallengeResponses[keyof IssueOffboardingSignoffChallengeResponses];
+
+export type SignOffOffboardingData = {
+    body: SignOffOffboardingRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/signoff';
+};
+
+export type SignOffOffboardingErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Sign-off refused because settlement is neither cleared nor waived.
+     * `details.blockers` names **every** outstanding check rather than the
+     * first: somebody winding up a relationship wants the list, not a sequence
+     * of discoveries.
+     *
+     * Its own code rather than `offboarding.refused` because the remedy is
+     * different and a client has to branch on it — settle, or waive through
+     * `POST .../settlement-waiver` with a written reason and the second
+     * permission.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SignOffOffboardingError = SignOffOffboardingErrors[keyof SignOffOffboardingErrors];
+
+export type SignOffOffboardingResponses = {
+    /**
+     * The wind-up, signed off, with the evidence recorded.
+     */
+    200: OffboardingEnvelope;
+};
+
+export type SignOffOffboardingResponse = SignOffOffboardingResponses[keyof SignOffOffboardingResponses];
+
+export type RevokeOffboardingAccessData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/revoke-access';
+};
+
+export type RevokeOffboardingAccessErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The offboarding cannot do that from where it is. `details.reason` names
+     * which — `offboarding.already_in_flight`,
+     * `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+     * — and `details.allowed_transitions` names what *is* legal from here, so
+     * a wind-up screen renders buttons from the refusal rather than
+     * reimplementing the state machine.
+     *
+     * `already_in_flight` is refused here as well as by the partial unique
+     * index, so an operator gets a sentence rather than a constraint
+     * violation, and the index stays as the thing nothing can route around.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RevokeOffboardingAccessError = RevokeOffboardingAccessErrors[keyof RevokeOffboardingAccessErrors];
+
+export type RevokeOffboardingAccessResponses = {
+    /**
+     * The wind-up at `revoking`. The work is queued.
+     */
+    202: OffboardingEnvelope;
+};
+
+export type RevokeOffboardingAccessResponse = RevokeOffboardingAccessResponses[keyof RevokeOffboardingAccessResponses];
+
+export type ArchiveOffboardingData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/archive';
+};
+
+export type ArchiveOffboardingErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The offboarding cannot do that from where it is. `details.reason` names
+     * which — `offboarding.already_in_flight`,
+     * `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+     * — and `details.allowed_transitions` names what *is* legal from here, so
+     * a wind-up screen renders buttons from the refusal rather than
+     * reimplementing the state machine.
+     *
+     * `already_in_flight` is refused here as well as by the partial unique
+     * index, so an operator gets a sentence rather than a constraint
+     * violation, and the index stays as the thing nothing can route around.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveOffboardingError = ArchiveOffboardingErrors[keyof ArchiveOffboardingErrors];
+
+export type ArchiveOffboardingResponses = {
+    /**
+     * The completed wind-up, with the purge summary.
+     */
+    200: OffboardingEnvelope;
+};
+
+export type ArchiveOffboardingResponse = ArchiveOffboardingResponses[keyof ArchiveOffboardingResponses];
+
+export type CancelOffboardingData = {
+    body: CancelOffboardingRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/cancel';
+};
+
+export type CancelOffboardingErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The offboarding cannot do that from where it is. `details.reason` names
+     * which — `offboarding.already_in_flight`,
+     * `offboarding.transition_not_allowed`, `offboarding.no_active_agreement`
+     * — and `details.allowed_transitions` names what *is* legal from here, so
+     * a wind-up screen renders buttons from the refusal rather than
+     * reimplementing the state machine.
+     *
+     * `already_in_flight` is refused here as well as by the partial unique
+     * index, so an operator gets a sentence rather than a constraint
+     * violation, and the index stays as the thing nothing can route around.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelOffboardingError = CancelOffboardingErrors[keyof CancelOffboardingErrors];
+
+export type CancelOffboardingResponses = {
+    /**
+     * The cancelled wind-up, with the reason on the row.
+     */
+    200: OffboardingEnvelope;
+};
+
+export type CancelOffboardingResponse = CancelOffboardingResponses[keyof CancelOffboardingResponses];
+
+export type RequestRecordExportData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/offboardings/{offboarding}/exports';
+};
+
+export type RequestRecordExportErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RequestRecordExportError = RequestRecordExportErrors[keyof RequestRecordExportErrors];
+
+export type RequestRecordExportResponses = {
+    /**
+     * The bundle request. Building is queued.
+     */
+    202: RecordExportEnvelope;
+};
+
+export type RequestRecordExportResponse = RequestRecordExportResponses[keyof RequestRecordExportResponses];
+
+export type ShowRecordExportData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The offboarding identifier. Platform-only; there is no tenant read path.
+         */
+        offboarding: Uuid;
+        /**
+         * The records bundle identifier, always resolved *through* the offboarding
+         * in the path. An export resolved by identifier alone would let a caller
+         * read one company's bundle through another company's wind-up.
+         *
+         */
+        export: Uuid;
+    };
+    query?: {
+        /**
+         * Why the bundle is being taken, written verbatim onto the access audit
+         * event. **Its presence is what turns a status check into a download**:
+         * without it the operation reads the manifest and nothing is issued; with
+         * it a fifteen-minute signed URL is minted in the envelope and the access
+         * is recorded as a `Confidential` read. Blank is
+         * `400 request.invalid` with `details.parameter` — an access with no
+         * stated reason is the access an audit trail cannot explain afterwards.
+         *
+         */
+        purpose?: string;
+    };
+    url: '/platform/b2b/offboardings/{offboarding}/exports/{export}';
+};
+
+export type ShowRecordExportErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The bundle exists and cannot be downloaded. `details.status` says which
+     * of the three it is: still `building` or `requested`, `failed`, or
+     * `expired` — the window has closed and `purgeExpired` has deleted the
+     * bytes while keeping the row, because deleting the row would erase the
+     * evidence that an export was ever made.
+     *
+     * A 409 rather than a 404 deliberately: the caller is looking at an export
+     * that exists and that they may see, and a 404 would be a lie about a row
+     * in front of them.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowRecordExportError = ShowRecordExportErrors[keyof ShowRecordExportErrors];
+
+export type ShowRecordExportResponses = {
+    /**
+     * The bundle, with a signed download URL when a purpose was stated.
+     */
+    200: RecordExportEnvelope;
+};
+
+export type ShowRecordExportResponse = ShowRecordExportResponses[keyof ShowRecordExportResponses];

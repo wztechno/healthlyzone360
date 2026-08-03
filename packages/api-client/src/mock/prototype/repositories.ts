@@ -30,16 +30,26 @@ import type {
     ChangeSlotRequest,
     CheckoutPreview,
     CommerceRepository,
+    CancelSubscriptionRequest,
     CreateSubscriptionRequest,
     PauseSubscriptionRequest,
     PlaceOrderRequest,
     PlacedOrder,
     PreviewCheckoutRequest,
+    SetSubscriptionMealChoicesRequest,
+    SetSubscriptionWeekdaysRequest,
     SkipDayRequest,
     Subscription,
+    SubscriptionBalance,
+    SubscriptionCancellation,
     SubscriptionConfiguration,
+    SubscriptionDelivery,
+    SubscriptionDeliveryFilter,
+    SubscriptionMealChoice,
     SubscriptionFilter,
     SubscriptionPreview,
+    SubscriptionQuote,
+    SubscriptionQuoteRequest,
 } from '../../contracts/commerce.ts';
 import { apiFailure, throwFailure } from '../../contracts/failure.ts';
 import type {
@@ -897,6 +907,48 @@ export function createPrototypeRepositories(
         ): Promise<Subscription> {
             await settle();
             return store.changeAddress(subscriptionId, request);
+        },
+
+        async getSubscriptionQuote(request: SubscriptionQuoteRequest): Promise<SubscriptionQuote> {
+            await settle();
+            return store.subscriptionQuote(request);
+        },
+
+        async getSubscriptionBalance(subscriptionId: SubscriptionId): Promise<SubscriptionBalance> {
+            await settle();
+            return store.subscriptionBalance(subscriptionId);
+        },
+
+        async listSubscriptionDeliveries(
+            subscriptionId: SubscriptionId,
+            filter?: SubscriptionDeliveryFilter,
+        ): Promise<CursorPage<SubscriptionDelivery>> {
+            await settle();
+            return paginate(store.subscriptionDeliveries(subscriptionId, filter), filter);
+        },
+
+        async cancelSubscription(
+            subscriptionId: SubscriptionId,
+            request?: CancelSubscriptionRequest,
+        ): Promise<SubscriptionCancellation> {
+            await settle();
+            return store.cancelSubscription(subscriptionId, request);
+        },
+
+        async setSubscriptionWeekdays(
+            subscriptionId: SubscriptionId,
+            request: SetSubscriptionWeekdaysRequest,
+        ): Promise<Subscription> {
+            await settle();
+            return store.setSubscriptionWeekdays(subscriptionId, request);
+        },
+
+        async setSubscriptionMealChoices(
+            subscriptionId: SubscriptionId,
+            request: SetSubscriptionMealChoicesRequest,
+        ): Promise<readonly SubscriptionMealChoice[]> {
+            await settle();
+            return store.setSubscriptionMealChoices(subscriptionId, request);
         },
 
         async changeSlot(

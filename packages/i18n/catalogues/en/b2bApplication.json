@@ -316,5 +316,90 @@
         "notEditable": "This cannot be changed at the moment.",
         "sectionRefused": "Some of those details belong to another part of the form.",
         "loadFailed": "We could not load your application."
+    },
+    "windDown": {
+        "title": "Winding down",
+        "subtitle": "Where this ending has got to, and the one thing you can do about it.",
+        "noneTitle": "Nothing is winding down",
+        "noneBody": "This company account is active. There is no offboarding in progress.",
+        "failedTitle": "That did not work",
+        "triggers": {
+            "contract_end": "The contract has reached its end",
+            "termination": "The agreement was terminated",
+            "non_renewal": "The agreement will not be renewed",
+            "client_request": "You asked to end the relationship"
+        },
+        "statuses": {
+            "requested": "Requested",
+            "notice_served": "Notice served",
+            "settlement_pending": "Settling accounts",
+            "awaiting_signoff": "Awaiting your sign-off",
+            "signed_off": "Signed off",
+            "revoking": "Revoking access",
+            "archiving": "Archiving records",
+            "completed": "Completed",
+            "cancelled": "Cancelled"
+        },
+        "effectiveOn": "The relationship ends on {{date}}.",
+        "noEffectiveDate": "No end date has been set yet.",
+        "noticePeriod_one": "Notice period: 1 day.",
+        "noticePeriod_other": "Notice period: {{count}} days.",
+        "signedBy": "Signed off by {{name}}, {{role}}, on {{date}}.",
+        "timelineTitle": "Where this has got to",
+        "stageDone": "Done",
+        "stageNow": "Now",
+        "stageAhead": "Ahead",
+        "cancelledBody": "This wind-down was cancelled. The account carries on as before.",
+        "settlement": {
+            "title": "Settlement checks",
+            "caption": "Each settlement check and what it found",
+            "notRun": "The checks have not been run yet.",
+            "columns": {
+                "check": "Check",
+                "outcome": "Result",
+                "reason": "Notes"
+            }
+        },
+        "settlementStatuses": {
+            "pending": "Not settled",
+            "cleared": "Cleared",
+            "waived": "Waived"
+        },
+        "checks": {
+            "open_orders": "Orders still in flight",
+            "outstanding_invoices": "Outstanding invoices",
+            "credit_balance": "Credit balance",
+            "security_deposit": "Security deposit"
+        },
+        "outcomes": {
+            "clear": "Clear",
+            "outstanding": "Outstanding",
+            "not_applicable": "Not checked"
+        },
+        "reasons": {
+            "invoicing_module_absent": "We could not check this — there is no invoicing system to check against. This is not a pass.",
+            "orders_module_absent": "We could not check this — there is no order system to check against. This is not a pass."
+        },
+        "runChecks": "Re-run the settlement checks",
+        "runChecksNote": "This asks the financial systems again. It changes nothing on its own.",
+        "signoffTitle": "Sign off the wind-down",
+        "consentTitle": "What you are agreeing to",
+        "nameLabel": "Your full name",
+        "titleLabel": "Your role",
+        "authorityLabel": "I confirm I am authorised to bind this company",
+        "requestCode": "Send me a code",
+        "signoffFailed": "We could not record that sign-off.",
+        "readOnlyTitle": "Nothing for you to do here",
+        "readOnlyBody": "This stage is handled by us. The timeline above updates as it progresses.",
+        "readOnly": {
+            "notice_served": "Notice has been served. Run the settlement checks when you are ready.",
+            "settlement_pending": "Something is still outstanding. Deal with it, then re-run the checks.",
+            "signed_off": "You have signed off. Revocation and archiving follow, and we handle both.",
+            "revoking": "Access is being revoked. This cannot be stopped or undone.",
+            "archiving": "Records are being archived and personal data purged.",
+            "completed": "This wind-down is finished.",
+            "cancelled": "This wind-down was cancelled."
+        },
+        "platformNote": "Revoking your team’s access, archiving the records and purging personal data are done by us, not from this screen — and once revocation starts, none of it can be undone. The legal entity is retained."
     }
 }

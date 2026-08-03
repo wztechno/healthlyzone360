@@ -60,6 +60,12 @@ export const zErrorCode = z.enum([
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
+    'subscription.refused',
+    'subscription.change_refused',
+    'closure.refused',
+    'offboarding.refused',
+    'offboarding.settlement_outstanding',
+    'record_export.unavailable',
     'rate_limit.exceeded',
     'server.internal_error'
 ]);
@@ -4181,6 +4187,778 @@ export const zB2bProvisioningEnvelope = z.object({
 });
 
 /**
+ * `active` generates; `paused` keeps the balance and stops the cursor;
+ * `cancelled` and `completed` are terminal. A paused subscription has no
+ * `next_delivery_date` at all — nulling the cursor is what takes it out of
+ * the sweep, rather than a status predicate the sweep has to remember.
+ *
+ */
+export const zSubscriptionStatus = z.enum([
+    'active',
+    'paused',
+    'cancelled',
+    'completed'
+]);
+
+/**
+ * Where one delivery day got to. The three `skipped_*` values are kept
+ * apart on purpose: a customer skipping a Tuesday, a day nobody could
+ * assemble a safe meal for, and a day the kitchen could not serve are
+ * three different conversations, and only the first is the customer's
+ * doing.
+ *
+ */
+export const zSubscriptionDeliveryStatus = z.enum([
+    'scheduled',
+    'generated',
+    'skipped_customer',
+    'skipped_no_safe_meal',
+    'skipped_unavailable',
+    'delivered',
+    'cancelled'
+]);
+
+/**
+ * Who chose the meal on a Free Selection day. `customer` picked it before
+ * the cut-off; `kitchen_default` filled the slot because they did not; and
+ * `substituted` means something chosen was unavailable or unsafe and
+ * generation replaced it. Collapsing these into one value would make the
+ * substitution audit unreadable, which is the one audit an allergy
+ * complaint needs most.
+ *
+ */
+export const zMealChoiceSource = z.enum([
+    'customer',
+    'kitchen_default',
+    'substituted'
+]);
+
+/**
+ * `recorded` means the platform has computed what is owed; `settled`
+ * means a human has told it the money changed hands. There is deliberately
+ * no `paid` or `refunded` — the platform has no payment rail, and a status
+ * implying it had one would be the first thing a report believed.
+ *
+ */
+export const zCreditMemoStatus = z.enum(['recorded', 'settled']);
+
+/**
+ * What is left, what was used, and what is coming. **`skipped_days` is
+ * beside them rather than subtracted from them**: a skip costs nothing,
+ * and the number a customer most wants to check is that the two facts are
+ * both true at once.
+ *
+ */
+export const zSubscriptionBalance = z.object({
+    status: zSubscriptionStatus,
+    balance_days_total: z.int(),
+    balance_days_consumed: z.int(),
+    remaining_days: z.int(),
+    per_day_minor: z.int(),
+    currency_code: zCurrencyCode,
+    weekdays: z.array(z.int().gte(1).lte(7)),
+    next_delivery_date: z.iso.date().nullable(),
+    skipped_days: z.int()
+});
+
+/**
+ * A customer's own standing arrangement.
+ *
+ * **The captured price is shown in full** — all three columns of it — and
+ * that is a deliberate exception to its `Confidential` classification. The
+ * classification is a statement about *other* readers: what one customer
+ * was grandfathered at is not what the plan costs today, and publishing it
+ * would advertise a price nobody else can have. The person paying it is not
+ * another reader, and showing `captured_unit_price_minor` beside
+ * `effective_day_price_minor` is what makes "why am I paying 1 800 when the
+ * plan says 2 000" answerable on the screen instead of through support.
+ *
+ * **`captured_price_list_id` and `captured_price_list_item_id` are not
+ * served.** The provenance exists so the platform can explain a price years
+ * later; on a customer's own screen it names a kitchen's tariff structure
+ * to the person being charged by it. Nor is `organisation_id`,
+ * `created_by` or `updated_by`.
+ *
+ * **`lock_version` is served, unlike on the customer's order shape**,
+ * because this resource has a customer-facing writer. `If-Match` is
+ * honoured on every write and demanded by none.
+ *
+ */
+export const zSubscription = z.object({
+    id: zUuid,
+    status: zSubscriptionStatus,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    plan_duration_id: zUuid,
+    sales_channel_id: zUuid,
+    currency_code: zCurrencyCode,
+    captured_unit_price_minor: z.int(),
+    captured_discount_percent: z.string().nullable(),
+    effective_day_price_minor: z.int(),
+    captured_at: z.iso.datetime({ offset: true }),
+    weekdays: z.array(z.int().gte(1).lte(7)),
+    delivery_window_code: z.string().nullable(),
+    customer_address_id: zUuid,
+    no_substitutions: z.boolean(),
+    balance_days_total: z.int(),
+    balance_days_consumed: z.int(),
+    remaining_days: z.int(),
+    next_delivery_date: z.iso.date().nullable(),
+    paused_at: z.iso.datetime({ offset: true }).nullish(),
+    resumed_at: z.iso.datetime({ offset: true }).nullish(),
+    pause_count: z.int(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullish(),
+    cancellation_reason: z.string().nullish(),
+    completed_at: z.iso.datetime({ offset: true }).nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    balance: zSubscriptionBalance.optional()
+});
+
+export const zSubscriptionEnvelope = z.object({
+    data: z.object({
+        subscription: zSubscription
+    }),
+    meta: zMeta
+});
+
+export const zSubscriptionsEnvelope = z.object({
+    data: z.array(zSubscription),
+    meta: zMeta.and(z.object({
+        count: z.int().optional()
+    }))
+});
+
+/**
+ * What a kitchen owes a customer whose subscription was cancelled early —
+ * a record of an **obligation**, never of a payment.
+ *
+ * `settlement` is stated on the wire rather than left to be inferred from
+ * the status vocabulary. It is the one sentence a customer cancelling most
+ * needs: no money has moved, and somebody will be in touch. A client left
+ * to infer it would eventually render `recorded` as "refunded".
+ *
+ */
+export const zCreditMemo = z.object({
+    id: zUuid,
+    reason: z.string(),
+    unused_days: z.int(),
+    per_day_minor: z.int(),
+    amount_minor: z.int(),
+    currency_code: zCurrencyCode,
+    status: zCreditMemoStatus,
+    settlement: z.enum(['manual']),
+    recorded_at: z.iso.datetime({ offset: true }),
+    settled_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * What fills one slot of one day. `replaced_catalogue_item_id` is what the
+ * choice stands in for when generation substituted it — the customer is
+ * owed the difference between "you chose this" and "we sent this instead".
+ *
+ * `unsafe_allergen_classes` is deliberately **not** served: a list of
+ * allergen classes attached to a named person's delivery is health data,
+ * and what a customer needs from this row is that a substitution happened,
+ * not a restatement of their medical profile.
+ *
+ */
+export const zSubscriptionMealChoice = z.object({
+    slot: z.string(),
+    sequence: z.int(),
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    source: zMealChoiceSource,
+    replaced_catalogue_item_id: zUuid.nullish()
+});
+
+/**
+ * One delivery day — the row a balance day is spent on.
+ *
+ * **`consumed` is stored, not derived from `status`**, and reading it is
+ * the only correct way to ask whether a day was spent. A client
+ * recomputing it from the status would eventually disagree with the
+ * balance.
+ *
+ */
+export const zSubscriptionDelivery = z.object({
+    id: zUuid,
+    delivery_date: z.iso.date(),
+    delivery_window_code: z.string().nullish(),
+    status: zSubscriptionDeliveryStatus,
+    consumed: z.boolean(),
+    skip_reason: z.string().nullish(),
+    order_id: zUuid.nullish(),
+    generated_at: z.iso.datetime({ offset: true }).nullish(),
+    settled_at: z.iso.datetime({ offset: true }).nullish(),
+    meals: z.array(zSubscriptionMealChoice)
+});
+
+export const zSubscriptionDeliveriesEnvelope = z.object({
+    data: z.array(zSubscriptionDelivery),
+    meta: zMeta.and(z.object({
+        count: z.int(),
+        balance: zSubscriptionBalance
+    }))
+});
+
+export const zSubscriptionSkipEnvelope = z.object({
+    data: z.object({
+        delivery: zSubscriptionDelivery,
+        balance: zSubscriptionBalance
+    }),
+    meta: zMeta
+});
+
+export const zSubscriptionCancellationEnvelope = z.object({
+    data: z.object({
+        subscription: zSubscription,
+        credit_memo: zCreditMemo.nullable()
+    }),
+    meta: zMeta
+});
+
+/**
+ * What a configuration would cost. **A quote and not a hold**: nothing is
+ * reserved, nothing is written, and the number is guaranteed only for as
+ * long as the tariff behind it stands. `POST /subscriptions` re-resolves it
+ * and captures *that* answer.
+ *
+ * All three numbers travel, because the discount is the reason somebody
+ * chose the longer run and a screen showing only the final figure cannot
+ * say what it saved them. `price_list_id` and `price_list_item_id` do not.
+ *
+ */
+export const zPlanQuote = z.object({
+    currency_code: zCurrencyCode,
+    days: z.int(),
+    list_price_minor: z.int(),
+    discount_percent: z.string().nullable(),
+    per_day_minor: z.int(),
+    total_minor: z.int()
+});
+
+export const zPlanQuoteEnvelope = z.object({
+    data: z.object({
+        quote: zPlanQuote
+    }),
+    meta: zMeta
+});
+
+/**
+ * One day of the kitchen's forward book. **`basis` is the field that must
+ * never be ignored**: an `actual` day has a delivery row and possibly an
+ * order behind it, and a `projected` one is computed from the weekday
+ * pattern and the remaining balance — a customer who has not yet had the
+ * chance to skip.
+ *
+ * No customer name, no address and no allergen list: a production planner
+ * counts portions per window per day, and every one of those would be
+ * personal data on a screen that does not need it.
+ *
+ */
+export const zSubscriptionScheduleRow = z.object({
+    delivery_date: z.iso.date(),
+    subscription_id: zUuid,
+    customer_account_id: zUuid,
+    branch_id: zUuid.nullish(),
+    delivery_window_code: z.string().nullish(),
+    basis: z.enum(['actual', 'projected']),
+    status: zSubscriptionDeliveryStatus
+});
+
+export const zSubscriptionScheduleEnvelope = z.object({
+    data: z.array(zSubscriptionScheduleRow),
+    meta: zMeta.and(z.object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        count: z.int(),
+        daily_counts: z.record(z.string(), z.int())
+    }))
+});
+
+/**
+ * Checkout-shaped on purpose: the same three coordinates a plan is sold on
+ * — the plan, the configuration cell, the duration — plus everything a
+ * delivery needs.
+ *
+ * **No price field exists.** Every amount is decided by the server at
+ * purchase and captured onto the row; a body that could state a per-day
+ * price would be a client quoting the server its own prices, and the first
+ * thing anybody would do with it is quote a lower one.
+ *
+ */
+export const zCreateSubscriptionRequest = z.object({
+    sales_channel_id: zUuid,
+    branch_id: zUuid.nullish(),
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    plan_duration_id: zUuid,
+    customer_address_id: zUuid,
+    weekdays: z.array(z.int().gte(1).lte(7)).min(1).max(7),
+    delivery_window_code: z.string().max(40).nullish(),
+    no_substitutions: z.boolean().optional(),
+    start_from: z.iso.date().nullish()
+});
+
+export const zSkipSubscriptionDayRequest = z.object({
+    date: z.iso.date()
+});
+
+export const zUpdateSubscriptionAddressRequest = z.object({
+    customer_address_id: zUuid
+});
+
+export const zUpdateSubscriptionWindowRequest = z.object({
+    delivery_window_code: z.string().max(40).nullable()
+});
+
+export const zUpdateSubscriptionWeekdaysRequest = z.object({
+    weekdays: z.array(z.int().gte(1).lte(7)).min(1).max(7)
+});
+
+/**
+ * One day's chosen meals, replaced whole. An **empty `meals` array is a
+ * real payload**: it is a customer saying "I have not chosen; send me the
+ * kitchen's default", and a merge-shaped write could not express it.
+ *
+ */
+export const zReplaceSubscriptionChoicesRequest = z.object({
+    date: z.iso.date(),
+    meals: z.array(z.object({
+        slot: z.string().max(20),
+        sequence: z.int().gte(1).lte(20).nullish(),
+        catalogue_item_id: zUuid,
+        catalogue_item_variant_id: zUuid.nullish()
+    })).max(12)
+});
+
+export const zSubscriptionChoicesEnvelope = z.object({
+    data: z.object({
+        delivery_date: z.iso.date(),
+        meals: z.array(zSubscriptionMealChoice)
+    }),
+    meta: zMeta
+});
+
+export const zCancelSubscriptionRequest = z.object({
+    reason: z.string().max(40).regex(/^[a-z][a-z0-9_]*$/).nullish()
+});
+
+/**
+ * Two values, and they are not degrees of the same thing.
+ * `marketing_opt_out` is a preference change that deletes nothing; `full`
+ * is an erasure. They live on one journey because they are one journey
+ * from the customer's side.
+ *
+ */
+export const zClosureScope = z.enum(['marketing_opt_out', 'full']);
+
+/**
+ * Why somebody is leaving. A fixed vocabulary rather than free text: the
+ * answer is read by machines as often as by people — "how many customers
+ * left because we do not deliver to them any more" is a count, not a
+ * search — and free text is how personal data ends up in a column nobody
+ * classified. `other` is last and deliberately vague: a vocabulary without
+ * an escape hatch makes people pick the nearest wrong answer, which is
+ * indistinguishable from a real signal.
+ *
+ */
+export const zClosureReasonCode = z.enum([
+    'no_longer_needed',
+    'too_expensive',
+    'moving_away',
+    'dietary_needs_unmet',
+    'service_quality',
+    'privacy_concerns',
+    'duplicate_account',
+    'other'
+]);
+
+/**
+ * `requested` is asked but unproven; `verified` is the passcode accepted
+ * and bound to this request; `scheduled` is the grace window running — the
+ * state that exists so "I changed my mind" has somewhere to land.
+ * `completed` and `cancelled` are terminal.
+ *
+ */
+export const zClosureRequestStatus = z.enum([
+    'requested',
+    'verified',
+    'scheduled',
+    'completed',
+    'cancelled'
+]);
+
+/**
+ * **Four values, and two of them are not "fine".** `not_applicable` means
+ * nothing was checked — because no module in this deployment could answer
+ * — and it is never a synonym for `clear`: a closure screen saying "no
+ * outstanding payments" when no payment module exists has not checked
+ * anything, and the customer cannot tell the difference. `advisory` means
+ * something real *was* found and it does not stop the closure; today that
+ * is an unsettled credit memo, which is a debt the kitchen owes the
+ * customer and therefore not something the kitchen may hold their erasure
+ * hostage to.
+ *
+ */
+export const zClosureBlockerStatus = z.enum([
+    'blocking',
+    'clear',
+    'advisory',
+    'not_applicable'
+]);
+
+/**
+ * What one blocker found. **`count` and `reason` are present on every
+ * verdict, including the clear ones**, so a screen rendering "2 open
+ * orders" from `count` and "no subscriptions module is bound" from
+ * `reason` reads the same shape in both cases — which is what stops the
+ * honest answer being the one that needs a special case.
+ *
+ * `reason` is a code, never a sentence: it is rendered in the customer's
+ * language and it goes into audit metadata. The vocabulary is each
+ * blocker's own — `open_orders_in_flight`, `subscriptions_live`,
+ * `deliveries_upcoming`, `memberships_live`, `signatures_pending`,
+ * `credit_memos_unsettled`, and the `*_module_absent` family.
+ *
+ */
+export const zClosureBlockerVerdict = z.object({
+    code: z.enum([
+        'open_orders',
+        'active_subscriptions',
+        'organisation_memberships',
+        'pending_b2b_signatures',
+        'unsettled_credit_memos',
+        'wallet_balance',
+        'payment_methods'
+    ]),
+    status: zClosureBlockerStatus,
+    count: z.int(),
+    reason: z.string().nullable()
+});
+
+/**
+ * One shape for both scopes and every stage, because the screen behind it
+ * is one screen. A client that had to branch on the response *type* would
+ * be a client that renders the blocked case by accident.
+ *
+ * **The verdicts travel with the acknowledgement rather than behind a
+ * second call.** "Why can I not close my account" is the only question a
+ * refusal raises, and answering it in a separate request is how a screen
+ * ends up saying "you cannot close your account" with no explanation while
+ * the second call is in flight.
+ *
+ * `destination_masked` is server-authored from the contact point and never
+ * echoed from client input: the client is told where the code went, and is
+ * not in a position to be told anything it could have made up.
+ *
+ */
+export const zClosureAcknowledgement = z.object({
+    request_id: zUuid,
+    scope: zClosureScope,
+    status: zClosureRequestStatus,
+    blocked: z.boolean(),
+    blockers: z.array(zClosureBlockerVerdict),
+    verification_required: z.boolean(),
+    destination_masked: z.string().nullish(),
+    expires_in_seconds: z.int().nullish(),
+    scheduled_for: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zClosureAcknowledgementEnvelope = z.object({
+    data: z.object({
+        closure_request: zClosureAcknowledgement
+    }),
+    meta: zMeta
+});
+
+export const zLiveClosureRequestEnvelope = z.object({
+    data: z.object({
+        closure_request: zClosureAcknowledgement.nullable(),
+        blockers: z.array(zClosureBlockerVerdict)
+    }),
+    meta: zMeta
+});
+
+export const zCancelledClosureRequestEnvelope = z.object({
+    data: z.object({
+        closure_request: z.object({
+            request_id: zUuid,
+            scope: zClosureScope,
+            status: zClosureRequestStatus,
+            cancelled_at: z.iso.datetime({ offset: true }).nullish(),
+            cancelled_because: z.string().nullish()
+        })
+    }),
+    meta: zMeta
+});
+
+/**
+ * **`scope` is required and has no default.** A default would have to be
+ * either `marketing_opt_out`, so a client with a bug silently downgrades an
+ * erasure somebody asked for, or `full`, so a client with a bug erases
+ * somebody who asked only to stop being emailed. Neither is a mistake this
+ * endpoint should be able to make on a caller's behalf.
+ *
+ */
+export const zOpenClosureRequestRequest = z.object({
+    reason_code: zClosureReasonCode,
+    reason_note: z.string().max(2000).nullish(),
+    scope: zClosureScope,
+    delivery_channel: zOtpDeliveryChannel.nullish()
+});
+
+export const zVerifyClosureRequestRequest = z.object({
+    code: z.string().min(4).max(12)
+});
+
+/**
+ * Where a wind-up has got to. `revoking` is separate from `completed` on
+ * purpose: revoking every member's access is the step that can partially
+ * fail, and a status collapsing it into the terminal state would make a
+ * half-revoked organisation look finished.
+ *
+ */
+export const zOffboardingStatus = z.enum([
+    'requested',
+    'notice_served',
+    'settlement_pending',
+    'awaiting_signoff',
+    'signed_off',
+    'revoking',
+    'archiving',
+    'completed',
+    'cancelled'
+]);
+
+/**
+ * Four different stories about the same act, and every one of them is what
+ * somebody will read a year later when the company asks why. Required, with
+ * no default: a default would put one of those stories on the record
+ * without anybody choosing it.
+ *
+ */
+export const zOffboardingTrigger = z.enum([
+    'contract_end',
+    'termination',
+    'non_renewal',
+    'client_request'
+]);
+
+/**
+ * `cleared` means every check answered clear or stated why it could not
+ * run; `waived` means somebody with the second permission set an
+ * outstanding position aside and wrote down why. The two are never
+ * collapsed — a waiver recorded as a clearance erases the only difference
+ * a dispute turns on.
+ *
+ */
+export const zSettlementStatus = z.enum([
+    'pending',
+    'cleared',
+    'waived'
+]);
+
+/**
+ * `not_applicable` carries a `reason` and is **not** a green tick: a check
+ * that cannot tell "we looked and found nothing" from "nobody was there to
+ * look" produces a settlement summary that reads as an all-clear when it is
+ * a gap.
+ *
+ */
+export const zSettlementCheckOutcome = z.enum([
+    'clear',
+    'outstanding',
+    'not_applicable'
+]);
+
+export const zSettlementCheck = z.object({
+    check: z.string(),
+    outcome: zSettlementCheckOutcome,
+    reason: z.string().nullish(),
+    detail: z.string().nullish()
+});
+
+/**
+ * A corporate wind-up in progress.
+ *
+ * **`notice_period_days` and `effective_on` are copied onto the row** at
+ * the moment notice is served, never read back through the agreement, so an
+ * amendment signed next week cannot shorten notice already served.
+ *
+ * **The signatory block travels in full** — name, title, the consent
+ * wording accepted, the document digest — because evidence that cannot be
+ * read is not evidence. The two session hashes do **not**: they exist for
+ * corroboration inside the platform, and serving them would put a stable
+ * pseudonymous identifier for a named person onto an API response.
+ *
+ * `allowed_transitions` travels so a wind-up screen renders buttons without
+ * reimplementing the state machine — the one that disagrees after the first
+ * change.
+ *
+ */
+export const zOffboarding = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    b2b_agreement_id: zUuid.nullish(),
+    status: zOffboardingStatus,
+    trigger: zOffboardingTrigger.nullish(),
+    reason: z.string().nullish(),
+    reason_note: z.string().nullish(),
+    requested_by: zUuid.nullish(),
+    requested_at: z.iso.datetime({ offset: true }),
+    notice_period_days: z.int().nullish(),
+    notice_served_at: z.iso.datetime({ offset: true }).nullish(),
+    effective_on: z.iso.date().nullish(),
+    settlement: z.object({
+        status: zSettlementStatus,
+        note: z.string().nullish(),
+        checks: z.array(zSettlementCheck),
+        started_at: z.iso.datetime({ offset: true }).nullish(),
+        resolved_at: z.iso.datetime({ offset: true }).nullish(),
+        waived_by: zUuid.nullish(),
+        waiver_reason: z.string().nullish()
+    }),
+    signoff: z.object({
+        awaiting_since: z.iso.datetime({ offset: true }).nullish(),
+        signed_off_at: z.iso.datetime({ offset: true }).nullish(),
+        signed_off_by: zUuid.nullish(),
+        signatory_name: z.string().nullish(),
+        signatory_title: z.string().nullish(),
+        consent_statement: z.string().nullish(),
+        document_sha256: z.string().nullish()
+    }),
+    revocation: z.object({
+        started_at: z.iso.datetime({ offset: true }).nullish(),
+        completed_at: z.iso.datetime({ offset: true }).nullish(),
+        memberships_revoked: z.int().nullish(),
+        tokens_deleted: z.int().nullish()
+    }),
+    archive: z.object({
+        started_at: z.iso.datetime({ offset: true }).nullish(),
+        summary: z.record(z.string(), z.int()).nullish(),
+        legal_entity_retained: z.boolean().nullish()
+    }),
+    completed_at: z.iso.datetime({ offset: true }).nullish(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullish(),
+    cancelled_by: zUuid.nullish(),
+    cancellation_reason: z.string().nullish(),
+    lock_version: z.int(),
+    allowed_transitions: z.array(zOffboardingStatus)
+});
+
+export const zOffboardingEnvelope = z.object({
+    data: z.object({
+        offboarding: zOffboarding
+    }),
+    meta: zMeta
+});
+
+/**
+ * `expired` is a **state rather than a comparison** against `expires_at`:
+ * expiry here is an act, the transition is what deletes the bytes, and the
+ * status is the record of it having happened. The row survives, because
+ * deleting it would erase the evidence that an export was ever made.
+ *
+ */
+export const zRecordExportStatus = z.enum([
+    'requested',
+    'building',
+    'ready',
+    'delivered',
+    'expired',
+    'failed'
+]);
+
+/**
+ * A company's own records, packaged.
+ *
+ * **No `disk`, no `path` and no permanent URL.** The object key is one half
+ * of a credential, and the only route to the bytes is this operation with
+ * `?purpose=`, which mints a fresh fifteen-minute signature and records who
+ * took a copy. `sha256` does travel — it is what a recipient checks the
+ * download against, and it names nothing.
+ *
+ */
+export const zRecordExport = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    b2b_offboarding_id: zUuid.nullish(),
+    status: zRecordExportStatus,
+    format: z.string(),
+    requested_by: zUuid.nullish(),
+    requested_at: z.iso.datetime({ offset: true }),
+    started_at: z.iso.datetime({ offset: true }).nullish(),
+    completed_at: z.iso.datetime({ offset: true }).nullish(),
+    byte_size: z.int().nullish(),
+    sha256: z.string().nullish(),
+    row_counts: z.record(z.string(), z.int()).nullish(),
+    manifest: z.record(z.string(), z.unknown()).nullish(),
+    expires_at: z.iso.datetime({ offset: true }).nullish(),
+    downloaded_at: z.iso.datetime({ offset: true }).nullish(),
+    download_count: z.int(),
+    purged_at: z.iso.datetime({ offset: true }).nullish(),
+    failure_reason: z.string().nullish(),
+    download_url: z.string().optional(),
+    download_url_expires_at: z.iso.datetime({ offset: true }).optional()
+});
+
+export const zRecordExportEnvelope = z.object({
+    data: z.object({
+        export: zRecordExport
+    }),
+    meta: zMeta
+});
+
+/**
+ * **`organisation_id` is in the body rather than the path**, and the reason
+ * is what the prefix already means: `/platform/b2b` is reached with the
+ * *platform operator's* organisation selected, so a `{organisation}`
+ * segment would be a second organisation in the same request with
+ * completely different meaning. Here they cannot agree — the whole point is
+ * that an operator is acting on somebody else's company — so it goes in the
+ * body where it reads as a subject rather than as a scope.
+ *
+ */
+export const zStartOffboardingRequest = z.object({
+    organisation_id: zUuid,
+    trigger: zOffboardingTrigger,
+    reason_note: z.string().max(2000).nullish(),
+    effective_on: z.iso.date().nullish()
+});
+
+export const zWaiveOffboardingSettlementRequest = z.object({
+    reason: z.string().min(10).max(2000)
+});
+
+/**
+ * **`otp_challenge_id` names a challenge and is not proof.** The server
+ * demands that it exists, carries purpose `b2b_signatory`, has been
+ * *consumed*, and belongs to the person signing — and all four failures
+ * answer identically, so a caller holding somebody else's identifier learns
+ * only that it did not work. There is no `otp_verified` field and there
+ * never will be: a flag a caller can assert records its own claim rather
+ * than an observation.
+ *
+ * `consent_statement` is the exact wording shown on screen, echoed back
+ * rather than looked up server-side, because the evidence has to be what
+ * the person actually read.
+ *
+ */
+export const zSignOffOffboardingRequest = z.object({
+    signatory_name: z.string().max(160),
+    signatory_title: z.string().max(120),
+    consent_statement: z.string().max(2000),
+    document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
+    otp_challenge_id: zUuid
+});
+
+export const zCancelOffboardingRequest = z.object({
+    reason: z.string().min(10).max(2000)
+});
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -4494,6 +5272,71 @@ export const zOrganisationInvitationPath = zUuid;
  *
  */
 export const zOrganisationInvitationTokenPath = z.string().min(32).max(128);
+
+/**
+ * The subscription identifier. Always resolved inside the caller's own
+ * customer account: somebody else's is `404 resource.not_found`, never a
+ * 403, because the row carries a delivery address, a weekday pattern and
+ * a price somebody negotiated.
+ *
+ */
+export const zSubscriptionPath = zUuid;
+
+/**
+ * The closure request identifier, always resolved inside the caller's own
+ * identity. Somebody else's is `404 resource.not_found`: the row says that
+ * a named person is leaving and why.
+ *
+ */
+export const zClosureRequestPath = zUuid;
+
+/**
+ * The offboarding identifier. Platform-only; there is no tenant read path.
+ */
+export const zOffboardingPath = zUuid;
+
+/**
+ * The records bundle identifier, always resolved *through* the offboarding
+ * in the path. An export resolved by identifier alone would let a caller
+ * read one company's bundle through another company's wind-up.
+ *
+ */
+export const zRecordExportPath = zUuid;
+
+/**
+ * Why the bundle is being taken, written verbatim onto the access audit
+ * event. **Its presence is what turns a status check into a download**:
+ * without it the operation reads the manifest and nothing is issued; with
+ * it a fifteen-minute signed URL is minted in the envelope and the access
+ * is recorded as a `Confidential` read. Blank is
+ * `400 request.invalid` with `details.parameter` — an access with no
+ * stated reason is the access an audit trail cannot explain afterwards.
+ *
+ */
+export const zRecordExportPurpose = z.string().min(1).max(160);
+
+/**
+ * The first day of the window. Defaults to today.
+ */
+export const zSubscriptionScheduleFrom = z.iso.date();
+
+/**
+ * The last day of the window. Defaults to thirteen days after `from`, and
+ * may be at most **sixty** days after it: the projection is
+ * O(subscriptions x days), so an unbounded window is a request a client can
+ * make that the kitchen cannot afford. Beyond that is
+ * `400 request.invalid` with `details.max_window_days`.
+ *
+ */
+export const zSubscriptionScheduleTo = z.iso.date();
+
+/**
+ * Narrow to one production site. A *narrowing* of a book the caller can
+ * already see, never a widening of one they cannot — which is why it is a
+ * query filter and not `X-Branch-Id`.
+ *
+ */
+export const zSubscriptionScheduleBranch = zUuid;
 
 export const zRegisterUserBody = zRegisterRequest;
 
@@ -7833,3 +8676,464 @@ export const zAcceptOrganisationInvitationPath = z.object({
  * The accepted invitation, and an honest statement that no membership was created.
  */
 export const zAcceptOrganisationInvitationResponse = zAcceptedInvitationEnvelope;
+
+export const zCreateSubscriptionBody = zCreateSubscriptionRequest;
+
+export const zCreateSubscriptionHeaders = z.object({
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The subscription, with its captured price and its opening balance.
+ */
+export const zCreateSubscriptionResponse = zSubscriptionEnvelope;
+
+export const zQuoteSubscriptionHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zQuoteSubscriptionQuery = z.object({
+    sales_channel_id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    plan_duration_id: zUuid
+});
+
+/**
+ * The current quote for this configuration on this run.
+ */
+export const zQuoteSubscriptionResponse = zPlanQuoteEnvelope;
+
+export const zListMySubscriptionsHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every subscription the caller holds, live ones first.
+ */
+export const zListMySubscriptionsResponse = zSubscriptionsEnvelope;
+
+export const zShowMySubscriptionHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowMySubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription and its balance.
+ */
+export const zShowMySubscriptionResponse = zSubscriptionEnvelope;
+
+export const zPauseSubscriptionHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPauseSubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The paused subscription and its untouched balance.
+ */
+export const zPauseSubscriptionResponse = zSubscriptionEnvelope;
+
+export const zResumeSubscriptionHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResumeSubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The resumed subscription, with the recomputed next delivery date.
+ */
+export const zResumeSubscriptionResponse = zSubscriptionEnvelope;
+
+export const zCancelSubscriptionBody = zCancelSubscriptionRequest;
+
+export const zCancelSubscriptionHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelSubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The cancelled subscription and the credit memo, or null when nothing is owed.
+ */
+export const zCancelSubscriptionResponse = zSubscriptionCancellationEnvelope;
+
+export const zSkipSubscriptionDayBody = zSkipSubscriptionDayRequest;
+
+export const zSkipSubscriptionDayHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSkipSubscriptionDayPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The skipped day, and the unchanged balance beside it.
+ */
+export const zSkipSubscriptionDayResponse = zSubscriptionSkipEnvelope;
+
+export const zUpdateSubscriptionAddressBody = zUpdateSubscriptionAddressRequest;
+
+export const zUpdateSubscriptionAddressHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSubscriptionAddressPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription, now delivering to the named address.
+ */
+export const zUpdateSubscriptionAddressResponse = zSubscriptionEnvelope;
+
+export const zUpdateSubscriptionWindowBody = zUpdateSubscriptionWindowRequest;
+
+export const zUpdateSubscriptionWindowHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSubscriptionWindowPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription, with its new delivery window.
+ */
+export const zUpdateSubscriptionWindowResponse = zSubscriptionEnvelope;
+
+export const zUpdateSubscriptionWeekdaysBody = zUpdateSubscriptionWeekdaysRequest;
+
+export const zUpdateSubscriptionWeekdaysHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSubscriptionWeekdaysPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription, with the new weekday set and the recomputed next delivery date.
+ */
+export const zUpdateSubscriptionWeekdaysResponse = zSubscriptionEnvelope;
+
+export const zReplaceSubscriptionChoicesBody = zReplaceSubscriptionChoicesRequest;
+
+export const zReplaceSubscriptionChoicesHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceSubscriptionChoicesPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The day's chosen meals as recorded.
+ */
+export const zReplaceSubscriptionChoicesResponse = zSubscriptionChoicesEnvelope;
+
+export const zListSubscriptionDeliveriesHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSubscriptionDeliveriesPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * Every delivery day this subscription has, newest first, with the balance in `meta`.
+ */
+export const zListSubscriptionDeliveriesResponse = zSubscriptionDeliveriesEnvelope;
+
+export const zListSubscriptionScheduleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSubscriptionScheduleQuery = z.object({
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The window's deliveries, actual and projected, with the daily counts in `meta`.
+ */
+export const zListSubscriptionScheduleResponse = zSubscriptionScheduleEnvelope;
+
+export const zOpenClosureRequestBody = zOpenClosureRequestRequest;
+
+export const zOpenClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * A marketing opt-out, already completed.
+ */
+export const zOpenClosureRequestResponse = zClosureAcknowledgementEnvelope;
+
+export const zShowLiveClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The live request if there is one, and the freshly evaluated blockers either way.
+ */
+export const zShowLiveClosureRequestResponse = zLiveClosureRequestEnvelope;
+
+export const zVerifyClosureRequestBody = zVerifyClosureRequestRequest;
+
+export const zVerifyClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zVerifyClosureRequestPath = z.object({
+    closureRequest: zUuid
+});
+
+/**
+ * The proven request — scheduled, or still verified and blocked.
+ */
+export const zVerifyClosureRequestResponse = zClosureAcknowledgementEnvelope;
+
+export const zCancelClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelClosureRequestPath = z.object({
+    closureRequest: zUuid
+});
+
+/**
+ * The cancelled request.
+ */
+export const zCancelClosureRequestResponse = zCancelledClosureRequestEnvelope;
+
+export const zOpenClosureRequestForCustomerBody = zOpenClosureRequestRequest;
+
+export const zOpenClosureRequestForCustomerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zOpenClosureRequestForCustomerPath = z.object({
+    account: zUuid
+});
+
+/**
+ * A marketing opt-out, already completed.
+ */
+export const zOpenClosureRequestForCustomerResponse = zClosureAcknowledgementEnvelope;
+
+export const zStartOffboardingBody = zStartOffboardingRequest;
+
+export const zStartOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The wind-up, at `notice_served`, with its computed effective date.
+ */
+export const zStartOffboardingResponse = zOffboardingEnvelope;
+
+export const zShowOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up in full.
+ */
+export const zShowOffboardingResponse = zOffboardingEnvelope;
+
+export const zRunOffboardingSettlementChecksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRunOffboardingSettlementChecksPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up with the assessment recorded, moved to `awaiting_signoff` if everything was clear.
+ */
+export const zRunOffboardingSettlementChecksResponse = zOffboardingEnvelope;
+
+export const zWaiveOffboardingSettlementBody = zWaiveOffboardingSettlementRequest;
+
+export const zWaiveOffboardingSettlementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zWaiveOffboardingSettlementPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up, settlement waived, at `awaiting_signoff`.
+ */
+export const zWaiveOffboardingSettlementResponse = zOffboardingEnvelope;
+
+export const zIssueOffboardingSignoffChallengeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zIssueOffboardingSignoffChallengePath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The challenge, with a masked destination and a countdown. Never the code.
+ */
+export const zIssueOffboardingSignoffChallengeResponse = zOtpChallengeEnvelope;
+
+export const zSignOffOffboardingBody = zSignOffOffboardingRequest;
+
+export const zSignOffOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignOffOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up, signed off, with the evidence recorded.
+ */
+export const zSignOffOffboardingResponse = zOffboardingEnvelope;
+
+export const zRevokeOffboardingAccessHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevokeOffboardingAccessPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up at `revoking`. The work is queued.
+ */
+export const zRevokeOffboardingAccessResponse = zOffboardingEnvelope;
+
+export const zArchiveOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The completed wind-up, with the purge summary.
+ */
+export const zArchiveOffboardingResponse = zOffboardingEnvelope;
+
+export const zCancelOffboardingBody = zCancelOffboardingRequest;
+
+export const zCancelOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The cancelled wind-up, with the reason on the row.
+ */
+export const zCancelOffboardingResponse = zOffboardingEnvelope;
+
+export const zRequestRecordExportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRequestRecordExportPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The bundle request. Building is queued.
+ */
+export const zRequestRecordExportResponse = zRecordExportEnvelope;
+
+export const zShowRecordExportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecordExportPath = z.object({
+    offboarding: zUuid,
+    export: zUuid
+});
+
+export const zShowRecordExportQuery = z.object({
+    purpose: z.string().min(1).max(160).optional()
+});
+
+/**
+ * The bundle, with a signed download URL when a purpose was stated.
+ */
+export const zShowRecordExportResponse = zRecordExportEnvelope;

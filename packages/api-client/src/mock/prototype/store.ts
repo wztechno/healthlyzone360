@@ -9,6 +9,7 @@ import type {
     MealPlanEntryId,
     MealPlanId,
     MealType,
+    Money,
     NutritionTargetId,
     RecipeId,
     SubscriptionId,
@@ -32,12 +33,14 @@ import type {
     RequestQuotationRequest,
 } from '../../contracts/business.ts';
 import type {
+    CancelSubscriptionRequest,
     Cart,
     CartItem,
     ChangeAddressRequest,
     ChangeSlotRequest,
     CheckoutPreview,
     CreateSubscriptionRequest,
+    CreditMemo,
     DeliveryAddress,
     DeliverySlot,
     PauseSubscriptionRequest,
@@ -46,10 +49,20 @@ import type {
     PlacedOrderLine,
     PreviewCheckoutRequest,
     PriceLine,
+    SetSubscriptionMealChoicesRequest,
+    SetSubscriptionWeekdaysRequest,
     SkipDayRequest,
     Subscription,
+    SubscriptionBalance,
+    SubscriptionCancellation,
     SubscriptionConfiguration,
+    SubscriptionDelivery,
+    SubscriptionDeliveryFilter,
+    SubscriptionMealChoice,
     SubscriptionPreview,
+    SubscriptionQuote,
+    SubscriptionQuoteRefusal,
+    SubscriptionQuoteRequest,
 } from '../../contracts/commerce.ts';
 import { apiFailure, throwFailure, validationFailure } from '../../contracts/failure.ts';
 import type { Food, GroceryList, Pantry, Recipe } from '../../contracts/foods.ts';
@@ -100,6 +113,7 @@ import type {
 } from '../../contracts/virtual-dietitian.ts';
 import type { MockScenarioName } from '../scenarios.ts';
 import {
+    DEFAULT_CURRENCY,
     PROTOTYPE_NOW,
     PROTOTYPE_TODAY,
     PROTOTYPE_WEEK_START,
@@ -155,13 +169,31 @@ import { KitchenCatalogueStore } from './catalogue-store.ts';
 import {
     PROTOTYPE_RUNTIME_ORDINAL_START,
     cartIdAt,
+    creditMemoIdAt,
     mealPlanEntryIdAt,
     mealPlanIdAt,
     orderIdAt,
     quotationIdAt,
+    subscriptionDeliveryIdAt,
     subscriptionIdAt,
     vdSessionIdAt,
 } from './ids.ts';
+import {
+    DEFAULT_CHANGE_CUTOFF_HOURS,
+    FREE_SELECTION_PLAN_KEYS,
+    PROTOTYPE_INSTANT,
+    buildLedger,
+    creditMemoAmount,
+    daysFrom,
+    firstChangeableDate,
+    isChangeable,
+    nextScheduled,
+    planDeliveryDates,
+    settlePastDeliveries,
+    skippedCount,
+    toDelivery,
+} from './subscription-ledger.ts';
+import type { LedgerRow, SubscriptionEconomics } from './subscription-ledger.ts';
 
 /**
  * The mutable prototype world.
@@ -289,6 +321,19 @@ export class PrototypeStore {
     /** Placed one-off orders, by the reference a confirmation screen quotes. */
     readonly #orders = new Map<string, PlacedOrder>();
     readonly #subscriptions = new Map<string, Subscription>();
+    /**
+     * The S1 delivery ledger, the captured economics and the memos a cancellation minted.
+     *
+     * Three maps beside `#subscriptions` rather than three fields on it, because none of them is
+     * part of the `Subscription` shape a screen reads: the ledger is its own paged query, the
+     * economics are what the purchase captured and must not drift when a price list changes
+     * (semantics §5), and a memo outlives the subscription that produced it.
+     */
+    readonly #ledgers = new Map<string, LedgerRow[]>();
+    readonly #economics = new Map<string, SubscriptionEconomics>();
+    readonly #creditMemos = new Map<string, CreditMemo>();
+    /** Free Selection, keyed `subscriptionId:YYYY-MM-DD`. Only rows the customer chose live here. */
+    readonly #mealChoices = new Map<string, SubscriptionMealChoice[]>();
     readonly #sessions = new Map<string, VdSession>();
     readonly #reviews = new Map<string, ReviewQueueItem>();
     readonly #dietitianNotes = new Map<string, DietitianNote>();
@@ -303,6 +348,8 @@ export class PrototypeStore {
     #nextSessionOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextMessageOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextSubscriptionOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
+    #nextDeliveryOrdinal = 0;
+    #nextMemoOrdinal = 0;
     #nextOrderOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextQuotationOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
     #nextPlanOrdinal = PROTOTYPE_RUNTIME_ORDINAL_START;
@@ -382,32 +429,83 @@ export class PrototypeStore {
         if (variant === undefined) return;
 
         const id = subscriptionIdAt(0);
+        const configuration: SubscriptionConfiguration = {
+            planId: plan.id,
+            variantId: variant.id,
+            duration: '4w',
+            startDate: PROTOTYPE_WEEK_START,
+            deliveryWeekdays: [1, 3, 5],
+            slotCode: 'midday',
+            address: PROTOTYPE_ADDRESS,
+            dietClassifications: ['mediterranean'],
+            excludeAllergens: PROTOTYPE_CONSTRAINTS.filter(
+                (constraint) => constraint.kind === 'allergy',
+            ).map((constraint) => allergenCode(constraint.code)),
+            selectedMealIds: [],
+        };
+
+        // The seeded subscription started *before* today, and its ledger says so: two deliveries
+        // are behind it and consumed two days. A prototype whose balance always reads "20 of 20"
+        // demonstrates nothing about what a balance is, and the J2 closure wizard needs a live
+        // subscription for its blocking path to be reachable at all.
+        const economics = this.#captureEconomics(configuration, plan, variant);
+        const ledger = settlePastDeliveries(
+            buildLedger(
+                this.#deliveryDates(configuration, PLAN_DURATION_WEEKS[configuration.duration]),
+                configuration.slotCode,
+                () => subscriptionDeliveryIdAt(this.#nextDeliveryOrdinal++),
+            ),
+            PROTOTYPE_TODAY,
+        );
+        this.#economics.set(id, economics);
+        this.#ledgers.set(id, ledger);
+
         this.#subscriptions.set(id, {
             id,
             state: 'active',
-            configuration: {
-                planId: plan.id,
-                variantId: variant.id,
-                duration: '4w',
-                startDate: PROTOTYPE_WEEK_START,
-                deliveryWeekdays: [1, 3, 5],
-                slotCode: 'midday',
-                address: PROTOTYPE_ADDRESS,
-                dietClassifications: ['mediterranean'],
-                excludeAllergens: PROTOTYPE_CONSTRAINTS.filter(
-                    (constraint) => constraint.kind === 'allergy',
-                ).map((constraint) => allergenCode(constraint.code)),
-                selectedMealIds: [],
-            },
+            configuration,
             planName: plan.name,
             kitchenId: plan.kitchenId,
             weeklyPrice: variant.pricePerWeek,
-            nextDeliveryDate: addDays(PROTOTYPE_TODAY, 1),
+            days: daysFrom(ledger, economics.totalDays),
+            nextDeliveryDate: nextScheduled(ledger, PROTOTYPE_TODAY),
             skippedDates: [],
             pausedUntil: null,
             createdAt: '2026-07-26T18:10:00.000Z',
             updatedAt: PROTOTYPE_NOW,
         });
+    }
+
+    /**
+     * What a purchase captures, and keeps.
+     *
+     * The per-day price is the discounted total divided by the number of delivery days the duration
+     * actually buys — not a weekly price divided by seven. It is stored rather than recomputed on
+     * every read because a live subscription keeps the price captured at purchase for its whole
+     * balance (semantics §5): recomputing would silently re-price somebody's refund the day a price
+     * list changes, which is precisely the behaviour "grandfathered" rules out.
+     */
+    #captureEconomics(
+        configuration: SubscriptionConfiguration,
+        plan: SubscriptionPlan,
+        variant: { readonly pricePerWeek: Money },
+    ): SubscriptionEconomics {
+        const weeks = PLAN_DURATION_WEEKS[configuration.duration];
+        const discountPercent =
+            plan.durations.find((option) => option.duration === configuration.duration)
+                ?.discountPercent ?? 0;
+        const gross = variant.pricePerWeek.amount * weeks;
+        const total = Math.round((gross * (100 - discountPercent)) / 100);
+        const totalDays = this.#deliveryDates(configuration, weeks).length;
+
+        return {
+            totalDays,
+            perDayMinor: totalDays === 0 ? 0 : Math.round(total / totalDays),
+            currencyCode: variant.pricePerWeek.currency,
+            discountPercent,
+            changeCutoffHours: DEFAULT_CHANGE_CUTOFF_HOURS,
+            allowsFreeSelection: FREE_SELECTION_PLAN_KEYS.has(plan.slug.replace(/-/g, '_')),
+        };
     }
 
     /* ── target projection ─────────────────────────────────────────────────────────────────── */
@@ -1326,6 +1424,19 @@ export class PrototypeStore {
         return this.#orders.get(reference) ?? null;
     }
 
+    /**
+     * Every order this world has placed.
+     *
+     * Added by S1/J2: the closure blocker registry and the B2 settlement registry both need to know
+     * whether anybody is still expecting food, and `order(reference)` can only answer for somebody
+     * who already holds the reference. A list, rather than a count, because the two callers filter
+     * on different states and a store that pre-decided "open" for them would be making a policy
+     * choice on their behalf.
+     */
+    orders(): readonly PlacedOrder[] {
+        return [...this.#orders.values()];
+    }
+
     /* ── subscriptions ─────────────────────────────────────────────────────────────────────── */
 
     previewSubscription(configuration: SubscriptionConfiguration): SubscriptionPreview {
@@ -1412,8 +1523,27 @@ export class PrototypeStore {
             throwFailure(apiFailure('server', { message: 'That plan is no longer available.' }));
         }
 
+        const variant = this.kitchenCatalogue.consumerPlanVariantById(
+            request.configuration.variantId,
+        );
+        if (variant === null) {
+            throwFailure(validationFailure({ variant_id: ['That variant is not on this plan.'] }));
+        }
+
         this.#nextSubscriptionOrdinal += 1;
         const id = subscriptionIdAt(this.#nextSubscriptionOrdinal);
+        const economics = this.#captureEconomics(request.configuration, plan, variant);
+        const ledger = buildLedger(
+            this.#deliveryDates(
+                request.configuration,
+                PLAN_DURATION_WEEKS[request.configuration.duration],
+            ),
+            request.configuration.slotCode,
+            () => subscriptionDeliveryIdAt(this.#nextDeliveryOrdinal++),
+        );
+        this.#economics.set(id, economics);
+        this.#ledgers.set(id, ledger);
+
         const subscription: Subscription = {
             id,
             state: 'active',
@@ -1421,6 +1551,7 @@ export class PrototypeStore {
             planName: plan.name,
             kitchenId: plan.kitchenId,
             weeklyPrice: preview.weeklyPrice,
+            days: daysFrom(ledger, economics.totalDays),
             nextDeliveryDate: preview.firstDeliveryDate,
             skippedDates: [],
             pausedUntil: null,
@@ -1493,25 +1624,45 @@ export class PrototypeStore {
             ...current,
             state: 'active',
             pausedUntil: null,
-            nextDeliveryDate: this.#nextDeliveryAfter(current, PROTOTYPE_TODAY),
+            // From the ledger, not from the weekday arithmetic: a pause consumed nothing, so what
+            // comes next is simply the next row that is still scheduled.
+            nextDeliveryDate: nextScheduled(this.#ledger(current.id), PROTOTYPE_TODAY),
         }));
     }
 
+    /**
+     * Skip a day — and the day costs nothing.
+     *
+     * The ledger row becomes `skipped_customer` with `consumed` left false, so the balance is
+     * untouched and the subscription simply stretches one delivery further into the future. That is
+     * the whole of semantics §1 in three lines, and the S1 suite asserts it directly rather than
+     * trusting the sentence.
+     */
     skipDay(subscriptionId: SubscriptionId, request: SkipDayRequest): Subscription {
         return this.#transition(subscriptionId, ['active', 'skipped_today'], (current) => {
             const skipped = current.skippedDates.includes(request.date)
                 ? current.skippedDates
                 : [...current.skippedDates, request.date].sort();
+
+            const ledger = this.#ledger(current.id).map((row) =>
+                row.date === request.date && row.status === 'scheduled'
+                    ? {
+                          ...row,
+                          status: 'skipped_customer' as const,
+                          skipReason: 'customer_request' as const,
+                      }
+                    : row,
+            );
+            this.#ledgers.set(String(current.id), ledger);
+
             return {
                 ...current,
                 // Skipping *today* is its own state: the subscription is live, nothing is coming,
                 // and a screen must be able to say so without inspecting a list of dates.
                 state: request.date === PROTOTYPE_TODAY ? 'skipped_today' : current.state,
                 skippedDates: skipped,
-                nextDeliveryDate: this.#nextDeliveryAfter(
-                    { ...current, skippedDates: skipped },
-                    PROTOTYPE_TODAY,
-                ),
+                days: daysFrom(ledger, this.#subscriptionEconomics(current.id).totalDays),
+                nextDeliveryDate: nextScheduled(ledger, PROTOTYPE_TODAY),
             };
         });
     }
@@ -1546,19 +1697,340 @@ export class PrototypeStore {
         );
     }
 
-    #nextDeliveryAfter(subscription: Subscription, from: string): string | null {
-        const skipped = new Set(subscription.skippedDates);
-        for (let offset = 1; offset <= 28; offset += 1) {
-            const date = addDays(from, offset);
-            if (
-                subscription.configuration.deliveryWeekdays.includes(isoWeekday(date)) &&
-                !skipped.has(date)
-            ) {
-                return date;
-            }
-        }
-        return null;
+    /* -- S1: the balance, the ledger, cancellation, weekdays and choices --------------------- */
+
+    #ledger(subscriptionId: SubscriptionId): LedgerRow[] {
+        return this.#ledgers.get(String(subscriptionId)) ?? [];
     }
+
+    #subscriptionEconomics(subscriptionId: SubscriptionId): SubscriptionEconomics {
+        const economics = this.#economics.get(String(subscriptionId));
+        if (economics === undefined) {
+            throwFailure(
+                apiFailure('server', {
+                    message: `No captured price for subscription ${String(subscriptionId)}.`,
+                    retryable: false,
+                }),
+            );
+        }
+        return economics;
+    }
+
+    /**
+     * Availability and price for a proposed plan -- the read that deletes the seven-probe hack.
+     *
+     * The weekdays come from the stored plan record (`deliveryWeekdaysFor`), which is where they
+     * have lived all along; nothing about them needed pricing seven subscriptions to discover.
+     * Refusals are returned rather than thrown, because a configurator draws "this duration is not
+     * offered" and does not crash on it.
+     */
+    subscriptionQuote(request: SubscriptionQuoteRequest): SubscriptionQuote {
+        const plan = this.kitchenCatalogue.consumerPlanById(request.planId);
+        const variant = this.kitchenCatalogue.consumerPlanVariantById(request.variantId);
+        const refusals: SubscriptionQuoteRefusal[] = [];
+
+        if (plan === null) refusals.push('plan_not_subscription');
+        if (variant === null || (plan !== null && variant.planId !== plan.id)) {
+            refusals.push('unpriced');
+        }
+
+        const option =
+            plan?.durations.find((candidate) => candidate.duration === request.duration) ?? null;
+        if (plan !== null && option === null) refusals.push('duration_not_offered');
+
+        const empty = money(0, DEFAULT_CURRENCY);
+        if (plan === null || variant === null || option === null || refusals.length > 0) {
+            return {
+                planId: request.planId,
+                variantId: request.variantId,
+                duration: request.duration,
+                available: false,
+                availableWeekdays: [],
+                days: 0,
+                listPrice: empty,
+                discountPercent: 0,
+                perDayPrice: empty,
+                total: empty,
+                allowsFreeSelection: false,
+                changeCutoffHours: DEFAULT_CHANGE_CUTOFF_HOURS,
+                refusals,
+            };
+        }
+
+        const availableWeekdays = this.kitchenCatalogue.deliveryWeekdaysFor(plan.id);
+        const weeks = PLAN_DURATION_WEEKS[request.duration];
+        const gross = variant.pricePerWeek.amount * weeks;
+        const total = Math.round((gross * (100 - option.discountPercent)) / 100);
+        // The day count a *full* weekday set buys: the quote prices a plan, not one person's chosen
+        // days, and the balance is fixed by the duration rather than by the calendar.
+        const days = planDeliveryDates(PROTOTYPE_TODAY, availableWeekdays, weeks * 7).length;
+        const perDay = days === 0 ? 0 : Math.round(total / days);
+
+        return {
+            planId: plan.id,
+            variantId: variant.id,
+            duration: request.duration,
+            available: true,
+            availableWeekdays,
+            days,
+            listPrice: money(gross, variant.pricePerWeek.currency),
+            discountPercent: option.discountPercent,
+            perDayPrice: money(perDay, variant.pricePerWeek.currency),
+            total: money(total, variant.pricePerWeek.currency),
+            allowsFreeSelection: FREE_SELECTION_PLAN_KEYS.has(plan.slug.replace(/-/g, '_')),
+            changeCutoffHours: DEFAULT_CHANGE_CUTOFF_HOURS,
+            refusals: [],
+        };
+    }
+
+    subscriptionBalance(subscriptionId: SubscriptionId): SubscriptionBalance {
+        const subscription = this.subscription(subscriptionId);
+        const economics = this.#subscriptionEconomics(subscriptionId);
+        const ledger = this.#ledger(subscriptionId);
+
+        return {
+            subscriptionId,
+            state: subscription.state,
+            days: subscription.days,
+            perDayPrice: money(economics.perDayMinor, economics.currencyCode),
+            skippedDays: skippedCount(ledger),
+            nextDeliveryDate: subscription.nextDeliveryDate,
+            deliveryWeekdays: subscription.configuration.deliveryWeekdays,
+            changeCutoffHours: economics.changeCutoffHours,
+        };
+    }
+
+    subscriptionDeliveries(
+        subscriptionId: SubscriptionId,
+        filter?: SubscriptionDeliveryFilter,
+    ): readonly SubscriptionDelivery[] {
+        // Reading it proves the subscription exists, so an unknown identifier is a rejection rather
+        // than a convincing empty ledger.
+        this.subscription(subscriptionId);
+        const statuses = filter?.statuses;
+        return this.#ledger(subscriptionId)
+            .filter((row) => statuses === undefined || statuses.includes(row.status))
+            .map(toDelivery);
+    }
+
+    /**
+     * Cancel, and mint the memo.
+     *
+     * Every remaining ledger row becomes `cancelled` -- including the ones inside the change window,
+     * because cancellation is terminal and there is nothing left to deliver into. The refund is the
+     * *unused* balance, so it is computed from `days.remaining` before those rows are rewritten;
+     * rewriting first would refund a balance the cancellation had just zeroed.
+     */
+    cancelSubscription(
+        subscriptionId: SubscriptionId,
+        request?: CancelSubscriptionRequest,
+    ): SubscriptionCancellation {
+        const current = this.subscription(subscriptionId);
+        if (current.state === 'cancelled' || current.state === 'expired') {
+            throwFailure(
+                validationFailure({
+                    state: [`A ${current.state} subscription has already finished.`],
+                }),
+            );
+        }
+
+        const economics = this.#subscriptionEconomics(subscriptionId);
+        const refund = creditMemoAmount(current.days, economics);
+
+        const ledger = this.#ledger(subscriptionId).map((row) =>
+            row.status === 'scheduled' ? { ...row, status: 'cancelled' as const } : row,
+        );
+        this.#ledgers.set(String(subscriptionId), ledger);
+
+        const subscription: Subscription = {
+            ...current,
+            state: 'cancelled',
+            nextDeliveryDate: null,
+            pausedUntil: null,
+            updatedAt: PROTOTYPE_NOW,
+        };
+        this.#subscriptions.set(String(subscriptionId), subscription);
+
+        if (refund === null) return { subscription, creditMemo: null };
+
+        void request?.reason;
+        const memo: CreditMemo = {
+            id: creditMemoIdAt(this.#nextMemoOrdinal++),
+            subscriptionId,
+            reason: 'subscription_cancelled',
+            unusedDays: refund.unusedDays,
+            perDayPrice: refund.perDay,
+            amount: refund.amount,
+            status: 'recorded',
+            // Nothing in this system moves money. The memo is a record somebody settles by hand.
+            settlement: 'manual',
+            recordedAt: PROTOTYPE_NOW,
+        };
+        this.#creditMemos.set(memo.id, memo);
+        return { subscription, creditMemo: memo };
+    }
+
+    /** Every memo this world has minted. Read by the closure world's advisory blocker. */
+    creditMemos(): readonly CreditMemo[] {
+        return [...this.#creditMemos.values()];
+    }
+
+    /**
+     * Change the delivery weekdays -- from the first day the cut-off still allows.
+     *
+     * Deliveries inside the window are **left exactly as they are**: semantics 2 says the next
+     * delivery inside the cut-off proceeds as scheduled, so this re-plans only what comes after it.
+     * The remaining balance is preserved rather than recomputed -- the person bought a number of
+     * days, and moving which weekdays they arrive on does not change how many they have left.
+     */
+    setSubscriptionWeekdays(
+        subscriptionId: SubscriptionId,
+        request: SetSubscriptionWeekdaysRequest,
+    ): Subscription {
+        const weekdays = [...new Set(request.deliveryWeekdays)].sort((left, right) => left - right);
+        if (weekdays.length === 0) {
+            throwFailure(
+                validationFailure({ delivery_weekdays: ['Choose at least one delivery day.'] }),
+            );
+        }
+        if (weekdays.some((weekday) => !Number.isInteger(weekday) || weekday < 1 || weekday > 7)) {
+            throwFailure(
+                validationFailure({
+                    delivery_weekdays: ['Delivery days are ISO weekdays, 1 to 7.'],
+                }),
+            );
+        }
+
+        return this.#transition(
+            subscriptionId,
+            ['active', 'paused', 'skipped_today'],
+            (current) => {
+                const economics = this.#subscriptionEconomics(subscriptionId);
+                const ledger = this.#ledger(subscriptionId);
+                const cutOff = economics.changeCutoffHours;
+
+                // Settled rows, and scheduled rows already inside the window, survive untouched.
+                const kept = ledger.filter(
+                    (row) =>
+                        row.status !== 'scheduled' ||
+                        !isChangeable(row.date, cutOff, PROTOTYPE_INSTANT),
+                );
+                const movable = ledger.length - kept.length;
+                const effectiveFrom = firstChangeableDate(ledger, cutOff, PROTOTYPE_INSTANT);
+
+                const replanned =
+                    movable === 0 || effectiveFrom === null
+                        ? []
+                        : buildLedger(
+                              planDeliveryDates(effectiveFrom, weekdays, movable),
+                              current.configuration.slotCode,
+                              () => subscriptionDeliveryIdAt(this.#nextDeliveryOrdinal++),
+                          );
+
+                const next = [...kept, ...replanned].sort((left, right) =>
+                    left.date < right.date ? -1 : left.date > right.date ? 1 : 0,
+                );
+                this.#ledgers.set(String(subscriptionId), next);
+
+                return {
+                    ...current,
+                    configuration: { ...current.configuration, deliveryWeekdays: weekdays },
+                    days: daysFrom(next, economics.totalDays),
+                    nextDeliveryDate: nextScheduled(next, PROTOTYPE_TODAY),
+                };
+            },
+        );
+    }
+
+    /**
+     * Free Selection, choosing ahead of the cut-off.
+     *
+     * A **replace**: the answer is the whole day, so an editor redraws from one round trip. Rows the
+     * customer did not choose come back as `kitchen_default`, which is the honest description of
+     * what will actually be cooked and is what the semantics call the fallback.
+     */
+    setSubscriptionMealChoices(
+        subscriptionId: SubscriptionId,
+        request: SetSubscriptionMealChoicesRequest,
+    ): readonly SubscriptionMealChoice[] {
+        const subscription = this.subscription(subscriptionId);
+        const economics = this.#subscriptionEconomics(subscriptionId);
+
+        if (!economics.allowsFreeSelection) {
+            throwFailure(
+                validationFailure({ choices: ['This plan does not offer meal selection.'] }),
+            );
+        }
+
+        const row = this.#ledger(subscriptionId).find((entry) => entry.date === request.date);
+        if (row === undefined || row.status !== 'scheduled') {
+            throwFailure(validationFailure({ date: ['That is not an upcoming delivery day.'] }));
+        }
+        if (!isChangeable(request.date, economics.changeCutoffHours, PROTOTYPE_INSTANT)) {
+            throwFailure(
+                validationFailure({
+                    date: [
+                        `Choices for ${request.date} closed ` +
+                            `${String(economics.changeCutoffHours)} hours before that delivery.`,
+                    ],
+                }),
+            );
+        }
+
+        const chosen: SubscriptionMealChoice[] = request.choices.map((choice) => {
+            const meal = this.kitchenCatalogue.consumerMealById(choice.mealId);
+            if (meal === null) {
+                throwFailure(validationFailure({ choices: ['That meal is not on the menu.'] }));
+            }
+            return {
+                date: request.date,
+                slot: choice.slot,
+                mealId: meal.id,
+                mealName: meal.name,
+                source: 'customer',
+            };
+        });
+
+        this.#mealChoices.set(`${String(subscriptionId)}:${request.date}`, chosen);
+        return this.#mealChoicesFor(subscription, request.date);
+    }
+
+    /** The day as it stands: what was chosen, plus the kitchen default for everything else. */
+    mealChoicesFor(
+        subscriptionId: SubscriptionId,
+        date: string,
+    ): readonly SubscriptionMealChoice[] {
+        return this.#mealChoicesFor(this.subscription(subscriptionId), date);
+    }
+
+    #mealChoicesFor(subscription: Subscription, date: string): readonly SubscriptionMealChoice[] {
+        const chosen = this.#mealChoices.get(`${String(subscription.id)}:${date}`) ?? [];
+        if (chosen.length > 0) return chosen;
+
+        const plan = this.kitchenCatalogue.consumerPlanById(subscription.configuration.planId);
+        const fallback = plan?.sampleMealIds[0] ?? null;
+        if (fallback === null) return [];
+        const meal = this.kitchenCatalogue.consumerMealById(fallback);
+        if (meal === null) return [];
+
+        return [
+            {
+                date,
+                slot: subscription.configuration.slotCode,
+                mealId: meal.id,
+                mealName: meal.name,
+                source: 'kitchen_default',
+            },
+        ];
+    }
+
+    /*
+     * `#nextDeliveryAfter` used to live here: weekday arithmetic over the configuration, minus a set
+     * of skipped dates. The ledger replaced it. Recomputing "what comes next" from the weekdays was
+     * always a second implementation of the schedule, and once a ledger row can be skipped for three
+     * different reasons — or cancelled — the two answers stop agreeing. `nextScheduled()` reads the
+     * rows instead, which is the only source that knows.
+     */
 
     /* ── virtual dietitian ─────────────────────────────────────────────────────────────────── */
 

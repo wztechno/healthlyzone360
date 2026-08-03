@@ -312,10 +312,13 @@ describe('MealsScreen', () => {
         expect(mealCardCount()).toBeGreaterThan(0);
     });
 
-    it('offers every range the specification asks for', async () => {
+    it('offers every range the specification asks for, behind the filter disclosure', async () => {
         await renderScreen(<MealsScreen />, { scenario: 'consumer-prototype' });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
+        // The filters are collapsed by default so the grid leads; open them to reach the ranges.
+        await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
+        await waitFor(() => screen.getByTestId('meals-ranges-energy'));
         for (const key of [
             'energy',
             'protein',

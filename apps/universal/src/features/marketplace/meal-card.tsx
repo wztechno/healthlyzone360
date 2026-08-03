@@ -1,4 +1,4 @@
-import { Badge, Card, Chip, Inline, Stack, Text } from '@healthy360/design-system';
+import { Badge, Card, Inline, Stack, Text } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
@@ -71,9 +71,17 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
                     <Badge tone="neutral" label={t('marketplace:nutrition.protein', { protein })} />
                 </Inline>
 
+                {/* Diet classifications are read-only labels, so they are compact `Badge`s (12px,
+                    tight padding) rather than touch-height `Chip`s — a card can carry seven of them
+                    and they should not dominate it. The label carries the meaning, so no tone icon. */}
                 <Inline space="xs" wrap>
                     {meal.dietClassifications.map((diet) => (
-                        <Chip key={diet} label={t(`marketplace:diets.${diet}`)} tone="brand" />
+                        <Badge
+                            key={diet}
+                            tone="brand"
+                            icon={null}
+                            label={t(`marketplace:diets.${diet}`)}
+                        />
                     ))}
                 </Inline>
 

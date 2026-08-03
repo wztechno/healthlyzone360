@@ -1,4 +1,15 @@
-import { Breadcrumbs, Button, Heading, Select, Stack, Text } from '@healthy360/design-system';
+import {
+    Breadcrumbs,
+    Button,
+    Collapse,
+    Heading,
+    Icon,
+    Inline,
+    Select,
+    Stack,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import { MEAL_SORTS } from '@healthy360/api-client/contracts';
 import type { MealSort } from '@healthy360/api-client/contracts';
 import type {
@@ -9,7 +20,7 @@ import type {
     MealType,
 } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { mealsFromPages, totalFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
@@ -19,7 +30,7 @@ import { FilterBar, useMarketplaceFilters } from '../../marketplace/filter-bar.t
 import { MealCard } from '../../marketplace/meal-card.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
-import { MealRangeFilters, toMealFilter, useMealRanges } from '../meal-filters.tsx';
+import { MEAL_RANGE_KEYS, MealRangeFilters, toMealFilter, useMealRanges } from '../meal-filters.tsx';
 
 /**
  * `/meals` — the whole marketplace catalogue, filterable.
@@ -27,6 +38,15 @@ import { MealRangeFilters, toMealFilter, useMealRanges } from '../meal-filters.t
  * Neither reference product filters its catalogue at all (doc 04, RBC-11; doc 17, IA-11). Fourteen
  * plans survive without a filter; forty meals across six kitchens and six numeric axes do not, so
  * this is a deliberate divergence and the single largest screen in the wave.
+ *
+ * ## The filters open on demand, not on arrival
+ *
+ * Six numeric ranges and four chip groups (thirty-odd chips) laid out above the grid pushed the
+ * meals themselves below the fold — you scrolled past the whole apparatus before seeing a single
+ * dish. So the search box, the sort and the result count stay visible, and everything else lives in
+ * a **disclosure that is closed by default**: the grid sits right under the toolbar, and the filters
+ * are one press away. The panel opens itself when you *arrive* with a filter already applied (a
+ * shared link, a reload), because then the controls are the thing you came to see.
  *
  * ## Every control writes to the URL
  *
@@ -82,7 +102,9 @@ const DIET_FILTERS: readonly DietClassification[] = [
     'nut_free',
 ];
 
-const GROUP_KEYS = ['kitchen', 'mealType', 'diet', 'exclude', 'sort'] as const;
+/** The chip-group parameters — everything the disclosure holds except the numeric ranges. */
+const CHIP_GROUP_KEYS = ['kitchen', 'mealType', 'diet', 'exclude'] as const;
+const GROUP_KEYS = [...CHIP_GROUP_KEYS, 'sort'] as const;
 
 /** Meals fetched per page. Twenty fills two screens on a desktop grid and one on a phone. */
 const PAGE_SIZE = 20;
@@ -110,6 +132,17 @@ export function MealsScreen() {
     const { values: rangeValues } = ranges;
 
     const sort = (selected['sort']?.[0] ?? 'relevance') as MealSort;
+
+    // How many *hidden* filters are active — chips and ranges, not the always-visible search or sort.
+    const chipCount = CHIP_GROUP_KEYS.reduce((total, key) => total + (selected[key]?.length ?? 0), 0);
+    const rangeCount = MEAL_RANGE_KEYS.filter(
+        (key) => rangeValues[key].min !== null || rangeValues[key].max !== null,
+    ).length;
+    const activeCount = chipCount + rangeCount;
+
+    // Closed on a fresh visit so the grid is the first thing you see; open when a filter is already
+    // applied on arrival, because then the controls are what you came for.
+    const [showFilters, setShowFilters] = useState(activeCount > 0);
 
     const filter = useMemo(
         () =>
@@ -160,67 +193,107 @@ export function MealsScreen() {
                 <Text tone="secondary">{t('catalogue:meals.subtitle')}</Text>
             </Stack>
 
-            <FilterBar
-                testID="meals-filter"
-                state={filters}
-                searchLabel={t('catalogue:meals.searchLabel')}
-                searchPlaceholder={t('catalogue:meals.searchPlaceholder')}
-                resultCount={meals.data === undefined ? undefined : items.length}
-                groups={[
-                    {
-                        key: 'kitchen',
-                        label: t('catalogue:filters.kitchen'),
-                        options: kitchenItems.map((kitchen) => ({
-                            value: String(kitchen.id),
-                            label: kitchen.name,
-                        })),
-                    },
-                    {
-                        key: 'mealType',
-                        label: t('catalogue:filters.mealType'),
-                        options: MEAL_TYPES.map((mealType) => ({
-                            value: mealType,
-                            label: t(`marketplace:mealTypes.${mealType}`),
-                        })),
-                    },
-                    {
-                        key: 'diet',
-                        label: t('catalogue:filters.diet'),
-                        options: DIET_FILTERS.map((diet) => ({
-                            value: diet,
-                            label: t(`marketplace:diets.${diet}`),
-                        })),
-                    },
-                    {
-                        key: 'exclude',
-                        label: t('catalogue:filters.excludeAllergens'),
-                        options: ALLERGEN_CODES.map((code) => ({
-                            value: code,
-                            label: t(`marketplace:allergens.${code}`),
-                        })),
-                    },
-                ]}
+            {/* Always-visible toolbar: search, then a compact row of the disclosure toggle and sort. */}
+            <TextInputField
+                testID="meals-filter-search"
+                id="meals-filter-search"
+                label={t('catalogue:meals.searchLabel')}
+                placeholder={t('catalogue:meals.searchPlaceholder')}
+                value={searchTerm}
+                onChangeText={filters.setQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                trailing={<Icon name="search" />}
             />
 
-            <Text testID="meals-exclude-hint" tone="secondary" variant="caption">
-                {t('catalogue:filters.excludeAllergensHint')}
-            </Text>
+            <Inline space="sm" align="center" justify="between" wrap>
+                <Button
+                    testID="meals-filter-toggle"
+                    variant="secondary"
+                    size="sm"
+                    iconStart={<Icon name="filter" />}
+                    label={
+                        activeCount === 0
+                            ? t('catalogue:meals.filters')
+                            : t('catalogue:meals.filtersActive', { n: activeCount })
+                    }
+                    onPress={() => {
+                        setShowFilters((open) => !open);
+                    }}
+                    aria-expanded={showFilters}
+                    aria-controls="meals-filter-panel"
+                />
+                <Select
+                    testID="meals-sort"
+                    id="meals-sort"
+                    label={t('catalogue:meals.sortLabel')}
+                    value={sort}
+                    options={MEAL_SORTS.map((option) => ({
+                        value: option,
+                        label: t(`catalogue:meals.sort.${option}`),
+                    }))}
+                    onChange={(next) => {
+                        filters.select('sort', next === 'relevance' ? null : next);
+                    }}
+                    className="min-w-[200px]"
+                />
+            </Inline>
 
-            <Select
-                testID="meals-sort"
-                id="meals-sort"
-                label={t('catalogue:meals.sortLabel')}
-                value={sort}
-                options={MEAL_SORTS.map((option) => ({
-                    value: option,
-                    label: t(`catalogue:meals.sort.${option}`),
-                }))}
-                onChange={(next) => {
-                    filters.select('sort', next === 'relevance' ? null : next);
-                }}
-            />
+            <Collapse open={showFilters} nativeID="meals-filter-panel" testID="meals-filter-panel">
+                <Stack space="md">
+                    <FilterBar
+                        testID="meals-filter"
+                        state={filters}
+                        showSearch={false}
+                        searchLabel={t('catalogue:meals.searchLabel')}
+                        groups={[
+                            {
+                                key: 'kitchen',
+                                label: t('catalogue:filters.kitchen'),
+                                options: kitchenItems.map((kitchen) => ({
+                                    value: String(kitchen.id),
+                                    label: kitchen.name,
+                                })),
+                            },
+                            {
+                                key: 'mealType',
+                                label: t('catalogue:filters.mealType'),
+                                options: MEAL_TYPES.map((mealType) => ({
+                                    value: mealType,
+                                    label: t(`marketplace:mealTypes.${mealType}`),
+                                })),
+                            },
+                            {
+                                key: 'diet',
+                                label: t('catalogue:filters.diet'),
+                                options: DIET_FILTERS.map((diet) => ({
+                                    value: diet,
+                                    label: t(`marketplace:diets.${diet}`),
+                                })),
+                            },
+                            {
+                                key: 'exclude',
+                                label: t('catalogue:filters.excludeAllergens'),
+                                options: ALLERGEN_CODES.map((code) => ({
+                                    value: code,
+                                    label: t(`marketplace:allergens.${code}`),
+                                })),
+                            },
+                        ]}
+                    />
 
-            <MealRangeFilters testID="meals-ranges" state={ranges} currency={PRICE_CURRENCY} />
+                    <Text testID="meals-exclude-hint" tone="secondary" variant="caption">
+                        {t('catalogue:filters.excludeAllergensHint')}
+                    </Text>
+
+                    <MealRangeFilters
+                        testID="meals-ranges"
+                        state={ranges}
+                        currency={PRICE_CURRENCY}
+                    />
+                </Stack>
+            </Collapse>
 
             <QueryStates
                 query={meals}

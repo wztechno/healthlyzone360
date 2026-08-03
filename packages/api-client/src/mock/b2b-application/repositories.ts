@@ -3,11 +3,14 @@ import type {
     B2BApplication,
     B2BApplicationRepository,
     B2BApplicationSection,
+    B2BOffboarding,
     B2BSectionPayload,
     DocumentDownload,
     SignAgreementRequest,
+    SignOffOffboardingRequest,
     UploadDocumentRequest,
 } from '../../contracts/b2b-application.ts';
+import type { OtpChallenge } from '../../contracts/verification.ts';
 import { B2bMockStore } from './store.ts';
 import type { B2bMockStoreOptions } from './store.ts';
 
@@ -49,6 +52,10 @@ export function createB2bMockRepositories(
             ...(options.now === undefined ? {} : { now: options.now }),
             ...(options.fixture === undefined ? {} : { fixture: options.fixture }),
             ...(options.empty === undefined ? {} : { empty: options.empty }),
+            ...(options.withoutOffboarding === undefined
+                ? {}
+                : { withoutOffboarding: options.withoutOffboarding }),
+            ...(options.openOrders === undefined ? {} : { openOrders: options.openOrders }),
         });
     const latency = options.latencyMs ?? DEFAULT_B2B_MOCK_LATENCY_MS;
     const settle = () => sleep(latency);
@@ -122,6 +129,33 @@ export function createB2bMockRepositories(
         async signAgreement(request: SignAgreementRequest): Promise<B2BApplication> {
             await settle();
             return store.signAgreement(request);
+        },
+
+        async getOffboarding(request: {
+            readonly organisationId: string;
+        }): Promise<B2BOffboarding | null> {
+            await settle();
+            return store.offboarding(request.organisationId);
+        },
+
+        async runSettlementChecks(request: {
+            readonly offboardingId: string;
+            readonly lockVersion: number;
+        }): Promise<B2BOffboarding> {
+            await settle();
+            return store.runSettlementChecks(request.offboardingId, request.lockVersion);
+        },
+
+        async issueSignoffChallenge(request: {
+            readonly offboardingId: string;
+        }): Promise<OtpChallenge> {
+            await settle();
+            return store.issueSignoffChallenge(request.offboardingId);
+        },
+
+        async signOffOffboarding(request: SignOffOffboardingRequest): Promise<B2BOffboarding> {
+            await settle();
+            return store.signOffOffboarding(request);
         },
     };
 

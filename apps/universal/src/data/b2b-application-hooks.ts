@@ -2,8 +2,11 @@ import type {
     B2BAgreement,
     B2BApplication,
     B2BApplicationRepository,
+    B2BOffboarding,
     DocumentDownload,
+    OtpChallenge,
     SignAgreementRequest,
+    SignOffOffboardingRequest,
     UploadDocumentRequest,
 } from '@healthy360/api-client/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -209,4 +212,97 @@ export function useDocumentDownloadMutation(): UseMutationResult<
         mutationFn: (request: RemoveDocumentVariables) =>
             repositories.b2bApplication.getDocumentDownload(request),
     });
+}
+
+/* ── B2: the wind-down ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The wind-down, or `null` when the company is not leaving.
+ *
+ * `null` is a state the corporate account screen draws, so it is a successful answer rather than a
+ * `resource.not_found` the query layer would render as an error.
+ */
+export function useOffboardingQuery(
+    organisationId: string | null,
+): UseQueryResult<B2BOffboarding | null> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.b2bApplication.offboarding(organisationId ?? ''),
+        enabled: repositories !== null && organisationId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (organisationId === null) throw new Error('No organisation identifier.');
+            return repositories.b2bApplication.getOffboarding({ organisationId });
+        },
+    });
+}
+
+function useOffboardingWrite<TVariables>(
+    run: (
+        repositories: ReturnType<typeof useRepositories>,
+        variables: TVariables,
+    ) => Promise<B2BOffboarding>,
+): UseMutationResult<B2BOffboarding, unknown, TVariables> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        // Never retried: both writes carry a `lockVersion`, so a retry after a dropped connection
+        // would either conflict or — worse, on the sign-off — sign twice.
+        retry: 0,
+        mutationFn: (variables: TVariables) => run(repositories, variables),
+        onSuccess: async (offboarding) => {
+            queryClient.setQueryData(
+                queryKeys.b2bApplication.offboarding(offboarding.organisationId),
+                offboarding,
+            );
+            await queryClient.invalidateQueries({ queryKey: queryKeys.b2bApplication.all() });
+        },
+    });
+}
+
+export interface OffboardingWriteVariables {
+    readonly offboardingId: string;
+    readonly lockVersion: number;
+}
+
+export function useRunSettlementChecksMutation(): UseMutationResult<
+    B2BOffboarding,
+    unknown,
+    OffboardingWriteVariables
+> {
+    return useOffboardingWrite<OffboardingWriteVariables>((repositories, request) =>
+        repositories.b2bApplication.runSettlementChecks(request),
+    );
+}
+
+/**
+ * Send the signatory a code.
+ *
+ * A mutation rather than a query, for the reason `useDocumentDownloadMutation` above is one: it
+ * sends a message. Caching it would mean a reopened screen silently re-sending, or worse, drawing a
+ * cooldown from a challenge that expired an hour ago.
+ */
+export function useIssueSignoffChallengeMutation(): UseMutationResult<
+    OtpChallenge,
+    unknown,
+    { readonly offboardingId: string }
+> {
+    const repositories = useRepositories();
+
+    return useMutation({
+        mutationFn: (request: { readonly offboardingId: string }) =>
+            repositories.b2bApplication.issueSignoffChallenge(request),
+    });
+}
+
+export function useSignOffOffboardingMutation(): UseMutationResult<
+    B2BOffboarding,
+    unknown,
+    SignOffOffboardingRequest
+> {
+    return useOffboardingWrite<SignOffOffboardingRequest>((repositories, request) =>
+        repositories.b2bApplication.signOffOffboarding(request),
+    );
 }

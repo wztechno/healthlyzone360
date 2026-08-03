@@ -33,17 +33,27 @@ import type {
     ChangeAddressRequest,
     ChangeSlotRequest,
     CheckoutPreview,
+    CancelSubscriptionRequest,
     CommerceRepository,
     CreateSubscriptionRequest,
     PauseSubscriptionRequest,
     PlaceOrderRequest,
     PlacedOrder,
     PreviewCheckoutRequest,
+    SetSubscriptionMealChoicesRequest,
+    SetSubscriptionWeekdaysRequest,
     SkipDayRequest,
     Subscription,
+    SubscriptionBalance,
+    SubscriptionCancellation,
     SubscriptionConfiguration,
     SubscriptionFilter,
+    SubscriptionDelivery,
+    SubscriptionDeliveryFilter,
+    SubscriptionMealChoice,
     SubscriptionPreview,
+    SubscriptionQuote,
+    SubscriptionQuoteRequest,
 } from '../contracts/commerce.ts';
 import { ApiError, apiFailure } from '../contracts/failure.ts';
 import type {
@@ -629,6 +639,42 @@ export const apiCommerceRepository: CommerceRepository = {
         _request: ChangeSlotRequest,
     ): Promise<Subscription> {
         return notImplemented(PROTOTYPE_ENDPOINTS.changeSlot);
+    },
+
+    /*
+     * S1. Written out rather than generated, for the reason the kitchen block below states: a
+     * method added to `CommerceRepository` has to break this file at compile time. The endpoints
+     * exist backend-side; the mappers land with the wave that switches this family over.
+     */
+    getSubscriptionQuote(_request: SubscriptionQuoteRequest): Promise<SubscriptionQuote> {
+        return notImplemented(`GET ${BASE}/subscription-plans/{plan}/quote`);
+    },
+    getSubscriptionBalance(_subscriptionId: SubscriptionId): Promise<SubscriptionBalance> {
+        return notImplemented(`GET ${BASE}/subscriptions/{subscription}/balance`);
+    },
+    listSubscriptionDeliveries(
+        _subscriptionId: SubscriptionId,
+        _filter?: SubscriptionDeliveryFilter,
+    ): Promise<CursorPage<SubscriptionDelivery>> {
+        return notImplemented(`GET ${BASE}/subscriptions/{subscription}/deliveries`);
+    },
+    cancelSubscription(
+        _subscriptionId: SubscriptionId,
+        _request?: CancelSubscriptionRequest,
+    ): Promise<SubscriptionCancellation> {
+        return notImplemented(`POST ${BASE}/subscriptions/{subscription}/cancel`);
+    },
+    setSubscriptionWeekdays(
+        _subscriptionId: SubscriptionId,
+        _request: SetSubscriptionWeekdaysRequest,
+    ): Promise<Subscription> {
+        return notImplemented(`PUT ${BASE}/subscriptions/{subscription}/weekdays`);
+    },
+    setSubscriptionMealChoices(
+        _subscriptionId: SubscriptionId,
+        _request: SetSubscriptionMealChoicesRequest,
+    ): Promise<readonly SubscriptionMealChoice[]> {
+        return notImplemented(`PUT ${BASE}/subscriptions/{subscription}/meal-choices`);
     },
 };
 

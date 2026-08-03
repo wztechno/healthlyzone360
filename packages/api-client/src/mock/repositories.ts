@@ -97,6 +97,19 @@ function sleep(ms: number): Promise<void> {
  * Every method awaits the same fixed latency before touching the store, so screens exercise their
  * real loading states rather than resolving synchronously and hiding a missing spinner.
  */
+/**
+ * How many one-off orders are still in flight.
+ *
+ * `PrototypeStore` indexes placed orders by their quotable reference and publishes no list, so this
+ * counts the states that mean "somebody is still expecting food". A closure or a wind-down that
+ * ignored them would be closing over a delivery already on a van.
+ */
+function openOrderCount(store: PrototypeStore): number {
+    return store
+        .orders()
+        .filter((order) => order.state !== 'delivered' && order.state !== 'cancelled').length;
+}
+
 export function createMockRepositories(options: MockRepositoriesOptions = {}): MockRepositories {
     const scenario = resolveScenario(options.scenario ?? DEFAULT_MOCK_SCENARIO);
     const latency = options.latencyMs ?? DEFAULT_MOCK_LATENCY_MS;
@@ -128,7 +141,56 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
      * because the account area's states are a function of what has been done, not of which demo
      * account signed in.
      */
-    const accountWorld = createAccountMockRepositories({ latencyMs: latency });
+    const accountWorld = createAccountMockRepositories({
+        latencyMs: latency,
+        /**
+         * What the closure blocker registry may read.
+         *
+         * A **port**, exactly like the guest world's basket port below, and for the same reason:
+         * the account world must not import the prototype store, and a J2 blocker that could only
+         * be exercised by building the whole universe would be a blocker nobody tests. Bound here,
+         * the seeded subscription makes `active_subscriptions` genuinely blocking and a cancelled
+         * one makes `unsettled_credit_memos` genuinely advisory — both derived from the store,
+         * neither fabricated.
+         *
+         * `organisation_memberships` and `pending_b2b_signatures` are deliberately **left
+         * unbound**: this world's memberships live in the foundation `MockStore` under a different
+         * identity model, and pretending to have checked them would be exactly the false
+         * `clear` the registry exists to refuse. They report `not_applicable`, and the wizard says
+         * so.
+         */
+        closureWorld: {
+            openOrders: () => openOrderCount(prototype.store),
+            liveSubscriptions: () =>
+                prototype.store
+                    .subscriptions()
+                    .filter(
+                        (subscription) =>
+                            subscription.state === 'active' ||
+                            subscription.state === 'paused' ||
+                            subscription.state === 'skipped_today',
+                    ).length,
+            upcomingDeliveries: () =>
+                prototype.store
+                    .subscriptions()
+                    .filter((subscription) => subscription.nextDeliveryDate !== null).length,
+            unsettledCreditMemos: () =>
+                prototype.store.creditMemos().filter((memo) => memo.status === 'recorded').length,
+        },
+        /**
+         * Closing the account signs the person out, in the same breath.
+         *
+         * The account world does not own the session and must not: it has no token store and no
+         * server session. This callback is how it tells the bundle, so that "your account is
+         * closed" and "you are signed out" are one event rather than a screen discovering the
+         * second one on its next request.
+         */
+        onAccountClosed: () => {
+            const token = tokenStore.get();
+            if (token !== null) store.logout(token);
+            tokenStore.clear();
+        },
+    });
 
     /**
      * The B1 B2B world, on the same terms as the account world.
@@ -138,7 +200,13 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
      * builds its own world with `createB2bMockRepositories({ fixture })` or drives this one through
      * `b2bApplicationStore`.
      */
-    const b2bWorld = createB2bMockRepositories({ latencyMs: latency });
+    const b2bWorld = createB2bMockRepositories({
+        latencyMs: latency,
+        // The settlement registry's one real check. Unbound it answers zero; bound to the prototype
+        // world it reads the orders this world actually holds, which is what makes "re-run the
+        // checks" a question with an answer rather than a button that always says yes.
+        openOrders: () => openOrderCount(prototype.store),
+    });
 
     /**
      * The G1 guest world, wired to the prototype basket.

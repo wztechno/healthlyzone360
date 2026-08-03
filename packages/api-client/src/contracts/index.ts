@@ -181,9 +181,16 @@ export type {
     VirtualDietitianRepository,
 } from './virtual-dietitian.ts';
 
-export { ORDER_STATES } from './commerce.ts';
+export {
+    MEAL_CHOICE_SOURCES,
+    ORDER_STATES,
+    SUBSCRIPTION_DELIVERY_STATUSES,
+    SUBSCRIPTION_QUOTE_REFUSALS,
+    SUBSCRIPTION_SKIP_REASONS,
+} from './commerce.ts';
 export type {
     AddCartItemRequest,
+    CancelSubscriptionRequest,
     Cart,
     CartItem,
     ChangeAddressRequest,
@@ -191,8 +198,10 @@ export type {
     CheckoutPreview,
     CommerceRepository,
     CreateSubscriptionRequest,
+    CreditMemo,
     DeliveryAddress,
     DeliverySlot,
+    MealChoiceSource,
     OrderReference,
     OrderState,
     PauseSubscriptionRequest,
@@ -201,11 +210,24 @@ export type {
     PlacedOrderLine,
     PreviewCheckoutRequest,
     PriceLine,
+    SetSubscriptionMealChoicesRequest,
+    SetSubscriptionWeekdaysRequest,
     SkipDayRequest,
     Subscription,
+    SubscriptionBalance,
+    SubscriptionCancellation,
     SubscriptionConfiguration,
+    SubscriptionDays,
+    SubscriptionDelivery,
+    SubscriptionDeliveryFilter,
+    SubscriptionDeliveryStatus,
     SubscriptionFilter,
+    SubscriptionMealChoice,
     SubscriptionPreview,
+    SubscriptionQuote,
+    SubscriptionQuoteRefusal,
+    SubscriptionQuoteRequest,
+    SubscriptionSkipReason,
 } from './commerce.ts';
 
 export { CATALOGUE_ITEM_KINDS, QUOTATION_STATES } from './business.ts';
@@ -365,7 +387,16 @@ export type {
     VerifyOtpRequest,
 } from './verification.ts';
 
-export { ACCOUNT_CHECKLIST_STEPS, ACCOUNT_LIFECYCLES, ALLERGEN_SEVERITIES } from './account.ts';
+export {
+    ACCOUNT_CHECKLIST_STEPS,
+    ACCOUNT_LIFECYCLES,
+    ALLERGEN_SEVERITIES,
+    CLOSURE_BLOCKER_CODES,
+    CLOSURE_BLOCKER_STATUSES,
+    CLOSURE_REASON_CODES,
+    CLOSURE_REQUEST_STATUSES,
+    CLOSURE_SCOPES,
+} from './account.ts';
 export type {
     AccountChecklistItem,
     AccountChecklistStep,
@@ -376,14 +407,24 @@ export type {
     AccountSetupChecklist,
     AllergenDeclaration,
     AllergenSeverity,
+    ClosureBlocker,
+    ClosureBlockerCode,
+    ClosureBlockerStatus,
+    ClosurePreconditions,
+    ClosureReasonCode,
+    ClosureRequestStatus,
+    ClosureScope,
+    ClosureTicket,
     ConsentDefinition,
     ConsentState,
     CustomerAccount,
     CustomerAddress,
     DietaryProfile,
+    RequestClosureRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
     SetConsentRequest,
+    VerifyClosureRequest,
 } from './account.ts';
 
 export {
@@ -430,7 +471,12 @@ export {
     B2B_VOLUME_BANDS,
     KYC_REJECTION_REASONS,
     KYC_REVIEW_STATUSES,
+    OFFBOARDING_STATUSES,
+    OFFBOARDING_TRIGGERS,
     PROVISIONING_STEPS,
+    SETTLEMENT_CHECK_CODES,
+    SETTLEMENT_OUTCOMES,
+    SETTLEMENT_STATUSES,
 } from './b2b-application.ts';
 export type {
     AgreementSignatureKind,
@@ -448,6 +494,7 @@ export type {
     B2BDeliveryWindow,
     B2BDocumentKind,
     B2BLogisticsSection,
+    B2BOffboarding,
     B2BOrderFrequency,
     B2BPaymentTerms,
     B2BProductCategory,
@@ -459,11 +506,22 @@ export type {
     KycDocument,
     KycRejectionReason,
     KycReviewStatus,
+    OffboardingArchive,
+    OffboardingRevocation,
+    OffboardingSettlement,
+    OffboardingSignoff,
+    OffboardingStatus,
+    OffboardingTrigger,
     ProvisioningProgress,
     ProvisioningStep,
     ProvisioningStepState,
     ReviewerRequest,
+    SettlementCheck,
+    SettlementCheckCode,
+    SettlementOutcome,
+    SettlementStatus,
     SignAgreementRequest,
+    SignOffOffboardingRequest,
     SignatureEvidence,
     UploadDocumentRequest,
 } from './b2b-application.ts';

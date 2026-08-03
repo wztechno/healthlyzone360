@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4395 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4592 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -112,6 +112,81 @@ export interface NamespaceKeys {
     | 'checklist.subtitle'
     | 'checklist.title'
     | 'checklist.todo'
+    | 'closure.acknowledge'
+    | 'closure.back'
+    | 'closure.blockedBody'
+    | 'closure.blockedTitle'
+    | 'closure.blockerStatuses.advisory'
+    | 'closure.blockerStatuses.blocking'
+    | 'closure.blockerStatuses.clear'
+    | 'closure.blockerStatuses.not_applicable'
+    | 'closure.blockers.active_subscriptions'
+    | 'closure.blockers.open_orders'
+    | 'closure.blockers.organisation_memberships'
+    | 'closure.blockers.payment_methods'
+    | 'closure.blockers.pending_b2b_signatures'
+    | 'closure.blockers.unsettled_credit_memos'
+    | 'closure.blockers.wallet_balance'
+    | 'closure.checksTitle'
+    | 'closure.closedBody'
+    | 'closure.closedTitle'
+    | 'closure.failedTitle'
+    | 'closure.finish'
+    | 'closure.irreversibleBody'
+    | 'closure.irreversibleTitle'
+    | 'closure.next'
+    | 'closure.noChallenge'
+    | 'closure.noteHint'
+    | 'closure.noteLabel'
+    | 'closure.optOutConfirm'
+    | 'closure.optOutDoneBody'
+    | 'closure.optOutDoneTitle'
+    | 'closure.reasonHint'
+    | 'closure.reasonLabel'
+    | 'closure.reasons.dietary_needs_unmet'
+    | 'closure.reasons.duplicate_account'
+    | 'closure.reasons.moving_away'
+    | 'closure.reasons.no_longer_needed'
+    | 'closure.reasons.other'
+    | 'closure.reasons.privacy_concerns'
+    | 'closure.reasons.service_quality'
+    | 'closure.reasons.too_expensive'
+    | 'closure.reasonsWhy.b2b_module_absent'
+    | 'closure.reasonsWhy.credit_memos_unsettled'
+    | 'closure.reasonsWhy.deliveries_upcoming'
+    | 'closure.reasonsWhy.memberships_live'
+    | 'closure.reasonsWhy.no_payment_module'
+    | 'closure.reasonsWhy.no_wallet_module'
+    | 'closure.reasonsWhy.orders_in_flight'
+    | 'closure.reasonsWhy.orders_module_absent'
+    | 'closure.reasonsWhy.organisations_module_absent'
+    | 'closure.reasonsWhy.signatures_pending'
+    | 'closure.reasonsWhy.subscriptions_live'
+    | 'closure.reasonsWhy.subscriptions_module_absent'
+    | 'closure.resolve'
+    | 'closure.retained.closure_tombstone'
+    | 'closure.retained.contact_suppression'
+    | 'closure.retained.credit_memos'
+    | 'closure.retained.orders_anonymised'
+    | 'closure.retainedTitle'
+    | 'closure.scopeExplainer.full.body'
+    | 'closure.scopeExplainer.full.title'
+    | 'closure.scopeExplainer.marketing_opt_out.body'
+    | 'closure.scopeExplainer.marketing_opt_out.title'
+    | 'closure.scopeLabel'
+    | 'closure.scopes.full'
+    | 'closure.scopes.marketing_opt_out'
+    | 'closure.signedOutNote'
+    | 'closure.startClosure'
+    | 'closure.stepperLabel'
+    | 'closure.steps.checks'
+    | 'closure.steps.done'
+    | 'closure.steps.reason'
+    | 'closure.steps.scope'
+    | 'closure.steps.verify'
+    | 'closure.subtitle'
+    | 'closure.title'
+    | 'closure.verifyFailed'
     | 'consents.ageGate'
     | 'consents.ageGateTitle'
     | 'consents.ageTitle'
@@ -606,6 +681,70 @@ export interface NamespaceKeys {
     | 'volumeBands.from_50_to_200'
     | 'volumeBands.over_2000'
     | 'volumeBands.under_50'
+    | 'windDown.authorityLabel'
+    | 'windDown.cancelledBody'
+    | 'windDown.checks.credit_balance'
+    | 'windDown.checks.open_orders'
+    | 'windDown.checks.outstanding_invoices'
+    | 'windDown.checks.security_deposit'
+    | 'windDown.consentTitle'
+    | 'windDown.effectiveOn'
+    | 'windDown.failedTitle'
+    | 'windDown.nameLabel'
+    | 'windDown.noEffectiveDate'
+    | 'windDown.noneBody'
+    | 'windDown.noneTitle'
+    | 'windDown.noticePeriod'
+    | 'windDown.outcomes.clear'
+    | 'windDown.outcomes.not_applicable'
+    | 'windDown.outcomes.outstanding'
+    | 'windDown.platformNote'
+    | 'windDown.readOnly.archiving'
+    | 'windDown.readOnly.cancelled'
+    | 'windDown.readOnly.completed'
+    | 'windDown.readOnly.notice_served'
+    | 'windDown.readOnly.revoking'
+    | 'windDown.readOnly.settlement_pending'
+    | 'windDown.readOnly.signed_off'
+    | 'windDown.readOnlyBody'
+    | 'windDown.readOnlyTitle'
+    | 'windDown.reasons.invoicing_module_absent'
+    | 'windDown.reasons.orders_module_absent'
+    | 'windDown.requestCode'
+    | 'windDown.runChecks'
+    | 'windDown.runChecksNote'
+    | 'windDown.settlement.caption'
+    | 'windDown.settlement.columns.check'
+    | 'windDown.settlement.columns.outcome'
+    | 'windDown.settlement.columns.reason'
+    | 'windDown.settlement.notRun'
+    | 'windDown.settlement.title'
+    | 'windDown.settlementStatuses.cleared'
+    | 'windDown.settlementStatuses.pending'
+    | 'windDown.settlementStatuses.waived'
+    | 'windDown.signedBy'
+    | 'windDown.signoffFailed'
+    | 'windDown.signoffTitle'
+    | 'windDown.stageAhead'
+    | 'windDown.stageDone'
+    | 'windDown.stageNow'
+    | 'windDown.statuses.archiving'
+    | 'windDown.statuses.awaiting_signoff'
+    | 'windDown.statuses.cancelled'
+    | 'windDown.statuses.completed'
+    | 'windDown.statuses.notice_served'
+    | 'windDown.statuses.requested'
+    | 'windDown.statuses.revoking'
+    | 'windDown.statuses.settlement_pending'
+    | 'windDown.statuses.signed_off'
+    | 'windDown.subtitle'
+    | 'windDown.timelineTitle'
+    | 'windDown.title'
+    | 'windDown.titleLabel'
+    | 'windDown.triggers.client_request'
+    | 'windDown.triggers.contract_end'
+    | 'windDown.triggers.non_renewal'
+    | 'windDown.triggers.termination'
     | 'wizard.back'
     | 'wizard.complete'
     | 'wizard.conflictBody'
@@ -960,6 +1099,8 @@ export interface NamespaceKeys {
     | 'meals.allLoaded'
     | 'meals.emptyBody'
     | 'meals.emptyTitle'
+    | 'meals.filters'
+    | 'meals.filtersActive'
     | 'meals.loadMore'
     | 'meals.loadingMore'
     | 'meals.searchLabel'
@@ -1199,6 +1340,25 @@ export interface NamespaceKeys {
     | 'address.line2'
     | 'address.line2Hint'
     | 'address.notStored'
+    | 'balance.cutOffNote'
+    | 'balance.perDay'
+    | 'balance.remaining'
+    | 'balance.skipped'
+    | 'balance.title'
+    | 'balance.used'
+    | 'cancel.body'
+    | 'cancel.confirm'
+    | 'cancel.consequenceBody'
+    | 'cancel.consequenceTitle'
+    | 'cancel.doneMemo'
+    | 'cancel.doneNoMemo'
+    | 'cancel.doneTitle'
+    | 'cancel.estimate'
+    | 'cancel.keep'
+    | 'cancel.manualSettlement'
+    | 'cancel.noRefund'
+    | 'cancel.open'
+    | 'cancel.title'
     | 'cart.allergenBody'
     | 'cart.allergenTitle'
     | 'cart.body'
@@ -1249,7 +1409,19 @@ export interface NamespaceKeys {
     | 'checkout.successTitle'
     | 'checkout.summaryTitle'
     | 'checkout.title'
+    | 'choices.body'
+    | 'choices.bodyDated'
+    | 'choices.confirm'
+    | 'choices.cutOffBody'
+    | 'choices.cutOffTitle'
+    | 'choices.open'
+    | 'choices.selectLabel'
+    | 'choices.sources.customer'
+    | 'choices.sources.kitchen_default'
+    | 'choices.sources.substituted'
+    | 'choices.title'
     | 'common.cancel'
+    | 'common.close'
     | 'common.listSeparator'
     | 'common.noPayment'
     | 'configurator.allergyDisclaimerContext'
@@ -1385,6 +1557,23 @@ export interface NamespaceKeys {
     | 'configurator.summary.window'
     | 'configurator.summary.windowValue'
     | 'configurator.title'
+    | 'deliveries.caption'
+    | 'deliveries.columns.consumed'
+    | 'deliveries.columns.date'
+    | 'deliveries.columns.status'
+    | 'deliveries.consumedNo'
+    | 'deliveries.consumedYes'
+    | 'deliveries.count'
+    | 'deliveries.empty'
+    | 'deliveries.skipNote'
+    | 'deliveries.statuses.cancelled'
+    | 'deliveries.statuses.delivered'
+    | 'deliveries.statuses.generated'
+    | 'deliveries.statuses.scheduled'
+    | 'deliveries.statuses.skipped_customer'
+    | 'deliveries.statuses.skipped_no_safe_meal'
+    | 'deliveries.statuses.skipped_unavailable'
+    | 'deliveries.title'
     | 'durations.12w'
     | 'durations.1w'
     | 'durations.2w'
@@ -1490,7 +1679,15 @@ export interface NamespaceKeys {
     | 'warnings.subscription_no_delivery_days'
     | 'warnings.subscription_unknown_slot'
     | 'warnings.title'
-    | 'warnings.unknown';
+    | 'warnings.unknown'
+    | 'weekdays.body'
+    | 'weekdays.chooseOne'
+    | 'weekdays.confirm'
+    | 'weekdays.cutOffBody'
+    | 'weekdays.cutOffTitle'
+    | 'weekdays.loading'
+    | 'weekdays.open'
+    | 'weekdays.title';
   readonly "common":
     | 'action.back'
     | 'action.cancel'
@@ -4534,6 +4731,81 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:checklist.subtitle',
   'account:checklist.title',
   'account:checklist.todo',
+  'account:closure.acknowledge',
+  'account:closure.back',
+  'account:closure.blockedBody',
+  'account:closure.blockedTitle',
+  'account:closure.blockerStatuses.advisory',
+  'account:closure.blockerStatuses.blocking',
+  'account:closure.blockerStatuses.clear',
+  'account:closure.blockerStatuses.not_applicable',
+  'account:closure.blockers.active_subscriptions',
+  'account:closure.blockers.open_orders',
+  'account:closure.blockers.organisation_memberships',
+  'account:closure.blockers.payment_methods',
+  'account:closure.blockers.pending_b2b_signatures',
+  'account:closure.blockers.unsettled_credit_memos',
+  'account:closure.blockers.wallet_balance',
+  'account:closure.checksTitle',
+  'account:closure.closedBody',
+  'account:closure.closedTitle',
+  'account:closure.failedTitle',
+  'account:closure.finish',
+  'account:closure.irreversibleBody',
+  'account:closure.irreversibleTitle',
+  'account:closure.next',
+  'account:closure.noChallenge',
+  'account:closure.noteHint',
+  'account:closure.noteLabel',
+  'account:closure.optOutConfirm',
+  'account:closure.optOutDoneBody',
+  'account:closure.optOutDoneTitle',
+  'account:closure.reasonHint',
+  'account:closure.reasonLabel',
+  'account:closure.reasons.dietary_needs_unmet',
+  'account:closure.reasons.duplicate_account',
+  'account:closure.reasons.moving_away',
+  'account:closure.reasons.no_longer_needed',
+  'account:closure.reasons.other',
+  'account:closure.reasons.privacy_concerns',
+  'account:closure.reasons.service_quality',
+  'account:closure.reasons.too_expensive',
+  'account:closure.reasonsWhy.b2b_module_absent',
+  'account:closure.reasonsWhy.credit_memos_unsettled',
+  'account:closure.reasonsWhy.deliveries_upcoming',
+  'account:closure.reasonsWhy.memberships_live',
+  'account:closure.reasonsWhy.no_payment_module',
+  'account:closure.reasonsWhy.no_wallet_module',
+  'account:closure.reasonsWhy.orders_in_flight',
+  'account:closure.reasonsWhy.orders_module_absent',
+  'account:closure.reasonsWhy.organisations_module_absent',
+  'account:closure.reasonsWhy.signatures_pending',
+  'account:closure.reasonsWhy.subscriptions_live',
+  'account:closure.reasonsWhy.subscriptions_module_absent',
+  'account:closure.resolve',
+  'account:closure.retained.closure_tombstone',
+  'account:closure.retained.contact_suppression',
+  'account:closure.retained.credit_memos',
+  'account:closure.retained.orders_anonymised',
+  'account:closure.retainedTitle',
+  'account:closure.scopeExplainer.full.body',
+  'account:closure.scopeExplainer.full.title',
+  'account:closure.scopeExplainer.marketing_opt_out.body',
+  'account:closure.scopeExplainer.marketing_opt_out.title',
+  'account:closure.scopeLabel',
+  'account:closure.scopes.full',
+  'account:closure.scopes.marketing_opt_out',
+  'account:closure.signedOutNote',
+  'account:closure.startClosure',
+  'account:closure.stepperLabel',
+  'account:closure.steps.checks',
+  'account:closure.steps.done',
+  'account:closure.steps.reason',
+  'account:closure.steps.scope',
+  'account:closure.steps.verify',
+  'account:closure.subtitle',
+  'account:closure.title',
+  'account:closure.verifyFailed',
   'account:consents.ageGate',
   'account:consents.ageGateTitle',
   'account:consents.ageTitle',
@@ -5026,6 +5298,70 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:volumeBands.from_50_to_200',
   'b2bApplication:volumeBands.over_2000',
   'b2bApplication:volumeBands.under_50',
+  'b2bApplication:windDown.authorityLabel',
+  'b2bApplication:windDown.cancelledBody',
+  'b2bApplication:windDown.checks.credit_balance',
+  'b2bApplication:windDown.checks.open_orders',
+  'b2bApplication:windDown.checks.outstanding_invoices',
+  'b2bApplication:windDown.checks.security_deposit',
+  'b2bApplication:windDown.consentTitle',
+  'b2bApplication:windDown.effectiveOn',
+  'b2bApplication:windDown.failedTitle',
+  'b2bApplication:windDown.nameLabel',
+  'b2bApplication:windDown.noEffectiveDate',
+  'b2bApplication:windDown.noneBody',
+  'b2bApplication:windDown.noneTitle',
+  'b2bApplication:windDown.noticePeriod',
+  'b2bApplication:windDown.outcomes.clear',
+  'b2bApplication:windDown.outcomes.not_applicable',
+  'b2bApplication:windDown.outcomes.outstanding',
+  'b2bApplication:windDown.platformNote',
+  'b2bApplication:windDown.readOnly.archiving',
+  'b2bApplication:windDown.readOnly.cancelled',
+  'b2bApplication:windDown.readOnly.completed',
+  'b2bApplication:windDown.readOnly.notice_served',
+  'b2bApplication:windDown.readOnly.revoking',
+  'b2bApplication:windDown.readOnly.settlement_pending',
+  'b2bApplication:windDown.readOnly.signed_off',
+  'b2bApplication:windDown.readOnlyBody',
+  'b2bApplication:windDown.readOnlyTitle',
+  'b2bApplication:windDown.reasons.invoicing_module_absent',
+  'b2bApplication:windDown.reasons.orders_module_absent',
+  'b2bApplication:windDown.requestCode',
+  'b2bApplication:windDown.runChecks',
+  'b2bApplication:windDown.runChecksNote',
+  'b2bApplication:windDown.settlement.caption',
+  'b2bApplication:windDown.settlement.columns.check',
+  'b2bApplication:windDown.settlement.columns.outcome',
+  'b2bApplication:windDown.settlement.columns.reason',
+  'b2bApplication:windDown.settlement.notRun',
+  'b2bApplication:windDown.settlement.title',
+  'b2bApplication:windDown.settlementStatuses.cleared',
+  'b2bApplication:windDown.settlementStatuses.pending',
+  'b2bApplication:windDown.settlementStatuses.waived',
+  'b2bApplication:windDown.signedBy',
+  'b2bApplication:windDown.signoffFailed',
+  'b2bApplication:windDown.signoffTitle',
+  'b2bApplication:windDown.stageAhead',
+  'b2bApplication:windDown.stageDone',
+  'b2bApplication:windDown.stageNow',
+  'b2bApplication:windDown.statuses.archiving',
+  'b2bApplication:windDown.statuses.awaiting_signoff',
+  'b2bApplication:windDown.statuses.cancelled',
+  'b2bApplication:windDown.statuses.completed',
+  'b2bApplication:windDown.statuses.notice_served',
+  'b2bApplication:windDown.statuses.requested',
+  'b2bApplication:windDown.statuses.revoking',
+  'b2bApplication:windDown.statuses.settlement_pending',
+  'b2bApplication:windDown.statuses.signed_off',
+  'b2bApplication:windDown.subtitle',
+  'b2bApplication:windDown.timelineTitle',
+  'b2bApplication:windDown.title',
+  'b2bApplication:windDown.titleLabel',
+  'b2bApplication:windDown.triggers.client_request',
+  'b2bApplication:windDown.triggers.contract_end',
+  'b2bApplication:windDown.triggers.non_renewal',
+  'b2bApplication:windDown.triggers.termination',
   'b2bApplication:wizard.back',
   'b2bApplication:wizard.complete',
   'b2bApplication:wizard.conflictBody',
@@ -5378,6 +5714,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.allLoaded',
   'catalogue:meals.emptyBody',
   'catalogue:meals.emptyTitle',
+  'catalogue:meals.filters',
+  'catalogue:meals.filtersActive',
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
   'catalogue:meals.searchLabel',
@@ -5616,6 +5954,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:address.line2',
   'commerce:address.line2Hint',
   'commerce:address.notStored',
+  'commerce:balance.cutOffNote',
+  'commerce:balance.perDay',
+  'commerce:balance.remaining',
+  'commerce:balance.skipped',
+  'commerce:balance.title',
+  'commerce:balance.used',
+  'commerce:cancel.body',
+  'commerce:cancel.confirm',
+  'commerce:cancel.consequenceBody',
+  'commerce:cancel.consequenceTitle',
+  'commerce:cancel.doneMemo',
+  'commerce:cancel.doneNoMemo',
+  'commerce:cancel.doneTitle',
+  'commerce:cancel.estimate',
+  'commerce:cancel.keep',
+  'commerce:cancel.manualSettlement',
+  'commerce:cancel.noRefund',
+  'commerce:cancel.open',
+  'commerce:cancel.title',
   'commerce:cart.allergenBody',
   'commerce:cart.allergenTitle',
   'commerce:cart.body',
@@ -5666,7 +6023,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.successTitle',
   'commerce:checkout.summaryTitle',
   'commerce:checkout.title',
+  'commerce:choices.body',
+  'commerce:choices.bodyDated',
+  'commerce:choices.confirm',
+  'commerce:choices.cutOffBody',
+  'commerce:choices.cutOffTitle',
+  'commerce:choices.open',
+  'commerce:choices.selectLabel',
+  'commerce:choices.sources.customer',
+  'commerce:choices.sources.kitchen_default',
+  'commerce:choices.sources.substituted',
+  'commerce:choices.title',
   'commerce:common.cancel',
+  'commerce:common.close',
   'commerce:common.listSeparator',
   'commerce:common.noPayment',
   'commerce:configurator.allergyDisclaimerContext',
@@ -5802,6 +6171,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.summary.window',
   'commerce:configurator.summary.windowValue',
   'commerce:configurator.title',
+  'commerce:deliveries.caption',
+  'commerce:deliveries.columns.consumed',
+  'commerce:deliveries.columns.date',
+  'commerce:deliveries.columns.status',
+  'commerce:deliveries.consumedNo',
+  'commerce:deliveries.consumedYes',
+  'commerce:deliveries.count',
+  'commerce:deliveries.empty',
+  'commerce:deliveries.skipNote',
+  'commerce:deliveries.statuses.cancelled',
+  'commerce:deliveries.statuses.delivered',
+  'commerce:deliveries.statuses.generated',
+  'commerce:deliveries.statuses.scheduled',
+  'commerce:deliveries.statuses.skipped_customer',
+  'commerce:deliveries.statuses.skipped_no_safe_meal',
+  'commerce:deliveries.statuses.skipped_unavailable',
+  'commerce:deliveries.title',
   'commerce:durations.12w',
   'commerce:durations.1w',
   'commerce:durations.2w',
@@ -5908,6 +6294,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:warnings.subscription_unknown_slot',
   'commerce:warnings.title',
   'commerce:warnings.unknown',
+  'commerce:weekdays.body',
+  'commerce:weekdays.chooseOne',
+  'commerce:weekdays.confirm',
+  'commerce:weekdays.cutOffBody',
+  'commerce:weekdays.cutOffTitle',
+  'commerce:weekdays.loading',
+  'commerce:weekdays.open',
+  'commerce:weekdays.title',
   'common:action.back',
   'common:action.cancel',
   'common:action.change',

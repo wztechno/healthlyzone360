@@ -1,5 +1,7 @@
 import type { IsoDateTime } from '@healthy360/domain-types';
 
+import type { OtpChallenge } from './verification.ts';
+
 /**
  * B2B onboarding contract (plan Phase B1; appendix E §A.4).
  *
@@ -568,6 +570,158 @@ export interface ProvisioningProgress {
     readonly organisationId: string | null;
 }
 
+/* ── offboarding: the corporate wind-down (B2) ────────────────────────────────────────────────── */
+
+/**
+ * The nine states, in the order the backend declares them.
+ *
+ * A wind-down is a *timeline*, not a status badge, and the timeline is why all nine are published
+ * even though a buyer only acts in two of them. Somebody whose company is being wound down needs to
+ * see that revocation has not happened yet, and — once it has — that it cannot be undone.
+ *
+ * `requested` exists in the vocabulary and the backend never writes it: `start()` goes straight to
+ * `notice_served`. It is kept here because the state machine admits it and a surface that dropped a
+ * legal state would break the day somebody adds a notice-drafting step.
+ */
+export const OFFBOARDING_STATUSES = [
+    'requested',
+    'notice_served',
+    'settlement_pending',
+    'awaiting_signoff',
+    'signed_off',
+    'revoking',
+    'archiving',
+    'completed',
+    'cancelled',
+] as const;
+export type OffboardingStatus = (typeof OFFBOARDING_STATUSES)[number];
+
+/** Why the relationship is ending. Two of the four are buyer-initiated. */
+export const OFFBOARDING_TRIGGERS = [
+    'contract_end',
+    'termination',
+    'non_renewal',
+    'client_request',
+] as const;
+export type OffboardingTrigger = (typeof OFFBOARDING_TRIGGERS)[number];
+
+/** The four settlement checks, in the order the registry runs them. */
+export const SETTLEMENT_CHECK_CODES = [
+    'open_orders',
+    'outstanding_invoices',
+    'credit_balance',
+    'security_deposit',
+] as const;
+export type SettlementCheckCode = (typeof SETTLEMENT_CHECK_CODES)[number];
+
+/**
+ * What one check answered.
+ *
+ * `not_applicable` is not a pass. Three of the four checks answer it today because there is no
+ * invoicing module, and a table that printed a tick beside "outstanding invoices" would be telling
+ * a company its account is clear on the strength of a module nobody has written. The `reason` is
+ * required on `not_applicable` for exactly that purpose.
+ */
+export const SETTLEMENT_OUTCOMES = ['clear', 'outstanding', 'not_applicable'] as const;
+export type SettlementOutcome = (typeof SETTLEMENT_OUTCOMES)[number];
+
+/** The wind-down's settlement stage as a whole. `waived` is permissioned and audited. */
+export const SETTLEMENT_STATUSES = ['pending', 'cleared', 'waived'] as const;
+export type SettlementStatus = (typeof SETTLEMENT_STATUSES)[number];
+
+export interface SettlementCheck {
+    readonly check: SettlementCheckCode;
+    readonly outcome: SettlementOutcome;
+    /** `invoicing_module_absent`, `orders_module_absent`. Required on `not_applicable`. */
+    readonly reason: string | null;
+    readonly detail: string | null;
+}
+
+export interface OffboardingSettlement {
+    readonly status: SettlementStatus;
+    readonly checks: readonly SettlementCheck[];
+    readonly startedAt: IsoDateTime | null;
+    readonly resolvedAt: IsoDateTime | null;
+    readonly waiverReason: string | null;
+}
+
+/**
+ * The sign-off stage.
+ *
+ * `otpVerified` is carried for the same reason {@link SignatureEvidence} carries it: whether a code
+ * actually stepped the signatory up is a fact, and a surface that inferred "identity verified" from
+ * the existence of a signature would be reporting something nobody checked.
+ */
+export interface OffboardingSignoff {
+    readonly awaitingSince: IsoDateTime | null;
+    readonly signedOffAt: IsoDateTime | null;
+    readonly signatoryName: string | null;
+    readonly signatoryTitle: string | null;
+    readonly consentStatement: string | null;
+    readonly documentSha256: string | null;
+    readonly otpVerified: boolean;
+}
+
+export interface OffboardingRevocation {
+    readonly startedAt: IsoDateTime | null;
+    readonly completedAt: IsoDateTime | null;
+    readonly membershipsRevoked: number;
+    readonly tokensDeleted: number;
+}
+
+export interface OffboardingArchive {
+    readonly startedAt: IsoDateTime | null;
+    readonly completedAt: IsoDateTime | null;
+    /** Always true: people are purged, the legal entity is retained. Published, not assumed. */
+    readonly legalEntityRetained: boolean;
+    readonly applicationContactsPurged: number;
+    readonly applicationSignatoriesPurged: number;
+    readonly kycDocumentsStampedForPurge: number;
+}
+
+/**
+ * A company winding down.
+ *
+ * `allowedTransitions` comes from the server so the screen can decide which controls exist without
+ * re-implementing the state machine. A client that owned that table would drift from it, and the
+ * direction it drifts is "offering a button the server refuses".
+ */
+export interface B2BOffboarding {
+    readonly id: string;
+    readonly organisationId: string;
+    readonly status: OffboardingStatus;
+    readonly trigger: OffboardingTrigger;
+    readonly reasonNote: string | null;
+    /** `YYYY-MM-DD` the relationship ends. */
+    readonly effectiveOn: string | null;
+    readonly noticePeriodDays: number;
+    readonly settlement: OffboardingSettlement;
+    readonly signoff: OffboardingSignoff;
+    readonly revocation: OffboardingRevocation;
+    readonly archive: OffboardingArchive;
+    /** The consent wording the sign-off ties itself to. Server-authored. */
+    readonly consentStatement: string;
+    /** The digest of the notice the signatory is signing against. */
+    readonly documentSha256: string;
+    readonly allowedTransitions: readonly OffboardingStatus[];
+    readonly startedAt: IsoDateTime;
+    readonly cancelledAt: IsoDateTime | null;
+    readonly cancelledReason: string | null;
+    readonly lockVersion: number;
+}
+
+export interface SignOffOffboardingRequest {
+    readonly offboardingId: string;
+    readonly typedName: string;
+    readonly signatoryTitle: string;
+    /** "I may bind this company" — a different claim from "this is my name". Refused when false. */
+    readonly authorityConfirmed: boolean;
+    readonly documentSha256: string;
+    /** From a verified `b2b_signatory` challenge. Required — this is the step-up. */
+    readonly verificationToken: string;
+    readonly lockVersion: number;
+}
+
 /* ── the repository ───────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -629,4 +783,45 @@ export interface B2BApplicationRepository {
 
     getAgreement(request: { readonly applicationId: string }): Promise<B2BAgreement | null>;
     signAgreement(request: SignAgreementRequest): Promise<B2BApplication>;
+
+    /* ── B2: the wind-down, from the buyer's side ────────────────────────────────────────────── */
+
+    /**
+     * `GET /api/v1/organisations/{organisation}/offboarding` — the wind-down, or `null`.
+     *
+     * `null` rather than a rejection, on the same terms as {@link getApplication}: "this company is
+     * not winding down" is a state the corporate account screen draws, not an error.
+     */
+    getOffboarding(request: { readonly organisationId: string }): Promise<B2BOffboarding | null>;
+
+    /**
+     * `POST /api/v1/organisations/{organisation}/offboarding/settlement-checks`.
+     *
+     * Re-runs the four checks. Idempotent by nature — the answer is whatever the financial modules
+     * say *now* — and it is what moves a wind-down from `notice_served` to `awaiting_signoff` once
+     * nothing is outstanding.
+     */
+    runSettlementChecks(request: {
+        readonly offboardingId: string;
+        readonly lockVersion: number;
+    }): Promise<B2BOffboarding>;
+
+    /**
+     * `POST /api/v1/organisations/{organisation}/offboarding/signoff-challenge`.
+     *
+     * Sends a one-time code to the **agreement's signatory**, not to whoever is holding the screen.
+     * The purpose is `b2b_signatory` and the step-up is what the sign-off is checked against.
+     */
+    issueSignoffChallenge(request: { readonly offboardingId: string }): Promise<OtpChallenge>;
+
+    /**
+     * `POST /api/v1/organisations/{organisation}/offboarding/signoff` — the only irreversible act
+     * a buyer performs in this flow.
+     *
+     * Shaped like {@link SignAgreementRequest} because it is the same kind of claim: a name typed, a
+     * title claimed, wording that was on screen, and a code that proves who typed it. What happens
+     * *after* sign-off — revocation, archiving, the purge — is the platform's, and there is
+     * deliberately no method here for any of it.
+     */
+    signOffOffboarding(request: SignOffOffboardingRequest): Promise<B2BOffboarding>;
 }

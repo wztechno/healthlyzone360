@@ -204,5 +204,110 @@
         "allRequiredDone": "Everything required has been agreed.",
         "outstanding_one": "{{count}} required permission still to agree to.",
         "outstanding_other": "{{count}} required permissions still to agree to."
+    },
+    "closure": {
+        "title": "Closing your account",
+        "subtitle": "Tell us why, choose how far it goes, and we will show you what is in the way.",
+        "stepperLabel": "Account closure progress",
+        "steps": {
+            "reason": "Why you are leaving",
+            "scope": "How far it goes",
+            "checks": "What is in the way",
+            "verify": "Confirm it is you",
+            "done": "Done"
+        },
+        "next": "Continue",
+        "back": "Back",
+        "finish": "Finish",
+        "failedTitle": "That did not work",
+        "reasonLabel": "Why are you leaving?",
+        "reasonHint": "This helps us fix what pushed you away. It is not used to talk you out of it.",
+        "noteLabel": "Tell us more",
+        "noteHint": "Optional. Deleted when the closure finishes.",
+        "reasons": {
+            "no_longer_needed": "I no longer need it",
+            "too_expensive": "It is too expensive",
+            "moving_away": "I am moving away",
+            "dietary_needs_unmet": "It does not meet my dietary needs",
+            "service_quality": "The service was not good enough",
+            "privacy_concerns": "I have privacy concerns",
+            "duplicate_account": "I have another account",
+            "other": "Something else"
+        },
+        "scopeLabel": "How far should this go?",
+        "scopes": {
+            "marketing_opt_out": "Just stop the marketing",
+            "full": "Close my account"
+        },
+        "scopeExplainer": {
+            "marketing_opt_out": {
+                "title": "We stop emailing you, and nothing else changes",
+                "body": "Your orders, addresses and dietary profile stay exactly as they are. You can turn marketing back on whenever you like."
+            },
+            "full": {
+                "title": "This deletes your account",
+                "body": "Your contacts, addresses and dietary profile are destroyed and you are signed out. It cannot be undone."
+            }
+        },
+        "optOutConfirm": "Stop the marketing",
+        "checksTitle": "What we checked",
+        "blockers": {
+            "open_orders": "Orders still coming",
+            "active_subscriptions": "Live subscriptions",
+            "organisation_memberships": "Company memberships",
+            "pending_b2b_signatures": "Agreements awaiting your signature",
+            "unsettled_credit_memos": "Unsettled credits",
+            "wallet_balance": "Wallet balance",
+            "payment_methods": "Saved payment methods"
+        },
+        "blockerStatuses": {
+            "blocking": "In the way",
+            "clear": "Clear",
+            "advisory": "Worth knowing",
+            "not_applicable": "Not checked"
+        },
+        "reasonsWhy": {
+            "orders_in_flight_one": "1 order has not been delivered yet.",
+            "orders_in_flight_other": "{{count}} orders have not been delivered yet.",
+            "subscriptions_live_one": "1 subscription is still running.",
+            "subscriptions_live_other": "{{count}} subscriptions are still running.",
+            "deliveries_upcoming_one": "1 delivery is still scheduled.",
+            "deliveries_upcoming_other": "{{count}} deliveries are still scheduled.",
+            "memberships_live_one": "You still belong to 1 company account.",
+            "memberships_live_other": "You still belong to {{count}} company accounts.",
+            "signatures_pending_one": "1 agreement is waiting for your signature.",
+            "signatures_pending_other": "{{count}} agreements are waiting for your signature.",
+            "credit_memos_unsettled_one": "1 credit is recorded and not yet settled. It is settled by hand, and after closure there is no account to settle it against.",
+            "credit_memos_unsettled_other": "{{count}} credits are recorded and not yet settled. They are settled by hand, and after closure there is no account to settle them against.",
+            "orders_module_absent": "We could not check orders — that part of the system is absent.",
+            "subscriptions_module_absent": "We could not check subscriptions — that part of the system is absent.",
+            "organisations_module_absent": "We could not check company memberships — that part of the system is absent.",
+            "b2b_module_absent": "We could not check business agreements — that part of the system is absent.",
+            "no_wallet_module": "There is no wallet, so there is nothing to check.",
+            "no_payment_module": "There are no saved payment methods, so there is nothing to check."
+        },
+        "resolve": "Sort this out",
+        "blockedTitle_one": "1 thing is in the way",
+        "blockedTitle_other": "{{count}} things are in the way",
+        "blockedBody": "Deal with these first, then come back. We will re-check when you do.",
+        "acknowledge_one": "I have read the note above and want to continue",
+        "acknowledge_other": "I have read the {{count}} notes above and want to continue",
+        "retainedTitle": "What we keep",
+        "retained": {
+            "orders_anonymised": "Your orders keep their amounts, dates and delivery area for accounting. The street address on them is redacted.",
+            "credit_memos": "Any recorded credit is kept so it can still be settled.",
+            "contact_suppression": "A one-way fingerprint of your email and phone, so \"never contact me again\" keeps working after the address itself is gone.",
+            "closure_tombstone": "A record that this account was closed, and when. It holds no readable contact details."
+        },
+        "startClosure": "Close my account",
+        "irreversibleTitle": "This is the point of no return",
+        "irreversibleBody": "Entering the code closes the account, destroys your contacts, addresses and dietary profile, and signs you out.",
+        "noChallenge": "No code has been sent yet. Go back and start the closure again.",
+        "verifyFailed": "We could not confirm that code.",
+        "closedTitle": "Your account is closed",
+        "closedBody": "Everything we could delete has been deleted.",
+        "signedOutNote": "You have been signed out. This device no longer holds a session.",
+        "optOutDoneTitle": "Marketing stopped",
+        "optOutDoneBody": "We will not send you marketing again. Your account and everything in it is untouched."
     }
 }

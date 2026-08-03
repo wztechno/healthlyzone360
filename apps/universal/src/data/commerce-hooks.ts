@@ -1,4 +1,5 @@
 import type {
+    CancelSubscriptionRequest,
     Cart,
     CartItem,
     ChangeAddressRequest,
@@ -10,11 +11,20 @@ import type {
     PlaceOrderRequest,
     PlacedOrder,
     PreviewCheckoutRequest,
+    SetSubscriptionMealChoicesRequest,
+    SetSubscriptionWeekdaysRequest,
     SkipDayRequest,
     Subscription,
+    SubscriptionBalance,
+    SubscriptionCancellation,
     SubscriptionConfiguration,
+    SubscriptionDelivery,
+    SubscriptionDeliveryFilter,
     SubscriptionFilter,
+    SubscriptionMealChoice,
     SubscriptionPreview,
+    SubscriptionQuote,
+    SubscriptionQuoteRequest,
 } from '@healthy360/api-client/contracts';
 import type { CartId, SubscriptionId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -233,44 +243,65 @@ export function useSubscriptionPreviewQuery(
     });
 }
 
-/** ISO weekdays, Monday first — the set the probe below asks about. */
-const PROBE_WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
+/**
+ * Availability and price for a proposed plan.
+ *
+ * **This replaced the seven-probe hack**, and the hack is worth recording because its removal is the
+ * point. `useAllowedDeliveryWeekdaysQuery` used to price the same subscription seven times — once
+ * per weekday — and read which answers carried a `subscription.delivery_day_unavailable` warning.
+ * That was honest: it used only what the contract published, and the contract published no
+ * `deliveryWeekdays` on a plan. It was also seven round trips for a fact that had been sitting on
+ * the plan record all along. `CommerceRepository.getSubscriptionQuote` publishes it, so this is one
+ * request, and it carries the price and the cut-off with it.
+ *
+ * Keyed by the plan, the variant and the duration — not by the whole configuration — because the
+ * answer depends on nothing else. Changing a start date or an address must not re-price anything.
+ */
+export function useSubscriptionQuoteQuery(
+    request: SubscriptionQuoteRequest | null,
+): UseQueryResult<SubscriptionQuote> {
+    const { repositories } = useRepositoryContext();
 
-const UNAVAILABLE_WARNING = 'subscription.delivery_day_unavailable';
+    return useQuery({
+        queryKey: queryKeys.commerce.subscriptionQuote(request ?? {}),
+        enabled: repositories !== null && request !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (request === null) throw new Error('No plan to quote.');
+            return repositories.commerce.getSubscriptionQuote(request);
+        },
+    });
+}
 
 /**
- * The weekdays a plan will actually deliver on, discovered by asking.
+ * The weekdays a plan delivers on.
  *
- * One preview per weekday, in parallel, keyed by the plan and variant rather than by the whole
- * configuration — the answer depends on the plan alone, so changing a start date or an address must
- * not re-run seven requests.
+ * A projection of {@link useSubscriptionQuoteQuery} rather than a request of its own, so the
+ * configurator's weekday picker and its price summary share one cache entry and one round trip. The
+ * name is kept from the hack it replaced: every call site meant "which days may I choose", and that
+ * question did not change when the answer stopped costing seven requests.
  */
 export function useAllowedDeliveryWeekdaysQuery(
     configuration: SubscriptionConfiguration | null,
 ): UseQueryResult<readonly number[]> {
     const { repositories } = useRepositoryContext();
+    const request: SubscriptionQuoteRequest | null =
+        configuration === null
+            ? null
+            : {
+                  planId: configuration.planId,
+                  variantId: configuration.variantId,
+                  duration: configuration.duration,
+              };
 
     return useQuery({
-        queryKey: queryKeys.commerce.subscriptionPreview({
-            probe: 'delivery-weekdays',
-            planId: configuration?.planId ?? null,
-            variantId: configuration?.variantId ?? null,
-        }),
-        enabled: repositories !== null && configuration !== null,
+        queryKey: queryKeys.commerce.subscriptionQuote(request ?? {}),
+        enabled: repositories !== null && request !== null,
         queryFn: async (): Promise<readonly number[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            if (configuration === null) throw new Error('No configuration to probe.');
-
-            const answers = await Promise.all(
-                PROBE_WEEKDAYS.map(async (weekday) => {
-                    const preview = await repositories.commerce.previewSubscription({
-                        ...configuration,
-                        deliveryWeekdays: [weekday],
-                    });
-                    return preview.warnings.includes(UNAVAILABLE_WARNING) ? null : weekday;
-                }),
-            );
-            return answers.filter((weekday): weekday is number => weekday !== null);
+            if (request === null) throw new Error('No plan to quote.');
+            const quote = await repositories.commerce.getSubscriptionQuote(request);
+            return quote.availableWeekdays;
         },
     });
 }
@@ -434,4 +465,124 @@ export function useChangeSlotMutation(): UseMutationResult<
         (repositories, { subscriptionId, request }) =>
             repositories.commerce.changeSlot(subscriptionId, request),
     );
+}
+
+/* ── S1: the balance, the ledger, cancellation and the two editors ───────────────────────────── */
+
+export function useSubscriptionBalanceQuery(
+    subscriptionId: SubscriptionId | null,
+): UseQueryResult<SubscriptionBalance> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.commerce.subscriptionBalance(subscriptionId ?? ('' as SubscriptionId)),
+        enabled: repositories !== null && subscriptionId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (subscriptionId === null) throw new Error('No subscription identifier.');
+            return repositories.commerce.getSubscriptionBalance(subscriptionId);
+        },
+    });
+}
+
+/** The ledger. Its own entry, because a balance card and a delivery list refetch on different writes. */
+export function useSubscriptionDeliveriesQuery(
+    subscriptionId: SubscriptionId | null,
+    filter?: SubscriptionDeliveryFilter,
+): UseQueryResult<CursorPage<SubscriptionDelivery>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.commerce.subscriptionDeliveries(
+            subscriptionId ?? ('' as SubscriptionId),
+            filter,
+        ),
+        enabled: repositories !== null && subscriptionId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (subscriptionId === null) throw new Error('No subscription identifier.');
+            return repositories.commerce.listSubscriptionDeliveries(subscriptionId, filter);
+        },
+    });
+}
+
+export interface CancelSubscriptionVariables {
+    readonly subscriptionId: SubscriptionId;
+    readonly request?: CancelSubscriptionRequest | undefined;
+}
+
+/**
+ * Cancel, and keep the memo.
+ *
+ * Not built on {@link useSubscriptionMutation}: cancellation answers with two things, and the memo
+ * is the half a person actually cares about. `retry: 0` for the same reason `usePlaceOrderMutation`
+ * has it — a retried cancellation would mint a second credit memo against a subscription that is
+ * already terminal.
+ */
+export function useCancelSubscriptionMutation(): UseMutationResult<
+    SubscriptionCancellation,
+    unknown,
+    CancelSubscriptionVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: 0,
+        mutationFn: ({ subscriptionId, request }: CancelSubscriptionVariables) =>
+            request === undefined
+                ? repositories.commerce.cancelSubscription(subscriptionId)
+                : repositories.commerce.cancelSubscription(subscriptionId, request),
+        onSuccess: async (result) => {
+            queryClient.setQueryData(
+                queryKeys.commerce.subscription(result.subscription.id),
+                result.subscription,
+            );
+            await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.all() });
+            // A cancellation can mint a credit memo, and an unsettled memo is an *advisory* closure
+            // blocker. The closure wizard must not be able to show a stale "nothing to mention".
+            await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
+        },
+    });
+}
+
+export interface SetWeekdaysVariables {
+    readonly subscriptionId: SubscriptionId;
+    readonly request: SetSubscriptionWeekdaysRequest;
+}
+
+export function useSetSubscriptionWeekdaysMutation(): UseMutationResult<
+    Subscription,
+    unknown,
+    SetWeekdaysVariables
+> {
+    return useSubscriptionMutation<SetWeekdaysVariables>(
+        (repositories, { subscriptionId, request }) =>
+            repositories.commerce.setSubscriptionWeekdays(subscriptionId, request),
+    );
+}
+
+export interface SetMealChoicesVariables {
+    readonly subscriptionId: SubscriptionId;
+    readonly request: SetSubscriptionMealChoicesRequest;
+}
+
+export function useSetSubscriptionMealChoicesMutation(): UseMutationResult<
+    readonly SubscriptionMealChoice[],
+    unknown,
+    SetMealChoicesVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ subscriptionId, request }: SetMealChoicesVariables) =>
+            repositories.commerce.setSubscriptionMealChoices(subscriptionId, request),
+        onSuccess: async (choices, { subscriptionId, request }) => {
+            queryClient.setQueryData(
+                queryKeys.commerce.subscriptionMealChoices(subscriptionId, request.date),
+                choices,
+            );
+        },
+    });
 }

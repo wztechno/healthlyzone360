@@ -38,7 +38,9 @@
             "protein": "البروتين",
             "rating": "التقييم",
             "preparation_time": "وقت التحضير"
-        }
+        },
+        "filters": "المرشّحات",
+        "filtersActive": "المرشّحات ({{n}})"
     },
     "filters": {
         "kitchen": "المطبخ",

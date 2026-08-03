@@ -224,6 +224,24 @@ export const queryKeys = {
         /** Cart lines addressed individually, for optimistic quantity edits. */
         cartItem: (cartId: CartId, itemId: string) =>
             ['commerce', 'cart', cartId, 'item', itemId] as const,
+
+        /**
+         * S1. Three entries under the existing root rather than a new one, because a balance, a
+         * ledger and a quote are all facts about the same commerce surface — and every subscription
+         * mutation already invalidates the whole `commerce` prefix, which is exactly what has to
+         * happen when a skip changes the ledger *and* the next delivery date.
+         *
+         * `subscriptionQuote` is keyed by the proposal rather than by the subscription: it is a
+         * query over a configuration nobody has bought yet, and it is what replaced seven previews.
+         */
+        subscriptionBalance: (subscriptionId: SubscriptionId) =>
+            ['commerce', 'subscription', subscriptionId, 'balance'] as const,
+        subscriptionDeliveries: (subscriptionId: SubscriptionId, filter?: QueryScope) =>
+            ['commerce', 'subscription', subscriptionId, 'deliveries', scope(filter)] as const,
+        subscriptionQuote: (request: QueryScope) =>
+            ['commerce', 'subscription', 'quote', request] as const,
+        subscriptionMealChoices: (subscriptionId: SubscriptionId, date: string) =>
+            ['commerce', 'subscription', subscriptionId, 'meal-choices', date] as const,
     },
 
     /**
@@ -357,6 +375,19 @@ export const queryKeys = {
          * is exactly the kind of stale answer §21 is written to prevent.
          */
         serviceAreas: () => ['account', 'service-areas'] as const,
+
+        /**
+         * J2. `closurePreconditions` is re-read on every step of the wizard rather than carried
+         * forward from the first one: a subscription created between step two and step four is
+         * exactly the case the blocker registry exists to catch, and a wizard holding a snapshot
+         * would close over it.
+         *
+         * `closureRequest` is parameterless because a person has at most one in flight — the
+         * backend's partial unique index says so — and because the wizard reads it on mount so a
+         * reload lands back on the step it left, with the challenge's cooldown intact.
+         */
+        closurePreconditions: () => ['account', 'closure', 'preconditions'] as const,
+        closureRequest: () => ['account', 'closure', 'request'] as const,
     },
 
     /**
@@ -431,6 +462,17 @@ export const queryKeys = {
         current: () => ['b2bApplication', 'current'] as const,
         agreement: (applicationId: string) =>
             ['b2bApplication', 'agreement', applicationId] as const,
+
+        /**
+         * B2. The wind-down, keyed by organisation.
+         *
+         * Under this root rather than `business` for the reason above inverted: an offboarding is a
+         * *relationship* record, not the buying surface, and it must survive the moment the buying
+         * surface is revoked. A key under `business` would be thrown away by the first invalidation
+         * that follows a revocation — which is precisely when the screen still has to render.
+         */
+        offboarding: (organisationId: string) =>
+            ['b2bApplication', 'offboarding', organisationId] as const,
     },
 } as const;
 

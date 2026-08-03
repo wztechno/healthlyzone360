@@ -11,6 +11,8 @@ export { AddressEditorScreen, NEW_ADDRESS_PARAM } from './address-editor-screen.
 export type { AddressEditorScreenProps } from './address-editor-screen.tsx';
 export { AddressesScreen } from './addresses-screen.tsx';
 export { AllergiesScreen } from './allergies-screen.tsx';
+export { CLOSURE_STEPS, ClosureWizardScreen, isClosureStep } from './closure-wizard-screen.tsx';
+export type { ClosureStep, ClosureWizardScreenProps } from './closure-wizard-screen.tsx';
 export { ConsentsScreen } from './consents-screen.tsx';
 export { PhoneScreen } from './phone-screen.tsx';
 export { VerifyPhoneScreen } from './verify-phone-screen.tsx';

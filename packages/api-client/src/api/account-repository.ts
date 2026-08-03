@@ -10,29 +10,47 @@ import type {
     AccountSetupChecklist,
     AllergenDeclaration,
     AllergenSeverity,
+    ClosureBlocker,
+    ClosureBlockerCode,
+    ClosurePreconditions,
+    ClosureReasonCode,
+    ClosureTicket,
     ConsentState,
     CustomerAccount,
     CustomerAddress,
     DietaryProfile,
+    RequestClosureRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
     SetConsentRequest,
+    VerifyClosureRequest,
 } from '../contracts/account.ts';
 import { ApiError, apiFailure } from '../contracts/failure.ts';
-import type { ContactPoint, VerificationRepository } from '../contracts/verification.ts';
+import type {
+    ContactPoint,
+    OtpChallenge,
+    VerificationRepository,
+} from '../contracts/verification.ts';
 import type {
     AddCustomerAddressRequest,
+    CancelledClosureRequestEnvelope,
+    ClosureAcknowledgement as WireClosure,
+    ClosureAcknowledgementEnvelope,
+    ClosureBlockerVerdict as WireClosureBlocker,
     CustomerAccount as WireAccount,
     CustomerAccountChecklistItem as WireChecklistItem,
     CustomerAddress as WireAddress,
     CustomerAllergenDeclaration as WireAllergen,
     CustomerConsent as WireConsent,
     CustomerDietaryProfile as WireDietaryProfile,
+    LiveClosureRequestEnvelope,
+    OpenClosureRequestRequest as WireOpenClosureRequest,
     UpdateCustomerAddressRequest,
 } from '../generated/types.ts';
 import { mapLocale } from './mappers.ts';
 import type { ApiReferenceReads } from './reference-repository.ts';
 import type { Transport } from './transport.ts';
+import { PASSCODE_LENGTH } from './verification-repository.ts';
 
 /**
  * The D2C account area, over HTTP (plan Phase J1).
@@ -215,6 +233,151 @@ export function mapConsent(wire: WireConsent): ConsentState {
     };
 }
 
+/*
+ * Closure (J2), over the wire that exists.
+ *
+ * Four endpoints serve the whole journey — `POST /me/closure-requests`, `GET /me/closure-requests/
+ * live`, `POST /me/closure-requests/{request}/verify`, `DELETE /me/closure-requests/{request}` —
+ * and the wire holds less than the contract promises in five places. Each is recorded here rather
+ * than papered over, on the same terms as the file header above.
+ *
+ * ## 6. Preconditions ride on the live read
+ *
+ * There is no `/me/closure-preconditions` endpoint. The live read answers `blockers` re-evaluated
+ * on every call whether or not a request exists, so `getClosurePreconditions` reads it and keeps
+ * the verdicts. `canClose` is derived as "no verdict is `blocking`" — which is recomputing on the
+ * device, and the contract forbids that *where the server publishes a verdict*. Here it publishes
+ * none without a request row; the rule applied is the wire schema's own sentence ("whether anything
+ * found **stops** the closure — an `advisory` verdict does not set this"), and the moment a request
+ * exists the server's `blocked` is used instead ({@link mapClosureTicket}).
+ *
+ * ## 7. The challenge is bound to the request and never named
+ *
+ * The passcode is issued with the ticket and verified through the request's own `/verify` — the
+ * acknowledgement carries a masked destination and a countdown but **no challenge identifier**, so
+ * a resend through `/verification/challenges/{challenge}/resend` cannot be reached from what this
+ * surface is told. The mapped {@link OtpChallenge} therefore carries the package's empty-string
+ * sentinel for `id`, `resendsRemaining: 0` ("there is no resend from here", not "you used them
+ * up"), and the OTP framework's own ceiling for `attemptsRemaining` — the live count arrives on
+ * the `otp.invalid` failure (contract shape 2), which is the source a panel must use anyway.
+ *
+ * ## 8. A resumed wizard has no mask and no countdown
+ *
+ * The live read serves `verification_required` recomputed from the row but passes no
+ * `destination_masked` and no `expires_in_seconds` — those travel only on the response that sent
+ * the code. After a reload the challenge is still real, so it is still non-null; its mask and
+ * expiry are the empty-string sentinel rather than values invented on the device.
+ *
+ * ## 9. The reason is write-only, and `completedAt` does not exist
+ *
+ * `reason_code` is confidential, deleted at finalisation, and never served back. `reasonCode` on a
+ * ticket is echoed from what *this session* sent ({@link createApiAccountRepository} remembers it
+ * per request identifier) and falls back to `other` — the vocabulary's own escape hatch — after a
+ * reload. No closure payload carries a completion instant, so `completedAt` is `null` on the same
+ * terms as §4's consent timestamps.
+ */
+
+/**
+ * Where a person goes to deal with a blocker. Client-side routing, deliberately: the server knows
+ * *what* is in the way, the application knows *which screen* resolves it. The mock world keeps its
+ * own copy of this table (`../mock/account/closure.ts`) — the two must name the same screens.
+ */
+const CLOSURE_RESOLVE_HREFS: Readonly<Record<ClosureBlockerCode, string | null>> = {
+    open_orders: '/customer/orders',
+    active_subscriptions: '/customer/subscriptions',
+    organisation_memberships: null,
+    pending_b2b_signatures: '/apply/agreement',
+    unsettled_credit_memos: '/customer/subscriptions',
+    wallet_balance: null,
+    payment_methods: null,
+};
+
+/**
+ * What survives the purge. The backend publishes no named vocabulary for this (its `ClosureReport`
+ * counts *actions*, not retained categories), so these codes are the application's own, translated
+ * client-side — the same four the mock world states (`../mock/account/closure.ts`).
+ */
+export const CLOSURE_RETAINED_RECORD_CODES: readonly string[] = [
+    'orders_anonymised',
+    'credit_memos',
+    'contact_suppression',
+    'closure_tombstone',
+];
+
+/** Three wrong codes close a challenge (`otp.attempts_exceeded`). The ceiling, not a live count. */
+const OTP_ATTEMPT_CEILING = 3;
+
+export function mapClosureBlocker(wire: WireClosureBlocker): ClosureBlocker {
+    return {
+        code: wire.code,
+        status: wire.status,
+        count: wire.count,
+        reason: wire.reason ?? null,
+        resolveHref: CLOSURE_RESOLVE_HREFS[wire.code] ?? null,
+    };
+}
+
+export function mapClosurePreconditions(
+    blockers: readonly WireClosureBlocker[],
+): ClosurePreconditions {
+    const mapped = blockers.map(mapClosureBlocker);
+    return {
+        // §6 above: only `blocking` stops a closure — the wire schema's own summary rule, applied
+        // here because no request row exists yet for the server to summarise onto.
+        canClose: !mapped.some((blocker) => blocker.status === 'blocking'),
+        blockers: mapped,
+        retainedRecordCodes: CLOSURE_RETAINED_RECORD_CODES,
+    };
+}
+
+/**
+ * The step-up, from the two fields the acknowledgement carries.
+ *
+ * Non-null exactly when a passcode is what the journey waits on: the scope required verification,
+ * nothing blocks, and the request still sits at `requested`. A blocked request and an opt-out both
+ * answer `null`, which is the contract's own sentence about them.
+ */
+function mapClosureChallenge(wire: WireClosure): OtpChallenge | null {
+    if (!wire.verification_required || wire.blocked || wire.status !== 'requested') return null;
+
+    const expiresIn = wire.expires_in_seconds;
+    return {
+        // §7 above: the wire binds the challenge to the request row and never names it.
+        id: '',
+        purpose: 'closure_step_up',
+        // The only channel with a real driver; the closure passcode goes to the login contact.
+        channel: 'email',
+        maskedDestination: wire.destination_masked ?? '',
+        codeLength: PASSCODE_LENGTH,
+        expiresAt:
+            typeof expiresIn === 'number'
+                ? new Date(Date.now() + expiresIn * 1000).toISOString()
+                : '',
+        resendCooldownSeconds: 0,
+        attemptsRemaining: OTP_ATTEMPT_CEILING,
+        resendsRemaining: 0,
+        availableChannels: [],
+        simulatedChannels: [],
+    };
+}
+
+export function mapClosureTicket(wire: WireClosure, reasonCode: ClosureReasonCode): ClosureTicket {
+    return {
+        id: wire.request_id,
+        scope: wire.scope,
+        status: wire.status,
+        reasonCode,
+        blockers: wire.blockers.map(mapClosureBlocker),
+        // The server's summary, never recomputed from the verdicts here.
+        blocked: wire.blocked,
+        verificationRequired: wire.verification_required,
+        challenge: mapClosureChallenge(wire),
+        scheduledFor: wire.scheduled_for ?? null,
+        // §9 above: no closure payload carries a completion instant.
+        completedAt: null,
+    };
+}
+
 export interface ApiAccountRepositoryOptions {
     readonly transport: Transport;
     readonly reference: ApiReferenceReads;
@@ -228,6 +391,27 @@ export function createApiAccountRepository(
     options: ApiAccountRepositoryOptions,
 ): AccountRepository {
     const { transport, reference, verification, loginEmail } = options;
+
+    /**
+     * What this session said when it asked to close, per request identifier.
+     *
+     * The wire never serves the reason back (§9 above), so this is the only place the echo can
+     * come from. A map rather than a single slot so a cancelled request followed by a fresh one
+     * cannot cross-contaminate; unbounded growth is not a concern for a journey a person walks
+     * once.
+     */
+    const closureReasons = new Map<string, ClosureReasonCode>();
+
+    function closureReason(requestId: string): ClosureReasonCode {
+        return closureReasons.get(requestId) ?? 'other';
+    }
+
+    async function readLiveClosure(): Promise<LiveClosureRequestEnvelope['data']> {
+        return transport.request<LiveClosureRequestEnvelope['data']>({
+            method: 'GET',
+            path: '/me/closure-requests/live',
+        });
+    }
 
     /**
      * The gazetteer, fetched at most once per bundle.
@@ -465,6 +649,87 @@ export function createApiAccountRepository(
             }
 
             return mapConsent(updated);
+        },
+
+        /* ── J2: closure — see the numbered notes above the mappers ──────────────────────────── */
+
+        async getClosurePreconditions(): Promise<ClosurePreconditions> {
+            const wire = await readLiveClosure();
+            return mapClosurePreconditions(wire.blockers);
+        },
+
+        async getLiveClosureRequest(): Promise<ClosureTicket | null> {
+            const wire = await readLiveClosure();
+            const live = wire.closure_request;
+            if (live === null) return null;
+            return mapClosureTicket(live, closureReason(live.request_id));
+        },
+
+        /**
+         * Ask to close — and the code, when one is owed, arrives in the same answer.
+         *
+         * A blocked `full` request is a **success** carrying `blocked: true` (D-073): the endpoint
+         * answers `202` with the verdicts, no error is thrown, and the wizard renders work to do.
+         * Only the transport-level failures (`closure.refused` for a second in-flight request,
+         * `otp.channel_unavailable`, validation) reject.
+         */
+        async requestClosure(request: RequestClosureRequest): Promise<ClosureTicket> {
+            const body: WireOpenClosureRequest = {
+                reason_code: request.reasonCode,
+                scope: request.scope,
+                ...(request.reasonNote === undefined ? {} : { reason_note: request.reasonNote }),
+            };
+
+            const wire = await transport.request<ClosureAcknowledgementEnvelope['data']>({
+                method: 'POST',
+                path: '/me/closure-requests',
+                body,
+            });
+
+            closureReasons.set(wire.closure_request.request_id, request.reasonCode);
+            return mapClosureTicket(wire.closure_request, request.reasonCode);
+        },
+
+        /**
+         * The irreversible step. The code travels alone: the challenge is bound to the request row
+         * server-side, which is what stops a code obtained for one closure finalising another. A
+         * wrong code rejects with `otp.invalid` and the panel reads `attemptsRemaining` from that
+         * failure, never from the ticket.
+         */
+        async verifyClosure(request: VerifyClosureRequest): Promise<ClosureTicket> {
+            const wire = await transport.request<ClosureAcknowledgementEnvelope['data']>({
+                method: 'POST',
+                path: `/me/closure-requests/${encodeURIComponent(request.ticketId)}/verify`,
+                body: { code: request.code },
+            });
+            return mapClosureTicket(wire.closure_request, closureReason(request.ticketId));
+        },
+
+        /**
+         * Changed their mind. A `200` with the row rather than a `204`, because somebody calling
+         * off an account deletion needs to see that it is off. The cancelled projection is smaller
+         * than the acknowledgement — no verdicts travel with it — and the empty lists here are
+         * that fact, not a claim that nothing stood in the way.
+         */
+        async cancelClosure(request: { readonly ticketId: string }): Promise<ClosureTicket> {
+            const wire = await transport.request<CancelledClosureRequestEnvelope['data']>({
+                method: 'DELETE',
+                path: `/me/closure-requests/${encodeURIComponent(request.ticketId)}`,
+            });
+
+            const cancelled = wire.closure_request;
+            return {
+                id: cancelled.request_id,
+                scope: cancelled.scope,
+                status: cancelled.status,
+                reasonCode: closureReason(cancelled.request_id),
+                blockers: [],
+                blocked: false,
+                verificationRequired: false,
+                challenge: null,
+                scheduledFor: null,
+                completedAt: null,
+            };
         },
     };
 }

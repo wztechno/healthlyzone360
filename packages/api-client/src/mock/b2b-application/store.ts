@@ -6,19 +6,32 @@ import type {
     B2BApplicationSections,
     B2BApplicationState,
     B2BDocumentKind,
+    B2BOffboarding,
     B2BSectionPayload,
     DocumentDownload,
     KycDocument,
+    OffboardingStatus,
     ProvisioningProgress,
     ReviewerRequest,
     SignAgreementRequest,
+    SignOffOffboardingRequest,
 } from '../../contracts/b2b-application.ts';
 import {
     apiFailure,
     conflictFailure,
+    otpInvalidFailure,
+    otpLockedFailure,
     throwFailure,
     validationFailure,
 } from '../../contracts/failure.ts';
+import type { OtpChallenge } from '../../contracts/verification.ts';
+import {
+    MOCK_OTP_CODE,
+    OTP_CODE_LENGTH,
+    OTP_EXPIRY_SECONDS,
+    OTP_MAX_ATTEMPTS,
+    OTP_RESEND_COOLDOWN_SECONDS,
+} from '../account/store.ts';
 import type { Clock } from '../store.ts';
 import {
     B2B_RUNTIME_ORDINAL_START,
@@ -35,6 +48,15 @@ import {
     blankSections,
 } from './seed.ts';
 import type { B2bFixture, B2bFixtureName } from './seed.ts';
+import {
+    OFFBOARDING_DOCUMENT_SHA256,
+    OFFBOARDING_TRANSITIONS,
+    readOffboarding,
+    runChecks,
+    seedOffboarding,
+    settlementIsClear,
+} from './offboarding.ts';
+import type { MutableOffboarding } from './offboarding.ts';
 
 /* ------------------------------------------------------------------------------------------------
  * The mock mechanics.
@@ -152,6 +174,24 @@ export interface B2bMockStoreOptions {
     readonly fixture?: B2bFixtureName | undefined;
     /** Start with no application at all — the entry screen's "you have not applied yet" state. */
     readonly empty?: boolean | undefined;
+    /** Start with no wind-down — the corporate account screen's ordinary, not-leaving state. */
+    readonly withoutOffboarding?: boolean | undefined;
+    /**
+     * How many orders this organisation still has in flight.
+     *
+     * A **port**, like the guest world's basket port: the settlement registry's one real check must
+     * read a real number, and this world must not import the prototype store to get it. Unbound it
+     * answers zero, which is what makes the fixture's checks clear on the first run.
+     */
+    readonly openOrders?: (() => number) | undefined;
+}
+
+interface MutableSignoffChallenge {
+    id: string;
+    sentAt: number;
+    expiresAt: number;
+    attemptsRemaining: number;
+    verified: boolean;
 }
 
 /**
@@ -170,17 +210,222 @@ export interface B2bMockStoreOptions {
  */
 export class B2bMockStore {
     readonly #now: Clock;
+    readonly #openOrders: () => number;
 
     #row: MutableRow | null;
+    /** The wind-down. One per organisation, and this world holds exactly one organisation. */
+    #offboarding: MutableOffboarding | null;
+    /** The live sign-off challenge, so a reload re-reads it rather than minting a second. */
+    #signoffChallenge: MutableSignoffChallenge | null = null;
     #nextOrdinal = B2B_RUNTIME_ORDINAL_START;
     #nextReference = 100;
 
     constructor(options: B2bMockStoreOptions = {}) {
         this.#now = options.now ?? (() => Date.now());
+        this.#openOrders = options.openOrders ?? (() => 0);
         this.#row =
             options.empty === true
                 ? null
                 : hydrate(B2B_FIXTURES[options.fixture ?? DEFAULT_B2B_FIXTURE], this.#iso());
+        this.#offboarding = options.withoutOffboarding === true ? null : seedOffboarding();
+    }
+
+    // -- the wind-down (B2) ----------------------------------------------------------------------
+
+    offboarding(organisationId: string): B2BOffboarding | null {
+        if (this.#offboarding === null) return null;
+        // A wind-down belongs to one organisation. Answering somebody else's would be worse than
+        // answering nothing, so an identifier that does not match reads as "not winding down".
+        if (this.#offboarding.organisationId !== organisationId) return null;
+        return readOffboarding(this.#offboarding);
+    }
+
+    /**
+     * Re-run the settlement checks.
+     *
+     * Always enters `settlement_pending` first, exactly as the backend's service does, and only
+     * then moves to `awaiting_signoff` if nothing is outstanding. The two-step matters: a company
+     * watching this screen sees the checks run, and a run that finds something outstanding leaves
+     * the wind-down visibly *stuck at the checks* rather than silently unchanged.
+     */
+    runSettlementChecks(offboardingId: string, lockVersion: number): B2BOffboarding {
+        const row = this.#requireOffboarding(offboardingId, lockVersion);
+        this.#requireTransition(row, 'settlement_pending');
+
+        const checks = runChecks(this.#openOrders());
+        const clear = settlementIsClear(checks);
+        const at = this.#iso();
+
+        row.status = 'settlement_pending';
+        row.checks = checks;
+        row.settlementStartedAt = row.settlementStartedAt ?? at;
+        row.lockVersion += 1;
+
+        if (clear) {
+            row.settlementStatus = 'cleared';
+            row.settlementResolvedAt = at;
+            row.status = 'awaiting_signoff';
+            row.awaitingSince = at;
+        } else {
+            row.settlementStatus = 'pending';
+            row.settlementResolvedAt = null;
+        }
+
+        return readOffboarding(row);
+    }
+
+    /**
+     * Send the signatory a code.
+     *
+     * Only from `awaiting_signoff`: a challenge issued before the settlement clears is a code that
+     * expires unused, and a screen that could ask for one would imply signing was available.
+     */
+    issueSignoffChallenge(offboardingId: string): OtpChallenge {
+        const row = this.#requireOffboarding(offboardingId);
+        if (row.status !== 'awaiting_signoff') {
+            throwFailure(
+                validationFailure({
+                    status: ['The settlement checks have to clear before anybody can sign off.'],
+                }),
+            );
+        }
+
+        const live = this.#signoffChallenge;
+        if (live !== null && live.expiresAt > this.#now()) return this.#readSignoffChallenge(live);
+
+        const challenge: MutableSignoffChallenge = {
+            id: agreementIdAt(this.#takeOrdinal()),
+            sentAt: this.#now(),
+            expiresAt: this.#now() + OTP_EXPIRY_SECONDS * 1000,
+            attemptsRemaining: OTP_MAX_ATTEMPTS,
+            verified: false,
+        };
+        this.#signoffChallenge = challenge;
+        return this.#readSignoffChallenge(challenge);
+    }
+
+    /**
+     * The signatory's sign-off.
+     *
+     * Four things are checked together, as one refusal, because they are one claim: the wind-down
+     * is awaiting sign-off, the digest matches the notice that was read, authority was confirmed,
+     * and a code was verified. Any of them missing means the signature is not evidence of what it
+     * would appear to be.
+     */
+    signOffOffboarding(request: SignOffOffboardingRequest): B2BOffboarding {
+        const row = this.#requireOffboarding(request.offboardingId, request.lockVersion);
+        this.#requireTransition(row, 'signed_off');
+
+        const fields: Record<string, string[]> = {};
+        if (request.typedName.trim().length === 0) {
+            fields['typedName'] = ['Type your full name.'];
+        }
+        if (request.signatoryTitle.trim().length === 0) {
+            fields['signatoryTitle'] = ['State the role you hold.'];
+        }
+        if (!request.authorityConfirmed) {
+            fields['authorityConfirmed'] = ['Confirm you may bind this company.'];
+        }
+        if (request.documentSha256 !== OFFBOARDING_DOCUMENT_SHA256) {
+            fields['documentSha256'] = [
+                'The notice changed since you read it. Reload and re-read.',
+            ];
+        }
+        // `challengeId:code`, the same convention `./api/b2b-repository.ts` uses for an agreement
+        // signature: the panel pairs the challenge it was issued with the digits somebody typed,
+        // and stays ignorant of what a signature actually needs. A bare signing token is accepted
+        // too, so a test can drive the state machine without walking the code.
+        const token = request.verificationToken.trim();
+        const separator = token.indexOf(':');
+        const proved =
+            token === MOCK_SIGNING_TOKEN ||
+            (separator > 0 &&
+                this.#provesSignoff(token.slice(0, separator), token.slice(separator + 1)));
+        if (!proved) {
+            fields['verificationToken'] = ['Verify the code we sent before signing off.'];
+        }
+        if (Object.keys(fields).length > 0) throwFailure(validationFailure(fields));
+
+        const at = this.#iso();
+        row.status = 'signed_off';
+        row.signedOffAt = at;
+        row.signatoryName = request.typedName.trim();
+        row.signatoryTitle = request.signatoryTitle.trim();
+        row.otpVerified = true;
+        row.lockVersion += 1;
+        this.#signoffChallenge = null;
+
+        return readOffboarding(row);
+    }
+
+    /**
+     * Does this `challengeId:code` pair prove the signatory?
+     *
+     * The attempt budget is real, and so is the lockout: a mock where any six digits eventually
+     * work teaches nobody what the panel does. A wrong code spends an attempt and rejects with the
+     * remaining count, which is what the panel's live region reads.
+     */
+    #provesSignoff(challengeId: string, code: string): boolean {
+        const challenge = this.#signoffChallenge;
+        if (challenge === null || challenge.id !== challengeId) {
+            throwFailure(apiFailure('resource.not_found'));
+        }
+        if (challenge.expiresAt <= this.#now()) throwFailure(apiFailure('otp.expired'));
+
+        if (code.trim() !== MOCK_OTP_CODE) {
+            challenge.attemptsRemaining -= 1;
+            if (challenge.attemptsRemaining <= 0) {
+                this.#signoffChallenge = null;
+                throwFailure(otpLockedFailure(new Date(this.#now() + 300_000).toISOString(), []));
+            }
+            throwFailure(otpInvalidFailure(challenge.attemptsRemaining));
+        }
+
+        challenge.verified = true;
+        return true;
+    }
+
+    #requireOffboarding(offboardingId: string, lockVersion?: number): MutableOffboarding {
+        const row = this.#offboarding;
+        if (row === null || row.id !== offboardingId) {
+            throwFailure(apiFailure('resource.not_found'));
+        }
+        if (lockVersion !== undefined && lockVersion !== row.lockVersion) {
+            throwFailure(conflictFailure({ currentLockVersion: row.lockVersion }));
+        }
+        return row;
+    }
+
+    #requireTransition(row: MutableOffboarding, next: OffboardingStatus): void {
+        if (!OFFBOARDING_TRANSITIONS[row.status].includes(next)) {
+            throwFailure(
+                validationFailure({
+                    status: [
+                        `A wind-down that is ${row.status.replace(/_/g, ' ')} cannot become ` +
+                            `${next.replace(/_/g, ' ')}.`,
+                    ],
+                }),
+            );
+        }
+    }
+
+    #readSignoffChallenge(challenge: MutableSignoffChallenge): OtpChallenge {
+        const elapsed = (this.#now() - challenge.sentAt) / 1000;
+        return {
+            id: challenge.id,
+            purpose: 'b2b_signatory',
+            channel: 'email',
+            // Server-authored, like every other masked destination in this codebase. The signatory
+            // on the agreement, not whoever is holding the screen.
+            maskedDestination: 's••••••y@northwind-catering.example',
+            codeLength: OTP_CODE_LENGTH,
+            expiresAt: new Date(challenge.expiresAt).toISOString(),
+            resendCooldownSeconds: Math.max(0, Math.ceil(OTP_RESEND_COOLDOWN_SECONDS - elapsed)),
+            attemptsRemaining: challenge.attemptsRemaining,
+            resendsRemaining: 0,
+            availableChannels: ['email'],
+            simulatedChannels: [],
+        };
     }
 
     // ── reads ───────────────────────────────────────────────────────────────────────────────────

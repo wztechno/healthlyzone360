@@ -64,6 +64,9 @@ export const PROTOTYPE_ID_BANDS = {
     cart: '70',
     order: '71',
     subscription: '72',
+    /** S1: the delivery ledger and the credit memo a cancellation mints. */
+    subscriptionDelivery: '73',
+    creditMemo: '74',
     corporateProgramme: '60',
     quotation: '61',
     volumeTier: '62',
@@ -157,6 +160,9 @@ export const orderIdAt = (ordinal: number): OrderId =>
     OrderId.unsafe(prototypeId('order', ordinal));
 export const subscriptionIdAt = (ordinal: number): SubscriptionId =>
     SubscriptionId.unsafe(prototypeId('subscription', ordinal));
+export const subscriptionDeliveryIdAt = (ordinal: number): string =>
+    prototypeId('subscriptionDelivery', ordinal);
+export const creditMemoIdAt = (ordinal: number): string => prototypeId('creditMemo', ordinal);
 export const corporateProgrammeIdAt = (ordinal: number): CorporateProgrammeId =>
     CorporateProgrammeId.unsafe(prototypeId('corporateProgramme', ordinal));
 export const quotationIdAt = (ordinal: number): QuotationId =>

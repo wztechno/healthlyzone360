@@ -24,6 +24,8 @@ export const ACCOUNT_ID_BANDS = {
     allergen: '56',
     dietCategory: '57',
     foodExclusion: '58',
+    /** J2: the closure request. Inside the 50-58 reservation is full, so this takes 59. */
+    closureRequest: '59',
 } as const;
 
 export type AccountIdBand = keyof typeof ACCOUNT_ID_BANDS;
@@ -61,6 +63,7 @@ export const serviceAreaIdAt = (ordinal: number): ServiceAreaId =>
     ServiceAreaId.unsafe(accountId('serviceArea', ordinal));
 export const foodExclusionIdAt = (ordinal: number): IngredientId =>
     IngredientId.unsafe(accountId('foodExclusion', ordinal));
+export const closureRequestIdAt = (ordinal: number): string => accountId('closureRequest', ordinal);
 
 /**
  * Where the store starts minting identifiers for rows a *person* creates — a second address, a

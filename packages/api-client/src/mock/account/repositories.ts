@@ -5,12 +5,16 @@ import type {
     AccountRepository,
     AccountServiceArea,
     AccountSetupChecklist,
+    ClosurePreconditions,
+    ClosureTicket,
     ConsentState,
     CustomerAddress,
     DietaryProfile,
+    RequestClosureRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
     SetConsentRequest,
+    VerifyClosureRequest,
 } from '../../contracts/account.ts';
 import type {
     AddContactPointRequest,
@@ -66,6 +70,10 @@ export function createAccountMockRepositories(
             ...(options.simulateChannels === undefined
                 ? {}
                 : { simulateChannels: options.simulateChannels }),
+            ...(options.closureWorld === undefined ? {} : { closureWorld: options.closureWorld }),
+            ...(options.onAccountClosed === undefined
+                ? {}
+                : { onAccountClosed: options.onAccountClosed }),
         });
     const latency = options.latencyMs ?? DEFAULT_ACCOUNT_MOCK_LATENCY_MS;
     const settle = () => sleep(latency);
@@ -176,6 +184,31 @@ export function createAccountMockRepositories(
         async setConsent(request: SetConsentRequest): Promise<ConsentState> {
             await settle();
             return store.setConsent(request);
+        },
+
+        async getClosurePreconditions(): Promise<ClosurePreconditions> {
+            await settle();
+            return store.closurePreconditions();
+        },
+
+        async getLiveClosureRequest(): Promise<ClosureTicket | null> {
+            await settle();
+            return store.liveClosureRequest();
+        },
+
+        async requestClosure(request: RequestClosureRequest): Promise<ClosureTicket> {
+            await settle();
+            return store.requestClosure(request);
+        },
+
+        async verifyClosure(request: VerifyClosureRequest): Promise<ClosureTicket> {
+            await settle();
+            return store.verifyClosure(request);
+        },
+
+        async cancelClosure(request: { readonly ticketId: string }): Promise<ClosureTicket> {
+            await settle();
+            return store.cancelClosure(request.ticketId);
         },
     };
 

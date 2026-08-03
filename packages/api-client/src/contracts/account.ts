@@ -1,6 +1,6 @@
 import type { IngredientId, IsoDateTime, Locale, ServiceAreaId } from '@healthy360/domain-types';
 
-import type { ContactPoint } from './verification.ts';
+import type { ContactPoint, OtpChallenge } from './verification.ts';
 
 /**
  * D2C account contract (plan Phase J1, appendix D customers cluster; appendix E §A.2).
@@ -214,6 +214,148 @@ export interface AccountServiceArea {
     readonly name: string;
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * J2 — closure and data offboarding
+ *
+ * The rule this section exists to encode: **a blocker is never fabricated**. The backend runs seven
+ * checks and each answers with one of four statuses, two of which mean "this check did not apply".
+ * A closure screen that collapsed `not_applicable` into `clear` would tell somebody their wallet
+ * balance was settled when there is no wallet module at all — a sentence that becomes a lie the day
+ * PAY1 ships. So the vocabulary reaches the client whole and the wizard renders all four.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** Why somebody is leaving. The backend's `ClosureReasonCode`, verbatim and in its order. */
+export const CLOSURE_REASON_CODES = [
+    'no_longer_needed',
+    'too_expensive',
+    'moving_away',
+    'dietary_needs_unmet',
+    'service_quality',
+    'privacy_concerns',
+    'duplicate_account',
+    'other',
+] as const;
+export type ClosureReasonCode = (typeof CLOSURE_REASON_CODES)[number];
+
+/**
+ * How far the request goes.
+ *
+ * `marketing_opt_out` is the **short-circuit**: it withdraws the marketing consents and stops. It
+ * consults no blockers and needs no one-time code, because nothing is destroyed. Offering it first
+ * is not a dark pattern — most people who reach a closure screen want the emails to stop, and
+ * closing an account to achieve that is a worse outcome for them than for the business.
+ *
+ * The value is `full`, not `full_closure`: the backend's enum case is `Full`.
+ */
+export const CLOSURE_SCOPES = ['marketing_opt_out', 'full'] as const;
+export type ClosureScope = (typeof CLOSURE_SCOPES)[number];
+
+/**
+ * What a check answered.
+ *
+ * - `blocking` — a real thing in the way. Only this stops closure.
+ * - `clear` — the check ran and found nothing.
+ * - `advisory` — something worth saying before it disappears (an unsettled credit memo), which does
+ *   not stop anything. Acknowledged, never resolved.
+ * - `not_applicable` — the module behind the check does not exist. Honest, and temporary.
+ */
+export const CLOSURE_BLOCKER_STATUSES = [
+    'blocking',
+    'clear',
+    'advisory',
+    'not_applicable',
+] as const;
+export type ClosureBlockerStatus = (typeof CLOSURE_BLOCKER_STATUSES)[number];
+
+/** The seven registered checks, in the order the backend registers them. */
+export const CLOSURE_BLOCKER_CODES = [
+    'open_orders',
+    'active_subscriptions',
+    'organisation_memberships',
+    'pending_b2b_signatures',
+    'unsettled_credit_memos',
+    'wallet_balance',
+    'payment_methods',
+] as const;
+export type ClosureBlockerCode = (typeof CLOSURE_BLOCKER_CODES)[number];
+
+export interface ClosureBlocker {
+    readonly code: ClosureBlockerCode;
+    readonly status: ClosureBlockerStatus;
+    /** How many things. Always `0` on `clear` and `not_applicable`. */
+    readonly count: number;
+    /** The server's own reason string (`orders_in_flight`, `no_wallet_module`). `null` on `clear`. */
+    readonly reason: string | null;
+    /**
+     * Where the person goes to deal with it.
+     *
+     * Client-side routing, and deliberately so: the server knows *what* is in the way, the
+     * application knows *which screen* resolves it. A blocker with nowhere to go carries `null` and
+     * the wizard states the fact without a dead control.
+     */
+    readonly resolveHref: string | null;
+}
+
+/**
+ * What closing would cost, before anybody commits to it.
+ *
+ * `canClose` is the server's verdict and is never recomputed from `blockers` on the device — the
+ * same rule {@link AccountSetupChecklist} encodes for activation, for the same reason.
+ *
+ * `retainedRecordCodes` says what survives the purge. Orders keep their amounts, dates and area for
+ * accounting; a one-way fingerprint of the email keeps "never contact me again" true after the
+ * address itself is gone. Stating it up front is the difference between a promise the system keeps
+ * and one it breaks.
+ */
+export interface ClosurePreconditions {
+    readonly canClose: boolean;
+    readonly blockers: readonly ClosureBlocker[];
+    readonly retainedRecordCodes: readonly string[];
+}
+
+export const CLOSURE_REQUEST_STATUSES = [
+    'requested',
+    'verified',
+    'scheduled',
+    'completed',
+    'cancelled',
+] as const;
+export type ClosureRequestStatus = (typeof CLOSURE_REQUEST_STATUSES)[number];
+
+export interface RequestClosureRequest {
+    readonly reasonCode: ClosureReasonCode;
+    /** Free text, invited only by `other`. Confidential, and deleted when the closure finalises. */
+    readonly reasonNote?: string | undefined;
+    readonly scope: ClosureScope;
+}
+
+/**
+ * A closure in flight.
+ *
+ * The one-time-code challenge is **issued with the ticket**, not fetched afterwards: a request that
+ * needs a step-up and a challenge that has to be asked for separately is two round trips and one
+ * race. `challenge` is `null` for `marketing_opt_out`, which needs no step-up, and for a request
+ * that came back `blocked`.
+ */
+export interface ClosureTicket {
+    readonly id: string;
+    readonly scope: ClosureScope;
+    readonly status: ClosureRequestStatus;
+    readonly reasonCode: ClosureReasonCode;
+    /** The verdict at the moment the request was made. Re-read, never cached from step three. */
+    readonly blockers: readonly ClosureBlocker[];
+    readonly blocked: boolean;
+    readonly verificationRequired: boolean;
+    readonly challenge: OtpChallenge | null;
+    readonly scheduledFor: IsoDateTime | null;
+    readonly completedAt: IsoDateTime | null;
+}
+
+export interface VerifyClosureRequest {
+    readonly ticketId: string;
+    readonly code: string;
+}
+
 export interface AccountRepository {
     getOverview(): Promise<AccountOverview>;
     getChecklist(): Promise<AccountSetupChecklist>;
@@ -233,4 +375,38 @@ export interface AccountRepository {
 
     listConsents(): Promise<readonly ConsentState[]>;
     setConsent(request: SetConsentRequest): Promise<ConsentState>;
+
+    /* ── J2: closure ─────────────────────────────────────────────────────────────────────────── */
+
+    /** `GET /api/v1/me/closure-preconditions` — what is in the way, and what survives. */
+    getClosurePreconditions(): Promise<ClosurePreconditions>;
+
+    /**
+     * `GET /api/v1/me/closure-requests/live` — the one request in flight, or `null`.
+     *
+     * A person has at most one; the backend's partial unique index says so, and asking for a second
+     * is refused with `closure_already_in_flight`. The wizard reads this on mount so a reload lands
+     * back on the step it left — with the challenge's cooldown intact rather than reset.
+     */
+    getLiveClosureRequest(): Promise<ClosureTicket | null>;
+
+    /**
+     * `POST /api/v1/me/closure-requests` — and it issues the code in the same answer.
+     *
+     * A `full` request whose blockers are blocking comes back `blocked: true` with no challenge:
+     * refusing to start is not an error, it is the answer, and the wizard renders it as a list of
+     * things to go and do.
+     */
+    requestClosure(request: RequestClosureRequest): Promise<ClosureTicket>;
+
+    /**
+     * `POST /api/v1/me/closure-requests/{request}/verify` — the irreversible step.
+     *
+     * Request-bound: the code proves this person asked for *this* closure, not merely that somebody
+     * holding the session can read an inbox.
+     */
+    verifyClosure(request: VerifyClosureRequest): Promise<ClosureTicket>;
+
+    /** `DELETE /api/v1/me/closure-requests/{request}` — changed their mind. */
+    cancelClosure(request: { readonly ticketId: string }): Promise<ClosureTicket>;
 }

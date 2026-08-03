@@ -18,6 +18,9 @@ export type { AccountIdBand } from './ids.ts';
 
 export { SEED_ACCOUNT, SEED_CONSENTS, SEED_CONTACTS, SEED_SERVICE_AREAS } from './seed.ts';
 
+export { RETAINED_RECORD_CODES, closurePreconditions, evaluateClosureBlockers } from './closure.ts';
+export type { ClosureWorldPorts } from './closure.ts';
+
 export {
     AccountMockStore,
     MOCK_OTP_CODE,

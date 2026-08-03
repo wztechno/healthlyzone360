@@ -13,3 +13,5 @@ export { ApplyProvisioningScreen } from './apply-provisioning-screen.tsx';
 export { ApplyStatusScreen } from './apply-status-screen.tsx';
 export { ApplyStepScreen } from './apply-step-screen.tsx';
 export type { ApplyStepScreenProps } from './apply-step-screen.tsx';
+export { WindDownScreen } from './wind-down-screen.tsx';
+export type { WindDownScreenProps } from './wind-down-screen.tsx';

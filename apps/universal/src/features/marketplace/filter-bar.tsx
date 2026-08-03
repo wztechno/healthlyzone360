@@ -133,6 +133,11 @@ export interface FilterBarProps {
     readonly groups?: readonly FilterGroup[] | undefined;
     /** Rendered as a live count so a filter change is announced, not merely seen. */
     readonly resultCount?: number | undefined;
+    /**
+     * `false` renders the chip groups without the text field — for a screen that keeps its search
+     * box visible and collapses only the rest of the filters behind a disclosure.
+     */
+    readonly showSearch?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -142,24 +147,27 @@ export function FilterBar({
     searchPlaceholder,
     groups = [],
     resultCount,
+    showSearch = true,
     testID = 'filter-bar',
 }: FilterBarProps) {
     const { t } = useTranslation();
 
     return (
         <Stack space="sm" testID={testID}>
-            <TextInputField
-                testID={`${testID}-search`}
-                id={`${testID}-search`}
-                label={searchLabel}
-                value={state.query}
-                onChangeText={state.setQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
-                trailing={<Icon name="search" />}
-                {...(searchPlaceholder === undefined ? {} : { placeholder: searchPlaceholder })}
-            />
+            {showSearch ? (
+                <TextInputField
+                    testID={`${testID}-search`}
+                    id={`${testID}-search`}
+                    label={searchLabel}
+                    value={state.query}
+                    onChangeText={state.setQuery}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="search"
+                    trailing={<Icon name="search" />}
+                    {...(searchPlaceholder === undefined ? {} : { placeholder: searchPlaceholder })}
+                />
+            ) : null}
 
             {groups.map((group) => (
                 <Stack space="xs" key={group.key} testID={`${testID}-group-${group.key}`}>

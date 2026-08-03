@@ -38,7 +38,9 @@
             "protein": "Protein",
             "rating": "Rating",
             "preparation_time": "Time to prepare"
-        }
+        },
+        "filters": "Filters",
+        "filtersActive": "Filters ({{n}})"
     },
     "filters": {
         "kitchen": "Kitchen",

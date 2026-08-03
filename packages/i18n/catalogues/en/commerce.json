@@ -3,7 +3,8 @@
     "common": {
         "listSeparator": ", ",
         "cancel": "Cancel",
-        "noPayment": "No payment is taken anywhere in this prototype."
+        "noPayment": "No payment is taken anywhere in this prototype.",
+        "close": "Close"
     },
     "validation": {
         "required": "This is needed before we can deliver.",
@@ -362,5 +363,84 @@
         "slotConfirm": "Save these changes",
         "slotDaysTitle": "Delivery days",
         "slotDaysNote": "Leave these as they are to keep the current schedule. Days this plan does not deliver on will be refused by the kitchen."
+    },
+    "balance": {
+        "title": "Your balance",
+        "remaining_one": "1 delivery day left",
+        "remaining_other": "{{count}} delivery days left",
+        "used": "{{consumed}} of {{total}} used",
+        "perDay": "per delivery day, at the price you paid",
+        "skipped_one": "1 skipped day, which cost you nothing",
+        "skipped_other": "{{count}} skipped days, which cost you nothing",
+        "cutOffNote_one": "Changes apply to deliveries more than 1 hour away. Anything sooner goes as planned.",
+        "cutOffNote_other": "Changes apply to deliveries more than {{count}} hours away. Anything sooner goes as planned."
+    },
+    "deliveries": {
+        "title": "Delivery history",
+        "caption": "Every delivery day on this subscription and what became of it",
+        "count_one": "1 day",
+        "count_other": "{{count}} days",
+        "empty": "No delivery days have been planned yet.",
+        "consumedYes": "Used a day",
+        "consumedNo": "Free",
+        "skipNote": "Skipped days cost nothing. Your balance simply stretches further into the future.",
+        "columns": {
+            "date": "Date",
+            "status": "What happened",
+            "consumed": "Balance"
+        },
+        "statuses": {
+            "scheduled": "Scheduled",
+            "generated": "Being prepared",
+            "skipped_customer": "You skipped it",
+            "skipped_no_safe_meal": "No safe meal available",
+            "skipped_unavailable": "Kitchen unavailable",
+            "delivered": "Delivered",
+            "cancelled": "Cancelled"
+        }
+    },
+    "cancel": {
+        "open": "Cancel subscription",
+        "title": "Cancel this subscription?",
+        "body": "Deliveries stop after the change cut-off. This cannot be undone.",
+        "keep": "Keep it",
+        "confirm": "Cancel subscription",
+        "consequenceTitle": "What stops",
+        "consequenceBody_one": "Your 1 remaining delivery day will not be delivered.",
+        "consequenceBody_other": "Your {{count}} remaining delivery days will not be delivered.",
+        "estimate_one": "We will record a credit of {{amount}} — 1 unused day at {{perDay}}.",
+        "estimate_other": "We will record a credit of {{amount}} — {{count}} unused days at {{perDay}}.",
+        "noRefund": "There is no unused balance left, so nothing will be credited.",
+        "manualSettlement": "A credit is recorded against your account and settled by hand. No money moves automatically.",
+        "doneTitle": "Subscription cancelled",
+        "doneMemo_one": "A credit of {{amount}} has been recorded for 1 unused day.",
+        "doneMemo_other": "A credit of {{amount}} has been recorded for {{count}} unused days.",
+        "doneNoMemo": "There was no unused balance, so nothing was credited."
+    },
+    "weekdays": {
+        "open": "Change delivery days",
+        "title": "Which days do you want deliveries?",
+        "body": "Only the days this plan delivers on are offered.",
+        "confirm": "Save delivery days",
+        "loading": "Checking which days this plan delivers on…",
+        "chooseOne": "Choose at least one delivery day.",
+        "cutOffTitle": "When this takes effect",
+        "cutOffBody_one": "Deliveries less than 1 hour away go ahead as planned. The change starts after that.",
+        "cutOffBody_other": "Deliveries less than {{count}} hours away go ahead as planned. The change starts after that."
+    },
+    "choices": {
+        "open": "Choose your meals",
+        "title": "Choose the meal for this delivery",
+        "body": "Pick what you would like on your next delivery day.",
+        "bodyDated": "Pick what you would like delivered on {{date}}.",
+        "confirm": "Save choice",
+        "selectLabel": "Meal for {{slot}}",
+        "cutOffTitle": "Choose ahead of the cut-off",
+        "cutOffBody": "Choices close before the delivery is prepared. After that the kitchen cooks its default for that day.",
+        "sources": {
+            "customer": "You chose {{meal}}.",
+            "kitchen_default": "The kitchen will cook {{meal}} unless you choose something else.",
+            "substituted": "{{meal}} was substituted, within your allergen declarations."
+        }
     }
 }

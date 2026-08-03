@@ -30,6 +30,12 @@ import { SubscriptionStateBadge } from '../state-badge.tsx';
  * exactly, and `skipped_today` sits with `active` because a subscription that skipped today is
  * still a live subscription, which is the whole reason it is a separate state rather than a flag.
  *
+ * ## Every row says what is left of the balance
+ *
+ * S1 made a subscription a consumable balance of delivery days, and "how many have I got left?" is
+ * the question a list of them is opened to answer. It is on `Subscription` itself rather than behind
+ * `getSubscriptionBalance`, so the list costs one request rather than one per row.
+ *
  * ## Every row says when the next delivery is
  *
  * Doc 17, `SUB-12` puts the remaining entitlement first on the detail screen; on a list, the fact
@@ -151,6 +157,23 @@ export function SubscriptionsScreen() {
                                                   { dateStyle: 'full' },
                                               ),
                                           })}
+                                </Text>
+
+                                {/*
+                                 * The balance, on the list.
+                                 *
+                                 * `Subscription` carries `days` because the backend's own presenter
+                                 * does — so a list of five subscriptions says "6 of 20 days left"
+                                 * five times without five extra requests. A row that had to fetch
+                                 * its own balance would be the N+1 this field exists to prevent.
+                                 */}
+                                <Text
+                                    testID={`subscription-row-${String(subscription.id)}-balance`}
+                                    variant="bodyStrong"
+                                >
+                                    {t('commerce:balance.remaining', {
+                                        count: subscription.days.remaining,
+                                    })}
                                 </Text>
 
                                 <Text tone="secondary" variant="caption">

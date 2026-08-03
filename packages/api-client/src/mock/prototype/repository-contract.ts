@@ -115,6 +115,13 @@ export const CONTRACT_METHODS: Readonly<Record<RepositoryKey, readonly string[]>
         'skipDay',
         'changeAddress',
         'changeSlot',
+        // S1: the balance, the ledger, the refund, and the read that replaced the seven-probe hack.
+        'getSubscriptionQuote',
+        'getSubscriptionBalance',
+        'listSubscriptionDeliveries',
+        'cancelSubscription',
+        'setSubscriptionWeekdays',
+        'setSubscriptionMealChoices',
     ],
     business: [
         'getCorporateProgramme',
