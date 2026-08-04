@@ -1,16 +1,19 @@
 import type {
+    AddCartItemRequest,
     CatalogueFilter,
     CatalogueItem,
+    Cart,
     CorporateProgramme,
     CursorPage,
     Quotation,
     QuotationFilter,
     RequestQuotationRequest,
 } from '@healthy360/api-client/contracts';
-import type { CorporateProgrammeId } from '@healthy360/domain-types';
+import type { CorporateProgrammeId, MealId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
+import { useAddCartItemMutation } from './catalogue-hooks.ts';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -51,6 +54,38 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  */
 
 export { toFailure } from './hooks.ts';
+
+/** Wholesale channel code for corporate buyer carts. Matches the demo `B2bCheckoutWorld`. */
+export const B2B_CART_CHANNEL_CODE = 'wholesale';
+
+/**
+ * Adds a negotiated catalogue line to the corporate buyer's wholesale basket.
+ *
+ * Uses the same `CommerceRepository` surface as the consumer storefront, but opens the cart on the
+ * B2B channel so agreement pricing applies at placement.
+ */
+export function useB2bAddToCartMutation(): UseMutationResult<Cart, unknown, AddCartItemRequest> {
+    return useAddCartItemMutation(B2B_CART_CHANNEL_CODE);
+}
+
+export interface B2bAddCatalogueItemVariables {
+    readonly mealId: MealId;
+    readonly quantity: number;
+}
+
+/** Adds a catalogue line to the wholesale basket at an explicit quantity. */
+export function useB2bAddCatalogueItemMutation(): UseMutationResult<
+    Cart,
+    unknown,
+    B2bAddCatalogueItemVariables
+> {
+    const addToCart = useB2bAddToCartMutation();
+
+    return useMutation({
+        mutationFn: ({ mealId, quantity }: B2bAddCatalogueItemVariables) =>
+            addToCart.mutateAsync({ mealId, quantity }),
+    });
+}
 
 /* ── programmes ──────────────────────────────────────────────────────────────────────────────── */
 

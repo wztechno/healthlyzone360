@@ -10,9 +10,9 @@ use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Customers\Services\ShopperResolver;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
-use Healthy360\Tenancy\TenantContext;
 
 /**
  * Turns route parameters into records this shopper is allowed to see, or into a
@@ -33,17 +33,14 @@ use Healthy360\Tenancy\TenantContext;
  */
 final class CartLocator
 {
-    public function __construct(private readonly TenantContext $context) {}
+    public function __construct(private readonly ShopperResolver $shoppers) {}
 
     /**
      * The customer account behind the authenticated identity.
      *
-     * **Always the `b2c` account**, and that is not a narrowing: a `b2b`
-     * account holds an organisation rather than a user, so no other shape of
-     * account is reachable from an identity at all, and a `guest` account
-     * arrives with `X-Guest-Token` rather than with a session. The partial
-     * unique index on `(user_id, account_type)` is what makes "the" the right
-     * article here.
+     * **The consumer account by default**, and a corporate buyer account when
+     * the request carries an organisation context the person belongs to. A
+     * `guest` account arrives with `X-Guest-Token` rather than with a session.
      *
      * A signed-in person with no customer account is **403
      * `account.verification_required`**, not 404: the account is missing
@@ -58,22 +55,40 @@ final class CartLocator
      */
     public function shopper(): CustomerAccount
     {
-        $userId = $this->context->userId();
+        return $this->shoppers->resolve();
+    }
 
-        $account = $userId === null ? null : CustomerAccount::query()
-            ->where('user_id', $userId)
-            ->where('account_type', CustomerAccountType::B2c->value)
-            ->first();
-
-        if (! $account instanceof CustomerAccount) {
-            throw new ApiException(
-                ErrorCode::AccountVerificationRequired,
-                'You do not have a customer account yet.',
-                ['outstanding' => ['customer_account_missing']],
-            );
+    /**
+     * Whether this shopper may trade on this channel.
+     *
+     * Private-pricing channels — wholesale, corporate and insurance desks —
+     * refuse every account shape except a corporate buyer account. A consumer
+     * seeing a negotiated tariff is the commercial failure K1.5 drew the
+     * boundary against.
+     *
+     * @throws ApiException
+     */
+    public function assertShopperMayUseChannel(CustomerAccount $shopper, SalesChannel $channel): void
+    {
+        if (! $channel->channel_kind->hasPrivatePricing()) {
+            return;
         }
 
-        return $account;
+        if ($shopper->account_type === CustomerAccountType::B2b) {
+            return;
+        }
+
+        throw new ApiException(
+            ErrorCode::CartChannelRefused,
+            'This sales channel is only available to corporate buyer accounts.',
+            [
+                'reasons' => [[
+                    'reason' => 'channel_buyer_required',
+                    'channel_kind' => $channel->channel_kind->value,
+                    'required_account_type' => CustomerAccountType::B2b->value,
+                ]],
+            ],
+        );
     }
 
     /**
@@ -146,6 +161,19 @@ final class CartLocator
         if (! $channel instanceof SalesChannel) {
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
+
+        return $channel;
+    }
+
+    /**
+     * Resolve a trading channel and confirm the shopper may use it.
+     *
+     * @throws ApiException
+     */
+    public function channelForShopper(string $code, CustomerAccount $shopper): SalesChannel
+    {
+        $channel = $this->channel($code);
+        $this->assertShopperMayUseChannel($shopper, $channel);
 
         return $channel;
     }

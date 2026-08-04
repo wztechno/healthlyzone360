@@ -20,7 +20,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *
  * A list is addressable by identifier **or by code**, like a sales channel:
  * a client that walked the list holds identifiers, and an operator or an
- * importer holds `greenlife-b2b-usd`. The code is unique per organisation, so
+ * importer holds `healthy360-b2b-usd`. The code is unique per organisation, so
  * there is no ambiguity to resolve.
  */
 final class PriceListLocator

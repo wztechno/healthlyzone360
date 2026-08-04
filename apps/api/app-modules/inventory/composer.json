@@ -1,0 +1,22 @@
+{
+	"name": "healthy360/inventory",
+	"description": "Stock levels and movement ledger without valuation.",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Inventory\\": "src/",
+			"Healthy360\\Inventory\\Tests\\": "tests/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Inventory\\Providers\\InventoryServiceProvider"
+			]
+		}
+	}
+}

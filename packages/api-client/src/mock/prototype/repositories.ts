@@ -820,7 +820,7 @@ export function createPrototypeRepositories(
     /* ── commerce ──────────────────────────────────────────────────────────────────────────── */
 
     const commerce: CommerceRepository = {
-        async getCart(): Promise<Cart> {
+        async getCart(_options?: { readonly channelCode?: string | undefined }): Promise<Cart> {
             await settle();
             return store.cart();
         },

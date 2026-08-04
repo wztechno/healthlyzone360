@@ -18,9 +18,10 @@ import {
     type DietClassification,
     type SalesChannel,
 } from '@healthy360/domain-types';
-import { isMeasureUnit, type MeasureUnit } from '@healthy360/nutrition';
+import { isMeasureUnit, type MeasureUnit, type NutritionFacts } from '@healthy360/nutrition';
 
 import type {
+    AllergenContainment,
     BranchOperating,
     BranchOperatingDay,
     ChannelAvailability,
@@ -29,6 +30,7 @@ import type {
     IngredientAdmin,
     IngredientAllergenMapping,
     MealAdmin,
+    MealAvailabilityDay,
     PlanAdmin,
     PlanCombination,
     PlanDurationAdmin,
@@ -43,11 +45,14 @@ import type {
     RecipeAllergenDeclaration,
     RecipeLine,
     RecipeOutput,
+    RecipeRollupPreview,
     RecipeStepAdmin,
     RecipeVersionAdmin,
     RecipeVersionSummary,
+    RollupWarning,
     ServiceArea,
 } from '../contracts/kitchen-admin.ts';
+import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
 import type {
     AdminCatalogueItem,
@@ -384,14 +389,29 @@ export function mapProductAdminFromItem(
     };
 }
 
+type MealAvailabilityDayWire = {
+    readonly date: string;
+    readonly is_available: boolean;
+    readonly remaining_portions: number | null;
+    readonly order_cut_off_at: string | null;
+};
+
 export function mapMealAdminFromItem(
-    wire: AdminCatalogueItem,
+    wire: AdminCatalogueItem & {
+        readonly availability_days?: readonly MealAvailabilityDayWire[];
+    },
     options?: {
         readonly channelAvailability?: readonly ChannelAvailability[];
         readonly dietClassifications?: readonly DietClassification[];
         readonly allergens?: readonly AllergenCode[];
+        readonly availability?: readonly MealAvailabilityDay[];
     },
 ): MealAdmin {
+    const availabilityFromWire =
+        wire.availability_days === undefined
+            ? undefined
+            : mapMealAvailabilityDays(wire.availability_days);
+
     return {
         id: MealId.unsafe(wire.id),
         meta: mapCatalogueItemMeta(wire),
@@ -405,9 +425,108 @@ export function mapMealAdminFromItem(
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],
         channelAvailability: options?.channelAvailability ?? [],
-        availability: [],
+        availability: options?.availability ?? availabilityFromWire ?? [],
         imagePlaceholderId: wire.image_placeholder_id ?? '',
         marginPercent: null,
+    };
+}
+
+export function mapMealAvailabilityDays(
+    days: readonly {
+        readonly date: string;
+        readonly is_available: boolean;
+        readonly remaining_portions: number | null;
+        readonly order_cut_off_at: string | null;
+    }[],
+): readonly MealAvailabilityDay[] {
+    return days.map((day) => ({
+        date: day.date,
+        isAvailable: day.is_available,
+        remaining: day.remaining_portions,
+        orderCutOffAt: day.order_cut_off_at,
+    }));
+}
+
+/**
+ * Empty facts used when the server has not computed nutrition yet (N1). The
+ * roll-up warning list carries the honest reason; inventing numbers would lie.
+ */
+function unavailableNutritionFacts(
+    basis: NutritionFacts['basis'],
+    calculatedAt: string,
+): NutritionFacts {
+    return {
+        basis,
+        kind: 'planned',
+        serving: null,
+        totalGrams: null,
+        amounts: [],
+        source: {
+            kind: 'ingredient_derived',
+            label: 'Unavailable until N1 nutrition authority',
+            version: '0',
+            calculatedAt,
+        },
+        calculation: {
+            method: 'rollup.preview.unavailable',
+            basis,
+            calculatedAt,
+            prototype: false,
+            rounding: 'none',
+            notes: ['Nutrition figures are not computed on the server yet.'],
+        },
+    };
+}
+
+export function mapRecipeRollupPreview(wire: {
+    readonly per_recipe: unknown;
+    readonly per_serving: unknown;
+    readonly per_100g: unknown;
+    readonly allergen_sources: ReadonlyArray<{
+        readonly allergen_code: string;
+        readonly containment: string;
+        readonly ingredient_ids: readonly string[];
+    }>;
+    readonly estimated_cost: { readonly amount: string; readonly currency: string } | null;
+    readonly warnings: ReadonlyArray<{
+        readonly code: string;
+        readonly message: string;
+        readonly ingredient_ids?: readonly string[];
+    }>;
+}): RecipeRollupPreview {
+    const calculatedAt = UNKNOWN_ISO_DATE_TIME;
+    const estimated =
+        wire.estimated_cost !== null && isCurrencyCode(wire.estimated_cost.currency)
+            ? {
+                  amount: Number(wire.estimated_cost.amount),
+                  currency: wire.estimated_cost.currency,
+              }
+            : null;
+
+    const warnings: RollupWarning[] = wire.warnings.map((warning) => ({
+        code: warning.code,
+        message: warning.message,
+        ingredientIds: (warning.ingredient_ids ?? []).map((id) => IngredientId.unsafe(id)),
+    }));
+
+    return {
+        perRecipe: unavailableNutritionFacts('per_recipe', calculatedAt),
+        perServing: unavailableNutritionFacts('per_serving', calculatedAt),
+        per100g: wire.per_100g === null ? null : unavailableNutritionFacts('per_100g', calculatedAt),
+        allergenSources: wire.allergen_sources.flatMap((source) => {
+            if (!ALLERGEN_CONTAINMENTS.includes(source.containment as AllergenContainment)) {
+                return [];
+            }
+            return [
+                {
+                    allergenCode: AllergenCode.unsafe(source.allergen_code),
+                    containment: source.containment as AllergenContainment,
+                    ingredientIds: source.ingredient_ids.map((id) => IngredientId.unsafe(id)),
+                },
+            ];
+        }),
+        estimatedCost: estimated,
+        warnings,
     };
 }
 

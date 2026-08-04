@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Services;
 
+use Healthy360\B2b\Contracts\InvoicingSettlementLookup;
 use Healthy360\B2b\Contracts\SellerOpenOrders;
 use Healthy360\Organisations\Models\Organisation;
 
@@ -48,7 +49,10 @@ final readonly class SettlementRegistry
     /** The reason `open_orders` carries when nothing has bound the port. */
     public const string ORDERS_ABSENT = 'orders_module_absent';
 
-    public function __construct(private SellerOpenOrders $orders) {}
+    public function __construct(
+        private SellerOpenOrders $orders,
+        private InvoicingSettlementLookup $invoicing,
+    ) {}
 
     public function assess(Organisation $organisation): SettlementAssessment
     {
@@ -56,9 +60,9 @@ final readonly class SettlementRegistry
 
         return new SettlementAssessment([
             $this->openOrders($organisationId),
-            $this->outstandingInvoices(),
-            $this->creditBalance(),
-            $this->securityDeposit(),
+            $this->outstandingInvoices($organisationId),
+            $this->creditBalance($organisationId),
+            $this->securityDeposit($organisationId),
         ]);
     }
 
@@ -93,33 +97,42 @@ final readonly class SettlementRegistry
         );
     }
 
-    /**
-     * PAY1. Until then this says so, and says it in a machine-readable way.
-     */
-    private function outstandingInvoices(): SettlementCheck
+    private function outstandingInvoices(string $organisationId): SettlementCheck
     {
-        return SettlementCheck::notApplicable(
-            'outstanding_invoices',
-            self::INVOICING_ABSENT,
-            'No invoicing module exists, so no invoice was checked. This is a gap, not a pass.',
-        );
+        if (! $this->invoicing->isAnswerable()) {
+            return SettlementCheck::notApplicable(
+                'outstanding_invoices',
+                self::INVOICING_ABSENT,
+                'No invoicing module exists, so no invoice was checked. This is a gap, not a pass.',
+            );
+        }
+
+        return $this->invoicing->outstandingInvoices($organisationId);
     }
 
-    private function creditBalance(): SettlementCheck
+    private function creditBalance(string $organisationId): SettlementCheck
     {
-        return SettlementCheck::notApplicable(
-            'credit_balance',
-            self::INVOICING_ABSENT,
-            'Agreement credit limits are terms, not a ledger. Nothing tracks drawn credit yet.',
-        );
+        if (! $this->invoicing->isAnswerable()) {
+            return SettlementCheck::notApplicable(
+                'credit_balance',
+                self::INVOICING_ABSENT,
+                'Agreement credit limits are terms, not a ledger. Nothing tracks drawn credit yet.',
+            );
+        }
+
+        return $this->invoicing->creditBalance($organisationId);
     }
 
-    private function securityDeposit(): SettlementCheck
+    private function securityDeposit(string $organisationId): SettlementCheck
     {
-        return SettlementCheck::notApplicable(
-            'security_deposit',
-            self::INVOICING_ABSENT,
-            'No deposit is held by any module the platform has built.',
-        );
+        if (! $this->invoicing->isAnswerable()) {
+            return SettlementCheck::notApplicable(
+                'security_deposit',
+                self::INVOICING_ABSENT,
+                'No deposit is held by any module the platform has built.',
+            );
+        }
+
+        return $this->invoicing->securityDeposit($organisationId);
     }
 }

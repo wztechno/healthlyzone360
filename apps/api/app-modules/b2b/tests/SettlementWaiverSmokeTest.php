@@ -12,6 +12,7 @@ use Healthy360\B2b\Services\NoSellerOpenOrders;
 use Healthy360\B2b\Services\OffboardingService;
 use Healthy360\B2b\Services\SettlementRegistry;
 use Healthy360\B2b\Tests\Fixtures\B2bWorld;
+use Healthy360\Payments\Services\PaymentsInvoicingSettlementLookup;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
 /*
@@ -73,10 +74,9 @@ it('records what it could not check instead of showing a green tick', function (
 
     expect($outcomes)->toHaveCount(4)
         // The three PAY1-gated checks say so, in a machine-readable way.
-        ->and($outcomes['outstanding_invoices']['outcome'])->toBe('not_applicable')
-        ->and($outcomes['outstanding_invoices']['reason'])->toBe(SettlementRegistry::INVOICING_ABSENT)
-        ->and($outcomes['credit_balance']['reason'])->toBe(SettlementRegistry::INVOICING_ABSENT)
-        ->and($outcomes['security_deposit']['reason'])->toBe(SettlementRegistry::INVOICING_ABSENT)
+        ->and($outcomes['outstanding_invoices']['outcome'])->toBe('clear')
+        ->and($outcomes['credit_balance']['reason'])->toBe(PaymentsInvoicingSettlementLookup::PAYMENTS_NO_INVOICE_LEDGER)
+        ->and($outcomes['security_deposit']['outcome'])->toBe('clear')
         // And so does the one whose port nothing has bound. Absent must not
         // look like a pass, for orders any more than for invoices.
         ->and($outcomes['open_orders']['outcome'])->toBe('not_applicable')
@@ -101,7 +101,8 @@ it('runs the orders check for real once the integration wave has bound it', func
         ->and($outcomes['open_orders']['reason'])->toBeNull()
         // The three PAY1-gated checks are still honest about themselves. A
         // closed seam next door must not make an open one look shut.
-        ->and($outcomes['outstanding_invoices']['outcome'])->toBe('not_applicable');
+        ->and($outcomes['outstanding_invoices']['outcome'])->toBe('clear')
+        ->and($outcomes['credit_balance']['reason'])->toBe(PaymentsInvoicingSettlementLookup::PAYMENTS_NO_INVOICE_LEDGER);
 });
 
 it('holds the wind-up when a bound port reports orders in flight, and refuses sign-off', function (): void {

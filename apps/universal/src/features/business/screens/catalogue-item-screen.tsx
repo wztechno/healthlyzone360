@@ -7,14 +7,20 @@ import {
     Stack,
     Table,
     Text,
+    useToast,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import type { VolumeTier } from '@healthy360/api-client/contracts';
+import { MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { useCatalogueItemQuery } from '../../../data/business-hooks.ts';
+import {
+    useCatalogueItemQuery,
+    useB2bAddCatalogueItemMutation,
+    B2B_CART_CHANNEL_CODE,
+} from '../../../data/business-hooks.ts';
 import { PrototypeButton } from '../../../prototype/index.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -50,9 +56,37 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const toast = useToast();
 
     const query = useCatalogueItemQuery(itemId ?? null);
     const item = query.data;
+    const addToCart = useB2bAddCatalogueItemMutation();
+
+    const onAddToCart = (onSuccess?: () => void) => {
+        if (item === undefined) return;
+        const mealId = item.mealId ?? MealId.unsafe(item.id);
+        addToCart.mutate(
+            { mealId, quantity: item.minimumOrderQuantity },
+            {
+                onSuccess: (cart) => {
+                    toast.show({
+                        testID: 'catalogue-item-added',
+                        tone: 'success',
+                        message: t('business:item.addedToCart', { items: cart.itemCount }),
+                    });
+                    onSuccess?.();
+                },
+            },
+        );
+    };
+
+    const onPlaceOrder = () => {
+        onAddToCart(() => {
+            router.push(
+                `/customer/checkout?channel=${encodeURIComponent(B2B_CART_CHANNEL_CODE)}` as never,
+            );
+        });
+    };
 
     const tierColumns: readonly TableColumn<VolumeTier>[] = [
         {
@@ -204,6 +238,23 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
 
                         <Inline space="sm" wrap>
                             {backAction}
+                            {item.mealId !== null || item.kind === 'meal' ? (
+                                <>
+                                    <Button
+                                        testID="catalogue-item-cart"
+                                        label={t('business:item.addToCart')}
+                                        loading={addToCart.isPending}
+                                        onPress={onAddToCart}
+                                    />
+                                    <Button
+                                        testID="catalogue-item-order"
+                                        variant="secondary"
+                                        label={t('business:item.placeOrder')}
+                                        loading={addToCart.isPending}
+                                        onPress={onPlaceOrder}
+                                    />
+                                </>
+                            ) : null}
                             <Button
                                 testID="catalogue-item-quote"
                                 label={t('business:item.quote')}

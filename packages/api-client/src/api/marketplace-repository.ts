@@ -164,7 +164,7 @@ export function createApiMarketplaceRepository(transport: Transport): Marketplac
             return meal;
         },
 
-        // Real published plans exist (DEC1: seven GreenLife plans priced under the
+        // Real published plans exist (DEC1: seven Healthy360 plans priced under the
         // owner-approved rule and published through readiness), so the prepared plan
         // reads are spread in and their ledger rows are gone.
         ...createApiPlanReads(transport),

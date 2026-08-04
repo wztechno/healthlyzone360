@@ -84,6 +84,17 @@ use Random\RandomException;
  *    `(organisation_id, status)` index exists to list them together.
  * 4. **Invitations**, one per named contact that has an email.
  *
+ * ## Seller-side wholesale setup (checkout phase 1)
+ *
+ * Provisioning creates the **buyer** tenant only. A seller kitchen still
+ * needs, in its own organisation: a `SalesChannel` of kind `b2b` (or
+ * `corporate` / `insurance`), a `PriceList` with `customer_scope = agreement`
+ * owned by that kitchen, rows on the list, a `channel_price_lists` assignment,
+ * `channel_catalogue_items` for the articles offered, and an active
+ * `b2b_agreements.price_list_id` pointing at that list once the buyer is
+ * provisioned. `B2bCheckoutWorld` in the test fixtures is the minimal worked
+ * example.
+ *
  * **No memberships are created.** `InvitationService::accept()` says so on its
  * own result object, and this service does not quietly disagree: a membership
  * is granted when a named person signs in and accepts, not when a reviewer

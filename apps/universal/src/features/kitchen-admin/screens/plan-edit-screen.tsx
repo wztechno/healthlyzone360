@@ -102,7 +102,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * themselves carry, plus any added here; a cell exists exactly when a variant sits in it. See
  * `../plan-matrix.ts` — the model is pure, so the toggle can be asserted without rendering.
  *
- * The seeded prototype plans and the GreenLife shape the importer will bring are different fillings
+ * The seeded prototype plans and the workbook shape the importer will bring are different fillings
  * of the same grid, and the editor handles both without being told which it has: the family plan
  * sells one meal a day at one band in three household sizes, so one cell holds three variants and
  * the cell says so; an imported plan whose variants carry shapes no combination declares gets those

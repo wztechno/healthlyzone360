@@ -145,6 +145,7 @@ class DemoTenantSeeder extends Seeder
 
         $this->seedVerdantTariff($verdant, $webShop, $verdantOwner);
         $this->seedVerdantPlan($verdant, $verdantOwner);
+        $this->seedMarketplacePlan($verdant, $webShop, $verdantOwner);
         $this->seedVerdantDelivery($verdant, $alQuoz, $verdantOwner);
         $this->seedVerdantMenu($verdant, $webShop, $verdantOwner);
 
@@ -445,6 +446,114 @@ class DemoTenantSeeder extends Seeder
         $this->planDurationAssignment($verdant, $premium, $twentyDays, '10.00', $creator);
 
         $this->seedVerdantPlanTariff($verdant, $plan, $standard, $creator);
+    }
+
+    /**
+     * A fully priced, published subscription plan assigned to the web shop —
+     * the smallest complete world in which `GET /marketplace/meal-plans`
+     * returns something real, while `balanced-plan` stays deliberately
+     * unpublishable as the gate demo.
+     */
+    private function seedMarketplacePlan(Organisation $verdant, SalesChannel $webShop, User $creator): void
+    {
+        $catalogue = Catalogue::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'default')
+            ->sole();
+
+        $lunchDinner = MealCombinationOption::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'lunch-dinner')
+            ->sole();
+        $fullDay = MealCombinationOption::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'full-day')
+            ->sole();
+
+        $lowerBand = EnergyBand::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'kcal-1200-1500')
+            ->sole();
+        $upperBand = EnergyBand::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'kcal-1500-1800')
+            ->sole();
+
+        $oneOff = PlanDuration::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'one-off')
+            ->sole();
+        $twentyDays = PlanDuration::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'days-20')
+            ->sole();
+
+        $plan = $this->catalogueItem(
+            $verdant,
+            $catalogue,
+            'marketplace-balanced-plan',
+            CatalogueItemType::SubscriptionPlan,
+            'Marketplace balanced plan',
+            'الخطة المتوازنة للمتجر',
+            $creator,
+        );
+
+        SubscriptionPlanProfile::withoutTenancy()->updateOrCreate(
+            ['catalogue_item_id' => $plan->getKey()],
+            [
+                'organisation_id' => $verdant->getKey(),
+                'plan_type' => PlanType::Both,
+                'pricing_basis' => PlanPricingBasis::PerDay,
+                'allows_free_selection' => false,
+                'skip_allowed' => true,
+                'pause_allowed' => true,
+                'change_cutoff_hours' => 24,
+                'summary_en' => 'Two meals a day, portioned to a calorie band.',
+                'summary_ar' => 'وجبتان يومياً بحسب نطاق السعرات.',
+            ],
+        );
+
+        $standard = $this->planConfiguration($plan, $verdant, $lunchDinner, $lowerBand, ServiceTier::Standard, 2, 0, '2 meals · 1200–1500 kcal', $creator);
+        $premium = $this->planConfiguration($plan, $verdant, $fullDay, $upperBand, ServiceTier::Premium, 3, 1, '3 meals + snack · 1500–1800 kcal', $creator);
+
+        $this->planDurationAssignment($verdant, $standard, $oneOff, null, $creator);
+        $this->planDurationAssignment($verdant, $standard, $twentyDays, null, $creator);
+        $this->planDurationAssignment($verdant, $premium, $twentyDays, '10.00', $creator);
+
+        $tariff = PriceList::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-marketplace-plans-usd'],
+            [
+                'name_en' => 'Marketplace subscription plans',
+                'name_ar' => 'خطط الاشتراك في المتجر',
+                'currency_code' => 'USD',
+                'customer_scope' => CustomerScope::PublicTariff,
+                'status' => PriceListStatus::Active,
+                'created_by' => $creator->getKey(),
+                'updated_by' => $creator->getKey(),
+            ],
+        );
+
+        $this->price($tariff, (string) $plan->getKey(), $standard->getKey(), null, 5500, PriceStatus::Confirmed, $creator);
+        $this->price($tariff, (string) $plan->getKey(), $premium->getKey(), null, 7200, PriceStatus::Confirmed, $creator);
+
+        ChannelPriceList::withoutTenancy()->updateOrCreate(
+            ['sales_channel_id' => $webShop->getKey(), 'price_list_id' => $tariff->getKey()],
+            ['organisation_id' => $verdant->getKey(), 'priority' => 0, 'created_by' => $creator->getKey()],
+        );
+
+        $plan->refresh();
+
+        $readiness = App::make(CatalogueItemReadiness::class);
+        $reasons = $readiness->reasons($plan);
+
+        if ($reasons !== []) {
+            throw new RuntimeException(sprintf(
+                'The marketplace plan is not ready to publish: %s.',
+                implode(', ', array_column($reasons, 'code')),
+            ));
+        }
+
+        $plan->forceFill(['status' => CatalogueItemStatus::Published])->save();
     }
 
     /**

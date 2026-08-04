@@ -22,7 +22,7 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  * §4.3 replaced the zero-day sentinel with an explicit
  * `duration_kind` (`one_off` | `fixed_days`) and a nullable `duration_days`,
  * precisely so that "not a subscription, just one order" stops being a magic
- * number that a per-day calculation divides by. GreenLife's real runs are 5, 20,
+ * number that a per-day calculation divides by. the workbook's real runs are 5, 20,
  * 40 and 60 days; not one of them is expressible in the draft's enumeration.
  *
  * So `PlanDurationOption` here carries `kind`, `days`, the kitchen's own `code`

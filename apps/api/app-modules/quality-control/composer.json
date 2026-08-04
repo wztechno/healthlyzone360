@@ -1,0 +1,17 @@
+{
+	"name": "healthy360/quality-control",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\QualityControl\\": "src/",
+			"Healthy360\\QualityControl\\Tests\\": "tests/"
+		}
+	},
+	"extra": {
+		"laravel": {
+			"providers": ["Healthy360\\QualityControl\\Providers\\QualityControlServiceProvider"]
+		}
+	}
+}

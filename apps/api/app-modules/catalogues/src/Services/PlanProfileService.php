@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\DB;
  * refuses a plan with no profile.
  *
  * **`change_cutoff_hours` defaults to 24 and the default is evidence**, not a
- * guess: the GreenLife operating rule and legacy source B's amendment window
+ * guess: the workbook operating rule and legacy source B's amendment window
  * say the same thing from opposite directions, and the merge preserves both by
  * keeping one column with that default. A kitchen that preps at dawn may raise
  * it; zero is permitted, because "change it until the van leaves" is a policy

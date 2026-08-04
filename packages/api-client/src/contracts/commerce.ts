@@ -416,9 +416,14 @@ export interface SubscriptionQuote {
     readonly refusals: readonly SubscriptionQuoteRefusal[];
 }
 
+/** Which sales channel to open the basket on. Omitted means the storefront default (`web-shop`). */
+export interface GetCartOptions {
+    readonly channelCode?: string | undefined;
+}
+
 export interface CommerceRepository {
     /** `POST /api/v1/carts` creates one lazily; this returns the current cart, creating if needed. */
-    getCart(): Promise<Cart>;
+    getCart(options?: GetCartOptions): Promise<Cart>;
     addCartItem(cartId: CartId, request: AddCartItemRequest): Promise<Cart>;
     removeCartItem(cartId: CartId, itemId: string): Promise<Cart>;
 

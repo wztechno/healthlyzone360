@@ -47,7 +47,7 @@ import { PlansScreen } from './screens/plans-screen.tsx';
  *    (appendix D), so this is the whole slice in one assertion.
  * 2. **The two shapes both work.** The seeded catalogue holds a plan whose three variants occupy
  *    three different cells and a plan whose three variants share one, and the summary and the cell
- *    both say so. The GreenLife structure the importer will bring is the second shape.
+ *    both say so. The workbook structure the importer will bring is the second shape.
  * 3. **The `CHECK` cannot be broken through the interface.** Switching a duration to `one_off`
  *    clears its day count and takes the field away; switching back leaves the row incomplete and
  *    blocks the save until a positive count is typed.

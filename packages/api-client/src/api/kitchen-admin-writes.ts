@@ -28,9 +28,14 @@ import type {
     PriceListEntry,
     ProductAdmin,
     RecipeAdmin,
+    RecipeRollupDraft,
+    RecipeRollupPreview,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
+    SetDeliveryWindowsRequest,
     SetIngredientAllergensRequest,
+    SetMealAvailabilityRequest,
+    SetPlanCombinationsRequest,
     SetPlanDurationsRequest,
     SetPlanVariantsRequest,
     SetPriceListEntriesRequest,
@@ -51,6 +56,7 @@ import type {
     AdminIngredient,
     AdminRecipeVersion,
     AdminSalesChannel,
+    DeliveryWindow as WireDeliveryWindow,
     EnergyBand,
     IngredientCategory,
     MealCombinationOption,
@@ -59,6 +65,7 @@ import type {
 } from '../generated/types.ts';
 import {
     buildCategoryLookup,
+    mapRecipeRollupPreview,
     pickCurrentRecipeVersion,
     type CategoryLookup,
 } from './kitchen-admin-mappers.ts';
@@ -79,6 +86,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'setRecipeLines'
     | 'setRecipeSteps'
     | 'setRecipeOutputs'
+    | 'previewRecipeRollup'
     | 'publishRecipe'
     | 'retireRecipe'
     | 'createProduct'
@@ -91,16 +99,19 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateMeal'
     | 'publishMeal'
     | 'retireMeal'
+    | 'setMealAvailability'
     | 'createPlan'
     | 'updatePlan'
     | 'publishPlan'
     | 'retirePlan'
     | 'setPlanVariants'
     | 'setPlanDurations'
+    | 'setPlanCombinations'
     | 'createZone'
     | 'updateZone'
     | 'archiveZone'
     | 'setZoneAreas'
+    | 'setDeliveryWindows'
     | 'setBranchOperating'
 >;
 
@@ -131,6 +142,24 @@ function isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         value,
     );
+}
+
+/**
+ * Heuristic sitting flags for org meal-combination vocabulary. The admin contract
+ * carries meals/snacks counts; the wire carries breakfast/lunch/dinner booleans.
+ */
+function sittingsForMealsPerDay(mealsPerDay: number): {
+    readonly includes_breakfast: boolean;
+    readonly includes_lunch: boolean;
+    readonly includes_dinner: boolean;
+} {
+    if (mealsPerDay >= 3) {
+        return { includes_breakfast: true, includes_lunch: true, includes_dinner: true };
+    }
+    if (mealsPerDay === 2) {
+        return { includes_breakfast: false, includes_lunch: true, includes_dinner: true };
+    }
+    return { includes_breakfast: false, includes_lunch: true, includes_dinner: false };
 }
 
 class MeasurementUnitLookup {
@@ -1070,6 +1099,79 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getPlan(planId);
         },
 
+        /**
+         * Org-scoped meal combinations, not plan-scoped. The contract keys the
+         * write by plan so the editor can round-trip; the vocabulary itself is
+         * shared across the kitchen's plans (same as durations).
+         */
+        async setPlanCombinations(
+            planId: SubscriptionPlanId,
+            request: SetPlanCombinationsRequest,
+        ): Promise<PlanAdmin> {
+            let combinations = await transport.request<MealCombinationOption[]>({
+                method: 'GET',
+                path: '/catalogue/plan-vocabulary/combinations',
+            });
+
+            const requestedCodes = new Set(request.combinations.map((row) => row.code));
+
+            for (const combination of request.combinations) {
+                const sittings = sittingsForMealsPerDay(combination.mealsPerDay);
+                const existing = combinations.find((row) => row.code === combination.code);
+
+                if (existing === undefined) {
+                    const created = await transport.requestEnvelope<{
+                        readonly combination: MealCombinationOption;
+                    }>({
+                        method: 'POST',
+                        path: '/catalogue/plan-vocabulary/combinations',
+                        body: {
+                            code: combination.code,
+                            name_en: combination.label.en,
+                            ...(combination.label.ar === undefined || combination.label.ar === ''
+                                ? {}
+                                : { name_ar: combination.label.ar }),
+                            meals_per_day: combination.mealsPerDay,
+                            ...sittings,
+                        },
+                    });
+                    combinations = [...combinations, created.data.combination];
+                    continue;
+                }
+
+                const updated = await transport.requestEnvelope<{
+                    readonly combination: MealCombinationOption;
+                }>({
+                    method: 'PATCH',
+                    path: `/catalogue/plan-vocabulary/combinations/${encodeURIComponent(existing.id)}`,
+                    body: {
+                        name_en: combination.label.en,
+                        ...(combination.label.ar === undefined
+                            ? {}
+                            : { name_ar: combination.label.ar }),
+                        meals_per_day: combination.mealsPerDay,
+                        is_active: combination.isAvailable,
+                        ...sittings,
+                    },
+                });
+                combinations = combinations.map((row) =>
+                    row.id === existing.id ? updated.data.combination : row,
+                );
+            }
+
+            for (const existing of combinations) {
+                if (requestedCodes.has(existing.code) || !existing.is_active) continue;
+
+                await transport.request({
+                    method: 'PATCH',
+                    path: `/catalogue/plan-vocabulary/combinations/${encodeURIComponent(existing.id)}`,
+                    body: { is_active: false },
+                });
+            }
+
+            return reads.getPlan(planId);
+        },
+
         async createZone(request: CreateDeliveryZoneRequest): Promise<DeliveryZoneAdmin> {
             const envelope = await transport.requestEnvelope<{
                 readonly delivery_zone: { readonly id: string };
@@ -1155,6 +1257,139 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 },
             });
             return reads.getZone(zoneId);
+        },
+
+        /**
+         * Org-scoped delivery windows. The contract keys the write by zone so
+         * the zone editor can own the form; windows themselves are kitchen
+         * vocabulary (no zone FK on the wire today).
+         */
+        async setDeliveryWindows(
+            zoneId: DeliveryZoneId,
+            request: SetDeliveryWindowsRequest,
+        ): Promise<DeliveryZoneAdmin> {
+            let windows = await transport.request<WireDeliveryWindow[]>({
+                method: 'GET',
+                path: '/catalogue/delivery-windows',
+            });
+
+            const keptIds = new Set<string>();
+
+            for (const window of request.windows) {
+                const body = {
+                    name_en: window.label.en,
+                    ...(window.label.ar === undefined || window.label.ar === ''
+                        ? {}
+                        : { name_ar: window.label.ar }),
+                    weekdays: [...window.weekdays],
+                    starts_at: window.startsAt,
+                    ends_at: window.endsAt,
+                    is_active: window.isActive ?? true,
+                };
+
+                if (window.id === null) {
+                    const created = await transport.requestEnvelope<{
+                        readonly delivery_window: WireDeliveryWindow;
+                    }>({
+                        method: 'POST',
+                        path: '/catalogue/delivery-windows',
+                        body: {
+                            code: slugifyCode(window.label.en),
+                            ...body,
+                        },
+                    });
+                    windows = [...windows, created.data.delivery_window];
+                    keptIds.add(created.data.delivery_window.id);
+                    continue;
+                }
+
+                const id = String(window.id);
+                keptIds.add(id);
+                const updated = await transport.requestEnvelope<{
+                    readonly delivery_window: WireDeliveryWindow;
+                }>({
+                    method: 'PATCH',
+                    path: `/catalogue/delivery-windows/${encodeURIComponent(id)}`,
+                    body,
+                });
+                windows = windows.map((row) =>
+                    row.id === id ? updated.data.delivery_window : row,
+                );
+            }
+
+            for (const existing of windows) {
+                if (keptIds.has(existing.id) || !existing.is_active) continue;
+
+                await transport.request({
+                    method: 'PATCH',
+                    path: `/catalogue/delivery-windows/${encodeURIComponent(existing.id)}`,
+                    body: { is_active: false },
+                });
+            }
+
+            return reads.getZone(zoneId);
+        },
+
+        async setMealAvailability(
+            mealId: MealId,
+            request: SetMealAvailabilityRequest,
+        ): Promise<MealAdmin> {
+            await transport.request({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(String(mealId))}/availability`,
+                headers: ifMatch(request.lockVersion),
+                body: {
+                    days: request.days.map((day) => ({
+                        date: day.date,
+                        is_available: day.isAvailable,
+                        remaining: day.remaining,
+                        order_cut_off_at: day.orderCutOffAt,
+                    })),
+                },
+            });
+
+            return reads.getMeal(mealId);
+        },
+
+        async previewRecipeRollup(draft: RecipeRollupDraft): Promise<RecipeRollupPreview> {
+            const lines = await Promise.all(
+                draft.lines.map(async (line) => {
+                    const unitId = await units.resolve(transport, line.unit);
+                    return {
+                        ingredient_id: String(line.ingredientId),
+                        quantity: line.quantity,
+                        ...(unitId === null ? {} : { unit_id: unitId }),
+                    };
+                }),
+            );
+
+            const envelope = await transport.requestEnvelope<{
+                readonly per_recipe: null;
+                readonly per_serving: null;
+                readonly per_100g: null;
+                readonly allergen_sources: ReadonlyArray<{
+                    readonly allergen_code: string;
+                    readonly containment: string;
+                    readonly ingredient_ids: readonly string[];
+                }>;
+                readonly estimated_cost: { readonly amount: string; readonly currency: string } | null;
+                readonly warnings: ReadonlyArray<{
+                    readonly code: string;
+                    readonly message: string;
+                    readonly ingredient_ids?: readonly string[];
+                }>;
+            }>({
+                method: 'POST',
+                path: '/catalogue/recipes/roll-up-preview',
+                body: {
+                    recipe_id: draft.recipeId === null ? null : String(draft.recipeId),
+                    servings: draft.servings,
+                    ...(draft.wastePercent === undefined ? {} : { waste_percent: draft.wastePercent }),
+                    lines,
+                },
+            });
+
+            return mapRecipeRollupPreview(envelope.data);
         },
 
         async setBranchOperating(

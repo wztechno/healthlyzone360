@@ -142,6 +142,7 @@ final readonly class CartService
             $total,
             $deliveryDate,
             $cart->currency_code,
+            $this->buyerOf($cart),
         );
 
         if (! $result->isOrderable()) {
@@ -209,6 +210,7 @@ final readonly class CartService
             $wanted,
             $line->delivery_date,
             $cart->currency_code,
+            $this->buyerOf($cart),
         );
 
         if (! $result->isOrderable()) {
@@ -395,6 +397,17 @@ final readonly class CartService
         }
 
         return $channel;
+    }
+
+    private function buyerOf(Cart $cart): CustomerAccount
+    {
+        $account = CustomerAccount::query()->whereKey($cart->customer_account_id)->first();
+
+        if (! $account instanceof CustomerAccount) {
+            throw new ApiException(ErrorCode::ResourceNotFound, 'The customer account behind this basket could not be read.');
+        }
+
+        return $account;
     }
 
     /**

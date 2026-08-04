@@ -11,7 +11,7 @@ namespace Healthy360\Recipes\Enums;
  * reproducible, and re-derivable from data that is still in the database.
  *
  * `AsRecorded` is what a source technical sheet stated, stored verbatim
- * **including its errors**. Several of the 29 GreenLife sheets do their own
+ * **including its errors**. Several of the 29 Healthy360 sheets do their own
  * arithmetic and do it wrong (appendix D data-quality ledger); correcting one
  * on import destroys the evidence that it needs correcting, and trusting one
  * puts a wrong number behind a right-looking label. Storing both and saying

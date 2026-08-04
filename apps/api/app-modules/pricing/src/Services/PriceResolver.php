@@ -6,6 +6,10 @@ namespace Healthy360\Pricing\Services;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Customers\Enums\CustomerAccountType;
+use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Pricing\Contracts\BuyerAgreementLookup;
+use Healthy360\Pricing\Enums\CustomerScope;
 use Healthy360\Pricing\Enums\PriceListStatus;
 use Healthy360\Pricing\Enums\PriceStatus;
 use Healthy360\Pricing\Models\ChannelPriceList;
@@ -78,12 +82,15 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final readonly class PriceResolver
 {
+    public function __construct(private BuyerAgreementLookup $agreements) {}
+
     /**
      * @param  string  $salesChannelId  the channel the customer is buying through
      * @param  string  $catalogueItemId  the article
      * @param  string|null  $catalogueItemVariantId  the pack or plan configuration, when one is named
      * @param  int|float|string|null  $quantity  how many; defaults to one
      * @param  CarbonImmutable|null  $date  the day to price on; defaults to today
+     * @param  CustomerAccount|null  $buyer  the shopper, when the caller knows them
      */
     public function currentFor(
         string $salesChannelId,
@@ -91,6 +98,7 @@ final readonly class PriceResolver
         ?string $catalogueItemVariantId = null,
         int|float|string|null $quantity = null,
         ?CarbonImmutable $date = null,
+        ?CustomerAccount $buyer = null,
     ): ?ResolvedPrice {
         $on = ($date ?? CarbonImmutable::now())->startOfDay();
         $wanted = $quantity === null ? 1.0 : (float) $quantity;
@@ -101,7 +109,7 @@ final readonly class PriceResolver
             return null;
         }
 
-        foreach ($this->listsFor($channel, $on) as $priceList) {
+        foreach ($this->listsFor($channel, $on, $buyer) as $priceList) {
             $row = $this->bestRowIn($priceList, $channel->organisation_id, $catalogueItemId, $catalogueItemVariantId, $wanted, $on);
 
             if ($row !== null) {
@@ -128,8 +136,38 @@ final readonly class PriceResolver
      *
      * @return list<PriceList>
      */
-    private function listsFor(SalesChannel $channel, CarbonImmutable $on): array
+    private function listsFor(SalesChannel $channel, CarbonImmutable $on, ?CustomerAccount $buyer = null): array
     {
+        $ordered = [];
+        $privateChannel = $channel->channel_kind->hasPrivatePricing();
+        $privateBuyer = $buyer !== null
+            && $buyer->account_type === CustomerAccountType::B2b
+            && $privateChannel;
+
+        $agreementPriceListId = null;
+
+        if ($privateBuyer && $buyer->organisation_id !== null) {
+            $agreement = $this->agreements->activeAgreementFor(
+                $buyer->organisation_id,
+                $channel->organisation_id,
+                $on,
+            );
+
+            if ($agreement !== null) {
+                $agreementPriceListId = $agreement['price_list_id'];
+
+                $negotiated = PriceList::withoutTenancy()
+                    ->whereKey($agreementPriceListId)
+                    ->where('organisation_id', $channel->organisation_id)
+                    ->where('status', PriceListStatus::Active->value)
+                    ->first();
+
+                if ($negotiated instanceof PriceList && $negotiated->isInEffectOn($on)) {
+                    $ordered[] = $negotiated;
+                }
+            }
+        }
+
         /** @var list<string> $listIds */
         $listIds = ChannelPriceList::withoutTenancy()
             ->where('sales_channel_id', $channel->getKey())
@@ -141,7 +179,7 @@ final readonly class PriceResolver
             ->all();
 
         if ($listIds === []) {
-            return [];
+            return $ordered;
         }
 
         $lists = PriceList::withoutTenancy()
@@ -151,14 +189,22 @@ final readonly class PriceResolver
             ->get()
             ->keyBy(static fn (PriceList $list): string => (string) $list->getKey());
 
-        $ordered = [];
-
         foreach ($listIds as $id) {
             $list = $lists->get($id);
 
-            if ($list instanceof PriceList && $list->isInEffectOn($on)) {
-                $ordered[] = $list;
+            if (! $list instanceof PriceList || ! $list->isInEffectOn($on)) {
+                continue;
             }
+
+            if ($privateChannel && $list->customer_scope !== CustomerScope::PublicTariff) {
+                continue;
+            }
+
+            if ($agreementPriceListId !== null && (string) $list->getKey() === $agreementPriceListId) {
+                continue;
+            }
+
+            $ordered[] = $list;
         }
 
         return $ordered;

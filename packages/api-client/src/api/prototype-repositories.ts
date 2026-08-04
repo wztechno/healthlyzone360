@@ -233,7 +233,7 @@ export const PROTOTYPE_ENDPOINTS = {
      * The three that remain are not oversights: dietitians and diet categories have no backend
      * at all.
      *
-     * The plans rows are gone (DEC1): seven real GreenLife plans are priced and published, so
+     * The plans rows are gone (DEC1): seven real workbook plans are priced and published, so
      * `createApiPlanReads(transport)` is spread into the marketplace repository — the exact
      * condition the earlier note demanded.
      */
@@ -296,32 +296,9 @@ export const PROTOTYPE_ENDPOINTS = {
     setDietitianNote: `PUT ${BASE}/professional/meal-plans/{plan}/note`,
     setOverride: `PUT ${BASE}/professional/clients/{client}/nutrition-target`,
 
-    /**
-     * Kitchen management (K1). Two families: platform reference under `/reference/`, which a
-     * kitchen only ever reads, and the tenant catalogue under `/catalogue/`, which it owns.
-     *
-     * The keys carry an `admin` prefix because this table is flat and several names — `listMeals`,
-     * `getPlan`, `getRecipe` — already belong to a consumer endpoint that means something else.
-     * Lifecycle actions are `POST …/publish`, never a status field on the `PATCH` (plan §4.15).
-     */
-    /**
-     * **The two reference reads are gone from this table** — `adminListAllergenClasses` and
-     * `adminListServiceAreas` left it in the integrator wave, on the same terms M1's kitchens and
-     * meals did. `GET /reference/allergen-classes` and `GET /reference/delivery-areas` are served,
-     * described and implemented (`./reference-repository.ts`), and the allergen payload now carries
-     * `severe_by_default`, which was the one field the switch was waiting for. The service-area
-     * read was blocked on `country_code` being required; it is optional now.
-     *
-     * `GET /catalogue/ingredients` and reads for the kitchen catalogue left it in prior waves —
-     * implemented in `./kitchen-admin-repository.ts`.
-     *
-     * Phase 3 writes (`./kitchen-admin-writes.ts`) wired every method below that has a Laravel
-     * route. What remains is only what has no faithful twin on the wire.
-     */
-    adminPreviewRecipeRollup: `POST ${BASE}/catalogue/recipes/roll-up-preview`,
-    adminSetMealAvailability: `PUT ${BASE}/catalogue/meals/{meal}/availability`,
-    adminSetPlanCombinations: `PUT ${BASE}/catalogue/plans/{plan}/combinations`,
-    adminSetDeliveryWindows: `POST ${BASE}/catalogue/delivery-windows`,
+    // Kitchen-admin endpoints left this ledger when Phase 3 writes landed in
+    // `./kitchen-admin-writes.ts` (including rollup preview, meal availability,
+    // plan combinations and delivery windows).
 } as const;
 
 /* ------------------------------------------------------------------------------------------------
@@ -524,7 +501,7 @@ export const apiCommerceRepository: CommerceRepository = {
      * `./cart-repository.ts` and spread over this object by `createApiRepositories`, so they have
      * no rows in `PROTOTYPE_ENDPOINTS`.
      */
-    getCart(): Promise<Cart> {
+    getCart(_options?: { readonly channelCode?: string | undefined }): Promise<Cart> {
         return notImplemented(`POST ${BASE}/carts`);
     },
     addCartItem(_cartId: CartId, _request: AddCartItemRequest): Promise<Cart> {
@@ -705,9 +682,8 @@ export const apiProfessionalRepository: ProfessionalRepository = {
  *
  * `listAllergenClasses` and `listServiceAreas` are overridden from `./reference-repository.ts`;
  * catalogue reads from `./kitchen-admin-repository.ts`; Phase 3 writes from
- * `./kitchen-admin-writes.ts`. Only four methods still have rows in `PROTOTYPE_ENDPOINTS`:
- * `adminPreviewRecipeRollup`, `adminSetMealAvailability`, `adminSetPlanCombinations`, and
- * `adminSetDeliveryWindows` — each is a genuine wire gap, not an oversight.
+ * `./kitchen-admin-writes.ts`. Every kitchen-admin contract method is overridden at the bundle;
+ * this object remains the rejecting base for the spread.
  */
 export const apiKitchenAdminRepository: KitchenAdminRepository = {
     listAllergenClasses(): Promise<readonly AllergenClass[]> {
@@ -767,7 +743,7 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/outputs`);
     },
     previewRecipeRollup(_draft: RecipeRollupDraft): Promise<RecipeRollupPreview> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminPreviewRecipeRollup);
+        return notImplemented(`POST ${BASE}/catalogue/recipes/roll-up-preview`);
     },
     publishRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/versions/{version}/publish`);
@@ -833,7 +809,7 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
     },
     setMealAvailability(_mealId: MealId, _request: SetMealAvailabilityRequest): Promise<MealAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetMealAvailability);
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/availability`);
     },
 
     listPlans(_filter?: PlanAdminFilter): Promise<CursorPage<PlanAdmin>> {
@@ -870,7 +846,7 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _planId: SubscriptionPlanId,
         _request: SetPlanCombinationsRequest,
     ): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPlanCombinations);
+        return notImplemented(`PUT ${BASE}/catalogue/plan-vocabulary/combinations`);
     },
 
     listZones(_filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {
@@ -901,7 +877,7 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _zoneId: DeliveryZoneId,
         _request: SetDeliveryWindowsRequest,
     ): Promise<DeliveryZoneAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetDeliveryWindows);
+        return notImplemented(`PUT ${BASE}/catalogue/delivery-windows`);
     },
 
     getBranchOperating(_branchId: KitchenBranchId): Promise<BranchOperating> {

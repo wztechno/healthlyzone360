@@ -9,7 +9,7 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 
 /**
- * What the three DEC1 data commands share with the GreenLife importer beside
+ * What the three DEC1 data commands share with the Healthy360 kitchen workbook importer beside
  * them: an environment allowlist, one organisation, and both halves of the
  * tenant context.
  *
@@ -18,7 +18,7 @@ use Healthy360\Tenancy\TenantContext;
  * plan prices, a publication run — and they carry them out with no
  * authenticated user, because there is no user: the operator is sitting at a
  * terminal with the source files on the same disk. That is precisely the
- * arrangement `kitchen:import-greenlife` already makes, and reusing it is
+ * arrangement `kitchen:import-workbook` already makes, and reusing it is
  * deliberate. The control on these commands is `kitchens.import.environments`,
  * not the HTTP permission stack, and they say so out loud when they refuse.
  *
@@ -48,24 +48,24 @@ trait RunsInsideOneKitchen
         $this->line('  This command writes food-safety determinations, prices or publication states into one');
         $this->line('  organisation with no authenticated user behind it. It is allowlisted to: '.implode(', ', $allowed).'.');
         $this->line('');
-        $this->line('  Widen kitchens.import.environments (or GREENLIFE_IMPORT_ENVIRONMENTS) deliberately, with a');
+        $this->line('  Widen kitchens.import.environments (or KITCHEN_WORKBOOK_IMPORT_ENVIRONMENTS) deliberately, with a');
         $this->line('  reviewer, if this is genuinely the right place to run it.');
 
         return true;
     }
 
     /**
-     * The organisation named by `--org`, or the configured GreenLife slug.
+     * The organisation named by `--org`, or the configured Healthy360 slug.
      */
     protected function resolveOrganisation(): ?Organisation
     {
-        $slug = $this->stringOption('org') ?? (string) config('kitchens.import.organisation_slug', 'green-life-kitchen');
+        $slug = $this->stringOption('org') ?? (string) config('kitchens.import.organisation_slug', 'healthy360-kitchen');
 
         $organisation = Organisation::query()->where('slug', $slug)->first();
 
         if (! $organisation instanceof Organisation) {
             $this->components->error(sprintf('No organisation with the slug "%s" exists.', $slug));
-            $this->line('  Run kitchen:import-greenlife first, or name a different organisation with --org.');
+            $this->line('  Run kitchen:import-workbook first, or name a different organisation with --org.');
 
             return null;
         }

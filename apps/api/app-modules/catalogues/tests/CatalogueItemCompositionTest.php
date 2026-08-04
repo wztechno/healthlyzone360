@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
@@ -282,6 +283,64 @@ it('refuses another organisations channel and another items variant', function (
     ], $headers)->assertStatus(422);
 
     expect(ChannelCatalogueItem::withoutTenancy()->count())->toBe(0);
+});
+
+it('replaces meal availability days as one statement', function (): void {
+    $meal = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+    $url = '/api/v1/catalogue/items/'.$meal->getKey().'/availability';
+
+    $this->putJson($url, [
+        'days' => [
+            ['date' => '2026-08-05', 'is_available' => true, 'remaining' => 20, 'order_cut_off_at' => '18:00'],
+            ['date' => '2026-08-06', 'is_available' => false],
+        ],
+    ], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonCount(2, 'data.availability_days')
+        ->assertJsonPath('data.availability_days.0.remaining_portions', 20)
+        ->assertJsonPath('data.availability_days.0.order_cut_off_at', '18:00');
+
+    expect(CatalogueItemAvailabilityDay::withoutTenancy()->where('catalogue_item_id', $meal->getKey())->count())->toBe(2);
+
+    $this->putJson($url, ['days' => []], $headers + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.availability_days', []);
+
+    expect(CatalogueItemAvailabilityDay::withoutTenancy()->where('catalogue_item_id', $meal->getKey())->count())->toBe(0)
+        ->and(AuditLog::query()->where('action', 'catalogue.item_availability_days_updated')->count())->toBe(2);
+});
+
+it('includes availability days on item show and refuses the endpoint for products', function (): void {
+    $meal = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ]);
+
+    CatalogueItemAvailabilityDay::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'catalogue_item_id' => $meal->getKey(),
+        'date' => '2026-08-07',
+        'is_available' => true,
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+
+    $this->getJson('/api/v1/catalogue/items/'.$meal->getKey(), $headers)
+        ->assertOk()
+        ->assertJsonPath('data.availability_days.0.date', '2026-08-07');
+
+    $product = CatalogueWorld::publishableProduct($this->a);
+
+    $this->putJson('/api/v1/catalogue/items/'.$product->getKey().'/availability', [
+        'days' => [['date' => '2026-08-05', 'is_available' => true]],
+    ], $headers + ['If-Match' => '"0"'])->assertStatus(422);
 });
 
 it('creates and updates a sales channel but never lets its code or kind move', function (): void {

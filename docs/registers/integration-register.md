@@ -2,7 +2,7 @@
 
 External integrations. **Current position (2026-08-03): still none live.** Nothing in this platform calls a third party. Outbound mail goes to Mailpit in development and to whatever the deployment configures; SMS and WhatsApp exist only as log drivers behind the channel interface. `integration_connections` and `webhook_events` tables remain deferred until the first module that genuinely requires them (Plan §7).
 
-The confidential GreenLife workbook is deliberately **not** an integration: it is data-loading mechanism (c), an operator-run console import over an out-of-repo path with no network call anywhere in it (D-046, data register).
+The confidential kitchen workbook is deliberately **not** an integration: it is data-loading mechanism (c), an operator-run console import over an out-of-repo path with no network call anywhere in it (D-046, data register).
 
 ## Live integrations
 

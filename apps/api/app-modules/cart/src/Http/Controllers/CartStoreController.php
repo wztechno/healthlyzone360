@@ -52,7 +52,7 @@ final class CartStoreController
         $payload = $request->payload();
 
         $account = $this->locator->shopper();
-        $channel = $this->locator->channel($payload['channel_code']);
+        $channel = $this->locator->channelForShopper($payload['channel_code'], $account);
 
         $cart = $this->carts->getOrCreate($account, $channel);
         $lines = $cart->items()->orderBy('created_at')->orderBy('id')->get();

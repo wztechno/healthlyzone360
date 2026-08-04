@@ -598,6 +598,6 @@ final class ApplyAllergenDeterminationsCommand extends Command
     private function filePath(): string
     {
         return $this->stringOption('file')
-            ?? base_path('app-modules/allergens/database/data/greenlife-allergen-determinations.json');
+            ?? base_path('app-modules/allergens/database/data/kitchen-workbook-allergen-determinations.json');
     }
 }

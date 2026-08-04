@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Catalogues\Http\Controllers;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
@@ -54,6 +55,7 @@ final class CatalogueItemShowController
             'ingredients' => $this->ingredients($record),
             'diet_classifications' => $this->dietClassifications($record),
             'channels' => $this->channels($record),
+            'availability_days' => $this->availabilityDays($record),
         ])->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }
 
@@ -116,6 +118,19 @@ final class CatalogueItemShowController
             ->orderBy('sales_channel_id')
             ->get()
             ->map(fn (ChannelCatalogueItem $row): array => $this->presenter->channelAssignment($row))
+            ->all());
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function availabilityDays(CatalogueItem $item): array
+    {
+        return array_values(CatalogueItemAvailabilityDay::query()
+            ->where('catalogue_item_id', $item->getKey())
+            ->orderBy('date')
+            ->get()
+            ->map(fn (CatalogueItemAvailabilityDay $row): array => $this->presenter->availabilityDay($row))
             ->all());
     }
 }

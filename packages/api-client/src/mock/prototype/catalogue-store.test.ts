@@ -257,7 +257,7 @@ describe('publication and consumer visibility', () => {
         const created = catalogue.createPlan({
             name: untranslated('Imported plan'),
             summary: untranslated('No price has been supplied for this plan.'),
-            description: untranslated('Exactly the state an imported GreenLife plan arrives in.'),
+            description: untranslated('Exactly the state an imported workbook plan arrives in.'),
         });
 
         const failure = failureOf(() =>

@@ -77,15 +77,20 @@ export { toFailure } from './hooks.ts';
 /* ── cart ────────────────────────────────────────────────────────────────────────────────────── */
 
 /** The current basket. `getCart()` creates one lazily, so there is no "create basket" step. */
-export function useCartQuery(enabled = true): UseQueryResult<Cart> {
+export function useCartQuery(
+    enabled = true,
+    channelCode?: string,
+): UseQueryResult<Cart> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.commerce.cart(),
+        queryKey: queryKeys.commerce.cart(channelCode),
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            return repositories.commerce.getCart();
+            return repositories.commerce.getCart(
+                channelCode === undefined ? {} : { channelCode },
+            );
         },
     });
 }
@@ -95,7 +100,9 @@ export interface CartItemVariables {
     readonly itemId: string;
 }
 
-export function useRemoveCartItemMutation(): UseMutationResult<Cart, unknown, CartItemVariables> {
+export function useRemoveCartItemMutation(
+    channelCode?: string,
+): UseMutationResult<Cart, unknown, CartItemVariables> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
@@ -103,7 +110,7 @@ export function useRemoveCartItemMutation(): UseMutationResult<Cart, unknown, Ca
         mutationFn: ({ cartId, itemId }: CartItemVariables) =>
             repositories.commerce.removeCartItem(cartId, itemId),
         onSuccess: async (cart) => {
-            queryClient.setQueryData(queryKeys.commerce.cart(), cart);
+            queryClient.setQueryData(queryKeys.commerce.cart(channelCode), cart);
             // The checkout preview is priced from the basket, so it is now wrong as well.
             await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.all() });
         },
@@ -123,17 +130,16 @@ export interface SetQuantityVariables {
  * arithmetic. Decreasing removes the line and re-adds it at the target, because `addCartItem` can
  * only ever raise a quantity. Both paths genuinely change the basket; neither pretends to.
  */
-export function useSetCartItemQuantityMutation(): UseMutationResult<
-    Cart,
-    unknown,
-    SetQuantityVariables
-> {
+export function useSetCartItemQuantityMutation(
+    channelCode?: string,
+): UseMutationResult<Cart, unknown, SetQuantityVariables> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
+    const cartOptions = channelCode === undefined ? {} : { channelCode };
 
     return useMutation({
         mutationFn: async ({ cartId, item, quantity }: SetQuantityVariables): Promise<Cart> => {
-            if (quantity === item.quantity) return repositories.commerce.getCart();
+            if (quantity === item.quantity) return repositories.commerce.getCart(cartOptions);
             if (quantity <= 0) return repositories.commerce.removeCartItem(cartId, item.id);
 
             const deliveryDate =
@@ -155,7 +161,7 @@ export function useSetCartItemQuantityMutation(): UseMutationResult<
             });
         },
         onSuccess: async (cart) => {
-            queryClient.setQueryData(queryKeys.commerce.cart(), cart);
+            queryClient.setQueryData(queryKeys.commerce.cart(channelCode), cart);
             await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.all() });
         },
     });
@@ -208,11 +214,9 @@ export function useCheckoutPreviewQuery(
  * change waits for the slice that gives the checkout a saved-address picker. That slice is a design
  * change, not an integration one.
  */
-export function usePlaceOrderMutation(): UseMutationResult<
-    PlacedOrder,
-    unknown,
-    PlaceOrderRequest
-> {
+export function usePlaceOrderMutation(
+    channelCode?: string,
+): UseMutationResult<PlacedOrder, unknown, PlaceOrderRequest> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
@@ -220,7 +224,7 @@ export function usePlaceOrderMutation(): UseMutationResult<
         retry: 0,
         mutationFn: (request: PlaceOrderRequest) => repositories.commerce.placeOrder(request),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart() });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart(channelCode) });
         },
     });
 }

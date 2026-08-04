@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/payments",
+	"description": "Payment intents, method records and refunds — pluggable providers, no PAN storage.",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Payments\\": "src/",
+			"Healthy360\\Payments\\Tests\\": "tests/",
+			"Healthy360\\Payments\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Payments\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Payments\\Providers\\PaymentsServiceProvider"
+			]
+		}
+	}
+}

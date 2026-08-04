@@ -69,6 +69,22 @@
             "name": "Opening hours",
             "description": "When this branch trades, and the last moment it will take an order for today."
         },
+        "stock": {
+            "name": "Stock",
+            "description": "On-hand quantities per branch and the movement ledger — no valuation in this phase."
+        },
+        "procurement": {
+            "name": "Procurement",
+            "description": "Suppliers, purchase orders and goods receipts that post into stock."
+        },
+        "production": {
+            "name": "Production",
+            "description": "Batch orders from recipe versions with consume and yield movements."
+        },
+        "qc": {
+            "name": "Quality control",
+            "description": "Checks on receipts and production batches — hold and release."
+        },
         "review": {
             "name": "Needs review",
             "description": "Everything holding the catalogue back: records nothing can publish, and records that are not finished."

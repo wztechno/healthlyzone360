@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5fdd7824c4c120d6f4d2168a239cae09",
+    "content-hash": "68bf586c5e6f777333d5eb1b19ae5848",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2360,6 +2360,67 @@
             }
         },
         {
+            "name": "healthy360/inventory",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/inventory",
+                "reference": "bac0c938e32fa01d13502d6b183e350f93d2f285"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Inventory\\Providers\\InventoryServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Inventory\\": "src/",
+                    "Healthy360\\Inventory\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Stock levels and movement ledger without valuation.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/kitchen-display",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/kitchen-display",
+                "reference": "1c0a3d67a50daa14518dfbce3e9beee69989fa68"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\KitchenDisplay\\Providers\\KitchenDisplayServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\KitchenDisplay\\": "src/",
+                    "Healthy360\\KitchenDisplay\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/kitchens",
             "version": "1.0",
             "dist": {
@@ -2456,6 +2517,69 @@
             }
         },
         {
+            "name": "healthy360/payments",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/payments",
+                "reference": "ca0d70a29cd7caa3a185e749b6cd01b92ee86f0a"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Payments\\Providers\\PaymentsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Payments\\": "src/",
+                    "Healthy360\\Payments\\Tests\\": "tests/",
+                    "Healthy360\\Payments\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Payments\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Payment intents, method records and refunds — pluggable providers, no PAN storage.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/pos",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/pos",
+                "reference": "110738835a31b9393af79d15e39f8a06000cb297"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\POS\\Providers\\PosServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\POS\\": "src/",
+                    "Healthy360\\POS\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/pricing",
             "version": "1.0",
             "dist": {
@@ -2477,6 +2601,96 @@
                     "Healthy360\\Pricing\\Tests\\": "tests/",
                     "Healthy360\\Pricing\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Pricing\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/procurement",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/procurement",
+                "reference": "b83836d4b60de87794ec2caf18431a4b197b2a4c"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Procurement\\Providers\\ProcurementServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Procurement\\": "src/",
+                    "Healthy360\\Procurement\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/production",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/production",
+                "reference": "6be6c2a1cb471d792037d3d90f94d790d277bc02"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Production\\Providers\\ProductionServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Production\\": "src/",
+                    "Healthy360\\Production\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/quality-control",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/quality-control",
+                "reference": "e8f2514772a89ec203e0d9aa52b4707874ffd72a"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\QualityControl\\Providers\\QualityControlServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\QualityControl\\": "src/",
+                    "Healthy360\\QualityControl\\Tests\\": "tests/"
                 }
             },
             "license": [

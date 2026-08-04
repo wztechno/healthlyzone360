@@ -10,7 +10,9 @@ import {
     Stack,
     Text,
     TextInputField,
+    useToast,
 } from '@healthy360/design-system';
+import { MealId } from '@healthy360/domain-types';
 import { CATALOGUE_ITEM_KINDS } from '@healthy360/api-client/contracts';
 import type {
     CatalogueFilter,
@@ -26,6 +28,8 @@ import { useTranslation } from 'react-i18next';
 import {
     useCorporateCatalogueQuery,
     useCorporateProgrammeQuery,
+    useB2bAddCatalogueItemMutation,
+    B2B_CART_CHANNEL_CODE,
 } from '../../../data/business-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -65,6 +69,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const toast = useToast();
 
     const parsed = programmeId === undefined ? null : CorporateProgrammeId.safeParse(programmeId);
 
@@ -72,6 +77,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
     const [kind, setKind] = useState<KindFilter>('all');
 
     const programme = useCorporateProgrammeQuery(parsed);
+    const addToCart = useB2bAddCatalogueItemMutation();
 
     const filter: CatalogueFilter | null =
         parsed === null
@@ -84,6 +90,31 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
 
     const catalogue = useCorporateCatalogueQuery(filter);
     const items: readonly CatalogueItem[] = catalogue.data?.items ?? [];
+
+    const onAddToCart = (item: CatalogueItem, onSuccess?: () => void) => {
+        const mealId = item.mealId ?? MealId.unsafe(item.id);
+        addToCart.mutate(
+            { mealId, quantity: item.minimumOrderQuantity },
+            {
+                onSuccess: (cart) => {
+                    toast.show({
+                        testID: `catalogue-item-${item.id}-added`,
+                        tone: 'success',
+                        message: t('business:catalogue.addedToCart', { items: cart.itemCount }),
+                    });
+                    onSuccess?.();
+                },
+            },
+        );
+    };
+
+    const onPlaceOrder = (item: CatalogueItem) => {
+        onAddToCart(item, () => {
+            router.push(
+                `/customer/checkout?channel=${encodeURIComponent(B2B_CART_CHANNEL_CODE)}` as never,
+            );
+        });
+    };
 
     const currencies = [
         ...new Set(
@@ -302,6 +333,29 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                                             router.push(`/corporate/items/${item.id}` as never);
                                         }}
                                     />
+                                    {item.mealId !== null || item.kind === 'meal' ? (
+                                        <>
+                                            <Button
+                                                testID={`catalogue-item-${item.id}-cart`}
+                                                size="sm"
+                                                label={t('business:catalogue.addToCart')}
+                                                loading={addToCart.isPending}
+                                                onPress={() => {
+                                                    onAddToCart(item);
+                                                }}
+                                            />
+                                            <Button
+                                                testID={`catalogue-item-${item.id}-order`}
+                                                size="sm"
+                                                variant="secondary"
+                                                label={t('business:catalogue.placeOrder')}
+                                                loading={addToCart.isPending}
+                                                onPress={() => {
+                                                    onPlaceOrder(item);
+                                                }}
+                                            />
+                                        </>
+                                    ) : null}
                                     <Button
                                         testID={`catalogue-item-${item.id}-quote`}
                                         size="sm"

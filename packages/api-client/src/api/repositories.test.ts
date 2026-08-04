@@ -1848,6 +1848,69 @@ describe('subscriptions (S1)', () => {
         expect(cart.subtotal.currency).toBe('USD');
     });
 
+    it('opens a wholesale cart and hydrates lines from the corporate catalogue', async () => {
+        const mealId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01';
+        const cartId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b01';
+        const lineId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b02';
+
+        const wireCart = {
+            id: cartId,
+            organisation_id: 'org-1',
+            sales_channel_id: 'channel-wholesale',
+            branch_id: null,
+            status: 'open',
+            currency_code: 'USD',
+            expires_at: '2026-08-05T12:00:00Z',
+            lock_version: 1,
+            line_count: 1,
+            created_at: '2026-08-04T10:00:00Z',
+            updated_at: '2026-08-04T10:00:00Z',
+            lines: [
+                {
+                    id: lineId,
+                    catalogue_item_id: mealId,
+                    catalogue_item_variant_id: null,
+                    quantity: '2.0000',
+                    delivery_date: null,
+                    created_at: '2026-08-04T10:00:00Z',
+                    updated_at: '2026-08-04T10:00:00Z',
+                },
+            ],
+        };
+
+        const { repositories, calls } = harness(
+            [
+                { status: 200, body: { data: { cart: wireCart }, meta: {} } },
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            item: {
+                                id: mealId,
+                                name: 'Wholesale lunch tray',
+                                item_type: 'meal',
+                                seller_organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
+                                sales_channel_id: 'channel-wholesale',
+                                price: { amount_minor: 1800, currency_code: 'USD' },
+                            },
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const cart = await repositories.commerce.getCart({ channelCode: 'wholesale' });
+
+        expect(calls[0]?.body).toEqual({ channel_code: 'wholesale' });
+        expect(calls[1]?.url).toContain(`/b2b/catalogue/items/${mealId}`);
+        expect(cart.items).toHaveLength(1);
+        expect(cart.items[0]?.name).toBe('Wholesale lunch tray');
+        expect(cart.items[0]?.unitPrice).toEqual({ amount: 1800, currency: 'USD' });
+        expect(cart.subtotal).toEqual({ amount: 3600, currency: 'USD' });
+    });
+
     it('lists subscriptions from the customer collection', async () => {
         const { repositories, calls } = harness(
             [

@@ -15,6 +15,7 @@ use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
 use Healthy360\Customers\Contracts\AreaServiceLookup;
+use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
@@ -26,6 +27,7 @@ use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Pricing\Contracts\BuyerAgreementLookup;
 use Healthy360\ReferenceData\Models\DeliveryArea;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -143,6 +145,7 @@ final readonly class OrderPlacementService
         private SellerContext $seller,
         private AuditRecorder $audit,
         private TenantContext $context,
+        private BuyerAgreementLookup $agreements,
     ) {}
 
     /**
@@ -387,12 +390,21 @@ final readonly class OrderPlacementService
 
         $reasons = [...$reasons, ...$this->scheduleReasons($cart->branch_id, $effectiveDate, $now)];
 
-        [$snapshots, $lineReasons] = $this->repriced($cart, $lines, $effectiveDate);
+        $channel = SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
+
+        [$snapshots, $lineReasons] = $this->repriced($cart, $lines, $effectiveDate, $account);
         $reasons = [...$reasons, ...$lineReasons];
+
+        if ($lineReasons === []) {
+            $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
+            $reasons = [...$reasons, ...$this->agreementReasons($account, $channel, $subtotal, $effectiveDate ?? $now)];
+        }
 
         if ($reasons !== []) {
             throw new PlacementRefused($reasons);
         }
+
+        $agreement = $this->activeAgreementSnapshot($account, $channel, $effectiveDate ?? $now);
 
         $order = $this->persist(
             account: $account,
@@ -406,6 +418,8 @@ final readonly class OrderPlacementService
             deliveryWindowCode: $deliveryWindowCode,
             effectiveDate: $effectiveDate,
             now: $now,
+            b2bAgreementId: $agreement['agreement_id'] ?? null,
+            priceListId: $agreement['price_list_id'] ?? null,
             // Same transaction, deliberately. An order beside a still-open
             // basket is how a customer orders the same food twice.
             within: fn (Order $order): mixed => $this->carts->markConverted($cart, (string) $order->getKey()),
@@ -457,6 +471,8 @@ final readonly class OrderPlacementService
         ?CarbonImmutable $effectiveDate,
         CarbonImmutable $now,
         ?callable $within = null,
+        ?string $b2bAgreementId = null,
+        ?string $priceListId = null,
     ): Order {
         $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
         $fee = $zone instanceof DeliveryZone ? $zone->delivery_fee_minor : null;
@@ -464,6 +480,7 @@ final readonly class OrderPlacementService
         return DB::transaction(function () use (
             $account, $address, $organisationId, $salesChannelId, $branchId, $currencyCode,
             $snapshots, $zone, $fee, $subtotal, $deliveryWindowCode, $effectiveDate, $now, $within,
+            $b2bAgreementId, $priceListId,
         ): Order {
             $order = new Order;
             $order->order_number = $this->numbers->next();
@@ -497,6 +514,8 @@ final readonly class OrderPlacementService
             $order->delivery_window_code = $deliveryWindowCode;
             $order->requested_delivery_date = $effectiveDate;
             $order->payment_method = PaymentMethod::CashOnDelivery;
+            $order->b2b_agreement_id = $b2bAgreementId;
+            $order->price_list_id = $priceListId;
             $order->placed_at = $now;
             $order->created_by = $this->context->userId();
             $order->lock_version = 0;
@@ -595,6 +614,7 @@ final readonly class OrderPlacementService
                 $line->quantity,
                 $on,
                 $placement->currencyCode,
+                $placement->account,
             );
 
             $blocking = $override === null
@@ -669,7 +689,7 @@ final readonly class OrderPlacementService
      * @param  list<CartItem>  $lines
      * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
      */
-    private function repriced(Cart $cart, array $lines, ?CarbonImmutable $on): array
+    private function repriced(Cart $cart, array $lines, ?CarbonImmutable $on, CustomerAccount $buyer): array
     {
         $channel = SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
 
@@ -688,6 +708,7 @@ final readonly class OrderPlacementService
                 $line->quantity,
                 $on ?? $line->delivery_date,
                 $cart->currency_code,
+                $buyer,
             );
 
             if (! $result->isOrderable()) {
@@ -872,6 +893,85 @@ final readonly class OrderPlacementService
         }
 
         return $requested ?? ($fromLines instanceof CarbonImmutable ? $fromLines : null);
+    }
+
+    /**
+     * Commercial terms that apply only to corporate buyers on private channels.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function agreementReasons(
+        CustomerAccount $account,
+        ?SalesChannel $channel,
+        int $subtotalMinor,
+        CarbonImmutable $on,
+    ): array {
+        if (! $channel instanceof SalesChannel
+            || $account->account_type !== CustomerAccountType::B2b
+            || $account->organisation_id === null
+            || ! $channel->channel_kind->hasPrivatePricing()) {
+            return [];
+        }
+
+        $agreement = $this->agreements->activeAgreementFor(
+            $account->organisation_id,
+            $channel->organisation_id,
+            $on->startOfDay(),
+        );
+
+        if ($agreement === null) {
+            return [[
+                'reason' => 'agreement_required',
+                'sales_channel_id' => (string) $channel->getKey(),
+            ]];
+        }
+
+        $minimum = $agreement['minimum_order_minor'];
+
+        if ($minimum !== null && $subtotalMinor < $minimum) {
+            return [[
+                'reason' => 'minimum_order_not_met',
+                'minimum_order_minor' => $minimum,
+                'subtotal_minor' => $subtotalMinor,
+                'currency_code' => $agreement['currency_code'],
+            ]];
+        }
+
+        // Credit exposure is not tracked yet — `credit_limit_minor` is enforced
+        // once open-order exposure can be summed against the agreement.
+
+        return [];
+    }
+
+    /**
+     * @return array{agreement_id: string, price_list_id: string}|null
+     */
+    private function activeAgreementSnapshot(
+        CustomerAccount $account,
+        ?SalesChannel $channel,
+        CarbonImmutable $on,
+    ): ?array {
+        if (! $channel instanceof SalesChannel
+            || $account->account_type !== CustomerAccountType::B2b
+            || $account->organisation_id === null
+            || ! $channel->channel_kind->hasPrivatePricing()) {
+            return null;
+        }
+
+        $agreement = $this->agreements->activeAgreementFor(
+            $account->organisation_id,
+            $channel->organisation_id,
+            $on->startOfDay(),
+        );
+
+        if ($agreement === null) {
+            return null;
+        }
+
+        return [
+            'agreement_id' => $agreement['agreement_id'],
+            'price_list_id' => $agreement['price_list_id'],
+        ];
     }
 
     /**

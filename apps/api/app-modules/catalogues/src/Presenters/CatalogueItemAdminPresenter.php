@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Healthy360\Catalogues\Presenters;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Kitchens\Presenters\BranchOperatingPresenter;
 
 /**
  * The administrative wire shapes of the catalogue.
@@ -165,6 +167,26 @@ final class CatalogueItemAdminPresenter
             'is_available' => $row->is_available,
             'available_from' => $row->available_from?->toDateString(),
             'available_to' => $row->available_to?->toDateString(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     id: string,
+     *     date: string,
+     *     is_available: bool,
+     *     remaining_portions: int|null,
+     *     order_cut_off_at: string|null
+     * }
+     */
+    public function availabilityDay(CatalogueItemAvailabilityDay $row): array
+    {
+        return [
+            'id' => (string) $row->getKey(),
+            'date' => $row->date->toDateString(),
+            'is_available' => $row->is_available,
+            'remaining_portions' => $row->remaining_portions,
+            'order_cut_off_at' => BranchOperatingPresenter::clock($row->order_cut_off_at),
         ];
     }
 

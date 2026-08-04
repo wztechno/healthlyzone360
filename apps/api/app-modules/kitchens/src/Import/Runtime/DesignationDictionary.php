@@ -9,7 +9,7 @@ use RuntimeException;
 
 /**
  * The curated designation dictionary, read from
- * `app-modules/ingredients/database/data/greenlife-aliases.json`.
+ * `app-modules/ingredients/database/data/kitchen-workbook-aliases.json`.
  *
  * **Human-authored, never algorithmic** (master plan v2 §4.11). There is no
  * fuzzy match anywhere in the import path, and this class is why: every
@@ -51,7 +51,7 @@ final readonly class DesignationDictionary
         $raw = is_file($path) ? file_get_contents($path) : false;
 
         if ($raw === false) {
-            throw new RuntimeException("The curated GreenLife designation dictionary was not found at [{$path}].");
+            throw new RuntimeException("The curated workbook designation dictionary was not found at [{$path}].");
         }
 
         /** @var array{aliases?: list<array<string, mixed>>, tenant_ingredients?: list<array<string, mixed>>, recipe_links?: list<array<string, mixed>>, recipe_links_declined?: list<array<string, mixed>>, never_merge?: list<array<string, mixed>>} $document */
@@ -111,7 +111,7 @@ final readonly class DesignationDictionary
 
     public static function defaultPath(): string
     {
-        return base_path('app-modules/ingredients/database/data/greenlife-aliases.json');
+        return base_path('app-modules/ingredients/database/data/kitchen-workbook-aliases.json');
     }
 
     /**

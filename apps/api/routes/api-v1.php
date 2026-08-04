@@ -18,6 +18,8 @@ use Healthy360\B2b\Http\Controllers\B2bApplicationShowController;
 use Healthy360\B2b\Http\Controllers\B2bApplicationStoreController;
 use Healthy360\B2b\Http\Controllers\B2bApplicationSubmitController;
 use Healthy360\B2b\Http\Controllers\B2bApplicationWithdrawController;
+use Healthy360\B2b\Http\Controllers\B2bCatalogueItemIndexController;
+use Healthy360\B2b\Http\Controllers\B2bCatalogueItemShowController;
 use Healthy360\B2b\Http\Controllers\InvitationAcceptController;
 use Healthy360\B2b\Http\Controllers\KycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\KycDocumentIndexController;
@@ -50,6 +52,7 @@ use Healthy360\Cart\Http\Controllers\CartItemStoreController;
 use Healthy360\Cart\Http\Controllers\CartItemUpdateController;
 use Healthy360\Cart\Http\Controllers\CartStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergenIndexController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemAvailabilityReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
@@ -109,6 +112,7 @@ use Healthy360\Customers\Http\Controllers\CustomerAccountShowController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountStoreController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileReplaceController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileShowController;
+use Healthy360\Delivery\Http\Controllers\DeliveryJobIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowStoreController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowUpdateController;
@@ -119,6 +123,8 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneStoreController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneUpdateController;
+use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
+use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
 use Healthy360\Identity\Http\Controllers\ContextController;
 use Healthy360\Identity\Http\Controllers\DeviceController;
@@ -137,6 +143,11 @@ use Healthy360\Ingredients\Http\Controllers\IngredientIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
+use Healthy360\Inventory\Http\Controllers\StockAdjustController;
+use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
+use Healthy360\Inventory\Http\Controllers\StockWasteController;
+use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketBumpController;
+use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketIndexController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
@@ -156,6 +167,10 @@ use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
+use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
+use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
+use Healthy360\Payments\Http\Controllers\PaymentRefundStoreController;
+use Healthy360\POS\Http\Controllers\PosSaleStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -165,12 +180,22 @@ use Healthy360\Pricing\Http\Controllers\PriceListPublishController;
 use Healthy360\Pricing\Http\Controllers\PriceListShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
+use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
+use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
+use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
+use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
+use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
+use Healthy360\QualityControl\Http\Controllers\QualityCheckHoldController;
+use Healthy360\QualityControl\Http\Controllers\QualityCheckIndexController;
+use Healthy360\QualityControl\Http\Controllers\QualityCheckReleaseController;
+use Healthy360\QualityControl\Http\Controllers\QualityCheckStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeArchiveController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeLineReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeOutputReplaceController;
+use Healthy360\Recipes\Http\Controllers\RecipeRollupPreviewController;
 use Healthy360\Recipes\Http\Controllers\RecipeShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeStepReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeStoreController;
@@ -499,6 +524,30 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::get('/me/orders', MyOrderIndexController::class)->name('me.orders.index');
         Route::get('/me/orders/{order}', MyOrderShowController::class)->name('me.orders.show');
 
+        Route::post('/payments/intents', PaymentIntentStoreController::class)->name('payments.intents.store');
+        Route::post('/payments/intents/{paymentIntent}/capture', PaymentIntentCaptureController::class)->name('payments.intents.capture');
+        Route::post('/payments/intents/{paymentIntent}/refunds', PaymentRefundStoreController::class)->name('payments.intents.refunds.store');
+
+        Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
+        Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
+
+        Route::middleware('org.context')->group(function (): void {
+            Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
+        });
+
+        /*
+        |------------------------------------------------------------------
+        | Corporate buyer catalogue (B2B checkout phase 1)
+        |------------------------------------------------------------------
+        |
+        | Requires `org.context`: prices are resolved through the buyer's own
+        | agreement and must never be served on a marketplace surface.
+        */
+        Route::middleware('org.context')->prefix('/b2b/catalogue')->group(function (): void {
+            Route::get('/items', B2bCatalogueItemIndexController::class)->name('b2b.catalogue.items.index');
+            Route::get('/items/{item}', B2bCatalogueItemShowController::class)->name('b2b.catalogue.items.show');
+        });
+
         /*
         |------------------------------------------------------------------
         | Subscriptions — the customer's own standing arrangements (S1)
@@ -711,6 +760,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | `PATCH status` (master plan v2 §4.15).
             |
             */
+            Route::post('/recipes/roll-up-preview', RecipeRollupPreviewController::class)
+                ->name('catalogue.recipes.roll-up-preview');
+
             Route::middleware('permission:recipe.view_organisation')->group(function (): void {
                 Route::get('/recipes', RecipeIndexController::class)->name('catalogue.recipes.index');
                 Route::get('/recipes/{recipe}', RecipeShowController::class)->name('catalogue.recipes.show');
@@ -874,6 +926,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/items/{item}/channels', CatalogueItemChannelReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.items.channels.replace');
+
+                Route::put('/items/{item}/availability', CatalogueItemAvailabilityReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.items.availability.replace');
             });
 
             Route::middleware('permission:catalogue.publish_organisation')->group(function (): void {
@@ -1112,6 +1168,27 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/delivery-windows', DeliveryWindowIndexController::class)->name('catalogue.delivery-windows.index');
                 Route::post('/delivery-windows', DeliveryWindowStoreController::class)->name('catalogue.delivery-windows.store');
                 Route::patch('/delivery-windows/{window}', DeliveryWindowUpdateController::class)->name('catalogue.delivery-windows.update');
+            });
+
+            Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
+                Route::get('/inventory/levels', StockLevelIndexController::class)->name('catalogue.inventory.levels.index');
+                Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
+                Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
+                Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
+                Route::get('/kitchen-display/tickets', KdsTicketIndexController::class)->name('catalogue.kitchen-display.tickets.index');
+            });
+
+            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
+                Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
+                Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
+                Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
+                Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
+                Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');
+                Route::post('/quality-control/checks', QualityCheckStoreController::class)->name('catalogue.quality-control.checks.store');
+                Route::post('/quality-control/checks/{qualityCheck}/hold', QualityCheckHoldController::class)->name('catalogue.quality-control.checks.hold');
+                Route::post('/quality-control/checks/{qualityCheck}/release', QualityCheckReleaseController::class)->name('catalogue.quality-control.checks.release');
+                Route::post('/kitchen-display/tickets/{ticket}/bump', KdsTicketBumpController::class)->name('catalogue.kitchen-display.tickets.bump');
+                Route::post('/pos/sales', PosSaleStoreController::class)->name('catalogue.pos.sales.store');
             });
 
             /*

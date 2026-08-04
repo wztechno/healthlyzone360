@@ -35,7 +35,7 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  * **`pricing_basis` decides what the resolved number means**, and two of its
  * three values are answerable:
  *
- *  * `per_day` — the row *is* the per-day price. The GreenLife default.
+ *  * `per_day` — the row *is* the per-day price. The workbook default.
  *  * `total` — the row is the whole run, so per-day is `total ÷ duration_days`.
  *    Exact division is not guaranteed; the remainder is absorbed into the
  *    stored per-day price by rounding half up, and the residue is at most one

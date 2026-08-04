@@ -11,6 +11,7 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
 
@@ -74,6 +75,7 @@ final readonly class LineProbe
         string $quantity,
         ?CarbonImmutable $on,
         string $currencyCode,
+        ?CustomerAccount $buyer = null,
     ): LineProbeResult {
         $day = ($on ?? CarbonImmutable::now())->startOfDay();
         $refusals = [];
@@ -140,6 +142,7 @@ final readonly class LineProbe
             $variant?->getKey() === null ? null : (string) $variant->getKey(),
             $quantity,
             $day,
+            $buyer,
         );
 
         if (! $price instanceof ResolvedPrice) {

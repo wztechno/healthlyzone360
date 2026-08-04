@@ -82,7 +82,13 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(repositories.planner).toBe(API_PROTOTYPE_REPOSITORIES.planner);
         expect(repositories.foods).toBe(API_PROTOTYPE_REPOSITORIES.foods);
         expect(repositories.virtualDietitian).toBe(API_PROTOTYPE_REPOSITORIES.virtualDietitian);
-        expect(repositories.business).toBe(API_PROTOTYPE_REPOSITORIES.business);
+        expect(repositories.business).not.toBe(API_PROTOTYPE_REPOSITORIES.business);
+        expect(repositories.business.listCatalogue).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.business.listCatalogue,
+        );
+        expect(repositories.business.getCorporateProgramme).toBe(
+            API_PROTOTYPE_REPOSITORIES.business.getCorporateProgramme,
+        );
         expect(repositories.professional).toBe(API_PROTOTYPE_REPOSITORIES.professional);
 
         // Commerce spreads cart + placement + S1 subscription reads over the prototype base.
@@ -93,13 +99,22 @@ describe('the api bundle exposes the prototype repositories', () => {
         );
 
         // Kitchen admin spreads reference reads, catalogue reads, and Phase 3 writes over the
-        // prototype base; only four ledger stubs remain unoverridden.
+        // prototype base; every kitchen-admin contract method is overridden.
         expect(repositories.kitchenAdmin).not.toBe(API_PROTOTYPE_REPOSITORIES.kitchenAdmin);
         expect(repositories.kitchenAdmin.createMeal).not.toBe(
             API_PROTOTYPE_REPOSITORIES.kitchenAdmin.createMeal,
         );
-        expect(repositories.kitchenAdmin.setMealAvailability).toBe(
+        expect(repositories.kitchenAdmin.setMealAvailability).not.toBe(
             API_PROTOTYPE_REPOSITORIES.kitchenAdmin.setMealAvailability,
+        );
+        expect(repositories.kitchenAdmin.previewRecipeRollup).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.previewRecipeRollup,
+        );
+        expect(repositories.kitchenAdmin.setPlanCombinations).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.setPlanCombinations,
+        );
+        expect(repositories.kitchenAdmin.setDeliveryWindows).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.setDeliveryWindows,
         );
         expect(repositories.kitchenAdmin.listAllergenClasses).not.toBe(
             API_PROTOTYPE_REPOSITORIES.kitchenAdmin.listAllergenClasses,
@@ -137,10 +152,7 @@ describe('the api bundle exposes the prototype repositories', () => {
             .filter(([name]) => name.startsWith('admin'))
             .map(([, endpoint]) => endpoint);
 
-        expect(adminEndpoints.length).toBe(4);
-        for (const endpoint of adminEndpoints) {
-            expect(endpoint).toMatch(/^(GET|POST|PUT|PATCH) \/api\/v1\/(reference|catalogue|kitchen)\//);
-        }
+        expect(adminEndpoints.length).toBe(0);
     });
 
     /** Lifecycle transitions are sub-resource actions, never a status on a `PATCH` (plan §4.15). */
@@ -205,18 +217,10 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(table.adminGetBranchOperating).toBeUndefined();
         expect(table.adminCreateIngredient).toBeUndefined();
         expect(table.adminSetBranchOperating).toBeUndefined();
-        expect(table.adminPreviewRecipeRollup).toBe(
-            'POST /api/v1/catalogue/recipes/roll-up-preview',
-        );
-        expect(table.adminSetMealAvailability).toBe(
-            'PUT /api/v1/catalogue/meals/{meal}/availability',
-        );
-        expect(table.adminSetPlanCombinations).toBe(
-            'PUT /api/v1/catalogue/plans/{plan}/combinations',
-        );
-        expect(table.adminSetDeliveryWindows).toBe(
-            'POST /api/v1/catalogue/delivery-windows',
-        );
+        expect(table.adminPreviewRecipeRollup).toBeUndefined();
+        expect(table.adminSetMealAvailability).toBeUndefined();
+        expect(table.adminSetPlanCombinations).toBeUndefined();
+        expect(table.adminSetDeliveryWindows).toBeUndefined();
 
         // Cart and subscription lifecycle left the ledger in Phase 4 — wired in cart-repository
         // and subscription-repository.

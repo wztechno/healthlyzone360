@@ -138,6 +138,12 @@ type CatalogueItemShowPayload = {
     readonly variants: AdminCatalogueItemVariant[];
     readonly diet_classifications: string[];
     readonly channels: AdminChannelAssignment[];
+    readonly availability_days?: ReadonlyArray<{
+        readonly date: string;
+        readonly is_available: boolean;
+        readonly remaining_portions: number | null;
+        readonly order_cut_off_at: string | null;
+    }>;
 };
 
 /**
@@ -452,13 +458,19 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/items/${encodeURIComponent(String(mealId))}/allergens`,
             });
 
-            return mapMealAdminFromItem(show.item, {
-                channelAvailability: mapChannelAssignments(show.channels, lookup),
-                dietClassifications: show.diet_classifications.filter(
-                    (code): code is DietClassification => isDietClassification(code),
-                ),
-                allergens: mapDerivedAllergenCodes(allergenWire),
-            });
+            return mapMealAdminFromItem(
+                {
+                    ...show.item,
+                    availability_days: show.availability_days,
+                },
+                {
+                    channelAvailability: mapChannelAssignments(show.channels, lookup),
+                    dietClassifications: show.diet_classifications.filter(
+                        (code): code is DietClassification => isDietClassification(code),
+                    ),
+                    allergens: mapDerivedAllergenCodes(allergenWire),
+                },
+            );
         },
 
         async listPlans(filter?: PlanAdminFilter): Promise<CursorPage<PlanAdmin>> {

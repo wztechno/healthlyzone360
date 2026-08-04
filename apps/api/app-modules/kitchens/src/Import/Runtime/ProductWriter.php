@@ -297,7 +297,7 @@ final readonly class ProductWriter
         ImportReport $report,
     ): void {
         foreach ($prices as $index => $price) {
-            $listCode = $price['channel'] === 'b2b' ? GreenLifeWorld::PRICE_LIST_B2B : GreenLifeWorld::PRICE_LIST_B2C;
+            $listCode = $price['channel'] === 'b2b' ? KitchenWorkbookWorld::PRICE_LIST_B2B : KitchenWorkbookWorld::PRICE_LIST_B2C;
             $list = $priceLists[$listCode] ?? null;
 
             if (! $list instanceof PriceList) {
@@ -360,7 +360,7 @@ final readonly class ProductWriter
         $offered = [];
 
         foreach ($prices as $price) {
-            $channelCode = $price['channel'] === 'b2b' ? GreenLifeWorld::CHANNEL_B2B : GreenLifeWorld::CHANNEL_B2C;
+            $channelCode = $price['channel'] === 'b2b' ? KitchenWorkbookWorld::CHANNEL_B2B : KitchenWorkbookWorld::CHANNEL_B2C;
             $variantId = $price['pack_code'] === null
                 ? null
                 : (isset($variants[$price['pack_code']]) ? (string) $variants[$price['pack_code']]->getKey() : null);

@@ -191,6 +191,12 @@ enum ErrorCode: string
     case CartLineRefused = 'cart.line_refused';
 
     /**
+     * A basket cannot be opened on this sales channel with the caller's account
+     * shape. Private-pricing channels require a corporate buyer account.
+     */
+    case CartChannelRefused = 'cart.channel_refused';
+
+    /**
      * Checkout was refused. A 409 rather than a 422, because what changed is
      * the *world* — a branch closed, a price was withdrawn, a cut-off passed
      * between building the cart and submitting it — and the remedy is to
@@ -306,7 +312,8 @@ enum ErrorCode: string
             self::ContextBranchOutOfScope,
             self::AccountVerificationRequired,
             self::B2bSignatoryRequired,
-            self::AuthzPermissionDenied => 403,
+            self::AuthzPermissionDenied,
+            self::CartChannelRefused => 403,
             self::ResourceNotFound => 404,
             self::ResourceConflict,
             self::CatalogueInUse,
@@ -383,6 +390,7 @@ enum ErrorCode: string
             self::AddressAreaNotServed => 'No kitchen currently delivers to that area.',
             self::GuestSessionInvalid => 'This guest session is not valid for that action.',
             self::CartLineRefused => 'This item cannot be added to the basket as asked for.',
+            self::CartChannelRefused => 'This sales channel is only available to corporate buyer accounts.',
             self::OrderPlacementRefused => 'This order cannot be placed as it stands.',
             self::B2bApplicationStateInvalid => 'This application cannot be changed from its current state.',
             self::B2bDocumentsIncomplete => 'The required documents are not all present and accepted.',

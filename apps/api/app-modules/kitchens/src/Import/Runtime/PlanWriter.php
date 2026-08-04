@@ -35,7 +35,7 @@ use Illuminate\Support\Str;
  * source's "Plan Pricing (per day)" sheet is a grid of `Y` flags with a footnote
  * saying prices are daily and discounts depend on the number of days — and not
  * one number anywhere. So every configuration gets a `placeholder` price row
- * with a NULL amount on the draft `greenlife-plans-usd` tariff, the publish gate
+ * with a NULL amount on the draft `healthy360-plans-usd` tariff, the publish gate
  * refuses the plan with `plan_prices_incomplete` naming every unpriced
  * configuration, and the readiness endpoint says the same thing without anybody
  * having to attempt a publication (decision OD-2, reviewer point 15). A zero
@@ -262,7 +262,7 @@ final readonly class PlanWriter
         /** @var list<array{plan_name: string, column: string, available: bool}> $matrix */
         $matrix = $parsed['variant_matrix'];
 
-        $planList = $priceLists[GreenLifeWorld::PRICE_LIST_PLANS] ?? null;
+        $planList = $priceLists[KitchenWorkbookWorld::PRICE_LIST_PLANS] ?? null;
 
         foreach ($plans as $plan) {
             $sourceRef = SourceManifest::PLANS.'#'.$plan['plan_id'];

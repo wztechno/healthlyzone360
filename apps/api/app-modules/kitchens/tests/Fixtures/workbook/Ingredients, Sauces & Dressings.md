@@ -1,6 +1,6 @@
 <!--
     SYNTHETIC FIXTURE. Every name, class and note below was invented for this
-    test suite. It carries the shape of the private GreenLife workbook — the
+    test suite. It carries the shape of the private Healthy360 kitchen workbook — the
     merged title and caveat rows, the ID prefixes, the allergen markers — and
     none of its content. Nothing here is a real formulation.
 -->

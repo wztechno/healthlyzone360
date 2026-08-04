@@ -6,7 +6,7 @@ use Database\Seeders\KitchenReferenceSeeder;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
-use Healthy360\Kitchens\Import\Runtime\GreenLifeImport;
+use Healthy360\Kitchens\Import\Runtime\KitchenWorkbookImport;
 use Healthy360\Kitchens\Import\Runtime\ImportOptions;
 use Healthy360\Kitchens\Import\Runtime\ImportReport;
 use Healthy360\Kitchens\Import\Runtime\UnitMap;
@@ -32,7 +32,7 @@ use Illuminate\Support\Facades\DB;
 |
 | Driven by the same synthetic fixture workbook the importer's own suite uses,
 | against a determinations file written per test — the committed one names the
-| real GreenLife ingredients, which are confidential and are not in this
+| real workbook ingredients, which are confidential and are not in this
 | repository (data register, D-046).
 |
 */
@@ -47,12 +47,12 @@ beforeEach(function (): void {
 
     $options = new ImportOptions(
         sourceDirectory: __DIR__.'/Fixtures/workbook',
-        organisationSlug: 'green-life-kitchen',
+        organisationSlug: 'healthy360-kitchen',
         dryRun: false,
         validateOnly: false,
     );
 
-    app(GreenLifeImport::class)->run($options, new ImportReport($options, 'testing'));
+    app(KitchenWorkbookImport::class)->run($options, new ImportReport($options, 'testing'));
 
     app(TenantContext::class)->clear();
     app(DatabaseTenantContext::class)->reset();
@@ -165,18 +165,18 @@ it('writes nothing at all on a dry run of every DEC1 command', function (): void
     $before = dec1RowCounts();
 
     $this->artisan('kitchen:apply-allergen-determinations', [
-        '--org' => 'green-life-kitchen',
+        '--org' => 'healthy360-kitchen',
         '--file' => $this->determinationsFile,
         '--dry-run' => true,
     ])->assertSuccessful();
 
     $this->artisan('kitchen:seed-approximate-plan-prices', [
-        '--org' => 'green-life-kitchen',
+        '--org' => 'healthy360-kitchen',
         '--dry-run' => true,
     ])->assertSuccessful();
 
     $this->artisan('kitchen:publish-ready', [
-        '--org' => 'green-life-kitchen',
+        '--org' => 'healthy360-kitchen',
         '--dry-run' => true,
     ])->assertSuccessful();
 
@@ -188,7 +188,7 @@ it('applies the determinations once and changes nothing on a second run', functi
     $this->determinationsFile = fixtureDeterminations($none, $withClass);
 
     $this->artisan('kitchen:apply-allergen-determinations', [
-        '--org' => 'green-life-kitchen',
+        '--org' => 'healthy360-kitchen',
         '--file' => $this->determinationsFile,
     ])->assertSuccessful();
 
@@ -208,13 +208,13 @@ it('applies the determinations once and changes nothing on a second run', functi
     expect($mapping->containment->value)->toBe('may_contain')
         ->and($mapping->verification_status->value)->toBe('requires_supplier_confirmation')
         ->and($mapping->source->value)->toBe('kitchen_declared')
-        ->and($mapping->organisation_id)->toBe((string) Organisation::query()->where('slug', 'green-life-kitchen')->sole()->getKey());
+        ->and($mapping->organisation_id)->toBe((string) Organisation::query()->where('slug', 'healthy360-kitchen')->sole()->getKey());
 
     $after = dec1RowCounts();
     $mappingId = (string) $mapping->getKey();
 
     $this->artisan('kitchen:apply-allergen-determinations', [
-        '--org' => 'green-life-kitchen',
+        '--org' => 'healthy360-kitchen',
         '--file' => $this->determinationsFile,
     ])->assertSuccessful();
 
@@ -238,7 +238,7 @@ it('applies the determinations once and changes nothing on a second run', functi
 });
 
 it('replaces plan placeholders with confirmed rows and does not churn them on a second run', function (): void {
-    $this->artisan('kitchen:seed-approximate-plan-prices', ['--org' => 'green-life-kitchen'])->assertSuccessful();
+    $this->artisan('kitchen:seed-approximate-plan-prices', ['--org' => 'healthy360-kitchen'])->assertSuccessful();
 
     $priceList = PriceList::withoutTenancy()->where('code', 'like', '%-plans-%')->sole();
 
@@ -263,7 +263,7 @@ it('replaces plan placeholders with confirmed rows and does not churn them on a 
 
     $after = dec1RowCounts();
 
-    $this->artisan('kitchen:seed-approximate-plan-prices', ['--org' => 'green-life-kitchen'])->assertSuccessful();
+    $this->artisan('kitchen:seed-approximate-plan-prices', ['--org' => 'healthy360-kitchen'])->assertSuccessful();
 
     expect(dec1RowCounts()['price_list_items'])->toBe($after['price_list_items']);
 });
@@ -271,7 +271,7 @@ it('replaces plan placeholders with confirmed rows and does not churn them on a 
 it('refuses to run outside the allowlisted environments', function (): void {
     config()->set('kitchens.import.environments', ['production']);
 
-    $this->artisan('kitchen:apply-allergen-determinations', ['--org' => 'green-life-kitchen'])->assertFailed();
-    $this->artisan('kitchen:seed-approximate-plan-prices', ['--org' => 'green-life-kitchen'])->assertFailed();
-    $this->artisan('kitchen:publish-ready', ['--org' => 'green-life-kitchen'])->assertFailed();
+    $this->artisan('kitchen:apply-allergen-determinations', ['--org' => 'healthy360-kitchen'])->assertFailed();
+    $this->artisan('kitchen:seed-approximate-plan-prices', ['--org' => 'healthy360-kitchen'])->assertFailed();
+    $this->artisan('kitchen:publish-ready', ['--org' => 'healthy360-kitchen'])->assertFailed();
 });

@@ -54,7 +54,7 @@
 #   kind of registry error the architecture test cannot catch.
 
 version: 1
-updated: "2026-08-03"
+updated: "2026-08-04"
 
 modules:
   # ── Active platform modules (phase 1) ─────────────────────────────────────
@@ -210,7 +210,7 @@ modules:
   # model.
   #
   # K1.8 widens the edges — and Recipes comes back, with company. This module
-  # gains the private GreenLife importer (`kitchen:import-greenlife`, master
+  # gains the private Healthy360 kitchen workbook importer (`kitchen:import-workbook`, master
   # plan v2 §4.11), the one piece of code whose whole job is to stand a kitchen
   # up from a workbook: an organisation, a branch, channels, price lists and a
   # catalogue, then ingredients, recipes, costed versions, listings, plans and
@@ -232,28 +232,32 @@ modules:
   - name: Kitchens
     status: foundation
     phase: 2
-    description: Branch operating data — opening hours per weekday and order cut-offs — and the private GreenLife importer that stands a kitchen up from its own workbook. Menus, approved meal-plan receipt and kitchen instructions are still to come.
+    description: Branch operating data — opening hours per weekday and order cut-offs — and the private Healthy360 kitchen workbook importer that stands a kitchen up from its own workbook. Menus, approved meal-plan receipt and kitchen instructions are still to come.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes, Catalogues, Pricing, Delivery]
 
   - name: Inventory
-    status: planned
-    description: Stock levels, availability and waste monitoring; stock valuation deferred with it.
-    depends_on: [Ingredients, Kitchens]
+    status: foundation
+    phase: 2
+    description: Stock items, per-branch stock levels and a movement ledger (adjust, waste, receipt, consume, yield) without valuation in v1.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Ingredients, Kitchens]
 
   - name: Procurement
-    status: planned
-    description: Purchasing, supplier management and ingredient-requirement planning.
-    depends_on: [Inventory]
+    status: foundation
+    phase: 2
+    description: Suppliers, purchase orders and goods receipts that post quantity into the inventory ledger.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Inventory]
 
   - name: Production
-    status: planned
-    description: Production scheduling, batch preparation, portion control, task allocation and escalation of delays or shortages.
-    depends_on: [Kitchens, Inventory, Recipes]
+    status: foundation
+    phase: 2
+    description: Production orders from recipe versions, tasks, and consume/yield movements into inventory.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes]
 
   - name: QualityControl
-    status: planned
-    description: Food-safety checkpoints, quality checks, labelling and packaging verification.
-    depends_on: [Production, Allergens]
+    status: foundation
+    phase: 2
+    description: Quality checks on goods receipts and production batches with hold and release.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Production, Allergens]
 
   # Flipped to `foundation` by M1, with the scope narrowed to what actually
   # exists: the anonymous, read-only consumer view of the catalogue — kitchens
@@ -482,9 +486,10 @@ modules:
     depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Cart, Orders]
 
   - name: Payments
-    status: planned
-    description: Payment-gateway integration, invoices, refunds; per-market provider selection.
-    depends_on: [Orders, Pricing]
+    status: foundation
+    phase: 2
+    description: Payment intents keyed by order_id (never PAN on orders), pluggable PaymentProvider with COD first-class, sandbox card provider, refunds; settlement lookup for B2B offboarding.
+    depends_on: [Support, Organisations, Tenancy, Audit, Orders, Pricing]
 
   - name: Accounting
     status: planned
@@ -492,14 +497,16 @@ modules:
     depends_on: [Payments, Subscriptions]
 
   - name: POS
-    status: planned
-    description: Point-of-sale transactions for kitchen/clinic counters; offline requirements need a separate threat model (ADR-0012).
-    depends_on: [Catalogues, Pricing, Payments]
+    status: foundation
+    phase: 2
+    description: Online-only point-of-sale — registers, shifts and transactions with COD or sandbox card (ADR-0012 offline deferred).
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Catalogues, Pricing, Payments]
 
   - name: KitchenDisplay
-    status: planned
-    description: KDS ticket flow for production stations; shell/prototype build mode until hardware known.
-    depends_on: [Production, Orders]
+    status: foundation
+    phase: 2
+    description: KDS tickets from orders and production with bump states; online-only MVP.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Production, Orders]
 
   # Orders edge dropped (master plan v2 §5): delivery zones, areas and windows
   # are configuration that precedes any delivery job, and K1.7 builds them
@@ -524,7 +531,7 @@ modules:
   - name: Delivery
     status: foundation
     phase: 2
-    description: Delivery geography and slots — kitchen delivery zones over the platform area gazetteer, one zone per area per branch with branch-over-organisation resolution, and the named delivery windows a checkout offers. Provider integration, driver allocation, tracking and proof of delivery arrive with F1.
+    description: Delivery geography and slots — kitchen delivery zones over the platform area gazetteer, one zone per area per branch with branch-over-organisation resolution, named delivery windows, and F1 in-house delivery jobs (driver assignment, tracking, proof of delivery). Third-party logistics deferred.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit]
 
   - name: ClinicalRecords

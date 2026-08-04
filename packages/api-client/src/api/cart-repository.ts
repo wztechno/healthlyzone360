@@ -1,4 +1,4 @@
-import { CartId, MealId, isCurrencyCode } from '@healthy360/domain-types';
+import { CartId, KitchenId, MealId, isCurrencyCode } from '@healthy360/domain-types';
 import type { Money } from '@healthy360/domain-types';
 
 import type {
@@ -7,6 +7,7 @@ import type {
     CartItem,
     CheckoutPreview,
     CommerceRepository,
+    GetCartOptions,
     PreviewCheckoutRequest,
     PriceLine,
 } from '../contracts/commerce.ts';
@@ -24,19 +25,40 @@ import type { Transport } from './transport.ts';
  *
  * The wire cart carries **no prices** (repriced at placement). Domain `Cart` needs names, unit
  * prices and allergens for the UI, so every projection hydrates lines via
- * `GET /marketplace/meals/{id}` — the same enrichment the mock world does from fixtures.
+ * `GET /marketplace/meals/{id}` for consumer channels, or `GET /b2b/catalogue/items/{id}` for
+ * wholesale channels — the same enrichment the mock world does from fixtures.
  *
  * `previewCheckout` has no Laravel route. The interim builds a quotation from the hydrated cart
  * subtotal with `deliveryFee: null` and a warning that delivery is priced at placement.
  */
 
-/** Channel code the authenticated storefront opens. Matches the Verdant demo `web-shop`. */
+/** Channel code the authenticated consumer storefront opens. Matches the Verdant demo `web-shop`. */
 export const DEFAULT_CART_CHANNEL_CODE = 'web-shop';
+
+/** Channel code corporate buyers open. Matches `B2bCheckoutWorld` and the demo wholesale channel. */
+export const DEFAULT_B2B_CART_CHANNEL_CODE = 'wholesale';
 
 export type ApiCartSurface = Pick<
     CommerceRepository,
     'getCart' | 'addCartItem' | 'removeCartItem' | 'previewCheckout'
 >;
+
+interface WireB2bCatalogueItem {
+    readonly id: string;
+    readonly name: string;
+    readonly item_type: string;
+    readonly seller_organisation_id: string;
+    readonly sales_channel_id: string;
+    readonly price: { readonly amount_minor: number; readonly currency_code: string } | null;
+}
+
+interface WireB2bCatalogueShow {
+    readonly item: WireB2bCatalogueItem;
+}
+
+function isB2bChannel(channelCode: string): boolean {
+    return channelCode !== DEFAULT_CART_CHANNEL_CODE;
+}
 
 function money(amountMinor: number, currency: string): Money {
     if (!isCurrencyCode(currency)) {
@@ -73,8 +95,54 @@ async function fetchMeal(transport: Transport, mealId: string) {
     return meal;
 }
 
-async function mapCartLine(transport: Transport, line: WireCartLine): Promise<CartItem> {
+async function fetchB2bCatalogueItem(transport: Transport, itemId: string) {
+    const payload = await transport.request<WireB2bCatalogueShow>({
+        method: 'GET',
+        path: `/b2b/catalogue/items/${pathSegment(itemId)}`,
+    });
+    const wire = payload.item;
+    if (wire.price === null || !isCurrencyCode(wire.price.currency_code)) {
+        throw new ApiError(
+            apiFailure('server', {
+                message: `Catalogue item ${itemId} has no displayable contract price.`,
+                retryable: false,
+            }),
+        );
+    }
+
+    return {
+        name: wire.name,
+        mealId: MealId.unsafe(wire.id),
+        kitchenId: KitchenId.unsafe(wire.seller_organisation_id),
+        unitPrice: money(wire.price.amount_minor, wire.price.currency_code),
+        allergens: [] as CartItem['allergens'],
+    };
+}
+
+async function mapCartLine(
+    transport: Transport,
+    line: WireCartLine,
+    channelCode: string,
+): Promise<CartItem> {
     const quantity = Number.parseFloat(line.quantity) || 0;
+
+    if (isB2bChannel(channelCode)) {
+        const item = await fetchB2bCatalogueItem(transport, line.catalogue_item_id);
+        const lineTotal = money(item.unitPrice.amount * quantity, item.unitPrice.currency);
+
+        return {
+            id: line.id,
+            mealId: item.mealId,
+            kitchenId: item.kitchenId,
+            name: item.name,
+            quantity,
+            unitPrice: item.unitPrice,
+            lineTotal,
+            allergens: item.allergens,
+            deliveryDate: line.delivery_date,
+        };
+    }
+
     const meal = await fetchMeal(transport, line.catalogue_item_id);
     const unitPrice = meal.price;
     const lineTotal = money(unitPrice.amount * quantity, unitPrice.currency);
@@ -92,10 +160,14 @@ async function mapCartLine(transport: Transport, line: WireCartLine): Promise<Ca
     };
 }
 
-async function mapCart(transport: Transport, wire: WireCart): Promise<Cart> {
+async function mapCart(
+    transport: Transport,
+    wire: WireCart,
+    channelCode: string,
+): Promise<Cart> {
     const items: CartItem[] = [];
     for (const line of wire.lines) {
-        items.push(await mapCartLine(transport, line));
+        items.push(await mapCartLine(transport, line, channelCode));
     }
 
     const currency =
@@ -136,18 +208,23 @@ function previewFromCart(cart: Cart, request: PreviewCheckoutRequest): CheckoutP
 }
 
 export function createApiCartSurface(transport: Transport): ApiCartSurface {
-    async function openCart(): Promise<Cart> {
+    let sessionChannelCode = DEFAULT_CART_CHANNEL_CODE;
+
+    async function openCart(channelCode?: string): Promise<Cart> {
+        const code = channelCode ?? sessionChannelCode;
+        sessionChannelCode = code;
+
         const payload = await transport.request<{ cart: WireCart }>({
             method: 'POST',
             path: '/carts',
-            body: { channel_code: DEFAULT_CART_CHANNEL_CODE },
+            body: { channel_code: code },
         });
-        return mapCart(transport, payload.cart);
+        return mapCart(transport, payload.cart, code);
     }
 
     return {
-        async getCart(): Promise<Cart> {
-            return openCart();
+        async getCart(options?: GetCartOptions): Promise<Cart> {
+            return openCart(options?.channelCode);
         },
 
         async addCartItem(cartId, request: AddCartItemRequest): Promise<Cart> {
@@ -166,7 +243,7 @@ export function createApiCartSurface(transport: Transport): ApiCartSurface {
                         : { delivery_date: request.deliveryDate }),
                 },
             });
-            return mapCart(transport, payload.cart);
+            return mapCart(transport, payload.cart, sessionChannelCode);
         },
 
         async removeCartItem(cartId, itemId: string): Promise<Cart> {

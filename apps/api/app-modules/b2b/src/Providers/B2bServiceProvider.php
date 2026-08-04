@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Providers;
 
+use Healthy360\B2b\Contracts\InvoicingSettlementLookup;
 use Healthy360\B2b\Contracts\SellerOpenOrders;
+use Healthy360\B2b\Services\BuyerAgreementLookup;
+use Healthy360\B2b\Services\NoInvoicingSettlementLookup;
 use Healthy360\B2b\Services\NoSellerOpenOrders;
 use Healthy360\B2b\Services\PendingB2bSignatoryQuery;
 use Healthy360\Customers\Closure\Contracts\B2bSignatoryPresence;
@@ -89,6 +92,7 @@ class B2bServiceProvider extends ServiceProvider
         // registered the real implementation, and a default that overwrote it
         // would silently disarm the one settlement check that works.
         $this->app->bindIf(SellerOpenOrders::class, NoSellerOpenOrders::class);
+        $this->app->bindIf(InvoicingSettlementLookup::class, NoInvoicingSettlementLookup::class);
 
         // `bind`, not `bindIf`, and the asymmetry with the line above is
         // deliberate. There the default *is* this module's, so it must not
@@ -98,6 +102,11 @@ class B2bServiceProvider extends ServiceProvider
         // the winner depend on provider order, which is how a closure screen
         // comes to report "no B2B module" in a deployment that plainly has one.
         $this->app->bind(B2bSignatoryPresence::class, PendingB2bSignatoryQuery::class);
+
+        $this->app->bind(
+            \Healthy360\Pricing\Contracts\BuyerAgreementLookup::class,
+            BuyerAgreementLookup::class,
+        );
     }
 
     public function boot(): void {}

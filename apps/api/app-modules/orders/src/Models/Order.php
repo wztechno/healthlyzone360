@@ -47,6 +47,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $organisation_id
  * @property string $customer_account_id
  * @property string $sales_channel_id
+ * @property string|null $b2b_agreement_id
+ * @property string|null $price_list_id
  * @property string|null $branch_id
  * @property OrderStatus $status
  * @property string $currency_code

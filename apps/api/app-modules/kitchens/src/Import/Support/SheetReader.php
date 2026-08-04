@@ -7,7 +7,7 @@ namespace Healthy360\Kitchens\Import\Support;
 /**
  * The one place that knows what the workbook's markdown looks like.
  *
- * The private GreenLife workbook reaches this codebase as five markdown
+ * The private Healthy360 kitchen workbook reaches this codebase as five markdown
  * files, each an export of an Excel workbook: a line `Sheet<N>:<title>` at
  * column zero, a blank line, then one or more pipe tables. Every parser in
  * `Import\Parsers` starts here, so the shape of a sheet is defined once

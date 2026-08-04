@@ -5251,7 +5251,7 @@ export const zSalesChannelPath = z.union([
  * The price list identifier, or its `code`. Both are accepted for the
  * reason the sales-channel path gives: a client that walked the list
  * holds an identifier, an operator or an importer holds
- * `greenlife-b2b-usd`, and the code is unique per organisation.
+ * `healthy360-b2b-usd`, and the code is unique per organisation.
  *
  */
 export const zPriceListPath = z.union([

@@ -6652,7 +6652,7 @@ export type SalesChannelPath = Uuid | string;
  * The price list identifier, or its `code`. Both are accepted for the
  * reason the sales-channel path gives: a client that walked the list
  * holds an identifier, an operator or an importer holds
- * `greenlife-b2b-usd`, and the code is unique per organisation.
+ * `healthy360-b2b-usd`, and the code is unique per organisation.
  *
  */
 export type PriceListPath = Uuid | string;
@@ -12535,7 +12535,7 @@ export type ShowPriceListData = {
          * The price list identifier, or its `code`. Both are accepted for the
          * reason the sales-channel path gives: a client that walked the list
          * holds an identifier, an operator or an importer holds
-         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         * `healthy360-b2b-usd`, and the code is unique per organisation.
          *
          */
         priceList: Uuid | string;
@@ -12608,7 +12608,7 @@ export type UpdatePriceListData = {
          * The price list identifier, or its `code`. Both are accepted for the
          * reason the sales-channel path gives: a client that walked the list
          * holds an identifier, an operator or an importer holds
-         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         * `healthy360-b2b-usd`, and the code is unique per organisation.
          *
          */
         priceList: Uuid | string;
@@ -12717,7 +12717,7 @@ export type PublishPriceListData = {
          * The price list identifier, or its `code`. Both are accepted for the
          * reason the sales-channel path gives: a client that walked the list
          * holds an identifier, an operator or an importer holds
-         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         * `healthy360-b2b-usd`, and the code is unique per organisation.
          *
          */
         priceList: Uuid | string;
@@ -12821,7 +12821,7 @@ export type ArchivePriceListData = {
          * The price list identifier, or its `code`. Both are accepted for the
          * reason the sales-channel path gives: a client that walked the list
          * holds an identifier, an operator or an importer holds
-         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         * `healthy360-b2b-usd`, and the code is unique per organisation.
          *
          */
         priceList: Uuid | string;
@@ -12917,7 +12917,7 @@ export type ListPriceListEntriesData = {
          * The price list identifier, or its `code`. Both are accepted for the
          * reason the sales-channel path gives: a client that walked the list
          * holds an identifier, an operator or an importer holds
-         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         * `healthy360-b2b-usd`, and the code is unique per organisation.
          *
          */
         priceList: Uuid | string;
@@ -13021,7 +13021,7 @@ export type ReplacePriceListEntriesData = {
          * The price list identifier, or its `code`. Both are accepted for the
          * reason the sales-channel path gives: a client that walked the list
          * holds an identifier, an operator or an importer holds
-         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         * `healthy360-b2b-usd`, and the code is unique per organisation.
          *
          */
         priceList: Uuid | string;
@@ -13130,7 +13130,7 @@ export type ReplacePriceListChannelsData = {
          * The price list identifier, or its `code`. Both are accepted for the
          * reason the sales-channel path gives: a client that walked the list
          * holds an identifier, an operator or an importer holds
-         * `greenlife-b2b-usd`, and the code is unique per organisation.
+         * `healthy360-b2b-usd`, and the code is unique per organisation.
          *
          */
         priceList: Uuid | string;

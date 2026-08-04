@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Services;
 
 use Healthy360\Cart\Models\Cart;
-use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
+use Healthy360\Customers\Services\ShopperResolver;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -39,16 +39,16 @@ final class OrderLocator
     public function __construct(
         private readonly OrderQuery $orders,
         private readonly TenantContext $context,
+        private readonly ShopperResolver $shoppers,
     ) {}
 
     /**
      * The customer account behind the authenticated identity.
      *
-     * **Always the `b2c` account.** A `b2b` account holds an organisation
-     * rather than a user, so no other shape is reachable from an identity, and
-     * a `guest` account arrives with `X-Guest-Token` rather than with a
-     * session. The partial unique index on `(user_id, account_type)` is what
-     * makes "the" the right article.
+     * **The consumer account by default**, and a corporate buyer account when
+     * the request carries an organisation context the person belongs to. A
+     * `guest` account arrives with `X-Guest-Token` rather than with a
+     * session.
      *
      * A signed-in person with no customer account is **403
      * `account.verification_required`** rather than 404: what is missing is the
@@ -67,22 +67,7 @@ final class OrderLocator
      */
     public function shopper(): CustomerAccount
     {
-        $userId = $this->context->userId();
-
-        $account = $userId === null ? null : CustomerAccount::query()
-            ->where('user_id', $userId)
-            ->where('account_type', CustomerAccountType::B2c->value)
-            ->first();
-
-        if (! $account instanceof CustomerAccount) {
-            throw new ApiException(
-                ErrorCode::AccountVerificationRequired,
-                'You do not have a customer account yet.',
-                ['outstanding' => ['customer_account_missing']],
-            );
-        }
-
-        return $account;
+        return $this->shoppers->resolve();
     }
 
     /**

@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\Builder;
  * ## Why this endpoint is expected to be empty
  *
  * It is, today, and that is the correct answer rather than a gap. The real
- * GreenLife world imported in K1.8 is entirely draft by design, and the
+ * Healthy360 workbook kitchen imported in K1.8 is entirely draft by design, and the
  * demonstration kitchen's one plan is deliberately left unpublishable — its
  * premium configuration carries no confirmed price, which is exactly the state
  * the K1.6 publish gate exists to refuse. An endpoint that returned those plans

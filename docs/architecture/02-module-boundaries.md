@@ -89,7 +89,7 @@ flowchart BT
 
 Phase K1 flipped seven registry entries from `planned` to `foundation`, one slice at a time, each with its migrations, its API surface and its architecture test in the same commit:
 
-**Ingredients** (K1.1) · **Allergens** (K1.1) · **Recipes** (K1.2, costing K1.3) · **Catalogues** (K1.4, plan definitions K1.6) · **Pricing** (K1.5) · **Delivery** (K1.7) · **Kitchens** (K1.7, and the private GreenLife importer in K1.8).
+**Ingredients** (K1.1) · **Allergens** (K1.1) · **Recipes** (K1.2, costing K1.3) · **Catalogues** (K1.4, plan definitions K1.6) · **Pricing** (K1.5) · **Delivery** (K1.7) · **Kitchens** (K1.7, and the private Healthy360 kitchen workbook importer in K1.8).
 
 They stay `foundation` rather than becoming `active`: the schema and the internal management surface exist and are complete, and the customer-facing lifecycle does not — M1 has since added the marketplace read path, and ordering waits for C1. `active` is a statement about a delivered capability, not a reward for finishing a slice.
 
@@ -101,7 +101,7 @@ M1 flipped **Marketplace** from `planned` to `foundation`, and narrowed its desc
 
 The public read surface therefore lives in `Kitchens` — `Http/Controllers/Public*`, `Presenters/Marketplace*`, `Services/Marketplace*` — which is where this codebase already puts a public projection: beside the module that owns the data, exactly as `Allergens`, `Catalogues` and `Delivery` each own their public reference list.
 
-`Kitchens` is the one whose declared dependencies reach across the whole family, and the registry says why: K1.8 gave it `kitchen:import-greenlife`, whose job is to stand a kitchen up from a workbook and which therefore writes ingredients, recipes, listings, prices and delivery geography. Catalogues could not host it — Pricing depends on Catalogues, so the edge would have closed a cycle — and nothing that may hold code depends on Kitchens, so widening it there stays acyclic.
+`Kitchens` is the one whose declared dependencies reach across the whole family, and the registry says why: K1.8 gave it `kitchen:import-workbook`, whose job is to stand a kitchen up from a workbook and which therefore writes ingredients, recipes, listings, prices and delivery geography. Catalogues could not host it — Pricing depends on Catalogues, so the edge would have closed a cycle — and nothing that may hold code depends on Kitchens, so widening it there stays acyclic.
 
 ## Future modules — registry entries only
 

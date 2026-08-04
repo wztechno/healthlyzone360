@@ -634,6 +634,35 @@ it('seeds a draft plan that is exactly one confirmed price short of publishable'
     expect($priced)->toBe([$configurations->get('lunch-dinner-standard-kcal-1200-1500')]);
 });
 
+it('seeds a published marketplace subscription plan', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $plan = CatalogueItem::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('slug', 'marketplace-balanced-plan')
+        ->sole();
+
+    expect($plan->item_type)->toBe(CatalogueItemType::SubscriptionPlan)
+        ->and($plan->status)->toBe(CatalogueItemStatus::Published);
+
+    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-marketplace-plans-usd')->sole();
+
+    expect($tariff->status)->toBe(PriceListStatus::Active)
+        ->and(ChannelPriceList::withoutTenancy()->where('price_list_id', $tariff->getKey())->count())->toBeGreaterThan(0);
+
+    $configurations = CatalogueItemVariant::withoutTenancy()
+        ->where('catalogue_item_id', $plan->getKey())
+        ->pluck('id');
+
+    $priced = PriceListItem::withoutTenancy()
+        ->where('price_list_id', $tariff->getKey())
+        ->confirmedOpenRows()
+        ->pluck('catalogue_item_variant_id')
+        ->all();
+
+    expect($priced)->toEqualCanonicalizing($configurations->all());
+});
+
 it('seeds the Lebanese gazetteer at exactly the 125 names the source lists', function (): void {
     // Committed platform reference data — mechanism (a) — and the count
     // follows the source rather than a target. The `ae-demo-*` rows the demo

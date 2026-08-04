@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Schema;
  *   lines. Reproducible: the same lines and the same yield produce the same
  *   numbers.
  * - `as_recorded` — the numbers a source technical sheet stated, stored
- *   verbatim, *including its errors*. The 29 GreenLife sheets do their own
+ *   verbatim, *including its errors*. The 29 Healthy360 sheets do their own
  *   arithmetic and several of them do it wrong (appendix D, data-quality
  *   ledger); silently correcting a sheet would destroy the evidence that it
  *   needs correcting, and silently trusting it would put a wrong number

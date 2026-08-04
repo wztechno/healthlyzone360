@@ -97,14 +97,15 @@ it('reads one meal and localises its name', function (): void {
         ->and($english->json('data.allergens'))->toBe(['sesame']);
 });
 
-it('answers an empty page of subscription plans, because none is publishable', function (): void {
-    // Not a gap: the demonstration plan's premium configuration carries no
-    // confirmed price, which is exactly what the K1.6 publish gate refuses, and
-    // the imported GreenLife world is draft by design.
+it('lists published subscription plans from the demonstration kitchen', function (): void {
     $this->getJson('/api/v1/marketplace/meal-plans')
         ->assertOk()
-        ->assertJsonPath('data', [])
         ->assertJsonPath('meta.has_more', false);
+
+    $slugs = collect($this->getJson('/api/v1/marketplace/meal-plans')->json('data'))->pluck('slug')->all();
+
+    expect($slugs)->toContain('marketplace-balanced-plan')
+        ->and($slugs)->not->toContain('balanced-plan');
 });
 
 it('names the filters the platform stores nothing for rather than ignoring them', function (): void {

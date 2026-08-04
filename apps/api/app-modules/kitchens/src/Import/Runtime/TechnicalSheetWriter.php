@@ -155,7 +155,7 @@ final readonly class TechnicalSheetWriter
             $row->unit_id = $line['unit_id'];
             $row->unit_cost_amount = $line['unit_price'];
             $row->line_cost_amount = $line['line_total'];
-            $row->cost_currency_code = $line['unit_price'] === null ? null : GreenLifeWorld::CURRENCY;
+            $row->cost_currency_code = $line['unit_price'] === null ? null : KitchenWorkbookWorld::CURRENCY;
             $row->source_designation = $line['designation'];
             $row->comment = $line['comment'];
             $row->save();
@@ -454,7 +454,7 @@ final readonly class TechnicalSheetWriter
         $perUnit = $this->perUnitLabel($labels);
 
         $computation = CostComputation::asRecorded(
-            currencyCode: GreenLifeWorld::CURRENCY,
+            currencyCode: KitchenWorkbookWorld::CURRENCY,
             totalInputCostAmount: $total,
             wasteCoefficientPercent: $this->wastePercent($sheet),
             costPerYieldUnitAmount: $perMass,

@@ -40,19 +40,18 @@ import type { AccessState } from '@healthy360/permissions';
 /**
  * Permission codes the K1 catalogue surfaces are gated on (master plan, phase K1).
  *
- * **TODO (K1 wiring pass).** The backend vocabulary is finer than this: `recipe.view_organisation`,
- * `recipe.manage_organisation` and `recipe.publish_organisation` are distinct codes server-side, and
- * publishing in particular is meant to be separately grantable. The mock's roles grant neither, so
- * gating the recipe family on them today would hide a whole slice behind a permission nothing can
- * issue. The recipe surfaces therefore reuse the catalogue pair, and the reconciliation pass that
- * lands the real codes changes this file and nothing else — which is the reason the registry exists.
- *
- * The same holds for the product and meal families landed by K1.4: the plan's permission set names
- * `catalogue.*` codes finer than this pair — publication of a meal is a distinct grant from renaming
- * one — and none of them is issuable in this world yet. Two constants, one reconciliation.
+ * Fine-grained codes match the backend PermissionRegistry. Mock kitchen_manager
+ * (and the real kitchen_manager template role) grant the full set.
  */
 export const CATALOGUE_VIEW_PERMISSION = 'catalogue.view_organisation';
 export const CATALOGUE_MANAGE_PERMISSION = 'catalogue.manage_organisation';
+export const CATALOGUE_PUBLISH_PERMISSION = 'catalogue.publish_organisation';
+export const RECIPE_VIEW_PERMISSION = 'recipe.view_organisation';
+export const RECIPE_MANAGE_PERMISSION = 'recipe.manage_organisation';
+export const PRICE_LIST_VIEW_PERMISSION = 'price_list.view_organisation';
+export const PRICE_LIST_MANAGE_PERMISSION = 'price_list.manage_organisation';
+export const PLAN_MANAGE_PERMISSION = 'plan.manage_organisation';
+export const DELIVERY_ZONE_MANAGE_PERMISSION = 'delivery_zone.manage_organisation';
 
 /**
  * How a family's card reports how much is in it.
@@ -127,10 +126,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // change, not a slice's; this is the closest honest reading — a technical sheet.
         icon: 'calendar',
         href: '/kitchen/recipes',
-        // See the note on the permission constants: `recipe.*` exists server-side and nothing in
-        // this world can grant it yet.
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        permission: RECIPE_VIEW_PERMISSION,
+        managePermission: RECIPE_MANAGE_PERMISSION,
     },
     {
         key: 'products',
@@ -173,11 +170,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // *one* currency on a family whose whole point is that each list carries its own.
         icon: 'menu',
         href: '/kitchen/price-lists',
-        // See the note on the permission constants: the plan names `price_list.*` codes server-side
-        // and nothing in this world can grant one, so K1.5 reuses the catalogue pair with the rest
-        // of K1 and the reconciliation pass changes this file alone.
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        permission: PRICE_LIST_VIEW_PERMISSION,
+        managePermission: PRICE_LIST_MANAGE_PERMISSION,
     },
     {
         key: 'plans',
@@ -194,11 +188,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // book, and a real icon set retires the compromise for both.
         icon: 'calendar',
         href: '/kitchen/plans',
-        // See the note on the permission constants: the plan names `subscription_plan.*` codes
-        // server-side and nothing in this world can grant one, so K1.6 reuses the catalogue pair
-        // with the rest of K1 and the reconciliation pass changes this file alone.
         permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        managePermission: PLAN_MANAGE_PERMISSION,
     },
     {
         key: 'delivery-zones',
@@ -213,11 +204,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // the card is what carries the meaning until a real icon set retires the compromise.
         icon: 'filter',
         href: '/kitchen/delivery-zones',
-        // See the note on the permission constants: the plan names `delivery_zone.*` codes
-        // server-side and nothing in this world can grant one, so K1.7 reuses the catalogue pair
-        // with the rest of K1 and the reconciliation pass changes this file alone.
         permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        managePermission: DELIVERY_ZONE_MANAGE_PERMISSION,
     },
     {
         key: 'branch-operating',
@@ -240,8 +228,47 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         icon: 'warning',
         href: '/kitchen/allergen-classes',
         permission: CATALOGUE_VIEW_PERMISSION,
-        // Class governance is platform-level (decision D-041): nobody edits these from a kitchen.
         managePermission: null,
+    },
+    {
+        key: 'stock',
+        kind: 'managed',
+        nameKey: 'kitchen:families.stock.name',
+        descriptionKey: 'kitchen:families.stock.description',
+        icon: 'menu',
+        href: '/kitchen/stock',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'procurement',
+        kind: 'managed',
+        nameKey: 'kitchen:families.procurement.name',
+        descriptionKey: 'kitchen:families.procurement.description',
+        icon: 'branch',
+        href: '/kitchen/procurement',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'production',
+        kind: 'managed',
+        nameKey: 'kitchen:families.production.name',
+        descriptionKey: 'kitchen:families.production.description',
+        icon: 'calendar',
+        href: '/kitchen/production',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'qc',
+        kind: 'managed',
+        nameKey: 'kitchen:families.qc.name',
+        descriptionKey: 'kitchen:families.qc.description',
+        icon: 'search',
+        href: '/kitchen/qc',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
 ];
 

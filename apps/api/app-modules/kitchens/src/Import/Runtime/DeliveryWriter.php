@@ -39,7 +39,7 @@ use Healthy360\ReferenceData\Models\DeliveryArea;
  */
 final readonly class DeliveryWriter
 {
-    public const string ZONE_CODE = 'greenlife-delivery';
+    public const string ZONE_CODE = 'healthy360-delivery';
 
     public function __construct(private string $sourceSystem) {}
 
@@ -113,7 +113,7 @@ final readonly class DeliveryWriter
         $zone->code = self::ZONE_CODE;
         $zone->name_en = 'Lebanon delivery';
         $zone->name_ar = 'التوصيل في لبنان';
-        $zone->currency_code = GreenLifeWorld::CURRENCY;
+        $zone->currency_code = KitchenWorkbookWorld::CURRENCY;
         $zone->delivery_fee_minor = null;
         $zone->minimum_order_minor = null;
         $zone->estimated_minutes = null;

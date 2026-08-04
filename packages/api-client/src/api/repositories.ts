@@ -39,6 +39,7 @@ import { createApiAccountRepository } from './account-repository.ts';
 import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
+import { createApiBusinessReads } from './business-repository.ts';
 import { createApiCartSurface } from './cart-repository.ts';
 import { createApiOrderPlacement } from './order-repository.ts';
 import {
@@ -472,6 +473,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
     const verification = createApiVerificationRepository(transport);
     const kitchenAdminReads = createApiKitchenAdminReads(transport);
     const kitchenAdminWrites = createApiKitchenAdminWrites(transport);
+    const businessReads = createApiBusinessReads(transport);
     const account = createApiAccountRepository({
         transport,
         reference,
@@ -496,6 +498,10 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         b2bApplication: createApiB2bApplicationRepository(transport),
         marketplace: createApiMarketplaceRepository(transport),
         ...API_PROTOTYPE_REPOSITORIES,
+        business: {
+            ...API_PROTOTYPE_REPOSITORIES.business,
+            ...businessReads,
+        },
         commerce: {
             ...apiCommerceRepository,
             ...createApiCartSurface(transport),

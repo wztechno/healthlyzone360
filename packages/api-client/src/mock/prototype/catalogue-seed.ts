@@ -69,7 +69,7 @@ import {
  *   answer rather than a gap. `setRecipeOutputs` is what puts one there.
  * - **No confirmed retail prices.** The synthetic products below have never been priced by anybody,
  *   so their entries are placeholders with `null` amounts, which is precisely the state the imported
- *   GreenLife product list will arrive in.
+ *   Healthy360 product list will arrive in.
  *
  * ## The one row that does not start published (K1.8)
  *
@@ -224,7 +224,7 @@ const QUARANTINE_SAMPLE_ORDINAL = 0x7f;
 /**
  * The source data's allergen contradiction, as one clearly-synthetic row.
  *
- * The GreenLife material tags burghul and pita "no allergens" on sheets whose own key files both
+ * The workbook material tags burghul and pita "no allergens" on sheets whose own key files both
  * under gluten (appendix A, R1). The programme's rule is that such a row **quarantines** rather than
  * warns (plan §4.7): it carries no allergen mapping, it sits in `review_required`, and nothing
  * publishes it until a person decides which of the two statements is true.
@@ -276,7 +276,7 @@ function buildQuarantinedIngredient(): StoredIngredient {
             'product, while the same file’s own allergen key files it under gluten (ALG-01). ' +
             'Both statements cannot be true, so nothing publishes it until a person decides ' +
             'which is. Synthetic sample — it stands for the burghul and pita rows in the ' +
-            'GreenLife material and carries none of their data.',
+            'Healthy360 material and carries none of their data.',
         organisationId: null,
         consumer,
     };

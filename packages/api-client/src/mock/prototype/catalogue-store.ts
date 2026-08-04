@@ -1474,7 +1474,7 @@ export class KitchenCatalogueStore {
         this.#requirePublishable(row.meta.status, 'plan');
 
         // Plan §3 #15: a plan whose prices are placeholders must not reach a public surface. The
-        // imported GreenLife plans have no numbers at all, and this is the gate that keeps them off
+        // imported workbook plans have no numbers at all, and this is the gate that keeps them off
         // the marketplace until somebody supplies real ones.
         if (!this.#hasConfirmedPrice(planId)) {
             throwFailure(

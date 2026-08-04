@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Schema;
  * a meal.
  *
  * **`change_cutoff_hours` defaults to 24, and that number is evidence.** Both
- * source systems state the same rule from opposite directions — the GreenLife
+ * source systems state the same rule from opposite directions — the workbook
  * operating rule "changes up to 24 hours before delivery" and legacy source B's
  * `Subscription_Plan_Orders` 24-hour amendment window — so the merge preserves
  * *both* by keeping one column with that default rather than inventing a
@@ -60,7 +60,7 @@ return new class extends Migration
             $table->boolean('allows_free_selection')->default(false)->comment('may a subscriber choose the dishes, or does the kitchen decide');
             $table->boolean('skip_allowed')->default(true);
             $table->boolean('pause_allowed')->default(true);
-            $table->integer('change_cutoff_hours')->default(24)->comment('the 24 h rule — GreenLife operating rule and legacy source B both, preserved as one column');
+            $table->integer('change_cutoff_hours')->default(24)->comment('the 24 h rule — Healthy360 operating rule and legacy source B both, preserved as one column');
             $table->text('summary_en')->nullable();
             $table->text('summary_ar')->nullable();
             $table->timestamps();

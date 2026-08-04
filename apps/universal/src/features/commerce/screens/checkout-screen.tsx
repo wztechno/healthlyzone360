@@ -12,7 +12,7 @@ import {
 } from '@healthy360/design-system';
 import type { Cart, CheckoutPreview, CustomerAddress, PlacedOrder } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -34,7 +34,8 @@ import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../wa
  * `/customer/checkout` — one-off order checkout against a saved address.
  *
  * Placement requires `addressId` (D-084): delivery zone/fee resolve from the address book, not a
- * typed street line. Payment is still never collected — cash on delivery.
+ * typed street line. Payment is collected at the door (COD) or via the card
+ * sandbox when a payment intent is created after placement — never card PAN in-app.
  */
 
 type Phase = 'collecting' | 'placed';
@@ -57,11 +58,16 @@ export function CheckoutScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const params = useLocalSearchParams<{ channel?: string }>();
+    const channelCode =
+        typeof params.channel === 'string' && params.channel !== ''
+            ? params.channel
+            : undefined;
 
-    const cart = useCartQuery();
+    const cart = useCartQuery(true, channelCode);
     const basket: Cart | undefined = cart.data;
     const addresses = useAddressesQuery();
-    const placeOrder = usePlaceOrderMutation();
+    const placeOrder = usePlaceOrderMutation(channelCode);
 
     const [addressId, setAddressId] = useState<string | null>(null);
     const [slotCode, setSlotCode] = useState<string>(DEFAULT_SLOT_CODE);
@@ -321,6 +327,15 @@ export function CheckoutScreen() {
                                                 />
                                             ),
                                         )}
+
+                                        <Callout
+                                            testID="checkout-payment-notice"
+                                            role="note"
+                                            tone="info"
+                                            icon="info"
+                                            title={t('commerce:checkout.paymentNoticeTitle')}
+                                            body={t('commerce:checkout.paymentNoticeBody')}
+                                        />
 
                                         {placeFailure === null ? null : (
                                             <Callout

@@ -65,7 +65,7 @@ class AppServiceProvider extends ServiceProvider
      *
      * `catalogue-import` has **no consumer yet**, and that is deliberate rather
      * than an oversight. The K1.8 importer is a CLI command
-     * (`kitchen:import-greenlife`) run by an operator against a private source
+     * (`kitchen:import-workbook`) run by an operator against a private source
      * tree; there is no import endpoint and this slice does not add one. The
      * definition lands now because the limiter is part of the K1 slice
      * inventory and because the alternative — introducing it in the same commit

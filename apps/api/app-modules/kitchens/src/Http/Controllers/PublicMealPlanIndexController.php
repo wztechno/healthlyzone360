@@ -21,7 +21,7 @@ use Illuminate\Http\Request;
  * The subscription catalogue: published plans of active kitchens.
  *
  * **It is expected to be empty today, and that is the correct answer.** The
- * imported GreenLife world is entirely draft by design, and the demonstration
+ * imported Healthy360 workbook kitchen is entirely draft by design, and the demonstration
  * kitchen's plan is deliberately left unpublishable — one configuration carries
  * no confirmed price, which is precisely what the publish gate refuses. An
  * empty page here is the gate working, not a missing feature, and it is why the

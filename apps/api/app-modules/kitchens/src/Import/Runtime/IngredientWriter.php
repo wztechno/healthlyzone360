@@ -54,7 +54,7 @@ final readonly class IngredientWriter
         $now = now();
 
         foreach ($this->dictionary->tenantIngredients() as $definition) {
-            $sourceRef = 'greenlife-aliases.json#'.$definition['slug'];
+            $sourceRef = 'kitchen-workbook-aliases.json#'.$definition['slug'];
 
             $existing = Ingredient::withoutTenancy()
                 ->where('organisation_id', $organisationId)
@@ -104,7 +104,7 @@ final readonly class IngredientWriter
      * becomes a real `ingredient_aliases` row.
      *
      * Aliases onto **platform library** rows are deliberately not written: a
-     * tenant may not edit the library, and "Onion White" is GreenLife's word
+     * tenant may not edit the library, and "Onion White" is the workbook's word
      * for the platform's "Onions", not a fact about the platform's row. The
      * dictionary keeps resolving it either way.
      */
@@ -140,7 +140,7 @@ final readonly class IngredientWriter
             $alias->ingredient_id = $ingredientId;
             $alias->alias = $normalised;
             $alias->source_system = $this->sourceSystem;
-            $alias->source_ref = 'greenlife-aliases.json#alias';
+            $alias->source_ref = 'kitchen-workbook-aliases.json#alias';
             $alias->save();
         }
     }

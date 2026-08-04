@@ -15,7 +15,7 @@ use Healthy360\ReferenceData\Models\MeasurementUnit;
 | The curated designation dictionary is data, and data can be wrong (K1.8)
 |--------------------------------------------------------------------------
 |
-| `greenlife-aliases.json` is hand-written, which is the point — no fuzzy
+| `kitchen-workbook-aliases.json` is hand-written, which is the point — no fuzzy
 | matcher decides what "Cripsy Spice" means. The cost of that decision is that
 | a typo in the dictionary is a silent failure at import time: an alias
 | pointing at an ingredient nobody creates simply stops resolving, and the run

@@ -241,20 +241,23 @@ export function useTargetCalculationQuery(
  * "create basket" step, and no screen has to hold a `CartId` it did not ask for. The cart query is
  * invalidated on success, which is what makes the shell's basket badge move.
  */
-export function useAddCartItemMutation(): UseMutationResult<Cart, unknown, AddCartItemRequest> {
+export function useAddCartItemMutation(
+    channelCode?: string,
+): UseMutationResult<Cart, unknown, AddCartItemRequest> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
+    const cartOptions = channelCode === undefined ? {} : { channelCode };
 
     return useMutation({
         mutationFn: async (request: AddCartItemRequest) => {
-            const cart = await repositories.commerce.getCart();
+            const cart = await repositories.commerce.getCart(cartOptions);
             return repositories.commerce.addCartItem(cart.id, request);
         },
         onSuccess: (cart) => {
             // Written synchronously as well as invalidated: the screen reports the new item count
             // in the same frame it shows the confirmation, and a refetch would land after it.
-            queryClient.setQueryData(queryKeys.commerce.cart(), cart);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart() });
+            queryClient.setQueryData(queryKeys.commerce.cart(channelCode), cart);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart(channelCode) });
         },
     });
 }

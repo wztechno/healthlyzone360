@@ -212,7 +212,7 @@ export const queryKeys = {
      */
     commerce: {
         all: () => ['commerce'] as const,
-        cart: () => ['commerce', 'cart'] as const,
+        cart: (channelCode?: string) => ['commerce', 'cart', channelCode ?? 'web-shop'] as const,
         checkoutPreview: (request: QueryScope) =>
             ['commerce', 'checkout', 'preview', request] as const,
         subscriptions: (filter?: QueryScope) =>

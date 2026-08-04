@@ -6,10 +6,10 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | The private GreenLife importer
+    | The private Healthy360 kitchen workbook importer
     |--------------------------------------------------------------------------
     |
-    | `kitchen:import-greenlife` reads a folder of confidential workbook exports
+    | `kitchen:import-workbook` reads a folder of confidential workbook exports
     | — formulations, unit costs, supplier prices — and writes them into one
     | organisation. None of that data is in this repository and none of it ever
     | will be (master plan v2 §4.11, mechanism (c)); the command is the only way
@@ -33,12 +33,12 @@ return [
 
         'environments' => array_values(array_filter(array_map(
             trim(...),
-            explode(',', (string) env('GREENLIFE_IMPORT_ENVIRONMENTS', 'local,testing')),
+            explode(',', (string) env('KITCHEN_WORKBOOK_IMPORT_ENVIRONMENTS', 'local,testing')),
         ))),
 
-        'source_system' => 'greenlife_phase1',
+        'source_system' => 'healthy360_workbook',
 
-        'organisation_slug' => 'green-life-kitchen',
+        'organisation_slug' => 'healthy360-kitchen',
 
         /*
          | Where a run writes its JSON report, relative to the `local` disk

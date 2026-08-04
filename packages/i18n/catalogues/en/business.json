@@ -82,6 +82,9 @@
         "recurring": "Standing order available",
         "open": "Volume tiers",
         "quote": "Add to a quotation",
+        "addToCart": "Add to cart",
+        "placeOrder": "Place order",
+        "addedToCart": "Added to your corporate basket ({{items}} items).",
         "buildQuotation": "Build a quotation",
         "back": "Back to programmes",
         "notFoundTitle": "That programme address is not valid",
@@ -103,6 +106,9 @@
         "eligibilityTitle": "Who may order this",
         "eligibilityBody": "Anyone with access to this programme's account. Eligibility is decided by the agreement, not by this screen.",
         "quote": "Request a quotation",
+        "addToCart": "Add to cart",
+        "placeOrder": "Place order",
+        "addedToCart": "Added to your corporate basket ({{items}} items).",
         "recurringOrder": "Set up a standing order"
     },
     "builder": {
