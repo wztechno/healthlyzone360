@@ -114,7 +114,7 @@ describe('the seeded catalogue', () => {
     it('gives every ingredient a confidential cost in major units', () => {
         const chicken = store().getIngredient(ingredientByKey('chicken_breast').id);
         // The fixture records 340 fils per 100 g; a cost is major units, never minor (plan §4.4).
-        expect(chicken.costPer100g).toEqual({ amount: 3.4, currency: 'AED' });
+        expect(chicken.costPer100g).toEqual({ amount: 3.4, currency: 'USD' });
     });
 
     it('models every seeded price entry consistently with its status', () => {

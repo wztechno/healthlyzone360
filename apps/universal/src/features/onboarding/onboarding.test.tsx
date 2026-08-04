@@ -909,11 +909,11 @@ describe('the calculation request', () => {
     it('converts a budget to integer minor units, and keeps "no ceiling" distinct from zero', () => {
         expect(weeklyBudgetMoney(completeAnswers({ weeklyBudgetMajor: 450 }))).toEqual({
             amount: 45000,
-            currency: 'AED',
+            currency: 'USD',
         });
         expect(weeklyBudgetMoney(completeAnswers({ weeklyBudgetMajor: 0 }))).toEqual({
             amount: 0,
-            currency: 'AED',
+            currency: 'USD',
         });
         expect(weeklyBudgetMoney(completeAnswers({ weeklyBudgetMajor: null }))).toBeNull();
     });

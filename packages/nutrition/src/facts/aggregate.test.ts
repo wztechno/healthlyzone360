@@ -437,14 +437,14 @@ describe('meal, day and week roll-up', () => {
         });
         expect(large.facts.basis).toBe('per_meal');
         expect(amountValue(large.facts, 'energy')).toBe(540);
-        expect(large.estimatedCost).toEqual({ amount: 2700, currency: 'AED' });
+        expect(large.estimatedCost).toEqual({ amount: 2700, currency: 'USD' });
         expect(large.portionFactor).toBe(1.5);
     });
 
     it('defaults to one serving', () => {
         expect(lunch.portionFactor).toBe(1);
         expect(amountValue(lunch.facts, 'energy')).toBe(360);
-        expect(lunch.estimatedCost).toEqual({ amount: 1800, currency: 'AED' });
+        expect(lunch.estimatedCost).toEqual({ amount: 1800, currency: 'USD' });
     });
 
     it('refuses facts that are not per-serving', () => {
@@ -457,7 +457,7 @@ describe('meal, day and week roll-up', () => {
         const day = summariseDay({ date: '2026-03-02', meals: [lunch, lunch] });
         expect(day.planned.basis).toBe('per_day');
         expect(amountValue(day.planned, 'energy')).toBe(720);
-        expect(day.estimatedCost).toEqual({ amount: 3600, currency: 'AED' });
+        expect(day.estimatedCost).toEqual({ amount: 3600, currency: 'USD' });
         expect(day.actual).toBeNull();
         expect(day.target).toBeNull();
     });
@@ -478,7 +478,7 @@ describe('meal, day and week roll-up', () => {
         expect(amountValue(week.planned, 'energy')).toBe(2160);
         expect(week.dailyAverage.basis).toBe('per_day');
         expect(amountValue(week.dailyAverage, 'energy')).toBe(720);
-        expect(week.estimatedCost).toEqual({ amount: 10800, currency: 'AED' });
+        expect(week.estimatedCost).toEqual({ amount: 10800, currency: 'USD' });
     });
 
     it('refuses to summarise a week with no days', () => {
@@ -492,7 +492,7 @@ describe('sumCosts', () => {
     it('adds same-currency costs', () => {
         expect(sumCosts([money(100, 'AED'), money(250, 'AED')])).toEqual({
             amount: 350,
-            currency: 'AED',
+            currency: 'USD',
         });
     });
 

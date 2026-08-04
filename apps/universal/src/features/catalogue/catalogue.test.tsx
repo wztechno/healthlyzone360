@@ -187,7 +187,7 @@ describe('meal filter construction', () => {
             preparationMinutes: { min: null, max: null },
         },
         sort: undefined,
-        currency: 'AED',
+        currency: 'USD',
         limit: 20,
     } as const;
 

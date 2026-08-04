@@ -656,7 +656,7 @@ export function mapPriceListAdmin(
             updatedByName: null,
         },
         name: localised(wire.name_en, wire.name_ar),
-        currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'AED',
+        currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD',
         kitchenId:
             wire.branch_id === null || wire.branch_id === undefined
                 ? mapKitchenId(wire.organisation_id)
@@ -715,7 +715,7 @@ export function mapDeliveryZoneAdmin(
         areas: options?.areas ?? [],
         deliveryFeeMinor: wire.delivery_fee_minor,
         minimumOrderMinor: wire.minimum_order_minor,
-        currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'AED',
+        currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD',
         estimatedMinutes: wire.estimated_minutes,
         deliveryWindows: options?.deliveryWindows ?? [],
     };

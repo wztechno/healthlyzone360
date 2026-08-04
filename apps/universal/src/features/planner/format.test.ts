@@ -329,7 +329,7 @@ describe('nutrition differences', () => {
 });
 
 describe('cost differences', () => {
-    const aed = (amount: number): Money => ({ amount, currency: 'AED' });
+    const aed = (amount: number): Money => ({ amount, currency: 'USD' });
 
     it('subtracts two prices in the same currency', () => {
         const difference = moneyDifference(aed(3000), aed(4500));

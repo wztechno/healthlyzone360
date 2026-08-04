@@ -76,7 +76,7 @@ it('lists the published menu with prices and derived allergens', function (): vo
 
     $freekeh = $meals->firstWhere('slug', 'grilled-chicken-freekeh');
 
-    expect($freekeh['price'])->toBe(['amount' => 4200, 'currency' => 'AED'])
+    expect($freekeh['price'])->toBe(['amount' => 4200, 'currency' => 'USD'])
         ->and($freekeh['kitchen_name'])->toBe('Verdant Kitchen')
         ->and($freekeh['allergens'])->toBe(['gluten'])
         ->and($freekeh['diet_classifications'])->toBe(['high_protein'])

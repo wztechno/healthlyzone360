@@ -502,13 +502,11 @@ it('gives the demonstration kitchen a draft tariff in its own currency', functio
 
     $tariff = PriceList::withoutTenancy()
         ->where('organisation_id', $verdant->getKey())
-        ->where('code', 'verdant-web-aed')
+        ->where('code', 'verdant-web-usd')
         ->sole();
 
-    // AED because Verdant is an Emirati kitchen and the currency lives on the
-    // list. A USD tariff here would demonstrate the exact mistake the schema
-    // exists to make impossible. Draft because nobody has reviewed it.
-    expect($tariff->currency_code)->toBe('AED')
+    // USD matches Verdant's organisation default. Draft because nobody has reviewed it.
+    expect($tariff->currency_code)->toBe('USD')
         ->and($tariff->currency_code)->toBe($verdant->default_currency_code)
         ->and($tariff->status)->toBe(PriceListStatus::Draft)
         ->and($tariff->customer_scope)->toBe(CustomerScope::PublicTariff);
@@ -525,7 +523,7 @@ it('gives the demonstration kitchen a draft tariff in its own currency', functio
 });
 
 it('seeds the demonstration tariff with a tier and an honest placeholder', function (): void {
-    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-web-aed')->sole();
+    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-web-usd')->sole();
 
     $entries = PriceListItem::withoutTenancy()
         ->where('price_list_id', $tariff->getKey())
@@ -621,10 +619,10 @@ it('seeds a draft plan that is exactly one confirmed price short of publishable'
     // Exactly one configuration is priced, on an ACTIVE tariff that no channel
     // names — so the publish gate can read it while nothing quotes it to a
     // customer.
-    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-plans-aed')->sole();
+    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-plans-usd')->sole();
 
     expect($tariff->status)->toBe(PriceListStatus::Active)
-        ->and($tariff->currency_code)->toBe('AED')
+        ->and($tariff->currency_code)->toBe('USD')
         ->and(ChannelPriceList::withoutTenancy()->where('price_list_id', $tariff->getKey())->count())->toBe(0);
 
     $priced = PriceListItem::withoutTenancy()
@@ -672,7 +670,7 @@ it('seeds the demonstration kitchen a two-level delivery map with a branch overr
     $express = DeliveryZone::withoutTenancy()->where('organisation_id', $verdant->getKey())->where('code', 'al-quoz-express')->sole();
 
     expect($wide->branch_id)->toBeNull()
-        ->and($wide->currency_code)->toBe('AED')
+        ->and($wide->currency_code)->toBe('USD')
         ->and($express->branch_id)->not->toBeNull();
 
     // The overlap is the fixture the resolution order is worth testing

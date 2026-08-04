@@ -82,7 +82,7 @@ test.describe('corporate workspace (en)', () => {
 
         const price = page.locator('[data-testid^="contract-price-catalogue-"]').first();
         await expect(price).toBeVisible();
-        await expect(price).toContainText('AED');
+        await expect(price).toContainText('USD');
 
         const line = page.locator('[data-testid^="catalogue-item-"][data-testid$="-minimum"]');
         await expect(line.first()).toBeVisible();

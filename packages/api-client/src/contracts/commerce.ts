@@ -173,6 +173,8 @@ export interface CreateSubscriptionRequest {
     readonly configuration: SubscriptionConfiguration;
     /** Recorded so the UI can prove the person saw the terms summary. */
     readonly acknowledgedTerms: boolean;
+    /** Saved customer address. Required for API-mode create; mock may use configuration.address. */
+    readonly addressId?: string | undefined;
 }
 
 export interface PauseSubscriptionRequest {
@@ -188,6 +190,8 @@ export interface SkipDayRequest {
 
 export interface ChangeAddressRequest {
     readonly address: DeliveryAddress;
+    /** Saved customer address id. Required for API-mode change; mock may use `address`. */
+    readonly addressId?: string | undefined;
     /** `YYYY-MM-DD` from which the new address applies. Omitted means the next delivery. */
     readonly effectiveFrom?: string | undefined;
 }

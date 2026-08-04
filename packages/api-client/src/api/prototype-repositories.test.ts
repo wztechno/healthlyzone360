@@ -85,17 +85,21 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(repositories.business).toBe(API_PROTOTYPE_REPOSITORIES.business);
         expect(repositories.professional).toBe(API_PROTOTYPE_REPOSITORIES.professional);
 
-        // Commerce is a copy with one real method spread over it: `POST /orders` is served.
+        // Commerce spreads cart + placement + S1 subscription reads over the prototype base.
         expect(repositories.commerce).not.toBe(API_PROTOTYPE_REPOSITORIES.commerce);
-        expect(repositories.commerce.getCart).toBe(API_PROTOTYPE_REPOSITORIES.commerce.getCart);
+        expect(repositories.commerce.getCart).not.toBe(API_PROTOTYPE_REPOSITORIES.commerce.getCart);
         expect(repositories.commerce.placeOrder).not.toBe(
             API_PROTOTYPE_REPOSITORIES.commerce.placeOrder,
         );
 
-        // The kitchen workspace is the same arrangement with its two reference reads.
+        // Kitchen admin spreads reference reads, catalogue reads, and Phase 3 writes over the
+        // prototype base; only four ledger stubs remain unoverridden.
         expect(repositories.kitchenAdmin).not.toBe(API_PROTOTYPE_REPOSITORIES.kitchenAdmin);
-        expect(repositories.kitchenAdmin.createMeal).toBe(
+        expect(repositories.kitchenAdmin.createMeal).not.toBe(
             API_PROTOTYPE_REPOSITORIES.kitchenAdmin.createMeal,
+        );
+        expect(repositories.kitchenAdmin.setMealAvailability).toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.setMealAvailability,
         );
         expect(repositories.kitchenAdmin.listAllergenClasses).not.toBe(
             API_PROTOTYPE_REPOSITORIES.kitchenAdmin.listAllergenClasses,
@@ -133,7 +137,7 @@ describe('the api bundle exposes the prototype repositories', () => {
             .filter(([name]) => name.startsWith('admin'))
             .map(([, endpoint]) => endpoint);
 
-        expect(adminEndpoints.length).toBeGreaterThan(30);
+        expect(adminEndpoints.length).toBe(4);
         for (const endpoint of adminEndpoints) {
             expect(endpoint).toMatch(/^(GET|POST|PUT|PATCH) \/api\/v1\/(reference|catalogue|kitchen)\//);
         }
@@ -199,6 +203,36 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(table.adminListZones).toBeUndefined();
         expect(table.adminGetZone).toBeUndefined();
         expect(table.adminGetBranchOperating).toBeUndefined();
+        expect(table.adminCreateIngredient).toBeUndefined();
+        expect(table.adminSetBranchOperating).toBeUndefined();
+        expect(table.adminPreviewRecipeRollup).toBe(
+            'POST /api/v1/catalogue/recipes/roll-up-preview',
+        );
+        expect(table.adminSetMealAvailability).toBe(
+            'PUT /api/v1/catalogue/meals/{meal}/availability',
+        );
+        expect(table.adminSetPlanCombinations).toBe(
+            'PUT /api/v1/catalogue/plans/{plan}/combinations',
+        );
+        expect(table.adminSetDeliveryWindows).toBe(
+            'POST /api/v1/catalogue/delivery-windows',
+        );
+
+        // Cart and subscription lifecycle left the ledger in Phase 4 — wired in cart-repository
+        // and subscription-repository.
+        expect(table.getCart).toBeUndefined();
+        expect(table.addCartItem).toBeUndefined();
+        expect(table.removeCartItem).toBeUndefined();
+        expect(table.previewCheckout).toBeUndefined();
+        expect(table.previewSubscription).toBeUndefined();
+        expect(table.createSubscription).toBeUndefined();
+        expect(table.getSubscription).toBeUndefined();
+        expect(table.listSubscriptions).toBeUndefined();
+        expect(table.pause).toBeUndefined();
+        expect(table.resume).toBeUndefined();
+        expect(table.skipDay).toBeUndefined();
+        expect(table.changeAddress).toBeUndefined();
+        expect(table.changeSlot).toBeUndefined();
 
         // And the three that are genuinely still prototypes are still listed.
         expect(table.listDietitians).toBe('GET /api/v1/marketplace/dietitians');

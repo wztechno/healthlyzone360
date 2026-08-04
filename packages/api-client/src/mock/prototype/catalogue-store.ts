@@ -382,7 +382,7 @@ export class KitchenCatalogueStore {
     createIngredient(request: CreateIngredientRequest): IngredientAdmin {
         this.#nextIngredientOrdinal += 1;
         const id = ingredientIdAt(this.#nextIngredientOrdinal);
-        const currency = request.costPer100g?.currency ?? 'AED';
+        const currency = request.costPer100g?.currency ?? 'USD';
 
         const row: StoredIngredient = {
             id,

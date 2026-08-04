@@ -23,7 +23,7 @@ export const PROTOTYPE_WEEK_START = '2026-07-27';
 export const PROTOTYPE_AVAILABILITY_DAYS = 14;
 
 /** Default trading currency. The one deliberate exception is a single SAR B2B contract price. */
-export const DEFAULT_CURRENCY: CurrencyCode = 'AED';
+export const DEFAULT_CURRENCY: CurrencyCode = 'USD';
 
 /** The provenance stamped on **every** set of nutrition facts in this world. */
 export const SYNTHETIC_SOURCE: NutritionSource = {
@@ -42,10 +42,13 @@ export const PROTOTYPE_DISCLAIMER =
     'estimate, not medical advice, and they describe no real product. Speak to a qualified ' +
     'dietitian or doctor before acting on them.';
 
-/** AED, in fils. `money()` validates, so a fractional price cannot reach a fixture. */
-export function aed(minorUnits: number): Money {
+/** Default currency, in minor units. `money()` validates, so a fractional price cannot reach a fixture. */
+export function usd(minorUnits: number): Money {
     return money(minorUnits, DEFAULT_CURRENCY);
 }
+
+/** @deprecated Use {@link usd}. Kept so fixture call sites migrate without a big-bang rename. */
+export const aed = usd;
 
 export function currency(minorUnits: number, code: CurrencyCode): Money {
     return money(minorUnits, code);

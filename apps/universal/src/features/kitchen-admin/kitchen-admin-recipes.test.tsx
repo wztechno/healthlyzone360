@@ -228,11 +228,11 @@ describe('recipe display helpers', () => {
     });
 
     it('never divides a cost by a yield of nothing', () => {
-        expect(costPerServing({ amount: 12, currency: 'AED' }, 4)).toEqual({
+        expect(costPerServing({ amount: 12, currency: 'USD' }, 4)).toEqual({
             amount: 3,
-            currency: 'AED',
+            currency: 'USD',
         });
-        expect(costPerServing({ amount: 12, currency: 'AED' }, 0)).toBeNull();
+        expect(costPerServing({ amount: 12, currency: 'USD' }, 0)).toBeNull();
         expect(costPerServing(null, 4)).toBeNull();
     });
 

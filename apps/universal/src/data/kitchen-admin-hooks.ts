@@ -2175,7 +2175,7 @@ export interface ReviewQueueSources {
  *
  * Every listing is **narrowed server-side**, so this is seven requests and not a scan of the
  * catalogue. `statuses: ['review_required']` is a real filter on five of the six families;
- * `staleOnly` is a real filter on recipes. Price lists are the exception and have to be read whole:
+ * `staleOnly` filters recipes whose published (or draft-only) version has a stale derivation.
  * the `CHECK` violation the queue reports (`isPriceEntryConsistent`) has no filter on
  * `PriceListAdminFilter`, and the listing already returns every entry of every list, so evaluating
  * it here costs one request rather than one per list. A `?inconsistentOnly=true` on the endpoint

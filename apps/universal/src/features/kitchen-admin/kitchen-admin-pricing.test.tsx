@@ -217,7 +217,7 @@ describe('money, in the two directions it has to survive', () => {
         expect(parseMinorAmount('1.250', 'KWD')).toBe(1250);
         expect(minorAmountToInput(1250, 'KWD')).toBe('1.250');
         // …and 1250 in a two-decimal currency is a different number entirely.
-        expect(minorAmountToInput(1250, 'AED')).toBe('12.50');
+        expect(minorAmountToInput(1250, 'USD')).toBe('12.50');
     });
 
     it('refuses more precision than the currency has, rather than rounding it away', () => {

@@ -75,6 +75,12 @@ final class SubscriptionQuoteController
         $duration = $result['duration'];
 
         return ApiResponse::data([
+            // The purchase path still needs identifiers the quote object deliberately
+            // omits from the customer's screen. They are resolved here, once, by the
+            // same logic that priced the run — not invented by a client that cannot
+            // see sales channels or duration rows.
+            'plan_duration_id' => $duration === null ? null : (string) $duration->getKey(),
+            'sales_channel_id' => $result['sales_channel_id'],
             'quote' => [
                 'currency_code' => $quote->currencyCode,
                 'days' => $quote->days,

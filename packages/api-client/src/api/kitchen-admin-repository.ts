@@ -88,8 +88,50 @@ import {
     type CategoryLookup,
     type SalesChannelLookup,
 } from './kitchen-admin-mappers.ts';
-import { mapCursorPage } from './marketplace-mappers.ts';
 import type { Transport } from './transport.ts';
+
+type CursorQueryFilter = {
+    readonly limit?: number | undefined;
+    readonly cursor?: string | undefined;
+    readonly query?: string | undefined;
+};
+
+function pickCursorFilter(filter?: CursorQueryFilter): CursorQueryFilter | undefined {
+    if (filter === undefined) return undefined;
+
+    const picked: { limit?: number; cursor?: string; query?: string } = {};
+    if (filter.limit !== undefined) picked.limit = filter.limit;
+    if (filter.cursor !== undefined) picked.cursor = filter.cursor;
+    if (filter.query !== undefined) picked.query = filter.query;
+
+    if (
+        picked.limit === undefined &&
+        picked.cursor === undefined &&
+        picked.query === undefined
+    ) {
+        return undefined;
+    }
+    return picked;
+}
+
+function mapAdminCursorPage<TWire, TDomain>(
+    data: readonly TWire[],
+    meta: PaginationMeta,
+    map: (wire: TWire) => TDomain | null,
+): CursorPage<TDomain> {
+    const items: TDomain[] = [];
+    for (const wire of data) {
+        const mapped = map(wire);
+        if (mapped !== null) items.push(mapped);
+    }
+
+    return {
+        items,
+        nextCursor: meta.next_cursor,
+        hasMore: meta.has_more,
+        totalCount: null,
+    };
+}
 
 type CatalogueItemShowPayload = {
     readonly item: AdminCatalogueItem;
@@ -102,6 +144,7 @@ type CatalogueItemShowPayload = {
  * Kitchen catalogue reads served by the API today.
  *
  * Writes still reject with `prototype.not_implemented` until their slices land.
+ * Catalogue reads and a first wave of writes are overridden in `repositories.ts`.
  */
 export type ApiKitchenAdminReads = Pick<
     KitchenAdminRepository,
@@ -122,10 +165,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'getBranchOperating'
 >;
 
-function cursorQuery(
-    filter?: { readonly limit?: number; readonly cursor?: string; readonly query?: string },
-    extra?: Record<string, string | undefined>,
-): string {
+function cursorQuery(filter?: CursorQueryFilter, extra?: Record<string, string | undefined>): string {
     const search = new URLSearchParams();
 
     if (filter?.limit !== undefined) search.set('limit', String(filter.limit));
@@ -182,19 +222,19 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
     async function listCatalogueItems(
         itemType: AdminCatalogueItem['item_type'],
-        filter?: { readonly limit?: number; readonly cursor?: string; readonly query?: string },
+        filter?: CursorQueryFilter,
         status?: string | undefined,
     ): Promise<CursorPage<AdminCatalogueItem>> {
         const envelope = await transport.requestEnvelope<AdminCatalogueItem[]>({
             method: 'GET',
-            path: `/catalogue/items${cursorQuery(filter, {
+            path: `/catalogue/items${cursorQuery(pickCursorFilter(filter), {
                 item_type: itemType,
                 status,
             })}`,
         });
 
         const meta = envelope.meta as PaginationMeta;
-        return mapCursorPage(envelope.data, meta, (wire) => wire);
+        return mapAdminCursorPage(envelope.data, meta, (wire) => wire);
     }
 
     return {
@@ -231,7 +271,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
 
             const meta = envelope.meta as PaginationMeta;
-            const page = mapCursorPage(envelope.data, meta, (wire) =>
+            const page = mapAdminCursorPage(envelope.data, meta, (wire) =>
                 mapIngredientAdmin(wire, lookup),
             );
 
@@ -302,13 +342,14 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             const envelope = await transport.requestEnvelope<AdminRecipe[]>({
                 method: 'GET',
-                path: `/catalogue/recipes${cursorQuery(filter, {
+                path: `/catalogue/recipes${cursorQuery(pickCursorFilter(filter), {
                     status: status === 'active' ? undefined : status,
+                    stale_only: filter?.staleOnly === true ? '1' : undefined,
                 })}`,
             });
 
             const meta = envelope.meta as PaginationMeta;
-            return mapCursorPage(envelope.data, meta, (wire) => mapRecipeAdminSummary(wire));
+            return mapAdminCursorPage(envelope.data, meta, (wire) => mapRecipeAdminSummary(wire));
         },
 
         async getRecipe(recipeId: RecipeId): Promise<RecipeAdmin> {
@@ -325,7 +366,6 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const currentWire = pickCurrentRecipeVersion(versionsWire);
 
             if (currentWire === null) {
-                const summary = mapRecipeAdminSummary(recipeWire, { versionCount: 0 });
                 const emptyVersion = mapRecipeVersionAdmin(
                     {
                         id: recipeWire.id,
@@ -370,7 +410,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems('product', filter, status);
+            const page = await listCatalogueItems('product', pickCursorFilter(filter), status);
             return {
                 ...page,
                 items: page.items.map((wire) => mapProductAdminFromItem(wire)),
@@ -396,7 +436,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems('meal', filter, status);
+            const page = await listCatalogueItems('meal', pickCursorFilter(filter), status);
             return {
                 ...page,
                 items: page.items.map((wire) => mapMealAdminFromItem(wire)),
@@ -427,7 +467,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems('subscription_plan', filter, status);
+            const page = await listCatalogueItems('subscription_plan', pickCursorFilter(filter), status);
             return {
                 ...page,
                 items: page.items.map((wire) => mapPlanAdminFromItem(wire)),
@@ -503,11 +543,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
             const envelope = await transport.requestEnvelope<AdminPriceList[]>({
                 method: 'GET',
-                path: `/catalogue/price-lists${cursorQuery(filter)}`,
+                path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter))}`,
             });
 
             const meta = envelope.meta as PaginationMeta;
-            return mapCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
+            return mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {
@@ -571,11 +611,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         > {
             const envelope = await transport.requestEnvelope<DeliveryZone[]>({
                 method: 'GET',
-                path: `/catalogue/delivery-zones${cursorQuery(filter)}`,
+                path: `/catalogue/delivery-zones${cursorQuery(pickCursorFilter(filter))}`,
             });
 
             const meta = envelope.meta as PaginationMeta;
-            return mapCursorPage(envelope.data, meta, (wire) => mapDeliveryZoneAdmin(wire));
+            return mapAdminCursorPage(envelope.data, meta, (wire) => mapDeliveryZoneAdmin(wire));
         },
 
         async getZone(zoneId: DeliveryZoneId): Promise<DeliveryZoneAdmin> {

@@ -117,12 +117,12 @@ const PAGE_SIZE = 20;
 /**
  * The currency the price filter is typed in.
  *
- * Every kitchen in the prototype world prices in AED, and `MealFilter.price` is in minor units of
+ * Every kitchen in the prototype world prices in USD, and `MealFilter.price` is in minor units of
  * "the caller's currency" without saying who decides that. A multi-currency marketplace needs the
  * display currency to come from the session or the delivery market; that is recorded as an open
  * question rather than guessed at here, and this constant is the single place it would change.
  */
-const PRICE_CURRENCY: CurrencyCode = 'AED';
+const PRICE_CURRENCY: CurrencyCode = 'USD';
 
 export function MealsScreen() {
     const { t } = useTranslation();

@@ -10,12 +10,13 @@ import {
     Heading,
     Inline,
     SegmentedControl,
+    Select,
     Stack,
     Table,
     Text,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
-import type { Subscription } from '@healthy360/api-client/contracts';
+import type { Subscription, CustomerAddress } from '@healthy360/api-client/contracts';
 import { SubscriptionId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -37,18 +38,11 @@ import {
     useSubscriptionQuery,
     useSubscriptionQuoteQuery,
 } from '../../../data/commerce-hooks.ts';
+import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useKitchenMenuQuery } from '../../../data/marketplace-hooks.ts';
-import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import {
-    formatAddress,
-    fromDeliveryAddress,
-    toDeliveryAddress,
-    validateAddress,
-} from '../address.ts';
-import type { AddressField, AddressValues } from '../address.ts';
-import { AddressForm } from '../address-form.tsx';
+import { formatAddress } from '../address.ts';
 import { earliestStartDate, upcomingDeliveryDates } from '../dates.ts';
 import { DELIVERY_SLOTS } from '../delivery.ts';
 import {
@@ -131,7 +125,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
-    const validationTranslate = useValidationTranslate();
 
     const parsed = subscriptionId === undefined ? null : SubscriptionId.safeParse(subscriptionId);
     const query = useSubscriptionQuery(parsed);
@@ -162,9 +155,12 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const [pauseUntil, setPauseUntil] = useState<string | null>(null);
     const [slotCode, setSlotCode] = useState<string | null>(null);
     const [weekdays, setWeekdays] = useState<readonly number[] | null>(null);
-    const [address, setAddress] = useState<AddressValues | null>(null);
+    const [addressId, setAddressId] = useState<string | null>(null);
     const [showAddressErrors, setShowAddressErrors] = useState(false);
     const [editedWeekdays, setEditedWeekdays] = useState<readonly number[] | null>(null);
+
+    const addresses = useAddressesQuery(dialog === 'address');
+    const addressList: readonly CustomerAddress[] = addresses.data ?? [];
 
     const pause = usePauseSubscriptionMutation();
     const resume = useResumeSubscriptionMutation();
@@ -218,15 +214,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
             { skipped: subscription.skippedDates },
         );
     }, [subscription]);
-
-    const addressValues =
-        address ??
-        (subscription === undefined
-            ? null
-            : fromDeliveryAddress(subscription.configuration.address));
-
-    const addressErrors =
-        addressValues === null ? {} : validateAddress(addressValues, validationTranslate);
 
     const close = () => {
         setDialog(null);
@@ -456,11 +443,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                             label={t('commerce:subscription.changeAddress')}
                                             disabled={busy}
                                             onPress={() => {
-                                                setAddress(
-                                                    fromDeliveryAddress(
-                                                        subscription.configuration.address,
-                                                    ),
-                                                );
+                                                setAddressId(null);
                                                 setDialog('address');
                                             }}
                                         />
@@ -720,15 +703,30 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                             label={t('commerce:subscription.addressConfirm')}
                             loading={changeAddress.isPending}
                             onPress={() => {
-                                if (subscription === undefined || addressValues === null) return;
-                                if (Object.keys(addressErrors).length > 0) {
+                                if (subscription === undefined) return;
+                                if (addressId === null) {
                                     setShowAddressErrors(true);
                                     return;
                                 }
+                                const selected = addressList.find((entry) => entry.id === addressId);
                                 changeAddress.mutate(
                                     {
                                         subscriptionId: subscription.id,
-                                        request: { address: toDeliveryAddress(addressValues) },
+                                        request: {
+                                            address:
+                                                selected === undefined
+                                                    ? subscription.configuration.address
+                                                    : {
+                                                          label: selected.label,
+                                                          line1: selected.line1,
+                                                          line2: selected.line2,
+                                                          area: selected.areaName,
+                                                          city: '',
+                                                          countryCode: '',
+                                                          instructions: selected.notes,
+                                                      },
+                                            addressId,
+                                        },
                                     },
                                     { onSuccess: close },
                                 );
@@ -737,22 +735,24 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     </>
                 }
             >
-                {addressValues === null ? null : (
-                    <AddressForm
-                        testID="subscription-address-form"
-                        values={addressValues}
-                        errors={showAddressErrors ? addressErrors : {}}
-                        // Functional, and against the current edits rather than the rendered
-                        // snapshot: two fields changed inside one React batch would otherwise
-                        // compose two addresses from the same starting value and keep the second.
-                        onChange={(field: AddressField, next: string) => {
-                            setAddress((current) => ({
-                                ...(current ?? addressValues),
-                                [field]: next,
-                            }));
-                        }}
-                    />
-                )}
+                <Select
+                    testID="subscription-address-picker"
+                    label={t('commerce:subscription.addressDialogTitle')}
+                    value={addressId}
+                    onChange={setAddressId}
+                    options={addressList.map((entry) => ({
+                        value: entry.id,
+                        label: [entry.label, entry.line1, entry.areaName]
+                            .filter((part) => part.trim() !== '')
+                            .join(' · '),
+                    }))}
+                    placeholder={t('commerce:subscription.addressDialogTitle')}
+                />
+                {showAddressErrors && addressId === null ? (
+                    <Text tone="danger" variant="caption" testID="subscription-address-error">
+                        {t('commerce:validation.required')}
+                    </Text>
+                ) : null}
             </Dialog>
 
             {/* ── change slot and delivery days ──────────────────────────────────────────────── */}

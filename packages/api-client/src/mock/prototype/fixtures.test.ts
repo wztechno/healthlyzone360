@@ -585,9 +585,9 @@ describe('the business fixtures', () => {
 
     it('prices exactly one line in a second currency', () => {
         const currencies = PROTOTYPE_CATALOGUE_ITEMS.map(
-            (item) => item.contractPrice?.currency ?? 'AED',
+            (item) => item.contractPrice?.currency ?? 'USD',
         );
-        expect(currencies.filter((code) => code !== 'AED')).toEqual(['SAR']);
+        expect(currencies.filter((code) => code !== 'USD')).toEqual(['SAR']);
 
         const sar = catalogueItemById(SAR_CATALOGUE_ITEM_ID);
         expect(sar?.contractPrice?.currency).toBe('SAR');
@@ -600,7 +600,7 @@ describe('the business fixtures', () => {
     it('refuses to add a dirham to a riyal', () => {
         const sar = catalogueItemById(SAR_CATALOGUE_ITEM_ID)?.contractPrice;
         const aedItem = PROTOTYPE_CATALOGUE_ITEMS.find(
-            (item) => item.contractPrice?.currency === 'AED',
+            (item) => item.contractPrice?.currency === 'USD',
         )?.contractPrice;
         expect(sar).toBeDefined();
         expect(aedItem).toBeDefined();
@@ -612,7 +612,7 @@ describe('the business fixtures', () => {
     it('exposes no negotiated price on any consumer-facing shape', () => {
         for (const meal of PROTOTYPE_MEALS) {
             expect(Object.keys(meal)).not.toContain('contractPrice');
-            expect(meal.price.currency).toBe('AED');
+            expect(meal.price.currency).toBe('USD');
         }
         for (const plan of PROTOTYPE_PLANS) {
             expect(Object.keys(plan)).not.toContain('contractPrice');

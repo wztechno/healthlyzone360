@@ -139,7 +139,7 @@ final readonly class StorefrontQuoting
         // The RLS policy on `price_list_items` is the outer layer and stays
         // there: the read runs with `app.organisation_id` set to the kitchen
         // being browsed, exactly as an anonymous marketplace read does.
-        /** @var array{0: PlanQuote|null, 1: list<array<string, mixed>>} $resolved */
+        /** @var array{0: PlanQuote|null, 1: list<array<string, mixed>>, 2: string|null} $resolved */
         $resolved = $this->tenantContext->during(null, $organisationId, null, function () use (
             $channels,
             $catalogueItemId,
@@ -147,7 +147,7 @@ final readonly class StorefrontQuoting
             $duration,
             $on,
         ): array {
-            $last = [null, [['reason' => 'unpriced', 'catalogue_item_id' => $catalogueItemId]]];
+            $last = [null, [['reason' => 'unpriced', 'catalogue_item_id' => $catalogueItemId]], null];
 
             foreach ($channels as $channel) {
                 [$quote, $reasons] = $this->pricing->quote(
@@ -159,10 +159,10 @@ final readonly class StorefrontQuoting
                 );
 
                 if ($quote instanceof PlanQuote) {
-                    return [$quote, []];
+                    return [$quote, [], (string) $channel->getKey()];
                 }
 
-                $last = [null, $reasons];
+                $last = [null, $reasons, null];
             }
 
             return $last;
@@ -171,6 +171,7 @@ final readonly class StorefrontQuoting
         return [
             'quote' => $resolved[0],
             'reasons' => $resolved[1],
+            'sales_channel_id' => $resolved[2],
             'duration' => $duration,
             'available_weekdays' => $this->availableWeekdays($organisationId),
             'allows_free_selection' => $profile->allows_free_selection,
@@ -301,6 +302,7 @@ final readonly class StorefrontQuoting
      * @return array{
      *     quote: PlanQuote|null,
      *     reasons: list<array<string, mixed>>,
+     *     sales_channel_id: null,
      *     duration: PlanDuration|null,
      *     available_weekdays: list<int>,
      *     allows_free_selection: bool,
@@ -315,6 +317,7 @@ final readonly class StorefrontQuoting
         return [
             'quote' => null,
             'reasons' => $reasons,
+            'sales_channel_id' => null,
             'duration' => $duration,
             'available_weekdays' => [],
             'allows_free_selection' => $profile instanceof SubscriptionPlanProfile

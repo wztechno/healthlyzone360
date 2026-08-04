@@ -6,22 +6,24 @@ import {
     Heading,
     Inline,
     SegmentedControl,
+    Select,
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type { Cart, CheckoutPreview, DeliveryAddress } from '@healthy360/api-client/contracts';
+import type { Cart, CheckoutPreview, CustomerAddress, PlacedOrder } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useCartQuery, useCheckoutPreviewQuery } from '../../../data/commerce-hooks.ts';
-import { PrototypeNotice } from '../../../prototype/index.ts';
-import { useValidationTranslate } from '../../../screens/form-helpers.ts';
+import { useAddressesQuery } from '../../../data/account-hooks.ts';
+import {
+    toFailure,
+    useCartQuery,
+    useCheckoutPreviewQuery,
+    usePlaceOrderMutation,
+} from '../../../data/commerce-hooks.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { EMPTY_ADDRESS, formatAddress, toDeliveryAddress, validateAddress } from '../address.ts';
-import type { AddressField, AddressValues } from '../address.ts';
-import { AddressForm } from '../address-form.tsx';
 import { earliestStartDate } from '../dates.ts';
 import { DEFAULT_SLOT_CODE, DELIVERY_SLOTS } from '../delivery.ts';
 import { PriceSummary } from '../price-summary.tsx';
@@ -29,76 +31,57 @@ import type { PriceRow } from '../price-summary.tsx';
 import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../warnings.ts';
 
 /**
- * `/customer/checkout` — the one-off order checkout, as a prototype.
+ * `/customer/checkout` — one-off order checkout against a saved address.
  *
- * ## No payment fields, anywhere, ever
- *
- * There is no card number here, no expiry, no CVC, no wallet button and no saved-instrument list —
- * and there is nowhere for one to be added later without a contract change, because
- * `CommerceRepository` has no method that takes a payment and no `confirmCheckout` at all. That is
- * deliberate on both sides: a contract that *could* take a payment is a contract somebody
- * eventually wires to a live gateway by accident (`contracts/commerce.ts` says so itself).
- *
- * ## Placing the order is the one prototype action on this screen
- *
- * Everything else — the basket, the pricing, the slot — is real. "Place order" is not, because
- * there is no order to place: no `POST /api/v1/orders` exists, no kitchen is notified and no money
- * moves. So it does not show a toast and disappear. It renders a **success screen** that says, in
- * the person's own language, that nothing was ordered and no payment was taken, and it leaves the
- * basket exactly as it was — because an emptied basket would be the interface asserting that
- * something happened.
- *
- * ## Why the summary is priced twice
- *
- * The first preview prices the basket alone, so a total is on screen before any typing. Pressing
- * *Review order* commits the address, the slot and the date and asks for a second, complete
- * quotation. Re-pricing on every keystroke would be a request per character typed into a street
- * name, which is not something to teach a backend to expect.
+ * Placement requires `addressId` (D-084): delivery zone/fee resolve from the address book, not a
+ * typed street line. Payment is still never collected — cash on delivery.
  */
 
 type Phase = 'collecting' | 'placed';
 
 interface CommittedDelivery {
-    readonly address: DeliveryAddress;
+    readonly addressId: string;
+    readonly addressLabel: string;
     readonly slotCode: string;
     readonly deliveryDate: string;
+}
+
+function formatSavedAddress(address: CustomerAddress): string {
+    const parts = [address.label, address.line1, address.areaName].filter(
+        (part) => part.trim() !== '',
+    );
+    return parts.join(' · ');
 }
 
 export function CheckoutScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
-    const validationTranslate = useValidationTranslate();
 
     const cart = useCartQuery();
     const basket: Cart | undefined = cart.data;
+    const addresses = useAddressesQuery();
+    const placeOrder = usePlaceOrderMutation();
 
-    const [values, setValues] = useState<AddressValues>(EMPTY_ADDRESS);
+    const [addressId, setAddressId] = useState<string | null>(null);
     const [slotCode, setSlotCode] = useState<string>(DEFAULT_SLOT_CODE);
     const [deliveryDate, setDeliveryDate] = useState<string | null>(() => earliestStartDate());
     const [showErrors, setShowErrors] = useState(false);
     const [committed, setCommitted] = useState<CommittedDelivery | null>(null);
     const [phase, setPhase] = useState<Phase>('collecting');
+    const [placed, setPlaced] = useState<PlacedOrder | null>(null);
 
-    const errors = useMemo(
-        () => validateAddress(values, validationTranslate),
-        [validationTranslate, values],
-    );
-    const addressComplete = Object.keys(errors).length === 0;
+    const addressList = addresses.data ?? [];
+    const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
 
     const previewRequest = useMemo(() => {
         if (basket === undefined || basket.items.length === 0) return null;
-        if (committed === null) return { cartId: basket.id };
-        return {
-            cartId: basket.id,
-            address: committed.address,
-            slotCode: committed.slotCode,
-            deliveryDate: committed.deliveryDate,
-        };
-    }, [basket, committed]);
+        return { cartId: basket.id };
+    }, [basket]);
 
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation: CheckoutPreview | undefined = preview.data;
+    const placeFailure = toFailure(placeOrder.error);
 
     const rows: readonly PriceRow[] =
         quotation === undefined
@@ -115,7 +98,7 @@ export function CheckoutScreen() {
                                 key: 'delivery-free',
                                 label: t('commerce:cart.delivery'),
                                 amount: { amount: 0, currency: quotation.total.currency },
-                                note: t('commerce:cart.deliveryFree'),
+                                note: t('commerce:cart.deliveryAtPlacement'),
                             },
                         ]
                       : [
@@ -133,9 +116,10 @@ export function CheckoutScreen() {
                   },
               ];
 
-    if (phase === 'placed' && committed !== null) {
+    if (phase === 'placed' && placed !== null && committed !== null) {
         return (
-            <PrototypeOrderPlaced
+            <OrderPlaced
+                order={placed}
                 delivery={committed}
                 rows={rows}
                 onBrowse={() => {
@@ -153,12 +137,31 @@ export function CheckoutScreen() {
 
     const onReview = () => {
         setShowErrors(true);
-        if (!addressComplete || deliveryDate === null) return;
+        if (selectedAddress === null || deliveryDate === null) return;
         setCommitted({
-            address: toDeliveryAddress(values),
+            addressId: selectedAddress.id,
+            addressLabel: formatSavedAddress(selectedAddress),
             slotCode,
             deliveryDate,
         });
+    };
+
+    const onPlace = () => {
+        if (basket === undefined || committed === null) return;
+        placeOrder.mutate(
+            {
+                cartId: basket.id,
+                addressId: committed.addressId,
+                slotCode: committed.slotCode,
+                deliveryDate: committed.deliveryDate,
+            },
+            {
+                onSuccess: (order) => {
+                    setPlaced(order);
+                    setPhase('placed');
+                },
+            },
+        );
     };
 
     return (
@@ -169,11 +172,6 @@ export function CheckoutScreen() {
                 </Heading>
                 <Text tone="secondary">{t('commerce:checkout.body')}</Text>
             </Stack>
-
-            <PrototypeNotice
-                testID="checkout-prototype-notice"
-                body={t('commerce:checkout.prototypeNotice')}
-            />
 
             <QueryStates
                 query={cart}
@@ -199,15 +197,43 @@ export function CheckoutScreen() {
                             <Text tone="secondary" variant="caption">
                                 {t('commerce:checkout.addressBody')}
                             </Text>
-                            <AddressForm
-                                testID="checkout-address-form"
-                                values={values}
-                                errors={showErrors ? errors : {}}
-                                onChange={(field: AddressField, next: string) => {
-                                    setValues((current) => ({ ...current, [field]: next }));
-                                    setCommitted(null);
-                                }}
-                            />
+                            <QueryStates
+                                query={addresses}
+                                isEmpty={addressList.length === 0}
+                                emptyTitle={t('commerce:checkout.noAddressTitle')}
+                                emptyBody={t('commerce:checkout.noAddressBody')}
+                                emptyActions={
+                                    <Button
+                                        testID="checkout-add-address"
+                                        label={t('commerce:checkout.addAddress')}
+                                        onPress={() => {
+                                            router.push('/customer/account/addresses' as never);
+                                        }}
+                                    />
+                                }
+                                skeletonCount={1}
+                                testID="checkout-addresses"
+                            >
+                                <Select
+                                    testID="checkout-address-picker"
+                                    label={t('commerce:checkout.addressTitle')}
+                                    value={addressId}
+                                    onChange={(next) => {
+                                        setAddressId(next);
+                                        setCommitted(null);
+                                    }}
+                                    options={addressList.map((entry) => ({
+                                        value: entry.id,
+                                        label: formatSavedAddress(entry),
+                                    }))}
+                                    placeholder={t('commerce:checkout.addressTitle')}
+                                />
+                                {showErrors && addressId === null ? (
+                                    <Text tone="danger" variant="caption" testID="checkout-address-error">
+                                        {t('commerce:validation.required')}
+                                    </Text>
+                                ) : null}
+                            </QueryStates>
                         </Stack>
 
                         <Stack space="sm" testID="checkout-slot">
@@ -253,15 +279,6 @@ export function CheckoutScreen() {
                                     ? { error: t('commerce:validation.required') }
                                     : {})}
                             />
-                            {quotation?.earliestDeliveryDate == null ? null : (
-                                <Text tone="secondary" variant="caption" testID="checkout-earliest">
-                                    {t('commerce:checkout.earliest', {
-                                        date: formatter.formatDate(quotation.earliestDeliveryDate, {
-                                            dateStyle: 'full',
-                                        }),
-                                    })}
-                                </Text>
-                            )}
                         </Stack>
 
                         <Card testID="checkout-summary" padding="md" tone="sunken">
@@ -305,6 +322,17 @@ export function CheckoutScreen() {
                                             ),
                                         )}
 
+                                        {placeFailure === null ? null : (
+                                            <Callout
+                                                testID="checkout-place-error"
+                                                role="alert"
+                                                tone="danger"
+                                                icon="warning"
+                                                title={t('commerce:checkout.placeFailedTitle')}
+                                                body={placeFailure.message}
+                                            />
+                                        )}
+
                                         {committed === null ? (
                                             <Button
                                                 testID="checkout-review"
@@ -315,7 +343,7 @@ export function CheckoutScreen() {
                                         ) : (
                                             <Stack space="sm">
                                                 <Text testID="checkout-committed-address">
-                                                    {formatAddress(committed.address)}
+                                                    {committed.addressLabel}
                                                 </Text>
                                                 <Text
                                                     tone="secondary"
@@ -347,9 +375,8 @@ export function CheckoutScreen() {
                                                         accessibilityHint={t(
                                                             'commerce:checkout.placeOrderHint',
                                                         )}
-                                                        onPress={() => {
-                                                            setPhase('placed');
-                                                        }}
+                                                        loading={placeOrder.isPending}
+                                                        onPress={onPlace}
                                                     />
                                                 </Inline>
                                             </Stack>
@@ -365,7 +392,8 @@ export function CheckoutScreen() {
     );
 }
 
-interface PrototypeOrderPlacedProps {
+interface OrderPlacedProps {
+    readonly order: PlacedOrder;
     readonly delivery: CommittedDelivery;
     readonly rows: readonly PriceRow[];
     readonly onBrowse: () => void;
@@ -373,21 +401,14 @@ interface PrototypeOrderPlacedProps {
     readonly onSubscriptions: () => void;
 }
 
-/**
- * The success state, stated honestly.
- *
- * It is a screen rather than a toast for two reasons. A toast disappears, and "no payment was taken"
- * is the single most important sentence in this flow — it must be readable for as long as somebody
- * wants to read it. And a toast over an unchanged checkout form is genuinely ambiguous: did it work?
- * A screen answers that before it is asked.
- */
-function PrototypeOrderPlaced({
+function OrderPlaced({
+    order,
     delivery,
     rows,
     onBrowse,
     onCart,
     onSubscriptions,
-}: PrototypeOrderPlacedProps) {
+}: OrderPlacedProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
 
@@ -399,22 +420,23 @@ function PrototypeOrderPlaced({
                 tone="success"
                 icon="success"
                 title={t('commerce:checkout.successTitle')}
-                body={t('commerce:checkout.successBody')}
+                body={t('commerce:checkout.successBody', { reference: order.reference })}
             />
 
             <Callout
-                testID="checkout-success-prototype"
+                testID="checkout-success-cod"
                 role="note"
                 tone="info"
-                icon="prototype"
-                title={t('commerce:checkout.successPrototypeTitle')}
-                body={t('commerce:checkout.successPrototypeBody')}
+                icon="info"
+                title={t('commerce:checkout.successCodTitle')}
+                body={t('commerce:checkout.successCodBody')}
             />
 
             <Card testID="checkout-success-summary" padding="md" tone="sunken">
                 <Stack space="md">
                     <Text variant="label">{t('commerce:checkout.successSummaryTitle')}</Text>
-                    <Text testID="checkout-success-address">{formatAddress(delivery.address)}</Text>
+                    <Text testID="checkout-success-reference">{order.reference}</Text>
+                    <Text testID="checkout-success-address">{delivery.addressLabel}</Text>
                     <Text tone="secondary" testID="checkout-success-slot">
                         {t('commerce:checkout.committedSlot', {
                             slot: t(`commerce:slots.${delivery.slotCode}`),

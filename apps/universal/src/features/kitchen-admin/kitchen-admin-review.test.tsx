@@ -293,7 +293,7 @@ describe('the review model', () => {
             id: PriceListId.unsafe('01935f6d-0000-7000-8000-00000000c201'),
             meta: meta({ status: 'draft' }),
             name: { en: 'Retail packs', ar: 'عبوات التجزئة' },
-            currency: 'AED',
+            currency: 'USD',
             kitchenId: '01935f6d-0000-7000-8000-00000000f000' as PriceListAdmin['kitchenId'],
             channels: ['b2c'],
             entries: [

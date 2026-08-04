@@ -259,19 +259,19 @@ describe('the delivery model', () => {
     });
 
     it('tells an unrecorded amount from a decided zero', () => {
-        expect(moneyInputState('', 'AED')).toBe('unset');
-        expect(moneyInputState('   ', 'AED')).toBe('unset');
-        expect(moneyInputState('0', 'AED')).toBe('zero');
-        expect(moneyInputState('0.00', 'AED')).toBe('zero');
-        expect(moneyInputState('9.50', 'AED')).toBe('amount');
-        expect(moneyInputState('9.505', 'AED')).toBe('invalid');
-        expect(moneyInputState('nine', 'AED')).toBe('invalid');
+        expect(moneyInputState('', 'USD')).toBe('unset');
+        expect(moneyInputState('   ', 'USD')).toBe('unset');
+        expect(moneyInputState('0', 'USD')).toBe('zero');
+        expect(moneyInputState('0.00', 'USD')).toBe('zero');
+        expect(moneyInputState('9.50', 'USD')).toBe('amount');
+        expect(moneyInputState('9.505', 'USD')).toBe('invalid');
+        expect(moneyInputState('nine', 'USD')).toBe('invalid');
 
         // And the value that follows from each: `null` for both absences, `0` only for the decision.
-        expect(moneyInputValue('', 'AED')).toBeNull();
-        expect(moneyInputValue('0', 'AED')).toBe(0);
-        expect(moneyInputValue('9.50', 'AED')).toBe(950);
-        expect(moneyInputValue('nine', 'AED')).toBeNull();
+        expect(moneyInputValue('', 'USD')).toBeNull();
+        expect(moneyInputValue('0', 'USD')).toBe(0);
+        expect(moneyInputValue('9.50', 'USD')).toBe(950);
+        expect(moneyInputValue('nine', 'USD')).toBeNull();
     });
 
     it('refuses a window that is unlabelled, undated, mistyped or backwards', () => {
@@ -508,7 +508,7 @@ describe('the delivery-zone list', () => {
             prepare: (repositories) => {
                 created = repositories.prototypeStore.kitchenCatalogue.createZone({
                     name: { en: 'Undecided ring', ar: 'حلقة غير محسومة' },
-                    currency: 'AED',
+                    currency: 'USD',
                 });
             },
         });
@@ -532,7 +532,7 @@ describe('the delivery-zone list', () => {
             prepare: (repositories) => {
                 created = repositories.prototypeStore.kitchenCatalogue.createZone({
                     name: { en: 'Free ring', ar: 'حلقة مجانية' },
-                    currency: 'AED',
+                    currency: 'USD',
                     deliveryFeeMinor: 0,
                     minimumOrderMinor: 0,
                 });

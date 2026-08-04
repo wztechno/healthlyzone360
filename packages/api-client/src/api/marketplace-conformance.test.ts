@@ -59,8 +59,8 @@ const RECORDED_KITCHENS = {
                             name: 'Emirates wide',
                             area: 'Al Quoz, Business Bay, Jumeirah, Deira',
                             country_code: 'AE',
-                            delivery_fee: { amount: 1500, currency: 'AED' },
-                            minimum_order: { amount: 5000, currency: 'AED' },
+                            delivery_fee: { amount: 1500, currency: 'USD' },
+                            minimum_order: { amount: 5000, currency: 'USD' },
                             estimated_minutes: 90,
                         },
                         {
@@ -68,8 +68,8 @@ const RECORDED_KITCHENS = {
                             name: 'Al Quoz express',
                             area: 'Al Quoz, Al Barsha',
                             country_code: 'AE',
-                            delivery_fee: { amount: 2500, currency: 'AED' },
-                            minimum_order: { amount: 3000, currency: 'AED' },
+                            delivery_fee: { amount: 2500, currency: 'USD' },
+                            minimum_order: { amount: 3000, currency: 'USD' },
                             estimated_minutes: 30,
                         },
                     ],
@@ -118,7 +118,7 @@ const RECORDED_MEALS = {
             allergens: ['gluten'],
             serving: null,
             nutrition: null,
-            price: { amount: 4200, currency: 'AED' },
+            price: { amount: 4200, currency: 'USD' },
             preparation_minutes: null,
             image_placeholder_id: 'meal-grilled-chicken-freekeh',
             availability: [
@@ -156,7 +156,7 @@ const RECORDED_MEALS = {
             allergens: ['sesame'],
             serving: null,
             nutrition: null,
-            price: { amount: 3800, currency: 'AED' },
+            price: { amount: 3800, currency: 'USD' },
             preparation_minutes: null,
             image_placeholder_id: 'meal-mezze-plate',
             availability: [],
@@ -246,7 +246,7 @@ describe('the api marketplace repository', () => {
         expect(kitchen?.branches[0]?.timeZone).toBe('Asia/Dubai');
         expect(kitchen?.branches[0]?.deliveryZones[0]?.deliveryFee).toEqual({
             amount: 1500,
-            currency: 'AED',
+            currency: 'USD',
         });
 
         // A closed day is a row with no times, and it survives the mapping as one.
@@ -262,7 +262,7 @@ describe('the api marketplace repository', () => {
         const page = await repositoryReturning(RECORDED_MEALS).listMeals();
 
         const meal = page.items[0];
-        expect(meal?.price).toEqual({ amount: 4200, currency: 'AED' });
+        expect(meal?.price).toEqual({ amount: 4200, currency: 'USD' });
         expect(meal?.allergens).toEqual(['gluten']);
         expect(meal?.availability[0]?.orderCutOffAt).toBe('2026-08-02T18:00:00+04:00');
         expect(meal?.availability[0]?.remaining).toBeNull();

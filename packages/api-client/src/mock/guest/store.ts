@@ -86,8 +86,8 @@ export const GUEST_DATA_TTL_SECONDS = 30 * 24 * 60 * 60;
 const FALLBACK_DELIVERY_FEE_FILS = 1500;
 const FALLBACK_FREE_DELIVERY_THRESHOLD_FILS = 15000;
 
-function aed(amount: number): Money {
-    return { amount, currency: 'AED' };
+function usd(amount: number): Money {
+    return { amount, currency: 'USD' };
 }
 
 /**
@@ -111,7 +111,7 @@ export function createFallbackCartPort(initial?: Cart): GuestCartPort {
     let cart: Cart = initial ?? {
         id,
         items: [],
-        subtotal: aed(0),
+        subtotal: usd(0),
         itemCount: 0,
         updatedAt: new Date(0).toISOString(),
     };
@@ -122,7 +122,7 @@ export function createFallbackCartPort(initial?: Cart): GuestCartPort {
             const deliveryFee =
                 cart.subtotal.amount >= FALLBACK_FREE_DELIVERY_THRESHOLD_FILS
                     ? null
-                    : aed(FALLBACK_DELIVERY_FEE_FILS);
+                    : usd(FALLBACK_DELIVERY_FEE_FILS);
             const lines: PriceLine[] = [
                 { code: 'subtotal', label: 'Subtotal', amount: cart.subtotal },
             ];
@@ -135,14 +135,14 @@ export function createFallbackCartPort(initial?: Cart): GuestCartPort {
                 subtotal: cart.subtotal,
                 deliveryFee,
                 discount: null,
-                total: aed(cart.subtotal.amount + (deliveryFee?.amount ?? 0)),
+                total: usd(cart.subtotal.amount + (deliveryFee?.amount ?? 0)),
                 earliestDeliveryDate: null,
                 warnings: cart.items.length === 0 ? ['checkout.empty_cart'] : [],
                 paymentDeferred: true,
             };
         },
         clear: () => {
-            cart = { ...cart, items: [], subtotal: aed(0), itemCount: 0 };
+            cart = { ...cart, items: [], subtotal: usd(0), itemCount: 0 };
         },
     };
 }

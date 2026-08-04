@@ -177,7 +177,7 @@ export function ReplacementDrawer({
 
     const open = entry !== null;
     const portionFactor = entry?.portionFactor ?? 1;
-    const currency = entry?.estimatedCost?.currency ?? 'AED';
+    const currency = entry?.estimatedCost?.currency ?? 'USD';
     const priceScale = 10 ** minorUnitExponent(currency);
 
     const setRange = (key: ReplacementRangeKey, value: RangeValue) => {

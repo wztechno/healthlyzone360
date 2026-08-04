@@ -195,7 +195,7 @@ test.describe('customer onboarding (en)', () => {
 
         /* 16 — budget, in AED. */
         await expect(page.getByTestId('onboarding-step-budget')).toBeVisible();
-        await expect(page.getByTestId('onboarding-budget-unit')).toContainText('AED');
+        await expect(page.getByTestId('onboarding-budget-unit')).toContainText('USD');
         await page.getByTestId('onboarding-budget-input').fill('450');
         await next(page);
 

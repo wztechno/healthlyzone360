@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Http\Controllers;
 
+use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
@@ -38,6 +39,7 @@ final class RecipeIndexController
         $this->applyStatus($request, $query);
         $this->applyCategory($request, $query);
         $this->applySearch($request, $query);
+        $this->applyStaleOnly($request, $query);
 
         $limit = CursorPage::limit($request);
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
@@ -121,6 +123,42 @@ final class RecipeIndexController
             $scoped->whereRaw('lower(name_en) like ?', [$needle])
                 ->orWhereRaw('lower(name_ar) like ?', [$needle])
                 ->orWhereRaw('lower(slug) like ?', [$needle]);
+        });
+    }
+
+    /**
+     * When `stale_only` is true, keep recipes whose editable or live version
+     * still carries a stale allergen derivation. Used by the kitchen review queue.
+     *
+     * @param  Builder<Recipe>  $query
+     */
+    private function applyStaleOnly(Request $request, Builder $query): void
+    {
+        if (! $request->boolean('stale_only')) {
+            return;
+        }
+
+        $editableStatuses = [
+            RecipeVersionStatus::Draft->value,
+            RecipeVersionStatus::ReviewRequired->value,
+            RecipeVersionStatus::Published->value,
+        ];
+
+        $query->whereExists(function ($sub) use ($editableStatuses): void {
+            $sub->selectRaw('1')
+                ->from('recipe_versions as current_version')
+                ->whereColumn('current_version.recipe_id', 'recipes.id')
+                ->whereIn('current_version.status', $editableStatuses)
+                ->where('current_version.derivation_state', DerivationState::Stale->value)
+                ->whereRaw(
+                    'current_version.version_number = (
+                        select max(rv.version_number)
+                        from recipe_versions as rv
+                        where rv.recipe_id = recipes.id
+                          and rv.status in (?, ?, ?)
+                    )',
+                    $editableStatuses,
+                );
         });
     }
 }

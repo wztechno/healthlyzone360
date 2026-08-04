@@ -102,7 +102,7 @@ const RECORDED_ME = {
                     type: 'kitchen',
                     status: 'active',
                     country_code: 'AE',
-                    default_currency_code: 'AED',
+                    default_currency_code: 'USD',
                     default_language_code: 'ar',
                     capabilities: ['kitchen_production'],
                 },

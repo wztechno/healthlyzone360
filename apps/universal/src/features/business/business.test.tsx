@@ -127,7 +127,7 @@ beforeAll(async () => {
 });
 
 function aed(amount: number): Money {
-    return { amount, currency: 'AED' };
+    return { amount, currency: 'USD' };
 }
 
 function sar(amount: number): Money {
@@ -159,7 +159,7 @@ describe('money across currencies', () => {
 
     it('keeps the fixture world non-AED line in its own currency', () => {
         expect(sarItem.contractPrice?.currency).toBe('SAR');
-        expect(aedItem.contractPrice?.currency).toBe('AED');
+        expect(aedItem.contractPrice?.currency).toBe('USD');
 
         const mixed = [sarItem.contractPrice, aedItem.contractPrice].filter(
             (value): value is Money => value !== null && value !== undefined,

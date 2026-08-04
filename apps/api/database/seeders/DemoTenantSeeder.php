@@ -114,7 +114,8 @@ class DemoTenantSeeder extends Seeder
         $this->branch($cedar, 'Jounieh', 'Jounieh', 'Asia/Beirut', $cedarOwner);
         $this->capability($cedar, 'clinic_services', $cedarOwner);
 
-        $verdant = $this->organisation('Verdant Kitchen', 'verdant-kitchen', 'kitchen', 'AE', 'AED', 'ar', $verdantOwner);
+        $verdant = $this->organisation('Verdant Kitchen', 'verdant-kitchen', 'kitchen', 'AE', 'USD', 'ar', $verdantOwner);
+        $this->retireLegacyVerdantAedTariffs($verdant);
         $alQuoz = $this->branch($verdant, 'Al Quoz', 'Dubai', 'Asia/Dubai', $verdantOwner);
         $this->capability($verdant, 'kitchen_production', $verdantOwner);
 
@@ -182,6 +183,50 @@ class DemoTenantSeeder extends Seeder
      * "nobody has said" is visible in the fixture rather than only in the
      * tests.
      */
+    private function retireLegacyVerdantAedTariffs(Organisation $verdant): void
+    {
+        // Earlier demos used `*-aed` codes. updateOrCreate on the new `*-usd`
+        // codes would leave the AED lists behind for kitchens that reseed in
+        // place, so rename (or drop if the USD twin already exists) first.
+        $legacy = [
+            'verdant-plans-aed' => 'verdant-plans-usd',
+            'verdant-web-aed' => 'verdant-web-usd',
+            'verdant-menu-aed' => 'verdant-menu-usd',
+        ];
+
+        foreach ($legacy as $oldCode => $newCode) {
+            $old = PriceList::withoutTenancy()
+                ->where('organisation_id', $verdant->getKey())
+                ->where('code', $oldCode)
+                ->first();
+
+            if ($old === null) {
+                continue;
+            }
+
+            $exists = PriceList::withoutTenancy()
+                ->where('organisation_id', $verdant->getKey())
+                ->where('code', $newCode)
+                ->exists();
+
+            if ($exists) {
+                $old->delete();
+
+                continue;
+            }
+
+            $old->forceFill([
+                'code' => $newCode,
+                'currency_code' => 'USD',
+            ])->save();
+        }
+
+        DeliveryZone::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('currency_code', 'AED')
+            ->update(['currency_code' => 'USD']);
+    }
+
     private function seedVerdantDelivery(Organisation $verdant, OrganisationBranch $branch, User $creator): void
     {
         $alQuozArea = $this->demoArea('ae-demo-al-quoz', 'Al Quoz', 'القوز', 1);
@@ -198,8 +243,8 @@ class DemoTenantSeeder extends Seeder
 
         // Two of the four again, from the branch. Legal, and the point: a
         // customer in Al Quoz ordering from this branch gets 30 minutes at
-        // AED 25, and the same customer with no branch in context gets the
-        // organisation-wide 90 minutes at AED 15.
+        // USD 25, and the same customer with no branch in context gets the
+        // organisation-wide 90 minutes at USD 15.
         $this->zoneAreas($alQuozExpress, [$alQuozArea, $alBarsha], $creator);
 
         $this->deliveryWindow($verdant, 'morning', 'Morning', 'صباحاً', '09:00:00', '12:00:00', [], 1, $creator);
@@ -403,7 +448,7 @@ class DemoTenantSeeder extends Seeder
     }
 
     /**
-     * An **active** AED tariff carrying one confirmed plan price — and assigned
+     * An **active** USD tariff carrying one confirmed plan price — and assigned
      * to no channel at all.
      *
      * Both halves are deliberate. Active, because the publish gate only counts
@@ -416,18 +461,18 @@ class DemoTenantSeeder extends Seeder
      * read. "Agreed, not yet on sale" is an ordinary state for a tariff, not a
      * contrivance.
      *
-     * Separate from `verdant-web-aed` rather than folded into it, because that
+     * Separate from `verdant-web-usd` rather than folded into it, because that
      * one is deliberately a draft demonstrating the price-list publish gate, and
      * one list cannot be a draft and active at once.
      */
     private function seedVerdantPlanTariff(Organisation $verdant, CatalogueItem $plan, CatalogueItemVariant $standard, User $creator): void
     {
         $tariff = PriceList::withoutTenancy()->updateOrCreate(
-            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-plans-aed'],
+            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-plans-usd'],
             [
                 'name_en' => 'Subscription plans tariff',
                 'name_ar' => 'تعرفة خطط الاشتراك',
-                'currency_code' => 'AED',
+                'currency_code' => 'USD',
                 'customer_scope' => CustomerScope::PublicTariff,
                 'status' => PriceListStatus::Active,
                 'created_by' => $creator->getKey(),
@@ -435,7 +480,7 @@ class DemoTenantSeeder extends Seeder
             ],
         );
 
-        // 55.00 AED a day for the standard configuration — and nothing at all
+        // 55.00 USD a day for the standard configuration — and nothing at all
         // for the premium one, which is what leaves the plan unpublishable.
         $this->price($tariff, $plan->getKey(), $standard->getKey(), null, 5500, PriceStatus::Confirmed, $creator);
     }
@@ -589,14 +634,11 @@ class DemoTenantSeeder extends Seeder
     }
 
     /**
-     * A draft AED tariff for the demonstration kitchen, and the two listings it
+     * A draft USD tariff for the demonstration kitchen, and the two listings it
      * prices (K1.5).
      *
-     * **AED, not USD.** Verdant is an Emirati kitchen whose default currency is
-     * AED, and the currency lives on the list, so a USD tariff here would be a
-     * demonstration of the one mistake the schema exists to make impossible.
-     * The GreenLife USD lists arrive with the K1.8 importer, where they belong:
-     * they carry real formulations and real costs, which are never committed.
+     * **USD.** Verdant's demo default currency is USD (platform demo policy).
+     * The currency lives on the list and must match the organisation default.
      *
      * **Draft, not active.** Nothing here has been reviewed by anybody, and a
      * seeded tariff that priced a live channel would be exactly the "synthetic
@@ -642,11 +684,11 @@ class DemoTenantSeeder extends Seeder
         );
 
         $tariff = PriceList::withoutTenancy()->updateOrCreate(
-            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-web-aed'],
+            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-web-usd'],
             [
                 'name_en' => 'Web shop tariff',
                 'name_ar' => 'تعرفة المتجر الإلكتروني',
-                'currency_code' => 'AED',
+                'currency_code' => 'USD',
                 'customer_scope' => CustomerScope::PublicTariff,
                 'status' => PriceListStatus::Draft,
                 'created_by' => $creator->getKey(),
@@ -654,7 +696,7 @@ class DemoTenantSeeder extends Seeder
             ],
         );
 
-        // 22.00 AED a jar, 19.00 from a dozen, and a meal nobody has priced.
+        // 22.00 USD a jar, 19.00 from a dozen, and a meal nobody has priced.
         $this->price($tariff, $harissa->getKey(), $jar->getKey(), null, 2200, PriceStatus::Confirmed, $creator);
         $this->price($tariff, $harissa->getKey(), $jar->getKey(), '12.0000', 1900, PriceStatus::Confirmed, $creator);
         $this->price($tariff, $bowl->getKey(), null, null, null, PriceStatus::Placeholder, $creator);
@@ -687,7 +729,7 @@ class DemoTenantSeeder extends Seeder
      *    readiness gate refuses a half-translated listing and an Arabic customer
      *    reading English is exactly what that gate exists to prevent.
      * 3. **A confirmed price on an active tariff assigned to a consumer
-     *    channel.** A separate list from `verdant-web-aed`, which is a draft on
+     *    channel.** A separate list from `verdant-web-usd`, which is a draft on
      *    purpose and must stay one — a single list cannot be a draft and active
      *    at once, and the draft is the fixture the price-list publish gate is
      *    tested against.
@@ -721,11 +763,11 @@ class DemoTenantSeeder extends Seeder
         $lentils = $this->demoIngredient($verdant, 'red-lentils', 'Red lentils', 'عدس أحمر', $gram, null, $creator);
 
         $menu = PriceList::withoutTenancy()->updateOrCreate(
-            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-menu-aed'],
+            ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-menu-usd'],
             [
                 'name_en' => 'Web shop menu',
                 'name_ar' => 'قائمة المتجر الإلكتروني',
-                'currency_code' => 'AED',
+                'currency_code' => 'USD',
                 'customer_scope' => CustomerScope::PublicTariff,
                 'status' => PriceListStatus::Active,
                 'created_by' => $creator->getKey(),

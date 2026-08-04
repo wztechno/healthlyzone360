@@ -39,6 +39,7 @@ import { createApiAccountRepository } from './account-repository.ts';
 import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
+import { createApiCartSurface } from './cart-repository.ts';
 import { createApiOrderPlacement } from './order-repository.ts';
 import {
     API_PROTOTYPE_REPOSITORIES,
@@ -47,6 +48,7 @@ import {
 } from './prototype-repositories.ts';
 import { createApiReferenceReads } from './reference-repository.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import { createApiKitchenAdminWrites } from './kitchen-admin-writes.ts';
 import { createApiSubscriptionReads } from './subscription-repository.ts';
 import { createApiVerificationRepository } from './verification-repository.ts';
 import {
@@ -469,6 +471,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
     const reference = createApiReferenceReads(transport);
     const verification = createApiVerificationRepository(transport);
     const kitchenAdminReads = createApiKitchenAdminReads(transport);
+    const kitchenAdminWrites = createApiKitchenAdminWrites(transport);
     const account = createApiAccountRepository({
         transport,
         reference,
@@ -479,11 +482,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         loginEmail: () => currentLoginEmail,
     });
 
-    // The remaining prototype repositories are stateless rejections
-    // (`./prototype-repositories.ts`), so they are one shared object rather than a closure each.
-    // Three families have left that object in this wave: the marketplace since M1, and now the two
-    // *reference* reads on `kitchenAdmin`, which are real endpoints served to every client. The
-    // rest of `kitchenAdmin` is deliberately untouched and still rejects.
+    // Prototype stubs remain the base for families still without HTTP; wired surfaces override.
     return {
         kind: 'api',
         transport,
@@ -499,34 +498,16 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         ...API_PROTOTYPE_REPOSITORIES,
         commerce: {
             ...apiCommerceRepository,
-            // The basket and the preview are still proposed. Placement is not: `POST /orders` is
-            // served, and it is the one command on this surface — which it may be only because it
-            // takes no payment.
+            ...createApiCartSurface(transport),
             placeOrder: createApiOrderPlacement(transport),
-            // All six S1 methods. Four of them needed the backend to serve a fact it was
-            // withholding — the storefront's own channel, the run that was bought, the plan's name,
-            // the dish's name — and `./subscription-repository.ts` records what each gap was.
             ...createApiSubscriptionReads(transport),
         },
         kitchenAdmin: {
             ...apiKitchenAdminRepository,
             listAllergenClasses: reference.listAllergenClasses,
             listServiceAreas: reference.listServiceAreas,
-            listIngredients: kitchenAdminReads.listIngredients,
-            getIngredient: kitchenAdminReads.getIngredient,
-            listRecipes: kitchenAdminReads.listRecipes,
-            getRecipe: kitchenAdminReads.getRecipe,
-            listProducts: kitchenAdminReads.listProducts,
-            getProduct: kitchenAdminReads.getProduct,
-            listMeals: kitchenAdminReads.listMeals,
-            getMeal: kitchenAdminReads.getMeal,
-            listPlans: kitchenAdminReads.listPlans,
-            getPlan: kitchenAdminReads.getPlan,
-            listPriceLists: kitchenAdminReads.listPriceLists,
-            getPriceList: kitchenAdminReads.getPriceList,
-            listZones: kitchenAdminReads.listZones,
-            getZone: kitchenAdminReads.getZone,
-            getBranchOperating: kitchenAdminReads.getBranchOperating,
+            ...kitchenAdminReads,
+            ...kitchenAdminWrites,
         },
     };
 }

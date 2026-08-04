@@ -282,20 +282,6 @@ export const PROTOTYPE_ENDPOINTS = {
     acceptProposal: `POST ${BASE}/virtual-dietitian/sessions/{session}/accept`,
     overrideProposal: `POST ${BASE}/virtual-dietitian/sessions/{session}/override`,
 
-    getCart: `POST ${BASE}/carts`,
-    addCartItem: `POST ${BASE}/carts/{cart}/items`,
-    removeCartItem: `DELETE ${BASE}/carts/{cart}/items/{item}`,
-    previewCheckout: `POST ${BASE}/checkouts/preview`,
-    previewSubscription: `POST ${BASE}/subscriptions/preview`,
-    createSubscription: `POST ${BASE}/subscriptions`,
-    getSubscription: `GET ${BASE}/subscriptions/{subscription}`,
-    listSubscriptions: `GET ${BASE}/subscriptions`,
-    pause: `POST ${BASE}/subscriptions/{subscription}/pause`,
-    resume: `POST ${BASE}/subscriptions/{subscription}/resume`,
-    skipDay: `POST ${BASE}/subscriptions/{subscription}/skip`,
-    changeAddress: `POST ${BASE}/subscriptions/{subscription}/address`,
-    changeSlot: `POST ${BASE}/subscriptions/{subscription}/slot`,
-
     getCorporateProgramme: `GET ${BASE}/business/programmes/{programme}`,
     listCatalogue: `GET ${BASE}/business/programmes/{programme}/catalogue`,
     getCatalogueItem: `GET ${BASE}/business/catalogue/{item}`,
@@ -326,54 +312,16 @@ export const PROTOTYPE_ENDPOINTS = {
      * `severe_by_default`, which was the one field the switch was waiting for. The service-area
      * read was blocked on `country_code` being required; it is optional now.
      *
-     * `GET /catalogue/ingredients` and `GET /catalogue/ingredients/{ingredient}` left it in this
-     * wave — implemented in `./kitchen-admin-repository.ts`.
+     * `GET /catalogue/ingredients` and reads for the kitchen catalogue left it in prior waves —
+     * implemented in `./kitchen-admin-repository.ts`.
      *
-     * Everything below is still a stub, and every one of these paths is still proposed.
+     * Phase 3 writes (`./kitchen-admin-writes.ts`) wired every method below that has a Laravel
+     * route. What remains is only what has no faithful twin on the wire.
      */
-    adminCreateIngredient: `POST ${BASE}/catalogue/ingredients`,
-    adminUpdateIngredient: `PATCH ${BASE}/catalogue/ingredients/{ingredient}`,
-    adminArchiveIngredient: `POST ${BASE}/catalogue/ingredients/{ingredient}/archive`,
-    adminSetIngredientAllergens: `PUT ${BASE}/catalogue/ingredients/{ingredient}/allergens`,
-
-    adminCreateRecipe: `POST ${BASE}/catalogue/recipes`,
-    adminUpdateRecipe: `PATCH ${BASE}/catalogue/recipes/{recipe}`,
-    adminSetRecipeLines: `PUT ${BASE}/catalogue/recipes/{recipe}/lines`,
-    adminSetRecipeSteps: `PUT ${BASE}/catalogue/recipes/{recipe}/steps`,
-    adminSetRecipeOutputs: `PUT ${BASE}/catalogue/recipes/{recipe}/outputs`,
     adminPreviewRecipeRollup: `POST ${BASE}/catalogue/recipes/roll-up-preview`,
-    adminPublishRecipe: `POST ${BASE}/catalogue/recipes/{recipe}/publish`,
-    adminRetireRecipe: `POST ${BASE}/catalogue/recipes/{recipe}/retire`,
-
-    adminCreateProduct: `POST ${BASE}/catalogue/products`,
-    adminUpdateProduct: `PATCH ${BASE}/catalogue/products/{product}`,
-    adminArchiveProduct: `POST ${BASE}/catalogue/products/{product}/archive`,
-    adminSetProductChannelAvailability: `PUT ${BASE}/catalogue/products/{product}/channels`,
-
-    adminSetPriceListEntries: `PUT ${BASE}/catalogue/price-lists/{price_list}/entries`,
-    adminPublishPriceList: `POST ${BASE}/catalogue/price-lists/{price_list}/publish`,
-
-    adminCreateMeal: `POST ${BASE}/catalogue/meals`,
-    adminUpdateMeal: `PATCH ${BASE}/catalogue/meals/{meal}`,
-    adminPublishMeal: `POST ${BASE}/catalogue/meals/{meal}/publish`,
-    adminRetireMeal: `POST ${BASE}/catalogue/meals/{meal}/retire`,
     adminSetMealAvailability: `PUT ${BASE}/catalogue/meals/{meal}/availability`,
-
-    adminCreatePlan: `POST ${BASE}/catalogue/plans`,
-    adminUpdatePlan: `PATCH ${BASE}/catalogue/plans/{plan}`,
-    adminPublishPlan: `POST ${BASE}/catalogue/plans/{plan}/publish`,
-    adminRetirePlan: `POST ${BASE}/catalogue/plans/{plan}/retire`,
-    adminSetPlanVariants: `PUT ${BASE}/catalogue/plans/{plan}/variants`,
-    adminSetPlanDurations: `PUT ${BASE}/catalogue/plans/{plan}/durations`,
     adminSetPlanCombinations: `PUT ${BASE}/catalogue/plans/{plan}/combinations`,
-
-    adminCreateZone: `POST ${BASE}/catalogue/delivery-zones`,
-    adminUpdateZone: `PATCH ${BASE}/catalogue/delivery-zones/{zone}`,
-    adminArchiveZone: `POST ${BASE}/catalogue/delivery-zones/{zone}/archive`,
-    adminSetZoneAreas: `PUT ${BASE}/catalogue/delivery-zones/{zone}/areas`,
-    adminSetDeliveryWindows: `PUT ${BASE}/catalogue/delivery-zones/{zone}/delivery-windows`,
-
-    adminSetBranchOperating: `PUT ${BASE}/kitchen/branch-operating`,
+    adminSetDeliveryWindows: `POST ${BASE}/catalogue/delivery-windows`,
 } as const;
 
 /* ------------------------------------------------------------------------------------------------
@@ -571,17 +519,22 @@ export const apiVirtualDietitianRepository: VirtualDietitianRepository = {
  * ---------------------------------------------------------------------------------------------- */
 
 export const apiCommerceRepository: CommerceRepository = {
+    /**
+     * Cart CRUD and the interim checkout preview are served — implemented in
+     * `./cart-repository.ts` and spread over this object by `createApiRepositories`, so they have
+     * no rows in `PROTOTYPE_ENDPOINTS`.
+     */
     getCart(): Promise<Cart> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.getCart);
+        return notImplemented(`POST ${BASE}/carts`);
     },
     addCartItem(_cartId: CartId, _request: AddCartItemRequest): Promise<Cart> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.addCartItem);
+        return notImplemented(`POST ${BASE}/carts/{cart}/items`);
     },
     removeCartItem(_cartId: CartId, _itemId: string): Promise<Cart> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.removeCartItem);
+        return notImplemented(`DELETE ${BASE}/carts/{cart}/items/{item}`);
     },
     previewCheckout(_request: PreviewCheckoutRequest): Promise<CheckoutPreview> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.previewCheckout);
+        return notImplemented(`POST ${BASE}/checkouts/preview`);
     },
     /**
      * Declared as a rejection so this object stays a complete `CommerceRepository`, and overridden
@@ -592,41 +545,46 @@ export const apiCommerceRepository: CommerceRepository = {
     placeOrder(_request: PlaceOrderRequest): Promise<PlacedOrder> {
         return notImplemented(`POST ${BASE}/orders`);
     },
+    /**
+     * Subscription lifecycle (quote preview, create, reads, pause/resume/skip, address/window) is
+     * served — implemented in `./subscription-repository.ts` and spread over this object by
+     * `createApiRepositories`, so none of these have rows in `PROTOTYPE_ENDPOINTS`.
+     */
     previewSubscription(_configuration: SubscriptionConfiguration): Promise<SubscriptionPreview> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.previewSubscription);
+        return notImplemented(`GET ${BASE}/subscriptions/quote`);
     },
     createSubscription(_request: CreateSubscriptionRequest): Promise<Subscription> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.createSubscription);
+        return notImplemented(`POST ${BASE}/subscriptions`);
     },
     getSubscription(_subscriptionId: SubscriptionId): Promise<Subscription> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.getSubscription);
+        return notImplemented(`GET ${BASE}/me/subscriptions/{subscription}`);
     },
     listSubscriptions(_filter?: SubscriptionFilter): Promise<CursorPage<Subscription>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.listSubscriptions);
+        return notImplemented(`GET ${BASE}/me/subscriptions`);
     },
     pause(
         _subscriptionId: SubscriptionId,
         _request?: PauseSubscriptionRequest,
     ): Promise<Subscription> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.pause);
+        return notImplemented(`POST ${BASE}/me/subscriptions/{subscription}/pause`);
     },
     resume(_subscriptionId: SubscriptionId): Promise<Subscription> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.resume);
+        return notImplemented(`POST ${BASE}/me/subscriptions/{subscription}/resume`);
     },
     skipDay(_subscriptionId: SubscriptionId, _request: SkipDayRequest): Promise<Subscription> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.skipDay);
+        return notImplemented(`POST ${BASE}/me/subscriptions/{subscription}/skips`);
     },
     changeAddress(
         _subscriptionId: SubscriptionId,
         _request: ChangeAddressRequest,
     ): Promise<Subscription> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.changeAddress);
+        return notImplemented(`PUT ${BASE}/me/subscriptions/{subscription}/address`);
     },
     changeSlot(
         _subscriptionId: SubscriptionId,
         _request: ChangeSlotRequest,
     ): Promise<Subscription> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.changeSlot);
+        return notImplemented(`PUT ${BASE}/me/subscriptions/{subscription}/window`);
     },
 
     /*
@@ -735,7 +693,7 @@ export const apiProfessionalRepository: ProfessionalRepository = {
 /* ------------------------------------------------------------------------------------------------
  * Kitchen management (K1)
  *
- * Written out like every other stub above rather than generated. Forty-six methods is a lot of
+ * Written out like every other stub above rather than generated. The full method list is a lot of
  * repetition, and it is repetition that *earns its keep*: adding a method to `KitchenAdminRepository`
  * has to break this file at compile time, because the alternative — a `Proxy` — would keep
  * "working" and let a screen discover the omission at runtime, in an admin surface where the
@@ -743,13 +701,13 @@ export const apiProfessionalRepository: ProfessionalRepository = {
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * The kitchen workspace, still a stub apart from its two reference reads.
+ * The kitchen workspace — mostly a stub, with real implementations spread in by the bundle.
  *
- * `listAllergenClasses` and `listServiceAreas` are declared here as rejections so this object stays
- * a complete `KitchenAdminRepository` — the compiler has to be able to prove that, and it is the
- * whole reason every method is spelled out. `createApiRepositories` overrides exactly those two
- * with the real implementations from `./reference-repository.ts`, which is why their entries have
- * left `PROTOTYPE_ENDPOINTS` while the other forty-six have not.
+ * `listAllergenClasses` and `listServiceAreas` are overridden from `./reference-repository.ts`;
+ * catalogue reads from `./kitchen-admin-repository.ts`; Phase 3 writes from
+ * `./kitchen-admin-writes.ts`. Only four methods still have rows in `PROTOTYPE_ENDPOINTS`:
+ * `adminPreviewRecipeRollup`, `adminSetMealAvailability`, `adminSetPlanCombinations`, and
+ * `adminSetDeliveryWindows` — each is a genuine wire gap, not an oversight.
  */
 export const apiKitchenAdminRepository: KitchenAdminRepository = {
     listAllergenClasses(): Promise<readonly AllergenClass[]> {
@@ -766,25 +724,25 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`GET ${BASE}/catalogue/ingredients/{ingredient}`);
     },
     createIngredient(_request: CreateIngredientRequest): Promise<IngredientAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateIngredient);
+        return notImplemented(`POST ${BASE}/catalogue/ingredients`);
     },
     updateIngredient(
         _ingredientId: IngredientId,
         _request: UpdateIngredientRequest,
     ): Promise<IngredientAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateIngredient);
+        return notImplemented(`PATCH ${BASE}/catalogue/ingredients/{ingredient}`);
     },
     archiveIngredient(
         _ingredientId: IngredientId,
         _request: LockedRequest,
     ): Promise<IngredientAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminArchiveIngredient);
+        return notImplemented(`POST ${BASE}/catalogue/ingredients/{ingredient}/archive`);
     },
     setIngredientAllergens(
         _ingredientId: IngredientId,
         _request: SetIngredientAllergensRequest,
     ): Promise<IngredientAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetIngredientAllergens);
+        return notImplemented(`PUT ${BASE}/catalogue/ingredients/{ingredient}/allergens`);
     },
 
     listRecipes(_filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
@@ -794,28 +752,28 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`GET ${BASE}/catalogue/recipes/{recipe}`);
     },
     createRecipe(_request: CreateRecipeRequest): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateRecipe);
+        return notImplemented(`POST ${BASE}/catalogue/recipes`);
     },
     updateRecipe(_recipeId: RecipeId, _request: UpdateRecipeRequest): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateRecipe);
+        return notImplemented(`PATCH ${BASE}/catalogue/recipes/{recipe}`);
     },
     setRecipeLines(_recipeId: RecipeId, _request: SetRecipeLinesRequest): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetRecipeLines);
+        return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/lines`);
     },
     setRecipeSteps(_recipeId: RecipeId, _request: SetRecipeStepsRequest): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetRecipeSteps);
+        return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/steps`);
     },
     setRecipeOutputs(_recipeId: RecipeId, _request: SetRecipeOutputsRequest): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetRecipeOutputs);
+        return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/outputs`);
     },
     previewRecipeRollup(_draft: RecipeRollupDraft): Promise<RecipeRollupPreview> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminPreviewRecipeRollup);
     },
     publishRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishRecipe);
+        return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/versions/{version}/publish`);
     },
     retireRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminRetireRecipe);
+        return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/archive`);
     },
 
     listProducts(_filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {
@@ -825,19 +783,19 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
     },
     createProduct(_request: CreateProductRequest): Promise<ProductAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateProduct);
+        return notImplemented(`POST ${BASE}/catalogue/items`);
     },
     updateProduct(_productId: ProductId, _request: UpdateProductRequest): Promise<ProductAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateProduct);
+        return notImplemented(`PATCH ${BASE}/catalogue/items/{item}`);
     },
     archiveProduct(_productId: ProductId, _request: LockedRequest): Promise<ProductAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminArchiveProduct);
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
     },
     setProductChannelAvailability(
         _productId: ProductId,
         _request: SetChannelAvailabilityRequest,
     ): Promise<ProductAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetProductChannelAvailability);
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);
     },
 
     listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
@@ -850,10 +808,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _priceListId: PriceListId,
         _request: SetPriceListEntriesRequest,
     ): Promise<PriceListAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPriceListEntries);
+        return notImplemented(`PUT ${BASE}/catalogue/price-lists/{price_list}/entries`);
     },
     publishPriceList(_priceListId: PriceListId, _request: LockedRequest): Promise<PriceListAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishPriceList);
+        return notImplemented(`POST ${BASE}/catalogue/price-lists/{price_list}/publish`);
     },
 
     listMeals(_filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
@@ -863,16 +821,16 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
     },
     createMeal(_request: CreateMealRequest): Promise<MealAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateMeal);
+        return notImplemented(`POST ${BASE}/catalogue/items`);
     },
     updateMeal(_mealId: MealId, _request: UpdateMealRequest): Promise<MealAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateMeal);
+        return notImplemented(`PATCH ${BASE}/catalogue/items/{item}`);
     },
     publishMeal(_mealId: MealId, _request: LockedRequest): Promise<MealAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishMeal);
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/publish`);
     },
     retireMeal(_mealId: MealId, _request: LockedRequest): Promise<MealAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminRetireMeal);
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
     },
     setMealAvailability(_mealId: MealId, _request: SetMealAvailabilityRequest): Promise<MealAdmin> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminSetMealAvailability);
@@ -885,28 +843,28 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`GET ${BASE}/catalogue/plans/{plan}/profile`);
     },
     createPlan(_request: CreatePlanRequest): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreatePlan);
+        return notImplemented(`POST ${BASE}/catalogue/items`);
     },
     updatePlan(_planId: SubscriptionPlanId, _request: UpdatePlanRequest): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdatePlan);
+        return notImplemented(`PATCH ${BASE}/catalogue/items/{item}`);
     },
     publishPlan(_planId: SubscriptionPlanId, _request: LockedRequest): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminPublishPlan);
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/publish`);
     },
     retirePlan(_planId: SubscriptionPlanId, _request: LockedRequest): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminRetirePlan);
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
     },
     setPlanVariants(
         _planId: SubscriptionPlanId,
         _request: SetPlanVariantsRequest,
     ): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPlanVariants);
+        return notImplemented(`PUT ${BASE}/catalogue/plans/{plan}/variants`);
     },
     setPlanDurations(
         _planId: SubscriptionPlanId,
         _request: SetPlanDurationsRequest,
     ): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetPlanDurations);
+        return notImplemented(`PUT ${BASE}/catalogue/plans/{plan}/variant-durations`);
     },
     setPlanCombinations(
         _planId: SubscriptionPlanId,
@@ -922,22 +880,22 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`GET ${BASE}/catalogue/delivery-zones/{zone}`);
     },
     createZone(_request: CreateDeliveryZoneRequest): Promise<DeliveryZoneAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateZone);
+        return notImplemented(`POST ${BASE}/catalogue/delivery-zones`);
     },
     updateZone(
         _zoneId: DeliveryZoneId,
         _request: UpdateDeliveryZoneRequest,
     ): Promise<DeliveryZoneAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminUpdateZone);
+        return notImplemented(`PATCH ${BASE}/catalogue/delivery-zones/{zone}`);
     },
     archiveZone(_zoneId: DeliveryZoneId, _request: LockedRequest): Promise<DeliveryZoneAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminArchiveZone);
+        return notImplemented(`POST ${BASE}/catalogue/delivery-zones/{zone}/archive`);
     },
     setZoneAreas(
         _zoneId: DeliveryZoneId,
         _request: SetZoneAreasRequest,
     ): Promise<DeliveryZoneAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetZoneAreas);
+        return notImplemented(`PUT ${BASE}/catalogue/delivery-zones/{zone}/areas`);
     },
     setDeliveryWindows(
         _zoneId: DeliveryZoneId,
@@ -953,7 +911,7 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _branchId: KitchenBranchId,
         _request: SetBranchOperatingRequest,
     ): Promise<BranchOperating> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminSetBranchOperating);
+        return notImplemented(`PUT ${BASE}/kitchen/branch-operating`);
     },
 };
 

@@ -7,6 +7,7 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -334,4 +335,38 @@ it('never writes an audit metadata key the redactor would blank', function (): v
 
         expect($event->metadata)->not->toContain('[redacted]');
     }
+});
+
+it('filters the recipe index to rows whose current version derivation is stale', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    $staleRecipe = Recipe::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Stale Marinade',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $staleRecipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'derivation_state' => 'stale',
+    ]);
+
+    $freshRecipe = Recipe::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Fresh Marinade',
+    ]);
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $freshRecipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'derivation_state' => DerivationState::Current,
+    ]);
+
+    $ids = collect(
+        $this->getJson('/api/v1/catalogue/recipes?stale_only=1&limit=100', $headers)
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all();
+
+    expect($ids)->toContain((string) $staleRecipe->getKey())
+        ->and($ids)->not->toContain((string) $freshRecipe->getKey());
 });

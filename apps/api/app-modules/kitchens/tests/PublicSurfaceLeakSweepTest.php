@@ -230,7 +230,7 @@ beforeEach(function (): void {
     // the resolver honours the tier rule rather than merely lacking a field for
     // it — a public read asks for one, so the base price wins and this number
     // must appear in no response at all.
-    $tiered = PriceList::withoutTenancy()->where('code', 'verdant-menu-aed')->sole();
+    $tiered = PriceList::withoutTenancy()->where('code', 'verdant-menu-usd')->sole();
     $meal = CatalogueItem::withoutTenancy()->where('slug', 'grilled-chicken-freekeh')->sole();
 
     PriceListItem::withoutTenancy()->create([

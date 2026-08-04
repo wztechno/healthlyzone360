@@ -374,7 +374,7 @@ describe('the guest transport', () => {
                         id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e5aa1',
                         order_number: 'H360-G1001',
                         status: 'placed',
-                        currency_code: 'AED',
+                        currency_code: 'USD',
                         subtotal_minor: 9000,
                         delivery_fee_minor: 1500,
                         total_minor: 10500,

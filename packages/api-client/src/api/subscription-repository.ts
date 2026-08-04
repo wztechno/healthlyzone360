@@ -21,23 +21,32 @@ import {
 } from '../contracts/commerce.ts';
 import type {
     CancelSubscriptionRequest,
+    ChangeAddressRequest,
+    ChangeSlotRequest,
+    CreateSubscriptionRequest,
     CreditMemo,
     DeliveryAddress,
+    PauseSubscriptionRequest,
     SetSubscriptionMealChoicesRequest,
     SetSubscriptionWeekdaysRequest,
+    SkipDayRequest,
     Subscription,
     SubscriptionBalance,
     SubscriptionCancellation,
+    SubscriptionConfiguration,
     SubscriptionDelivery,
     SubscriptionDeliveryFilter,
     SubscriptionDeliveryStatus,
+    SubscriptionFilter,
     SubscriptionMealChoice,
+    SubscriptionPreview,
     SubscriptionQuote,
     SubscriptionQuoteRefusal,
     SubscriptionQuoteRequest,
     SubscriptionSkipReason,
+    PriceLine,
 } from '../contracts/commerce.ts';
-import { ApiError, apiFailure, isSubscriptionRefusalFailure } from '../contracts/failure.ts';
+import { ApiError, apiFailure, isSubscriptionRefusalFailure, validationFailure } from '../contracts/failure.ts';
 import type { ApiFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
@@ -54,6 +63,7 @@ import type {
     SubscriptionStatus as WireStatus,
     Subscription as WireSubscription,
 } from '../generated/types.ts';
+import { generateRequestId } from './config.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -120,7 +130,7 @@ export const DEFAULT_CHANGE_CUTOFF_HOURS = 24;
  * code is inert; the fixture world states the same constant for the same case, which keeps a
  * rehearsed screen and a live one byte-identical.
  */
-const REFUSAL_CURRENCY: CurrencyCode = 'AED';
+const REFUSAL_CURRENCY: CurrencyCode = 'USD';
 
 /** Wire day counts → the closed duration vocabulary. Resolved by days, never by the code string. */
 const DURATION_BY_DAYS: Readonly<Record<number, PlanDuration>> = {
@@ -373,7 +383,7 @@ function refusedQuote(request: SubscriptionQuoteRequest, failure: ApiFailure): S
     };
 }
 
-/** The six S1 methods, built per bundle because they hold the transport. */
+/** S1 reads plus the remaining subscription lifecycle surface. */
 export interface ApiSubscriptionReads {
     getSubscriptionQuote(request: SubscriptionQuoteRequest): Promise<SubscriptionQuote>;
     getSubscriptionBalance(subscriptionId: SubscriptionId): Promise<SubscriptionBalance>;
@@ -393,77 +403,184 @@ export interface ApiSubscriptionReads {
         subscriptionId: SubscriptionId,
         request: SetSubscriptionMealChoicesRequest,
     ): Promise<readonly SubscriptionMealChoice[]>;
+    listSubscriptions(filter?: SubscriptionFilter): Promise<CursorPage<Subscription>>;
+    getSubscription(subscriptionId: SubscriptionId): Promise<Subscription>;
+    pause(subscriptionId: SubscriptionId, request?: PauseSubscriptionRequest): Promise<Subscription>;
+    resume(subscriptionId: SubscriptionId): Promise<Subscription>;
+    skipDay(subscriptionId: SubscriptionId, request: SkipDayRequest): Promise<Subscription>;
+    changeAddress(
+        subscriptionId: SubscriptionId,
+        request: ChangeAddressRequest,
+    ): Promise<Subscription>;
+    changeSlot(subscriptionId: SubscriptionId, request: ChangeSlotRequest): Promise<Subscription>;
+    createSubscription(request: CreateSubscriptionRequest): Promise<Subscription>;
+    previewSubscription(configuration: SubscriptionConfiguration): Promise<SubscriptionPreview>;
 }
 
-export function createApiSubscriptionReads(transport: Transport): ApiSubscriptionReads {
-    function path(subscriptionId: SubscriptionId, suffix = ''): string {
-        return `/me/subscriptions/${encodeURIComponent(String(subscriptionId))}${suffix}`;
+/** Quote envelope data may carry purchase identifiers resolved server-side. */
+type QuoteWireData = PlanQuoteEnvelope['data'] & {
+    plan_duration_id?: string | null;
+    sales_channel_id?: string | null;
+};
+
+function subscriptionPath(subscriptionId: SubscriptionId, suffix = ''): string {
+    return `/me/subscriptions/${encodeURIComponent(String(subscriptionId))}${suffix}`;
+}
+
+function requireAddressId(addressId: string | undefined, field: 'addressId'): string {
+    if (addressId === undefined || addressId.trim() === '') {
+        throw new ApiError(
+            validationFailure(
+                { [field]: ['Choose a delivery address before continuing.'] },
+                {
+                    message:
+                        'This subscription has no delivery address to resolve a zone, a window ' +
+                        'and a fee from.',
+                },
+            ),
+        );
+    }
+    return addressId;
+}
+
+function quoteQuery(request: SubscriptionQuoteRequest): string {
+    return new URLSearchParams({
+        catalogue_item_id: String(request.planId),
+        catalogue_item_variant_id: String(request.variantId),
+        plan_duration_days: String(PLAN_DURATION_WEEKS[request.duration] * 7),
+    }).toString();
+}
+
+/** ISO weekday, `1` Monday through `7` Sunday. */
+function isoWeekday(date: string): number {
+    const weekday = new Date(`${date}T12:00:00`).getUTCDay();
+    return weekday === 0 ? 7 : weekday;
+}
+
+function addDays(date: string, offset: number): string {
+    const next = new Date(`${date}T12:00:00`);
+    next.setUTCDate(next.getUTCDate() + offset);
+    return next.toISOString().slice(0, 10);
+}
+
+function deliveryDates(configuration: SubscriptionConfiguration): readonly string[] {
+    const weeks = PLAN_DURATION_WEEKS[configuration.duration];
+    const dates: string[] = [];
+    for (let offset = 0; offset < weeks * 7; offset += 1) {
+        const date = addDays(configuration.startDate, offset);
+        if (configuration.deliveryWeekdays.includes(isoWeekday(date))) dates.push(date);
+    }
+    return dates;
+}
+
+function mapQuote(request: SubscriptionQuoteRequest, wire: QuoteWireData['quote']): SubscriptionQuote {
+    return {
+        planId: request.planId,
+        variantId: request.variantId,
+        duration: request.duration,
+        available: true,
+        availableWeekdays: wire.available_weekdays,
+        days: wire.days,
+        listPrice: money(wire.list_price_minor, wire.currency_code),
+        discountPercent: discountPercent(wire.discount_percent),
+        perDayPrice: money(wire.per_day_minor, wire.currency_code),
+        total: money(wire.total_minor, wire.currency_code),
+        allowsFreeSelection: wire.allows_free_selection,
+        changeCutoffHours: wire.change_cutoff_hours,
+        refusals: [],
+    };
+}
+
+function previewFromQuote(
+    configuration: SubscriptionConfiguration,
+    quote: SubscriptionQuote,
+): SubscriptionPreview {
+    const dates = deliveryDates(configuration);
+    const weeks = PLAN_DURATION_WEEKS[configuration.duration];
+    const gross = quote.listPrice.amount * weeks;
+    const lines: PriceLine[] = [
+        {
+            code: 'weekly',
+            label: 'Weekly price',
+            amount: {
+                amount: quote.perDayPrice.amount * configuration.deliveryWeekdays.length,
+                currency: quote.perDayPrice.currency,
+            },
+        },
+        { code: 'gross', label: `${String(weeks)} weeks`, amount: money(gross, quote.total.currency) },
+    ];
+    if (quote.discountPercent > 0) {
+        lines.push({
+            code: 'discount',
+            label: `Duration discount (${String(quote.discountPercent)} %)`,
+            amount: money(-(gross - quote.total.amount), quote.total.currency),
+        });
+    }
+
+    const warnings: string[] = [];
+    if (!quote.available || quote.refusals.length > 0) {
+        warnings.push('subscription.refused');
+    }
+    if (configuration.deliveryWeekdays.length === 0) {
+        warnings.push('subscription.no_delivery_days');
+    }
+    if (
+        configuration.deliveryWeekdays.some(
+            (weekday) => !quote.availableWeekdays.includes(weekday),
+        )
+    ) {
+        warnings.push('subscription.delivery_day_unavailable');
     }
 
     return {
-        /**
-         * Availability and price for a proposed plan — the read that deletes the seven-probe hack.
-         *
-         * Three coordinates, and every one is a fact the public plan read already publishes. The
-         * duration crosses as a **day count** rather than as the kitchen's own code, because the
-         * contract's vocabulary is `1w | 2w | 4w | 12w` and the code is an authored slug: a client
-         * holding `4w` can compute twenty-eight without a second read, and could not have guessed
-         * `28d` or `monthly`.
-         *
-         * A refusal is a `409` on the wire and a *drawn* answer here — see {@link refusedQuote}.
-         */
-        async getSubscriptionQuote(request: SubscriptionQuoteRequest): Promise<SubscriptionQuote> {
-            const query = new URLSearchParams({
-                catalogue_item_id: String(request.planId),
-                catalogue_item_variant_id: String(request.variantId),
-                plan_duration_days: String(PLAN_DURATION_WEEKS[request.duration] * 7),
-            });
+        configuration,
+        lines,
+        weeklyPrice: {
+            amount: quote.perDayPrice.amount * configuration.deliveryWeekdays.length,
+            currency: quote.perDayPrice.currency,
+        },
+        discountPercent: quote.discountPercent,
+        total: quote.total,
+        firstDeliveryDate: dates[0] ?? configuration.startDate,
+        lastDeliveryDate: dates[dates.length - 1] ?? configuration.startDate,
+        deliveryCount: quote.days,
+        warnings,
+        paymentDeferred: true,
+    };
+}
 
-            let wire: PlanQuoteEnvelope['data'];
+export function createApiSubscriptionReads(transport: Transport): ApiSubscriptionReads {
+    async function fetchQuoteWire(request: SubscriptionQuoteRequest): Promise<QuoteWireData> {
+        try {
+            return await transport.request<QuoteWireData>({
+                method: 'GET',
+                path: `/subscriptions/quote?${quoteQuery(request)}`,
+            });
+        } catch (caught: unknown) {
+            if (caught instanceof ApiError && caught.code === 'subscription.refused') {
+                throw caught;
+            }
+            throw caught;
+        }
+    }
+
+    return {
+        async getSubscriptionQuote(request: SubscriptionQuoteRequest): Promise<SubscriptionQuote> {
             try {
-                wire = await transport.request<PlanQuoteEnvelope['data']>({
-                    method: 'GET',
-                    path: `/subscriptions/quote?${query.toString()}`,
-                });
+                const wire = await fetchQuoteWire(request);
+                return mapQuote(request, wire.quote);
             } catch (caught: unknown) {
                 if (caught instanceof ApiError && caught.code === 'subscription.refused') {
                     return refusedQuote(request, caught.failure);
                 }
                 throw caught;
             }
-
-            const quote = wire.quote;
-
-            return {
-                planId: request.planId,
-                variantId: request.variantId,
-                duration: request.duration,
-                available: true,
-                availableWeekdays: quote.available_weekdays,
-                days: quote.days,
-                listPrice: money(quote.list_price_minor, quote.currency_code),
-                discountPercent: discountPercent(quote.discount_percent),
-                perDayPrice: money(quote.per_day_minor, quote.currency_code),
-                total: money(quote.total_minor, quote.currency_code),
-                allowsFreeSelection: quote.allows_free_selection,
-                changeCutoffHours: quote.change_cutoff_hours,
-                refusals: [],
-            };
         },
 
-        /**
-         * The balance.
-         *
-         * `GET /me/subscriptions/{subscription}` rather than a balance endpoint, because there is
-         * no balance endpoint: the single read carries `balance` and the *list* deliberately omits
-         * it, since counting a ledger per row would be an N+1 the server refuses to commit on the
-         * client's behalf. A single read that arrived without one is a broken envelope rather than
-         * an empty balance — answering zero days would tell somebody their plan is spent.
-         */
         async getSubscriptionBalance(subscriptionId: SubscriptionId): Promise<SubscriptionBalance> {
             const data = await transport.request<SubscriptionEnvelope['data']>({
                 method: 'GET',
-                path: path(subscriptionId),
+                path: subscriptionPath(subscriptionId),
             });
 
             const balance = data.subscription.balance;
@@ -479,32 +596,17 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
             return mapSubscriptionBalance(
                 balance,
                 SubscriptionId.unsafe(data.subscription.id),
-                // The plan's own cut-off, now that the projection carries it.
                 data.subscription.change_cutoff_hours ?? DEFAULT_CHANGE_CUTOFF_HOURS,
             );
         },
 
-        /**
-         * The ledger.
-         *
-         * **Unpaginated on the wire, and answered as a single complete page.** The endpoint takes
-         * no cursor and no limit — a subscription's ledger is bounded by the days it bought — so
-         * `cursor` and `limit` on the filter are accepted and ignored rather than turned into query
-         * parameters the server would reject. `hasMore` is `false` and `nextCursor` is `null`
-         * because both are true: there is no second page.
-         *
-         * `statuses` is applied here for the same reason: the wire has no status filter, and a
-         * filter silently dropped would show a person their skipped days on a screen that asked for
-         * delivered ones. `totalCount` is `meta.count`, which is the server's count of the whole
-         * ledger — so a filtered page honestly reports fewer items than the total it names.
-         */
         async listSubscriptionDeliveries(
             subscriptionId: SubscriptionId,
             filter?: SubscriptionDeliveryFilter,
         ): Promise<CursorPage<SubscriptionDelivery>> {
             const envelope = await transport.requestEnvelope<
                 SubscriptionDeliveriesEnvelope['data']
-            >({ method: 'GET', path: path(subscriptionId, '/deliveries') });
+            >({ method: 'GET', path: subscriptionPath(subscriptionId, '/deliveries') });
 
             const wanted = filter?.statuses;
             const items = envelope.data
@@ -518,26 +620,13 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
             return { items, nextCursor: null, hasMore: false, totalCount: count };
         },
 
-        /**
-         * Cancellation — terminal, and it answers with the money.
-         *
-         * Both halves in one response because they are one fact: a dialog that had to make a second
-         * request for the memo could not state its own consequence. `credit_memo` is `null` when
-         * nothing is owed, which is not the same as a zero memo — a zero would be an obligation
-         * somebody eventually tries to settle.
-         *
-         * **No `If-Match`.** The header is *honoured* on every subscription write and demanded by
-         * none (`ReadsOptionalPrecondition`): a lost update needs two authors, and a subscription
-         * has one. The contract carries no lock version to send, and fetching one first would
-         * introduce the very race the header exists to prevent.
-         */
         async cancelSubscription(
             subscriptionId: SubscriptionId,
             request?: CancelSubscriptionRequest,
         ): Promise<SubscriptionCancellation> {
             const data = await transport.request<SubscriptionCancellationEnvelope['data']>({
                 method: 'POST',
-                path: path(subscriptionId, '/cancel'),
+                path: subscriptionPath(subscriptionId, '/cancel'),
                 body:
                     request?.reason === undefined || request.reason === ''
                         ? {}
@@ -556,43 +645,26 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
             };
         },
 
-        /**
-         * Re-plan the remaining ledger.
-         *
-         * Separate from a slot change, which moves the hour: a weekday change re-plans every
-         * delivery that has not happened. Refused with `inside_cut_off` when it would touch a
-         * delivery less than the plan's cut-off away, and that refusal carries the true
-         * `cut_off_hours` and the `effective_from` the change *would* take — which is the
-         * difference between "not allowed" and "not allowed until Thursday".
-         */
         async setSubscriptionWeekdays(
             subscriptionId: SubscriptionId,
             request: SetSubscriptionWeekdaysRequest,
         ): Promise<Subscription> {
             const data = await transport.request<SubscriptionEnvelope['data']>({
                 method: 'PUT',
-                path: path(subscriptionId, '/weekdays'),
+                path: subscriptionPath(subscriptionId, '/weekdays'),
                 body: { weekdays: [...request.deliveryWeekdays] },
             });
 
             return mapSubscription(data.subscription);
         },
 
-        /**
-         * Free Selection, choosing ahead of the cut-off.
-         *
-         * A **replace**, not a merge: the request carries the whole day, so "I no longer want a
-         * second meal" is expressible. The answer is the day as it now stands — including the
-         * `kitchen_default` rows nobody overrode — so the editor redraws from one response, and
-         * every dish comes back named by the server.
-         */
         async setSubscriptionMealChoices(
             subscriptionId: SubscriptionId,
             request: SetSubscriptionMealChoicesRequest,
         ): Promise<readonly SubscriptionMealChoice[]> {
             const data = await transport.request<SubscriptionChoicesEnvelope['data']>({
                 method: 'PUT',
-                path: path(subscriptionId, '/choices'),
+                path: subscriptionPath(subscriptionId, '/choices'),
                 body: {
                     date: request.date,
                     meals: request.choices.map((choice) => ({
@@ -603,6 +675,150 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
             });
 
             return data.meals.map((meal) => mapMealChoice(meal, data.delivery_date));
+        },
+
+        async listSubscriptions(filter?: SubscriptionFilter): Promise<CursorPage<Subscription>> {
+            const envelope = await transport.requestEnvelope<WireSubscription[]>({
+                method: 'GET',
+                path: '/me/subscriptions',
+            });
+
+            const wanted = filter?.states;
+            const items = envelope.data
+                .map(mapSubscription)
+                .filter(
+                    (subscription) =>
+                        wanted === undefined ||
+                        wanted.length === 0 ||
+                        wanted.includes(subscription.state),
+                );
+
+            const meta = envelope.meta as { count?: unknown } | null;
+            const count = typeof meta?.count === 'number' ? meta.count : items.length;
+
+            return { items, nextCursor: null, hasMore: false, totalCount: count };
+        },
+
+        async getSubscription(subscriptionId: SubscriptionId): Promise<Subscription> {
+            const data = await transport.request<SubscriptionEnvelope['data']>({
+                method: 'GET',
+                path: subscriptionPath(subscriptionId),
+            });
+
+            return mapSubscription(data.subscription);
+        },
+
+        async pause(
+            subscriptionId: SubscriptionId,
+            _request?: PauseSubscriptionRequest,
+        ): Promise<Subscription> {
+            const data = await transport.request<SubscriptionEnvelope['data']>({
+                method: 'POST',
+                path: subscriptionPath(subscriptionId, '/pause'),
+            });
+
+            return mapSubscription(data.subscription);
+        },
+
+        async resume(subscriptionId: SubscriptionId): Promise<Subscription> {
+            const data = await transport.request<SubscriptionEnvelope['data']>({
+                method: 'POST',
+                path: subscriptionPath(subscriptionId, '/resume'),
+            });
+
+            return mapSubscription(data.subscription);
+        },
+
+        async skipDay(
+            subscriptionId: SubscriptionId,
+            request: SkipDayRequest,
+        ): Promise<Subscription> {
+            await transport.request({
+                method: 'POST',
+                path: subscriptionPath(subscriptionId, '/skips'),
+                body: { date: request.date },
+            });
+
+            return this.getSubscription(subscriptionId);
+        },
+
+        async changeAddress(
+            subscriptionId: SubscriptionId,
+            request: ChangeAddressRequest,
+        ): Promise<Subscription> {
+            const addressId = requireAddressId(request.addressId, 'addressId');
+
+            const data = await transport.request<SubscriptionEnvelope['data']>({
+                method: 'PUT',
+                path: subscriptionPath(subscriptionId, '/address'),
+                body: { customer_address_id: addressId },
+            });
+
+            return mapSubscription(data.subscription);
+        },
+
+        async changeSlot(
+            subscriptionId: SubscriptionId,
+            request: ChangeSlotRequest,
+        ): Promise<Subscription> {
+            const data = await transport.request<SubscriptionEnvelope['data']>({
+                method: 'PUT',
+                path: subscriptionPath(subscriptionId, '/window'),
+                body: {
+                    delivery_window_code:
+                        request.slotCode === '' ? null : request.slotCode,
+                },
+            });
+
+            return mapSubscription(data.subscription);
+        },
+
+        async createSubscription(request: CreateSubscriptionRequest): Promise<Subscription> {
+            if (!request.acknowledgedTerms) {
+                throw new ApiError(
+                    validationFailure({
+                        acknowledged_terms: [
+                            'The summary has to be acknowledged before subscribing.',
+                        ],
+                    }),
+                );
+            }
+
+            const addressId = requireAddressId(request.addressId, 'addressId');
+            const { configuration } = request;
+
+            // Storefront shape: days + catalogue ids. Channel and duration UUIDs are
+            // resolved server-side the same way the quote is (a shopper cannot hold them).
+            const data = await transport.request<SubscriptionEnvelope['data']>({
+                method: 'POST',
+                path: '/subscriptions',
+                headers: { 'Idempotency-Key': generateRequestId() },
+                body: {
+                    catalogue_item_id: String(configuration.planId),
+                    catalogue_item_variant_id: String(configuration.variantId),
+                    plan_duration_days: PLAN_DURATION_WEEKS[configuration.duration] * 7,
+                    customer_address_id: addressId,
+                    weekdays: [...configuration.deliveryWeekdays],
+                    delivery_window_code:
+                        configuration.slotCode === '' ? null : configuration.slotCode,
+                    start_from:
+                        configuration.startDate === '' ? null : configuration.startDate,
+                },
+            });
+
+            return mapSubscription(data.subscription);
+        },
+
+        async previewSubscription(
+            configuration: SubscriptionConfiguration,
+        ): Promise<SubscriptionPreview> {
+            const quote = await this.getSubscriptionQuote({
+                planId: configuration.planId,
+                variantId: configuration.variantId,
+                duration: configuration.duration,
+            });
+
+            return previewFromQuote(configuration, quote);
         },
     };
 }

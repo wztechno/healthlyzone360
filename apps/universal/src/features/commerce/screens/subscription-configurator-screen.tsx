@@ -9,7 +9,11 @@ import {
     Stepper,
     Text,
 } from '@healthy360/design-system';
-import type { MarketplaceMeal, Subscription } from '@healthy360/api-client/contracts';
+import type {
+    MarketplaceMeal,
+    Subscription,
+    CustomerAddress,
+} from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { AllergenCode, PlanVariantId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -24,6 +28,7 @@ import {
     useCreateSubscriptionMutation,
     useSubscriptionPreviewQuery,
 } from '../../../data/commerce-hooks.ts';
+import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useCurrentTargetsQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -120,6 +125,10 @@ export function SubscriptionConfiguratorScreen({
     const [step, setStep] = useState<ConfiguratorStep>('plan');
     const [showIssues, setShowIssues] = useState(false);
     const [created, setCreated] = useState<Subscription | null>(null);
+    const [addressId, setAddressId] = useState<string | null>(null);
+
+    const addresses = useAddressesQuery();
+    const addressList: readonly CustomerAddress[] = addresses.data ?? [];
 
     /**
      * ## Defaults are derived, edits are held
@@ -219,10 +228,11 @@ export function SubscriptionConfiguratorScreen({
         [state, validationTranslate],
     );
 
-    const areaStatus = useMemo(
-        () => deliveryAreaStatus(kitchen.data, state?.address.area ?? ''),
-        [kitchen.data, state?.address.area],
-    );
+    const areaStatus = useMemo(() => {
+        const selected = addressList.find((entry) => entry.id === addressId);
+        const area = selected?.areaName ?? state?.address.area ?? '';
+        return deliveryAreaStatus(kitchen.data, area);
+    }, [addressId, addressList, kitchen.data, state?.address.area]);
 
     const areas = useMemo(() => servedAreas(kitchen.data), [kitchen.data]);
 
@@ -292,10 +302,14 @@ export function SubscriptionConfiguratorScreen({
             return;
         }
         create.mutate(
-            { configuration: request, acknowledgedTerms: state.termsAcknowledged },
+            {
+                configuration: request,
+                acknowledgedTerms: state.termsAcknowledged,
+                ...(addressId === null ? {} : { addressId }),
+            },
             { onSuccess: setCreated },
         );
-    }, [context, create, item, state]);
+    }, [addressId, context, create, item, state]);
 
     /* ── render ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -415,6 +429,10 @@ export function SubscriptionConfiguratorScreen({
                                 addressErrors={addressErrors}
                                 storedAllergens={storedAllergens}
                                 showIssues={showIssues}
+                                savedAddresses={addressList}
+                                addressId={addressId}
+                                addressesPending={addresses.isPending}
+                                onAddressIdChange={setAddressId}
                             />
                         ) : null}
 

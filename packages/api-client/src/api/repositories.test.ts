@@ -1152,7 +1152,7 @@ const WIRE_BALANCE = {
     balance_days_consumed: 6,
     remaining_days: 14,
     per_day_minor: 1800,
-    currency_code: 'AED',
+    currency_code: 'USD',
     weekdays: [1, 2, 3, 4, 5],
     next_delivery_date: '2026-08-11',
     skipped_days: 2,
@@ -1166,7 +1166,7 @@ const WIRE_SUBSCRIPTION = {
     catalogue_item_variant_id: 'variant-1',
     plan_duration_id: 'duration-1',
     sales_channel_id: 'channel-1',
-    currency_code: 'AED',
+    currency_code: 'USD',
     captured_unit_price_minor: 2000,
     captured_discount_percent: '10.00',
     effective_day_price_minor: 1800,
@@ -1237,7 +1237,7 @@ describe('subscriptions (S1)', () => {
             state: 'active',
             days: { total: 20, consumed: 6, remaining: 14 },
             // The *effective* per-day price — the number a credit memo multiplies.
-            perDayPrice: { amount: 1800, currency: 'AED' },
+            perDayPrice: { amount: 1800, currency: 'USD' },
             skippedDays: 2,
             nextDeliveryDate: '2026-08-11',
             deliveryWeekdays: [1, 2, 3, 4, 5],
@@ -1415,7 +1415,7 @@ describe('subscriptions (S1)', () => {
                     body: {
                         data: {
                             quote: {
-                                currency_code: 'AED',
+                                currency_code: 'USD',
                                 days: 20,
                                 list_price_minor: 2000,
                                 discount_percent: '10.00',
@@ -1459,7 +1459,7 @@ describe('subscriptions (S1)', () => {
         expect(quote.changeCutoffHours).toBe(12);
         expect(quote.available).toBe(true);
         expect(quote.refusals).toEqual([]);
-        expect(quote.total).toEqual({ amount: 36000, currency: 'AED' });
+        expect(quote.total).toEqual({ amount: 36000, currency: 'USD' });
         expect(quote.discountPercent).toBe(10);
     });
 
@@ -1516,7 +1516,7 @@ describe('subscriptions (S1)', () => {
                                 unused_days: 14,
                                 per_day_minor: 1800,
                                 amount_minor: 25200,
-                                currency_code: 'AED',
+                                currency_code: 'USD',
                                 status: 'recorded',
                                 settlement: 'manual',
                                 recorded_at: '2026-08-03T10:00:00+00:00',
@@ -1548,8 +1548,8 @@ describe('subscriptions (S1)', () => {
             subscriptionId: 'subscription-1',
             reason: 'subscription_cancelled',
             unusedDays: 14,
-            perDayPrice: { amount: 1800, currency: 'AED' },
-            amount: { amount: 25200, currency: 'AED' },
+            perDayPrice: { amount: 1800, currency: 'USD' },
+            amount: { amount: 25200, currency: 'USD' },
             status: 'recorded',
             settlement: 'manual',
             recordedAt: '2026-08-03T10:00:00+00:00',
@@ -1571,7 +1571,7 @@ describe('subscriptions (S1)', () => {
         expect(subscription.kitchenId).toBe('kitchen-1');
         // The effective per-day price times the delivery weekdays, computed server-side so a
         // client is not a second implementation of what somebody pays.
-        expect(subscription.weeklyPrice).toEqual({ amount: 9000, currency: 'AED' });
+        expect(subscription.weeklyPrice).toEqual({ amount: 9000, currency: 'USD' });
         // The duration's *own* day count, never `balance_days_total` — twenty delivery days is
         // what a four-week plan on five weekdays buys.
         expect(subscription.configuration.duration).toBe('4w');
@@ -1678,7 +1678,321 @@ describe('subscriptions (S1)', () => {
             },
         ]);
     });
+
+    it('opens a cart, hydrates lines from marketplace meals, and previews without inventing delivery', async () => {
+        const mealId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01';
+        const cartId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b01';
+        const lineId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b02';
+
+        const wireCart = {
+            id: cartId,
+            organisation_id: 'org-1',
+            sales_channel_id: 'channel-1',
+            branch_id: null,
+            status: 'open',
+            currency_code: 'USD',
+            expires_at: '2026-08-05T12:00:00Z',
+            lock_version: 1,
+            line_count: 1,
+            created_at: '2026-08-04T10:00:00Z',
+            updated_at: '2026-08-04T10:00:00Z',
+            lines: [
+                {
+                    id: lineId,
+                    catalogue_item_id: mealId,
+                    catalogue_item_variant_id: null,
+                    quantity: '2.0000',
+                    delivery_date: '2026-08-06',
+                    created_at: '2026-08-04T10:00:00Z',
+                    updated_at: '2026-08-04T10:00:00Z',
+                },
+            ],
+        };
+
+        const wireMeal = {
+            id: mealId,
+            kitchen_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
+            kitchen_name: 'Verdant Kitchen',
+            name: 'Grilled chicken and freekeh',
+            slug: 'grilled-chicken-freekeh',
+            description: 'Grilled chicken breast, cracked freekeh and a lemon dressing.',
+            meal_types: [],
+            diet_classifications: ['high_protein'],
+            cuisines: [],
+            allergens: ['gluten'],
+            serving: null,
+            nutrition: null,
+            price: { amount: 4200, currency: 'USD' },
+            preparation_minutes: null,
+            image_placeholder_id: 'meal-grilled-chicken-freekeh',
+            availability: [],
+            channels: {
+                b2c: true,
+                b2b: true,
+                marketplace: false,
+                pos: false,
+                subscription: false,
+                delivery: false,
+                pickup: false,
+                corporate: false,
+            },
+            rating: null,
+            rating_count: 0,
+        };
+
+        const { repositories, calls } = harness(
+            [
+                { status: 200, body: { data: { cart: wireCart }, meta: {} } },
+                { status: 200, body: { data: wireMeal, meta: {} } },
+                { status: 200, body: { data: { cart: wireCart }, meta: {} } },
+                { status: 200, body: { data: wireMeal, meta: {} } },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const cart = await repositories.commerce.getCart();
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.url).toBe('https://api.example/api/v1/carts');
+        expect(calls[0]?.body).toEqual({ channel_code: 'web-shop' });
+        expect(calls[1]?.url).toContain(`/marketplace/meals/${mealId}`);
+        expect(cart.items).toHaveLength(1);
+        expect(cart.items[0]?.name).toBe('Grilled chicken and freekeh');
+        expect(cart.items[0]?.unitPrice).toEqual({ amount: 4200, currency: 'USD' });
+        expect(cart.subtotal).toEqual({ amount: 8400, currency: 'USD' });
+
+        const preview = await repositories.commerce.previewCheckout({ cartId: cart.id });
+        expect(preview.deliveryFee).toBeNull();
+        expect(preview.paymentDeferred).toBe(true);
+        expect(preview.total).toEqual({ amount: 8400, currency: 'USD' });
+        expect(preview.warnings).toContain('checkout.delivery_priced_at_placement');
+    });
+
+    it('adds a cart line then hydrates the returned basket', async () => {
+        const mealId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01';
+        const cartId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b01';
+        const lineId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b02';
+
+        const wireCart = {
+            id: cartId,
+            organisation_id: 'org-1',
+            sales_channel_id: 'channel-1',
+            branch_id: null,
+            status: 'open',
+            currency_code: 'USD',
+            expires_at: '2026-08-05T12:00:00Z',
+            lock_version: 2,
+            line_count: 1,
+            created_at: '2026-08-04T10:00:00Z',
+            updated_at: '2026-08-04T10:05:00Z',
+            lines: [
+                {
+                    id: lineId,
+                    catalogue_item_id: mealId,
+                    catalogue_item_variant_id: null,
+                    quantity: '1.0000',
+                    delivery_date: null,
+                    created_at: '2026-08-04T10:05:00Z',
+                    updated_at: '2026-08-04T10:05:00Z',
+                },
+            ],
+        };
+
+        const wireMeal = {
+            id: mealId,
+            kitchen_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
+            kitchen_name: 'Verdant Kitchen',
+            name: 'Grilled chicken and freekeh',
+            slug: 'grilled-chicken-freekeh',
+            description: 'Grilled chicken.',
+            meal_types: [],
+            diet_classifications: [],
+            cuisines: [],
+            allergens: [],
+            serving: null,
+            nutrition: null,
+            price: { amount: 4200, currency: 'USD' },
+            preparation_minutes: null,
+            image_placeholder_id: null,
+            availability: [],
+            channels: {
+                b2c: true,
+                b2b: false,
+                marketplace: false,
+                pos: false,
+                subscription: false,
+                delivery: false,
+                pickup: false,
+                corporate: false,
+            },
+            rating: null,
+            rating_count: 0,
+        };
+
+        const { repositories, calls } = harness(
+            [
+                { status: 201, body: { data: { line: wireCart.lines[0], cart: wireCart }, meta: {} } },
+                { status: 200, body: { data: wireMeal, meta: {} } },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const cart = await repositories.commerce.addCartItem(cartId as never, {
+            mealId: mealId as never,
+            quantity: 1,
+        });
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.url).toBe(`https://api.example/api/v1/carts/${cartId}/items`);
+        expect(calls[0]?.body).toEqual({ catalogue_item_id: mealId, quantity: 1 });
+        expect(cart.itemCount).toBe(1);
+        expect(cart.subtotal.currency).toBe('USD');
+    });
+
+    it('lists subscriptions from the customer collection', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: [WIRE_SUBSCRIPTION],
+                        meta: { count: 1 },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const page = await repositories.commerce.listSubscriptions({ states: ['active'] });
+
+        expect(calls[0]?.method).toBe('GET');
+        expect(calls[0]?.url).toBe('https://api.example/api/v1/me/subscriptions');
+        expect(page.items).toHaveLength(1);
+        expect(page.items[0]?.planName).toBe('Balanced 2 meals a day');
+    });
+
+    it('creates a subscription with storefront duration days (no channel UUID)', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 201,
+                    body: { data: { subscription: WIRE_SUBSCRIPTION }, meta: {} },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const created = await repositories.commerce.createSubscription({
+            acknowledgedTerms: true,
+            addressId: 'address-1',
+            configuration: {
+                planId: 'plan-1' as never,
+                variantId: 'variant-1' as never,
+                duration: '4w',
+                startDate: '2026-08-05',
+                deliveryWeekdays: [1, 3, 5],
+                slotCode: 'morning',
+                address: {
+                    label: 'Home',
+                    line1: '12 Marina Walk',
+                    line2: null,
+                    area: 'Marina',
+                    city: 'Dubai',
+                    countryCode: 'AE',
+                    instructions: null,
+                },
+                dietClassifications: [],
+                excludeAllergens: [],
+                selectedMealIds: [],
+            },
+        });
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.url).toBe('https://api.example/api/v1/subscriptions');
+        expect(calls[0]?.headers['Idempotency-Key']).toBeTruthy();
+        expect(calls[0]?.body).toMatchObject({
+            catalogue_item_id: 'plan-1',
+            catalogue_item_variant_id: 'variant-1',
+            plan_duration_days: 28,
+            customer_address_id: 'address-1',
+            weekdays: [1, 3, 5],
+            delivery_window_code: 'morning',
+            start_from: '2026-08-05',
+        });
+        expect(calls[0]?.body).not.toHaveProperty('sales_channel_id');
+        expect(calls[0]?.body).not.toHaveProperty('plan_duration_id');
+        expect(created.id).toBe('subscription-1');
+    });
+
+    it('refuses create without a saved address id', async () => {
+        const { repositories, calls } = harness([], createMemoryTokenStore('token'));
+
+        await expect(
+            repositories.commerce.createSubscription({
+                acknowledgedTerms: true,
+                configuration: {
+                    planId: 'plan-1' as never,
+                    variantId: 'variant-1' as never,
+                    duration: '4w',
+                    startDate: '2026-08-05',
+                    deliveryWeekdays: [1],
+                    slotCode: 'morning',
+                    address: {
+                        label: 'Home',
+                        line1: '12 Marina Walk',
+                        line2: null,
+                        area: 'Marina',
+                        city: 'Dubai',
+                        countryCode: 'AE',
+                        instructions: null,
+                    },
+                    dietClassifications: [],
+                    excludeAllergens: [],
+                    selectedMealIds: [],
+                },
+            }),
+        ).rejects.toMatchObject({ code: 'validation.failed' });
+        expect(calls).toHaveLength(0);
+    });
+
+    it('pauses without sending a body the API does not accept', async () => {
+        const { repositories, calls } = harness(
+            [{ status: 200, body: { data: { subscription: WIRE_SUBSCRIPTION }, meta: {} } }],
+            createMemoryTokenStore('token'),
+        );
+
+        await repositories.commerce.pause('subscription-1' as never, { until: '2026-09-01' });
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/me/subscriptions/subscription-1/pause',
+        );
+        expect(calls[0]?.body).toBeNull();
+    });
+
+    it('skips a day and then re-reads the subscription', async () => {
+        const { repositories, calls } = harness(
+            [
+                { status: 201, body: { data: { delivery: {}, balance: WIRE_BALANCE }, meta: {} } },
+                { status: 200, body: { data: { subscription: WIRE_SUBSCRIPTION }, meta: {} } },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        await repositories.commerce.skipDay('subscription-1' as never, { date: '2026-08-12' });
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/me/subscriptions/subscription-1/skips',
+        );
+        expect(calls[0]?.body).toEqual({ date: '2026-08-12' });
+        expect(calls[1]?.method).toBe('GET');
+    });
 });
+
+/* ------------------------------------------------------------------------------------------------
+ * The six refusal codes (S1, J2, B2)
+ * ---------------------------------------------------------------------------------------------- */
 
 /* ------------------------------------------------------------------------------------------------
  * The six refusal codes (S1, J2, B2)

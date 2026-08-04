@@ -481,11 +481,11 @@ describe('duration pricing', () => {
     });
 
     it('divides a total across its deliveries, and refuses to divide by none', () => {
-        expect(perDeliveryPrice({ amount: 171_000, currency: 'AED' }, 12)).toEqual({
+        expect(perDeliveryPrice({ amount: 171_000, currency: 'USD' }, 12)).toEqual({
             amount: 14_250,
-            currency: 'AED',
+            currency: 'USD',
         });
-        expect(perDeliveryPrice({ amount: 171_000, currency: 'AED' }, 0)).toBeNull();
+        expect(perDeliveryPrice({ amount: 171_000, currency: 'USD' }, 0)).toBeNull();
     });
 
     it('keeps the currency it was given rather than assuming the default', () => {
