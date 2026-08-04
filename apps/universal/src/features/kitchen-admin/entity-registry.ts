@@ -70,10 +70,21 @@ export const DELIVERY_ZONE_MANAGE_PERMISSION = 'delivery_zone.manage_organisatio
 export const ENTITY_KINDS = ['managed', 'reference', 'workbench'] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
+/**
+ * Hub and kitchen-rail sectioning. Order here is display order for grouped nav and the hub grid.
+ *
+ * `workbench` is the "what now?" queue; `catalogue` is what goes into a dish; `commercial` is what
+ * a customer is charged and where it is delivered; `operations` is stock through QC (ops panels).
+ */
+export const ENTITY_GROUPS = ['workbench', 'catalogue', 'commercial', 'operations'] as const;
+export type EntityGroup = (typeof ENTITY_GROUPS)[number];
+
 export interface EntityFamily {
     /** Stable across slices — it is the test id suffix and the card key. */
     readonly key: string;
     readonly kind: EntityKind;
+    /** Section this family belongs to in the ops shell and hub. */
+    readonly group: EntityGroup;
     /** i18next key roots. Never a literal string. */
     readonly nameKey: string;
     readonly descriptionKey: string;
@@ -89,6 +100,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'review',
         kind: 'workbench',
+        group: 'workbench',
         nameKey: 'kitchen:families.review.name',
         descriptionKey: 'kitchen:families.review.description',
         // `⌕`, the magnifier — an inspection, which is literally what this card opens. Every other
@@ -108,8 +120,21 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'analytics',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.analytics.name',
+        descriptionKey: 'kitchen:families.analytics.description',
+        // `▤`, the ruled sheet — closest glyph for a dashboard of figures until a chart icon lands.
+        icon: 'calendar',
+        href: '/kitchen/analytics',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'ingredients',
         kind: 'managed',
+        group: 'catalogue',
         nameKey: 'kitchen:families.ingredients.name',
         descriptionKey: 'kitchen:families.ingredients.description',
         icon: 'branch',
@@ -120,6 +145,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'recipes',
         kind: 'managed',
+        group: 'catalogue',
         nameKey: 'kitchen:families.recipes.name',
         descriptionKey: 'kitchen:families.recipes.description',
         // `▤`, the ruled sheet. The icon set has no recipe glyph and adding one is a design-system
@@ -132,6 +158,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'products',
         kind: 'managed',
+        group: 'catalogue',
         nameKey: 'kitchen:families.products.name',
         descriptionKey: 'kitchen:families.products.description',
         // `▭`, a rectangle — a pack seen face on. The icon set is a table of typographic glyphs
@@ -148,6 +175,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'meals',
         kind: 'managed',
+        group: 'catalogue',
         nameKey: 'kitchen:families.meals.name',
         descriptionKey: 'kitchen:families.meals.description',
         // `◉`, a filled disc inside a ring — a plate seen from above. Same compromise as the
@@ -160,8 +188,20 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        key: 'allergen-classes',
+        kind: 'reference',
+        group: 'catalogue',
+        nameKey: 'kitchen:families.allergenClasses.name',
+        descriptionKey: 'kitchen:families.allergenClasses.description',
+        icon: 'warning',
+        href: '/kitchen/allergen-classes',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'price-lists',
         kind: 'managed',
+        group: 'commercial',
         nameKey: 'kitchen:families.priceLists.name',
         descriptionKey: 'kitchen:families.priceLists.description',
         // `☰`, three stacked rules — a schedule of priced rows. The same compromise the product and
@@ -176,6 +216,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'plans',
         kind: 'managed',
+        group: 'commercial',
         nameKey: 'kitchen:families.plans.name',
         descriptionKey: 'kitchen:families.plans.description',
         // `▤`, the ruled sheet — the same glyph the recipe family carries, and the sharpest
@@ -194,6 +235,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'delivery-zones',
         kind: 'managed',
+        group: 'commercial',
         nameKey: 'kitchen:families.deliveryZones.name',
         descriptionKey: 'kitchen:families.deliveryZones.description',
         // `⚟`, a wedge of converging lines — a map pin, read as generously as this icon set allows.
@@ -210,6 +252,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'branch-operating',
         kind: 'managed',
+        group: 'commercial',
         nameKey: 'kitchen:families.branchOperating.name',
         descriptionKey: 'kitchen:families.branchOperating.description',
         // `▤`, the ruled sheet — a trading week is a timetable, which is the most literal reading
@@ -221,18 +264,9 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
-        key: 'allergen-classes',
-        kind: 'reference',
-        nameKey: 'kitchen:families.allergenClasses.name',
-        descriptionKey: 'kitchen:families.allergenClasses.description',
-        icon: 'warning',
-        href: '/kitchen/allergen-classes',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: null,
-    },
-    {
         key: 'stock',
         kind: 'managed',
+        group: 'operations',
         nameKey: 'kitchen:families.stock.name',
         descriptionKey: 'kitchen:families.stock.description',
         icon: 'menu',
@@ -243,6 +277,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'procurement',
         kind: 'managed',
+        group: 'operations',
         nameKey: 'kitchen:families.procurement.name',
         descriptionKey: 'kitchen:families.procurement.description',
         icon: 'branch',
@@ -253,6 +288,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'production',
         kind: 'managed',
+        group: 'operations',
         nameKey: 'kitchen:families.production.name',
         descriptionKey: 'kitchen:families.production.description',
         icon: 'calendar',
@@ -263,6 +299,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     {
         key: 'qc',
         kind: 'managed',
+        group: 'operations',
         nameKey: 'kitchen:families.qc.name',
         descriptionKey: 'kitchen:families.qc.description',
         icon: 'search',
@@ -271,6 +308,14 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
 ];
+
+/** Families in a group, in registry order. */
+export function familiesInGroup(
+    group: EntityGroup,
+    families: readonly EntityFamily[] = ENTITY_FAMILIES,
+): readonly EntityFamily[] {
+    return families.filter((family) => family.group === group);
+}
 
 /**
  * Every distinct permission the workspace's families are gated on.

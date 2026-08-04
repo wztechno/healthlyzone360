@@ -45,7 +45,7 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
+        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn(), prefetch: jest.fn() }),
         usePathname: () => '/kitchen',
         useLocalSearchParams: () => ({}),
         Redirect: () => null,
@@ -211,6 +211,12 @@ describe('entity registry', () => {
             expect(WORKSPACE_PERMISSIONS).toContain(family.permission);
         }
     });
+
+    it('assigns every family to a known ops group', () => {
+        for (const family of ENTITY_FAMILIES) {
+            expect(['workbench', 'catalogue', 'commercial', 'operations']).toContain(family.group);
+        }
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -225,6 +231,8 @@ describe('the kitchen hub', () => {
 
         expect(screen.getByTestId('kitchen-family-ingredients')).toBeTruthy();
         expect(screen.getByTestId('kitchen-family-allergen-classes')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-home-section-catalogue')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-home-kpis')).toBeTruthy();
 
         await untilVisible('kitchen-family-ingredients-total');
         // The badge counts the library the repository actually answers with.

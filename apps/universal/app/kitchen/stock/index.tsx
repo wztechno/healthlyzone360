@@ -1,10 +1,10 @@
-import { Stack, Text } from '@healthy360/design-system';
+import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
+
+const StockScreen = lazyScreen(
+    'kitchen-stock-loading',
+    async () => (await import('../../../src/features/kitchen-admin/screens/index.ts')).StockScreen,
+);
 
 export default function KitchenStock() {
-    return (
-        <Stack space="md" className="p-4" testID="kitchen-stock">
-            <Text variant="heading">Stock</Text>
-            <Text tone="secondary">Branch stock levels and adjustments — served from the inventory API.</Text>
-        </Stack>
-    );
+    return <StockScreen />;
 }

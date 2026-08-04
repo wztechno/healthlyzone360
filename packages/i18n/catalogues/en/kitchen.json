@@ -16,8 +16,10 @@
     },
     "hub": {
         "title": "Kitchen workspace",
-        "subtitle": "The catalogue this kitchen owns: what goes into a dish, and what has to be declared about it.",
+        "subtitle": "Mission control for this kitchen — catalogue health, commercial readiness, and what needs attention now.",
         "open": "Open {{family}}",
+        "openReview": "Open the review queue",
+        "insightTag": "Needs attention",
         "itemCount_one": "{{count}} record",
         "itemCount_other": "{{count}} records",
         "draftCount_one": "{{count}} draft",
@@ -30,7 +32,71 @@
         "emptyBody": "Your role carries no catalogue permission in this organisation. Ask an administrator to grant one.",
         "errorTitle": "The workspace summary could not be loaded",
         "publishedCount_one": "{{count}} published",
-        "publishedCount_other": "{{count}} published"
+        "publishedCount_other": "{{count}} published",
+        "kpi": {
+            "needsReview": "Needs review",
+            "drafts": "Catalogue drafts",
+            "publishedMeals": "Published meals",
+            "deliveryZones": "Delivery zones"
+        }
+    },
+    "nav": {
+        "railTitle": "Kitchen",
+        "overview": "Overview",
+        "groups": {
+            "workbench": "Workbench",
+            "catalogue": "Catalogue",
+            "commercial": "Commercial",
+            "operations": "Operations"
+        }
+    },
+    "ops": {
+        "readyForApi": "Ready for API",
+        "metricUnavailable": "Not connected yet",
+        "stock": {
+            "title": "Stock",
+            "subtitle": "On-hand quantities per branch and the movement ledger — no valuation in this phase.",
+            "emptyTitle": "Stock levels will appear here",
+            "emptyBody": "Adjustments, waste and receipts post into this board once the inventory API is wired to this workspace.",
+            "metrics": {
+                "onHand": "Items on hand",
+                "adjustments": "Adjustments today",
+                "waste": "Waste logged"
+            }
+        },
+        "procurement": {
+            "title": "Procurement",
+            "subtitle": "Suppliers, purchase orders and goods receipts that post into stock.",
+            "emptyTitle": "Purchase orders will appear here",
+            "emptyBody": "Open orders, receipts and supplier activity land on this board when procurement is connected.",
+            "metrics": {
+                "openOrders": "Open orders",
+                "receipts": "Receipts pending",
+                "suppliers": "Active suppliers"
+            }
+        },
+        "production": {
+            "title": "Production",
+            "subtitle": "Batch orders from recipe versions with consume and yield movements.",
+            "emptyTitle": "Production batches will appear here",
+            "emptyBody": "Scheduled and in-progress batches show on this board once production is connected.",
+            "metrics": {
+                "batches": "Batches today",
+                "inProgress": "In progress",
+                "yield": "Yield recorded"
+            }
+        },
+        "qc": {
+            "title": "Quality control",
+            "subtitle": "Checks on receipts and production batches — hold and release.",
+            "emptyTitle": "Quality checks will appear here",
+            "emptyBody": "Open checks, holds and releases land on this board when quality control is connected.",
+            "metrics": {
+                "openChecks": "Open checks",
+                "holds": "On hold",
+                "releases": "Released today"
+            }
+        }
     },
     "families": {
         "ingredients": {
@@ -88,6 +154,82 @@
         "review": {
             "name": "Needs review",
             "description": "Everything holding the catalogue back: records nothing can publish, and records that are not finished."
+        },
+        "analytics": {
+            "name": "Analytics",
+            "description": "Kitchen KPIs, production trends, and channel mix — sample figures until live reporting lands."
+        }
+    },
+    "analytics": {
+        "title": "Kitchen analytics",
+        "subtitle": "Live views for kitchen staff — filter by date and segment and every chart, KPI, and row updates together.",
+        "sampleBadge": "Sample data",
+        "theme": {
+            "dark": "Dark mode",
+            "light": "Light mode"
+        },
+        "filters": {
+            "dateRange": "Date range",
+            "segment": "Segment"
+        },
+        "ranges": {
+            "7d": "7 days",
+            "30d": "30 days",
+            "90d": "90 days",
+            "ytd": "Year to date"
+        },
+        "segments": {
+            "all": "All",
+            "meals": "Meals",
+            "recipes": "Recipes",
+            "delivery": "Delivery",
+            "stock": "Stock"
+        },
+        "kpi": {
+            "produced": "Units produced",
+            "onTime": "On-time rate",
+            "review": "Review backlog",
+            "prep": "Avg prep time"
+        },
+        "trend": {
+            "up": "↑ {{value}}%",
+            "down": "↓ {{value}}%",
+            "flat": "No change"
+        },
+        "charts": {
+            "productionTrend": "Production trend",
+            "channelVolume": "Volume by channel",
+            "statusMix": "Status mix",
+            "statusCenter": "Share",
+            "channels": {
+                "subscription": "Subscription",
+                "aLaCarte": "À la carte",
+                "b2b": "B2B",
+                "pos": "POS",
+                "staff": "Staff meals"
+            }
+        },
+        "status": {
+            "all": "All statuses",
+            "onTrack": "On track",
+            "watch": "Watch",
+            "blocked": "Blocked"
+        },
+        "table": {
+            "title": "Line items",
+            "subtitle": "Sort any column and filter by name or status — updates instantly with the dashboard filters.",
+            "caption": "Kitchen analytics line items",
+            "search": "Search rows",
+            "searchPlaceholder": "Name, segment, or update…",
+            "statusFilter": "Status filter",
+            "name": "Name",
+            "segment": "Segment",
+            "status": "Status",
+            "volume": "Volume",
+            "completion": "Done",
+            "avgMinutes": "Avg min",
+            "updated": "Updated",
+            "empty": "No rows match these filters."
         }
     },
     "review": {

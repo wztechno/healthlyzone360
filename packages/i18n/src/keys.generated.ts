@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4598 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4660 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -800,6 +800,8 @@ export interface NamespaceKeys {
     | 'builder.valueNote'
     | 'builder.valueTitle'
     | 'builder.valueTotal'
+    | 'catalogue.addToCart'
+    | 'catalogue.addedToCart'
     | 'catalogue.back'
     | 'catalogue.buildQuotation'
     | 'catalogue.clearFilters'
@@ -816,6 +818,7 @@ export interface NamespaceKeys {
     | 'catalogue.notFoundBody'
     | 'catalogue.notFoundTitle'
     | 'catalogue.open'
+    | 'catalogue.placeOrder'
     | 'catalogue.privacyBody'
     | 'catalogue.privacyTitle'
     | 'catalogue.programmeLoading'
@@ -849,12 +852,15 @@ export interface NamespaceKeys {
     | 'dashboard.quotationsTitle'
     | 'dashboard.sourceNote'
     | 'dashboard.title'
+    | 'item.addToCart'
+    | 'item.addedToCart'
     | 'item.back'
     | 'item.eligibilityBody'
     | 'item.eligibilityTitle'
     | 'item.noTiers'
     | 'item.notFoundBody'
     | 'item.notFoundTitle'
+    | 'item.placeOrder'
     | 'item.quote'
     | 'item.recurringOrder'
     | 'item.tierBetween'
@@ -1366,6 +1372,7 @@ export interface NamespaceKeys {
     | 'cart.checkout'
     | 'cart.count'
     | 'cart.delivery'
+    | 'cart.deliveryAtPlacement'
     | 'cart.deliveryFree'
     | 'cart.emptyBody'
     | 'cart.emptyTitle'
@@ -1381,6 +1388,7 @@ export interface NamespaceKeys {
     | 'cart.unitPrice'
     | 'cart.updateFailedTitle'
     | 'cart.viewMeal'
+    | 'checkout.addAddress'
     | 'checkout.addressBody'
     | 'checkout.addressTitle'
     | 'checkout.body'
@@ -1391,19 +1399,23 @@ export interface NamespaceKeys {
     | 'checkout.edit'
     | 'checkout.emptyBody'
     | 'checkout.emptyTitle'
+    | 'checkout.noAddressBody'
+    | 'checkout.noAddressTitle'
+    | 'checkout.paymentNoticeBody'
+    | 'checkout.paymentNoticeTitle'
+    | 'checkout.placeFailedTitle'
     | 'checkout.placeOrder'
     | 'checkout.placeOrderHint'
     | 'checkout.priceAfterReview'
     | 'checkout.priceBeforeReview'
-    | 'checkout.prototypeNotice'
     | 'checkout.review'
     | 'checkout.slotTitle'
     | 'checkout.slotWindow'
     | 'checkout.successBody'
     | 'checkout.successCart'
+    | 'checkout.successCodBody'
+    | 'checkout.successCodTitle'
     | 'checkout.successPriceCaption'
-    | 'checkout.successPrototypeBody'
-    | 'checkout.successPrototypeTitle'
     | 'checkout.successSubscriptions'
     | 'checkout.successSummaryTitle'
     | 'checkout.successTitle'
@@ -2255,12 +2267,20 @@ export interface NamespaceKeys {
     | 'families.plans.name'
     | 'families.priceLists.description'
     | 'families.priceLists.name'
+    | 'families.procurement.description'
+    | 'families.procurement.name'
+    | 'families.production.description'
+    | 'families.production.name'
     | 'families.products.description'
     | 'families.products.name'
+    | 'families.qc.description'
+    | 'families.qc.name'
     | 'families.recipes.description'
     | 'families.recipes.name'
     | 'families.review.description'
     | 'families.review.name'
+    | 'families.stock.description'
+    | 'families.stock.name'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -2276,8 +2296,14 @@ export interface NamespaceKeys {
     | 'hub.emptyBody'
     | 'hub.emptyTitle'
     | 'hub.errorTitle'
+    | 'hub.insightTag'
     | 'hub.itemCount'
+    | 'hub.kpi.deliveryZones'
+    | 'hub.kpi.drafts'
+    | 'hub.kpi.needsReview'
+    | 'hub.kpi.publishedMeals'
     | 'hub.open'
+    | 'hub.openReview'
     | 'hub.publishedCount'
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
@@ -2380,6 +2406,42 @@ export interface NamespaceKeys {
     | 'meals.typeFilterLabel'
     | 'meals.viewPublic'
     | 'meals.visibleToConsumers'
+    | 'nav.groups.catalogue'
+    | 'nav.groups.commercial'
+    | 'nav.groups.operations'
+    | 'nav.groups.workbench'
+    | 'nav.overview'
+    | 'nav.railTitle'
+    | 'ops.metricUnavailable'
+    | 'ops.procurement.emptyBody'
+    | 'ops.procurement.emptyTitle'
+    | 'ops.procurement.metrics.openOrders'
+    | 'ops.procurement.metrics.receipts'
+    | 'ops.procurement.metrics.suppliers'
+    | 'ops.procurement.subtitle'
+    | 'ops.procurement.title'
+    | 'ops.production.emptyBody'
+    | 'ops.production.emptyTitle'
+    | 'ops.production.metrics.batches'
+    | 'ops.production.metrics.inProgress'
+    | 'ops.production.metrics.yield'
+    | 'ops.production.subtitle'
+    | 'ops.production.title'
+    | 'ops.qc.emptyBody'
+    | 'ops.qc.emptyTitle'
+    | 'ops.qc.metrics.holds'
+    | 'ops.qc.metrics.openChecks'
+    | 'ops.qc.metrics.releases'
+    | 'ops.qc.subtitle'
+    | 'ops.qc.title'
+    | 'ops.readyForApi'
+    | 'ops.stock.emptyBody'
+    | 'ops.stock.emptyTitle'
+    | 'ops.stock.metrics.adjustments'
+    | 'ops.stock.metrics.onHand'
+    | 'ops.stock.metrics.waste'
+    | 'ops.stock.subtitle'
+    | 'ops.stock.title'
     | 'plans.addCombination'
     | 'plans.addDuration'
     | 'plans.backToList'
@@ -5422,6 +5484,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.valueNote',
   'business:builder.valueTitle',
   'business:builder.valueTotal',
+  'business:catalogue.addToCart',
+  'business:catalogue.addedToCart',
   'business:catalogue.back',
   'business:catalogue.buildQuotation',
   'business:catalogue.clearFilters',
@@ -5438,6 +5502,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.notFoundBody',
   'business:catalogue.notFoundTitle',
   'business:catalogue.open',
+  'business:catalogue.placeOrder',
   'business:catalogue.privacyBody',
   'business:catalogue.privacyTitle',
   'business:catalogue.programmeLoading',
@@ -5471,12 +5536,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:dashboard.quotationsTitle',
   'business:dashboard.sourceNote',
   'business:dashboard.title',
+  'business:item.addToCart',
+  'business:item.addedToCart',
   'business:item.back',
   'business:item.eligibilityBody',
   'business:item.eligibilityTitle',
   'business:item.noTiers',
   'business:item.notFoundBody',
   'business:item.notFoundTitle',
+  'business:item.placeOrder',
   'business:item.quote',
   'business:item.recurringOrder',
   'business:item.tierBetween',
@@ -5986,6 +6054,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.checkout',
   'commerce:cart.count',
   'commerce:cart.delivery',
+  'commerce:cart.deliveryAtPlacement',
   'commerce:cart.deliveryFree',
   'commerce:cart.emptyBody',
   'commerce:cart.emptyTitle',
@@ -6001,6 +6070,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.unitPrice',
   'commerce:cart.updateFailedTitle',
   'commerce:cart.viewMeal',
+  'commerce:checkout.addAddress',
   'commerce:checkout.addressBody',
   'commerce:checkout.addressTitle',
   'commerce:checkout.body',
@@ -6011,19 +6081,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.edit',
   'commerce:checkout.emptyBody',
   'commerce:checkout.emptyTitle',
+  'commerce:checkout.noAddressBody',
+  'commerce:checkout.noAddressTitle',
+  'commerce:checkout.paymentNoticeBody',
+  'commerce:checkout.paymentNoticeTitle',
+  'commerce:checkout.placeFailedTitle',
   'commerce:checkout.placeOrder',
   'commerce:checkout.placeOrderHint',
   'commerce:checkout.priceAfterReview',
   'commerce:checkout.priceBeforeReview',
-  'commerce:checkout.prototypeNotice',
   'commerce:checkout.review',
   'commerce:checkout.slotTitle',
   'commerce:checkout.slotWindow',
   'commerce:checkout.successBody',
   'commerce:checkout.successCart',
+  'commerce:checkout.successCodBody',
+  'commerce:checkout.successCodTitle',
   'commerce:checkout.successPriceCaption',
-  'commerce:checkout.successPrototypeBody',
-  'commerce:checkout.successPrototypeTitle',
   'commerce:checkout.successSubscriptions',
   'commerce:checkout.successSummaryTitle',
   'commerce:checkout.successTitle',
@@ -6870,12 +6944,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.plans.name',
   'kitchen:families.priceLists.description',
   'kitchen:families.priceLists.name',
+  'kitchen:families.procurement.description',
+  'kitchen:families.procurement.name',
+  'kitchen:families.production.description',
+  'kitchen:families.production.name',
   'kitchen:families.products.description',
   'kitchen:families.products.name',
+  'kitchen:families.qc.description',
+  'kitchen:families.qc.name',
   'kitchen:families.recipes.description',
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
   'kitchen:families.review.name',
+  'kitchen:families.stock.description',
+  'kitchen:families.stock.name',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -6891,8 +6973,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.emptyBody',
   'kitchen:hub.emptyTitle',
   'kitchen:hub.errorTitle',
+  'kitchen:hub.insightTag',
   'kitchen:hub.itemCount',
+  'kitchen:hub.kpi.deliveryZones',
+  'kitchen:hub.kpi.drafts',
+  'kitchen:hub.kpi.needsReview',
+  'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.open',
+  'kitchen:hub.openReview',
   'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
@@ -6995,6 +7083,42 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.typeFilterLabel',
   'kitchen:meals.viewPublic',
   'kitchen:meals.visibleToConsumers',
+  'kitchen:nav.groups.catalogue',
+  'kitchen:nav.groups.commercial',
+  'kitchen:nav.groups.operations',
+  'kitchen:nav.groups.workbench',
+  'kitchen:nav.overview',
+  'kitchen:nav.railTitle',
+  'kitchen:ops.metricUnavailable',
+  'kitchen:ops.procurement.emptyBody',
+  'kitchen:ops.procurement.emptyTitle',
+  'kitchen:ops.procurement.metrics.openOrders',
+  'kitchen:ops.procurement.metrics.receipts',
+  'kitchen:ops.procurement.metrics.suppliers',
+  'kitchen:ops.procurement.subtitle',
+  'kitchen:ops.procurement.title',
+  'kitchen:ops.production.emptyBody',
+  'kitchen:ops.production.emptyTitle',
+  'kitchen:ops.production.metrics.batches',
+  'kitchen:ops.production.metrics.inProgress',
+  'kitchen:ops.production.metrics.yield',
+  'kitchen:ops.production.subtitle',
+  'kitchen:ops.production.title',
+  'kitchen:ops.qc.emptyBody',
+  'kitchen:ops.qc.emptyTitle',
+  'kitchen:ops.qc.metrics.holds',
+  'kitchen:ops.qc.metrics.openChecks',
+  'kitchen:ops.qc.metrics.releases',
+  'kitchen:ops.qc.subtitle',
+  'kitchen:ops.qc.title',
+  'kitchen:ops.readyForApi',
+  'kitchen:ops.stock.emptyBody',
+  'kitchen:ops.stock.emptyTitle',
+  'kitchen:ops.stock.metrics.adjustments',
+  'kitchen:ops.stock.metrics.onHand',
+  'kitchen:ops.stock.metrics.waste',
+  'kitchen:ops.stock.subtitle',
+  'kitchen:ops.stock.title',
   'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
   'kitchen:plans.backToList',

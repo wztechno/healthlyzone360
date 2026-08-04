@@ -208,6 +208,11 @@ test.describe('kitchen workspace (en)', () => {
     test('shows only the families this role may open, with real counts', async ({ page }) => {
         await openKitchen(page);
 
+        await expect(page.getByTestId('kitchen-ops-shell')).toBeVisible();
+        await expect(page.getByTestId('kitchen-home-kpis')).toBeVisible();
+        await expect(page.getByTestId('kitchen-home-grid')).toBeVisible();
+        await expect(page.getByTestId('kitchen-home-section-catalogue')).toBeVisible();
+
         await expect(page.getByTestId('kitchen-family-review')).toBeVisible();
         await expect(page.getByTestId('kitchen-family-ingredients')).toBeVisible();
         await expect(page.getByTestId('kitchen-family-recipes')).toBeVisible();
@@ -232,6 +237,14 @@ test.describe('kitchen workspace (en)', () => {
             'Reference',
         );
         await expect(page.getByTestId('kitchen-family-allergen-classes-drafts')).toHaveCount(0);
+    });
+
+    test('opens an ops panel that does not invent stock counts', async ({ page }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-stock-open').click();
+        await expect(page.getByTestId('kitchen-stock-panel')).toBeVisible();
+        await expect(page.getByTestId('kitchen-stock-panel-metric-onHand-value')).toHaveText('—');
+        await expect(page.getByTestId('kitchen-stock-panel-empty')).toBeVisible();
     });
 
     test('lists the seeded library with its allergens, statuses and provenance', async ({

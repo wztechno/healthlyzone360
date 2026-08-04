@@ -24,6 +24,7 @@
  */
 
 export { AllergenClassesScreen } from './allergen-classes-screen.tsx';
+export { AnalyticsScreen } from './analytics-screen.tsx';
 export { BranchOperatingScreen } from './branch-operating-screen.tsx';
 export { DeliveryZoneEditScreen } from './delivery-zone-edit-screen.tsx';
 export { DeliveryZonesScreen } from './delivery-zones-screen.tsx';
@@ -36,8 +37,12 @@ export { PlanEditScreen } from './plan-edit-screen.tsx';
 export { PlansScreen } from './plans-screen.tsx';
 export { PriceListEditScreen } from './price-list-edit-screen.tsx';
 export { PriceListsScreen } from './price-lists-screen.tsx';
+export { ProcurementScreen } from './procurement-screen.tsx';
 export { ProductEditScreen } from './product-edit-screen.tsx';
 export { ProductsScreen } from './products-screen.tsx';
+export { ProductionScreen } from './production-screen.tsx';
+export { QualityControlScreen } from './quality-control-screen.tsx';
 export { RecipeEditScreen } from './recipe-edit-screen.tsx';
 export { RecipesScreen } from './recipes-screen.tsx';
 export { ReviewScreen } from './review-screen.tsx';
+export { StockScreen } from './stock-screen.tsx';

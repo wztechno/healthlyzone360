@@ -11,6 +11,7 @@ import {
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { statusKey } from './format.ts';
 
@@ -90,7 +91,11 @@ export function ListToolbar({
     };
 
     return (
-        <Stack space="sm" testID={testID}>
+        <View
+            testID={testID}
+            className="rounded-2xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1 md:p-4"
+        >
+            <Stack space="sm">
             <TextInputField
                 testID={`${testID}-search`}
                 id={`${testID}-search`}
@@ -167,6 +172,7 @@ export function ListToolbar({
                     />
                 )}
             </Inline>
-        </Stack>
+            </Stack>
+        </View>
     );
 }

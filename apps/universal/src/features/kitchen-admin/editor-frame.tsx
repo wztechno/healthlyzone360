@@ -1,5 +1,14 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
-import { Badge, Button, Dialog, Heading, Inline, Stack, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Dialog,
+    Heading,
+    Inline,
+    PageTransition,
+    Stack,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,23 +21,8 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
 /**
  * The chrome every record editor in this workspace shares.
  *
- * It exists because three things have to be identical on every one of them, and "identical" is not
- * something eight screens achieve by remembering:
- *
- * 1. **The header states what the record *is* right now** — its publication status and who last
- *    changed it. An editor that showed only the form leaves "am I editing the published version or
- *    a draft?" unanswerable, which is precisely the question the publication lifecycle exists to
- *    make answerable (plan §4.7).
- * 2. **The save controls are always reachable.** They sit in a bar at the foot of the frame rather
- *    than at the bottom of a long form, because an allergen mapping editor with a dozen rows is
- *    taller than a laptop screen and a save button below the fold is a save button people do not
- *    press.
- * 3. **Leaving and colliding are handled the same way everywhere.** The unsaved-changes question and
- *    the optimistic-locking conflict are rendered here, from the two hooks that own their state, so
- *    no screen can ship one without the other.
- *
- * The frame deliberately owns no form state and no mutation. It renders what it is given and calls
- * back; everything about *what* is being edited stays in the screen.
+ * Moodboard Option 02 surfaces: soft white header band, status pills, sticky-feeling action bar
+ * with brand-tinted border. Still owns no form state — screens pass data and callbacks.
  */
 
 export interface EditorFrameProps {
@@ -87,136 +81,135 @@ export function EditorFrame({
     };
 
     return (
-        <Stack space="lg" testID={testID}>
-            <Stack space="sm">
-                <Button
-                    testID={`${testID}-back`}
-                    variant="ghost"
-                    size="sm"
-                    label={backLabel}
-                    onPress={() => {
-                        guard.intercept(onBack);
-                    }}
+        <PageTransition testID={testID} transitionKey={testID}>
+            <Stack space="lg">
+                <View className="rounded-2xl border border-brand-100 bg-surface-raised p-4 shadow-elevation-1">
+                    <Stack space="sm">
+                        <Button
+                            testID={`${testID}-back`}
+                            variant="ghost"
+                            size="sm"
+                            label={backLabel}
+                            onPress={() => {
+                                guard.intercept(onBack);
+                            }}
+                        />
+
+                        <Heading level={1} testID={`${testID}-title`}>
+                            {title}
+                        </Heading>
+
+                        <Inline space="sm" align="center" wrap testID={`${testID}-meta`}>
+                            {meta === null ? (
+                                <Badge
+                                    testID={`${testID}-status`}
+                                    tone="neutral"
+                                    icon="dot"
+                                    label={t('kitchen:status.draft')}
+                                />
+                            ) : 'status' in meta ? (
+                                <Badge
+                                    testID={`${testID}-status`}
+                                    tone={statusTone(meta.status)}
+                                    label={t(statusKey(meta.status))}
+                                />
+                            ) : null}
+                            {guard.isDirty ? (
+                                <Badge
+                                    testID={`${testID}-dirty`}
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:editor.unsaved')}
+                                />
+                            ) : null}
+                            <Text testID={`${testID}-updated`} tone="secondary" variant="caption">
+                                {updatedLine()}
+                            </Text>
+                        </Inline>
+                    </Stack>
+                </View>
+
+                {banner}
+
+                <View className="rounded-2xl border border-brand-100 bg-surface-raised p-4 md:p-5">
+                    {children}
+                </View>
+
+                {/*
+                 * The bar is a normal block at the end of the flow rather than a fixed overlay: a
+                 * position-fixed footer covers the last field of a form on a short screen, and on the
+                 * web it also fights the software keyboard. Brand-tinted border keeps it reachable
+                 * visually without stealing viewport height.
+                 */}
+                <View
+                    testID={`${testID}-actions`}
+                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1"
+                >
+                    {primaryAction}
+                    <Button
+                        testID={`${testID}-save`}
+                        label={saveLabel}
+                        loading={saving}
+                        disabled={saveDisabled || saving}
+                        onPress={onSaveDraft}
+                    />
+                </View>
+
+                <Dialog
+                    testID={`${testID}-unsaved-dialog`}
+                    open={guard.isPrompting}
+                    onClose={guard.cancelDiscard}
+                    title={t('kitchen:unsaved.title')}
+                    description={t('kitchen:unsaved.body')}
+                    actions={
+                        <>
+                            <Button
+                                testID={`${testID}-unsaved-keep`}
+                                variant="secondary"
+                                label={t('kitchen:unsaved.keepEditing')}
+                                onPress={guard.cancelDiscard}
+                            />
+                            <Button
+                                testID={`${testID}-unsaved-discard`}
+                                variant="danger"
+                                label={t('kitchen:unsaved.discard')}
+                                onPress={guard.confirmDiscard}
+                            />
+                        </>
+                    }
                 />
 
-                <Heading level={1} testID={`${testID}-title`}>
-                    {title}
-                </Heading>
-
-                <Inline space="sm" align="center" wrap testID={`${testID}-meta`}>
-                    {meta === null ? (
-                        <Badge
-                            testID={`${testID}-status`}
-                            tone="neutral"
-                            icon="dot"
-                            label={t('kitchen:status.draft')}
-                        />
-                    ) : 'status' in meta ? (
-                        <Badge
-                            testID={`${testID}-status`}
-                            tone={statusTone(meta.status)}
-                            label={t(statusKey(meta.status))}
-                        />
-                    ) : null}
-                    {guard.isDirty ? (
-                        <Badge
-                            testID={`${testID}-dirty`}
-                            tone="warning"
-                            icon="warning"
-                            label={t('kitchen:editor.unsaved')}
-                        />
-                    ) : null}
-                    <Text testID={`${testID}-updated`} tone="secondary" variant="caption">
-                        {updatedLine()}
-                    </Text>
-                </Inline>
+                <Dialog
+                    testID={`${testID}-conflict-dialog`}
+                    open={concurrency.conflict !== null}
+                    onClose={concurrency.keepEditing}
+                    dismissOnBackdrop={false}
+                    title={t('kitchen:conflict.title')}
+                    description={t('kitchen:conflict.body')}
+                    actions={
+                        <>
+                            <Button
+                                testID={`${testID}-conflict-keep`}
+                                variant="secondary"
+                                label={t('kitchen:conflict.keepEditing')}
+                                onPress={concurrency.keepEditing}
+                            />
+                            <Button
+                                testID={`${testID}-conflict-reload`}
+                                variant="danger"
+                                label={t('kitchen:conflict.reload')}
+                                onPress={concurrency.reload}
+                            />
+                        </>
+                    }
+                >
+                    {concurrency.conflict === null ? null : (
+                        <Text testID={`${testID}-conflict-detail`} tone="secondary" variant="caption">
+                            {concurrency.conflict.failure.message}
+                        </Text>
+                    )}
+                </Dialog>
             </Stack>
-
-            {banner}
-
-            {children}
-
-            {/*
-             * The bar is a normal block at the end of the flow rather than a fixed overlay: a
-             * position-fixed footer covers the last field of a form on a short screen, and on the
-             * web it also fights the software keyboard. `border-t` and the raised surface give it
-             * the separation a sticky bar was wanted for without taking a strip of the viewport
-             * away from the record being edited.
-             */}
-            <View
-                testID={`${testID}-actions`}
-                className="flex-row flex-wrap items-center justify-end gap-2 rounded-lg border-t border-stroke-subtle bg-surface-raised p-3"
-            >
-                {primaryAction}
-                <Button
-                    testID={`${testID}-save`}
-                    label={saveLabel}
-                    loading={saving}
-                    disabled={saveDisabled || saving}
-                    onPress={onSaveDraft}
-                />
-            </View>
-
-            <Dialog
-                testID={`${testID}-unsaved-dialog`}
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:unsaved.title')}
-                description={t('kitchen:unsaved.body')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-unsaved-keep`}
-                            variant="secondary"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
-                        />
-                        <Button
-                            testID={`${testID}-unsaved-discard`}
-                            variant="danger"
-                            label={t('kitchen:unsaved.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
-
-            {/*
-             * `dismissOnBackdrop={false}` and no-op `onClose`: a conflict has two resolutions and
-             * "carry on regardless" is not one of them — see `use-optimistic-concurrency.ts`.
-             * Escape still closes the platform modal, which is deliberate: never trap a keyboard
-             * user, and the question is re-asked the moment they press save again.
-             */}
-            <Dialog
-                testID={`${testID}-conflict-dialog`}
-                open={concurrency.conflict !== null}
-                onClose={concurrency.keepEditing}
-                dismissOnBackdrop={false}
-                title={t('kitchen:conflict.title')}
-                description={t('kitchen:conflict.body')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-conflict-keep`}
-                            variant="secondary"
-                            label={t('kitchen:conflict.keepEditing')}
-                            onPress={concurrency.keepEditing}
-                        />
-                        <Button
-                            testID={`${testID}-conflict-reload`}
-                            variant="danger"
-                            label={t('kitchen:conflict.reload')}
-                            onPress={concurrency.reload}
-                        />
-                    </>
-                }
-            >
-                {concurrency.conflict === null ? null : (
-                    <Text testID={`${testID}-conflict-detail`} tone="secondary" variant="caption">
-                        {concurrency.conflict.failure.message}
-                    </Text>
-                )}
-            </Dialog>
-        </Stack>
+        </PageTransition>
     );
 }

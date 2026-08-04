@@ -3,18 +3,23 @@ import {
     Button,
     Card,
     EmptyState,
+    FadeIn,
     Heading,
     Icon,
     Inline,
+    PageTransition,
     Skeleton,
     Stack,
     Text,
+    useAnimatedNumber,
+    useMotion,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import type { UseQueryResult } from '@tanstack/react-query';
 
@@ -33,26 +38,21 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { PublishedFamilySummary } from '../../../data/kitchen-admin-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
+import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
-import { WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
-import type { EntityFamily } from '../entity-registry.ts';
+import {
+    ENTITY_GROUPS,
+    WORKSPACE_PERMISSIONS,
+    permittedFamilies,
+} from '../entity-registry.ts';
+import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 
 /**
- * `/kitchen` — the workspace hub.
+ * `/kitchen` — mission-control hub (Mood Board Option 02).
  *
- * One card per entity family the signed-in person may actually open, read from
- * `../entity-registry.ts` and filtered through the same permission the screen behind the card
- * checks. The grid is data-driven precisely so that K1.2–K1.8 add a registry entry and change
- * nothing here.
- *
- * ## The counts are real or they are absent
- *
- * A managed family's card reports how many records exist and how many are still drafts, because
- * "what is left to do?" is the question a workspace home answers. Where the repository cannot count
- * — `CursorPage.totalCount` is nullable by contract — the card says the count is unavailable rather
- * than showing a zero it does not know to be true. Reference families carry no draft count at all:
- * platform reference data has no draft state, and a badge reading "0 drafts" would imply one exists.
+ * KPI strip + review insight band + sectioned module tiles. Counts stay honest: null totals stay
+ * unavailable rather than inventing a zero.
  */
 
 function FamilyCardShell({
@@ -68,16 +68,21 @@ function FamilyCardShell({
     const router = useRouter();
 
     return (
-        <Card testID={testID} padding="md">
+        <Card testID={testID} padding="md" tone="raised" className="h-full border-brand-100">
             <Stack space="sm">
                 <Inline space="sm" align="center">
-                    <Icon name={family.icon} size="lg" className="text-content-secondary" />
-                    <Heading level={2} testID={`${testID}-name`}>
+                    <Icon name={family.icon} size="md" className="text-brand-600" />
+                    <Heading level={3} testID={`${testID}-name`} className="text-brand-600">
                         {t(family.nameKey)}
                     </Heading>
                 </Inline>
 
-                <Text tone="secondary" testID={`${testID}-description`}>
+                <Text
+                    tone="secondary"
+                    variant="caption"
+                    testID={`${testID}-description`}
+                    numberOfLines={3}
+                >
                     {t(family.descriptionKey)}
                 </Text>
 
@@ -86,6 +91,8 @@ function FamilyCardShell({
                 <Inline space="sm" wrap>
                     <Button
                         testID={`${testID}-open`}
+                        variant="secondary"
+                        size="sm"
                         label={t('kitchen:hub.open', { family: t(family.nameKey) })}
                         onPress={() => {
                             router.push(family.href as never);
@@ -146,18 +153,6 @@ function IngredientsCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
-/**
- * A card for any family whose records have a publication state — recipes, products, meals.
- *
- * It counts *published* records rather than only totals and drafts, because publication state is
- * what a consumer surface reads: "eleven published, two drafts, one awaiting review" is the state of
- * the menu, which is the question this card is asked. The quarantine badge is hidden at zero for the
- * reason the ingredient card hides its own — a badge reading "none awaiting review" is a permanent,
- * meaningless piece of furniture.
- *
- * Written once and given the summary rather than choosing its own hook: three families ask the same
- * four questions, and three copies of this would be three places for a badge to go missing.
- */
 function PublishedFamilyCard({
     family,
     summary,
@@ -221,15 +216,6 @@ function PublishedFamilyCard({
     );
 }
 
-/**
- * The branch-hours card, which counts days rather than records.
- *
- * A branch's operating week is one record per branch with no publication state, so "eleven published
- * records" is a sentence this family cannot say. What it can say is the thing a kitchen actually
- * wants to know from a hub: how many days of the week this branch trades, and how many of those
- * state a same-day order cut-off. A week with no cut-offs anywhere is marked, because that is the
- * gap the whole slice exists to close.
- */
 function BranchOperatingCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const access = useAccessState();
@@ -280,21 +266,6 @@ function BranchOperatingCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
-/**
- * The "Needs review" card — the only one that counts records it does not own.
- *
- * It reads {@link useReviewQueueQuery}, which is the *same* cache entry `/kitchen/review` renders
- * from, so the card's number and the queue's number are one number by construction and opening the
- * queue from here costs no request at all. That sharing is the whole reason the hook takes no
- * parameters (`data/query-keys.ts`).
- *
- * Two badges rather than one: **blocked** is what a kitchen has to act on — a record publication is
- * refused outright — and the total is the size of the job. A single figure would merge "one
- * quarantined allergen determination" into "nine records that still need an Arabic name", which are
- * not the same morning. The blocked badge is hidden at zero for the reason every other quarantine
- * badge on this hub is: a permanent "0 blocked" is furniture. The total badge is *not* hidden at
- * zero, because "all clear" is the one thing this card exists to be able to say.
- */
 function ReviewCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const sources = useReviewQueueQuery();
@@ -353,6 +324,24 @@ function ReviewCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
+function AnalyticsCard({ family }: { readonly family: EntityFamily }) {
+    const { t } = useTranslation();
+    const testID = `kitchen-family-${family.key}`;
+
+    return (
+        <FamilyCardShell family={family} testID={testID}>
+            <Inline space="xs" wrap testID={`${testID}-counts`}>
+                <Badge
+                    testID={`${testID}-sample`}
+                    tone="info"
+                    icon="info"
+                    label={t('kitchen:analytics.sampleBadge')}
+                />
+            </Inline>
+        </FamilyCardShell>
+    );
+}
+
 function AllergenClassesCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const classes = useAllergenClassesQuery();
@@ -389,17 +378,120 @@ function AllergenClassesCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
+function renderFamilyCard(
+    family: EntityFamily,
+    summaries: {
+        readonly recipe: UseQueryResult<PublishedFamilySummary>;
+        readonly product: UseQueryResult<PublishedFamilySummary>;
+        readonly meal: UseQueryResult<PublishedFamilySummary>;
+        readonly priceList: UseQueryResult<PublishedFamilySummary>;
+        readonly plan: UseQueryResult<PublishedFamilySummary>;
+        readonly zone: UseQueryResult<PublishedFamilySummary>;
+    },
+): ReactNode {
+    if (family.key === 'review') return <ReviewCard key={family.key} family={family} />;
+    if (family.key === 'analytics') {
+        return <AnalyticsCard key={family.key} family={family} />;
+    }
+    if (family.key === 'ingredients') return <IngredientsCard key={family.key} family={family} />;
+    if (family.key === 'recipes') {
+        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.recipe} />;
+    }
+    if (family.key === 'products') {
+        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.product} />;
+    }
+    if (family.key === 'meals') {
+        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.meal} />;
+    }
+    if (family.key === 'price-lists') {
+        return (
+            <PublishedFamilyCard key={family.key} family={family} summary={summaries.priceList} />
+        );
+    }
+    if (family.key === 'plans') {
+        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.plan} />;
+    }
+    if (family.key === 'delivery-zones') {
+        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.zone} />;
+    }
+    if (family.key === 'branch-operating') {
+        return <BranchOperatingCard key={family.key} family={family} />;
+    }
+    if (family.key === 'allergen-classes') {
+        return <AllergenClassesCard key={family.key} family={family} />;
+    }
+    return (
+        <FamilyCardShell key={family.key} family={family} testID={`kitchen-family-${family.key}`}>
+            {null}
+        </FamilyCardShell>
+    );
+}
+
+function KpiTile({
+    testID,
+    label,
+    value,
+    hint,
+    pending,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly value: number | null;
+    readonly hint?: string | undefined;
+    readonly pending: boolean;
+}) {
+    const { t } = useTranslation();
+    const animated = useAnimatedNumber(value ?? 0);
+
+    return (
+        <View
+            testID={testID}
+            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-[14px] border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+        >
+            {pending ? (
+                <Skeleton testID={`${testID}-loading`} heightClassName="h-8" widthClassName="w-1/2" />
+            ) : (
+                <Text
+                    testID={`${testID}-value`}
+                    className="font-display text-[25px] font-bold text-content-primary"
+                >
+                    {value === null ? '—' : String(animated)}
+                </Text>
+            )}
+            <Text tone="secondary" variant="caption" className="mt-0.5">
+                {label}
+            </Text>
+            {hint === undefined ? null : (
+                <Text
+                    testID={`${testID}-hint`}
+                    className="mt-1.5 text-[11.5px] font-bold text-brand-600"
+                >
+                    {hint}
+                </Text>
+            )}
+            {!pending && value === null ? (
+                <Text tone="secondary" variant="caption" className="mt-1">
+                    {t('kitchen:hub.countUnavailable')}
+                </Text>
+            ) : null}
+        </View>
+    );
+}
+
+const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
+    workbench: 'kitchen:nav.groups.workbench',
+    catalogue: 'kitchen:nav.groups.catalogue',
+    commercial: 'kitchen:nav.groups.commercial',
+    operations: 'kitchen:nav.groups.operations',
+};
+
 export function KitchenHomeScreen() {
     const { t } = useTranslation();
+    const router = useRouter();
     const state = useAccessState();
+    const { stagger } = useMotion();
     const families = permittedFamilies(state);
 
-    /*
-     * The three publication summaries are read here rather than inside the cards, because a card
-     * that chose its own hook could not be shared between three families — and a hook cannot be
-     * called conditionally from inside the map. They are cheap: four `limit: 1` listings each,
-     * deduplicated by the query cache, and only fetched for families this role may open at all.
-     */
     const permitted = new Set(families.map((family) => family.key));
     const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'));
     const productSummary = useProductSummaryQuery(permitted.has('products'));
@@ -407,113 +499,209 @@ export function KitchenHomeScreen() {
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
     const planSummary = usePlanSummaryQuery(permitted.has('plans'));
     const zoneSummary = useZoneSummaryQuery(permitted.has('delivery-zones'));
+    const ingredientSummary = useIngredientSummaryQuery(permitted.has('ingredients'));
+    const reviewSources = useReviewQueueQuery(permitted.has('review'));
+
+    const reviewQueue = useMemo(() => {
+        const data = reviewSources.data;
+        if (data === undefined) return null;
+        return buildReviewQueue({
+            ingredients: data.ingredients,
+            quarantinedRecipes: data.quarantinedRecipes,
+            staleRecipes: data.staleRecipes,
+            products: data.products,
+            meals: data.meals,
+            plans: data.plans,
+            priceLists: data.priceLists,
+        });
+    }, [reviewSources.data]);
+
+    const summaries = {
+        recipe: recipeSummary,
+        product: productSummary,
+        meal: mealSummary,
+        priceList: priceListSummary,
+        plan: planSummary,
+        zone: zoneSummary,
+    };
+
+    const draftParts: Array<number | null | undefined> = [];
+    if (permitted.has('ingredients')) draftParts.push(ingredientSummary.data?.drafts);
+    if (permitted.has('recipes')) draftParts.push(recipeSummary.data?.drafts);
+    if (permitted.has('products')) draftParts.push(productSummary.data?.drafts);
+    if (permitted.has('meals')) draftParts.push(mealSummary.data?.drafts);
+    const knownDrafts = draftParts.filter((part): part is number => typeof part === 'number');
+    const draftsPending =
+        (permitted.has('ingredients') && ingredientSummary.isPending) ||
+        (permitted.has('recipes') && recipeSummary.isPending) ||
+        (permitted.has('products') && productSummary.isPending) ||
+        (permitted.has('meals') && mealSummary.isPending);
+    const draftTotal = draftsPending
+        ? null
+        : draftParts.length === 0
+          ? 0
+          : knownDrafts.length === 0
+            ? null
+            : knownDrafts.reduce((sum, part) => sum + part, 0);
+
+    const publishedMeals = mealSummary.isPending
+        ? null
+        : (mealSummary.data?.published ?? null);
+    const zoneTotal = zoneSummary.isPending ? null : (zoneSummary.data?.total ?? null);
 
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
-            <Stack space="lg" testID="kitchen-home-screen">
-                <Stack space="xs">
-                    <Heading level={1} testID="kitchen-home-title">
-                        {t('kitchen:hub.title')}
-                    </Heading>
-                    <Text tone="secondary" testID="kitchen-home-subtitle">
-                        {t('kitchen:hub.subtitle')}
-                    </Text>
-                </Stack>
+            <PageTransition testID="kitchen-home-screen" transitionKey="kitchen-home">
+                <Stack space="lg">
+                    <FadeIn delayMs={stagger(0)}>
+                        <Stack space="xs">
+                            <Heading level={1} testID="kitchen-home-title">
+                                {t('kitchen:hub.title')}
+                            </Heading>
+                            <Text tone="secondary" testID="kitchen-home-subtitle">
+                                {t('kitchen:hub.subtitle')}
+                            </Text>
+                        </Stack>
+                    </FadeIn>
 
-                {families.length === 0 ? (
-                    <EmptyState
-                        testID="kitchen-home-empty"
-                        title={t('kitchen:hub.emptyTitle')}
-                        body={t('kitchen:hub.emptyBody')}
-                    />
-                ) : (
-                    <Stack space="md" testID="kitchen-home-grid">
-                        {/*
-                         * Switched on the family key rather than on `kind`, so that the next slice's
-                         * managed family gets its own counts instead of silently inheriting the
-                         * ingredient ones. A family with no card yet falls back to the shell, which
-                         * links correctly and claims no numbers.
-                         */}
-                        {families.map((family) => {
-                            if (family.key === 'review') {
-                                return <ReviewCard key={family.key} family={family} />;
-                            }
-                            if (family.key === 'ingredients') {
-                                return <IngredientsCard key={family.key} family={family} />;
-                            }
-                            if (family.key === 'recipes') {
-                                return (
-                                    <PublishedFamilyCard
-                                        key={family.key}
-                                        family={family}
-                                        summary={recipeSummary}
+                    {families.length === 0 ? (
+                        <EmptyState
+                            testID="kitchen-home-empty"
+                            title={t('kitchen:hub.emptyTitle')}
+                            body={t('kitchen:hub.emptyBody')}
+                        />
+                    ) : (
+                        <>
+                            <FadeIn delayMs={stagger(1)} testID="kitchen-home-kpis">
+                                <View className="flex-row flex-wrap gap-3">
+                                    <KpiTile
+                                        testID="kitchen-kpi-review"
+                                        label={t('kitchen:hub.kpi.needsReview')}
+                                        value={reviewQueue?.total ?? null}
+                                        pending={reviewSources.isPending}
+                                        hint={
+                                            reviewQueue !== null && reviewQueue.blocked > 0
+                                                ? t('kitchen:review.blockedCount', {
+                                                      count: reviewQueue.blocked,
+                                                  })
+                                                : undefined
+                                        }
                                     />
-                                );
-                            }
-                            if (family.key === 'products') {
-                                return (
-                                    <PublishedFamilyCard
-                                        key={family.key}
-                                        family={family}
-                                        summary={productSummary}
+                                    <KpiTile
+                                        testID="kitchen-kpi-drafts"
+                                        label={t('kitchen:hub.kpi.drafts')}
+                                        value={draftTotal}
+                                        pending={draftsPending}
                                     />
-                                );
-                            }
-                            if (family.key === 'meals') {
-                                return (
-                                    <PublishedFamilyCard
-                                        key={family.key}
-                                        family={family}
-                                        summary={mealSummary}
+                                    <KpiTile
+                                        testID="kitchen-kpi-meals"
+                                        label={t('kitchen:hub.kpi.publishedMeals')}
+                                        value={publishedMeals}
+                                        pending={mealSummary.isPending}
                                     />
-                                );
-                            }
-                            if (family.key === 'price-lists') {
-                                return (
-                                    <PublishedFamilyCard
-                                        key={family.key}
-                                        family={family}
-                                        summary={priceListSummary}
+                                    <KpiTile
+                                        testID="kitchen-kpi-zones"
+                                        label={t('kitchen:hub.kpi.deliveryZones')}
+                                        value={zoneTotal}
+                                        pending={zoneSummary.isPending}
                                     />
-                                );
-                            }
-                            if (family.key === 'plans') {
-                                return (
-                                    <PublishedFamilyCard
-                                        key={family.key}
-                                        family={family}
-                                        summary={planSummary}
-                                    />
-                                );
-                            }
-                            if (family.key === 'delivery-zones') {
-                                return (
-                                    <PublishedFamilyCard
-                                        key={family.key}
-                                        family={family}
-                                        summary={zoneSummary}
-                                    />
-                                );
-                            }
-                            if (family.key === 'branch-operating') {
-                                return <BranchOperatingCard key={family.key} family={family} />;
-                            }
-                            if (family.key === 'allergen-classes') {
-                                return <AllergenClassesCard key={family.key} family={family} />;
-                            }
-                            return (
-                                <FamilyCardShell
-                                    key={family.key}
-                                    family={family}
-                                    testID={`kitchen-family-${family.key}`}
-                                >
-                                    {null}
-                                </FamilyCardShell>
-                            );
-                        })}
-                    </Stack>
-                )}
-            </Stack>
+                                </View>
+                            </FadeIn>
+
+                            <FadeIn delayMs={stagger(2)} testID="kitchen-home-review-band">
+                                {reviewQueue !== null && reviewQueue.total > 0 ? (
+                                    <BrandGradient
+                                        variant="accent"
+                                        testID="kitchen-review-insight"
+                                        className="p-5"
+                                    >
+                                        <Stack space="sm">
+                                            <Badge
+                                                tone="info"
+                                                label={t('kitchen:hub.insightTag')}
+                                            />
+                                            <Heading level={2} tone="inverse">
+                                                {t('kitchen:review.summaryTitle', {
+                                                    count: reviewQueue.total,
+                                                })}
+                                            </Heading>
+                                            <Text tone="inverse" className="opacity-95">
+                                                {reviewQueue.blocked > 0
+                                                    ? t('kitchen:review.summaryBlocked', {
+                                                          count: reviewQueue.blocked,
+                                                      })
+                                                    : t('kitchen:review.summaryUnblocked')}
+                                            </Text>
+                                            <Inline>
+                                                <Button
+                                                    testID="kitchen-review-insight-open"
+                                                    variant="secondary"
+                                                    label={t('kitchen:hub.openReview')}
+                                                    onPress={() => {
+                                                        router.push('/kitchen/review' as never);
+                                                    }}
+                                                />
+                                            </Inline>
+                                        </Stack>
+                                    </BrandGradient>
+                                ) : (
+                                    <Card
+                                        testID="kitchen-review-clear"
+                                        tone="brand"
+                                        padding="md"
+                                        className="border-brand-100"
+                                    >
+                                        <Inline space="sm" align="center" justify="between" wrap>
+                                            <Stack space="xs" grow>
+                                                <Heading level={3}>
+                                                    {t('kitchen:review.clearTitle')}
+                                                </Heading>
+                                                <Text tone="secondary">
+                                                    {t('kitchen:review.clearBody')}
+                                                </Text>
+                                            </Stack>
+                                            <Badge
+                                                tone="success"
+                                                icon="check"
+                                                label={t('kitchen:review.clearBadge')}
+                                            />
+                                        </Inline>
+                                    </Card>
+                                )}
+                            </FadeIn>
+
+                            <Stack space="lg" testID="kitchen-home-grid">
+                                {ENTITY_GROUPS.map((group, groupIndex) => {
+                                    const groupFamilies = families.filter(
+                                        (family) => family.group === group,
+                                    );
+                                    if (groupFamilies.length === 0) return null;
+                                    return (
+                                        <FadeIn
+                                            key={group}
+                                            delayMs={stagger(groupIndex + 3)}
+                                            testID={`kitchen-home-section-${group}`}
+                                        >
+                                            <Stack space="sm">
+                                                <Heading level={2} className="text-brand-600">
+                                                    {t(GROUP_LABEL_KEYS[group])}
+                                                </Heading>
+                                                <View className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                                    {groupFamilies.map((family) => (
+                                                        <View key={family.key} className="min-w-0">
+                                                            {renderFamilyCard(family, summaries)}
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            </Stack>
+                                        </FadeIn>
+                                    );
+                                })}
+                            </Stack>
+                        </>
+                    )}
+                </Stack>
+            </PageTransition>
         </Gate>
     );
 }

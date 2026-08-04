@@ -1,10 +1,11 @@
-import { Stack, Text } from '@healthy360/design-system';
+import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
+
+const ProcurementScreen = lazyScreen(
+    'kitchen-procurement-loading',
+    async () =>
+        (await import('../../../src/features/kitchen-admin/screens/index.ts')).ProcurementScreen,
+);
 
 export default function KitchenProcurement() {
-    return (
-        <Stack space="md" className="p-4" testID="kitchen-procurement">
-            <Text variant="heading">Procurement</Text>
-            <Text tone="secondary">Suppliers and goods receipts that post into stock.</Text>
-        </Stack>
-    );
+    return <ProcurementScreen />;
 }
