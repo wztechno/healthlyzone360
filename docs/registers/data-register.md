@@ -144,6 +144,23 @@ Five tables — one platform gazetteer, three delivery tables and the branch ope
 
 **Data loading**: the Lebanese gazetteer is **mechanism (a)** — a committed platform reference seeder, production-safe, insert-if-absent so a platform editor's Arabic correction and any eventual `region` survive the next deployment (risk R8). Zones, windows and opening hours have **no committed seeder**: they are one kitchen's configuration. The demo tenant gets two zones over six **synthetic Emirati areas** — **mechanism (b)**, seeded by `DemoTenantSeeder` with `ae-demo-*` codes rather than added to the gazetteer, because Verdant is Emirati and the committed gazetteer is Lebanese, and inventing six Emirati places *into* the platform gazetteer would put fabricated geography in front of every tenant in every environment. One of the two zones is branch-scoped and overlaps the other, so the branch-over-organisation resolution has a fixture; the branch gets a full seven-day week including one closed day and a cut-off.
 
+## Journey phases J1, C1, G1, B1, S1, J2, B2 — a stated gap, not an omission
+
+The per-table rows above stop at K1.7. The journey phases added roughly forty-five further tables —
+customer accounts and their address, dietary and declaration clusters; contact points and OTP
+challenges; guest sessions and deletion requests; carts and their lines; orders, order lines and
+their commercial snapshots; B2B applications, sections, documents, agreements, locations,
+invitations, offboardings and record exports; subscriptions, subscription deliveries, meal choices
+and credit memos; account closure requests and their tombstones — and **none of them is itemised
+here with a classification, a PII flag and an isolation strategy**.
+
+That is documentation debt with a known shape rather than an unknown: every one of those tables
+carries its classification and its named isolation strategy in the docblock of its own migration,
+which is where the phases wrote them, and the conventions below (mechanisms, vocabulary, the RLS
+pin) are current and cover them. What is missing is the single readable table. Recorded here so a
+reader looking for a customer-cluster row knows it is absent by admission — reconciliation sweep,
+2026-08-03.
+
 ## Standing conventions
 
 - UUIDv7 primary keys, application-generated via the central identifier service; ISO-code PKs for stable reference tables (Plan §8).

@@ -46,6 +46,7 @@ import {
     apiKitchenAdminRepository,
 } from './prototype-repositories.ts';
 import { createApiReferenceReads } from './reference-repository.ts';
+import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
 import { createApiSubscriptionReads } from './subscription-repository.ts';
 import { createApiVerificationRepository } from './verification-repository.ts';
 import {
@@ -467,6 +468,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
      */
     const reference = createApiReferenceReads(transport);
     const verification = createApiVerificationRepository(transport);
+    const kitchenAdminReads = createApiKitchenAdminReads(transport);
     const account = createApiAccountRepository({
         transport,
         reference,
@@ -510,6 +512,21 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             ...apiKitchenAdminRepository,
             listAllergenClasses: reference.listAllergenClasses,
             listServiceAreas: reference.listServiceAreas,
+            listIngredients: kitchenAdminReads.listIngredients,
+            getIngredient: kitchenAdminReads.getIngredient,
+            listRecipes: kitchenAdminReads.listRecipes,
+            getRecipe: kitchenAdminReads.getRecipe,
+            listProducts: kitchenAdminReads.listProducts,
+            getProduct: kitchenAdminReads.getProduct,
+            listMeals: kitchenAdminReads.listMeals,
+            getMeal: kitchenAdminReads.getMeal,
+            listPlans: kitchenAdminReads.listPlans,
+            getPlan: kitchenAdminReads.getPlan,
+            listPriceLists: kitchenAdminReads.listPriceLists,
+            getPriceList: kitchenAdminReads.getPriceList,
+            listZones: kitchenAdminReads.listZones,
+            getZone: kitchenAdminReads.getZone,
+            getBranchOperating: kitchenAdminReads.getBranchOperating,
         },
     };
 }

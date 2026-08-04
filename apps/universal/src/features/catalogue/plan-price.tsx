@@ -40,7 +40,7 @@ export function PlanPrice({ plan, testID }: PlanPriceProps) {
                 {t('catalogue:plans.priceFrom')}
             </Text>
             <Inline space="xs" align="baseline" wrap>
-                <Text variant="bodyStrong" className="text-2xl leading-tight">
+                <Text variant="bodyStrong" className="font-display text-2xl leading-tight">
                     {formatMoney(formatter, cheapest.pricePerWeek)}
                 </Text>
                 <Text tone="secondary" variant="caption">

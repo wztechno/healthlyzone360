@@ -326,17 +326,16 @@ export const PROTOTYPE_ENDPOINTS = {
      * `severe_by_default`, which was the one field the switch was waiting for. The service-area
      * read was blocked on `country_code` being required; it is optional now.
      *
+     * `GET /catalogue/ingredients` and `GET /catalogue/ingredients/{ingredient}` left it in this
+     * wave — implemented in `./kitchen-admin-repository.ts`.
+     *
      * Everything below is still a stub, and every one of these paths is still proposed.
      */
-    adminListIngredients: `GET ${BASE}/catalogue/ingredients`,
-    adminGetIngredient: `GET ${BASE}/catalogue/ingredients/{ingredient}`,
     adminCreateIngredient: `POST ${BASE}/catalogue/ingredients`,
     adminUpdateIngredient: `PATCH ${BASE}/catalogue/ingredients/{ingredient}`,
     adminArchiveIngredient: `POST ${BASE}/catalogue/ingredients/{ingredient}/archive`,
     adminSetIngredientAllergens: `PUT ${BASE}/catalogue/ingredients/{ingredient}/allergens`,
 
-    adminListRecipes: `GET ${BASE}/catalogue/recipes`,
-    adminGetRecipe: `GET ${BASE}/catalogue/recipes/{recipe}`,
     adminCreateRecipe: `POST ${BASE}/catalogue/recipes`,
     adminUpdateRecipe: `PATCH ${BASE}/catalogue/recipes/{recipe}`,
     adminSetRecipeLines: `PUT ${BASE}/catalogue/recipes/{recipe}/lines`,
@@ -346,28 +345,20 @@ export const PROTOTYPE_ENDPOINTS = {
     adminPublishRecipe: `POST ${BASE}/catalogue/recipes/{recipe}/publish`,
     adminRetireRecipe: `POST ${BASE}/catalogue/recipes/{recipe}/retire`,
 
-    adminListProducts: `GET ${BASE}/catalogue/products`,
-    adminGetProduct: `GET ${BASE}/catalogue/products/{product}`,
     adminCreateProduct: `POST ${BASE}/catalogue/products`,
     adminUpdateProduct: `PATCH ${BASE}/catalogue/products/{product}`,
     adminArchiveProduct: `POST ${BASE}/catalogue/products/{product}/archive`,
     adminSetProductChannelAvailability: `PUT ${BASE}/catalogue/products/{product}/channels`,
 
-    adminListPriceLists: `GET ${BASE}/catalogue/price-lists`,
-    adminGetPriceList: `GET ${BASE}/catalogue/price-lists/{price_list}`,
     adminSetPriceListEntries: `PUT ${BASE}/catalogue/price-lists/{price_list}/entries`,
     adminPublishPriceList: `POST ${BASE}/catalogue/price-lists/{price_list}/publish`,
 
-    adminListMeals: `GET ${BASE}/catalogue/meals`,
-    adminGetMeal: `GET ${BASE}/catalogue/meals/{meal}`,
     adminCreateMeal: `POST ${BASE}/catalogue/meals`,
     adminUpdateMeal: `PATCH ${BASE}/catalogue/meals/{meal}`,
     adminPublishMeal: `POST ${BASE}/catalogue/meals/{meal}/publish`,
     adminRetireMeal: `POST ${BASE}/catalogue/meals/{meal}/retire`,
     adminSetMealAvailability: `PUT ${BASE}/catalogue/meals/{meal}/availability`,
 
-    adminListPlans: `GET ${BASE}/catalogue/plans`,
-    adminGetPlan: `GET ${BASE}/catalogue/plans/{plan}`,
     adminCreatePlan: `POST ${BASE}/catalogue/plans`,
     adminUpdatePlan: `PATCH ${BASE}/catalogue/plans/{plan}`,
     adminPublishPlan: `POST ${BASE}/catalogue/plans/{plan}/publish`,
@@ -376,16 +367,13 @@ export const PROTOTYPE_ENDPOINTS = {
     adminSetPlanDurations: `PUT ${BASE}/catalogue/plans/{plan}/durations`,
     adminSetPlanCombinations: `PUT ${BASE}/catalogue/plans/{plan}/combinations`,
 
-    adminListZones: `GET ${BASE}/catalogue/delivery-zones`,
-    adminGetZone: `GET ${BASE}/catalogue/delivery-zones/{zone}`,
     adminCreateZone: `POST ${BASE}/catalogue/delivery-zones`,
     adminUpdateZone: `PATCH ${BASE}/catalogue/delivery-zones/{zone}`,
     adminArchiveZone: `POST ${BASE}/catalogue/delivery-zones/{zone}/archive`,
     adminSetZoneAreas: `PUT ${BASE}/catalogue/delivery-zones/{zone}/areas`,
     adminSetDeliveryWindows: `PUT ${BASE}/catalogue/delivery-zones/{zone}/delivery-windows`,
 
-    adminGetBranchOperating: `GET ${BASE}/catalogue/branches/{branch}/operating`,
-    adminSetBranchOperating: `PUT ${BASE}/catalogue/branches/{branch}/operating`,
+    adminSetBranchOperating: `PUT ${BASE}/kitchen/branch-operating`,
 } as const;
 
 /* ------------------------------------------------------------------------------------------------
@@ -772,10 +760,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     listIngredients(_filter?: IngredientAdminFilter): Promise<CursorPage<IngredientAdmin>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListIngredients);
+        return notImplemented(`GET ${BASE}/catalogue/ingredients`);
     },
     getIngredient(_ingredientId: IngredientId): Promise<IngredientAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetIngredient);
+        return notImplemented(`GET ${BASE}/catalogue/ingredients/{ingredient}`);
     },
     createIngredient(_request: CreateIngredientRequest): Promise<IngredientAdmin> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateIngredient);
@@ -800,10 +788,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     listRecipes(_filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListRecipes);
+        return notImplemented(`GET ${BASE}/catalogue/recipes`);
     },
     getRecipe(_recipeId: RecipeId): Promise<RecipeAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetRecipe);
+        return notImplemented(`GET ${BASE}/catalogue/recipes/{recipe}`);
     },
     createRecipe(_request: CreateRecipeRequest): Promise<RecipeAdmin> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateRecipe);
@@ -831,10 +819,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     listProducts(_filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListProducts);
+        return notImplemented(`GET ${BASE}/catalogue/items?item_type=product`);
     },
     getProduct(_productId: ProductId): Promise<ProductAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetProduct);
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
     },
     createProduct(_request: CreateProductRequest): Promise<ProductAdmin> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateProduct);
@@ -853,10 +841,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListPriceLists);
+        return notImplemented(`GET ${BASE}/catalogue/price-lists`);
     },
     getPriceList(_priceListId: PriceListId): Promise<PriceListAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetPriceList);
+        return notImplemented(`GET ${BASE}/catalogue/price-lists/{price_list}`);
     },
     setPriceListEntries(
         _priceListId: PriceListId,
@@ -869,10 +857,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     listMeals(_filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListMeals);
+        return notImplemented(`GET ${BASE}/catalogue/items?item_type=meal`);
     },
     getMeal(_mealId: MealId): Promise<MealAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetMeal);
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
     },
     createMeal(_request: CreateMealRequest): Promise<MealAdmin> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateMeal);
@@ -891,10 +879,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     listPlans(_filter?: PlanAdminFilter): Promise<CursorPage<PlanAdmin>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListPlans);
+        return notImplemented(`GET ${BASE}/catalogue/items?item_type=subscription_plan`);
     },
     getPlan(_planId: SubscriptionPlanId): Promise<PlanAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetPlan);
+        return notImplemented(`GET ${BASE}/catalogue/plans/{plan}/profile`);
     },
     createPlan(_request: CreatePlanRequest): Promise<PlanAdmin> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminCreatePlan);
@@ -928,10 +916,10 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     listZones(_filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminListZones);
+        return notImplemented(`GET ${BASE}/catalogue/delivery-zones`);
     },
     getZone(_zoneId: DeliveryZoneId): Promise<DeliveryZoneAdmin> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetZone);
+        return notImplemented(`GET ${BASE}/catalogue/delivery-zones/{zone}`);
     },
     createZone(_request: CreateDeliveryZoneRequest): Promise<DeliveryZoneAdmin> {
         return notImplemented(PROTOTYPE_ENDPOINTS.adminCreateZone);
@@ -959,7 +947,7 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
 
     getBranchOperating(_branchId: KitchenBranchId): Promise<BranchOperating> {
-        return notImplemented(PROTOTYPE_ENDPOINTS.adminGetBranchOperating);
+        return notImplemented(`GET ${BASE}/kitchen/branch-operating`);
     },
     setBranchOperating(
         _branchId: KitchenBranchId,

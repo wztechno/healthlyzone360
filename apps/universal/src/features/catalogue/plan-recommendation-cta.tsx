@@ -1,12 +1,14 @@
 import { Button, Heading, Inline, Stack, Text } from '@healthy360/design-system';
-import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { BrandGradient } from '../../ui/brand-gradient.tsx';
+
 /**
- * The closing note on the plan catalogue: for anyone who reached the end still unsure.
+ * The closing note on the plan catalogue: for anyone who reached the end still unsure. It carries
+ * the mood board's violet→emerald accent gradient — the "AI / premium" treatment — with white copy.
  *
- * Its two actions go only where the model actually helps that person — a dietitian, and the
- * explanation of how plans work. There is no "find my plan" here on purpose: it would point back up
+ * Its two actions go only where the model actually helps that person: a dietitian, and the
+ * explanation of how plans work. There is no "find my plan" here on purpose — it would point back up
  * the same page. Both destinations are routes that exist in this build (`/dietitians`,
  * `/how-it-works`), so neither button is a promise the app cannot keep.
  */
@@ -22,17 +24,18 @@ export function PlanRecommendationCta({
     const { t } = useTranslation();
 
     return (
-        <View testID="plans-cta" className="rounded-2xl bg-surface-brand-subtle p-6">
+        <BrandGradient variant="accent" testID="plans-cta" className="p-6 md:p-8">
             <Stack space="sm">
-                <Heading level={2} className="text-content-on-brand-subtle">
+                <Heading level={2} tone="inverse">
                     {t('catalogue:plans.ctaTitle')}
                 </Heading>
-                <Text className="max-w-[600px] text-content-on-brand-subtle">
+                <Text tone="inverse" className="max-w-[600px] opacity-95">
                     {t('catalogue:plans.ctaBody')}
                 </Text>
                 <Inline space="sm" wrap>
                     <Button
                         testID="plans-cta-dietitian"
+                        variant="secondary"
                         label={t('catalogue:plans.ctaPrimary')}
                         onPress={onSpeakToDietitian}
                     />
@@ -44,6 +47,6 @@ export function PlanRecommendationCta({
                     />
                 </Inline>
             </Stack>
-        </View>
+        </BrandGradient>
     );
 }

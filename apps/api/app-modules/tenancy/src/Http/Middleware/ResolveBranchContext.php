@@ -19,7 +19,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Branch-scoped memberships (membership.branch_id set) may only operate in
  * their own branch: a differing header is rejected and an absent header
  * defaults the context to the membership's branch. Organisation-wide
- * memberships (branch_id NULL) may select any active branch or none.
+ * memberships may select any active branch; when exactly one exists it is
+ * applied automatically, otherwise none until chosen.
  */
 class ResolveBranchContext
 {

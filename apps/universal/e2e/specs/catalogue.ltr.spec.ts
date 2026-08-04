@@ -31,6 +31,9 @@ test.describe('meal catalogue (en)', () => {
         await expect(page.getByTestId('meals-all-loaded')).toBeVisible();
         expect(await page.locator('[data-testid$="-price"]').count()).toBeGreaterThan(firstPage);
 
+        // Filters are collapsed by default so the grid leads; open the disclosure to reach them.
+        await page.getByTestId('meals-filter-toggle').click();
+
         // A numeric range is a real filter wired to `listMeals`, not a decoration.
         await page.getByTestId('meals-ranges-protein-min-input').fill('45');
         await expect(page.getByTestId('meals-grid')).toBeVisible();

@@ -27,6 +27,12 @@ test.describe('catalogue accessibility (axe)', () => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
         await expectNoSeriousViolations(page, 'meals');
+
+        // The filters are collapsed by default so the grid leads; open the disclosure and axe the
+        // panel — the ranges and chip groups are where most of the controls live.
+        await page.getByTestId('meals-filter-toggle').click();
+        await expect(page.getByTestId('meals-ranges')).toBeVisible();
+        await expectNoSeriousViolations(page, 'meals-filters-open');
     });
 
     test('meal detail, on both nutrition bases and with the composition open', async ({ page }) => {

@@ -2,7 +2,7 @@ import { AppShell, Button, Inline, OfflineIndicator, Stack, Text } from '@health
 import type { NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, View } from 'react-native';
@@ -42,14 +42,17 @@ export interface MarketplaceShellProps {
 /**
  * Skip to content.
  *
- * Web only, and deliberately always visible rather than revealed on focus. The reveal-on-focus
- * pattern needs a focus-visible style hook that neither React Native Web's inline styles nor the
- * NativeWind class set expresses reliably, and a skip link that is *sometimes* discoverable is
- * worse than a small permanent one. On native the whole idea is meaningless — there is no document
- * to skip through — so it renders nothing rather than a control that cannot act.
+ * Web only, revealed on keyboard focus. A CSS `:focus-visible` hook is not expressible through
+ * React Native Web's inline styles, but component state is: while unfocused the link collapses to
+ * a clipped 1×1 box (still in the tab order, still announced by screen readers), and the first Tab
+ * press expands it in place. On native the whole idea is meaningless — there is no document to
+ * skip through — so it renders nothing rather than a control that cannot act.
  */
+const SKIP_LINK_HIDDEN = { position: 'absolute', width: 1, height: 1, overflow: 'hidden' } as const;
+
 function SkipToContent() {
     const { t } = useTranslation();
+    const [focused, setFocused] = useState(false);
 
     const focusContent = useCallback(() => {
         const target = globalThis.document.querySelector(`[data-testid="${CONTENT_TEST_ID}"]`);
@@ -71,7 +74,10 @@ function SkipToContent() {
             accessibilityRole="link"
             focusable
             onPress={focusContent}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             className="min-h-touch justify-center bg-surface-sunken px-4 py-1"
+            style={focused ? undefined : SKIP_LINK_HIDDEN}
         >
             <Text variant="caption" className="text-content-on-brand-subtle underline">
                 {t('marketplace:nav.skipToContent')}

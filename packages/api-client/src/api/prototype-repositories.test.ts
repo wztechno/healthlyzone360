@@ -133,9 +133,9 @@ describe('the api bundle exposes the prototype repositories', () => {
             .filter(([name]) => name.startsWith('admin'))
             .map(([, endpoint]) => endpoint);
 
-        expect(adminEndpoints.length).toBeGreaterThan(40);
+        expect(adminEndpoints.length).toBeGreaterThan(30);
         for (const endpoint of adminEndpoints) {
-            expect(endpoint).toMatch(/^(GET|POST|PUT|PATCH) \/api\/v1\/(reference|catalogue)\//);
+            expect(endpoint).toMatch(/^(GET|POST|PUT|PATCH) \/api\/v1\/(reference|catalogue|kitchen)\//);
         }
     });
 
@@ -184,6 +184,21 @@ describe('the api bundle exposes the prototype repositories', () => {
         // Plans switched when DEC1 published real plans (the ledger's own stated condition).
         expect(table.listPlans).toBeUndefined();
         expect(table.getPlan).toBeUndefined();
+        expect(table.adminListIngredients).toBeUndefined();
+        expect(table.adminGetIngredient).toBeUndefined();
+        expect(table.adminListRecipes).toBeUndefined();
+        expect(table.adminGetRecipe).toBeUndefined();
+        expect(table.adminListProducts).toBeUndefined();
+        expect(table.adminGetProduct).toBeUndefined();
+        expect(table.adminListPriceLists).toBeUndefined();
+        expect(table.adminGetPriceList).toBeUndefined();
+        expect(table.adminListMeals).toBeUndefined();
+        expect(table.adminGetMeal).toBeUndefined();
+        expect(table.adminListPlans).toBeUndefined();
+        expect(table.adminGetPlan).toBeUndefined();
+        expect(table.adminListZones).toBeUndefined();
+        expect(table.adminGetZone).toBeUndefined();
+        expect(table.adminGetBranchOperating).toBeUndefined();
 
         // And the three that are genuinely still prototypes are still listed.
         expect(table.listDietitians).toBe('GET /api/v1/marketplace/dietitians');

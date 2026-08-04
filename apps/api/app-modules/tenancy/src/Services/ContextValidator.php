@@ -12,6 +12,7 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\Exceptions\BranchOutsideMembershipScope;
 use Healthy360\Tenancy\Exceptions\OrganisationContextForbidden;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -71,7 +72,8 @@ final class ContextValidator
      * A branch-scoped membership may only work inside its own branch: a
      * differing claim is rejected and an absent claim defaults to that
      * branch. An organisation-wide membership may select any active branch of
-     * the organisation, or none at all.
+     * the organisation, or none when several exist. When exactly one active
+     * branch exists it is applied automatically.
      *
      * @throws BranchOutsideMembershipScope
      */
@@ -81,7 +83,14 @@ final class ContextValidator
         $claimed = is_string($branchId) ? trim($branchId) : '';
 
         if ($claimed === '') {
-            return $membershipBranchId;
+            if ($membershipBranchId !== null) {
+                return $membershipBranchId;
+            }
+
+            // Organisation-wide memberships with exactly one active branch are
+            // not offered a picker on the client — the mock applies the branch
+            // the same way, and kitchen/POS/KDS routes require branch context.
+            return $this->soleActiveBranchId($membership);
         }
 
         if (! Str::isUuid($claimed)) {
@@ -108,5 +117,28 @@ final class ContextValidator
         }
 
         return $claimed;
+    }
+
+    /**
+     * When an organisation has a single active branch there is nothing to
+     * choose; return it so context hydration and branch-gated surfaces agree.
+     */
+    private function soleActiveBranchId(OrganisationMembership $membership): ?string
+    {
+        $branchIds = $this->session->during(
+            null,
+            (string) $membership->organisation_id,
+            null,
+            fn (): Collection => OrganisationBranch::withoutTenancy()
+                ->where('organisation_id', $membership->organisation_id)
+                ->where('status', BranchStatus::Active)
+                ->pluck('id'),
+        );
+
+        if ($branchIds->count() !== 1) {
+            return null;
+        }
+
+        return (string) $branchIds->first();
     }
 }

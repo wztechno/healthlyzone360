@@ -27,9 +27,34 @@
 #     A module that may hold code never depends on one that may not.
 #   - Kitchen and commercial permissions remain registry proposals until their
 #     modules are implemented (plan §10).
+#
+# The graduation bar — what `foundation` still owes before it may become
+# `active` (reviewed 2026-08-03, reconciliation sweep):
+#
+#   `active` is a claim that the module's **declared capability is complete
+#   through an approved API or UI surface**. It is not a reward for finishing a
+#   phase, and it is not implied by the schema being done. Fourteen modules
+#   reached `foundation` across P0→B2 and **none of them graduated**, because
+#   two conditions hold across the whole family and each module has its own on
+#   top:
+#
+#     1. The universal app cannot yet run the capability against the real API.
+#        The api-mode client covers reference reads, verification, account,
+#        guest, B2B applications, marketplace reads and order placement; the
+#        kitchen-admin surface, cart and checkout preview still answer
+#        `prototype.not_implemented` for every method (risk R-030). A
+#        capability nobody can reach through an approved surface is not
+#        complete through one.
+#     2. Several declared capabilities are gated on decisions nobody has taken
+#        — a real SMS provider (A-011), real plan prices (A-013, R-031),
+#        supplier allergen confirmation (A-014, R-019), a payment module.
+#
+#   Per module, the specific bar is written in the comment above its entry.
+#   When in doubt the answer is `foundation`: an over-claimed status is the one
+#   kind of registry error the architecture test cannot catch.
 
 version: 1
-updated: "2026-08-02"
+updated: "2026-08-03"
 
 modules:
   # ── Active platform modules (phase 1) ─────────────────────────────────────
@@ -118,12 +143,24 @@ modules:
   # ingredient, written only by ingredient services — that needs the
   # vocabulary. Declaring both directions would be a cycle, and this is the
   # direction the code actually takes.
+  #
+  # Graduation bar (Ingredients): the management API is served and the
+  # api-mode client still rejects every call on it (R-030), so no operator can
+  # reach this capability through an approved surface. Additionally the 73
+  # DEC1 determinations are `requires_supplier_confirmation` (A-014), which is
+  # the module's own data telling it the mapping work is unfinished.
   - name: Ingredients
     status: foundation
     phase: 2
     description: Ingredient master database (platform library plus tenant rows), categories, aliases, allergen mappings, designation resolution.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Allergens]
 
+  # Graduation bar (Allergens): the public class list is served and switched,
+  # which is most of the declared capability. What is missing is the
+  # governance half — per-market applicability and thresholds are columns
+  # nobody administers through a surface (OQ-037), and the platform-library
+  # write path has no stated review rule (OQ-047). Arabic display names are
+  # partly English fallbacks pending review (OQ-033).
   - name: Allergens
     status: foundation
     phase: 2
@@ -138,6 +175,13 @@ modules:
   # (draft | review_required | published | retired) and its quarantine gate.
   # Costing is deliberately absent — the cost columns exist on the lines and
   # no surface reads them until K1.3 introduces `recipe.view_costs_organisation`.
+  #
+  # Graduation bar (Recipes): costing landed in K1.3 and the whole editor is
+  # served, but the api-mode client rejects all of it (R-030). Two imported
+  # facts also stand against a completeness claim — the duplicate Caesar Sauce
+  # has two draft versions and no answer (OQ-041), and 29 indicative sauce and
+  # dressing drafts hold prose instead of quantities by design (D-057), so a
+  # large part of the recipe library is structurally unpublishable.
   - name: Recipes
     status: foundation
     phase: 2
@@ -179,6 +223,12 @@ modules:
   # cycle the architecture test rejects. Nothing that may hold code depends on
   # Kitchens, so widening it here stays acyclic — and the importer is
   # kitchen-onboarding work, which is what this module is for.
+  #
+  # Graduation bar (Kitchens): this entry's own description names what is
+  # absent — menus, approved meal-plan receipt and kitchen instructions. The
+  # branch operating data is served and unreachable from api-mode (R-030), and
+  # the importer is a console command with no surface at all. F1 is where the
+  # rest of a kitchen's capability lives.
   - name: Kitchens
     status: foundation
     phase: 2
@@ -226,6 +276,16 @@ modules:
   # (`Http/Controllers/Public*`, `Presenters/Marketplace*`,
   # `Services/Marketplace*`), which is also where the codebase already puts a
   # public projection: beside the module that owns the data.
+  #
+  # Graduation bar (Marketplace): this is the closest of the fourteen. The
+  # anonymous read surface is complete, switched and running against the real
+  # backend — kitchens, meals, reference reads, and since DEC1 the plans page
+  # too. It stays `foundation` for two reasons and they are both honest:
+  # dietitians and diet categories are still fixture-backed with no backend of
+  # any kind (master plan v2 §3 #14), so the consumer *view of the catalogue*
+  # is not whole; and the plan prices it publishes are owner approximations
+  # (A-013, R-031). It graduates when the dietitian directory has a backend or
+  # the description drops the claim, and when the prices are real.
   - name: Marketplace
     status: foundation
     phase: 3
@@ -239,6 +299,12 @@ modules:
   # (draft | review_required | published | retired) and a minimal readiness
   # gate. Prices are deliberately absent — nothing here carries an amount, a
   # margin or a currency; that whole surface is K1.5's Pricing module.
+  #
+  # Graduation bar (Catalogues): the management surface is served and rejected
+  # by the api-mode client (R-030). The plan half also carries an inert
+  # capability — energy-band price scaling is implemented and no imported
+  # configuration attaches a band to exercise it (OQ-046) — and a capability
+  # nothing exercises has not been proven complete.
   - name: Catalogues
     status: foundation
     phase: 2
@@ -255,6 +321,13 @@ modules:
   #
   # Commission structures and premium listings are Marketplace's, not this
   # module's; the description narrows to what the code actually is.
+  #
+  # Graduation bar (Pricing): effective-dated supersession works and is proven
+  # by 74 real rows being superseded rather than updated (D-075). It stays
+  # `foundation` because the price-list administration — the surface an owner
+  # is expected to correct those approximations through — is served and
+  # unreachable from api-mode (R-030), so the honest statement is that the
+  # correction path exists in the API and not in anybody's hands.
   - name: Pricing
     status: foundation
     phase: 2
@@ -285,11 +358,41 @@ modules:
   # somewhere a kitchen actually goes. The edge runs Customers → Delivery and
   # not the reverse; delivery knows nothing about customers, which is what
   # keeps the graph acyclic.
+  #
+  # G1 and J2 have since landed inside this module — the guest journey (guest
+  # accounts, capability-token sessions, deletion requests, suppression
+  # hashes) and the closure journey (reason and scope vocabularies, the
+  # blocker registry, OTP step-up, scheduled closure, anonymisation and
+  # hash-only tombstones). The description below says so; it used to promise
+  # them.
+  #
+  # Two edges are added by the 2026-08-03 sweep because the code holds the
+  # imports and the registry did not say so: **AccessControl**
+  # (`AccountAnonymiser` bumps `PermissionCache` when it ends a membership)
+  # and **Ingredients** (`CustomerFoodExclusion` belongs to an `Ingredient`).
+  # Neither closes a cycle.
+  #
+  # **One edge is real and deliberately absent.** `Closure\Blockers\
+  # OpenOrdersBlocker` type-hints `Healthy360\Orders\Contracts\OpenOrderQuery`,
+  # so this module depends on Orders at compile time — and Orders declares
+  # Customers, so declaring the truth would close a cycle and fail
+  # `ModuleRegistryTest`. The interface points the wrong way: a consumer should
+  # declare what it needs and the provider implement it, which is exactly what
+  # the same provider does correctly for `OrderAnonymisation` (declared here,
+  # bound by Orders). Recorded as risk R-029 rather than declared, so a reader
+  # finds a stated choice instead of an omission.
+  #
+  # Graduation bar (Customers): activation still cannot require a phone in
+  # production because no SMS provider exists (A-011), so the declared
+  # lifecycle runs in its degraded, email-only form by design. The staff-facing
+  # read of the special-category dietary cluster has no surface. Retention and
+  # purge windows are configuration placeholders awaiting legal sign-off
+  # (OQ-029, OQ-030, OQ-002).
   - name: Customers
     status: foundation
     phase: 2
-    description: Customer accounts in their consumer, corporate and guest shapes with the provisional-to-active lifecycle and its server-authoritative activation evaluator, addresses anchored to the platform delivery gazetteer, and the dietary cluster — profile, allergen declarations and food exclusions — held as special-category data. Closure and anonymisation arrive with J2; the guest journey with G1.
-    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent, Audit, Verification, Delivery, Allergens]
+    description: Customer accounts in their consumer, corporate and guest shapes with the provisional-to-active lifecycle and its server-authoritative activation evaluator, addresses anchored to the platform delivery gazetteer, the dietary cluster — profile, allergen declarations and food exclusions — held as special-category data, the guest journey (capability-token sessions, guest checkout, conversion without re-keying, expiry and OTP-verified erasure) and the closure journey (reason and scope vocabularies, a blocker registry over real modules, OTP step-up, scheduled closure, anonymisation and hash-only tombstones).
+    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent, Audit, AccessControl, Verification, Delivery, Allergens, Ingredients]
 
   # Flipped to `foundation` by J1: the OTP framework — challenges with peppered
   # code hashes, a five-minute window, three attempts counted before the
@@ -307,6 +410,17 @@ modules:
   # Step-up verification for closure, payment details and B2B signatures is
   # reserved in the purpose vocabulary and issued by nobody yet: those journeys
   # are J2's, PAY1's and B1's.
+  #
+  # All six purposes have consumers now — contact verification, guest
+  # ordering, guest deletion, closure step-up, B2B signing and B2 sign-off —
+  # so `isIssuable()` opened to all of them and `grantsStepUp()` narrowed to
+  # the two that may stamp a step-up (D-064).
+  #
+  # Graduation bar (Verification): the module's declared capability *names*
+  # SMS and WhatsApp, and both are log drivers. Until a provider is selected
+  # and its deliverability measured (A-011, INT-005, INT-006), two thirds of
+  # the declared channel capability is simulated, and a status of `active`
+  # would be the single most misleading row in this file.
   - name: Verification
     status: foundation
     phase: 2
