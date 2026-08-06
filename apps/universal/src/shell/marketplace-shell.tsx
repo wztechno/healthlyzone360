@@ -9,9 +9,11 @@ import { Platform, Pressable, View } from 'react-native';
 
 import { DevBanner } from '../dev/dev-banner.tsx';
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
+import { useLogoutMutation } from '../data/hooks.ts';
+import { useCartQuery } from '../data/marketplace-hooks.ts';
 import { MARKETPLACE_NAVIGATION } from '../navigation/consumer-items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
-import { usePrototypeAction } from '../prototype/prototype-action.ts';
+import { useSession } from '../session/session-provider.tsx';
 
 const SHELL_TEST_ID = 'marketplace-shell';
 const CONTENT_TEST_ID = `${SHELL_TEST_ID}-content`;
@@ -27,9 +29,11 @@ const CONTENT_TEST_ID = `${SHELL_TEST_ID}-content`;
  *
  * Three things follow from being a *public* surface:
  *
- * * **No sign-out, ever.** The trailing slot offers the two things an anonymous person can do —
- *   sign in, or create an account — and the language switch. An asserted absence, not an oversight:
- *   the Playwright landing test fails if a sign-out control appears here.
+ * * **Auth-aware trailing actions.** Anonymous visitors get sign-in and register. A signed-in
+ *   person gets "My home", basket and sign-out — never a second Sign-in button that pretends they
+ *   are still a guest. The basket sits with those account controls because the person just came
+ *   from browsing meals on this chrome; burying it only under `/customer` would hide the thing
+ *   they just filled.
  * * **A footer.** No workspace has one; a site does, and it is where the secondary destinations and
  *   the prototype disclosure live.
  * * **A skip link.** A marketing page puts a row of navigation between the top of the document and
@@ -92,33 +96,38 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const pathname = usePathname();
     const { locale, setLocale } = useLocale();
     const { state: connectivity } = useOnlineStatus();
-    const runPrototypeAction = usePrototypeAction();
+    const { phase } = useSession();
+    const logout = useLogoutMutation();
+    const signedIn = phase !== 'anonymous' && phase !== 'restoring';
+    // Count only while signed in: `getCart` opens a basket lazily, and an anonymous visit must not
+    // create one just to paint a zero. Guests who add a meal are steered through the guest-entry
+    // dialog onto checkout instead.
+    const cart = useCartQuery(signedIn);
+    const cartCount = cart.data?.itemCount ?? 0;
+    const cartLabel = t('marketplace:consumer.nav.cart');
+    const cartButtonLabel =
+        cartCount > 0
+            ? t('marketplace:consumer.nav.cartWithCount', {
+                  label: cartLabel,
+                  items: cartCount,
+              })
+            : cartLabel;
 
+    // Available destinations only — deferred stubs (e.g. dietitians) stay documented in the
+    // table but are not rendered (real-kitchen-commerce plan Phase A).
     const navigation = useMemo<readonly NavigationItem[]>(
         () =>
-            MARKETPLACE_NAVIGATION.map((item) => ({
+            MARKETPLACE_NAVIGATION.filter((item) => item.status === 'available').map((item) => ({
                 key: item.key,
-                // A destination a later wave owns says so in its own label. Doc 17, MKT-04:
-                // show the capability, and state what unlocks it.
-                label:
-                    item.status === 'available'
-                        ? t(item.labelKey)
-                        : t('marketplace:nav.plannedSuffix', { label: t(item.labelKey) }),
+                label: t(item.labelKey),
                 icon: item.icon,
                 active: pathname === item.href,
                 testID: `marketplace-nav-${item.key}`,
                 onPress: () => {
-                    if (item.status === 'available') {
-                        router.push(item.href as never);
-                        return;
-                    }
-                    runPrototypeAction({
-                        contract: item.contract ?? item.href,
-                        message: t('marketplace:nav.plannedNotice', { label: t(item.labelKey) }),
-                    });
+                    router.push(item.href as never);
                 },
             })),
-        [pathname, router, runPrototypeAction, t],
+        [pathname, router, t],
     );
 
     /** Remember the page the person was on, then send them to authenticate. */
@@ -179,24 +188,63 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
                 }}
             />
-            <Button
-                testID="marketplace-register"
-                size="sm"
-                variant="ghost"
-                label={t('marketplace:nav.register')}
-                onPress={() => {
-                    goToAuth('/register');
-                }}
-            />
-            <Button
-                testID="marketplace-sign-in"
-                size="sm"
-                variant="primary"
-                label={t('marketplace:nav.signIn')}
-                onPress={() => {
-                    goToAuth('/sign-in');
-                }}
-            />
+            {signedIn ? (
+                <>
+                    <Button
+                        testID="marketplace-my-home"
+                        size="sm"
+                        variant="ghost"
+                        label={t('marketplace:nav.myHome')}
+                        onPress={() => {
+                            router.push('/customer' as never);
+                        }}
+                    />
+                    <Button
+                        testID="marketplace-basket"
+                        size="sm"
+                        variant="ghost"
+                        label={cartButtonLabel}
+                        onPress={() => {
+                            router.push('/customer/cart' as never);
+                        }}
+                    />
+                    <Button
+                        testID="marketplace-sign-out"
+                        size="sm"
+                        variant="secondary"
+                        label={t('common:action.signOut')}
+                        loading={logout.isPending}
+                        onPress={() => {
+                            logout.mutate(undefined, {
+                                onSuccess: () => {
+                                    router.replace('/' as never);
+                                },
+                            });
+                        }}
+                    />
+                </>
+            ) : (
+                <>
+                    <Button
+                        testID="marketplace-register"
+                        size="sm"
+                        variant="ghost"
+                        label={t('marketplace:nav.register')}
+                        onPress={() => {
+                            goToAuth('/register');
+                        }}
+                    />
+                    <Button
+                        testID="marketplace-sign-in"
+                        size="sm"
+                        variant="primary"
+                        label={t('marketplace:nav.signIn')}
+                        onPress={() => {
+                            goToAuth('/sign-in');
+                        }}
+                    />
+                </>
+            )}
         </Inline>
     );
 
@@ -210,7 +258,9 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         { key: 'dietitians', labelKey: 'marketplace:nav.dietitians', href: '/dietitians' },
         { key: 'how-it-works', labelKey: 'marketplace:nav.howItWorks', href: '/how-it-works' },
         { key: 'for-business', labelKey: 'marketplace:nav.forBusiness', href: '/for-business' },
-        { key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' },
+        signedIn
+            ? { key: 'my-home', labelKey: 'marketplace:nav.myHome', href: '/customer' }
+            : { key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' },
     ];
 
     const footer = (
