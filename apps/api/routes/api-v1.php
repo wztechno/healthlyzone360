@@ -565,9 +565,35 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::get('/me/orders', MyOrderIndexController::class)->name('me.orders.index');
         Route::get('/me/orders/{order}', MyOrderShowController::class)->name('me.orders.show');
 
+        /*
+        |------------------------------------------------------------------
+        | Payments (C1)
+        |------------------------------------------------------------------
+        |
+        | **The create is the buyer's and the other two are the seller's, and
+        | the split in the middleware is the split in the act.** Opening an
+        | intent is part of checking out: it names an order, `OrderLocator`
+        | scopes that order to the caller's own customer account, and a
+        | customer is a member of no organisation, so `org.context` here would
+        | ask for a header nobody shopping has. Capturing takes the money and
+        | refunding gives it back — both are the kitchen's decisions about the
+        | kitchen's money, and `payment_intents.organisation_id` has always
+        | held the kitchen (it is copied from the order).
+        |
+        | Before this the pair had neither the header nor a scope on the model,
+        | so `whereKey()` resolved *any* tenant's intent for any verified
+        | caller — capture and refund on somebody else's payment, by
+        | identifier alone. `PaymentIntent` is now `OrganisationScoped`, which
+        | makes a foreign intent **absent** rather than forbidden: a `404`,
+        | never a `403`, because a `403` would confirm that the identifier
+        | names something real.
+        */
         Route::post('/payments/intents', PaymentIntentStoreController::class)->name('payments.intents.store');
-        Route::post('/payments/intents/{paymentIntent}/capture', PaymentIntentCaptureController::class)->name('payments.intents.capture');
-        Route::post('/payments/intents/{paymentIntent}/refunds', PaymentRefundStoreController::class)->name('payments.intents.refunds.store');
+
+        Route::middleware('org.context')->group(function (): void {
+            Route::post('/payments/intents/{paymentIntent}/capture', PaymentIntentCaptureController::class)->name('payments.intents.capture');
+            Route::post('/payments/intents/{paymentIntent}/refunds', PaymentRefundStoreController::class)->name('payments.intents.refunds.store');
+        });
 
         /*
         |------------------------------------------------------------------

@@ -24,7 +24,14 @@ final readonly class PaymentsInvoicingSettlementLookup implements InvoicingSettl
 
     public function outstandingInvoices(string $organisationId): SettlementCheck
     {
-        $uncaptured = PaymentIntent::query()
+        // `withoutTenancy()` and not a lapse: the only caller is a platform
+        // operator winding up a corporate relationship, whose published
+        // organisation is the *platform's* while `$organisationId` is the
+        // customer's (D-066). The global scope would match the two against
+        // each other and answer "clear" about a company nobody had looked at.
+        // The predicate is named here instead, on the argument the caller was
+        // already required to prove they may ask about.
+        $uncaptured = PaymentIntent::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('method_kind', PaymentMethodKind::Invoice)
             ->whereIn('status', [PaymentIntentStatus::Pending, PaymentIntentStatus::Authorized])

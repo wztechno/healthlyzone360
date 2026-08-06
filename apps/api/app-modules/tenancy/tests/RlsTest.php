@@ -116,6 +116,27 @@ use Illuminate\Support\Str;
 | scope: `SubscriptionLocator`, `ResolvesClosureRequest`, `ResolvesOffboarding`
 | and `ScheduleProjection::forOrganisation()`.
 |
+| The payments and POS repair leaves the set at **eleven** as well, and this
+| one is worth stating because the tables sound like they belong here.
+| `payment_intents` and `pos_shifts` both gained the fail-closed organisation
+| scope they should always have had — an unscoped `whereKey()` on either was
+| letting one tenant capture, refund or sell against another's row — and
+| neither gained a policy:
+|
+|   * `payment_intents` — `app-scope`, on the `carts`/`orders` precedent C1
+|     set. It is the child of `orders`, which holds the delivery address and
+|     deliberately has no policy; a policy on the child of an unguarded parent
+|     buys database isolation for the amount while leaving the street
+|     unguarded. It would also read **zero rows** on the two paths that
+|     legitimately run outside the owning tenant's context — the buyer-side
+|     create, where no organisation is published at all, and
+|     `PaymentsInvoicingSettlementLookup`, which is the `b2b_offboardings`
+|     shape above: a platform operator asking about somebody else's
+|     organisation. Both name `withoutTenancy()` and their own predicate.
+|   * `pos_shifts` — `app-scope`, because its parent `pos_registers` has none
+|     and a shift carries no price, no formulation and no personal data. It is
+|     a marker of who was at which counter and when.
+|
 */
 
 uses()->group('rls');

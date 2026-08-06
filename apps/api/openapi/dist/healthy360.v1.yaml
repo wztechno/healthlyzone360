@@ -10713,6 +10713,12 @@ paths:
         implying.** A retried request records a second sale. Clients must not
         retry this call automatically.
 
+        **`pos_shift_id` must name a shift of the caller's own organisation.**
+        A shift belonging to another kitchen is `404`, the same answer an
+        identifier that names nothing gets: the sale is written against
+        `X-Organisation-Id`, so a foreign shift that resolved would stitch two
+        tenants into one transaction.
+
         Requires `catalogue.manage_organisation`. No `org.trading` — the
         operations family is deliberately left open to a suspended kitchen
         finishing what it already owes.
@@ -10990,6 +10996,12 @@ paths:
         A signed-in person with no customer account at all is `403
         account.verification_required` with
         `details.outstanding: ["customer_account_missing"]`.
+
+        **No `X-Organisation-Id` here, unlike capture and refund.** Opening an
+        intent is the buyer's act and a customer is a member of no
+        organisation; the authority is ownership of the order, and the intent
+        takes its organisation from that order — the kitchen being paid. That
+        organisation is what the capture and refund endpoints then require.
       parameters:
         - $ref: '#/components/parameters/XClientRequestId'
       requestBody:
@@ -11040,7 +11052,18 @@ paths:
         There is no `If-Match` and no `Idempotency-Key`. The `409` is what
         stops a double capture, so a client that retries must be prepared to
         read it as "already done" rather than as a failure.
+
+        **This is the kitchen's endpoint, not the customer's**, and it
+        requires `X-Organisation-Id`. An intent belongs to the organisation
+        being paid — the amount and the currency came from that kitchen's
+        order — and taking the money is that kitchen's act. An intent belonging
+        to any other organisation is **`404`**, exactly as an identifier that
+        names nothing is: a `403` would confirm that the payment exists.
+
+        No permission code. The narrowing is the organisation, which
+        `org.context` has already validated a membership against.
       parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/PaymentIntentPath'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
@@ -11054,11 +11077,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaymentIntentEnvelope'
         '400':
-          $ref: '#/components/responses/RequestInvalid'
+          $ref: '#/components/responses/ContextRequired'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/EmailUnverified'
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -11078,16 +11101,29 @@ paths:
         **Only a `captured` intent may be refunded** — anything else is `409
         resource.conflict`.
 
-        **The amount is not checked against what was captured, or against
-        what has already been refunded.** A caller may over-refund, and the
-        API will record it. That is stated here rather than hidden because a
-        client building a refund form is the only thing currently standing
-        between an operator and a typo.
+        **The amount is capped at what is still refundable** — the captured
+        amount less every refund already recorded against the intent. Over it
+        is `409 payment.refund_exceeds_capture`, carrying `captured_minor`,
+        `refunded_minor` and `refundable_minor` in `details` so a form can show
+        the remaining balance rather than a bare rejection. The check and the
+        write share one transaction against a locked row, so two refunds sent
+        at once cannot both find room in the same balance.
 
         The refund is a row of its own. **The intent's status does not
         change**: there is no `refunded` state, and an intent that has been
-        refunded in full still reads `captured`.
+        refunded in full still reads `captured`. `refundable_minor` on a
+        refusal is how a client learns that nothing is left.
+
+        **This is the kitchen's endpoint, not the customer's**, and it
+        requires `X-Organisation-Id` — the same organisation the intent
+        belongs to, which is the one the order was placed with. Any other
+        organisation's intent is **`404`**, not `403`, because a `403` would
+        confirm the payment exists.
+
+        No permission code. The narrowing is the organisation, which
+        `org.context` has already validated a membership against.
       parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/PaymentIntentPath'
         - $ref: '#/components/parameters/XClientRequestId'
       requestBody:
@@ -11119,14 +11155,16 @@ paths:
                         $ref: '#/components/schemas/Refund'
                   meta:
                     $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/EmailUnverified'
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/ResourceConflict'
+          $ref: '#/components/responses/RefundRefused'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -16842,6 +16880,30 @@ components:
               details:
                 current_lock_version: 4
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    RefundRefused:
+      description: |
+        The refund was refused. Either the intent is not `captured`
+        (`resource.conflict`), or the amount is larger than what is still
+        refundable (`payment.refund_exceeds_capture`), which carries
+        `details.captured_minor`, `details.refunded_minor` and
+        `details.refundable_minor` so a form can show the remaining balance
+        rather than a bare rejection.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: payment.refund_exceeds_capture
+              message: This refund is larger than the amount still refundable on this payment.
+              details:
+                captured_minor: 4000
+                refunded_minor: 2750
+                refundable_minor: 1250
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     AllergenBaselineWeakened:
       description: |
         The submitted data is invalid. On an allergen replacement this is
@@ -17694,6 +17756,7 @@ components:
         - offboarding.refused
         - offboarding.settlement_outstanding
         - record_export.unavailable
+        - payment.refund_exceeds_capture
         - rate_limit.exceeded
         - server.internal_error
     Error:

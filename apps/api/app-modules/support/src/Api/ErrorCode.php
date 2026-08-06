@@ -328,6 +328,23 @@ enum ErrorCode: string
      */
     case RecordExportUnavailable = 'record_export.unavailable';
 
+    /**
+     * A refund would take more than the intent ever captured, counting every
+     * refund already recorded against it. Its own code rather than
+     * `resource.conflict`, which says only that the resource moved under the
+     * caller: nothing here has moved — the intent is `captured` and stays
+     * `captured` — and the caller has asked for money that was never taken.
+     * The remedy is a smaller amount, not a reload, and a refund form is the
+     * only thing standing between an operator and a typo, so it is owed the
+     * arithmetic rather than a generic denial.
+     *
+     * `details.captured_minor`, `details.refunded_minor` and
+     * `details.refundable_minor` carry the three numbers, so a client can say
+     * "£12.50 of £40.00 is left" instead of re-deriving it from a list it may
+     * not have read.
+     */
+    case PaymentRefundExceedsCapture = 'payment.refund_exceeds_capture';
+
     case RateLimitExceeded = 'rate_limit.exceeded';
 
     case ServerInternalError = 'server.internal_error';
@@ -367,7 +384,8 @@ enum ErrorCode: string
             self::ClosureRefused,
             self::OffboardingRefused,
             self::OffboardingSettlementOutstanding,
-            self::RecordExportUnavailable => 409,
+            self::RecordExportUnavailable,
+            self::PaymentRefundExceedsCapture => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
@@ -444,6 +462,7 @@ enum ErrorCode: string
             self::OffboardingRefused => 'This offboarding cannot do that from its current state.',
             self::OffboardingSettlementOutstanding => 'Settlement is not resolved, so this offboarding cannot move to sign-off.',
             self::RecordExportUnavailable => 'This records bundle is not available to download.',
+            self::PaymentRefundExceedsCapture => 'This refund is larger than the amount still refundable on this payment.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
         };

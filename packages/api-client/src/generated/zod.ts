@@ -70,6 +70,7 @@ export const zErrorCode = z.enum([
     'offboarding.refused',
     'offboarding.settlement_outstanding',
     'record_export.unavailable',
+    'payment.refund_exceeds_capture',
     'rate_limit.exceeded',
     'server.internal_error'
 ]);
@@ -9664,6 +9665,7 @@ export const zCreatePaymentIntentHeaders = z.object({
 export const zCreatePaymentIntentResponse = zPaymentIntentEnvelope;
 
 export const zCapturePaymentIntentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
 });
 
@@ -9679,6 +9681,7 @@ export const zCapturePaymentIntentResponse = zPaymentIntentEnvelope;
 export const zCreateRefundBody = zCreateRefundRequest;
 
 export const zCreateRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
 });
 

@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -21168,7 +21168,13 @@ export type CreatePaymentIntentResponse = CreatePaymentIntentResponses[keyof Cre
 
 export type CapturePaymentIntentData = {
     body?: never;
-    headers?: {
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
         /**
          * An opaque client-generated identifier for support correlation. Logged
          * and echoed back; never used as the correlation identifier.
@@ -21188,8 +21194,12 @@ export type CapturePaymentIntentData = {
 
 export type CapturePaymentIntentErrors = {
     /**
-     * The request could not be processed as sent — typically a session
-     * endpoint reached without a first-party `Origin`.
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
      *
      */
     400: ErrorEnvelope;
@@ -21198,7 +21208,11 @@ export type CapturePaymentIntentErrors = {
      */
     401: ErrorEnvelope;
     /**
-     * The address has not been verified.
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
      */
     403: ErrorEnvelope;
     /**
@@ -21232,7 +21246,13 @@ export type CapturePaymentIntentResponse = CapturePaymentIntentResponses[keyof C
 
 export type CreateRefundData = {
     body: CreateRefundRequest;
-    headers?: {
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
         /**
          * An opaque client-generated identifier for support correlation. Logged
          * and echoed back; never used as the correlation identifier.
@@ -21252,11 +21272,25 @@ export type CreateRefundData = {
 
 export type CreateRefundErrors = {
     /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
      * No usable credential was presented.
      */
     401: ErrorEnvelope;
     /**
-     * The address has not been verified.
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
      */
     403: ErrorEnvelope;
     /**
@@ -21264,10 +21298,12 @@ export type CreateRefundErrors = {
      */
     404: ErrorEnvelope;
     /**
-     * The change conflicts with the current state. On a lock-versioned
-     * write this is a lost race, and `details.current_lock_version` is the
-     * value to reload against, so a client can offer "reload" or "keep
-     * mine" without a second round trip.
+     * The refund was refused. Either the intent is not `captured`
+     * (`resource.conflict`), or the amount is larger than what is still
+     * refundable (`payment.refund_exceeds_capture`), which carries
+     * `details.captured_minor`, `details.refunded_minor` and
+     * `details.refundable_minor` so a form can show the remaining balance
+     * rather than a bare rejection.
      *
      */
     409: ErrorEnvelope;

@@ -28,6 +28,12 @@ final class PosSaleStoreController
             'lines.*.line_total_minor' => ['required', 'integer', 'min:0'],
         ]);
 
+        // `PosShift` is organisation-scoped, so a shift belonging to another
+        // kitchen simply is not here and this is a `404` — the same answer a
+        // fabricated identifier gets, which is the point. Confirming that a
+        // real shift exists somewhere else would leak the fact of it, and the
+        // transaction below writes `$context->organisationId()`, so a foreign
+        // shift that resolved would have stitched two tenants into one sale.
         $shift = PosShift::query()->whereKey($validated['pos_shift_id'])->firstOrFail();
         $total = array_sum(array_column($validated['lines'], 'line_total_minor'));
         $kind = PaymentMethodKind::from($validated['payment_method_kind']);
