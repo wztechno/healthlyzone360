@@ -370,7 +370,9 @@ export function createApiGuestRepository(transport: Transport): GuestRepository 
                 );
             }
 
-            const wire = await transport.request<WireGuestOrder>({
+            // `{ data: { order } }` — the transport peels the envelope's `data`, and the endpoint's
+            // own `order` wrapper is peeled here rather than mistaken for the order itself.
+            const payload = await transport.request<{ order: WireGuestOrder }>({
                 method: 'POST',
                 path: '/guest/orders',
                 guest: true,
@@ -386,19 +388,19 @@ export function createApiGuestRepository(transport: Transport): GuestRepository 
                 },
             });
 
-            return mapOrder(wire);
+            return mapOrder(payload.order);
         },
 
         async getOrder(reference: string): Promise<GuestOrder> {
             // The memo first, then the value as given — which is correct when a caller already
             // holds an identifier, and is the only thing left to try when it does not.
             const identifier = orderIds.get(reference) ?? reference;
-            const wire = await transport.request<WireGuestOrder>({
+            const payload = await transport.request<{ order: WireGuestOrder }>({
                 method: 'GET',
                 path: `/guest/orders/${encodeURIComponent(identifier)}`,
                 guest: true,
             });
-            return mapOrder(wire);
+            return mapOrder(payload.order);
         },
 
         /**

@@ -86,7 +86,7 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(repositories.business.listCatalogue).not.toBe(
             API_PROTOTYPE_REPOSITORIES.business.listCatalogue,
         );
-        expect(repositories.business.getCorporateProgramme).toBe(
+        expect(repositories.business.getCorporateProgramme).not.toBe(
             API_PROTOTYPE_REPOSITORIES.business.getCorporateProgramme,
         );
         expect(repositories.professional).toBe(API_PROTOTYPE_REPOSITORIES.professional);

@@ -9,6 +9,7 @@ import type {
     MealId,
     MealPlanEntryId,
     MealPlanId,
+    OrderId,
     PriceListId,
     ProductId,
     RecipeId,
@@ -70,6 +71,7 @@ export const QUERY_ROOTS = [
     'professional',
     'kitchenAdmin',
     'kitchenOps',
+    'kitchenOrders',
     'account',
     'verification',
     'guest',
@@ -370,6 +372,30 @@ export const queryKeys = {
     },
 
     /**
+     * ── kitchenOrders: the seller's view of the orders placed against this kitchen ───────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `commerce`, for the reason
+     * `api-client/src/contracts/kitchen-orders.ts`'s header gives: `commerce` caches the *buyer's*
+     * receipt, and this caches the seller's ticket — the same underlying row, two different shapes,
+     * two different audiences, and an invalidation that should never cross between them. A kitchen
+     * confirming an order must not evict a customer's order history, and vice versa.
+     *
+     * Unlike `kitchenOps`, this family **does** have a row-by-identifier entry: the detail panel
+     * reads one order on its own, and it is the entry that carries the `lockVersion` the three
+     * lifecycle actions send as `If-Match`.
+     *
+     * **Never persisted**, on the same terms as `kitchenAdmin` and `kitchenOps`, and one step
+     * further out than either: an order carries a named customer's delivery address, so it is
+     * commercial data *and* somebody else's personal data, on a tablet the whole kitchen signs into.
+     */
+    kitchenOrders: {
+        all: () => ['kitchenOrders'] as const,
+        list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
+        order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
+    },
+
+    /**
      * ── account: the D2C account area (J1) ──────────────────────────────────────────────────────
      *
      * `overview` and `checklist` are separate entries over overlapping data on purpose. The
@@ -551,7 +577,9 @@ export const queryKeys = {
  * on a device that is not theirs. Adding a root here is a privacy decision, which is why it is a
  * single reviewable list rather than a per-query flag. `platformAdmin` (PA1) is absent on the
  * clearest grounds of any of them: it holds the names and email addresses of the owners of
- * organisations the reader does not belong to.
+ * organisations the reader does not belong to. `kitchenOrders` is absent on both grounds at once —
+ * a kitchen's order book is commercial data *and* a list of named customers' delivery addresses,
+ * held on a tablet the whole kitchen signs into.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

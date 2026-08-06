@@ -97,7 +97,11 @@ import type { OtpChannel } from './verification.ts';
  * - **`cart.line_refused`** — a line cannot be ordered: unpublished, out of area, past the cut-off.
  *   The basket marks the line and keeps the rest, which a whole-request failure cannot express.
  * - **`order.placement_refused`** — the basket priced but the order was refused as a whole. The
- *   checkout returns to the basket rather than showing a confirmation nobody will honour.
+ *   checkout returns to the basket rather than showing a confirmation nobody will honour. It carries
+ *   `reasons`, on the same terms the subscription refusals do: the backend refuses a placement for
+ *   several things at once — an account that is not active, a zone that has been suspended, a
+ *   cut-off that passed while the basket sat open — and a checkout that could only say "no" would
+ *   send somebody back to a basket with nothing to change.
  * - **`b2b.application_state_invalid`** — the write is legal for some state and not this one,
  *   usually because a reviewer moved the application in another tab. The wizard refetches.
  * - **`b2b.documents_incomplete`** — submission was refused for missing documents rather than
@@ -188,13 +192,18 @@ export const API_FAILURE_CODES = [
 export type ApiFailureCode = (typeof API_FAILURE_CODES)[number];
 
 /**
- * One entry of a subscription refusal.
+ * One entry of a refusal.
+ *
+ * Named for the surface that needed it first; it is now the platform's *one* refusal-reason shape,
+ * carried by `order.placement_refused` as well as by the two subscription codes, because the backend
+ * sends the identical `details.reasons` array for all three and a second interface would be the same
+ * two fields under another name.
  *
  * `reason` is the server's own vocabulary member — `inside_cut_off`, `duration_not_offered`,
- * `area_not_served` — and `context` is the rest of the object *verbatim*, because what travels
- * beside a reason differs per reason and is exactly what makes the message specific:
- * `inside_cut_off` carries `delivery_date`, `cut_off_hours` and `effective_from`, and a screen
- * that dropped them could only say "too late" to somebody who wants to know until when.
+ * `area_not_served`, `cut_off_passed`, `zone_suspended` — and `context` is the rest of the object
+ * *verbatim*, because what travels beside a reason differs per reason and is exactly what makes the
+ * message specific: `inside_cut_off` carries `delivery_date`, `cut_off_hours` and `effective_from`,
+ * and a screen that dropped them could only say "too late" to somebody who wants to know until when.
  *
  * `reason` is a plain `string` rather than a closed union on purpose. The backend's list is long,
  * differs between the two subscription codes and will grow; a client that narrowed it would have to
@@ -232,6 +241,8 @@ type SimpleFailureCode = Exclude<
     | 'otp.invalid'
     | 'otp.cooldown_active'
     | 'otp.attempts_exceeded'
+    // The placement refusal carries the same `reasons` array the two subscription codes do.
+    | 'order.placement_refused'
     // Five of the six refusal codes. `record_export.unavailable` is deliberately not here — see the
     // last bullet of the header.
     | 'subscription.refused'
@@ -294,6 +305,21 @@ export type ApiFailure =
            * not say".
            */
           readonly availableChannels: readonly OtpChannel[];
+      })
+    | (ApiFailureBase & {
+          readonly code: 'order.placement_refused';
+          /**
+           * Every reason the placement was refused, in the server's order.
+           *
+           * Its own union member rather than a third code on the subscription one, so that
+           * `Extract<ApiFailure, { code: 'subscription.refused' | … }>` keeps narrowing to exactly
+           * the two codes it names. The *shape* is shared, which is the part that matters: a
+           * checkout and a configurator render a refusal list the same way.
+           *
+           * Required and possibly empty. Empty means the server refused without naming a reason,
+           * which a checkout has to be able to tell apart from "it did not refuse".
+           */
+          readonly reasons: readonly SubscriptionRefusal[];
       })
     | (ApiFailureBase & {
           readonly code: 'subscription.refused' | 'subscription.change_refused';
@@ -617,6 +643,30 @@ export function otpLockedFailure(
  * ---------------------------------------------------------------------------------------------- */
 
 /**
+ * An order the platform will not accept.
+ *
+ * Built through a builder rather than through `apiFailure` for the reason every refusal above is:
+ * the detail *is* the screen. A checkout that received only the server's sentence would have to tell
+ * somebody their order was refused without saying that the kitchen shut, or that the cut-off passed
+ * while they were choosing a slot — and those are the two things they can act on.
+ *
+ * `reasons` is passed explicitly even when empty, on the same terms `otpLockedFailure` passes an
+ * empty channel list: "refused, and the server named nothing" is a statement, not a missing field.
+ */
+export function orderPlacementRefusedFailure(
+    reasons: readonly SubscriptionRefusal[],
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code: 'order.placement_refused',
+        reasons,
+        message: options.message ?? FALLBACK_MESSAGES['order.placement_refused'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/**
  * A subscription that cannot be bought, or a change that cannot be made.
  *
  * One builder for two codes, because the *shape* is one shape — a list of named reasons with their
@@ -744,6 +794,13 @@ export function isOtpLockedFailure(
     failure: ApiFailure,
 ): failure is Extract<ApiFailure, { code: 'otp.attempts_exceeded' }> {
     return failure.code === 'otp.attempts_exceeded';
+}
+
+/** The placement refusal, so a checkout can reach for `reasons` without a cast. */
+export function isOrderPlacementRefusedFailure(
+    failure: ApiFailure,
+): failure is Extract<ApiFailure, { code: 'order.placement_refused' }> {
+    return failure.code === 'order.placement_refused';
 }
 
 /**

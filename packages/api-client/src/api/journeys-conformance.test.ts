@@ -12,6 +12,7 @@ import type {
 } from '../generated/types.ts';
 import { createApiGuestRepository, mapGuestChallenge } from './guest-repository.ts';
 import { mapErrorEnvelope } from './failures.ts';
+import { createApiOrderPlacement } from './order-repository.ts';
 import {
     createApiReferenceReads,
     mapAllergenClass,
@@ -140,6 +141,111 @@ const RECORDED_GUEST_CHALLENGE: WireGuestChallenge = {
     simulated: false,
 };
 
+/**
+ * `POST /api/v1/guest/orders` — the order, *inside* the endpoint's own `order` wrapper.
+ *
+ * The wrapper is the point. The transport peels one level (`{ data, meta }` → `data`), and the
+ * placement endpoints put the order one level deeper, so a fixture that stubbed the order directly
+ * under `data` would make a repository that forgot to peel look correct.
+ */
+const RECORDED_GUEST_ORDER = {
+    id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e5aa1',
+    order_number: 'H360-G1001',
+    status: 'placed',
+    currency_code: 'AED',
+    subtotal_minor: 9000,
+    delivery_fee_minor: 1500,
+    total_minor: 10500,
+    payment_method: 'cash_on_delivery',
+    delivery: {
+        label: 'Home',
+        line_one: '12 Al Wasl Road',
+        line_two: null,
+        city: 'Dubai',
+        area: 'Al Quoz',
+        window_code: 'morning',
+        requested_date: '2026-08-05',
+    },
+    placed_at: '2026-08-03T09:10:00+00:00',
+    confirmed_at: null,
+    cancelled_at: null,
+    cancellation_reason: null,
+    lines: [
+        {
+            id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e5b01',
+            catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e5c01',
+            name: 'Chicken Shawarma',
+            variant_label: null,
+            quantity: '2.0000',
+            unit_price_minor: 4500,
+            line_total_minor: 9000,
+            currency_code: 'AED',
+            allergens: [],
+            pack_summary: null,
+        },
+    ],
+} as const;
+
+/** `POST /api/v1/orders` — the authenticated half, in the same `{ order }` wrapper. */
+const RECORDED_CUSTOMER_ORDER = {
+    id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8aa1',
+    order_number: 'H360-1042',
+    status: 'placed',
+    currency_code: 'AED',
+    subtotal_minor: 9000,
+    delivery_fee_minor: 1500,
+    total_minor: 10500,
+    payment_method: 'cash_on_delivery',
+    delivery: {
+        label: 'Home',
+        line_one: '12 Al Wasl Road',
+        line_two: null,
+        city: 'Dubai',
+        area_name_en: 'Al Quoz',
+        area_name_ar: 'القوز',
+        area_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2aa1',
+        window_code: 'morning',
+        requested_date: '2026-08-05',
+    },
+    placed_at: '2026-08-03T09:10:00+00:00',
+    confirmed_at: null,
+    fulfilled_at: null,
+    cancelled_at: null,
+    cancellation_reason: null,
+    line_count: 2,
+    lines: [
+        {
+            id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8b01',
+            catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8c01',
+            catalogue_item_variant_id: null,
+            name_en: 'Chicken Shawarma',
+            name_ar: 'شاورما دجاج',
+            variant_label: null,
+            quantity: '2.0000',
+            unit_price_minor: 3000,
+            line_total_minor: 6000,
+            currency_code: 'AED',
+            allergens: [],
+            pack_summary: null,
+        },
+        {
+            id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8b02',
+            catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8c02',
+            catalogue_item_variant_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8d02',
+            name_en: 'Green Juice',
+            name_ar: 'عصير أخضر',
+            variant_label: '500 ml',
+            quantity: '1.0000',
+            unit_price_minor: 3000,
+            line_total_minor: 3000,
+            currency_code: 'AED',
+            allergens: [],
+            pack_summary: null,
+        },
+    ],
+    created_at: '2026-08-03T09:10:00+00:00',
+} as const;
+
 interface Call {
     readonly url: string;
     readonly headers: Record<string, string>;
@@ -187,6 +293,26 @@ describe('the recorded payloads match the generated schemas', () => {
         expect(wire.zOtpChallengeResult.parse(RECORDED_ISSUED_CHALLENGE)).toBeTruthy();
         expect(wire.zVerificationChallenge.parse(RECORDED_CHALLENGE_STATUS)).toBeTruthy();
         expect(wire.zGuestOtpChallenge.parse(RECORDED_GUEST_CHALLENGE)).toBeTruthy();
+    });
+
+    /**
+     * The *envelopes*, not the orders, because the wrapper is the thing that was wrong: both
+     * placement endpoints answer `{ data: { order } }`, and parsing the envelope schema is what
+     * pins the fixture to the level the repository has to peel to.
+     */
+    it('validates both order envelopes, wrapper and all', () => {
+        expect(
+            wire.zGuestOrderEnvelope.parse({
+                data: { order: RECORDED_GUEST_ORDER },
+                meta: { correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2f02' },
+            }),
+        ).toBeTruthy();
+        expect(
+            wire.zCustomerOrderEnvelope.parse({
+                data: { order: RECORDED_CUSTOMER_ORDER },
+                meta: { correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2f03' },
+            }),
+        ).toBeTruthy();
     });
 });
 
@@ -369,33 +495,7 @@ describe('the guest transport', () => {
         const calls: Call[] = [];
         const guest = createApiGuestRepository(
             transportReturning(
-                {
-                    data: {
-                        id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e5aa1',
-                        order_number: 'H360-G1001',
-                        status: 'placed',
-                        currency_code: 'USD',
-                        subtotal_minor: 9000,
-                        delivery_fee_minor: 1500,
-                        total_minor: 10500,
-                        payment_method: 'cash_on_delivery',
-                        delivery: {
-                            label: 'Home',
-                            line_one: '12 Al Wasl Road',
-                            line_two: null,
-                            city: 'Dubai',
-                            area: 'Al Quoz',
-                            window_code: 'morning',
-                            requested_date: '2026-08-05',
-                        },
-                        placed_at: '2026-08-03T09:10:00+00:00',
-                        confirmed_at: null,
-                        cancelled_at: null,
-                        cancellation_reason: null,
-                        lines: [],
-                    },
-                    meta: {},
-                },
+                { data: { order: RECORDED_GUEST_ORDER }, meta: {} },
                 calls,
                 'gst_live',
             ),
@@ -451,6 +551,88 @@ describe('the guest transport', () => {
                 marketingOptIn: false,
             })
             .then(() => null, asApiFailure);
+
+        expect(failure?.code).toBe('validation.failed');
+    });
+
+    /**
+     * The re-read peels the same wrapper the placement does. Asserted separately because it is a
+     * *different* call site, and a repository that peeled one and not the other would answer a
+     * confirmation route with an order whose every field is undefined.
+     */
+    it('peels the order wrapper on a re-read as well as on a placement', async () => {
+        const order = await createApiGuestRepository(
+            transportReturning({ data: { order: RECORDED_GUEST_ORDER }, meta: {} }, [], 'gst_live'),
+        ).getOrder('H360-G1001');
+
+        expect(order.reference).toBe('H360-G1001');
+        expect(order.total).toEqual({ amount: 10500, currency: 'AED' });
+        expect(order.lines).toHaveLength(1);
+    });
+});
+
+/**
+ * `POST /orders` — the authenticated placement.
+ *
+ * The one command on the commerce surface, and until this suite existed the only untested one. Both
+ * properties it has to hold are asserted: the order is read out of the endpoint's `order` wrapper
+ * rather than mistaken for it, and every attempt carries its own idempotency key.
+ */
+describe('the authenticated placement', () => {
+    const REQUEST = {
+        cartId: CartId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e6aa1'),
+        addressId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7aa1',
+        slotCode: 'morning',
+        deliveryDate: '2026-08-05',
+    } as const;
+
+    it('reads the order out of the endpoint wrapper, lines and totals included', async () => {
+        const order = await createApiOrderPlacement(
+            transportReturning({ data: { order: RECORDED_CUSTOMER_ORDER }, meta: {} }),
+        )(REQUEST);
+
+        expect(String(order.id)).toBe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8aa1');
+        expect(order.reference).toBe('H360-1042');
+        expect(order.state).toBe('placed');
+        expect(order.total).toEqual({ amount: 10500, currency: 'AED' });
+        expect(order.slotCode).toBe('morning');
+        expect(order.deliveryDate).toBe('2026-08-05');
+
+        // A variant label is appended to the English name rather than dropped: "Green Juice" and
+        // "Green Juice — 500 ml" are two different things to buy.
+        expect(order.lines.map((line) => line.name)).toEqual([
+            'Chicken Shawarma',
+            'Green Juice — 500 ml',
+        ]);
+        expect(order.lines[0]?.quantity).toBe(2);
+        expect(order.lines[0]?.lineTotal).toEqual({ amount: 6000, currency: 'AED' });
+
+        // The breakdown is rebuilt from the three totals the endpoint sends, and nothing else.
+        expect(order.priceLines.map((line) => line.code)).toEqual(['subtotal', 'delivery']);
+    });
+
+    /** Two presses of the button are two orders; one press retried is one. */
+    it('sends a fresh idempotency key per attempt', async () => {
+        const calls: Call[] = [];
+        const placeOrder = createApiOrderPlacement(
+            transportReturning({ data: { order: RECORDED_CUSTOMER_ORDER }, meta: {} }, calls),
+        );
+
+        await placeOrder(REQUEST);
+        await placeOrder(REQUEST);
+
+        const keys = calls.map((call) => call.headers['Idempotency-Key']);
+        expect(keys[0]).toBeTruthy();
+        expect(keys[1]).toBeTruthy();
+        expect(keys[0]).not.toBe(keys[1]);
+    });
+
+    /** No saved address, no zone, no window and no fee — so it is refused here rather than sent. */
+    it('refuses a request with no saved address, and names the field', async () => {
+        const failure = await createApiOrderPlacement(transportReturning({}))({
+            ...REQUEST,
+            addressId: '',
+        }).then(() => null, asApiFailure);
 
         expect(failure?.code).toBe('validation.failed');
     });
@@ -529,6 +711,41 @@ describe('the fifteen journey wire codes', () => {
             // The one thing worse than a refused order is two accepted ones.
             expect(failure.retryable).toBe(false);
         }
+    });
+
+    /**
+     * A placement refusal is the one journey code that carries structured detail, and dropping it
+     * was a real regression: the checkout could say only "this order could not be placed" to
+     * somebody whose kitchen had shut for the day. Each entry keeps its context verbatim, because
+     * `cut_off_passed` without the cut-off is not a sentence anybody can act on.
+     */
+    it('carries every named reason out of a placement refusal, context and all', () => {
+        const failure = failureFor(
+            'order.placement_refused',
+            {
+                reasons: [
+                    { reason: 'cut_off_passed', cut_off_at: '2026-08-04T18:00:00+00:00' },
+                    { reason: 'zone_suspended' },
+                    // Nothing a screen could say about an entry with no reason.
+                    { context_only: true },
+                ],
+            },
+            409,
+        );
+
+        expect(failure).toMatchObject({ code: 'order.placement_refused', retryable: false });
+        if (failure.code !== 'order.placement_refused') throw new Error('unreachable');
+        expect(failure.reasons).toEqual([
+            { reason: 'cut_off_passed', context: { cut_off_at: '2026-08-04T18:00:00+00:00' } },
+            { reason: 'zone_suspended', context: {} },
+        ]);
+    });
+
+    /** Refused without a reason is a state the checkout has to tell apart from "not refused". */
+    it('reports an empty reason list when the server named none', () => {
+        const failure = failureFor('order.placement_refused', undefined, 409);
+        if (failure.code !== 'order.placement_refused') throw new Error('unreachable');
+        expect(failure.reasons).toEqual([]);
     });
 
     it('keeps the current lock version on a conflict', () => {

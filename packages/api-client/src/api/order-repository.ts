@@ -158,7 +158,10 @@ export function createApiOrderPlacement(
             );
         }
 
-        const wire = await transport.request<WireOrder>({
+        // `{ data: { order } }` on the wire, and the transport peels only the `data`. The second
+        // level is the endpoint's own — `CustomerOrderEnvelope` — so it is peeled here, exactly the
+        // way the cart surface peels `{ cart }`.
+        const payload = await transport.request<{ order: WireOrder }>({
             method: 'POST',
             path: '/orders',
             // A fresh key per attempt. `generateRequestId` is the package's UUID source and already
@@ -179,6 +182,6 @@ export function createApiOrderPlacement(
             },
         });
 
-        return mapPlacedOrder(wire);
+        return mapPlacedOrder(payload.order);
     };
 }

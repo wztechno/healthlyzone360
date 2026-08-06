@@ -65,6 +65,11 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
      * on this role rather than on a bespoke one because Verdant Kitchen's manager is exactly the
      * person the kitchen admin area is for, and inventing a second kitchen role would make the mock
      * world disagree with the backend template roles it mirrors.
+     *
+     * `order.view_organisation` / `order.manage_organisation` (O6) join them on the same terms and
+     * are a *separate* pair rather than more `catalogue.*`: the order book reads a named customer's
+     * delivery address and writes an order's lifecycle, which is not the permission that lets
+     * somebody edit the menu.
      */
     kitchen_manager: [
         'organisation.view_current',
@@ -81,6 +86,8 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
         'price_list.manage_organisation',
         'plan.manage_organisation',
         'delivery_zone.manage_organisation',
+        'order.view_organisation',
+        'order.manage_organisation',
         'device.manage_own',
         'session.revoke_own',
     ],

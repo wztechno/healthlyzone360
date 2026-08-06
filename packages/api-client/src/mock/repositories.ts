@@ -24,6 +24,8 @@ import { createGuestTokenStore } from '../session/guest-token-store.ts';
 import { createGuestMockRepositories } from './guest/repositories.ts';
 import type { GuestMockStore } from './guest/store.ts';
 import { createKitchenOpsMockRepositories } from './kitchen-ops/repositories.ts';
+import { createKitchenOrdersMockRepositories } from './kitchen-orders/repositories.ts';
+import type { KitchenOrdersMockStore } from './kitchen-orders/store.ts';
 import { createInvitationsMockRepositories } from './invitations/repositories.ts';
 import { createPlatformAdminMockRepositories } from './platform-admin/repositories.ts';
 import type { PlatformAdminMockStore } from './platform-admin/store.ts';
@@ -98,6 +100,16 @@ export interface MockRepositories extends Repositories {
      * what a mutation did without going back through a repository.
      */
     readonly kitchenOpsStore: KitchenOpsMockStore;
+
+    /**
+     * The kitchen orders world's mutable store.
+     *
+     * A sibling of `kitchenOpsStore` on the same terms, and exposed for one reason the others do
+     * not have: the three lifecycle actions are lock-versioned, so a test asserting that a stale
+     * write conflicts has to be able to read the version the store now holds without going back
+     * through the repository it is testing.
+     */
+    readonly kitchenOrdersStore: KitchenOrdersMockStore;
 
     /**
      * The PA1 platform-console world.
@@ -337,6 +349,17 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
      * one store the K1 catalogue already shares with eleven other domains.
      */
     const kitchenOpsWorld = createKitchenOpsMockRepositories({ settle });
+
+    /**
+     * The kitchen orders world.
+     *
+     * Built here for the same reason `kitchenOpsWorld` is, and self-contained for a sharper one:
+     * its rows are the *seller's* copy of orders the prototype commerce world also models from the
+     * buyer's side. Sharing one array would make a customer's receipt and a kitchen's ticket the
+     * same object, which is exactly the conflation `../contracts/kitchen-orders.ts`'s header exists
+     * to prevent.
+     */
+    const kitchenOrdersWorld = createKitchenOrdersMockRepositories({ settle });
     const platformAdminWorld = createPlatformAdminMockRepositories({ settle });
 
     /*
@@ -513,6 +536,8 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         kitchenAdmin: prototype.kitchenAdmin,
         kitchenOps: kitchenOpsWorld.kitchenOps,
         kitchenOpsStore: kitchenOpsWorld.store,
+        kitchenOrders: kitchenOrdersWorld.kitchenOrders,
+        kitchenOrdersStore: kitchenOrdersWorld.store,
         invitations: invitationsWorld.invitations,
         platformAdmin: platformAdminWorld.platformAdmin,
         platformAdminStore: platformAdminWorld.store,

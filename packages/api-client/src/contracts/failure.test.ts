@@ -11,6 +11,7 @@ import {
     isApiFailureCode,
     isAutoRetryable,
     isConflictFailure,
+    isOrderPlacementRefusedFailure,
     isPermissionDeniedFailure,
     isOtpCooldownFailure,
     isOtpFailure,
@@ -21,6 +22,7 @@ import {
     otpCooldownFailure,
     otpInvalidFailure,
     otpLockedFailure,
+    orderPlacementRefusedFailure,
     permissionDeniedFailure,
     rateLimitFailure,
     throwFailure,
@@ -195,6 +197,33 @@ describe('failure builders', () => {
         const stranded = otpLockedFailure('2026-08-02T10:05:00.000Z', []);
         if (!isOtpLockedFailure(stranded)) throw new Error('unreachable');
         expect(stranded.availableChannels).toEqual([]);
+    });
+
+    /**
+     * The placement refusal carries the same reason list the subscription ones do. Asserted through
+     * the guard rather than by casting, because the guard is what a checkout screen actually uses to
+     * decide whether it has a list to draw.
+     */
+    it('carries the named reasons, with their context, on a refused placement', () => {
+        const failure = orderPlacementRefusedFailure([
+            { reason: 'cut_off_passed', context: { cut_off_at: '2026-08-04T18:00:00.000Z' } },
+            { reason: 'zone_suspended', context: {} },
+        ]);
+
+        expect(isOrderPlacementRefusedFailure(failure)).toBe(true);
+        if (!isOrderPlacementRefusedFailure(failure)) throw new Error('unreachable');
+        expect(failure.reasons.map((entry) => entry.reason)).toEqual([
+            'cut_off_passed',
+            'zone_suspended',
+        ]);
+        expect(failure.reasons[0]?.context).toEqual({ cut_off_at: '2026-08-04T18:00:00.000Z' });
+        expect(failure.retryable).toBe(false);
+
+        // An empty list is a statement — "refused, and nothing was named" — not a missing field.
+        const unexplained = orderPlacementRefusedFailure([]);
+        if (!isOrderPlacementRefusedFailure(unexplained)) throw new Error('unreachable');
+        expect(unexplained.reasons).toEqual([]);
+        expect(unexplained.message.length).toBeGreaterThan(0);
     });
 
     it('treats otp.expired and otp.channel_unavailable as plain failures', () => {

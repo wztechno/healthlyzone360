@@ -1,6 +1,7 @@
 import { createMemoryTokenStore } from '@healthy360/api-client';
 import { MOCK_SCENARIOS, createMockRepositories } from '@healthy360/api-client/mock';
 import type { MockRepositories } from '@healthy360/api-client/mock';
+import { ApiError, orderPlacementRefusedFailure } from '@healthy360/api-client/contracts';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { PLAN_DURATIONS, SUBSCRIPTION_STATES } from '@healthy360/domain-types';
 import type { AllergenCode, PlanDuration, SubscriptionId } from '@healthy360/domain-types';
@@ -978,32 +979,87 @@ async function fillAddress(prefix: string) {
     });
 }
 
+/**
+ * A basket **and** the saved address the placement resolves a zone, a window and a fee from.
+ *
+ * The fixture person deliberately starts with no address — "add an address" is one of the setup
+ * steps the account area exists to walk somebody through — so a checkout test that wants to reach
+ * the place-order button has to put one there first, exactly as a person would.
+ */
+async function seedCheckout(quantity = 1) {
+    const fillBasket = await seedBasket(quantity);
+
+    return async (repositories: MockRepositories) => {
+        await fillBasket(repositories);
+        const areas = await repositories.account.listServiceAreas();
+        await repositories.account.addAddress({
+            label: 'Home',
+            areaId: areas[0]!.id,
+            line1: '12 Sunset Street',
+        });
+    };
+}
+
+/** Choose the one saved address and commit the delivery details, which reveals "place order". */
+async function reviewCheckout(repositories: MockRepositories) {
+    const [address] = await repositories.account.listAddresses();
+
+    await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
+    await fireEvent.press(
+        await screen.findByTestId(`checkout-address-picker-option-${String(address?.id)}`),
+    );
+    // Choosing an address re-prices, so the review control goes away and comes back.
+    await waitFor(() => {
+        expect(screen.getByTestId('checkout-review')).toBeTruthy();
+    });
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('checkout-review'));
+    });
+    await waitFor(() => {
+        expect(screen.getByTestId('checkout-place-order')).toBeTruthy();
+    });
+}
+
 describe('CheckoutScreen', () => {
     it('says there is nothing to check out when the basket is empty', async () => {
         await renderCommerce(<CheckoutScreen />);
         await waitFor(() => {
             expect(screen.getByTestId('checkout-empty')).toBeTruthy();
         });
-        expect(screen.getByTestId('checkout-prototype-notice')).toBeTruthy();
+        expect(screen.getByTestId('checkout-browse')).toBeTruthy();
     });
 
-    it('collects an address and a window, and never a payment instrument', async () => {
+    /**
+     * The placement takes an address *identifier*, so a person with nothing saved cannot be given a
+     * form to type into — they are sent to the address book, which is the only place that produces
+     * one.
+     */
+    it('sends somebody with no saved address to the address book', async () => {
         await renderCommerce(<CheckoutScreen />, { seed: await seedBasket(1) });
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-address-form')).toBeTruthy();
+            expect(screen.getByTestId('checkout-addresses-empty')).toBeTruthy();
+        });
+        expect(screen.getByTestId('checkout-add-address')).toBeTruthy();
+    });
+
+    it('picks a saved address and a kitchen window, and never a payment instrument', async () => {
+        await renderCommerce(<CheckoutScreen />, { seed: await seedCheckout(1) });
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-address-picker')).toBeTruthy();
         });
 
         expect(screen.getByTestId('checkout-slot-picker')).toBeTruthy();
         expect(screen.getByTestId('checkout-date-field')).toBeTruthy();
-        expect(screen.getByTestId('checkout-address-form-storage-note')).toBeTruthy();
+        // Cash on delivery, stated on the summary once the basket has been priced.
+        expect(await screen.findByTestId('checkout-payment-notice')).toBeTruthy();
 
         // The property that matters most on this screen is an absence.
         expect(screen.queryByTestId('checkout-card-number')).toBeNull();
         expect(screen.queryByTestId('checkout-payment')).toBeNull();
     });
 
-    it('refuses to review an incomplete address and says which field is missing', async () => {
-        await renderCommerce(<CheckoutScreen />, { seed: await seedBasket(1) });
+    it('refuses to review until an address has been chosen', async () => {
+        await renderCommerce(<CheckoutScreen />, { seed: await seedCheckout(1) });
         await waitFor(() => {
             expect(screen.getByTestId('checkout-review')).toBeTruthy();
         });
@@ -1013,54 +1069,18 @@ describe('CheckoutScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-address-form-line1')).toBeTruthy();
+            expect(screen.getByTestId('checkout-address-error')).toBeTruthy();
         });
-        // Still on the collecting phase: no place-order control has appeared.
+        // Still collecting: no place-order control has appeared.
         expect(screen.queryByTestId('checkout-place-order')).toBeNull();
     });
 
-    it('commits the delivery details and re-prices against them', async () => {
-        await renderCommerce(<CheckoutScreen />, { seed: await seedBasket(1) });
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-address-form')).toBeTruthy();
-        });
-        await fillAddress('checkout-address-form');
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('checkout-address-form-area-input'),
-                'Downtown',
-            );
-        });
+    it('answers "place order" with a confirmation, and the basket is the order now', async () => {
+        const harness = await renderCommerce(<CheckoutScreen />, { seed: await seedCheckout(1) });
+        await reviewCheckout(harness.repositories);
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('checkout-review'));
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-place-order')).toBeTruthy();
-        });
         expect(screen.getByTestId('checkout-committed-address')).toBeTruthy();
         expect(screen.getByTestId('checkout-committed-slot')).toBeTruthy();
-    });
-
-    it('answers "place order" with a success screen that says no payment was taken', async () => {
-        const harness = await renderCommerce(<CheckoutScreen />, { seed: await seedBasket(1) });
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-address-form')).toBeTruthy();
-        });
-        await fillAddress('checkout-address-form');
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('checkout-address-form-area-input'),
-                'Downtown',
-            );
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('checkout-review'));
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-place-order')).toBeTruthy();
-        });
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-place-order'));
@@ -1069,12 +1089,53 @@ describe('CheckoutScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('checkout-success-screen')).toBeTruthy();
         });
-        expect(screen.getByTestId('checkout-success-prototype')).toBeTruthy();
-        expect(screen.getByTestId('checkout-success-price-total-amount')).toBeTruthy();
+        expect(screen.getByTestId('checkout-success-reference')).toBeTruthy();
+        // Cash on delivery, said out loud rather than implied by the absence of a receipt.
+        expect(screen.getByTestId('checkout-success-cod')).toBeTruthy();
 
-        // The basket is deliberately untouched: emptying it would assert that an order exists.
+        // The basket became the order. Leaving the lines behind would let one screen place the
+        // same basket twice.
         const cart = await harness.repositories.commerce.getCart();
-        expect(cart.items).toHaveLength(1);
+        expect(cart.items).toHaveLength(0);
+    });
+
+    /**
+     * A refusal names every reason, and the checkout lists them. Asserted because the alternative —
+     * one sentence saying the order could not be placed — sends somebody back to a basket with
+     * nothing to change.
+     */
+    it('lists every reason a placement was refused', async () => {
+        const harness = await renderCommerce(<CheckoutScreen />, {
+            seed: async (repositories) => {
+                await (
+                    await seedCheckout(1)
+                )(repositories);
+                Object.assign(repositories.commerce, {
+                    placeOrder: () =>
+                        Promise.reject(
+                            new ApiError(
+                                orderPlacementRefusedFailure([
+                                    { reason: 'zone_suspended', context: {} },
+                                    { reason: 'cut_off_passed', context: {} },
+                                ]),
+                            ),
+                        ),
+                });
+            },
+        });
+
+        await reviewCheckout(harness.repositories);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-place-error')).toBeTruthy();
+        });
+        expect(screen.getByTestId('checkout-place-error-reason-zone_suspended')).toBeTruthy();
+        expect(screen.getByTestId('checkout-place-error-reason-cut_off_passed')).toBeTruthy();
+        // Refused means refused: no confirmation was drawn.
+        expect(screen.queryByTestId('checkout-success-screen')).toBeNull();
     });
 });
 

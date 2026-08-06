@@ -3,6 +3,7 @@ import {
     Callout,
     Card,
     DateField,
+    FAILURE_MESSAGE_KEYS,
     Heading,
     Inline,
     SegmentedControl,
@@ -117,6 +118,17 @@ export function CheckoutScreen() {
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation: CheckoutPreview | undefined = preview.data;
     const placeFailure = toFailure(placeOrder.error);
+
+    /*
+     * A refusal names *every* reason it was refused for, and the checkout lists them.
+     *
+     * The alternative — one sentence saying the order could not be placed — sends somebody back to
+     * a basket with nothing to change. Reasons the catalogue has no copy for still appear, as the
+     * server's own code, because a refusal this build has not learned about yet is still a fact
+     * about somebody's dinner.
+     */
+    const refusalReasons =
+        placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
 
     const rows: readonly PriceRow[] =
         quotation === undefined
@@ -379,8 +391,34 @@ export function CheckoutScreen() {
                                                 tone="danger"
                                                 icon="warning"
                                                 title={t('commerce:checkout.placeFailedTitle')}
-                                                body={placeFailure.message}
-                                            />
+                                                body={t(
+                                                    FAILURE_MESSAGE_KEYS[placeFailure.code],
+                                                    // The server's own sentence only when this
+                                                    // build has no copy for the code — never in
+                                                    // preference to it.
+                                                    { defaultValue: placeFailure.message },
+                                                )}
+                                            >
+                                                {refusalReasons.length === 0 ? null : (
+                                                    <Stack
+                                                        space="xs"
+                                                        testID="checkout-place-error-reasons"
+                                                    >
+                                                        {refusalReasons.map((entry) => (
+                                                            <Text
+                                                                key={entry.reason}
+                                                                variant="caption"
+                                                                testID={`checkout-place-error-reason-${entry.reason}`}
+                                                            >
+                                                                {`• ${t(
+                                                                    `errors:orderRefusal.${entry.reason}`,
+                                                                    { defaultValue: entry.reason },
+                                                                )}`}
+                                                            </Text>
+                                                        ))}
+                                                    </Stack>
+                                                )}
+                                            </Callout>
                                         )}
 
                                         {committed === null ? (
@@ -403,6 +441,12 @@ export function CheckoutScreen() {
                                                     {t('commerce:checkout.committedSlot', {
                                                         slot: t(
                                                             `commerce:slots.${committed.slotCode}`,
+                                                            // Same treatment the picker gives: a
+                                                            // kitchen may publish a window code
+                                                            // this catalogue has never heard of,
+                                                            // and the code itself reads better
+                                                            // than `commerce:slots.late_evening`.
+                                                            { defaultValue: committed.slotCode },
                                                         ),
                                                         date: formatter.formatDate(
                                                             committed.deliveryDate,
@@ -489,7 +533,9 @@ function OrderPlaced({
                     <Text testID="checkout-success-address">{delivery.addressLabel}</Text>
                     <Text tone="secondary" testID="checkout-success-slot">
                         {t('commerce:checkout.committedSlot', {
-                            slot: t(`commerce:slots.${delivery.slotCode}`),
+                            slot: t(`commerce:slots.${delivery.slotCode}`, {
+                                defaultValue: delivery.slotCode,
+                            }),
                             date: formatter.formatDate(delivery.deliveryDate, {
                                 dateStyle: 'full',
                             }),

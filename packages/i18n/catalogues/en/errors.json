@@ -68,5 +68,31 @@
         "offboarding_refused": "This wind-down cannot move that way from where it is. Reload to see what is possible now.",
         "offboarding_settlement_outstanding": "Settlement is not resolved yet, so this cannot be signed off. Settle or waive the outstanding checks first.",
         "record_export_unavailable": "This bundle is not available to download yet. Check back once it is ready."
+    },
+    "orderRefusal": {
+        "account_not_ready": "Your account setup is not finished yet. Complete the outstanding steps and try again.",
+        "account_not_active": "Your account is not active, so an order cannot be placed on it.",
+        "guest_not_verified": "Confirm the code we sent before placing this order.",
+        "cart_empty": "Your basket is empty.",
+        "cart_not_open": "This basket has already been used or closed. Start a new one.",
+        "currency_mismatch": "Part of this basket is priced in a different currency, so it cannot be ordered in one go.",
+        "address_not_owned": "That delivery address is not on your account. Choose another one.",
+        "address_not_deliverable": "That address cannot be delivered to. Choose another one.",
+        "area_not_served": "Healthy360 does not deliver to that area yet.",
+        "zone_suspended": "Deliveries to that area are paused at the moment.",
+        "mixed_delivery_dates": "This basket asks for more than one delivery date. Order them separately.",
+        "agreement_required": "Your organisation needs an active agreement before ordering here.",
+        "minimum_order_not_met": "This order is below the minimum this kitchen accepts.",
+        "channel_unknown": "This basket is not attached to a kitchen that is selling right now.",
+        "cut_off_passed": "The kitchen's cut-off for that day has passed. Choose a later date.",
+        "closed": "The kitchen is closed on that day. Choose another date.",
+        "date_in_the_past": "That delivery date has already passed. Choose a later one.",
+        "channel_not_trading": "This kitchen is not taking orders at the moment.",
+        "item_unknown": "Something in your basket is no longer on the menu.",
+        "item_not_published": "Something in your basket is not on sale right now.",
+        "variant_unknown": "An option you chose is no longer offered.",
+        "variant_not_active": "An option you chose is no longer available.",
+        "channel_unavailable": "Something in your basket is not offered on that day.",
+        "unpriced": "Something in your basket has no price for that day."
     }
 }

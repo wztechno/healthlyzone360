@@ -8,6 +8,7 @@ import type { CommerceRepository } from './commerce.ts';
 import type { FoodRepository } from './foods.ts';
 import type { KitchenAdminRepository } from './kitchen-admin.ts';
 import type { KitchenOpsRepository } from './kitchen-ops.ts';
+import type { KitchenOrdersRepository } from './kitchen-orders.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
 import type { MealPlanRepository } from './planner.ts';
@@ -28,6 +29,7 @@ export {
     isApiFailureCode,
     isAutoRetryable,
     isConflictFailure,
+    isOrderPlacementRefusedFailure,
     isOtpCooldownFailure,
     isOtpFailure,
     isOtpInvalidFailure,
@@ -37,6 +39,7 @@ export {
     isValidationFailure,
     otpCooldownFailure,
     otpInvalidFailure,
+    orderPlacementRefusedFailure,
     otpLockedFailure,
     permissionDeniedFailure,
     rateLimitFailure,
@@ -48,6 +51,7 @@ export type {
     ApiFailureCode,
     ConflictFailureOptions,
     FailureOptions,
+    SubscriptionRefusal,
     ValidationFields,
 } from './failure.ts';
 
@@ -382,6 +386,27 @@ export type {
     Supplier,
 } from './kitchen-ops.ts';
 
+export {
+    KITCHEN_ORDER_CANCELLATION_REASONS,
+    KITCHEN_ORDER_OPEN_STATUSES,
+    KITCHEN_ORDER_PAYMENT_METHODS,
+    KITCHEN_ORDER_STATUSES,
+} from './kitchen-orders.ts';
+export type {
+    CancelKitchenOrderRequest,
+    KitchenOrder,
+    KitchenOrderCancellationReason,
+    KitchenOrderDelivery,
+    KitchenOrderFilters,
+    KitchenOrderLine,
+    KitchenOrderLineAllergen,
+    KitchenOrderPage,
+    KitchenOrderPaymentMethod,
+    KitchenOrdersRepository,
+    KitchenOrderStatus,
+    KitchenOrderTransitionRequest,
+} from './kitchen-orders.ts';
+
 export { REVIEW_PRIORITIES, REVIEW_QUEUE_STATES, REVIEW_SUBJECTS } from './professional.ts';
 export type {
     ApproveReviewRequest,
@@ -679,6 +704,17 @@ export interface Repositories {
      * why the two contracts do not share a shape.
      */
     readonly kitchenOps: KitchenOpsRepository;
+
+    /**
+     * The orders placed against this kitchen, and the three actions that move them.
+     *
+     * A sibling of `commerce` rather than a branch of it. `commerce` is the *buyer's* order — a
+     * receipt, with no tariff, no delivery zone and no lock version on it — and this one is the
+     * seller's, which carries all three because this is the audience that writes. See
+     * `./kitchen-orders.ts`'s header for why the two shapes are built independently rather than one
+     * being the other minus some fields.
+     */
+    readonly kitchenOrders: KitchenOrdersRepository;
 
     /**
      * Platform administration of kitchen tenants (PA1) — the nineteenth field.

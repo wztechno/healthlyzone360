@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4966 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5067 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1945,6 +1945,30 @@ export interface NamespaceKeys {
     | 'network.offline'
     | 'network.timeout'
     | 'network.unreachable'
+    | 'orderRefusal.account_not_active'
+    | 'orderRefusal.account_not_ready'
+    | 'orderRefusal.address_not_deliverable'
+    | 'orderRefusal.address_not_owned'
+    | 'orderRefusal.agreement_required'
+    | 'orderRefusal.area_not_served'
+    | 'orderRefusal.cart_empty'
+    | 'orderRefusal.cart_not_open'
+    | 'orderRefusal.channel_not_trading'
+    | 'orderRefusal.channel_unavailable'
+    | 'orderRefusal.channel_unknown'
+    | 'orderRefusal.closed'
+    | 'orderRefusal.currency_mismatch'
+    | 'orderRefusal.cut_off_passed'
+    | 'orderRefusal.date_in_the_past'
+    | 'orderRefusal.guest_not_verified'
+    | 'orderRefusal.item_not_published'
+    | 'orderRefusal.item_unknown'
+    | 'orderRefusal.minimum_order_not_met'
+    | 'orderRefusal.mixed_delivery_dates'
+    | 'orderRefusal.unpriced'
+    | 'orderRefusal.variant_not_active'
+    | 'orderRefusal.variant_unknown'
+    | 'orderRefusal.zone_suspended'
     | 'validation.accept_privacy'
     | 'validation.accept_terms'
     | 'validation.email'
@@ -2362,6 +2386,8 @@ export interface NamespaceKeys {
     | 'families.ingredients.name'
     | 'families.meals.description'
     | 'families.meals.name'
+    | 'families.orders.description'
+    | 'families.orders.name'
     | 'families.plans.description'
     | 'families.plans.name'
     | 'families.priceLists.description'
@@ -2512,6 +2538,81 @@ export interface NamespaceKeys {
     | 'nav.overview'
     | 'nav.railTitle'
     | 'ops.metricUnavailable'
+    | 'ops.orders.allLoaded'
+    | 'ops.orders.cancel'
+    | 'ops.orders.cancelBody'
+    | 'ops.orders.cancelConfirm'
+    | 'ops.orders.cancelDismiss'
+    | 'ops.orders.cancelReasonLabel'
+    | 'ops.orders.cancelTitle'
+    | 'ops.orders.cancellationHeading'
+    | 'ops.orders.cancellationReason'
+    | 'ops.orders.cancelledAt'
+    | 'ops.orders.cancelledToast'
+    | 'ops.orders.caption'
+    | 'ops.orders.clearFilters'
+    | 'ops.orders.columnActions'
+    | 'ops.orders.columnDelivery'
+    | 'ops.orders.columnItems'
+    | 'ops.orders.columnNumber'
+    | 'ops.orders.columnPlaced'
+    | 'ops.orders.columnStatus'
+    | 'ops.orders.columnTotal'
+    | 'ops.orders.confirm'
+    | 'ops.orders.confirmedAt'
+    | 'ops.orders.confirmedToast'
+    | 'ops.orders.conflictBody'
+    | 'ops.orders.conflictRefresh'
+    | 'ops.orders.conflictTitle'
+    | 'ops.orders.deliveryAddress'
+    | 'ops.orders.deliveryArea'
+    | 'ops.orders.deliveryDate'
+    | 'ops.orders.deliveryFee'
+    | 'ops.orders.deliveryHeading'
+    | 'ops.orders.deliveryWindow'
+    | 'ops.orders.deliveryZone'
+    | 'ops.orders.detailLoadErrorTitle'
+    | 'ops.orders.detailTitle'
+    | 'ops.orders.emptyBody'
+    | 'ops.orders.emptyTitle'
+    | 'ops.orders.filterAll'
+    | 'ops.orders.filteredEmptyBody'
+    | 'ops.orders.filteredEmptyTitle'
+    | 'ops.orders.fulfil'
+    | 'ops.orders.fulfilledAt'
+    | 'ops.orders.fulfilledToast'
+    | 'ops.orders.lineQuantity'
+    | 'ops.orders.lineTotal'
+    | 'ops.orders.lineUnitPrice'
+    | 'ops.orders.linesHeading'
+    | 'ops.orders.loadErrorTitle'
+    | 'ops.orders.loadMore'
+    | 'ops.orders.loadingMore'
+    | 'ops.orders.metrics.awaiting'
+    | 'ops.orders.metrics.confirmed'
+    | 'ops.orders.metrics.loaded'
+    | 'ops.orders.noAllergens'
+    | 'ops.orders.noDeliveryFee'
+    | 'ops.orders.open'
+    | 'ops.orders.placedAt'
+    | 'ops.orders.reason.addressUnreachable'
+    | 'ops.orders.reason.customerRequested'
+    | 'ops.orders.reason.deliveryUnavailable'
+    | 'ops.orders.reason.kitchenUnableToFulfil'
+    | 'ops.orders.saveFailed'
+    | 'ops.orders.searchHint'
+    | 'ops.orders.searchLabel'
+    | 'ops.orders.status.cancelled'
+    | 'ops.orders.status.confirmed'
+    | 'ops.orders.status.fulfilled'
+    | 'ops.orders.status.placed'
+    | 'ops.orders.statusFilterLabel'
+    | 'ops.orders.subtitle'
+    | 'ops.orders.subtotal'
+    | 'ops.orders.timelineHeading'
+    | 'ops.orders.title'
+    | 'ops.orders.total'
+    | 'ops.orders.totalsHeading'
     | 'ops.procurement.addLine'
     | 'ops.procurement.columnLines'
     | 'ops.procurement.columnReceivedAt'
@@ -6932,6 +7033,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:network.offline',
   'errors:network.timeout',
   'errors:network.unreachable',
+  'errors:orderRefusal.account_not_active',
+  'errors:orderRefusal.account_not_ready',
+  'errors:orderRefusal.address_not_deliverable',
+  'errors:orderRefusal.address_not_owned',
+  'errors:orderRefusal.agreement_required',
+  'errors:orderRefusal.area_not_served',
+  'errors:orderRefusal.cart_empty',
+  'errors:orderRefusal.cart_not_open',
+  'errors:orderRefusal.channel_not_trading',
+  'errors:orderRefusal.channel_unavailable',
+  'errors:orderRefusal.channel_unknown',
+  'errors:orderRefusal.closed',
+  'errors:orderRefusal.currency_mismatch',
+  'errors:orderRefusal.cut_off_passed',
+  'errors:orderRefusal.date_in_the_past',
+  'errors:orderRefusal.guest_not_verified',
+  'errors:orderRefusal.item_not_published',
+  'errors:orderRefusal.item_unknown',
+  'errors:orderRefusal.minimum_order_not_met',
+  'errors:orderRefusal.mixed_delivery_dates',
+  'errors:orderRefusal.unpriced',
+  'errors:orderRefusal.variant_not_active',
+  'errors:orderRefusal.variant_unknown',
+  'errors:orderRefusal.zone_suspended',
   'errors:validation.accept_privacy',
   'errors:validation.accept_terms',
   'errors:validation.email',
@@ -7346,6 +7471,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
   'kitchen:families.meals.name',
+  'kitchen:families.orders.description',
+  'kitchen:families.orders.name',
   'kitchen:families.plans.description',
   'kitchen:families.plans.name',
   'kitchen:families.priceLists.description',
@@ -7496,6 +7623,81 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
   'kitchen:ops.metricUnavailable',
+  'kitchen:ops.orders.allLoaded',
+  'kitchen:ops.orders.cancel',
+  'kitchen:ops.orders.cancelBody',
+  'kitchen:ops.orders.cancelConfirm',
+  'kitchen:ops.orders.cancelDismiss',
+  'kitchen:ops.orders.cancelReasonLabel',
+  'kitchen:ops.orders.cancelTitle',
+  'kitchen:ops.orders.cancellationHeading',
+  'kitchen:ops.orders.cancellationReason',
+  'kitchen:ops.orders.cancelledAt',
+  'kitchen:ops.orders.cancelledToast',
+  'kitchen:ops.orders.caption',
+  'kitchen:ops.orders.clearFilters',
+  'kitchen:ops.orders.columnActions',
+  'kitchen:ops.orders.columnDelivery',
+  'kitchen:ops.orders.columnItems',
+  'kitchen:ops.orders.columnNumber',
+  'kitchen:ops.orders.columnPlaced',
+  'kitchen:ops.orders.columnStatus',
+  'kitchen:ops.orders.columnTotal',
+  'kitchen:ops.orders.confirm',
+  'kitchen:ops.orders.confirmedAt',
+  'kitchen:ops.orders.confirmedToast',
+  'kitchen:ops.orders.conflictBody',
+  'kitchen:ops.orders.conflictRefresh',
+  'kitchen:ops.orders.conflictTitle',
+  'kitchen:ops.orders.deliveryAddress',
+  'kitchen:ops.orders.deliveryArea',
+  'kitchen:ops.orders.deliveryDate',
+  'kitchen:ops.orders.deliveryFee',
+  'kitchen:ops.orders.deliveryHeading',
+  'kitchen:ops.orders.deliveryWindow',
+  'kitchen:ops.orders.deliveryZone',
+  'kitchen:ops.orders.detailLoadErrorTitle',
+  'kitchen:ops.orders.detailTitle',
+  'kitchen:ops.orders.emptyBody',
+  'kitchen:ops.orders.emptyTitle',
+  'kitchen:ops.orders.filterAll',
+  'kitchen:ops.orders.filteredEmptyBody',
+  'kitchen:ops.orders.filteredEmptyTitle',
+  'kitchen:ops.orders.fulfil',
+  'kitchen:ops.orders.fulfilledAt',
+  'kitchen:ops.orders.fulfilledToast',
+  'kitchen:ops.orders.lineQuantity',
+  'kitchen:ops.orders.lineTotal',
+  'kitchen:ops.orders.lineUnitPrice',
+  'kitchen:ops.orders.linesHeading',
+  'kitchen:ops.orders.loadErrorTitle',
+  'kitchen:ops.orders.loadMore',
+  'kitchen:ops.orders.loadingMore',
+  'kitchen:ops.orders.metrics.awaiting',
+  'kitchen:ops.orders.metrics.confirmed',
+  'kitchen:ops.orders.metrics.loaded',
+  'kitchen:ops.orders.noAllergens',
+  'kitchen:ops.orders.noDeliveryFee',
+  'kitchen:ops.orders.open',
+  'kitchen:ops.orders.placedAt',
+  'kitchen:ops.orders.reason.addressUnreachable',
+  'kitchen:ops.orders.reason.customerRequested',
+  'kitchen:ops.orders.reason.deliveryUnavailable',
+  'kitchen:ops.orders.reason.kitchenUnableToFulfil',
+  'kitchen:ops.orders.saveFailed',
+  'kitchen:ops.orders.searchHint',
+  'kitchen:ops.orders.searchLabel',
+  'kitchen:ops.orders.status.cancelled',
+  'kitchen:ops.orders.status.confirmed',
+  'kitchen:ops.orders.status.fulfilled',
+  'kitchen:ops.orders.status.placed',
+  'kitchen:ops.orders.statusFilterLabel',
+  'kitchen:ops.orders.subtitle',
+  'kitchen:ops.orders.subtotal',
+  'kitchen:ops.orders.timelineHeading',
+  'kitchen:ops.orders.title',
+  'kitchen:ops.orders.total',
+  'kitchen:ops.orders.totalsHeading',
   'kitchen:ops.procurement.addLine',
   'kitchen:ops.procurement.columnLines',
   'kitchen:ops.procurement.columnReceivedAt',

@@ -4,6 +4,7 @@ import {
     closureRefusedFailure,
     conflictFailure,
     offboardingRefusedFailure,
+    orderPlacementRefusedFailure,
     otpCooldownFailure,
     otpInvalidFailure,
     otpLockedFailure,
@@ -132,7 +133,7 @@ function readAvailableChannels(details: unknown): readonly OtpChannel[] {
 }
 
 /**
- * `details.reasons` → the list a configurator draws.
+ * `details.reasons` → the list a configurator, or a checkout, draws.
  *
  * Each entry is `{ reason, ...context }` on the wire, and the split is done here rather than in the
  * screen: `reason` is lifted out and *everything else is kept verbatim*, because what travels
@@ -202,9 +203,11 @@ function readRetryAfter(headerValue: string | null, details: unknown): number {
  * reason `validation.failed` and `rate_limit.exceeded` are excluded from the derived type below.
  * Three of the five `otp.*` codes are in that category as well.
  *
- * The ten journey codes (`contact.already_in_use` … `b2b.signatory_required`) are one-for-one and
- * carry nothing but the base three, so they are plain rows: the screen behaviour each one buys is
- * documented on `API_FAILURE_CODES`, and none of them needs a number the message does not carry.
+ * Nine of the ten journey codes (`contact.already_in_use` … `b2b.signatory_required`) are
+ * one-for-one and carry nothing but the base three, so they are plain rows: the screen behaviour
+ * each one buys is documented on `API_FAILURE_CODES`, and none of them needs a number the message
+ * does not carry. The tenth, `order.placement_refused`, carries `details.reasons` and so has a
+ * branch of its own.
  */
 const DIRECT_CODES = {
     'validation.failed': 'validation.failed',
@@ -232,7 +235,8 @@ const DIRECT_CODES = {
     'address.area_not_served': 'address.area_not_served',
     'guest.session_invalid': 'guest.session_invalid',
     'cart.line_refused': 'cart.line_refused',
-    'order.placement_refused': 'order.placement_refused',
+    // `order.placement_refused` is deliberately not here: it carries `details.reasons` and is built
+    // by its own branch below, for the reason the OTP three and the refusal five are.
     'b2b.application_state_invalid': 'b2b.application_state_invalid',
     'b2b.documents_incomplete': 'b2b.documents_incomplete',
     'b2b.signatory_required': 'b2b.signatory_required',
@@ -335,6 +339,23 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
 
     if (code === 'otp.attempts_exceeded' || code === 'otp.locked') {
         return otpLockedFailure(readLockedUntil(details), readAvailableChannels(details), {
+            message,
+            correlationId,
+        });
+    }
+
+    /**
+     * The placement refusal, which carries the same `{ reason, ...context }` list the subscription
+     * codes do — `cart_not_open`, `zone_suspended`, `cut_off_passed`, `branch_closed`, and the rest
+     * of the placement vocabulary, plus a per-line entry for each line that could not be sold.
+     *
+     * Routed through `readRefusalReasons` rather than through `DIRECT_CODES` because that table
+     * builds a failure from `{ message, correlationId }` alone: every reason the server took the
+     * trouble to name was being dropped between the envelope and the checkout, which then had
+     * nothing to show but the server's one English sentence.
+     */
+    if (code === 'order.placement_refused') {
+        return orderPlacementRefusedFailure(readRefusalReasons(details), {
             message,
             correlationId,
         });

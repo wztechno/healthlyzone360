@@ -52,6 +52,13 @@ export const PRICE_LIST_VIEW_PERMISSION = 'price_list.view_organisation';
 export const PRICE_LIST_MANAGE_PERMISSION = 'price_list.manage_organisation';
 export const PLAN_MANAGE_PERMISSION = 'plan.manage_organisation';
 export const DELIVERY_ZONE_MANAGE_PERMISSION = 'delivery_zone.manage_organisation';
+/**
+ * The order book's own pair (O6). Deliberately *not* the catalogue codes the other operations
+ * surfaces borrow: this family reads a named customer's delivery address and writes an order's
+ * lifecycle, so "may edit the menu" is the wrong question to ask before opening it.
+ */
+export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
+export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 
 /**
  * How a family's card reports how much is in it.
@@ -262,6 +269,24 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         href: '/kitchen/branch-operating',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'orders',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.orders.name',
+        descriptionKey: 'kitchen:families.orders.description',
+        // `☰`, three stacked rules — a docket of ordered lines, which is literally what an order
+        // ticket is. It is the third card to carry the glyph (price lists and stock are the others)
+        // and the compromise those two record applies unchanged: the icon set is a table of
+        // typographic characters with no receipt, bag or ticket in it, and every alternative either
+        // belongs to another card or says something untrue (`✓` would call a queue of work "done").
+        icon: 'menu',
+        href: '/kitchen/orders',
+        // First among the operations entries because it is the operational front door: stock,
+        // procurement, production and QC all exist to answer what this list is asking for.
+        permission: ORDER_VIEW_PERMISSION,
+        managePermission: ORDER_MANAGE_PERMISSION,
     },
     {
         key: 'stock',

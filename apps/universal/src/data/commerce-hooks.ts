@@ -201,18 +201,21 @@ export function useCheckoutPreviewQuery(
  * invalidated rather than optimistically emptied: what a basket contains after a placement is the
  * server's answer, and a client that emptied its own copy would be right until it was not.
  *
- * ## No screen calls this yet, and that is the honest state
+ * ## What the checkout hands it
  *
- * `POST /orders` requires a **saved address identifier**, because delivery is resolved from that
- * address's service area — a zone, a window, a fee. The checkout screen predates saved addresses:
- * it collects a typed address that nothing resolves to an area, and the D2C fixture person
- * deliberately has no saved address at all, because "add an address" is one of the setup steps that
- * screen area exists to walk somebody through. Wiring the button to this hook today would replace a
- * working prototype checkout with a blocked one, which is the one thing this phase forbids.
+ * `CheckoutScreen` is the caller, and it sends the four things `POST /orders` takes: the basket, a
+ * **saved address identifier**, a delivery window and a date. The address is an identifier rather
+ * than typed street lines because delivery is resolved from that address's service area — a zone, a
+ * window, a fee — so the screen picks from the address book and offers a route to add one when the
+ * book is empty. The window codes are the kitchen's own published slots, not a client list.
  *
- * So the plumbing lands whole — contract, both repositories, this hook, all tested — and the screen
- * change waits for the slice that gives the checkout a saved-address picker. That slice is a design
- * change, not an integration one.
+ * Nothing on this request is a payment instrument, and there is no field for one: a Healthy360
+ * one-off order is cash on delivery, so placing it creates an obligation to cook and to drive and
+ * charges nothing. The confirmation says so rather than implying a receipt.
+ *
+ * A refused placement comes back as `order.placement_refused` carrying every reason the server
+ * named, and the screen lists them — which is why the failure is left on the mutation rather than
+ * swallowed here.
  */
 export function usePlaceOrderMutation(
     channelCode?: string,

@@ -1,4 +1,6 @@
 import type {
+    KitchenOrderCancellationReason,
+    KitchenOrderStatus,
     ProductionOrderStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
@@ -90,6 +92,72 @@ export function qualityCheckSubjectKey(subjectType: QualityCheckSubjectType): st
     return QUALITY_CHECK_SUBJECT_KEYS[subjectType];
 }
 
+/* ── kitchen orders (O6) ─────────────────────────────────────────────────────────────────────── */
+
+const KITCHEN_ORDER_STATUS_KEYS: Readonly<Record<KitchenOrderStatus, string>> = {
+    placed: 'kitchen:ops.orders.status.placed',
+    confirmed: 'kitchen:ops.orders.status.confirmed',
+    fulfilled: 'kitchen:ops.orders.status.fulfilled',
+    cancelled: 'kitchen:ops.orders.status.cancelled',
+};
+
+export function kitchenOrderStatusKey(status: KitchenOrderStatus): string {
+    return KITCHEN_ORDER_STATUS_KEYS[status];
+}
+
+/**
+ * The tone an order's status badge carries.
+ *
+ * `placed` is a warning rather than a neutral tone, and that is the one interesting choice here: an
+ * unconfirmed order is *work nobody has accepted yet*, which is the only state on this list that is
+ * somebody's job right now. Neutral would read as a settled state, exactly as it would on a
+ * quarantined catalogue row (`./format.ts`). Colour never carries it alone — `Badge` pairs every
+ * tone with its own icon, and the label is beside it.
+ */
+const KITCHEN_ORDER_STATUS_TONES: Readonly<Record<KitchenOrderStatus, BadgeTone>> = {
+    placed: 'warning',
+    confirmed: 'info',
+    fulfilled: 'success',
+    cancelled: 'neutral',
+};
+
+export function kitchenOrderStatusTone(status: KitchenOrderStatus): BadgeTone {
+    return KITCHEN_ORDER_STATUS_TONES[status];
+}
+
+const KITCHEN_ORDER_CANCELLATION_REASON_KEYS: Readonly<
+    Record<KitchenOrderCancellationReason, string>
+> = {
+    customer_requested: 'kitchen:ops.orders.reason.customerRequested',
+    kitchen_unable_to_fulfil: 'kitchen:ops.orders.reason.kitchenUnableToFulfil',
+    delivery_unavailable: 'kitchen:ops.orders.reason.deliveryUnavailable',
+    address_unreachable: 'kitchen:ops.orders.reason.addressUnreachable',
+};
+
+export function kitchenOrderCancellationReasonKey(reason: KitchenOrderCancellationReason): string {
+    return KITCHEN_ORDER_CANCELLATION_REASON_KEYS[reason];
+}
+
+/**
+ * The three lifecycle actions, restated as the questions a button asks.
+ *
+ * They mirror the contract's machine (`contracts/kitchen-orders.ts`) rather than restating it: a
+ * button that offered "Fulfil" on a `placed` order would earn a `resource.conflict` the person did
+ * nothing to deserve, and the panel decides what to *show* from exactly the same table the store
+ * decides what to *accept* from.
+ */
+export function canConfirmKitchenOrder(status: KitchenOrderStatus): boolean {
+    return status === 'placed';
+}
+
+export function canFulfilKitchenOrder(status: KitchenOrderStatus): boolean {
+    return status === 'confirmed';
+}
+
+export function canCancelKitchenOrder(status: KitchenOrderStatus): boolean {
+    return status === 'placed' || status === 'confirmed';
+}
+
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */
 
 export function stockItemRowTestId(stockItemId: string): string {
@@ -114,4 +182,8 @@ export function productionOrderRowTestId(productionOrderId: string): string {
 
 export function qualityCheckRowTestId(qualityCheckId: string): string {
     return `kitchen-quality-check-${qualityCheckId}`;
+}
+
+export function kitchenOrderRowTestId(orderId: string): string {
+    return `kitchen-order-${orderId}`;
 }
