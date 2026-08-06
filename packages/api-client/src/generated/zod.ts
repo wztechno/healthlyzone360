@@ -41,6 +41,7 @@ export const zErrorCode = z.enum([
     'request.idempotency_key_reused',
     'resource.not_found',
     'resource.conflict',
+    'organisation.suspended',
     'catalogue.in_use',
     'catalogue.version_immutable',
     'catalogue.allergen_unmapped',
@@ -4468,16 +4469,19 @@ export const zOrganisationInvitationEnvelope = z.object({
 });
 
 /**
- * `membership` and `membership_created` are present and honest.
- * Acceptance in B1 marks the invitation and stops there; the membership
- * write belongs to Organisations and AccessControl. The keys exist now
- * so the wire shape does not change when it lands.
+ * `membership` and `membership_created` are present and honest. B1
+ * marked the invitation and stopped there; PA1 supplied the membership
+ * write, so both now report what actually happened rather than a
+ * permanent `false`/`null`. The keys existed all along precisely so this
+ * change would not alter the wire shape.
  *
  */
 export const zAcceptedInvitationEnvelope = z.object({
     data: z.object({
         invitation: zOrganisationInvitation,
-        membership: zMembership.nullable(),
+        membership: z.object({
+            id: zUuid
+        }).nullable(),
         membership_created: z.boolean()
     }),
     meta: zMeta
@@ -5393,6 +5397,209 @@ export const zCancelOffboardingRequest = z.object({
 });
 
 /**
+ * What a kitchen has in its catalogue, in the two shapes an operator
+ * reads it in.
+ *
+ * **The type breakdown counts published rows only.** `meals`, `products`
+ * and `plans` answer "what is this kitchen selling", and a half-written
+ * draft is not an answer to that question. `published` and `draft` beside
+ * them are the **progress pair** and count everything, which is why the
+ * three type counts do not add up to `published` when a kitchen sells
+ * something outside those three types, and why `draft` is never included
+ * in any of them.
+ *
+ */
+export const zPlatformKitchenCatalogueCounts = z.object({
+    meals: z.int().gte(0),
+    products: z.int().gte(0),
+    plans: z.int().gte(0),
+    published: z.int().gte(0),
+    draft: z.int().gte(0)
+});
+
+/**
+ * An **active** membership holding the `organisation_owner` role.
+ * Ownership on this platform has always been a membership with the owner
+ * role assigned to it rather than a column or a flag, so this asks the
+ * same question the permission checker asks. Ended and suspended
+ * memberships are excluded: they are people who *used* to be owners, and
+ * counting them would report an owned kitchen nobody can get into.
+ *
+ */
+export const zPlatformKitchenOwner = z.object({
+    membership_id: zUuid,
+    user_id: zUuid,
+    name: z.string().nullable(),
+    email: z.email(),
+    status: z.string()
+});
+
+/**
+ * One of the kitchen's locations, as the platform console lists them.
+ * Deliberately thin: opening hours, cut-offs and delivery zones are the
+ * kitchen's own operational surface, and an operator console that carried
+ * them would become the accidental canonical read for a workspace it does
+ * not own.
+ *
+ */
+export const zPlatformKitchenBranch = z.object({
+    id: zUuid,
+    name: z.string(),
+    city: z.string().nullable(),
+    country_code: z.string().length(2),
+    timezone: z.string(),
+    status: z.enum(['active', 'closed'])
+});
+
+/**
+ * The queue row — enough to scan a list of kitchens and decide which one
+ * to open.
+ *
+ * Two shapes rather than one with a flag, the rule this platform writes
+ * everywhere: a summary and a detail separated by a boolean argument is
+ * one careless call away from returning every owner's email address on a
+ * screen that only wanted names. So the owner *list* lives on the detail
+ * shape and only `owner_count` appears here.
+ *
+ * This is not the organisation shape a member reads about their own
+ * tenant. That one answers "which organisation am I signed into?" and its
+ * capability list is that member's view of themselves; this answers "what
+ * has the platform got here?" about somebody else's tenant, and the two
+ * are expected to diverge.
+ *
+ */
+export const zPlatformKitchenSummary = z.object({
+    id: zUuid,
+    slug: z.string(),
+    name: z.string(),
+    status: z.enum([
+        'active',
+        'suspended',
+        'pending',
+        'closed'
+    ]),
+    country_code: z.string().length(2),
+    default_currency_code: z.string().length(3),
+    default_language_code: z.string().length(2),
+    branch_count: z.int().gte(0),
+    active_branch_count: z.int().gte(0),
+    owner_count: z.int().gte(0),
+    catalogue: zPlatformKitchenCatalogueCounts,
+    suspended_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zPlatformKitchen = zPlatformKitchenSummary.and(z.object({
+    suspension_reason: z.string().max(500).nullable(),
+    suspended_by: zUuid.nullable(),
+    owners: z.array(zPlatformKitchenOwner),
+    branches: z.array(zPlatformKitchenBranch)
+}));
+
+export const zPlatformKitchenEnvelope = z.object({
+    data: z.object({
+        kitchen: zPlatformKitchen
+    }),
+    meta: zMeta
+});
+
+/**
+ * What the lifecycle actions return. The summary rather than the detail,
+ * because suspending a kitchen is not a reason to re-serve every owner's
+ * email address; a console that needs the full row re-reads it.
+ *
+ */
+export const zPlatformKitchenSummaryEnvelope = z.object({
+    data: z.object({
+        kitchen: zPlatformKitchenSummary
+    }),
+    meta: zMeta
+});
+
+/**
+ * **One request creates four things, in one transaction: the
+ * organisation, one active main branch, the `kitchen_production`
+ * capability, and a `b2c_web` sales channel coded `web-shop`.** All four
+ * or none.
+ *
+ * A kitchen that is only an organisation row is a kitchen whose workspace
+ * refuses on the first screen: the organisation context resolves a
+ * *branch* before the kitchen area will open, the capability is what the
+ * workspace reads to know what it is, and a published meal has to be
+ * available on a channel before a price can resolve or a marketplace
+ * listing can appear. Creating the organisation and leaving an operator
+ * to add the rest afterwards was rejected because it makes the console's
+ * success message a lie for the twenty minutes before somebody notices. A
+ * new kitchen works immediately; it simply has nothing in it yet.
+ *
+ * The wholesale channel is deliberately **not** created. A kitchen that
+ * has never traded with a company does not need a B2B channel sitting
+ * inactive in its list.
+ *
+ * **Both names are required.** `organisations` stores a single `name`, so
+ * the Arabic goes onto the sales channel, which carries both. Collecting
+ * it now is the point: the operator typing the English name knows the
+ * Arabic one, and a screen that asks three weeks later gets a
+ * transliteration.
+ *
+ */
+export const zCreatePlatformKitchenRequest = z.object({
+    name_en: z.string().max(160),
+    name_ar: z.string().max(160),
+    slug: z.string().max(100).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+    country_code: z.string().length(2),
+    default_currency_code: z.string().length(3),
+    default_language_code: z.string().length(2),
+    timezone: z.string().max(64),
+    branch_name: z.string().max(160),
+    city: z.string().max(120).nullish()
+});
+
+/**
+ * One optional field, and it is optional on purpose — see the operation
+ * for why a reason vocabulary would not survive contact with the things
+ * people actually need to write here.
+ *
+ */
+export const zSuspendPlatformKitchenRequest = z.object({
+    reason: z.string().max(500).nullish()
+});
+
+/**
+ * **No `role_code`.** The role is always `organisation_owner` and is not
+ * a caller's choice — that is precisely what separates this from
+ * `POST /organisations/{organisation}/invitations`, which exists for a
+ * member of an organisation to invite anybody to any role inside it.
+ *
+ */
+export const zInvitePlatformKitchenOwnerRequest = z.object({
+    email: z.email().max(160),
+    name: z.string().max(160).nullish(),
+    message: z.string().max(1000).nullish()
+});
+
+export const zPlatformKitchenOwnerInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zOrganisationInvitation,
+        mailed: z.boolean()
+    }),
+    meta: zMeta
+});
+
+export const zPlatformKitchenOwnerRevocationEnvelope = z.object({
+    data: z.object({
+        membership: z.object({
+            id: zUuid,
+            user_id: zUuid,
+            status: z.string()
+        }),
+        remaining_owners: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -5706,6 +5913,29 @@ export const zOrganisationInvitationPath = zUuid;
  *
  */
 export const zOrganisationInvitationTokenPath = z.string().min(32).max(128);
+
+/**
+ * The kitchen's identifier **or its slug**. Both are accepted because an
+ * operator reading a support ticket has the slug in front of them and not
+ * a UUID, and a slug is unique across the platform.
+ *
+ * An organisation that exists but is not a kitchen answers **404**, never
+ * 403: the kitchen console is not the place to confirm the existence of
+ * clinics. A malformed identifier is the same 404 rather than a driver
+ * error, because it is substituted rather than queried.
+ *
+ */
+export const zPlatformKitchenPath = z.union([
+    zUuid,
+    z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The membership identifier. Always resolved inside the kitchen in the
+ * path; one belonging to another organisation is `404`, never `403`.
+ *
+ */
+export const zPlatformKitchenMembershipPath = zUuid;
 
 /**
  * The subscription identifier. Always resolved inside the caller's own
@@ -9299,9 +9529,139 @@ export const zAcceptOrganisationInvitationPath = z.object({
 });
 
 /**
- * The accepted invitation, and an honest statement that no membership was created.
+ * The accepted invitation, and an honest statement of what it granted.
  */
 export const zAcceptOrganisationInvitationResponse = zAcceptedInvitationEnvelope;
+
+export const zListPlatformKitchensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformKitchensQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: z.enum([
+        'active',
+        'suspended',
+        'pending',
+        'closed'
+    ]).optional(),
+    query: z.string().max(160).optional()
+});
+
+/**
+ * A page of kitchens, newest first.
+ */
+export const zListPlatformKitchensResponse = z.object({
+    data: z.array(zPlatformKitchenSummary),
+    meta: zPaginationMeta
+});
+
+export const zCreatePlatformKitchenBody = zCreatePlatformKitchenRequest;
+
+export const zCreatePlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The new kitchen, in full, with its validator.
+ */
+export const zCreatePlatformKitchenResponse = zPlatformKitchenEnvelope;
+
+export const zGetPlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetPlatformKitchenPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The kitchen, its owners and its branches.
+ */
+export const zGetPlatformKitchenResponse = zPlatformKitchenEnvelope;
+
+export const zSuspendPlatformKitchenBody = zSuspendPlatformKitchenRequest;
+
+export const zSuspendPlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSuspendPlatformKitchenPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The suspended kitchen, and its new validator.
+ */
+export const zSuspendPlatformKitchenResponse = zPlatformKitchenSummaryEnvelope;
+
+export const zReactivatePlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReactivatePlatformKitchenPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The kitchen, trading again, with its new validator.
+ */
+export const zReactivatePlatformKitchenResponse = zPlatformKitchenSummaryEnvelope;
+
+export const zInvitePlatformKitchenOwnerBody = zInvitePlatformKitchenOwnerRequest;
+
+export const zInvitePlatformKitchenOwnerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zInvitePlatformKitchenOwnerPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The invitation — without its token — and whether the mail was sent.
+ */
+export const zInvitePlatformKitchenOwnerResponse = zPlatformKitchenOwnerInvitationEnvelope;
+
+export const zRevokePlatformKitchenOwnerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevokePlatformKitchenOwnerPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ]),
+    membership: zUuid
+});
+
+/**
+ * The ended membership, and how many owners this kitchen has left.
+ */
+export const zRevokePlatformKitchenOwnerResponse = zPlatformKitchenOwnerRevocationEnvelope;
 
 export const zCreateSubscriptionBody = zCreateSubscriptionRequest;
 

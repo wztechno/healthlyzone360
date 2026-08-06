@@ -38,6 +38,7 @@ import { generateRequestId } from './config.ts';
 import { createApiAccountRepository } from './account-repository.ts';
 import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
+import { createApiPlatformAdminRepository } from './platform-admin-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { createApiBusinessRepository } from './business-repository.ts';
 import { createApiCartSurface } from './cart-repository.ts';
@@ -514,5 +515,6 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             ...kitchenAdminWrites,
         },
         kitchenOps: createApiKitchenOpsRepository(transport),
+        platformAdmin: createApiPlatformAdminRepository(transport),
     };
 }

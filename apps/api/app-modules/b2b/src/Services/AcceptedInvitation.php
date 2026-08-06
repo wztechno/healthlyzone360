@@ -9,17 +9,20 @@ use Healthy360\B2b\Models\OrganisationInvitation;
 /**
  * What acceptance actually did.
  *
- * `membershipCreated` is `false` for every acceptance B1 performs, and the
- * flag exists so that nothing downstream can mistake a validated token for a
- * provisioned user. The membership write lives in the provisioning transaction
- * the integrator wave owns; a result object that stayed quiet about the gap
- * would let a caller assume the person can now sign in.
+ * `membershipCreated` was `false` for every acceptance B1 performed, and the
+ * flag existed so that nothing downstream could mistake a validated token for
+ * a provisioned user. PA1 bound `InvitationMembershipGranter` to a real
+ * implementation, so the flag now varies — and the reason to keep it is
+ * unchanged: with no implementation bound, or with a role code that resolves
+ * to no role, acceptance still stamps the row and grants nothing, and a caller
+ * that assumed otherwise would show somebody a workspace they cannot enter.
  */
 final readonly class AcceptedInvitation
 {
     public function __construct(
         public OrganisationInvitation $invitation,
         public bool $membershipCreated,
+        public ?string $membershipId = null,
     ) {}
 
     /**

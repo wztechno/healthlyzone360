@@ -27,6 +27,7 @@ use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Organisations\Services\OrganisationTradingGuard;
 use Healthy360\Pricing\Contracts\BuyerAgreementLookup;
 use Healthy360\ReferenceData\Models\DeliveryArea;
 use Healthy360\Support\Api\ErrorCode;
@@ -146,6 +147,7 @@ final readonly class OrderPlacementService
         private AuditRecorder $audit,
         private TenantContext $context,
         private BuyerAgreementLookup $agreements,
+        private OrganisationTradingGuard $trading,
     ) {}
 
     /**
@@ -282,6 +284,12 @@ final readonly class OrderPlacementService
     {
         $now = CarbonImmutable::now();
 
+        // The same PA1 stop as `placeNow()`. A subscription's next delivery is
+        // composed by a scheduled job rather than a person, and a suspended
+        // kitchen must not have orders quietly generated against it while the
+        // platform is deciding what to do with it.
+        $this->trading->assertTrading($placement->organisationId);
+
         if ($placement->lines === []) {
             throw new PlacementRefused([['reason' => 'cart_empty']]);
         }
@@ -356,6 +364,15 @@ final readonly class OrderPlacementService
     ): Order {
         $now = CarbonImmutable::now();
         $reasons = [];
+
+        // PA1. The seller's standing is checked before anything is accumulated,
+        // and it throws its own code rather than joining `reasons`. Every entry
+        // in that list describes something the shopper can fix — a closed
+        // branch, a passed cut-off, a price that moved — and a client that
+        // renders them together would file "this kitchen has been suspended"
+        // under "try again with a different slot". A withdrawn tenant is not a
+        // basket problem.
+        $this->trading->assertTrading($cart->organisation_id);
 
         if (! $cart->isShoppable()) {
             // Nothing else can be usefully said about a basket that is no

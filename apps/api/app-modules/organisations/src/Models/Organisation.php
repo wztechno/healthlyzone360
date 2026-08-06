@@ -29,6 +29,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $default_currency_code
  * @property string $default_language_code
  * @property OrganisationStatus $status
+ * @property CarbonImmutable|null $suspended_at
+ * @property string|null $suspension_reason
+ * @property string|null $suspended_by
  * @property string|null $created_by
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at
@@ -46,7 +49,16 @@ class Organisation extends BaseModel
     {
         return [
             'status' => OrganisationStatus::class,
+            'suspended_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function suspendedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'suspended_by');
     }
 
     /**

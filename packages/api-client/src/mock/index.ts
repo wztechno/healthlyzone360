@@ -168,3 +168,27 @@ export type {
     GuestMockRepositoriesOptions,
     GuestMockStoreOptions,
 } from './guest/index.ts';
+
+/**
+ * The PA1 platform-console world.
+ *
+ * Its identifier helpers are re-exported so a Playwright spec can name the suspended fixture
+ * kitchen without hard-coding a UUID. The fixture *rows* are not exported, on the same terms as
+ * every other world here: a screen reaches data through a repository, and a test that wants to know
+ * what the store holds asks the store, which `MockRepositories.platformAdminStore` hands it.
+ */
+export {
+    PLATFORM_ADMIN_ID_BANDS,
+    PLATFORM_ADMIN_ID_PREFIX,
+    PLATFORM_ADMIN_RUNTIME_ORDINAL_START,
+    PlatformAdminMockStore,
+    createPlatformAdminMockRepositories,
+    kitchenIdAt,
+    membershipIdAt,
+    platformAdminId,
+} from './platform-admin/index.ts';
+export type {
+    PlatformAdminIdBand,
+    PlatformAdminMockRepositoriesOptions,
+    PlatformAdminMockWorld,
+} from './platform-admin/index.ts';

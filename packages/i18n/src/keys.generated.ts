@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4813 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4925 keys across 19 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3494,6 +3494,7 @@ export interface NamespaceKeys {
     | 'mealTypes.snack'
     | 'medicalDisclaimer.body'
     | 'medicalDisclaimer.title'
+    | 'menu.allLoaded'
     | 'menu.allergensTitle'
     | 'menu.cardLabel'
     | 'menu.containsAllergens'
@@ -3503,6 +3504,8 @@ export interface NamespaceKeys {
     | 'menu.fullDetailsBody'
     | 'menu.fullDetailsTitle'
     | 'menu.imageLabel'
+    | 'menu.loadMore'
+    | 'menu.loadingMore'
     | 'menu.noDeclaredAllergens'
     | 'menu.perServing'
     | 'menu.preparationMinutes'
@@ -4380,6 +4383,116 @@ export interface NamespaceKeys {
     | 'week.title'
     | 'week.warningsBody'
     | 'week.warningsTitle';
+  readonly "platformAdmin":
+    | 'create.branchNameHint'
+    | 'create.branchNameLabel'
+    | 'create.cityLabel'
+    | 'create.countryLabel'
+    | 'create.created'
+    | 'create.currencyLabel'
+    | 'create.languageLabel'
+    | 'create.nameLabel'
+    | 'create.ownerNext'
+    | 'create.slugHint'
+    | 'create.slugLabel'
+    | 'create.submit'
+    | 'create.submitting'
+    | 'create.subtitle'
+    | 'create.timezoneLabel'
+    | 'create.title'
+    | 'detail.backToList'
+    | 'detail.branchColumn.city'
+    | 'detail.branchColumn.name'
+    | 'detail.branchColumn.status'
+    | 'detail.branchColumn.timezone'
+    | 'detail.branchStatus.active'
+    | 'detail.branchStatus.closed'
+    | 'detail.branchesTitle'
+    | 'detail.catalogueDraft'
+    | 'detail.catalogueMeals'
+    | 'detail.cataloguePlans'
+    | 'detail.catalogueProducts'
+    | 'detail.cataloguePublished'
+    | 'detail.catalogueTitle'
+    | 'detail.errorTitle'
+    | 'detail.noCity'
+    | 'detail.notFound'
+    | 'detail.suspendedNoReason'
+    | 'detail.suspendedOn'
+    | 'detail.suspendedTitle'
+    | 'invite.emailLabel'
+    | 'invite.emailPlaceholder'
+    | 'invite.messageHint'
+    | 'invite.messageLabel'
+    | 'invite.nameHint'
+    | 'invite.nameLabel'
+    | 'invite.sent'
+    | 'invite.sentNotMailed'
+    | 'invite.submit'
+    | 'invite.submitting'
+    | 'invite.subtitle'
+    | 'invite.supersedes'
+    | 'invite.title'
+    | 'kitchens.branchCount'
+    | 'kitchens.column.branches'
+    | 'kitchens.column.catalogue'
+    | 'kitchens.column.kitchen'
+    | 'kitchens.column.owners'
+    | 'kitchens.column.status'
+    | 'kitchens.create'
+    | 'kitchens.emptyBody'
+    | 'kitchens.emptyTitle'
+    | 'kitchens.errorTitle'
+    | 'kitchens.loadMore'
+    | 'kitchens.noOwner'
+    | 'kitchens.open'
+    | 'kitchens.ownerCount'
+    | 'kitchens.publishedCount'
+    | 'kitchens.searchLabel'
+    | 'kitchens.searchPlaceholder'
+    | 'kitchens.statusAny'
+    | 'kitchens.statusLabel'
+    | 'kitchens.subtitle'
+    | 'kitchens.title'
+    | 'lifecycle.closedNote'
+    | 'lifecycle.reactivate'
+    | 'lifecycle.reactivateBody'
+    | 'lifecycle.reactivateConfirm'
+    | 'lifecycle.reactivateTitle'
+    | 'lifecycle.reactivated'
+    | 'lifecycle.reactivating'
+    | 'lifecycle.suspend'
+    | 'lifecycle.suspendBody'
+    | 'lifecycle.suspendConfirm'
+    | 'lifecycle.suspendReasonHint'
+    | 'lifecycle.suspendReasonLabel'
+    | 'lifecycle.suspendTitle'
+    | 'lifecycle.suspended'
+    | 'lifecycle.suspending'
+    | 'nav.kitchens'
+    | 'nav.showcase'
+    | 'owners.column.email'
+    | 'owners.column.person'
+    | 'owners.column.status'
+    | 'owners.emptyBody'
+    | 'owners.emptyTitle'
+    | 'owners.remaining'
+    | 'owners.revoke'
+    | 'owners.revokeBody'
+    | 'owners.revokeConfirm'
+    | 'owners.revokeLastWarning'
+    | 'owners.revokeTitle'
+    | 'owners.revoked'
+    | 'owners.revokedLast'
+    | 'owners.revoking'
+    | 'owners.subtitle'
+    | 'owners.title'
+    | 'owners.unnamed'
+    | 'status.active'
+    | 'status.closed'
+    | 'status.pending'
+    | 'status.suspended'
+    | 'title';
   readonly "professional":
     | 'common.cancel'
     | 'common.listSeparator'
@@ -8323,6 +8436,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:mealTypes.snack',
   'marketplace:medicalDisclaimer.body',
   'marketplace:medicalDisclaimer.title',
+  'marketplace:menu.allLoaded',
   'marketplace:menu.allergensTitle',
   'marketplace:menu.cardLabel',
   'marketplace:menu.containsAllergens',
@@ -8332,6 +8446,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.fullDetailsBody',
   'marketplace:menu.fullDetailsTitle',
   'marketplace:menu.imageLabel',
+  'marketplace:menu.loadMore',
+  'marketplace:menu.loadingMore',
   'marketplace:menu.noDeclaredAllergens',
   'marketplace:menu.perServing',
   'marketplace:menu.preparationMinutes',
@@ -9206,6 +9322,115 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:week.title',
   'planner:week.warningsBody',
   'planner:week.warningsTitle',
+  'platformAdmin:create.branchNameHint',
+  'platformAdmin:create.branchNameLabel',
+  'platformAdmin:create.cityLabel',
+  'platformAdmin:create.countryLabel',
+  'platformAdmin:create.created',
+  'platformAdmin:create.currencyLabel',
+  'platformAdmin:create.languageLabel',
+  'platformAdmin:create.nameLabel',
+  'platformAdmin:create.ownerNext',
+  'platformAdmin:create.slugHint',
+  'platformAdmin:create.slugLabel',
+  'platformAdmin:create.submit',
+  'platformAdmin:create.submitting',
+  'platformAdmin:create.subtitle',
+  'platformAdmin:create.timezoneLabel',
+  'platformAdmin:create.title',
+  'platformAdmin:detail.backToList',
+  'platformAdmin:detail.branchColumn.city',
+  'platformAdmin:detail.branchColumn.name',
+  'platformAdmin:detail.branchColumn.status',
+  'platformAdmin:detail.branchColumn.timezone',
+  'platformAdmin:detail.branchStatus.active',
+  'platformAdmin:detail.branchStatus.closed',
+  'platformAdmin:detail.branchesTitle',
+  'platformAdmin:detail.catalogueDraft',
+  'platformAdmin:detail.catalogueMeals',
+  'platformAdmin:detail.cataloguePlans',
+  'platformAdmin:detail.catalogueProducts',
+  'platformAdmin:detail.cataloguePublished',
+  'platformAdmin:detail.catalogueTitle',
+  'platformAdmin:detail.errorTitle',
+  'platformAdmin:detail.noCity',
+  'platformAdmin:detail.notFound',
+  'platformAdmin:detail.suspendedNoReason',
+  'platformAdmin:detail.suspendedOn',
+  'platformAdmin:detail.suspendedTitle',
+  'platformAdmin:invite.emailLabel',
+  'platformAdmin:invite.emailPlaceholder',
+  'platformAdmin:invite.messageHint',
+  'platformAdmin:invite.messageLabel',
+  'platformAdmin:invite.nameHint',
+  'platformAdmin:invite.nameLabel',
+  'platformAdmin:invite.sent',
+  'platformAdmin:invite.sentNotMailed',
+  'platformAdmin:invite.submit',
+  'platformAdmin:invite.submitting',
+  'platformAdmin:invite.subtitle',
+  'platformAdmin:invite.supersedes',
+  'platformAdmin:invite.title',
+  'platformAdmin:kitchens.branchCount',
+  'platformAdmin:kitchens.column.branches',
+  'platformAdmin:kitchens.column.catalogue',
+  'platformAdmin:kitchens.column.kitchen',
+  'platformAdmin:kitchens.column.owners',
+  'platformAdmin:kitchens.column.status',
+  'platformAdmin:kitchens.create',
+  'platformAdmin:kitchens.emptyBody',
+  'platformAdmin:kitchens.emptyTitle',
+  'platformAdmin:kitchens.errorTitle',
+  'platformAdmin:kitchens.loadMore',
+  'platformAdmin:kitchens.noOwner',
+  'platformAdmin:kitchens.open',
+  'platformAdmin:kitchens.ownerCount',
+  'platformAdmin:kitchens.publishedCount',
+  'platformAdmin:kitchens.searchLabel',
+  'platformAdmin:kitchens.searchPlaceholder',
+  'platformAdmin:kitchens.statusAny',
+  'platformAdmin:kitchens.statusLabel',
+  'platformAdmin:kitchens.subtitle',
+  'platformAdmin:kitchens.title',
+  'platformAdmin:lifecycle.closedNote',
+  'platformAdmin:lifecycle.reactivate',
+  'platformAdmin:lifecycle.reactivateBody',
+  'platformAdmin:lifecycle.reactivateConfirm',
+  'platformAdmin:lifecycle.reactivateTitle',
+  'platformAdmin:lifecycle.reactivated',
+  'platformAdmin:lifecycle.reactivating',
+  'platformAdmin:lifecycle.suspend',
+  'platformAdmin:lifecycle.suspendBody',
+  'platformAdmin:lifecycle.suspendConfirm',
+  'platformAdmin:lifecycle.suspendReasonHint',
+  'platformAdmin:lifecycle.suspendReasonLabel',
+  'platformAdmin:lifecycle.suspendTitle',
+  'platformAdmin:lifecycle.suspended',
+  'platformAdmin:lifecycle.suspending',
+  'platformAdmin:nav.kitchens',
+  'platformAdmin:nav.showcase',
+  'platformAdmin:owners.column.email',
+  'platformAdmin:owners.column.person',
+  'platformAdmin:owners.column.status',
+  'platformAdmin:owners.emptyBody',
+  'platformAdmin:owners.emptyTitle',
+  'platformAdmin:owners.remaining',
+  'platformAdmin:owners.revoke',
+  'platformAdmin:owners.revokeBody',
+  'platformAdmin:owners.revokeConfirm',
+  'platformAdmin:owners.revokeLastWarning',
+  'platformAdmin:owners.revokeTitle',
+  'platformAdmin:owners.revoked',
+  'platformAdmin:owners.revokedLast',
+  'platformAdmin:owners.revoking',
+  'platformAdmin:owners.subtitle',
+  'platformAdmin:owners.title',
+  'platformAdmin:owners.unnamed',
+  'platformAdmin:status.active',
+  'platformAdmin:status.closed',
+  'platformAdmin:status.pending',
+  'platformAdmin:status.suspended',
+  'platformAdmin:title',
   'professional:common.cancel',
   'professional:common.listSeparator',
   'professional:plan.announceNote',

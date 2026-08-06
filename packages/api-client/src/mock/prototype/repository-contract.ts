@@ -31,6 +31,20 @@ import {
  * contract and implemented in only one bundle fails here rather than in a screen.
  */
 
+/**
+ * The nine keys this table covers — and why `platformAdmin` (PA1) is not among them.
+ *
+ * Membership of this list means "the API implementation is a stub that must reject with
+ * `prototype.not_implemented`", which is what the api-mode half below asserts for every method.
+ * `platformAdmin` was born real: its seven routes shipped in the same phase as its contract, it has
+ * no `PROTOTYPE_ENDPOINTS` entry, and its API repository issues genuine requests. Listing it here
+ * would assert that it fails, which is the opposite of true.
+ *
+ * That is the same reason `guest`, `account`, `verification`, `b2bApplication` and `kitchenOps` are
+ * absent. Their drift protection is the `Repositories` bundle in `../../contracts/index.ts`: the
+ * fields are **required**, so a method added to any of those contracts fails the typecheck in
+ * exactly two places — the mock and the API implementation — which is where it should fail.
+ */
 export const REPOSITORY_KEYS = [
     'marketplace',
     'nutrition',

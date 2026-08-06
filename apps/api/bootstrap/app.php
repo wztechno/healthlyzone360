@@ -14,6 +14,7 @@ use Healthy360\Support\Api\ApiExceptionRenderer;
 use Healthy360\Support\Http\Middleware\AssignCorrelationId;
 use Healthy360\Support\Http\Middleware\EnforceIdempotency;
 use Healthy360\Support\Http\Middleware\RequirePrecondition;
+use Healthy360\Tenancy\Http\Middleware\RequireTradingOrganisation;
 use Healthy360\Tenancy\Http\Middleware\ResolveBranchContext;
 use Healthy360\Tenancy\Http\Middleware\ResolveOrganisationContext;
 use Healthy360\Tenancy\Http\Middleware\SetDatabaseTenantContext;
@@ -72,6 +73,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'db.context' => SetDatabaseTenantContext::class,
             'org.context' => ResolveOrganisationContext::class,
             'branch.context' => ResolveBranchContext::class,
+
+            // A suspended tenant may still read its workspace; it may not sell
+            // from it (PA1). Declared per write route group rather than
+            // globally, so the read/write line is visible in api-v1.php.
+            'org.trading' => RequireTradingOrganisation::class,
 
             // Platform-operator surfaces: the selected organisation must be
             // the platform itself, on top of the platform permission.

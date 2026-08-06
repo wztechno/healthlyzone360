@@ -245,6 +245,19 @@ final class PermissionRegistry
             'reference.view_platform' => ['domain' => 'reference', 'description' => 'View platform reference vocabularies, including inactive entries'],
             'reference.manage_platform' => ['domain' => 'reference', 'description' => 'Create, update and deactivate platform reference vocabularies'],
 
+            // PA1. Tenant lifecycle for kitchen organisations — the console
+            // that brings a kitchen onto the platform, hands it to an owner
+            // and, when it must, withdraws it.
+            //
+            // One code, not the four B1 uses, and the difference is real. A
+            // B2B application is a case file several people work in turn, so
+            // reading the queue, moving the file and settling it are separable
+            // authorities. Tenant lifecycle is not a workflow: whoever may see
+            // the list of kitchens is the same person trusted to create one
+            // and to suspend one, because all three are the same job. Splitting
+            // it would produce a "viewer" role nobody would ever be given.
+            'organisation.manage_platform' => ['domain' => 'organisation', 'description' => 'Create kitchen organisations, invite and revoke their owners, and suspend or reactivate them'],
+
             // B1. Admitting a company to trade on the platform is a platform
             // decision by construction: there is no organisation to scope it
             // to until the decision has been made. Four codes rather than one,

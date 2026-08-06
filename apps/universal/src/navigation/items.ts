@@ -49,7 +49,7 @@ export const WORKSPACE_NAVIGATION: readonly NavigationDescriptor[] = [
         labelKey: 'common:nav.showcase',
         href: '/platform-admin/showcase',
         icon: 'prototype',
-        requiredPermission: 'platform.access_admin',
+        requiredPermission: 'organisation.manage_platform',
         area: 'platform-admin',
     },
 ];

@@ -226,7 +226,7 @@ const twoFactor: MockScenario = {
 
 const platformAdministrator: MockScenario = {
     name: 'platform-admin',
-    summary: 'Holds platform.access_admin — the only account that may open the admin area.',
+    summary: 'Holds organisation.manage_platform — the only account that may open the admin area.',
     primaryEmail: platformAdmin.email,
     accounts: [
         account(platformAdmin, [

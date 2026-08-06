@@ -17,9 +17,11 @@
 #   - Only modules with status "foundation" or "active" may have code,
 #     migrations or routes. Modules with status "planned" MUST NOT have
 #     directories, classes or migrations.
-#   - "active" permits code, it does not require it: Localisation and
-#     PlatformAdministration are registry-only entries whose declared capability
-#     is the entry itself, and they stay registry-only.
+#   - "active" permits code, it does not require it: Localisation is a
+#     registry-only entry whose declared capability is the entry itself, and it
+#     stays registry-only. PlatformAdministration was the second such entry
+#     until PA1, whose note said a platform surface "arrives with the phase
+#     that needs it"; that phase arrived and the directory with it.
 #   - A status change and the architecture test that enforces it land in the
 #     same commit, always.
 #   - depends_on for planned modules is indicative future coupling, reviewed at
@@ -118,13 +120,24 @@ modules:
     description: Append-only audit logs, correlation IDs, redaction processor, data-classification enum, purpose-of-use capture, idempotency keys.
     depends_on: [Support, Identity, Tenancy]
 
-  # Registry-only entry — the declared capability is the entry itself. No module
-  # directory, by design; a platform surface arrives with the phase that needs it.
+  # PA1: the surface arrived, exactly as this entry said it would. The module
+  # directory now exists and holds the kitchen-tenant console — list, create,
+  # invite and revoke owners, suspend and reactivate.
+  #
+  # It could not have gone into Organisations, and the reason is structural
+  # rather than stylistic: the console writes `organisation_memberships` *and*
+  # `membership_roles`, and reuses `organisation_invitations`. Those belong to
+  # AccessControl and B2B, both of which depend on Organisations, so hosting the
+  # console there would have run two edges backwards and made this graph cyclic.
+  # A console composes capabilities other modules own, which means it sits above
+  # them — which is what this entry has always described.
+  #
+  # `B2B` is the one edge PA1 added to the set phase 1 wrote down.
   - name: PlatformAdministration
     status: active
     phase: 1
-    description: Platform-level administration surface (tenant lifecycle, reference-data management); no broadly privileged runtime DB role.
-    depends_on: [Support, Organisations, AccessControl, Features, Audit]
+    description: Platform-level administration surface (kitchen tenant lifecycle, owner invitations, suspension; reference-data management); no broadly privileged runtime DB role.
+    depends_on: [Support, Organisations, AccessControl, Features, Audit, B2B, Catalogues, Identity, Tenancy]
 
   # ── Planned modules (documented only — no code, no directories) ───────────
   - name: Nutrition

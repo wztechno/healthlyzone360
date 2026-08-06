@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "68bf586c5e6f777333d5eb1b19ae5848",
+    "content-hash": "c79be617a004421176d295ff5d2281ad",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2544,6 +2544,38 @@
                 "proprietary"
             ],
             "description": "Payment intents, method records and refunds — pluggable providers, no PAN storage.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/platform-administration",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/platform-administration",
+                "reference": "2a0df33ed869ad2f58a9631860c11879ed92e58d"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\PlatformAdministration\\Providers\\PlatformAdministrationServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\PlatformAdministration\\": "src/",
+                    "Healthy360\\PlatformAdministration\\Tests\\": "tests/",
+                    "Healthy360\\PlatformAdministration\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\PlatformAdministration\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
             "transport-options": {
                 "symlink": true,
                 "relative": true

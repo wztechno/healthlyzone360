@@ -56,6 +56,7 @@ describe('catalogue structure', () => {
             'account',
             'guest',
             'b2bApplication',
+            'platformAdmin',
         ]);
         expect(DEFAULT_NAMESPACE).toBe('common');
         for (const locale of LOCALES) {

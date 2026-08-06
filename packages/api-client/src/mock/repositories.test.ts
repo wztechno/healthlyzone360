@@ -157,7 +157,7 @@ describe('multi-org-dietitian', () => {
         expect(context.organisationId).toBe(MOCK_ORGANISATION_IDS.cedarClinic);
         expect(context.branchId).toBe(MOCK_BRANCH_IDS.jounieh);
         expect(context.permissions).toContain('organisation.view_current');
-        expect(context.permissions).not.toContain('platform.access_admin');
+        expect(context.permissions).not.toContain('organisation.manage_platform');
         expect(context.entitlements).toEqual(
             MOCK_ORGANISATION_ENTITLEMENTS[MOCK_ORGANISATION_IDS.cedarClinic],
         );
@@ -390,13 +390,13 @@ describe('two-factor-user', () => {
 });
 
 describe('platform-admin', () => {
-    it('is the only world whose context carries platform.access_admin', async () => {
+    it('is the only world whose context carries organisation.manage_platform', async () => {
         const repositories = make('platform-admin');
         await signIn(repositories, MOCK_SCENARIOS['platform-admin'].primaryEmail);
         const context = await repositories.context.setContext({
             organisationId: MOCK_ORGANISATION_IDS.cedarClinic,
         });
-        expect(context.permissions).toContain('platform.access_admin');
+        expect(context.permissions).toContain('organisation.manage_platform');
     });
 });
 

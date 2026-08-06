@@ -24,6 +24,8 @@ import { createGuestTokenStore } from '../session/guest-token-store.ts';
 import { createGuestMockRepositories } from './guest/repositories.ts';
 import type { GuestMockStore } from './guest/store.ts';
 import { createKitchenOpsMockRepositories } from './kitchen-ops/repositories.ts';
+import { createPlatformAdminMockRepositories } from './platform-admin/repositories.ts';
+import type { PlatformAdminMockStore } from './platform-admin/store.ts';
 import type { KitchenOpsMockStore } from './kitchen-ops/store.ts';
 import type {
     ContextRepository,
@@ -95,6 +97,17 @@ export interface MockRepositories extends Repositories {
      * what a mutation did without going back through a repository.
      */
     readonly kitchenOpsStore: KitchenOpsMockStore;
+
+    /**
+     * The PA1 platform-console world.
+     *
+     * A sibling of `kitchenOpsStore` on the same terms, and self-contained for a sharper reason
+     * than that one: its kitchens are *other people's tenants*, so reusing the session fixture
+     * world's Verdant would make one identifier mean both "the organisation I am signed into" and
+     * "a row in my console". Exposed only so a test can assert what a suspension did without going
+     * back through the repository.
+     */
+    readonly platformAdminStore: PlatformAdminMockStore;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -323,6 +336,7 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
      * one store the K1 catalogue already shares with eleven other domains.
      */
     const kitchenOpsWorld = createKitchenOpsMockRepositories({ settle });
+    const platformAdminWorld = createPlatformAdminMockRepositories({ settle });
 
     const auth: AuthRepository = {
         async login(request: LoginRequest): Promise<LoginResult> {
@@ -474,5 +488,7 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         kitchenAdmin: prototype.kitchenAdmin,
         kitchenOps: kitchenOpsWorld.kitchenOps,
         kitchenOpsStore: kitchenOpsWorld.store,
+        platformAdmin: platformAdminWorld.platformAdmin,
+        platformAdminStore: platformAdminWorld.store,
     };
 }

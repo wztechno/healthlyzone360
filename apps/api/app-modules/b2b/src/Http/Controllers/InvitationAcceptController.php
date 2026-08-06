@@ -45,20 +45,23 @@ use Illuminate\Http\Request;
  * nothing unless they are also signed in as somebody the invitation was never
  * for, and acceptance is recorded against whoever that is.
  *
- * ## Acceptance is a shell, and says so
+ * ## Acceptance now grants the membership
  *
- * `InvitationService::accept()` validates the token, marks the row accepted,
- * and **stops there**. The membership write belongs to Organisations and
- * AccessControl and has not landed, so `membership_created` is `false` and
- * `membership` is `null` on every response this endpoint produces. Reporting
- * that plainly is the whole reason `AcceptedInvitation` carries the flag: a
- * response that quietly implied a provisioned member would let a client show
- * somebody a workspace they cannot enter. The keys are present rather than
- * omitted so the wire shape does not change when the write arrives.
+ * B1 shipped this as a shell: the row was stamped and nothing else happened,
+ * because the membership write belongs to Organisations and AccessControl and
+ * B2B cannot call across that edge. PA1 published
+ * `InvitationMembershipGranter` and bound it, so `membership_created` is now
+ * `true` on a normal acceptance and `membership` carries the identifier. The
+ * keys were present all along precisely so the wire shape would not have to
+ * change when the write arrived — and both still report `false`/`null` when
+ * nothing is bound, which is the point of reporting them at all.
  *
  * Every failure — wrong token, expired, revoked, already accepted — is the same
  * `404` with the same message. Distinguishing them would tell somebody holding
- * a guessed token that they guessed right.
+ * a guessed token that they guessed right. The one exception is a token
+ * offered by the wrong person, which answers `403`: the caller already holds a
+ * valid token, so there is nothing left to confirm, and "sign in as the person
+ * this was sent to" is the only useful thing to say.
  */
 final class InvitationAcceptController
 {
@@ -78,7 +81,7 @@ final class InvitationAcceptController
 
         return ApiResponse::data([
             'invitation' => $this->presenter->invitation($accepted->invitation),
-            'membership' => null,
+            'membership' => $accepted->membershipId === null ? null : ['id' => $accepted->membershipId],
             'membership_created' => $accepted->membershipCreated,
         ]);
     }

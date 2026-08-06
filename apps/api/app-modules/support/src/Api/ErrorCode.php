@@ -69,6 +69,27 @@ enum ErrorCode: string
     case ResourceConflict = 'resource.conflict';
 
     /**
+     * The organisation on one side of this request has been suspended by the
+     * platform (PA1), so the request cannot be honoured however well formed it
+     * is. Raised on both sides of the same fact: a buyer reaching a suspended
+     * kitchen's plan or items, and a suspended kitchen's own staff attempting a
+     * catalogue or publication write.
+     *
+     * A 409 rather than a 403, and the distinction is the point.
+     * `authz.permission_denied` means *you* may not do this; this code means
+     * nobody may, because the world is in a state that forbids it, and the
+     * remedy is a conversation with the platform rather than a different role.
+     * It is also not `resource.not_found`: the anonymous marketplace hides a
+     * suspended kitchen entirely, but a signed-in member of that kitchen
+     * already knows it exists and is owed the real reason.
+     *
+     * `details.organisation_id` names the organisation whose suspension caused
+     * the refusal — the kitchen, never the caller's own organisation, when the
+     * two differ.
+     */
+    case OrganisationSuspended = 'organisation.suspended';
+
+    /**
      * A catalogue record cannot be withdrawn because something still points at
      * it — an ingredient referenced by a recipe version that is not retired.
      * Distinct from the generic conflict: the caller has not lost a race, and
@@ -332,6 +353,7 @@ enum ErrorCode: string
             self::CartChannelRefused => 403,
             self::ResourceNotFound => 404,
             self::ResourceConflict,
+            self::OrganisationSuspended,
             self::CatalogueInUse,
             self::CatalogueVersionImmutable,
             self::CataloguePublishBlocked,
@@ -392,6 +414,7 @@ enum ErrorCode: string
             self::RequestPreconditionRequired => 'This resource requires an If-Match header carrying the version you last read.',
             self::ResourceNotFound => 'The requested resource does not exist.',
             self::ResourceConflict => 'The requested change conflicts with the current state of the resource.',
+            self::OrganisationSuspended => 'This organisation has been suspended by the platform.',
             self::CatalogueInUse => 'This record is still referenced by a recipe version that has not been retired.',
             self::CatalogueVersionImmutable => 'A published or retired recipe version cannot be changed. Create a new draft version instead.',
             self::CatalogueAllergenUnmapped => 'Every ingredient in a published recipe must carry an allergen determination.',

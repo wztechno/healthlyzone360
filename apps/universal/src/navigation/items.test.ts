@@ -68,14 +68,14 @@ describe('permittedNavigation', () => {
 
     it('includes the showcase only for a platform administrator', () => {
         const keys = permittedNavigation(
-            hydrated(['device.manage_own', 'platform.access_admin']),
+            hydrated(['device.manage_own', 'organisation.manage_platform']),
         ).map((item) => item.key);
         expect(keys).toEqual(['workspace', 'profile', 'devices', 'showcase']);
     });
 
     it('drops an item whose area is not in the build family, even with the permission', () => {
         const keys = permittedNavigation(
-            hydrated(['device.manage_own', 'platform.access_admin'], 'staff'),
+            hydrated(['device.manage_own', 'organisation.manage_platform'], 'staff'),
         ).map((item) => item.key);
         // `platform-admin` is not compiled into the staff family.
         expect(keys).not.toContain('showcase');
@@ -93,7 +93,7 @@ describe('availableWorkspaceAreas', () => {
     });
 
     it('adds platform-admin once the permission is present', () => {
-        const areas = availableWorkspaceAreas(hydrated(['platform.access_admin'])).map(
+        const areas = availableWorkspaceAreas(hydrated(['organisation.manage_platform'])).map(
             (option) => option.area,
         );
         expect(areas).toContain('platform-admin');
@@ -133,7 +133,7 @@ describe('availableWorkspaceAreas', () => {
     });
 
     it('every option is marked available — refused destinations are dropped, not greyed out', () => {
-        for (const option of availableWorkspaceAreas(hydrated(['platform.access_admin']))) {
+        for (const option of availableWorkspaceAreas(hydrated(['organisation.manage_platform']))) {
             expect(option.available).toBe(true);
         }
     });

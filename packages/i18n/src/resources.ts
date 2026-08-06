@@ -16,6 +16,7 @@ import arMarketplace from '../catalogues/ar/marketplace.json';
 import arNutrition from '../catalogues/ar/nutrition.json';
 import arOnboarding from '../catalogues/ar/onboarding.json';
 import arPlanner from '../catalogues/ar/planner.json';
+import arPlatformAdmin from '../catalogues/ar/platformAdmin.json';
 import arProfessional from '../catalogues/ar/professional.json';
 import arVirtualDietitian from '../catalogues/ar/virtualDietitian.json';
 import enAccess from '../catalogues/en/access.json';
@@ -34,6 +35,7 @@ import enMarketplace from '../catalogues/en/marketplace.json';
 import enNutrition from '../catalogues/en/nutrition.json';
 import enOnboarding from '../catalogues/en/onboarding.json';
 import enPlanner from '../catalogues/en/planner.json';
+import enPlatformAdmin from '../catalogues/en/platformAdmin.json';
 import enProfessional from '../catalogues/en/professional.json';
 import enVirtualDietitian from '../catalogues/en/virtualDietitian.json';
 
@@ -54,6 +56,12 @@ import enVirtualDietitian from '../catalogues/en/virtualDietitian.json';
  * addresses, an allergy declaration and a consent list — five slices that would otherwise queue up
  * to edit this one file. The one-time-code copy is deliberately *not* here: it lives in `auth`,
  * because the same panel serves the guest and B2B journeys that have no account at all.
+ *
+ * `platformAdmin` is the nineteenth, added by PA1. It is its own namespace rather than a branch of
+ * `kitchen` because the two speak to opposite people about the same word: `kitchen` is a kitchen
+ * addressing itself, and this is the platform addressing a kitchen it may be about to suspend. The
+ * register is different, the vocabulary is different, and a shared namespace would have produced
+ * two meanings for `status`.
  *
  * `guest` is the seventeenth, added by G1. It is its own namespace rather than a branch of
  * `commerce` because the whole point of the guest journey is that it belongs to somebody who has
@@ -86,6 +94,7 @@ export const TRANSLATION_NAMESPACES = [
     'account',
     'guest',
     'b2bApplication',
+    'platformAdmin',
 ] as const;
 export type TranslationNamespace = (typeof TRANSLATION_NAMESPACES)[number];
 
@@ -112,6 +121,7 @@ export const enResources = {
     account: enAccount,
     guest: enGuest,
     b2bApplication: enB2bApplication,
+    platformAdmin: enPlatformAdmin,
 } as const;
 
 export const arResources = {
@@ -133,6 +143,7 @@ export const arResources = {
     account: arAccount,
     guest: arGuest,
     b2bApplication: arB2bApplication,
+    platformAdmin: arPlatformAdmin,
 } as const;
 
 export const resources: Readonly<Record<Locale, CatalogueBundle>> = {

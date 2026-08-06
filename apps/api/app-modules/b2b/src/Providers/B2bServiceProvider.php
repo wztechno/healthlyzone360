@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Providers;
 
+use Healthy360\B2b\Contracts\InvitationMembershipGranter;
 use Healthy360\B2b\Contracts\InvoicingSettlementLookup;
 use Healthy360\B2b\Contracts\SellerOpenOrders;
 use Healthy360\B2b\Services\BuyerAgreementLookup;
@@ -11,6 +12,7 @@ use Healthy360\B2b\Services\NoInvoicingSettlementLookup;
 use Healthy360\B2b\Services\NoSellerOpenOrders;
 use Healthy360\B2b\Services\PendingB2bSignatoryQuery;
 use Healthy360\B2b\Services\ProgrammeMembershipLookup;
+use Healthy360\B2b\Services\UngrantedMembership;
 use Healthy360\Customers\Closure\Contracts\B2bSignatoryPresence;
 use Healthy360\Identity\Contracts\ProgrammeMembershipLookup as ProgrammeMembershipLookupContract;
 use Illuminate\Support\ServiceProvider;
@@ -95,6 +97,12 @@ class B2bServiceProvider extends ServiceProvider
         // would silently disarm the one settlement check that works.
         $this->app->bindIf(SellerOpenOrders::class, NoSellerOpenOrders::class);
         $this->app->bindIf(InvoicingSettlementLookup::class, NoInvoicingSettlementLookup::class);
+
+        // PA1's port, on the same terms. The platform administration module
+        // binds the implementation that actually writes the membership; this
+        // default answers "nothing granted", which is precisely what B1 has
+        // been reporting since it wrote `membership_created: false`.
+        $this->app->bindIf(InvitationMembershipGranter::class, UngrantedMembership::class);
 
         // `bind`, not `bindIf`, and the asymmetry with the line above is
         // deliberate. There the default *is* this module's, so it must not

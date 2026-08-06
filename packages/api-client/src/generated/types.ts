@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -5805,21 +5805,28 @@ export type OrganisationInvitationEnvelope = {
 };
 
 /**
- * `membership` and `membership_created` are present and honest.
- * Acceptance in B1 marks the invitation and stops there; the membership
- * write belongs to Organisations and AccessControl. The keys exist now
- * so the wire shape does not change when it lands.
+ * `membership` and `membership_created` are present and honest. B1
+ * marked the invitation and stopped there; PA1 supplied the membership
+ * write, so both now report what actually happened rather than a
+ * permanent `false`/`null`. The keys existed all along precisely so this
+ * change would not alter the wire shape.
  *
  */
 export type AcceptedInvitationEnvelope = {
     data: {
         invitation: OrganisationInvitation;
         /**
-         * Always null in B1. See the description above.
+         * The membership acceptance created — its identifier and nothing
+         * more. `GET /me` returns memberships hydrated with roles, scope
+         * and permissions, and a partial copy here would be a second
+         * answer to that question. Null when nothing was granted.
+         *
          */
-        membership: Membership | null;
+        membership: {
+            id: Uuid;
+        } | null;
         /**
-         * Always false in B1. A response that quietly implied a provisioned member would let a client show somebody a workspace they cannot enter.
+         * Whether this acceptance created a membership. A response that quietly implied a provisioned member would let a client show somebody a workspace they cannot enter.
          */
         membership_created: boolean;
     };
@@ -6884,6 +6891,353 @@ export type CancelOffboardingRequest = {
 };
 
 /**
+ * What a kitchen has in its catalogue, in the two shapes an operator
+ * reads it in.
+ *
+ * **The type breakdown counts published rows only.** `meals`, `products`
+ * and `plans` answer "what is this kitchen selling", and a half-written
+ * draft is not an answer to that question. `published` and `draft` beside
+ * them are the **progress pair** and count everything, which is why the
+ * three type counts do not add up to `published` when a kitchen sells
+ * something outside those three types, and why `draft` is never included
+ * in any of them.
+ *
+ */
+export type PlatformKitchenCatalogueCounts = {
+    /**
+     * Published meals.
+     */
+    meals: number;
+    /**
+     * Published products.
+     */
+    products: number;
+    /**
+     * Published subscription plans.
+     */
+    plans: number;
+    /**
+     * Every published catalogue item, whatever its type.
+     */
+    published: number;
+    /**
+     * Every item still being written — draft, or sent back for review.
+     */
+    draft: number;
+};
+
+/**
+ * An **active** membership holding the `organisation_owner` role.
+ * Ownership on this platform has always been a membership with the owner
+ * role assigned to it rather than a column or a flag, so this asks the
+ * same question the permission checker asks. Ended and suspended
+ * memberships are excluded: they are people who *used* to be owners, and
+ * counting them would report an owned kitchen nobody can get into.
+ *
+ */
+export type PlatformKitchenOwner = {
+    membership_id: Uuid;
+    user_id: Uuid;
+    /**
+     * From the person's profile. Null until they have one — an invited owner who has not yet completed sign-up has an address and no name.
+     */
+    name: string | null;
+    email: string;
+    /**
+     * The membership status. Always `active` in this list, and present rather than assumed so a client never has to infer it.
+     */
+    status: string;
+};
+
+/**
+ * One of the kitchen's locations, as the platform console lists them.
+ * Deliberately thin: opening hours, cut-offs and delivery zones are the
+ * kitchen's own operational surface, and an operator console that carried
+ * them would become the accidental canonical read for a workspace it does
+ * not own.
+ *
+ */
+export type PlatformKitchenBranch = {
+    id: Uuid;
+    name: string;
+    city: string | null;
+    country_code: string;
+    timezone: string;
+    status: 'active' | 'closed';
+};
+
+/**
+ * The queue row — enough to scan a list of kitchens and decide which one
+ * to open.
+ *
+ * Two shapes rather than one with a flag, the rule this platform writes
+ * everywhere: a summary and a detail separated by a boolean argument is
+ * one careless call away from returning every owner's email address on a
+ * screen that only wanted names. So the owner *list* lives on the detail
+ * shape and only `owner_count` appears here.
+ *
+ * This is not the organisation shape a member reads about their own
+ * tenant. That one answers "which organisation am I signed into?" and its
+ * capability list is that member's view of themselves; this answers "what
+ * has the platform got here?" about somebody else's tenant, and the two
+ * are expected to diverge.
+ *
+ */
+export type PlatformKitchenSummary = {
+    id: Uuid;
+    /**
+     * Unique across the platform and immutable. Accepted in place of the identifier on every path in this family.
+     */
+    slug: string;
+    /**
+     * The single name `organisations` stores. The Arabic name collected
+     * at creation goes where the platform already keeps bilingual
+     * organisation naming — the branch and the sales channel — because
+     * this table has one name column and inventing a second here would be
+     * a copy that drifts.
+     *
+     */
+    name: string;
+    status: 'active' | 'suspended' | 'pending' | 'closed';
+    country_code: string;
+    default_currency_code: string;
+    default_language_code: string;
+    branch_count: number;
+    /**
+     * Counted separately rather than inferred, because the gap between
+     * the two is the thing worth seeing — a kitchen with four branches
+     * and none of them open is a support call waiting to happen.
+     *
+     */
+    active_branch_count: number;
+    /**
+     * How many **active** owner memberships this kitchen has. Zero is a
+     * legitimate value and not an error: the last owner may be revoked
+     * deliberately, and a kitchen created by the console has none until
+     * somebody accepts an invitation.
+     *
+     */
+    owner_count: number;
+    catalogue: PlatformKitchenCatalogueCounts;
+    /**
+     * When the platform withdrew this kitchen from trading. Null whenever it is not suspended — reactivation clears it.
+     */
+    suspended_at: string | null;
+    /**
+     * The optimistic-concurrency validator, served as the `ETag` on the
+     * single-kitchen read and required back as `If-Match` on suspend and
+     * reactivate. Present on the row as well as in the header so a list
+     * client can tell that two rows moved without re-reading either.
+     *
+     */
+    lock_version: number;
+    created_at: string | null;
+};
+
+export type PlatformKitchen = PlatformKitchenSummary & {
+    /**
+     * The operator's own words, or null. Prose rather than a code,
+     * and optional rather than required — a mandatory field would
+     * produce "n/a" and "see ticket", and a column full of those is
+     * worse than a column full of nulls because it looks like it has
+     * been filled in. Cleared on reactivation; the audit log keeps
+     * the history.
+     *
+     */
+    suspension_reason: string | null;
+    /**
+     * The platform user who suspended this kitchen. Cleared on reactivation, for the same reason the note is.
+     */
+    suspended_by: Uuid | null;
+    /**
+     * The active owner memberships, oldest first. Personal data, which is why reading this endpoint is audited as a classified access.
+     */
+    owners: Array<PlatformKitchenOwner>;
+    /**
+     * Every branch, whatever its status, by name.
+     */
+    branches: Array<PlatformKitchenBranch>;
+};
+
+export type PlatformKitchenEnvelope = {
+    data: {
+        kitchen: PlatformKitchen;
+    };
+    meta: Meta;
+};
+
+/**
+ * What the lifecycle actions return. The summary rather than the detail,
+ * because suspending a kitchen is not a reason to re-serve every owner's
+ * email address; a console that needs the full row re-reads it.
+ *
+ */
+export type PlatformKitchenSummaryEnvelope = {
+    data: {
+        kitchen: PlatformKitchenSummary;
+    };
+    meta: Meta;
+};
+
+/**
+ * **One request creates four things, in one transaction: the
+ * organisation, one active main branch, the `kitchen_production`
+ * capability, and a `b2c_web` sales channel coded `web-shop`.** All four
+ * or none.
+ *
+ * A kitchen that is only an organisation row is a kitchen whose workspace
+ * refuses on the first screen: the organisation context resolves a
+ * *branch* before the kitchen area will open, the capability is what the
+ * workspace reads to know what it is, and a published meal has to be
+ * available on a channel before a price can resolve or a marketplace
+ * listing can appear. Creating the organisation and leaving an operator
+ * to add the rest afterwards was rejected because it makes the console's
+ * success message a lie for the twenty minutes before somebody notices. A
+ * new kitchen works immediately; it simply has nothing in it yet.
+ *
+ * The wholesale channel is deliberately **not** created. A kitchen that
+ * has never traded with a company does not need a B2B channel sitting
+ * inactive in its list.
+ *
+ * **Both names are required.** `organisations` stores a single `name`, so
+ * the Arabic goes onto the sales channel, which carries both. Collecting
+ * it now is the point: the operator typing the English name knows the
+ * Arabic one, and a screen that asks three weeks later gets a
+ * transliteration.
+ *
+ */
+export type CreatePlatformKitchenRequest = {
+    /**
+     * The organisation's name.
+     */
+    name_en: string;
+    /**
+     * The Arabic name, stored on the branch and the sales channel rather than on the organisation, which has one name column.
+     */
+    name_ar: string;
+    /**
+     * Lowercase words joined by single hyphens. Unique across the
+     * platform and immutable; a taken one is `422` with
+     * `details.fields.slug`, decided inside the insert rather than by a
+     * separate check that would race it.
+     *
+     */
+    slug: string;
+    /**
+     * Must exist in the platform country table.
+     */
+    country_code: string;
+    /**
+     * Must exist in the platform currency table.
+     */
+    default_currency_code: string;
+    /**
+     * Must exist in the platform language table.
+     */
+    default_language_code: string;
+    /**
+     * A plain bounded string, deliberately not checked against the
+     * runtime's timezone list: that list changes with whatever tzdata the
+     * container happens to ship, and a validator that started refusing
+     * `Asia/Dubai` after a base-image bump would be one nobody could
+     * debug.
+     *
+     */
+    timezone: string;
+    /**
+     * The name of the one active branch created alongside the organisation.
+     */
+    branch_name: string;
+    /**
+     * The branch's city. The only optional field here.
+     */
+    city?: string | null;
+};
+
+/**
+ * One optional field, and it is optional on purpose — see the operation
+ * for why a reason vocabulary would not survive contact with the things
+ * people actually need to write here.
+ *
+ */
+export type SuspendPlatformKitchenRequest = {
+    /**
+     * Free prose, shown to nobody outside the platform. Blank and absent
+     * are the same thing: both store null, because a column that
+     * distinguishes "" from nothing is a distinction no reader can use.
+     *
+     */
+    reason?: string | null;
+};
+
+/**
+ * **No `role_code`.** The role is always `organisation_owner` and is not
+ * a caller's choice — that is precisely what separates this from
+ * `POST /organisations/{organisation}/invitations`, which exists for a
+ * member of an organisation to invite anybody to any role inside it.
+ *
+ */
+export type InvitePlatformKitchenOwnerRequest = {
+    /**
+     * A live offer already outstanding to this address is superseded rather than refused.
+     */
+    email: string;
+    /**
+     * Used **only** in the greeting line of the invitation email, and
+     * never stored. The person's real name arrives with their profile
+     * when they accept, and a name typed by an operator into an
+     * invitation form would be a second, worse copy of it.
+     *
+     */
+    name?: string | null;
+    /**
+     * A sentence that travels with the invitation. An invitation with no context is an email people assume is phishing, and rightly.
+     */
+    message?: string | null;
+};
+
+export type PlatformKitchenOwnerInvitationEnvelope = {
+    data: {
+        invitation: OrganisationInvitation;
+        /**
+         * Whether the invitation email actually went out. Reported rather
+         * than assumed: a transport failure does not lose the invitation,
+         * but it does mean nobody has been told, and a console that
+         * showed an unqualified success would leave an operator waiting
+         * for a reply to a message that was never sent.
+         *
+         */
+        mailed: boolean;
+    };
+    meta: Meta;
+};
+
+export type PlatformKitchenOwnerRevocationEnvelope = {
+    data: {
+        /**
+         * The membership as it now stands — `ended`, and still there. Nothing was deleted.
+         */
+        membership: {
+            id: Uuid;
+            user_id: Uuid;
+            /**
+             * Always `ended` on a successful revocation.
+             */
+            status: string;
+        };
+        /**
+         * How many active owners this kitchen has left. **Zero is a
+         * legitimate outcome**, not a refusal: the last owner may be
+         * revoked because the platform acts deliberately, and this number
+         * exists so the console can warn rather than the API refusing.
+         *
+         */
+        remaining_owners: number;
+    };
+    meta: Meta;
+};
+
+/**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
  *
@@ -7157,6 +7511,26 @@ export type OrganisationInvitationPath = Uuid;
  *
  */
 export type OrganisationInvitationTokenPath = string;
+
+/**
+ * The kitchen's identifier **or its slug**. Both are accepted because an
+ * operator reading a support ticket has the slug in front of them and not
+ * a UUID, and a slug is unique across the platform.
+ *
+ * An organisation that exists but is not a kitchen answers **404**, never
+ * 403: the kitchen console is not the place to confirm the existence of
+ * clinics. A malformed identifier is the same 404 rather than a driver
+ * error, because it is substituted rather than queried.
+ *
+ */
+export type PlatformKitchenPath = Uuid | string;
+
+/**
+ * The membership identifier. Always resolved inside the kitchen in the
+ * path; one belonging to another organisation is `404`, never `403`.
+ *
+ */
+export type PlatformKitchenMembershipPath = Uuid;
 
 /**
  * The subscription identifier. Always resolved inside the caller's own
@@ -21522,7 +21896,19 @@ export type AcceptOrganisationInvitationErrors = {
      */
     401: ErrorEnvelope;
     /**
-     * The address has not been verified.
+     * Two codes share this status, and the difference matters to the person
+     * holding the link.
+     *
+     * **`auth.email_unverified`** — the acceptor is signed in but has not
+     * verified their address. Acceptance has to be attributable to a
+     * reachable identity, so the remedy is to verify and click again.
+     *
+     * **`authz.permission_denied`** — the invitation was sent to somebody
+     * else. The one failure on this endpoint that is not a `404`: the caller
+     * already holds a valid token, so there is nothing left to conceal, and
+     * "sign in as the person this was sent to" is the only useful thing to
+     * say.
+     *
      */
     403: ErrorEnvelope;
     /**
@@ -21539,12 +21925,624 @@ export type AcceptOrganisationInvitationError = AcceptOrganisationInvitationErro
 
 export type AcceptOrganisationInvitationResponses = {
     /**
-     * The accepted invitation, and an honest statement that no membership was created.
+     * The accepted invitation, and an honest statement of what it granted.
      */
     200: AcceptedInvitationEnvelope;
 };
 
 export type AcceptOrganisationInvitationResponse = AcceptOrganisationInvitationResponses[keyof AcceptOrganisationInvitationResponses];
+
+export type ListPlatformKitchensData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+        /**
+         * Restrict to one organisation status. Omitted, every kitchen is
+         * listed whatever state it is in — the console's whole job is the
+         * suspended ones.
+         *
+         */
+        status?: 'active' | 'suspended' | 'pending' | 'closed';
+        /**
+         * Case-insensitive substring match over the kitchen's name and its slug.
+         */
+        query?: string;
+    };
+    url: '/platform/organisations/kitchens';
+};
+
+export type ListPlatformKitchensErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPlatformKitchensError = ListPlatformKitchensErrors[keyof ListPlatformKitchensErrors];
+
+export type ListPlatformKitchensResponses = {
+    /**
+     * A page of kitchens, newest first.
+     */
+    200: {
+        data: Array<PlatformKitchenSummary>;
+        meta: PaginationMeta;
+    };
+};
+
+export type ListPlatformKitchensResponse = ListPlatformKitchensResponses[keyof ListPlatformKitchensResponses];
+
+export type CreatePlatformKitchenData = {
+    body: CreatePlatformKitchenRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * As `Idempotency-Key`, but mandatory. Used where the command creates
+         * records that cannot be un-created — provisioning a tenant — and where
+         * a retry with no key would therefore be unrecoverable rather than
+         * merely wasteful. Absent is **400** `request.invalid`.
+         *
+         */
+        'Idempotency-Key': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/platform/organisations/kitchens';
+};
+
+export type CreatePlatformKitchenErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid. On kitchen creation this is almost
+     * always the slug: `details.fields.slug` says so, and the check lives in
+     * the service rather than in a validation rule because the uniqueness
+     * question and the insert have to be the same decision — a validator that
+     * answered it separately would leave a race between the check and the
+     * write.
+     *
+     * The reference codes — `country_code`, `default_currency_code`,
+     * `default_language_code` — are checked against their platform tables and
+     * produce ordinary field messages rather than a foreign-key violation.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePlatformKitchenError = CreatePlatformKitchenErrors[keyof CreatePlatformKitchenErrors];
+
+export type CreatePlatformKitchenResponses = {
+    /**
+     * The new kitchen, in full, with its validator.
+     */
+    201: PlatformKitchenEnvelope;
+};
+
+export type CreatePlatformKitchenResponse = CreatePlatformKitchenResponses[keyof CreatePlatformKitchenResponses];
+
+export type GetPlatformKitchenData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The kitchen's identifier **or its slug**. Both are accepted because an
+         * operator reading a support ticket has the slug in front of them and not
+         * a UUID, and a slug is unique across the platform.
+         *
+         * An organisation that exists but is not a kitchen answers **404**, never
+         * 403: the kitchen console is not the place to confirm the existence of
+         * clinics. A malformed identifier is the same 404 rather than a driver
+         * error, because it is substituted rather than queried.
+         *
+         */
+        organisation: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/organisations/kitchens/{organisation}';
+};
+
+export type GetPlatformKitchenErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetPlatformKitchenError = GetPlatformKitchenErrors[keyof GetPlatformKitchenErrors];
+
+export type GetPlatformKitchenResponses = {
+    /**
+     * The kitchen, its owners and its branches.
+     */
+    200: PlatformKitchenEnvelope;
+};
+
+export type GetPlatformKitchenResponse = GetPlatformKitchenResponses[keyof GetPlatformKitchenResponses];
+
+export type SuspendPlatformKitchenData = {
+    body?: SuspendPlatformKitchenRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The kitchen's identifier **or its slug**. Both are accepted because an
+         * operator reading a support ticket has the slug in front of them and not
+         * a UUID, and a slug is unique across the platform.
+         *
+         * An organisation that exists but is not a kitchen answers **404**, never
+         * 403: the kitchen console is not the place to confirm the existence of
+         * clinics. A malformed identifier is the same 404 rather than a driver
+         * error, because it is substituted rather than queried.
+         *
+         */
+        organisation: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/organisations/kitchens/{organisation}/suspend';
+};
+
+export type SuspendPlatformKitchenErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * One code, `resource.conflict`, for two different things — and
+     * `details` tells them apart.
+     *
+     * **`details.status`** — the kitchen is not in the state this action
+     * starts from. Suspension insists on `active`; reactivation refuses one
+     * that is already `active`, and refuses a `closed` organisation outright,
+     * because closing is offboarding and its memberships were ended and its
+     * personal data purged. Reloading will not help; the state is the answer.
+     *
+     * **`details.current_lock_version`** — the write lost a race. Somebody
+     * else moved this kitchen since the validator was read, and the value to
+     * reload against comes back so a console can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SuspendPlatformKitchenError = SuspendPlatformKitchenErrors[keyof SuspendPlatformKitchenErrors];
+
+export type SuspendPlatformKitchenResponses = {
+    /**
+     * The suspended kitchen, and its new validator.
+     */
+    200: PlatformKitchenSummaryEnvelope;
+};
+
+export type SuspendPlatformKitchenResponse = SuspendPlatformKitchenResponses[keyof SuspendPlatformKitchenResponses];
+
+export type ReactivatePlatformKitchenData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The kitchen's identifier **or its slug**. Both are accepted because an
+         * operator reading a support ticket has the slug in front of them and not
+         * a UUID, and a slug is unique across the platform.
+         *
+         * An organisation that exists but is not a kitchen answers **404**, never
+         * 403: the kitchen console is not the place to confirm the existence of
+         * clinics. A malformed identifier is the same 404 rather than a driver
+         * error, because it is substituted rather than queried.
+         *
+         */
+        organisation: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/organisations/kitchens/{organisation}/reactivate';
+};
+
+export type ReactivatePlatformKitchenErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * One code, `resource.conflict`, for two different things — and
+     * `details` tells them apart.
+     *
+     * **`details.status`** — the kitchen is not in the state this action
+     * starts from. Suspension insists on `active`; reactivation refuses one
+     * that is already `active`, and refuses a `closed` organisation outright,
+     * because closing is offboarding and its memberships were ended and its
+     * personal data purged. Reloading will not help; the state is the answer.
+     *
+     * **`details.current_lock_version`** — the write lost a race. Somebody
+     * else moved this kitchen since the validator was read, and the value to
+     * reload against comes back so a console can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReactivatePlatformKitchenError = ReactivatePlatformKitchenErrors[keyof ReactivatePlatformKitchenErrors];
+
+export type ReactivatePlatformKitchenResponses = {
+    /**
+     * The kitchen, trading again, with its new validator.
+     */
+    200: PlatformKitchenSummaryEnvelope;
+};
+
+export type ReactivatePlatformKitchenResponse = ReactivatePlatformKitchenResponses[keyof ReactivatePlatformKitchenResponses];
+
+export type InvitePlatformKitchenOwnerData = {
+    body: InvitePlatformKitchenOwnerRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The kitchen's identifier **or its slug**. Both are accepted because an
+         * operator reading a support ticket has the slug in front of them and not
+         * a UUID, and a slug is unique across the platform.
+         *
+         * An organisation that exists but is not a kitchen answers **404**, never
+         * 403: the kitchen console is not the place to confirm the existence of
+         * clinics. A malformed identifier is the same 404 rather than a driver
+         * error, because it is substituted rather than queried.
+         *
+         */
+        organisation: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/organisations/kitchens/{organisation}/owners/invitations';
+};
+
+export type InvitePlatformKitchenOwnerErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type InvitePlatformKitchenOwnerError = InvitePlatformKitchenOwnerErrors[keyof InvitePlatformKitchenOwnerErrors];
+
+export type InvitePlatformKitchenOwnerResponses = {
+    /**
+     * The invitation — without its token — and whether the mail was sent.
+     */
+    201: PlatformKitchenOwnerInvitationEnvelope;
+};
+
+export type InvitePlatformKitchenOwnerResponse = InvitePlatformKitchenOwnerResponses[keyof InvitePlatformKitchenOwnerResponses];
+
+export type RevokePlatformKitchenOwnerData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The kitchen's identifier **or its slug**. Both are accepted because an
+         * operator reading a support ticket has the slug in front of them and not
+         * a UUID, and a slug is unique across the platform.
+         *
+         * An organisation that exists but is not a kitchen answers **404**, never
+         * 403: the kitchen console is not the place to confirm the existence of
+         * clinics. A malformed identifier is the same 404 rather than a driver
+         * error, because it is substituted rather than queried.
+         *
+         */
+        organisation: Uuid | string;
+        /**
+         * The membership identifier. Always resolved inside the kitchen in the
+         * path; one belonging to another organisation is `404`, never `403`.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/platform/organisations/kitchens/{organisation}/owners/{membership}/revoke';
+};
+
+export type RevokePlatformKitchenOwnerErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RevokePlatformKitchenOwnerError = RevokePlatformKitchenOwnerErrors[keyof RevokePlatformKitchenOwnerErrors];
+
+export type RevokePlatformKitchenOwnerResponses = {
+    /**
+     * The ended membership, and how many owners this kitchen has left.
+     */
+    200: PlatformKitchenOwnerRevocationEnvelope;
+};
+
+export type RevokePlatformKitchenOwnerResponse = RevokePlatformKitchenOwnerResponses[keyof RevokePlatformKitchenOwnerResponses];
 
 export type CreateSubscriptionData = {
     body: CreateSubscriptionRequest;

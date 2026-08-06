@@ -308,14 +308,17 @@ describe('DevicesScreen', () => {
 describe('ForbiddenScreen', () => {
     it('translates the denial reason and shows the stable code', async () => {
         await renderScreen(
-            <ForbiddenScreen reason="permission_missing" missing={['platform.access_admin']} />,
+            <ForbiddenScreen
+                reason="permission_missing"
+                missing={['organisation.manage_platform']}
+            />,
         );
 
         expect(screen.getByTestId('forbidden-reason-title')).toHaveTextContent(
             /You do not have access/,
         );
         expect(screen.getByTestId('forbidden-reason-code')).toHaveTextContent(/permission_missing/);
-        expect(screen.getByTestId('forbidden-missing-platform.access_admin')).toBeTruthy();
+        expect(screen.getByTestId('forbidden-missing-organisation.manage_platform')).toBeTruthy();
     });
 
     it('offers a way out rather than a dead end', async () => {

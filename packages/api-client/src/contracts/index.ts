@@ -10,6 +10,7 @@ import type { KitchenOpsRepository } from './kitchen-ops.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
 import type { MealPlanRepository } from './planner.ts';
+import type { PlatformAdminRepository } from './platform-admin.ts';
 import type { ProfessionalRepository } from './professional.ts';
 import type { ContextRepository, DeviceRepository, SessionRepository } from './session.ts';
 import type { VerificationRepository } from './verification.ts';
@@ -562,6 +563,34 @@ export type {
     UploadDocumentRequest,
 } from './b2b-application.ts';
 
+/* ------------------------------------------------------------------------------------------------
+ * PA1 — platform administration of kitchen tenants.
+ *
+ * Registered in the bundle on the day it was written, unlike the four journey families above. They
+ * were declared standalone because their screens were built before their endpoints existed, and a
+ * required field on a bundle nothing satisfies breaks every consumer at once. This family had both
+ * implementations before it had a screen — the routes shipped with the same phase — so there was
+ * never a window in which registering it would have cost anything.
+ * ---------------------------------------------------------------------------------------------- */
+
+export { KITCHEN_TENANT_STATUSES, isReactivatable, isTradingStatus } from './platform-admin.ts';
+export type {
+    CreateKitchenRequest,
+    InviteOwnerRequest,
+    KitchenCatalogueCounts,
+    KitchenTenantFilter,
+    KitchenTenantStatus,
+    LockedPlatformRequest,
+    OwnerInvitation,
+    OwnerRevocation,
+    PlatformAdminRepository,
+    PlatformKitchen,
+    PlatformKitchenBranch,
+    PlatformKitchenOwner,
+    PlatformKitchenSummary,
+    SuspendKitchenRequest,
+} from './platform-admin.ts';
+
 /**
  * The complete data surface a screen may reach. Nothing else is exported to the application: a
  * screen depends on this bundle, never on a transport (plan §18).
@@ -626,4 +655,15 @@ export interface Repositories {
      * why the two contracts do not share a shape.
      */
     readonly kitchenOps: KitchenOpsRepository;
+
+    /**
+     * Platform administration of kitchen tenants (PA1) — the nineteenth field.
+     *
+     * Not a branch of `kitchenAdmin` and never could be. That contract is a kitchen managing
+     * itself; this one is the platform managing kitchens, and the only shape they share is the word
+     * "kitchen". Required like the rest: `/platform-admin` is a route area, and an optional
+     * repository would put a `?.` in front of every call and stop the compiler proving the mock and
+     * the API implementations cover the same surface.
+     */
+    readonly platformAdmin: PlatformAdminRepository;
 }

@@ -7,6 +7,7 @@ namespace Healthy360\B2b\Services;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\B2b\Contracts\InvitationMembershipGranter;
 use Healthy360\B2b\Models\OrganisationInvitation;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
@@ -35,24 +36,25 @@ use Illuminate\Support\Str;
  * down and the accept path needs a single indexed lookup rather than a scan
  * comparing every row.
  *
- * ## Acceptance is a shell
+ * ## Acceptance was a shell, and PA1 filled it
  *
  * `accept()` validates the token, the expiry and the outcome columns, marks
- * the row accepted and **stops there**. What it does not do is create the
- * membership — that write belongs to Organisations and AccessControl, in the
- * same idempotent provisioning transaction that creates the organisation
- * itself, and the integrator wave owns it (see the module docblock). Splitting
- * it this way keeps this module's dependency edges honest: B1 can prove an
- * invitation is valid without B1 being able to grant access.
+ * the row accepted, and now asks `InvitationMembershipGranter` to make the
+ * membership. The write itself still does not live here — it belongs to
+ * Organisations and AccessControl, both of which sit *below* B2B in the
+ * dependency graph — so it arrives through a port, and the default binding
+ * grants nothing. That keeps the property B1 was protecting: B2B can prove an
+ * invitation is valid without B2B being able to grant access.
  *
- * The shell is marked rather than silent — `acceptedWithoutMembership()` on
- * the result says exactly what did and did not happen, so nothing downstream
- * can mistake a validated token for a provisioned user.
+ * The outcome is reported rather than assumed — `acceptedWithoutMembership()`
+ * on the result says exactly what did and did not happen, so nothing
+ * downstream can mistake a validated token for a provisioned user.
  */
 final readonly class InvitationService
 {
     public function __construct(
         private AuditRecorder $audit,
+        private InvitationMembershipGranter $memberships,
     ) {}
 
     /**
@@ -166,7 +168,27 @@ final readonly class InvitationService
     }
 
     /**
-     * Mark an invitation accepted — **and only that** (see the class comment).
+     * Take up an offer of membership.
+     *
+     * ## The address has to match, and that is new in PA1
+     *
+     * B1 accepted on the strength of the token alone. That was defensible
+     * while acceptance did nothing but stamp a row; it stops being defensible
+     * the moment acceptance grants access, because a forwarded email would
+     * then hand a workspace to whoever opened it. The signed-in user's own
+     * verified address must be the address the invitation was sent to.
+     *
+     * The refusal is `403` rather than the opaque `404` the other failures
+     * share, and the asymmetry is deliberate: every other failure here would,
+     * if distinguished, confirm a guessed token. This one cannot — the caller
+     * already holds a valid token — and telling them "this was sent to
+     * somebody else" is the only message that leads anywhere useful.
+     *
+     * ## And the membership is now really created
+     *
+     * Through `InvitationMembershipGranter`, whose default still grants
+     * nothing. See that interface for why the write cannot live in this
+     * module.
      *
      * @throws ApiException
      */
@@ -181,9 +203,18 @@ final readonly class InvitationService
             );
         }
 
+        if (mb_strtolower(trim((string) $acceptor->email)) !== $invitation->email_normalised) {
+            throw new ApiException(
+                ErrorCode::AuthzPermissionDenied,
+                'This invitation was sent to a different email address. Sign in as that person to accept it.',
+            );
+        }
+
         $invitation->accepted_at = CarbonImmutable::now();
         $invitation->accepted_by_user_id = (string) $acceptor->getKey();
         $invitation->save();
+
+        $membershipId = $this->memberships->grant($invitation, $acceptor);
 
         $this->audit->record(
             'b2b.organisation_invitation_accepted',
@@ -193,11 +224,16 @@ final readonly class InvitationService
             metadata: [
                 'organisation_id' => $invitation->organisation_id,
                 'role' => $invitation->role_code,
-                'membership_created' => false,
+                'membership_created' => $membershipId !== null,
+                'membership_id' => $membershipId,
             ],
         );
 
-        return new AcceptedInvitation($invitation, membershipCreated: false);
+        return new AcceptedInvitation(
+            $invitation,
+            membershipCreated: $membershipId !== null,
+            membershipId: $membershipId,
+        );
     }
 
     /**

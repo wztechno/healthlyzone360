@@ -804,6 +804,10 @@ it('grants the platform permissions only inside the platform operator organisati
     expect($codes)->toEqualCanonicalizing([
         'reference.view_platform',
         'reference.manage_platform',
+        // PA1. The tenant-lifecycle console: create a kitchen, invite and
+        // revoke its owners, suspend and reactivate it. Yes, a platform
+        // operator should hold this — it is the job the role exists for.
+        'organisation.manage_platform',
         'b2b_application.view_platform',
         'b2b_application.review_platform',
         'b2b_application.decide_platform',

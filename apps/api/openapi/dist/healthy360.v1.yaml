@@ -251,6 +251,39 @@ tags:
       Bringing a person into an organisation. The token is returned to nobody:
       it exists once, in the invitation email, and the platform stores only its
       digest.
+  - name: Platform administration
+    description: |
+      The operator console over the kitchens themselves: creating one, reading
+      what it has, withdrawing it from trading, and naming the people who run
+      it.
+
+      **Two gates in front of every operation, as everywhere else on
+      `/platform`.** The selected organisation must be the platform operator,
+      and the member must hold `organisation.manage_platform`. A tenant that
+      somehow acquired the permission still cannot reach these paths, because
+      organisation type is not something a tenant can grant itself.
+
+      **One permission code for the whole family**, unlike the four the B2B
+      review queue carries. An application is a case file several people work
+      in turn, so reading it, moving it and settling it are separable
+      authorities. Tenant lifecycle is not a workflow: whoever may see the list
+      of kitchens is the same person trusted to create one and to suspend one,
+      and splitting it would produce a "viewer" role nobody would ever be
+      given.
+
+      **Lifecycle is sub-resource actions, never `PATCH status`.** A patch
+      would accept `closed` from a console with no business offboarding
+      anybody, would need a state machine inside a validation rule, and would
+      make suspend and reactivate the same request with a different string in
+      it. Two endpoints, two verbs, two audit actions.
+
+      **Suspension is one column with consequences enforced elsewhere.** The
+      write here sets a status; vanishing from the marketplace, refusing quotes
+      and checkout, and refusing the kitchen's own catalogue writes are
+      enforced at those seams, through one shared trading guard. A lifecycle
+      service that also went and switched things off would be a second
+      enforcement that could disagree with the first, and the disagreement
+      would always be discovered by a customer.
   - name: Marketplace
     description: |
       The consumer's anonymous, read-only view of the catalogue: kitchens with
@@ -11866,17 +11899,34 @@ paths:
         membership this request exists to create. They must be signed in so
         acceptance is attributable, and verified so the identity is reachable.
 
-        **B1 acceptance is a shell.** The row is marked accepted and the
-        membership write is not performed, so `membership_created` is `false`
-        and `membership` is `null` on every response. Saying so plainly is the
-        point: a response that quietly implied a provisioned member would let
-        a client show somebody a workspace they cannot enter. The keys are
-        present rather than omitted so the wire shape does not change when the
-        write lands.
+        **Acceptance now grants the membership.** B1 shipped this as a shell —
+        the row was stamped and nothing else happened, because the membership
+        write belongs to Organisations and AccessControl and B2B cannot call
+        across that edge. PA1 supplied the write, so `membership_created` is
+        `true` on a normal acceptance and `membership` carries the new
+        membership's identifier. Both keys were present all along precisely so
+        the wire shape would not have to change when the write arrived, and
+        both still report `false`/`null` when nothing was granted — which is
+        the point of reporting them at all. A response that quietly implied a
+        provisioned member would let a client show somebody a workspace they
+        cannot enter.
+
+        `membership` is `{ "id": "…" }` rather than the full membership: what
+        the acceptor needs next is `GET /me`, which returns their memberships
+        hydrated with roles, scope and permissions. Repeating a partial copy
+        here would be a second answer to that question.
 
         **Every failure is the same `404`** — wrong token, expired, revoked,
         already accepted. Distinguishing them would tell somebody holding a
         guessed token that they guessed right.
+
+        **The one exception is a token offered by the wrong person**, which
+        answers `403 authz.permission_denied`. The signed-in user's own email
+        must be the address the invitation was sent to. There is nothing left
+        to conceal on this path — the caller already holds a valid token, so a
+        `404` would hide nothing and would send somebody looking for a broken
+        link — and "sign in as the person this was sent to" is the only useful
+        thing to say.
 
         The token is a path segment because that is what the emailed link
         carries. The cost is real and worth naming — path segments reach
@@ -11889,7 +11939,7 @@ paths:
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: The accepted invitation, and an honest statement that no membership was created.
+          description: The accepted invitation, and an honest statement of what it granted.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -11900,9 +11950,495 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/EmailUnverified'
+          $ref: '#/components/responses/InvitationAcceptanceForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/organisations/kitchens:
+    get:
+      operationId: listPlatformKitchens
+      tags:
+        - Platform administration
+      summary: Every kitchen on the platform
+      description: |
+        **Newest first**, unlike the B2B review queue. That queue is work to be
+        done and the fair order is arrival; this is an inventory, and the
+        kitchen an operator is looking for is overwhelmingly the one somebody
+        just created or just complained about.
+
+        `status` accepts any organisation status, **including `closed`**.
+        Offboarding does not currently produce closed kitchens — it winds up
+        corporate customers — but narrowing the vocabulary to the subset that
+        happens to be reachable today would be a rule to unpick later rather
+        than a safeguard.
+
+        `query` matches the name and the slug, case-insensitively. Those are
+        the two things somebody holds when they arrive from a support ticket.
+
+        Each row carries its owner list's *size* and its catalogue counts
+        rather than the rows behind them, so a page of twenty kitchens is three
+        grouped queries rather than sixty. The read is audited as a classified
+        access: a list of kitchens is unremarkable, and the owner names and
+        addresses that hang off each one are personal data.
+
+        Requires `organisation.manage_platform` inside the platform-operator
+        organisation.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          required: false
+          description: |
+            Restrict to one organisation status. Omitted, every kitchen is
+            listed whatever state it is in — the console's whole job is the
+            suspended ones.
+          schema:
+            type: string
+            enum:
+              - active
+              - suspended
+              - pending
+              - closed
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring match over the kitchen's name and its slug.
+          schema:
+            type: string
+            maxLength: 160
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of kitchens, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlatformKitchenSummary'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createPlatformKitchen
+      tags:
+        - Platform administration
+      summary: Bring a kitchen into existence
+      description: |
+        **`Idempotency-Key` is mandatory**, on the same terms as B2B
+        provisioning. A tenant cannot be un-created, and a retried request that
+        produced a second kitchen would be discovered by whoever went looking
+        for the first one. The unique slug would refuse an exact duplicate, but
+        only after the branch and the channel had been written and rolled back,
+        and only with a validation error where a replay belongs. Absent or
+        blank is `400 request.invalid`.
+
+        **No `If-Match`.** Nothing existing is written, so there is no lost
+        update for a validator to protect against.
+
+        The kitchen is created `active`, not `pending`. A kitchen created by
+        the platform has already been decided about — the decision *is* the
+        console click — so there is nothing for `pending` to mean here; the
+        status that would be earned by a self-service signup queue belongs to
+        that queue, if it ever exists.
+
+        `201` carries the same body the single-kitchen read returns, so a
+        console can navigate straight to the new kitchen without a second
+        round trip, and the `ETag` it needs for the first lifecycle write comes
+        with it.
+
+        Requires `organisation.manage_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformKitchenRequest'
+      responses:
+        '201':
+          description: The new kitchen, in full, with its validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformKitchenEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/PlatformKitchenSlugTaken'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/organisations/kitchens/{organisation}:
+    get:
+      operationId: getPlatformKitchen
+      tags:
+        - Platform administration
+      summary: One kitchen, in full
+      description: |
+        Everything the console shows on a kitchen's own screen: the counts, the
+        active owner memberships with the names and addresses behind them, the
+        branches, and — when it is suspended — the note and the operator who
+        wrote it.
+
+        **Carries an `ETag` holding the organisation's `lock_version`**,
+        because the two lifecycle actions on this resource demand an
+        `If-Match`. A client that could not obtain a validator from the read
+        would have no way to send one on the write, which is the failure the
+        precondition exists to prevent rather than to cause.
+
+        An organisation that exists but is **not** a kitchen answers `404`, not
+        `403`: the kitchen console is not the place to confirm the existence of
+        clinics. A malformed identifier is the same `404` rather than a driver
+        error.
+
+        Requires `organisation.manage_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PlatformKitchenPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen, its owners and its branches.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformKitchenEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/organisations/kitchens/{organisation}/suspend:
+    post:
+      operationId: suspendPlatformKitchen
+      tags:
+        - Platform administration
+      summary: Withdraw a kitchen from trading
+      description: |
+        **What suspension actually does**, stated here because the effects live
+        at half a dozen seams and a caller should not have to find them:
+
+        - The kitchen and its meals and plans **vanish from every public
+          marketplace read**. An anonymous browser sees no trace of it.
+        - **Subscription quoting, order placement and subscription-composed
+          orders refuse** with `409 organisation.suspended`, carrying
+          `details.organisation_id`. A suspended kitchen that carried on taking
+          orders because only the shop window checked is exactly the failure
+          this replaced.
+        - The kitchen's **own staff keep read access to their workspace** —
+          they sign in, they read their recipes, their orders and their ops
+          screens, and they read the banner explaining why the publish button
+          now refuses. But **catalogue, recipe, pricing, plan and
+          delivery-zone writes refuse with the same code**. A tenant locked out
+          entirely cannot be told anything, which is why this is a route gate
+          on the writing half rather than a step in the permission decision.
+        - **Day-to-day operations writes stay open**: inventory, goods
+          receipts, production, quality control and the kitchen display. This
+          stops a kitchen selling; it does not stop it finishing the food it
+          already owes people, and a stock count that refuses is a stock count
+          that gets written on paper instead.
+
+        `reason` is **optional prose, not a code vocabulary**. Requiring one
+        would produce reasons — "n/a", "see ticket", "asked to" — and a column
+        full of those is worse than a column full of nulls because it looks
+        like it has been filled in. A closed vocabulary would be worse still:
+        no shortlist survives contact with the things people actually need to
+        write here, and every real case would end up behind an `other` that
+        says nothing. The operator who has something to say says it; the audit
+        entry records the decision either way.
+
+        **`If-Match` is required.** Two operators sharing a console is the
+        ordinary case, and last-write-wins on "may this business trade" is not
+        a defensible way to settle it. Absent is `428`; stale is `409
+        resource.conflict` carrying `details.current_lock_version`.
+
+        Only an `active` kitchen can be suspended; anything else is `409` with
+        `details.status` naming what was found. `closed` in particular is not
+        reachable from here — a closed organisation has been offboarded, and
+        suspending one would suggest the state is recoverable.
+
+        Requires `organisation.manage_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PlatformKitchenPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuspendPlatformKitchenRequest'
+      responses:
+        '200':
+          description: The suspended kitchen, and its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformKitchenSummaryEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PlatformKitchenLifecycleConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/organisations/kitchens/{organisation}/reactivate:
+    post:
+      operationId: reactivatePlatformKitchen
+      tags:
+        - Platform administration
+      summary: Let a kitchen trade again
+      description: |
+        The twin of suspend, and a separate endpoint rather than the same one
+        with a different payload — two decisions with different consequences
+        and different audit entries should not be one request with a different
+        string in it.
+
+        **No request body at all.** Reactivating clears the suspension note,
+        so asking for a reason to un-suspend would invite somebody to write the
+        counter-argument into a column the next suspension wipes. Why a kitchen
+        was let back in belongs to the audit log, which keeps it.
+
+        A `pending` kitchen — one created here and never handed to an owner —
+        reactivates to `active` the same as a suspended one, because "let this
+        trade" is the same decision either way. It is only the *suspending*
+        side that insists on `active`.
+
+        **A `closed` organisation cannot be reactivated**, and that is `409`
+        rather than a quiet success. Closing is offboarding: memberships were
+        ended, the agreement terminated and personal data purged. Bringing the
+        row back to `active` would produce a tenant nobody can sign into and a
+        history that no longer exists — the honest answer is that this is a new
+        kitchen's worth of work, not a status change.
+
+        A kitchen that is already `active` is also `409`, with
+        `details.status`. **`If-Match` is required**, for the reason suspend
+        gives.
+
+        Requires `organisation.manage_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PlatformKitchenPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen, trading again, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformKitchenSummaryEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PlatformKitchenLifecycleConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/organisations/kitchens/{organisation}/owners/invitations:
+    post:
+      operationId: invitePlatformKitchenOwner
+      tags:
+        - Platform administration
+      summary: Offer somebody ownership of a kitchen
+      description: |
+        **There is no `role_code` field, and its absence is the whole shape of
+        this endpoint.** The role is always `organisation_owner` and is not a
+        caller's choice. `POST /organisations/{organisation}/invitations`
+        already exists for a member of an organisation to invite anybody to any
+        role inside it; this is a different act — the platform naming the
+        person who will run a tenant. Letting the caller pick the role would
+        make this the general endpoint again, with a platform gate in front of
+        it for no reason.
+
+        `organisation_owner` is a platform template role every organisation
+        shares, so nothing has to be created for a brand-new kitchen before its
+        owner can be invited.
+
+        **Re-inviting the same address supersedes the outstanding offer rather
+        than adding a second.** The live invitation is revoked inside the same
+        transaction that issues the new one, because two live tokens for one
+        seat means revoking one achieves nothing. So this is safe to press
+        twice, which is what an operator does when somebody says they never got
+        the email.
+
+        **`mailed` reports honestly whether the email went out.** A transport
+        failure does not lose the invitation — the row and its token exist, and
+        re-inviting supersedes cleanly — but it does mean nobody has been told,
+        and a console that showed an unqualified success would leave an
+        operator waiting for a reply to a message that was never sent. It is
+        deliberately not an error: failing the request would imply the
+        invitation had not been created, and the operator would retry and
+        wonder why the list had two entries.
+
+        **The token is not in this response and never may be.** It is returned
+        exactly once, to the mail that carries it; only its SHA-256 reaches the
+        database.
+
+        `name` is used only in the email greeting and is **never stored**. The
+        person's real name arrives with their profile when they accept, and a
+        name typed by an operator into an invitation form would be a second,
+        worse copy of it.
+
+        Requires `organisation.manage_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PlatformKitchenPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitePlatformKitchenOwnerRequest'
+      responses:
+        '201':
+          description: The invitation — without its token — and whether the mail was sent.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformKitchenOwnerInvitationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/organisations/kitchens/{organisation}/owners/{membership}/revoke:
+    post:
+      operationId: revokePlatformKitchenOwner
+      tags:
+        - Platform administration
+      summary: End an owner's membership
+      description: |
+        **`POST .../revoke` rather than `DELETE .../owners/{membership}`,
+        because nothing is deleted.** The membership becomes `ended` — the same
+        terminal state a business-access revocation writes — and the row
+        survives as the record that this person was an owner. The audit entry
+        beside it refers to something that has to still be there.
+
+        **The last owner may be revoked.** A kitchen whose only owner has left,
+        or whose owner is the reason the platform is intervening, has to be
+        able to have that membership ended before a replacement exists; a rule
+        that refused would leave the console unable to do the one thing it was
+        opened to do. The platform acts deliberately, and a guard rail here
+        would be a policy pretending to be a safety feature.
+
+        So `remaining_owners` comes back instead, and the console warns rather
+        than the API refusing: report the consequence, and let the operator
+        decide.
+
+        The revoked owner's tokens are **not** destroyed. Somebody who stops
+        running one kitchen has not stopped existing — they may shop on the
+        platform, they may run another kitchen — and signing them out of all of
+        it is a punishment the platform has not decided to hand out. Their
+        permission version is bumped, which removes this organisation from
+        their context immediately, and that is the actual requirement.
+
+        A membership that does not belong to **this** kitchen is `404`, never
+        `403`. One that has already ended is `409` with `details.status`.
+
+        Requires `organisation.manage_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PlatformKitchenPath'
+        - $ref: '#/components/parameters/PlatformKitchenMembershipPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The ended membership, and how many owners this kitchen has left.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformKitchenOwnerRevocationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /subscriptions:
@@ -14082,6 +14618,34 @@ components:
         type: string
         minLength: 32
         maxLength: 128
+    PlatformKitchenPath:
+      name: organisation
+      in: path
+      required: true
+      description: |
+        The kitchen's identifier **or its slug**. Both are accepted because an
+        operator reading a support ticket has the slug in front of them and not
+        a UUID, and a slug is unique across the platform.
+
+        An organisation that exists but is not a kitchen answers **404**, never
+        403: the kitchen console is not the place to confirm the existence of
+        clinics. A malformed identifier is the same 404 rather than a driver
+        error, because it is substituted rather than queried.
+      schema:
+        oneOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: string
+            maxLength: 100
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    PlatformKitchenMembershipPath:
+      name: membership
+      in: path
+      required: true
+      description: |
+        The membership identifier. Always resolved inside the kitchen in the
+        path; one belonging to another organisation is `404`, never `403`.
+      schema:
+        $ref: '#/components/schemas/Uuid'
     SubscriptionPath:
       name: subscription
       in: path
@@ -15166,6 +15730,90 @@ components:
                 blockers:
                   - open_buyer_orders
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    InvitationAcceptanceForbidden:
+      description: |
+        Two codes share this status, and the difference matters to the person
+        holding the link.
+
+        **`auth.email_unverified`** — the acceptor is signed in but has not
+        verified their address. Acceptance has to be attributable to a
+        reachable identity, so the remedy is to verify and click again.
+
+        **`authz.permission_denied`** — the invitation was sent to somebody
+        else. The one failure on this endpoint that is not a `404`: the caller
+        already holds a valid token, so there is nothing left to conceal, and
+        "sign in as the person this was sent to" is the only useful thing to
+        say.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: authz.permission_denied
+              message: This invitation was sent to a different email address. Sign in as that person to accept it.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    PlatformKitchenSlugTaken:
+      description: |
+        The submitted data is invalid. On kitchen creation this is almost
+        always the slug: `details.fields.slug` says so, and the check lives in
+        the service rather than in a validation rule because the uniqueness
+        question and the insert have to be the same decision — a validator that
+        answered it separately would leave a race between the check and the
+        write.
+
+        The reference codes — `country_code`, `default_currency_code`,
+        `default_language_code` — are checked against their platform tables and
+        produce ordinary field messages rather than a foreign-key violation.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: validation.failed
+              message: That slug is already taken.
+              details:
+                fields:
+                  slug:
+                    - That slug is already taken.
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    PlatformKitchenLifecycleConflict:
+      description: |
+        One code, `resource.conflict`, for two different things — and
+        `details` tells them apart.
+
+        **`details.status`** — the kitchen is not in the state this action
+        starts from. Suspension insists on `active`; reactivation refuses one
+        that is already `active`, and refuses a `closed` organisation outright,
+        because closing is offboarding and its memberships were ended and its
+        personal data purged. Reloading will not help; the state is the answer.
+
+        **`details.current_lock_version`** — the write lost a race. Somebody
+        else moved this kitchen since the validator was read, and the value to
+        reload against comes back so a console can offer "reload" or "keep
+        mine" without a second round trip.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: Only an active kitchen can be suspended.
+              details:
+                status: suspended
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     RecordExportUnavailable:
       description: |
         The bundle exists and cannot be downloaded. `details.status` says which
@@ -15235,6 +15883,7 @@ components:
         - request.idempotency_key_reused
         - resource.not_found
         - resource.conflict
+        - organisation.suspended
         - catalogue.in_use
         - catalogue.version_immutable
         - catalogue.allergen_unmapped
@@ -26113,10 +26762,11 @@ components:
     AcceptedInvitationEnvelope:
       type: object
       description: |
-        `membership` and `membership_created` are present and honest.
-        Acceptance in B1 marks the invitation and stops there; the membership
-        write belongs to Organisations and AccessControl. The keys exist now
-        so the wire shape does not change when it lands.
+        `membership` and `membership_created` are present and honest. B1
+        marked the invitation and stopped there; PA1 supplied the membership
+        write, so both now report what actually happened rather than a
+        permanent `false`/`null`. The keys existed all along precisely so this
+        change would not alter the wire shape.
       required:
         - data
         - meta
@@ -26132,12 +26782,22 @@ components:
               $ref: '#/components/schemas/OrganisationInvitation'
             membership:
               oneOf:
-                - $ref: '#/components/schemas/Membership'
+                - type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      $ref: '#/components/schemas/Uuid'
+                  additionalProperties: false
                 - type: 'null'
-              description: Always null in B1. See the description above.
+              description: |
+                The membership acceptance created — its identifier and nothing
+                more. `GET /me` returns memberships hydrated with roles, scope
+                and permissions, and a partial copy here would be a second
+                answer to that question. Null when nothing was granted.
             membership_created:
               type: boolean
-              description: Always false in B1. A response that quietly implied a provisioned member would let a client show somebody a workspace they cannot enter.
+              description: Whether this acceptance created a membership. A response that quietly implied a provisioned member would let a client show somebody a workspace they cannot enter.
         meta:
           $ref: '#/components/schemas/Meta'
     B2bProvisioningEnvelope:
@@ -28019,3 +28679,514 @@ components:
           minLength: 10
           maxLength: 2000
           description: '"Why did we stop offboarding Acme" is a question somebody asks when Acme is still trading eighteen months later.'
+    PlatformKitchenCatalogueCounts:
+      type: object
+      description: |
+        What a kitchen has in its catalogue, in the two shapes an operator
+        reads it in.
+
+        **The type breakdown counts published rows only.** `meals`, `products`
+        and `plans` answer "what is this kitchen selling", and a half-written
+        draft is not an answer to that question. `published` and `draft` beside
+        them are the **progress pair** and count everything, which is why the
+        three type counts do not add up to `published` when a kitchen sells
+        something outside those three types, and why `draft` is never included
+        in any of them.
+      required:
+        - meals
+        - products
+        - plans
+        - published
+        - draft
+      properties:
+        meals:
+          type: integer
+          minimum: 0
+          description: Published meals.
+        products:
+          type: integer
+          minimum: 0
+          description: Published products.
+        plans:
+          type: integer
+          minimum: 0
+          description: Published subscription plans.
+        published:
+          type: integer
+          minimum: 0
+          description: Every published catalogue item, whatever its type.
+        draft:
+          type: integer
+          minimum: 0
+          description: Every item still being written — draft, or sent back for review.
+    PlatformKitchenOwner:
+      type: object
+      description: |
+        An **active** membership holding the `organisation_owner` role.
+        Ownership on this platform has always been a membership with the owner
+        role assigned to it rather than a column or a flag, so this asks the
+        same question the permission checker asks. Ended and suspended
+        memberships are excluded: they are people who *used* to be owners, and
+        counting them would report an owned kitchen nobody can get into.
+      required:
+        - membership_id
+        - user_id
+        - name
+        - email
+        - status
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        user_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type:
+            - string
+            - 'null'
+          description: From the person's profile. Null until they have one — an invited owner who has not yet completed sign-up has an address and no name.
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          description: The membership status. Always `active` in this list, and present rather than assumed so a client never has to infer it.
+    PlatformKitchenBranch:
+      type: object
+      description: |
+        One of the kitchen's locations, as the platform console lists them.
+        Deliberately thin: opening hours, cut-offs and delivery zones are the
+        kitchen's own operational surface, and an operator console that carried
+        them would become the accidental canonical read for a workspace it does
+        not own.
+      required:
+        - id
+        - name
+        - city
+        - country_code
+        - timezone
+        - status
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        city:
+          type:
+            - string
+            - 'null'
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        timezone:
+          type: string
+          examples:
+            - Asia/Beirut
+        status:
+          type: string
+          enum:
+            - active
+            - closed
+    PlatformKitchenSummary:
+      type: object
+      description: |
+        The queue row — enough to scan a list of kitchens and decide which one
+        to open.
+
+        Two shapes rather than one with a flag, the rule this platform writes
+        everywhere: a summary and a detail separated by a boolean argument is
+        one careless call away from returning every owner's email address on a
+        screen that only wanted names. So the owner *list* lives on the detail
+        shape and only `owner_count` appears here.
+
+        This is not the organisation shape a member reads about their own
+        tenant. That one answers "which organisation am I signed into?" and its
+        capability list is that member's view of themselves; this answers "what
+        has the platform got here?" about somebody else's tenant, and the two
+        are expected to diverge.
+      required:
+        - id
+        - slug
+        - name
+        - status
+        - country_code
+        - default_currency_code
+        - default_language_code
+        - branch_count
+        - active_branch_count
+        - owner_count
+        - catalogue
+        - suspended_at
+        - lock_version
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          type: string
+          description: Unique across the platform and immutable. Accepted in place of the identifier on every path in this family.
+          examples:
+            - verdant-kitchen
+        name:
+          type: string
+          description: |
+            The single name `organisations` stores. The Arabic name collected
+            at creation goes where the platform already keeps bilingual
+            organisation naming — the branch and the sales channel — because
+            this table has one name column and inventing a second here would be
+            a copy that drifts.
+          examples:
+            - Verdant Kitchen
+        status:
+          type: string
+          enum:
+            - active
+            - suspended
+            - pending
+            - closed
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        default_currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        default_language_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+        branch_count:
+          type: integer
+          minimum: 0
+        active_branch_count:
+          type: integer
+          minimum: 0
+          description: |
+            Counted separately rather than inferred, because the gap between
+            the two is the thing worth seeing — a kitchen with four branches
+            and none of them open is a support call waiting to happen.
+        owner_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many **active** owner memberships this kitchen has. Zero is a
+            legitimate value and not an error: the last owner may be revoked
+            deliberately, and a kitchen created by the console has none until
+            somebody accepts an invitation.
+        catalogue:
+          $ref: '#/components/schemas/PlatformKitchenCatalogueCounts'
+        suspended_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the platform withdrew this kitchen from trading. Null whenever it is not suspended — reactivation clears it.
+        lock_version:
+          type: integer
+          minimum: 0
+          description: |
+            The optimistic-concurrency validator, served as the `ETag` on the
+            single-kitchen read and required back as `If-Match` on suspend and
+            reactivate. Present on the row as well as in the header so a list
+            client can tell that two rows moved without re-reading either.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    PlatformKitchen:
+      allOf:
+        - $ref: '#/components/schemas/PlatformKitchenSummary'
+        - type: object
+          description: |
+            The kitchen's own screen: everything the summary carries, plus the
+            people, the places and — when it is suspended — the note and who
+            wrote it.
+
+            The `allOf` is a documentation convenience. The server builds the
+            two shapes through two named methods rather than by adding to or
+            subtracting from one, for the reason stated on the summary: a
+            narrow shape produced by unsetting keys from a wide one is one
+            careless refactor away from leaking.
+          required:
+            - suspension_reason
+            - suspended_by
+            - owners
+            - branches
+          properties:
+            suspension_reason:
+              type:
+                - string
+                - 'null'
+              maxLength: 500
+              description: |
+                The operator's own words, or null. Prose rather than a code,
+                and optional rather than required — a mandatory field would
+                produce "n/a" and "see ticket", and a column full of those is
+                worse than a column full of nulls because it looks like it has
+                been filled in. Cleared on reactivation; the audit log keeps
+                the history.
+            suspended_by:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+              description: The platform user who suspended this kitchen. Cleared on reactivation, for the same reason the note is.
+            owners:
+              type: array
+              description: The active owner memberships, oldest first. Personal data, which is why reading this endpoint is audited as a classified access.
+              items:
+                $ref: '#/components/schemas/PlatformKitchenOwner'
+            branches:
+              type: array
+              description: Every branch, whatever its status, by name.
+              items:
+                $ref: '#/components/schemas/PlatformKitchenBranch'
+    PlatformKitchenEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - kitchen
+          properties:
+            kitchen:
+              $ref: '#/components/schemas/PlatformKitchen'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PlatformKitchenSummaryEnvelope:
+      type: object
+      description: |
+        What the lifecycle actions return. The summary rather than the detail,
+        because suspending a kitchen is not a reason to re-serve every owner's
+        email address; a console that needs the full row re-reads it.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - kitchen
+          properties:
+            kitchen:
+              $ref: '#/components/schemas/PlatformKitchenSummary'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreatePlatformKitchenRequest:
+      type: object
+      description: |
+        **One request creates four things, in one transaction: the
+        organisation, one active main branch, the `kitchen_production`
+        capability, and a `b2c_web` sales channel coded `web-shop`.** All four
+        or none.
+
+        A kitchen that is only an organisation row is a kitchen whose workspace
+        refuses on the first screen: the organisation context resolves a
+        *branch* before the kitchen area will open, the capability is what the
+        workspace reads to know what it is, and a published meal has to be
+        available on a channel before a price can resolve or a marketplace
+        listing can appear. Creating the organisation and leaving an operator
+        to add the rest afterwards was rejected because it makes the console's
+        success message a lie for the twenty minutes before somebody notices. A
+        new kitchen works immediately; it simply has nothing in it yet.
+
+        The wholesale channel is deliberately **not** created. A kitchen that
+        has never traded with a company does not need a B2B channel sitting
+        inactive in its list.
+
+        **Both names are required.** `organisations` stores a single `name`, so
+        the Arabic goes onto the sales channel, which carries both. Collecting
+        it now is the point: the operator typing the English name knows the
+        Arabic one, and a screen that asks three weeks later gets a
+        transliteration.
+      required:
+        - name_en
+        - name_ar
+        - slug
+        - country_code
+        - default_currency_code
+        - default_language_code
+        - timezone
+        - branch_name
+      additionalProperties: false
+      properties:
+        name_en:
+          type: string
+          maxLength: 160
+          description: The organisation's name.
+          examples:
+            - Verdant Kitchen
+        name_ar:
+          type: string
+          maxLength: 160
+          description: The Arabic name, stored on the branch and the sales channel rather than on the organisation, which has one name column.
+        slug:
+          type: string
+          maxLength: 100
+          pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+          description: |
+            Lowercase words joined by single hyphens. Unique across the
+            platform and immutable; a taken one is `422` with
+            `details.fields.slug`, decided inside the insert rather than by a
+            separate check that would race it.
+          examples:
+            - verdant-kitchen
+        country_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: Must exist in the platform country table.
+          examples:
+            - LB
+        default_currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: Must exist in the platform currency table.
+          examples:
+            - USD
+        default_language_code:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: Must exist in the platform language table.
+          examples:
+            - en
+        timezone:
+          type: string
+          maxLength: 64
+          description: |
+            A plain bounded string, deliberately not checked against the
+            runtime's timezone list: that list changes with whatever tzdata the
+            container happens to ship, and a validator that started refusing
+            `Asia/Dubai` after a base-image bump would be one nobody could
+            debug.
+          examples:
+            - Asia/Beirut
+        branch_name:
+          type: string
+          maxLength: 160
+          description: The name of the one active branch created alongside the organisation.
+        city:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+          description: The branch's city. The only optional field here.
+    SuspendPlatformKitchenRequest:
+      type: object
+      description: |
+        One optional field, and it is optional on purpose — see the operation
+        for why a reason vocabulary would not survive contact with the things
+        people actually need to write here.
+      additionalProperties: false
+      properties:
+        reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+          description: |
+            Free prose, shown to nobody outside the platform. Blank and absent
+            are the same thing: both store null, because a column that
+            distinguishes "" from nothing is a distinction no reader can use.
+    InvitePlatformKitchenOwnerRequest:
+      type: object
+      description: |
+        **No `role_code`.** The role is always `organisation_owner` and is not
+        a caller's choice — that is precisely what separates this from
+        `POST /organisations/{organisation}/invitations`, which exists for a
+        member of an organisation to invite anybody to any role inside it.
+      required:
+        - email
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 160
+          description: A live offer already outstanding to this address is superseded rather than refused.
+        name:
+          type:
+            - string
+            - 'null'
+          maxLength: 160
+          description: |
+            Used **only** in the greeting line of the invitation email, and
+            never stored. The person's real name arrives with their profile
+            when they accept, and a name typed by an operator into an
+            invitation form would be a second, worse copy of it.
+        message:
+          type:
+            - string
+            - 'null'
+          maxLength: 1000
+          description: A sentence that travels with the invitation. An invitation with no context is an email people assume is phishing, and rightly.
+    PlatformKitchenOwnerInvitationEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - invitation
+            - mailed
+          properties:
+            invitation:
+              $ref: '#/components/schemas/OrganisationInvitation'
+            mailed:
+              type: boolean
+              description: |
+                Whether the invitation email actually went out. Reported rather
+                than assumed: a transport failure does not lose the invitation,
+                but it does mean nobody has been told, and a console that
+                showed an unqualified success would leave an operator waiting
+                for a reply to a message that was never sent.
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PlatformKitchenOwnerRevocationEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - membership
+            - remaining_owners
+          properties:
+            membership:
+              type: object
+              description: The membership as it now stands — `ended`, and still there. Nothing was deleted.
+              required:
+                - id
+                - user_id
+                - status
+              additionalProperties: false
+              properties:
+                id:
+                  $ref: '#/components/schemas/Uuid'
+                user_id:
+                  $ref: '#/components/schemas/Uuid'
+                status:
+                  type: string
+                  description: Always `ended` on a successful revocation.
+                  examples:
+                    - ended
+            remaining_owners:
+              type: integer
+              minimum: 0
+              description: |
+                How many active owners this kitchen has left. **Zero is a
+                legitimate outcome**, not a refusal: the last owner may be
+                revoked because the platform acts deliberately, and this number
+                exists so the console can warn rather than the API refusing.
+        meta:
+          $ref: '#/components/schemas/Meta'

@@ -13,6 +13,8 @@ use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Delivery\Models\DeliveryWindow;
+use Healthy360\Organisations\Services\OrganisationTradingGuard;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 
 /**
@@ -82,6 +84,7 @@ final readonly class StorefrontQuoting
     public function __construct(
         private SubscriptionPricing $pricing,
         private DatabaseTenantContext $tenantContext,
+        private OrganisationTradingGuard $trading,
     ) {}
 
     /**
@@ -95,6 +98,8 @@ final readonly class StorefrontQuoting
      *     allows_free_selection: bool,
      *     change_cutoff_hours: int,
      * }
+     *
+     * @throws ApiException when the kitchen behind the plan has been suspended
      */
     public function quote(
         string $catalogueItemId,
@@ -109,6 +114,16 @@ final readonly class StorefrontQuoting
         }
 
         $organisationId = $plan->organisation_id;
+
+        // PA1. The plan is read by key alone — deliberately, because a quote
+        // has to be able to explain *why* a plan cannot be bought rather than
+        // pretend it does not exist — so the seller's own standing is not
+        // established by the read and has to be asked for. A suspended kitchen
+        // is a hard stop rather than another entry in `reasons`: every other
+        // refusal here describes a configuration the shopper can change, and
+        // offering "pick a different duration" against a withdrawn tenant
+        // would be an invitation to keep trying.
+        $this->trading->assertTrading($organisationId);
 
         $profile = SubscriptionPlanProfile::withoutTenancy()->whereKey($catalogueItemId)->first();
 

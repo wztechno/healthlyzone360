@@ -73,6 +73,7 @@ export type {
     MealPlanRepository,
     NumericRangeFilter,
     NutritionRepository,
+    PlatformAdminRepository,
     ProfessionalRepository,
     VirtualDietitianRepository,
 } from './contracts/index.ts';

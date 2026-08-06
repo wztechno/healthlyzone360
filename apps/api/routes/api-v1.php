@@ -185,6 +185,13 @@ use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
 use Healthy360\Payments\Http\Controllers\PaymentRefundStoreController;
+use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenIndexController;
+use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenOwnerInvitationController;
+use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenOwnerRevokeController;
+use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenReactivateController;
+use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenShowController;
+use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreController;
+use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
 use Healthy360\POS\Http\Controllers\PosSaleStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
@@ -800,6 +807,15 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | `precondition` guards the writes on `ingredients`, the one resource
         | here that carries `lock_version` (master plan v2 §4.13).
         |
+        | `org.trading` sits on every catalogue, recipe, pricing, plan and
+        | delivery-zone *write* group below and on none of the read groups
+        | (PA1). A kitchen the platform has suspended keeps its workspace —
+        | it can still read what it built and see the banner saying why the
+        | publish button refuses — but it may not change what it is selling.
+        | The operations writes further down (inventory, receipts, production,
+        | quality control) are deliberately left open: suspension stops a
+        | kitchen selling, not finishing the food it already owes people.
+        |
         */
         Route::middleware('org.context')->prefix('/catalogue')->group(function (): void {
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
@@ -810,7 +826,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/ingredient-categories', IngredientCategoryIndexController::class)->name('catalogue.ingredient-categories.index');
             });
 
-            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:catalogue.manage_organisation'])->group(function (): void {
                 Route::post('/ingredients', IngredientStoreController::class)->name('catalogue.ingredients.store');
 
                 Route::patch('/ingredients/{ingredient}', IngredientUpdateController::class)
@@ -870,7 +886,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/recipes/{recipe}/versions/{version}/readiness', RecipeVersionReadinessController::class)->name('catalogue.recipes.versions.readiness');
             });
 
-            Route::middleware('permission:recipe.manage_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:recipe.manage_organisation'])->group(function (): void {
                 Route::post('/recipes', RecipeStoreController::class)->name('catalogue.recipes.store');
 
                 Route::patch('/recipes/{recipe}', RecipeUpdateController::class)
@@ -900,7 +916,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.recipes.versions.steps.replace');
             });
 
-            Route::middleware('permission:recipe.publish_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:recipe.publish_organisation'])->group(function (): void {
                 Route::post('/recipes/{recipe}/versions/{version}/publish', RecipeVersionPublishController::class)
                     ->middleware('precondition')
                     ->name('catalogue.recipes.versions.publish');
@@ -941,7 +957,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.recipes.versions.cost-snapshots.index');
 
                 Route::post('/recipes/{recipe}/versions/{version}/cost-snapshots', RecipeCostSnapshotStoreController::class)
-                    ->middleware('permission:recipe.manage_organisation')
+                    ->middleware(['org.trading', 'permission:recipe.manage_organisation'])
                     ->name('catalogue.recipes.versions.cost-snapshots.store');
             });
 
@@ -990,7 +1006,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/items/{item}/readiness', CatalogueItemReadinessController::class)->name('catalogue.items.readiness');
             });
 
-            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:catalogue.manage_organisation'])->group(function (): void {
                 Route::post('/sales-channels', SalesChannelStoreController::class)->name('catalogue.sales-channels.store');
 
                 Route::patch('/sales-channels/{channel}', SalesChannelUpdateController::class)
@@ -1024,7 +1040,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.items.availability.replace');
             });
 
-            Route::middleware('permission:catalogue.publish_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
                 Route::post('/items/{item}/publish', CatalogueItemPublishController::class)
                     ->middleware('precondition')
                     ->name('catalogue.items.publish');
@@ -1081,7 +1097,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/price-lists/{priceList}/entries', PriceListEntryIndexController::class)->name('catalogue.price-lists.entries.index');
             });
 
-            Route::middleware('permission:price_list.manage_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:price_list.manage_organisation'])->group(function (): void {
                 Route::post('/price-lists', PriceListStoreController::class)->name('catalogue.price-lists.store');
 
                 Route::patch('/price-lists/{priceList}', PriceListUpdateController::class)
@@ -1097,7 +1113,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.price-lists.channels.replace');
             });
 
-            Route::middleware('permission:catalogue.publish_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
                 Route::post('/price-lists/{priceList}/publish', PriceListPublishController::class)
                     ->middleware('precondition')
                     ->name('catalogue.price-lists.publish');
@@ -1154,7 +1170,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | and eventually an order point at what they describe.
             |
             */
-            Route::middleware('permission:plan.manage_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:plan.manage_organisation'])->group(function (): void {
                 Route::get('/plan-vocabulary/combinations', PlanCombinationIndexController::class)->name('catalogue.plan-vocabulary.combinations.index');
                 Route::post('/plan-vocabulary/combinations', PlanCombinationStoreController::class)->name('catalogue.plan-vocabulary.combinations.store');
                 Route::patch('/plan-vocabulary/combinations/{combination}', PlanCombinationUpdateController::class)->name('catalogue.plan-vocabulary.combinations.update');
@@ -1238,7 +1254,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | order taken for the evening slot has to stay explainable.
             |
             */
-            Route::middleware('permission:delivery_zone.manage_organisation')->group(function (): void {
+            Route::middleware(['org.trading', 'permission:delivery_zone.manage_organisation'])->group(function (): void {
                 Route::get('/delivery-zones', DeliveryZoneIndexController::class)->name('catalogue.delivery-zones.index');
                 Route::post('/delivery-zones', DeliveryZoneStoreController::class)->name('catalogue.delivery-zones.store');
                 Route::get('/delivery-zones/{zone}', DeliveryZoneShowController::class)->name('catalogue.delivery-zones.show');
@@ -1897,13 +1913,86 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | same 404 with the same message. Distinguishing them would tell somebody
         | holding a guessed token that they guessed right.
         |
-        | B1 acceptance is a **shell**: the row is marked accepted and the membership
-        | write is not performed, so the response reports `membership_created: false`
-        | rather than implying a workspace the person cannot enter.
+        | B1 acceptance was a **shell**: the row was marked accepted and the
+        | membership write was not performed. PA1 published
+        | `InvitationMembershipGranter` and bound it in the platform administration
+        | module, so acceptance now creates the membership and its role, and
+        | `membership_created` reports what actually happened rather than a
+        | permanent `false`. One thing did tighten: the signed-in user's own email
+        | must be the address the invitation was sent to, which answers 403 — the
+        | one failure here that cannot confirm a guessed token, because the caller
+        | already holds a valid one.
         |
         */
         Route::post('/invitations/{token}/accept', InvitationAcceptController::class)
             ->name('invitations.accept');
+
+        /*
+        |------------------------------------------------------------------
+        | Platform administration — kitchen tenants (PA1)
+        |------------------------------------------------------------------
+        |
+        | Two gates, as everywhere else on `/platform`: `platform.context`
+        | asserts the selected organisation is the platform operator, and
+        | `permission` asserts the member holds the platform code. A tenant
+        | that somehow acquired `organisation.manage_platform` still cannot
+        | reach these routes, because organisation type is not something a
+        | tenant can grant itself.
+        |
+        | **One code for the whole console**, unlike B1's four. A B2B
+        | application is a case file several people work in turn, so reading
+        | the queue, moving the file and settling it are separable
+        | authorities. Tenant lifecycle is not a workflow: whoever may see the
+        | list of kitchens is the same person trusted to create one and to
+        | suspend one. Splitting it would produce a "viewer" role nobody would
+        | ever be given.
+        |
+        | **Lifecycle is sub-resource actions, never `PATCH status`.** A PATCH
+        | would accept `closed` from a console with no business offboarding
+        | anybody, would need a state machine in a validator, and would make
+        | suspend and reactivate the same request with a different string in
+        | it. Both carry `precondition`: two operators sharing a console is the
+        | ordinary case, and last-write-wins on "may this business trade" is
+        | not a defensible way to settle it.
+        |
+        | Creating a kitchen carries `idempotency` for the reason provisioning
+        | does — a tenant cannot be un-created, and a retry that produced a
+        | second one would be discovered by whoever went looking for the first.
+        |
+        | Revoking an owner is `POST .../revoke`, not `DELETE`, because nothing
+        | is deleted: the membership becomes `ended` and stays as the record
+        | that this person was an owner. The **last** owner may be revoked —
+        | the platform acts deliberately — and `remaining_owners` comes back so
+        | the console can warn rather than the API refusing.
+        |
+        */
+        Route::middleware(['org.context', 'platform.context', 'permission:organisation.manage_platform'])
+            ->prefix('/platform/organisations/kitchens')
+            ->group(function (): void {
+                Route::get('/', PlatformKitchenIndexController::class)
+                    ->name('platform.organisations.kitchens.index');
+
+                Route::post('/', PlatformKitchenStoreController::class)
+                    ->middleware('idempotency')
+                    ->name('platform.organisations.kitchens.store');
+
+                Route::get('/{organisation}', PlatformKitchenShowController::class)
+                    ->name('platform.organisations.kitchens.show');
+
+                Route::post('/{organisation}/suspend', PlatformKitchenSuspendController::class)
+                    ->middleware('precondition')
+                    ->name('platform.organisations.kitchens.suspend');
+
+                Route::post('/{organisation}/reactivate', PlatformKitchenReactivateController::class)
+                    ->middleware('precondition')
+                    ->name('platform.organisations.kitchens.reactivate');
+
+                Route::post('/{organisation}/owners/invitations', PlatformKitchenOwnerInvitationController::class)
+                    ->name('platform.organisations.kitchens.owners.invitations.store');
+
+                Route::post('/{organisation}/owners/{membership}/revoke', PlatformKitchenOwnerRevokeController::class)
+                    ->name('platform.organisations.kitchens.owners.revoke');
+            });
     });
 });
 

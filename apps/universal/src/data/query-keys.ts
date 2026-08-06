@@ -74,6 +74,7 @@ export const QUERY_ROOTS = [
     'verification',
     'guest',
     'b2bApplication',
+    'platformAdmin',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -501,6 +502,24 @@ export const queryKeys = {
         offboarding: (organisationId: string) =>
             ['b2bApplication', 'offboarding', organisationId] as const,
     },
+
+    /**
+     * PA1 — the platform operator's console.
+     *
+     * The eighteenth root, and it exists rather than hanging off `kitchenAdmin` because the two
+     * describe opposite sides of the same word. `kitchenAdmin` is a kitchen's own workspace and is
+     * invalidated when that kitchen edits itself; this is a list of *other people's* tenants, and
+     * folding it in would mean a platform operator suspending one kitchen threw away the cached
+     * catalogue of the kitchen they happen to also work for.
+     *
+     * Never persisted. It carries owner names and email addresses for organisations the reader does
+     * not belong to, which is the clearest case on the list for keeping it in memory only.
+     */
+    platformAdmin: {
+        all: () => ['platformAdmin'] as const,
+        kitchens: (filter?: QueryScope) => ['platformAdmin', 'kitchens', scope(filter)] as const,
+        kitchen: (kitchen: string) => ['platformAdmin', 'kitchen', kitchen] as const,
+    },
 } as const;
 
 /**
@@ -515,7 +534,9 @@ export const queryKeys = {
  * short-lived. `guest` is the newest absence and the least negotiable one: it holds a name, a
  * contact and a delivery address belonging to somebody with no account to sign out of, frequently
  * on a device that is not theirs. Adding a root here is a privacy decision, which is why it is a
- * single reviewable list rather than a per-query flag.
+ * single reviewable list rather than a per-query flag. `platformAdmin` (PA1) is absent on the
+ * clearest grounds of any of them: it holds the names and email addresses of the owners of
+ * organisations the reader does not belong to.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

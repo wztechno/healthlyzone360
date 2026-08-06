@@ -85,7 +85,10 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
         'session.revoke_own',
     ],
     platform_administrator: [
-        'platform.access_admin',
+        // PA1 replaced the invented `platform.access_admin` with the code the backend actually
+        // registers and the code the `/platform/organisations/kitchens` routes are gated on, so the
+        // mock world's operator can open exactly what the real one can.
+        'organisation.manage_platform',
         'organisation.view_current',
         'branch.view_current',
         'membership.view_organisation',

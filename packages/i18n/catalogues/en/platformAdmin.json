@@ -1,0 +1,140 @@
+{
+    "title": "Platform administration",
+    "nav": {
+        "kitchens": "Kitchens",
+        "showcase": "Design system"
+    },
+    "kitchens": {
+        "title": "Kitchen organisations",
+        "subtitle": "Every kitchen on the platform — who runs it, what it is selling, and whether it may trade.",
+        "create": "Add a kitchen",
+        "searchLabel": "Search",
+        "searchPlaceholder": "Name or slug",
+        "statusLabel": "Status",
+        "statusAny": "Any status",
+        "loadMore": "Load more",
+        "emptyTitle": "No kitchens match",
+        "emptyBody": "Clear the search or the status filter to see the rest of the platform.",
+        "errorTitle": "The kitchen list could not be loaded",
+        "column": {
+            "kitchen": "Kitchen",
+            "status": "Status",
+            "owners": "Owners",
+            "branches": "Branches",
+            "catalogue": "Published"
+        },
+        "ownerCount_one": "{{count}} owner",
+        "ownerCount_other": "{{count}} owners",
+        "branchCount_one": "{{count}} branch",
+        "branchCount_other": "{{count}} branches",
+        "publishedCount_one": "{{count}} item",
+        "publishedCount_other": "{{count}} items",
+        "noOwner": "No owner",
+        "open": "Open {{name}}"
+    },
+    "status": {
+        "active": "Trading",
+        "suspended": "Suspended",
+        "pending": "Pending",
+        "closed": "Closed"
+    },
+    "detail": {
+        "backToList": "All kitchens",
+        "errorTitle": "This kitchen could not be loaded",
+        "notFound": "No kitchen with that identifier exists.",
+        "suspendedTitle": "Suspended by the platform",
+        "suspendedOn": "Suspended on {{date}}",
+        "suspendedNoReason": "No reason was recorded.",
+        "catalogueTitle": "Catalogue",
+        "catalogueMeals": "Meals",
+        "catalogueProducts": "Products",
+        "cataloguePlans": "Plans",
+        "cataloguePublished": "Published",
+        "catalogueDraft": "Drafts",
+        "branchesTitle": "Branches",
+        "branchColumn": {
+            "name": "Branch",
+            "city": "City",
+            "timezone": "Timezone",
+            "status": "Status"
+        },
+        "branchStatus": {
+            "active": "Open",
+            "closed": "Closed"
+        },
+        "noCity": "Not recorded"
+    },
+    "owners": {
+        "title": "Owners",
+        "subtitle": "People who hold the owner role in this kitchen. Ending a membership takes effect immediately.",
+        "column": {
+            "person": "Person",
+            "email": "Email",
+            "status": "Status"
+        },
+        "unnamed": "Name not yet provided",
+        "revoke": "End membership",
+        "revoking": "Ending…",
+        "emptyTitle": "This kitchen has no owner",
+        "emptyBody": "Invite one below. Until somebody accepts, nobody can open this kitchen's workspace.",
+        "revokeTitle": "End this membership?",
+        "revokeBody": "{{name}} will lose access to {{kitchen}} immediately. The record that they were an owner is kept.",
+        "revokeLastWarning": "This is the only owner. Ending it leaves the kitchen with nobody who can run it.",
+        "revokeConfirm": "End membership",
+        "revoked": "Membership ended.",
+        "revokedLast": "Membership ended. This kitchen now has no owner.",
+        "remaining_zero": "No owners left.",
+        "remaining_one": "{{count}} owner left.",
+        "remaining_other": "{{count}} owners left."
+    },
+    "invite": {
+        "title": "Invite an owner",
+        "subtitle": "They receive an email with a link. Accepting it requires signing in with the same address.",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "person@example.com",
+        "nameLabel": "Name",
+        "nameHint": "Used in the greeting only — never stored.",
+        "messageLabel": "Message",
+        "messageHint": "A line from you, shown in the invitation email.",
+        "submit": "Send invitation",
+        "submitting": "Sending…",
+        "sent": "Invitation sent to {{email}}. It expires on {{date}}.",
+        "sentNotMailed": "The invitation was created for {{email}}, but the email could not be sent. Send it again to try once more.",
+        "supersedes": "Inviting the same address again replaces any invitation still outstanding."
+    },
+    "lifecycle": {
+        "suspend": "Suspend",
+        "suspending": "Suspending…",
+        "reactivate": "Reactivate",
+        "reactivating": "Reactivating…",
+        "suspendTitle": "Suspend {{name}}?",
+        "suspendBody": "This kitchen disappears from the marketplace, cannot be quoted or ordered from, and cannot publish anything. Its staff keep read access to their workspace.",
+        "suspendReasonLabel": "Reason",
+        "suspendReasonHint": "Optional. Shown to whoever reviews this later.",
+        "suspendConfirm": "Suspend this kitchen",
+        "suspended": "{{name}} has been suspended.",
+        "reactivateTitle": "Let {{name}} trade again?",
+        "reactivateBody": "The kitchen returns to the marketplace and can publish and sell again. The suspension note is cleared.",
+        "reactivateConfirm": "Reactivate",
+        "reactivated": "{{name}} is trading again.",
+        "closedNote": "A closed organisation was offboarded. It cannot be reactivated."
+    },
+    "create": {
+        "title": "Add a kitchen",
+        "subtitle": "Creates the organisation, its first branch and a web sales channel. The catalogue starts empty and the workspace works immediately.",
+        "nameLabel": "Kitchen name",
+        "slugLabel": "Slug",
+        "slugHint": "Lowercase words joined by hyphens. It appears in marketplace links and cannot be changed later.",
+        "countryLabel": "Country",
+        "currencyLabel": "Currency",
+        "languageLabel": "Default language",
+        "timezoneLabel": "Timezone",
+        "branchNameLabel": "First branch",
+        "branchNameHint": "The kitchen's main site. More can be added from its own workspace.",
+        "cityLabel": "City",
+        "submit": "Create kitchen",
+        "submitting": "Creating…",
+        "created": "{{name}} is ready. Invite an owner to hand it over.",
+        "ownerNext": "Invite an owner"
+    }
+}

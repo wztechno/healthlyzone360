@@ -102,7 +102,9 @@ describe('permission key hygiene', () => {
     });
 
     it('gates platform-admin on an explicit permission', () => {
-        expect(ROUTE_REQUIREMENTS['platform-admin'].allOf).toEqual(['platform.access_admin']);
+        expect(ROUTE_REQUIREMENTS['platform-admin'].allOf).toEqual([
+            'organisation.manage_platform',
+        ]);
     });
 });
 
