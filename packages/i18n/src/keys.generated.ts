@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4925 keys across 19 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4966 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2062,6 +2062,48 @@ export interface NamespaceKeys {
     | 'verify.otpFallback'
     | 'verify.subtitle'
     | 'verify.title';
+  readonly "invitations":
+    | 'accept.action'
+    | 'accept.pending'
+    | 'accepted.alreadyBody'
+    | 'accepted.alreadyTitle'
+    | 'accepted.body'
+    | 'accepted.noMembershipBody'
+    | 'accepted.noMembershipTitle'
+    | 'accepted.openWorkspace'
+    | 'accepted.title'
+    | 'expired.body'
+    | 'expired.title'
+    | 'invite.body'
+    | 'invite.expiresInDays'
+    | 'invite.expiresLabel'
+    | 'invite.expiresToday'
+    | 'invite.heading'
+    | 'invite.role.commercial_manager'
+    | 'invite.role.kitchen_manager'
+    | 'invite.role.kitchen_owner'
+    | 'invite.role.organisation_owner'
+    | 'invite.role.unknown'
+    | 'invite.roleLabel'
+    | 'invite.sentToLabel'
+    | 'loading'
+    | 'mismatch.body'
+    | 'mismatch.switch'
+    | 'mismatch.title'
+    | 'notFound.body'
+    | 'notFound.retry'
+    | 'notFound.title'
+    | 'revoked.body'
+    | 'revoked.title'
+    | 'signedOut.body'
+    | 'signedOut.register'
+    | 'signedOut.returnHint'
+    | 'signedOut.signIn'
+    | 'signedOut.title'
+    | 'title'
+    | 'unverified.body'
+    | 'unverified.title'
+    | 'unverified.verify';
   readonly "kitchen":
     | 'a11y.aliasAdded'
     | 'a11y.listUpdated'
@@ -7006,6 +7048,47 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:verify.otpFallback',
   'guest:verify.subtitle',
   'guest:verify.title',
+  'invitations:accept.action',
+  'invitations:accept.pending',
+  'invitations:accepted.alreadyBody',
+  'invitations:accepted.alreadyTitle',
+  'invitations:accepted.body',
+  'invitations:accepted.noMembershipBody',
+  'invitations:accepted.noMembershipTitle',
+  'invitations:accepted.openWorkspace',
+  'invitations:accepted.title',
+  'invitations:expired.body',
+  'invitations:expired.title',
+  'invitations:invite.body',
+  'invitations:invite.expiresInDays',
+  'invitations:invite.expiresLabel',
+  'invitations:invite.expiresToday',
+  'invitations:invite.heading',
+  'invitations:invite.role.commercial_manager',
+  'invitations:invite.role.kitchen_manager',
+  'invitations:invite.role.kitchen_owner',
+  'invitations:invite.role.organisation_owner',
+  'invitations:invite.role.unknown',
+  'invitations:invite.roleLabel',
+  'invitations:invite.sentToLabel',
+  'invitations:loading',
+  'invitations:mismatch.body',
+  'invitations:mismatch.switch',
+  'invitations:mismatch.title',
+  'invitations:notFound.body',
+  'invitations:notFound.retry',
+  'invitations:notFound.title',
+  'invitations:revoked.body',
+  'invitations:revoked.title',
+  'invitations:signedOut.body',
+  'invitations:signedOut.register',
+  'invitations:signedOut.returnHint',
+  'invitations:signedOut.signIn',
+  'invitations:signedOut.title',
+  'invitations:title',
+  'invitations:unverified.body',
+  'invitations:unverified.title',
+  'invitations:unverified.verify',
   'kitchen:a11y.aliasAdded',
   'kitchen:a11y.listUpdated',
   'kitchen:a11y.mappingAdded',

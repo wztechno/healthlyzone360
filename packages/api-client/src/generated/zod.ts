@@ -57,10 +57,13 @@ export const zErrorCode = z.enum([
     'address.area_not_served',
     'guest.session_invalid',
     'cart.line_refused',
+    'cart.channel_refused',
     'order.placement_refused',
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
+    'b2b.quotation_state_invalid',
+    'b2b.quotation_empty',
     'subscription.refused',
     'subscription.change_refused',
     'closure.refused',
@@ -4222,6 +4225,386 @@ export const zOrganisationInvitation = z.object({
 });
 
 /**
+ * One thing the caller should know about the figures they are being shown.
+ */
+export const zRecipeRollupWarning = z.object({
+    code: z.enum([
+        'rollup.unknown_ingredient',
+        'nutrition_unavailable',
+        'rollup.missing_facts',
+        'rollup.mixed_cost_currency',
+        'rollup.missing_cost'
+    ]),
+    message: z.string(),
+    ingredient_ids: z.array(zUuid).optional()
+});
+
+/**
+ * One allergen, at one containment, and every line that put it there.
+ * Grouped by `allergen_code` + `containment` and ordered by that pair.
+ *
+ */
+export const zRecipeRollupAllergenSource = z.object({
+    allergen_code: z.string(),
+    containment: z.string(),
+    ingredient_ids: z.array(zUuid).min(1)
+});
+
+/**
+ * What a draft formulation would declare, computed and thrown away.
+ */
+export const zRecipeRollupPreview = z.object({
+    per_recipe: z.null(),
+    per_serving: z.null(),
+    per_100g: z.null(),
+    allergen_sources: z.array(zRecipeRollupAllergenSource),
+    estimated_cost: z.object({
+        amount: z.string(),
+        currency: z.string().length(3)
+    }).nullable(),
+    warnings: z.array(zRecipeRollupWarning).min(1)
+});
+
+export const zPreviewRecipeRollupLine = z.object({
+    ingredient_id: zUuid,
+    quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    unit_id: zUuid.nullish(),
+    unit_cost_amount: z.number().gte(0).lte(1000000000000).nullish(),
+    cost_currency_code: z.string().length(3).nullish()
+});
+
+export const zPreviewRecipeRollupRequest = z.object({
+    recipe_id: zUuid.nullish(),
+    servings: z.number().gt(0).lte(9999),
+    waste_percent: z.number().gte(0).lte(100).nullish(),
+    lines: z.array(zPreviewRecipeRollupLine).max(200)
+});
+
+export const zCatalogueItemAvailabilityDay = z.object({
+    id: zUuid,
+    date: z.iso.date(),
+    is_available: z.boolean(),
+    remaining_portions: z.int().gte(0).nullable(),
+    order_cut_off_at: z.string().regex(/^[0-2][0-9]:[0-5][0-9]$/).nullable()
+});
+
+export const zCatalogueItemAvailabilityDayInput = z.object({
+    date: z.iso.date(),
+    is_available: z.boolean(),
+    remaining: z.int().gte(0).nullish(),
+    order_cut_off_at: z.string().nullish()
+});
+
+export const zReplaceCatalogueItemAvailabilityRequest = z.object({
+    days: z.array(zCatalogueItemAvailabilityDayInput).max(366)
+});
+
+/**
+ * One ticket on the kitchen display rail.
+ */
+export const zKitchenDisplayTicket = z.object({
+    id: zUuid,
+    label: z.string().max(160),
+    status: z.enum([
+        'new',
+        'preparing',
+        'ready'
+    ]),
+    station: z.string().max(64),
+    source_type: z.string().max(48),
+    source_id: zUuid
+});
+
+export const zCreatePosSaleLine = z.object({
+    catalogue_item_id: zUuid,
+    quantity: z.number().gte(0.0001),
+    line_total_minor: z.int().gte(0)
+});
+
+export const zCreatePosSaleRequest = z.object({
+    pos_shift_id: zUuid,
+    payment_method_kind: z.enum(['cash_on_delivery', 'card']),
+    currency_code: zCurrencyCode,
+    lines: z.array(zCreatePosSaleLine).min(1)
+});
+
+/**
+ * A recorded counter sale. Three fields — the lines are not echoed back,
+ * because the caller sent them.
+ *
+ */
+export const zPosTransaction = z.object({
+    id: zUuid,
+    total_minor: z.int().gte(0),
+    payment_method_kind: z.enum(['cash_on_delivery', 'card'])
+});
+
+/**
+ * Where the job is in its life.
+ */
+export const zDeliveryJobStatus = z.enum([
+    'pending',
+    'assigned',
+    'in_transit',
+    'delivered',
+    'failed',
+    'cancelled'
+]);
+
+/**
+ * What the customer would be told. A second axis rather than a finer
+ * `status`, because "assigned but not yet collected" and "collected"
+ * are the same dispatch state and different customer messages.
+ *
+ */
+export const zDeliveryJobTrackingStatus = z.enum([
+    'awaiting_assignment',
+    'picked_up',
+    'en_route',
+    'arrived',
+    'delivered'
+]);
+
+/**
+ * A delivery job as the dispatch board sees it.
+ */
+export const zDeliveryJob = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_user_id: zUuid.nullable()
+});
+
+/**
+ * The same job on the driver's own run sheet. `driver_user_id` is absent
+ * because it would say the same thing on every row.
+ *
+ */
+export const zDriverJob = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus
+});
+
+export const zDeliverDriverJobRequest = z.object({
+    proof_of_delivery_notes: z.string().max(1000).nullish()
+});
+
+/**
+ * How a payment is settled. `invoice` is part of the vocabulary but has
+ * no provider behind it — `POST /payments/intents` accepts it at the
+ * validator and then answers `400 request.invalid`.
+ *
+ */
+export const zPaymentMethodKind = z.enum([
+    'cash_on_delivery',
+    'card',
+    'invoice'
+]);
+
+export const zPaymentIntentStatus = z.enum([
+    'pending',
+    'authorized',
+    'captured',
+    'failed',
+    'cancelled'
+]);
+
+export const zPaymentIntent = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zPaymentIntentStatus,
+    method_kind: zPaymentMethodKind,
+    currency_code: zCurrencyCode,
+    amount_minor: z.int().gte(0),
+    provider: z.string().max(48).nullable(),
+    provider_ref: z.string().max(120).nullable(),
+    authorized_at: z.iso.datetime({ offset: true }).nullable(),
+    captured_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int().gte(0)
+});
+
+export const zPaymentIntentEnvelope = z.object({
+    data: z.object({
+        payment_intent: zPaymentIntent
+    }),
+    meta: zMeta
+});
+
+export const zCreatePaymentIntentRequest = z.object({
+    order_id: zUuid,
+    method_kind: zPaymentMethodKind
+});
+
+export const zRefund = z.object({
+    id: zUuid,
+    payment_intent_id: zUuid,
+    amount_minor: z.int().gte(1),
+    currency_code: zCurrencyCode,
+    status: z.string(),
+    completed_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCreateRefundRequest = z.object({
+    amount_minor: z.int().gte(1)
+});
+
+/**
+ * Whether a programme is currently something quotations may be drafted
+ * against. Extensible: clients must tolerate a value they do not know.
+ *
+ */
+export const zCorporateProgrammeStatus = z.enum([
+    'active',
+    'suspended',
+    'closed'
+]);
+
+/**
+ * The life of one corporate quotation (B5):
+ * `draft → submitted → quoted → accepted | declined | expired`.
+ *
+ * The buyer owns `draft` and `submitted`. The kitchen owns the move out
+ * of `submitted` into `quoted` — naming the prices is the one act
+ * neither the buyer nor the platform performs for them. From `quoted`
+ * the buyer decides again, or the clock runs out and a scheduled sweep
+ * writes `expired` seven days after `quoted_at`.
+ *
+ * **There is deliberately no route back into `draft`.** A buyer who
+ * wants to change a submitted set drafts a fresh quotation; a programme
+ * may hold many, and that costs them nothing.
+ *
+ */
+export const zQuotationStatus = z.enum([
+    'draft',
+    'submitted',
+    'quoted',
+    'accepted',
+    'declined',
+    'expired'
+]);
+
+/**
+ * One corporate programme — a buyer organisation's standing arrangement with one kitchen.
+ */
+export const zCorporateProgramme = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    kitchen_organisation_id: zUuid,
+    b2b_agreement_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    description: z.string().nullable(),
+    status: zCorporateProgrammeStatus,
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCorporateProgrammeEnvelope = z.object({
+    data: z.object({
+        programme: zCorporateProgramme
+    }),
+    meta: zMeta
+});
+
+/**
+ * One line of a quotation — what the buyer asked for, and what the kitchen said it costs.
+ */
+export const zQuotationLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullable(),
+    quantity: z.string(),
+    unit_amount_minor: z.int().gte(0).nullable(),
+    line_total_minor: z.int().gte(0).nullable(),
+    note: z.string().max(255).nullable()
+});
+
+/**
+ * One corporate quotation — a buyer's ask and a kitchen's answer.
+ */
+export const zQuotation = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    corporate_programme_id: zUuid,
+    reference: z.string(),
+    status: zQuotationStatus,
+    currency_code: zCurrencyCode,
+    notes: z.string().max(2000).nullable(),
+    decline_reason: z.string().max(2000).nullable(),
+    submitted_at: z.iso.datetime({ offset: true }).nullable(),
+    quoted_at: z.iso.datetime({ offset: true }).nullable(),
+    expires_at: z.iso.datetime({ offset: true }).nullable(),
+    decided_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int().gte(0),
+    lines: z.array(zQuotationLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zQuotationEnvelope = z.object({
+    data: z.object({
+        quotation: zQuotation
+    }),
+    meta: zMeta
+});
+
+/**
+ * One line as the buyer sends it. **There is no price field**: naming a
+ * price is the kitchen's move, and this shape has nowhere to put one.
+ *
+ */
+export const zQuotationLineInput = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    quantity: z.number().gt(0),
+    note: z.string().max(255).nullish()
+});
+
+export const zCreateQuotationRequest = z.object({
+    notes: z.string().max(2000).nullish(),
+    lines: z.array(zQuotationLineInput).min(1).nullish()
+});
+
+export const zUpdateQuotationRequest = z.object({
+    notes: z.string().max(2000).nullish(),
+    lines: z.array(zQuotationLineInput).nullish()
+});
+
+export const zDeclineQuotationRequest = z.object({
+    reason: z.string().max(2000).nullish()
+});
+
+export const zQuotationPriceInput = z.object({
+    quotation_line_id: zUuid,
+    unit_amount_minor: z.int().gte(0)
+});
+
+export const zQuoteQuotationRequest = z.object({
+    prices: z.array(zQuotationPriceInput).min(1)
+});
+
+/**
+ * One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+ */
+export const zB2bCatalogueItem = z.object({
+    id: zUuid,
+    name: z.string(),
+    item_type: zCatalogueItemType,
+    seller_organisation_id: zUuid,
+    sales_channel_id: zUuid,
+    price: z.object({
+        amount_minor: z.int(),
+        currency_code: zCurrencyCode
+    }).nullable()
+});
+
+/**
  * The trading account an approval earns. Deliberately thin — the
  * addresses, dietary profile and consents hanging off a customer account
  * are somebody else's endpoints, and a fat shape here would make this
@@ -4464,6 +4847,48 @@ export const zB2bAgreementEnvelope = z.object({
 export const zOrganisationInvitationEnvelope = z.object({
     data: z.object({
         invitation: zOrganisationInvitation
+    }),
+    meta: zMeta
+});
+
+/**
+ * Derived from the row's own columns, never stored. `pending` is the
+ * platform's `live` under the name a person waiting to accept uses.
+ *
+ * **There is no `superseded`.** Re-inviting an address revokes the
+ * outstanding offer and issues a new token, so a superseded invitation is
+ * a revoked one; a fifth value would name a state the row cannot be in.
+ *
+ */
+export const zPublicInvitationStatus = z.enum([
+    'pending',
+    'accepted',
+    'revoked',
+    'expired'
+]);
+
+/**
+ * An invitation as the person holding the link may see it, before they
+ * have signed in. A deliberately narrower shape than
+ * `OrganisationInvitation`, which serves members already inside the
+ * organisation.
+ *
+ */
+export const zPublicInvitation = z.object({
+    id: zUuid,
+    status: zPublicInvitationStatus,
+    role_code: z.string(),
+    email_masked: z.string(),
+    expires_at: z.iso.datetime({ offset: true }),
+    organisation: z.object({
+        name: z.string(),
+        language_code: z.string()
+    })
+});
+
+export const zPublicInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zPublicInvitation
     }),
     meta: zMeta
 });
@@ -5894,6 +6319,60 @@ export const zKycDocumentPath = zUuid;
 export const zKycAccessPurpose = z.string().min(1).max(160);
 
 /**
+ * The ticket identifier. Unlike the catalogue paths this one takes an
+ * identifier only — a rail ticket has no stable key a human would hold.
+ *
+ */
+export const zKitchenDisplayTicketPath = zUuid;
+
+/**
+ * The delivery job identifier. One that is not the caller's own answers
+ * 404, decided before the request body is looked at.
+ *
+ */
+export const zDeliveryJobPath = zUuid;
+
+/**
+ * The payment intent identifier.
+ */
+export const zPaymentIntentPath = zUuid;
+
+/**
+ * The programme identifier. Resolved inside the buyer organisation
+ * `org.context` already validated — another organisation's programme is
+ * `404`, never `403`.
+ *
+ */
+export const zCorporateProgrammePath = zUuid;
+
+/**
+ * The quotation identifier. A malformed value is `404` rather than a
+ * server error: an identifier that cannot exist is a client's typo, not
+ * a database question.
+ *
+ */
+export const zQuotationPath = zUuid;
+
+/**
+ * The article identifier. Unlike the kitchen-facing catalogue paths this
+ * one takes an identifier only, never a slug: a corporate buyer reaches
+ * articles by walking their own agreed list, and a guessable key on a
+ * private catalogue is a way to ask what other kitchens sell.
+ *
+ */
+export const zB2bCatalogueItemPath = zUuid;
+
+/**
+ * Which of the two stored names to serve. `ar` selects the Arabic name;
+ * anything else — including an absent parameter — serves the English
+ * one. A presentation choice made per request rather than a stored
+ * preference, because the same buyer's procurement officer and warehouse
+ * may read in different languages.
+ *
+ */
+export const zB2bCatalogueLanguage = z.enum(['en', 'ar']).default('en');
+
+/**
  * The organisation identifier. Must match the organisation
  * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
  * confirming that another tenant exists is not something this API does.
@@ -6705,6 +7184,21 @@ export const zCreateRecipeResponse = z.object({
     meta: zMeta
 });
 
+export const zPreviewRecipeRollupBody = zPreviewRecipeRollupRequest;
+
+export const zPreviewRecipeRollupHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The figures the draft would declare. Nothing was written.
+ */
+export const zPreviewRecipeRollupResponse = z.object({
+    data: zRecipeRollupPreview,
+    meta: zMeta
+});
+
 export const zShowRecipeHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -7454,6 +7948,32 @@ export const zShowCatalogueItemAllergensResponse = z.object({
         allergens: z.array(zDerivedAllergen)
     }),
     meta: zDerivedAllergenMeta
+});
+
+export const zReplaceCatalogueItemAvailabilityBody = zReplaceCatalogueItemAvailabilityRequest;
+
+export const zReplaceCatalogueItemAvailabilityHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemAvailabilityPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and the calendar it now has, in date order.
+ */
+export const zReplaceCatalogueItemAvailabilityResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        availability_days: z.array(zCatalogueItemAvailabilityDay)
+    }),
+    meta: zMeta
 });
 
 export const zShowCatalogueItemReadinessHeaders = z.object({
@@ -9020,6 +9540,392 @@ export const zWithdrawMyConsentPath = z.object({
  */
 export const zWithdrawMyConsentResponse = z.void();
 
+export const zListKitchenDisplayTicketsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Up to 100 open tickets, oldest first.
+ */
+export const zListKitchenDisplayTicketsResponse = z.object({
+    data: z.object({
+        tickets: z.array(zKitchenDisplayTicket).max(100)
+    }),
+    meta: zMeta
+});
+
+export const zBumpKitchenDisplayTicketHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zBumpKitchenDisplayTicketPath = z.object({
+    ticket: zUuid
+});
+
+/**
+ * The ticket, bumped.
+ */
+export const zBumpKitchenDisplayTicketResponse = z.object({
+    data: z.object({
+        ticket: z.object({
+            id: zUuid,
+            status: z.string()
+        })
+    }),
+    meta: zMeta
+});
+
+export const zCreatePosSaleBody = zCreatePosSaleRequest;
+
+export const zCreatePosSaleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The recorded transaction — its identifier, the computed total and
+ * how it was paid. The lines are not echoed back; the caller sent
+ * them.
+ *
+ */
+export const zCreatePosSaleResponse = z.object({
+    data: z.object({
+        pos_transaction: zPosTransaction
+    }),
+    meta: zMeta
+});
+
+export const zListDeliveryJobsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Up to 50 delivery jobs, newest first.
+ */
+export const zListDeliveryJobsResponse = z.object({
+    data: z.object({
+        delivery_jobs: z.array(zDeliveryJob).max(50)
+    }),
+    meta: zMeta
+});
+
+export const zListDriverJobsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's live jobs, oldest first. Empty when there is nothing to run.
+ */
+export const zListDriverJobsResponse = z.object({
+    data: z.object({
+        jobs: z.array(zDriverJob)
+    }),
+    meta: zMeta
+});
+
+export const zDeliverDriverJobBody = zDeliverDriverJobRequest;
+
+export const zDeliverDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeliverDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, delivered.
+ */
+export const zDeliverDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: z.string()
+        })
+    }),
+    meta: zMeta
+});
+
+export const zCreatePaymentIntentBody = zCreatePaymentIntentRequest;
+
+export const zCreatePaymentIntentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The authorised intent.
+ */
+export const zCreatePaymentIntentResponse = zPaymentIntentEnvelope;
+
+export const zCapturePaymentIntentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCapturePaymentIntentPath = z.object({
+    paymentIntent: zUuid
+});
+
+/**
+ * The captured intent.
+ */
+export const zCapturePaymentIntentResponse = zPaymentIntentEnvelope;
+
+export const zCreateRefundBody = zCreateRefundRequest;
+
+export const zCreateRefundHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateRefundPath = z.object({
+    paymentIntent: zUuid
+});
+
+/**
+ * The refund, already completed.
+ */
+export const zCreateRefundResponse = z.object({
+    data: z.object({
+        refund: zRefund
+    }),
+    meta: zMeta
+});
+
+export const zListB2bCatalogueItemsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListB2bCatalogueItemsQuery = z.object({
+    language: z.enum(['en', 'ar']).optional().default('en')
+});
+
+/**
+ * The articles this buyer may order today, with their agreed prices.
+ */
+export const zListB2bCatalogueItemsResponse = z.object({
+    data: z.object({
+        items: z.array(zB2bCatalogueItem)
+    }),
+    meta: zMeta
+});
+
+export const zShowB2bCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowB2bCatalogueItemPath = z.object({
+    item: zUuid
+});
+
+export const zShowB2bCatalogueItemQuery = z.object({
+    language: z.enum(['en', 'ar']).optional().default('en')
+});
+
+/**
+ * The article and its agreed price.
+ */
+export const zShowB2bCatalogueItemResponse = z.object({
+    data: z.object({
+        item: zB2bCatalogueItem
+    }),
+    meta: zMeta
+});
+
+export const zListCorporateProgrammesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The buyer organisation's programmes.
+ */
+export const zListCorporateProgrammesResponse = z.object({
+    data: z.array(zCorporateProgramme),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zShowCorporateProgrammeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCorporateProgrammePath = z.object({
+    programme: zUuid
+});
+
+/**
+ * The programme.
+ */
+export const zShowCorporateProgrammeResponse = zCorporateProgrammeEnvelope;
+
+export const zListQuotationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListQuotationsPath = z.object({
+    programme: zUuid
+});
+
+/**
+ * The programme's quotations, newest first, without their lines.
+ */
+export const zListQuotationsResponse = z.object({
+    data: z.array(zQuotation),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zCreateQuotationBody = zCreateQuotationRequest;
+
+export const zCreateQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateQuotationPath = z.object({
+    programme: zUuid
+});
+
+/**
+ * The new draft.
+ */
+export const zCreateQuotationResponse = zQuotationEnvelope;
+
+export const zShowQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quotation and its lines.
+ */
+export const zShowQuotationResponse = zQuotationEnvelope;
+
+export const zUpdateQuotationBody = zUpdateQuotationRequest;
+
+export const zUpdateQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quotation after the write.
+ */
+export const zUpdateQuotationResponse = zQuotationEnvelope;
+
+export const zSubmitQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSubmitQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The submitted quotation.
+ */
+export const zSubmitQuotationResponse = zQuotationEnvelope;
+
+export const zAcceptQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAcceptQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The accepted quotation.
+ */
+export const zAcceptQuotationResponse = zQuotationEnvelope;
+
+export const zDeclineQuotationBody = zDeclineQuotationRequest;
+
+export const zDeclineQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeclineQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The declined quotation.
+ */
+export const zDeclineQuotationResponse = zQuotationEnvelope;
+
+export const zListKitchenQuotationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The quotations submitted to this kitchen, newest first, without their lines.
+ */
+export const zListKitchenQuotationsResponse = z.object({
+    data: z.array(zQuotation),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zShowKitchenQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowKitchenQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quotation and its lines.
+ */
+export const zShowKitchenQuotationResponse = zQuotationEnvelope;
+
+export const zQuoteKitchenQuotationBody = zQuoteQuotationRequest;
+
+export const zQuoteKitchenQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zQuoteKitchenQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quoted quotation, with every line priced.
+ */
+export const zQuoteKitchenQuotationResponse = zQuotationEnvelope;
+
 export const zListB2bApplicationsHeaders = z.object({
     'X-Client-Request-Id': z.string().max(128).optional()
 });
@@ -9519,6 +10425,19 @@ export const zRevokeOrganisationInvitationPath = z.object({
  * The offer is withdrawn. No body, per the envelope's documented exception.
  */
 export const zRevokeOrganisationInvitationResponse = z.void();
+
+export const zShowInvitationByTokenHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowInvitationByTokenPath = z.object({
+    token: z.string().min(32).max(128)
+});
+
+/**
+ * The invitation's own facts, with the address masked.
+ */
+export const zShowInvitationByTokenResponse = zPublicInvitationEnvelope;
 
 export const zAcceptOrganisationInvitationHeaders = z.object({
     'X-Client-Request-Id': z.string().max(128).optional()

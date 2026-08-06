@@ -192,3 +192,21 @@ export type {
     PlatformAdminMockRepositoriesOptions,
     PlatformAdminMockWorld,
 } from './platform-admin/index.ts';
+
+/**
+ * The PA1 invitation world (`../contracts/invitations.ts`).
+ *
+ * The two fixture tokens are exported because a Playwright spec or a screen story has to be able
+ * to *navigate to* `/invitations/<token>`, which is the one place a mock world's key is part of a
+ * URL rather than an argument. Everything else stays inside: the rows are two states, not data
+ * anybody should assert against directly.
+ */
+export {
+    MOCK_EXPIRED_INVITATION_TOKEN,
+    MOCK_PENDING_INVITATION_TOKEN,
+    createInvitationsMockRepositories,
+} from './invitations/index.ts';
+export type {
+    InvitationsMockRepositoriesOptions,
+    InvitationsMockWorld,
+} from './invitations/index.ts';

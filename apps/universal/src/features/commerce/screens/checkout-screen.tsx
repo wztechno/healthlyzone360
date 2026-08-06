@@ -10,10 +10,15 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type { Cart, CheckoutPreview, CustomerAddress, PlacedOrder } from '@healthy360/api-client/contracts';
+import type {
+    Cart,
+    CheckoutPreview,
+    CustomerAddress,
+    PlacedOrder,
+} from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
@@ -65,9 +70,7 @@ export function CheckoutScreen() {
     const formatter = useFormatter();
     const params = useLocalSearchParams<{ channel?: string }>();
     const channelCode =
-        typeof params.channel === 'string' && params.channel !== ''
-            ? params.channel
-            : undefined;
+        typeof params.channel === 'string' && params.channel !== '' ? params.channel : undefined;
 
     const cart = useCartQuery(true, channelCode);
     const basket: Cart | undefined = cart.data;
@@ -79,18 +82,25 @@ export function CheckoutScreen() {
     const deliverySlots = deliverySlotsForKitchen(kitchen.data);
 
     const [addressId, setAddressId] = useState<string | null>(null);
-    const [slotCode, setSlotCode] = useState<string>(() => defaultSlotCodeForKitchen(undefined));
+    const [chosenSlotCode, setSlotCode] = useState<string | null>(null);
     const [deliveryDate, setDeliveryDate] = useState<string | null>(() => earliestStartDate());
     const [showErrors, setShowErrors] = useState(false);
     const [committed, setCommitted] = useState<CommittedDelivery | null>(null);
     const [phase, setPhase] = useState<Phase>('collecting');
     const [placed, setPlaced] = useState<PlacedOrder | null>(null);
 
-    useEffect(() => {
-        if (kitchen.data === undefined) return;
-        if (deliverySlots.some((slot) => slot.code === slotCode)) return;
-        setSlotCode(defaultSlotCodeForKitchen(kitchen.data));
-    }, [deliverySlots, kitchen.data, slotCode]);
+    /*
+     * The slot is *derived* while nobody has chosen one, rather than seeded by an effect.
+     *
+     * The effect this replaces set state during render-commit, which the linter flags for a real
+     * reason: it produced a first paint showing a slot the kitchen does not offer, then a second
+     * one correcting it. Deriving means the very first render already shows the kitchen's default,
+     * and an explicit choice that the kitchen turns out not to offer — the basket changed kitchen
+     * under the person — falls back to the default rather than sticking.
+     */
+    const chosenSlotIsOffered =
+        chosenSlotCode !== null && deliverySlots.some((slot) => slot.code === chosenSlotCode);
+    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCodeForKitchen(kitchen.data);
 
     const addressList = addresses.data ?? [];
     const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
@@ -254,7 +264,11 @@ export function CheckoutScreen() {
                                     placeholder={t('commerce:checkout.addressTitle')}
                                 />
                                 {showErrors && addressId === null ? (
-                                    <Text tone="danger" variant="caption" testID="checkout-address-error">
+                                    <Text
+                                        tone="danger"
+                                        variant="caption"
+                                        testID="checkout-address-error"
+                                    >
                                         {t('commerce:validation.required')}
                                     </Text>
                                 ) : null}

@@ -20,6 +20,7 @@ use Illuminate\Support\Collection;
 final class QuotationPresenter
 {
     /**
+     * @param  Collection<int, QuotationLine>|null  $lines
      * @return array{
      *     id: string,
      *     organisation_id: string,
@@ -39,9 +40,6 @@ final class QuotationPresenter
      *     updated_at: string|null
      * }
      */
-    /**
-     * @param  Collection<int, QuotationLine>|null  $lines
-     */
     public function quotation(Quotation $quotation, ?Collection $lines = null): array
     {
         return [
@@ -58,10 +56,9 @@ final class QuotationPresenter
             'expires_at' => $quotation->expires_at?->toIso8601String(),
             'decided_at' => $quotation->decided_at?->toIso8601String(),
             'lock_version' => $quotation->lock_version,
-            'lines' => ($lines ?? $quotation->lines()->get())
-                ->map($this->line(...))
-                ->values()
-                ->all(),
+            'lines' => array_values(
+                ($lines ?? $quotation->lines()->get())->map($this->line(...))->all(),
+            ),
             'created_at' => $quotation->created_at?->toIso8601String(),
             'updated_at' => $quotation->updated_at?->toIso8601String(),
         ];

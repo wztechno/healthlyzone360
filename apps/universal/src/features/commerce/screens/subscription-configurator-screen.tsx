@@ -128,7 +128,12 @@ export function SubscriptionConfiguratorScreen({
     const [addressId, setAddressId] = useState<string | null>(null);
 
     const addresses = useAddressesQuery();
-    const addressList: readonly CustomerAddress[] = addresses.data ?? [];
+    // Memoised rather than `?? []` inline: the fallback allocates a fresh array on every render,
+    // which would change the identity of every `useMemo` below that depends on this list.
+    const addressList = useMemo<readonly CustomerAddress[]>(
+        () => addresses.data ?? [],
+        [addresses.data],
+    );
 
     /**
      * ## Defaults are derived, edits are held

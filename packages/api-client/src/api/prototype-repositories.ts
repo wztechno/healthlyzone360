@@ -10,6 +10,7 @@ import type {
     MealPlanId,
     PriceListId,
     ProductId,
+    QuotationId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
@@ -636,6 +637,19 @@ export const apiBusinessRepository: BusinessRepository = {
     },
     listQuotations(_filter?: QuotationFilter): Promise<CursorPage<Quotation>> {
         return notImplemented(PROTOTYPE_ENDPOINTS.listQuotations);
+    },
+    /*
+     * The two decisions are wired for real in `createApiBusinessRepository`, which
+     * `createApiRepositories` spreads *after* this bundle — nothing ever reaches these two bodies.
+     * They exist so the stub still satisfies `BusinessRepository`, and they carry their endpoints
+     * inline rather than joining `PROTOTYPE_ENDPOINTS`: that table is the ledger of surfaces still
+     * without HTTP, and these have it.
+     */
+    acceptQuotation(_quotationId: QuotationId): Promise<Quotation> {
+        return notImplemented(`POST ${BASE}/b2b/quotations/{quotation}/accept`);
+    },
+    declineQuotation(_quotationId: QuotationId, _reason?: string): Promise<Quotation> {
+        return notImplemented(`POST ${BASE}/b2b/quotations/{quotation}/decline`);
     },
 };
 

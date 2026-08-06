@@ -1,4 +1,4 @@
-import { Button, Card, Stack, Text } from '@healthy360/design-system';
+import { Button, Card, Heading, Stack, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 
 /**
@@ -9,9 +9,10 @@ export function PosSaleScreen() {
 
     return (
         <Stack space="md" className="flex-1 p-4" testID="pos-sale">
-            <Text variant="heading">Point of sale</Text>
+            <Heading level={1}>Point of sale</Heading>
             <Text tone="secondary">
-                Online counter sale. Choose cash on delivery or card sandbox when recording a sale through the kitchen API.
+                Online counter sale. Choose cash on delivery or card sandbox when recording a sale
+                through the kitchen API.
             </Text>
             <Card padding="md">
                 <Stack space="sm">
@@ -27,9 +28,7 @@ export function PosSaleScreen() {
                     />
                 </Stack>
             </Card>
-            {status !== null ? (
-                <Text testID="pos-selected-method">Selected: {status}</Text>
-            ) : null}
+            {status !== null ? <Text testID="pos-selected-method">Selected: {status}</Text> : null}
         </Stack>
     );
 }

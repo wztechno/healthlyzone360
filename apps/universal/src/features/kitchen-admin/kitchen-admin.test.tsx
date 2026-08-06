@@ -45,7 +45,13 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn(), prefetch: jest.fn() }),
+        useRouter: () => ({
+            push,
+            replace,
+            setParams: jest.fn(),
+            back: jest.fn(),
+            prefetch: jest.fn(),
+        }),
         usePathname: () => '/kitchen',
         useLocalSearchParams: () => ({}),
         Redirect: () => null,
@@ -200,6 +206,7 @@ describe('entity registry', () => {
             mode: 'all-dev',
             session: 'authenticated',
             emailVerified: true,
+            hasActiveMembership: true,
             permissions: new Set<string>(['organisation.view_current']),
             entitlements: new Set<string>(),
         };

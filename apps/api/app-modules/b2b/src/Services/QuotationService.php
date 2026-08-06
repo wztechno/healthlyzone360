@@ -155,7 +155,13 @@ final readonly class QuotationService
      * would leave the buyer deciding against a total that is not really the
      * total, and an extra line names an article the buyer never asked for.
      *
-     * @param  list<array{quotation_line_id: string, unit_amount_minor: int|string}>  $prices
+     * `$prices` is typed loosely on purpose. The form request has already checked the shape, but a
+     * service that trusted a docblock would stop checking — and this one is reachable from the
+     * platform's side of the same relationship as well as from the kitchen's. The per-entry
+     * guards below are the real validation, and a narrow annotation here would make them look
+     * redundant to a reader and to the static analyser both.
+     *
+     * @param  list<array<string, mixed>>  $prices
      *
      * @throws ApiException
      */

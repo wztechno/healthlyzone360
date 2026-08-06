@@ -71,6 +71,7 @@ function Production() {
     const [recipeVersionId, setRecipeVersionId] = useState('');
 
     const rows = orders.data ?? [];
+    const ordersFailure = toFailure(orders.error);
     const openCount = rows.filter((row) => isProductionOrderOpen(row.status)).length;
     const completedCount = rows.filter((row) => row.status === 'completed').length;
 
@@ -197,16 +198,20 @@ function Production() {
                 {orders.isPending ? (
                     <Skeleton testID="kitchen-production-loading" heightClassName="h-40" />
                 ) : null}
-                {orders.isError ? (
+                {ordersFailure !== null ? (
                     <ErrorState
                         testID="kitchen-production-error"
                         title={t('kitchen:ops.production.loadErrorTitle')}
-                        body={t('kitchen:ops.production.loadErrorBody')}
+                        failure={ordersFailure}
+                        onRetry={() => {
+                            void orders.refetch();
+                        }}
+                        retrying={orders.isFetching}
                     />
                 ) : null}
                 {!orders.isPending && !orders.isError ? (
                     <Stack space="sm">
-                        <Inline space="sm" align="center" justify="space-between">
+                        <Inline space="sm" align="center" justify="between">
                             <Heading level={2} testID="kitchen-production-orders-title">
                                 {t('kitchen:ops.production.ordersHeading')}
                             </Heading>

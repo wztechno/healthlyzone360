@@ -47,12 +47,23 @@ export function VerifyEmailScreen() {
         });
     }, [recheck, refetch]);
 
-    // Following the signed link in a mail client lands on the API, which
-    // redirects here with `verified=1` after marking the address. Re-read `/me`
-    // so the screen flips without making the person paste a code.
+    /*
+     * Following the signed link in a mail client lands on the API, which redirects here with
+     * `verified=1` after marking the address. Re-read `/me` so the screen flips without making the
+     * person paste a code.
+     *
+     * Scheduled after paint rather than run in the effect body. `onRecheck` clears the notice and
+     * starts a mutation, and doing that synchronously during commit is a cascading render — the
+     * screen would paint, immediately re-render with the notice cleared, and only then show the
+     * pending state. One tick later it paints once and then updates, which is also the order a
+     * person perceives as "it checked".
+     */
     useEffect(() => {
-        if (verifiedFromLink !== '1') return;
-        onRecheck();
+        if (verifiedFromLink !== '1') return undefined;
+        const timer = setTimeout(onRecheck, 0);
+        return () => {
+            clearTimeout(timer);
+        };
     }, [verifiedFromLink, onRecheck]);
 
     useEffect(() => {

@@ -80,6 +80,26 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('catalogue-import', fn (Request $request): Limit => Limit::perHour(5)
             ->by($this->importLimiterKey($request)));
+
+        /*
+         * The token-scoped invitation read (`GET /api/v1/invitations/{token}`).
+         *
+         * Anonymous, so the bucket can only be the address — there is no
+         * identity to key on, which is exactly the condition this limiter
+         * exists for. Twenty a minute rather than the `api` group's sixty: the
+         * endpoint answers "yes, that token names a real invitation", and a
+         * wrong answer is still an answer, so it is the one anonymous read
+         * where the rate matters more than the convenience.
+         *
+         * Twenty is chosen to be invisible to a person and useless to a
+         * search. A human clicks one link, occasionally reloads it, and may
+         * hold two invitations at once; a 256-bit token space is not reachable
+         * at any rate this side of the heat death of the universe, so the
+         * limiter is a floor under an already-safe design rather than the
+         * defence itself.
+         */
+        RateLimiter::for('invitation-lookup', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by((string) $request->ip()));
     }
 
     /**

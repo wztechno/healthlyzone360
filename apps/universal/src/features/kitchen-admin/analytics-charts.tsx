@@ -25,7 +25,9 @@ export function ChartFrame({ testID, title, children }: ChartFrameProps) {
             testID={testID}
             className="min-h-[280px] flex-1 basis-[280px] rounded-[14px] border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
         >
-            <Text className="mb-3 font-display text-base font-bold text-content-primary">{title}</Text>
+            <Text className="mb-3 font-display text-base font-bold text-content-primary">
+                {title}
+            </Text>
             {children}
         </View>
     );
@@ -83,7 +85,9 @@ export function BarChart({ testID, points, valueSuffix = '' }: BarChartProps) {
                             accessibilityLabel={`${point.label}: ${point.value}${valueSuffix}`}
                             onHoverIn={() => setActive(index)}
                             onHoverOut={() => setActive(null)}
-                            onPress={() => setActive((current) => (current === index ? null : index))}
+                            onPress={() =>
+                                setActive((current) => (current === index ? null : index))
+                            }
                             className="min-w-0 flex-1 items-center gap-1"
                         >
                             <View
@@ -139,7 +143,9 @@ export function LineChart({ testID, points }: LineChartProps) {
         [points, min, span],
     );
 
-    const path = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+    const path = coords
+        .map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
+        .join(' ');
     const areaPath = `${path} L ${coords[coords.length - 1]!.x.toFixed(1)} ${height - padY} L ${coords[0]!.x.toFixed(1)} ${height - padY} Z`;
     const stroke = brand[500];
     const fill = isDark ? 'rgba(22, 163, 74, 0.22)' : 'rgba(22, 163, 74, 0.14)';
@@ -196,14 +202,20 @@ export function LineChart({ testID, points }: LineChartProps) {
                                 style: { cursor: 'pointer' },
                                 onMouseEnter: () => setActive(index),
                                 onMouseLeave: () => setActive(null),
-                                onClick: () => setActive((current) => (current === index ? null : index)),
+                                onClick: () =>
+                                    setActive((current) => (current === index ? null : index)),
                             }),
                         ),
                     )}
                 </View>
                 <View className="mt-2 flex-row justify-between px-1">
                     {points.map((point) => (
-                        <Text key={point.label} tone="secondary" variant="caption" className="text-[10px]">
+                        <Text
+                            key={point.label}
+                            tone="secondary"
+                            variant="caption"
+                            className="text-[10px]"
+                        >
                             {point.label}
                         </Text>
                     ))}
@@ -213,9 +225,7 @@ export function LineChart({ testID, points }: LineChartProps) {
     }
 
     // Native fallback: sparkline bars that still track the series.
-    return (
-        <BarChart testID={testID} points={points} />
-    );
+    return <BarChart testID={testID} points={points} />;
 }
 
 export interface DonutChartProps {
@@ -227,24 +237,39 @@ export interface DonutChartProps {
 
 export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutChartProps) {
     const [active, setActive] = useState<number | null>(null);
-    const total = Math.max(1, slices.reduce((sum, slice) => sum + slice.value, 0));
+    const total = Math.max(
+        1,
+        slices.reduce((sum, slice) => sum + slice.value, 0),
+    );
     const size = 168;
     const strokeWidth = 22;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
 
-    let offset = 0;
-    const arcs = slices.map((slice) => {
-        const length = (slice.value / total) * circumference;
-        const start = offset;
-        offset += length;
-        return { slice, length, start };
-    });
+    /*
+     * The running start angle is accumulated through `reduce` rather than by mutating a
+     * `let` inside `map`. Same arcs, but nothing reassigned after the render has produced
+     * it — a stale accumulator surviving into a re-render is exactly the inconsistency the
+     * immutability rule exists to catch on a chart that re-renders on hover.
+     */
+    const arcs = slices.reduce<{ slice: (typeof slices)[number]; length: number; start: number }[]>(
+        (acc, slice) => {
+            const length = (slice.value / total) * circumference;
+            const previous = acc[acc.length - 1];
+            const start = previous === undefined ? 0 : previous.start + previous.length;
+            acc.push({ slice, length, start });
+            return acc;
+        },
+        [],
+    );
 
     if (Platform.OS === 'web') {
         return (
             <View testID={testID} className="relative flex-1 flex-row flex-wrap items-center gap-4">
-                <View className="relative items-center justify-center" style={{ width: size, height: size }}>
+                <View
+                    className="relative items-center justify-center"
+                    style={{ width: size, height: size }}
+                >
                     {createElement(
                         'svg',
                         {
@@ -281,7 +306,8 @@ export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutCha
                                 },
                                 onMouseEnter: () => setActive(index),
                                 onMouseLeave: () => setActive(null),
-                                onClick: () => setActive((current) => (current === index ? null : index)),
+                                onClick: () =>
+                                    setActive((current) => (current === index ? null : index)),
                             }),
                         ),
                     )}
@@ -301,14 +327,18 @@ export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutCha
                             testID={`${testID}-legend-${slice.key}`}
                             onHoverIn={() => setActive(index)}
                             onHoverOut={() => setActive(null)}
-                            onPress={() => setActive((current) => (current === index ? null : index))}
+                            onPress={() =>
+                                setActive((current) => (current === index ? null : index))
+                            }
                             className="flex-row items-center gap-2"
                         >
                             <View
                                 className="h-2.5 w-2.5 rounded-full"
                                 style={{ backgroundColor: slice.colorToken }}
                             />
-                            <Text className="flex-1 text-sm text-content-primary">{sliceLabel(slice)}</Text>
+                            <Text className="flex-1 text-sm text-content-primary">
+                                {sliceLabel(slice)}
+                            </Text>
                             <Text className="font-display text-sm font-bold text-content-primary">
                                 {slice.value}%
                             </Text>

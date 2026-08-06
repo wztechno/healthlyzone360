@@ -622,7 +622,7 @@ export function DeliveryStep({
                     <Select
                         testID="configurator-address-picker"
                         label={t('commerce:configurator.delivery.addressTitle')}
-                        value={addressId}
+                        value={addressId ?? null}
                         onChange={(next) => {
                             onAddressIdChange?.(next);
                         }}
@@ -640,7 +640,10 @@ export function DeliveryStep({
                         {t('commerce:configurator.delivery.weekdaysLoading')}
                     </Text>
                 ) : null}
-                {showIssues && addressId === null && savedAddresses !== undefined && savedAddresses.length > 0 ? (
+                {showIssues &&
+                addressId === null &&
+                savedAddresses !== undefined &&
+                savedAddresses.length > 0 ? (
                     <Text tone="danger" variant="caption" testID="configurator-address-error">
                         {t('commerce:validation.required')}
                     </Text>

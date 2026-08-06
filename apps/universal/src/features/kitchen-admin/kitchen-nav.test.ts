@@ -7,6 +7,7 @@ const managerState: AccessState = {
     mode: 'all-dev',
     session: 'authenticated',
     emailVerified: true,
+    hasActiveMembership: true,
     permissions: new Set(
         ENTITY_FAMILIES.flatMap((family) =>
             [family.permission, family.managePermission].filter(

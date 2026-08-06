@@ -17,7 +17,7 @@ final readonly class ProgrammeMembershipLookup implements ProgrammeMembershipLoo
 {
     public function activeProgrammesFor(string $organisationId): array
     {
-        return CorporateProgramme::withoutTenancy()
+        return array_values(CorporateProgramme::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('status', 'active')
             ->orderByDesc('created_at')
@@ -29,6 +29,6 @@ final readonly class ProgrammeMembershipLookup implements ProgrammeMembershipLoo
                 'name_ar' => $programme->name_ar,
                 'kitchen_organisation_id' => (string) $programme->kitchen_organisation_id,
             ])
-            ->all();
+            ->all());
     }
 }

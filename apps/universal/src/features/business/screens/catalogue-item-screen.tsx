@@ -244,7 +244,13 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
                                         testID="catalogue-item-cart"
                                         label={t('business:item.addToCart')}
                                         loading={addToCart.isPending}
-                                        onPress={onAddToCart}
+                                        // Wrapped rather than passed by reference: `onPress` hands
+                                        // the press event to its callback, and this one's first
+                                        // parameter is an `onSuccess` continuation it would then
+                                        // try to call.
+                                        onPress={() => {
+                                            onAddToCart();
+                                        }}
                                     />
                                     <Button
                                         testID="catalogue-item-order"

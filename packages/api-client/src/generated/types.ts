@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -5500,6 +5500,668 @@ export type OrganisationInvitation = {
 };
 
 /**
+ * One thing the caller should know about the figures they are being shown.
+ */
+export type RecipeRollupWarning = {
+    /**
+     * The closed set the preview can emit.
+     * `nutrition_unavailable` is on **every** response while the
+     * roll-up is not computed server-side, which is why `warnings` is
+     * never empty.
+     *
+     */
+    code: 'rollup.unknown_ingredient' | 'nutrition_unavailable' | 'rollup.missing_facts' | 'rollup.mixed_cost_currency' | 'rollup.missing_cost';
+    /**
+     * A safe English summary. Clients translate from `code`, never from this.
+     */
+    message: string;
+    /**
+     * Present on `rollup.unknown_ingredient` (exactly one) and
+     * `rollup.missing_facts` (however many). Absent on the rest —
+     * absent, not empty.
+     *
+     */
+    ingredient_ids?: Array<Uuid>;
+};
+
+/**
+ * One allergen, at one containment, and every line that put it there.
+ * Grouped by `allergen_code` + `containment` and ordered by that pair.
+ *
+ */
+export type RecipeRollupAllergenSource = {
+    allergen_code: string;
+    /**
+     * How the allergen is present — the recipe module's containment vocabulary.
+     */
+    containment: string;
+    ingredient_ids: Array<Uuid>;
+};
+
+/**
+ * What a draft formulation would declare, computed and thrown away.
+ */
+export type RecipeRollupPreview = {
+    /**
+     * **Always `null`.** Nutrition roll-up is not computed on the server
+     * yet. The key exists because it is the shape the published version
+     * will carry, and a client that had to grow three fields later would
+     * have shipped a screen with nothing to put in them.
+     *
+     */
+    per_recipe: null;
+    /**
+     * Always `null`. See `per_recipe`.
+     */
+    per_serving: null;
+    /**
+     * Always `null`. See `per_recipe`.
+     */
+    per_100g: null;
+    allergen_sources: Array<RecipeRollupAllergenSource>;
+    /**
+     * `null` when the caller does not hold
+     * `recipe.view_costs_organisation`, when no line is fully costed,
+     * when the costed lines disagree about currency, or when a line is
+     * costed only halfway. The last three each add a `warnings` entry
+     * naming which.
+     *
+     */
+    estimated_cost: {
+        /**
+         * A decimal **string** at six places, not a number. Money
+         * that has been through a binary float is money somebody
+         * cannot reconcile.
+         *
+         */
+        amount: string;
+        currency: string;
+    } | null;
+    warnings: Array<RecipeRollupWarning>;
+};
+
+export type PreviewRecipeRollupLine = {
+    ingredient_id: Uuid;
+    quantity?: number | null;
+    /**
+     * A measurement unit that does not exist is `422`, unlike an ingredient that does not.
+     */
+    unit_id?: Uuid | null;
+    unit_cost_amount?: number | null;
+    /**
+     * Upper-cased server-side. An amount without a currency, or a
+     * currency without an amount, is `422` — a half-stated cost is a
+     * contradiction rather than a partial answer.
+     *
+     */
+    cost_currency_code?: string | null;
+};
+
+export type PreviewRecipeRollupRequest = {
+    /**
+     * Accepted and validated, but does not currently change the answer.
+     * Part of the request because it is part of the question.
+     *
+     */
+    recipe_id?: Uuid | null;
+    /**
+     * Required. Does not currently change the answer — the per-serving figures are `null`.
+     */
+    servings: number;
+    /**
+     * Applied to `estimated_cost.amount` only.
+     */
+    waste_percent?: number | null;
+    /**
+     * Must be **present**, and may be `[]` — an empty draft is a
+     * legitimate thing to preview, and the answer is the warnings.
+     *
+     */
+    lines: Array<PreviewRecipeRollupLine>;
+};
+
+export type CatalogueItemAvailabilityDay = {
+    id: Uuid;
+    date: string;
+    is_available: boolean;
+    /**
+     * The request calls this `remaining`. Same number, different name —
+     * the request says how many are left to sell, the row records a
+     * portion count.
+     *
+     */
+    remaining_portions: number | null;
+    /**
+     * Always `HH:MM`, even when `HH:MM:SS` was sent. A cut-off is a
+     * wall-clock minute and the seconds were never meaningful.
+     *
+     */
+    order_cut_off_at: string | null;
+};
+
+export type CatalogueItemAvailabilityDayInput = {
+    /**
+     * `YYYY-MM-DD`. Stating the same date twice is refused, not last-one-wins.
+     */
+    date: string;
+    is_available: boolean;
+    /**
+     * Served back as `remaining_portions`.
+     */
+    remaining?: number | null;
+    /**
+     * `HH:MM` or `HH:MM:SS`. Served back as `HH:MM`.
+     */
+    order_cut_off_at?: string | null;
+};
+
+export type ReplaceCatalogueItemAvailabilityRequest = {
+    /**
+     * The complete calendar. **`[]` clears every day** — a thing
+     * somebody may genuinely mean, which is why this is a PUT.
+     *
+     */
+    days: Array<CatalogueItemAvailabilityDayInput>;
+};
+
+/**
+ * One ticket on the kitchen display rail.
+ */
+export type KitchenDisplayTicket = {
+    id: Uuid;
+    /**
+     * What the rail shows — the thing being made.
+     */
+    label: string;
+    /**
+     * The rail's three live states. `bumped` exists on the row but never
+     * appears here: this list is work outstanding.
+     *
+     */
+    status: 'new' | 'preparing' | 'ready';
+    /**
+     * Which station is working it.
+     */
+    station: string;
+    /**
+     * What the ticket came from — an order line, a production batch.
+     */
+    source_type: string;
+    source_id: Uuid;
+};
+
+export type CreatePosSaleLine = {
+    catalogue_item_id: Uuid;
+    /**
+     * Stored to four decimal places.
+     */
+    quantity: number;
+    /**
+     * Whole minor units. The transaction's total is the **sum of these**,
+     * computed by the server — there is no total field on this request.
+     *
+     */
+    line_total_minor: number;
+};
+
+export type CreatePosSaleRequest = {
+    pos_shift_id: Uuid;
+    /**
+     * Narrower than the platform's payment vocabulary on purpose:
+     * `invoice` is a different arrangement and is refused here.
+     *
+     */
+    payment_method_kind: 'cash_on_delivery' | 'card';
+    currency_code: CurrencyCode;
+    lines: Array<CreatePosSaleLine>;
+};
+
+/**
+ * A recorded counter sale. Three fields — the lines are not echoed back,
+ * because the caller sent them.
+ *
+ */
+export type PosTransaction = {
+    id: Uuid;
+    /**
+     * The server's sum of the submitted lines.
+     */
+    total_minor: number;
+    payment_method_kind: 'cash_on_delivery' | 'card';
+};
+
+/**
+ * Where the job is in its life.
+ */
+export type DeliveryJobStatus = 'pending' | 'assigned' | 'in_transit' | 'delivered' | 'failed' | 'cancelled';
+
+/**
+ * What the customer would be told. A second axis rather than a finer
+ * `status`, because "assigned but not yet collected" and "collected"
+ * are the same dispatch state and different customer messages.
+ *
+ */
+export type DeliveryJobTrackingStatus = 'awaiting_assignment' | 'picked_up' | 'en_route' | 'arrived' | 'delivered';
+
+/**
+ * A delivery job as the dispatch board sees it.
+ */
+export type DeliveryJob = {
+    id: Uuid;
+    order_id: Uuid;
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+    /**
+     * `null` until dispatch assigns one.
+     */
+    driver_user_id: Uuid | null;
+};
+
+/**
+ * The same job on the driver's own run sheet. `driver_user_id` is absent
+ * because it would say the same thing on every row.
+ *
+ */
+export type DriverJob = {
+    id: Uuid;
+    order_id: Uuid;
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+};
+
+export type DeliverDriverJobRequest = {
+    /**
+     * **Replace-or-clear.** Omitting the key writes `null` over whatever
+     * was there; there is no partial update of this field.
+     *
+     */
+    proof_of_delivery_notes?: string | null;
+};
+
+/**
+ * How a payment is settled. `invoice` is part of the vocabulary but has
+ * no provider behind it — `POST /payments/intents` accepts it at the
+ * validator and then answers `400 request.invalid`.
+ *
+ */
+export type PaymentMethodKind = 'cash_on_delivery' | 'card' | 'invoice';
+
+export type PaymentIntentStatus = 'pending' | 'authorized' | 'captured' | 'failed' | 'cancelled';
+
+export type PaymentIntent = {
+    id: Uuid;
+    order_id: Uuid;
+    status: PaymentIntentStatus;
+    method_kind: PaymentMethodKind;
+    /**
+     * Copied from the order. The request cannot name it.
+     */
+    currency_code: CurrencyCode;
+    /**
+     * Copied from the order's total. The request cannot name it.
+     */
+    amount_minor: number;
+    /**
+     * Which provider authorised it.
+     */
+    provider: string | null;
+    /**
+     * The provider's own reference, when it issues one.
+     */
+    provider_ref: string | null;
+    authorized_at: string | null;
+    captured_at: string | null;
+    /**
+     * Carried in the body, but **no `ETag` is served** and no `If-Match`
+     * is read on this family: capture and refund are guarded by state
+     * (`409`) rather than by version.
+     *
+     */
+    lock_version: number;
+};
+
+export type PaymentIntentEnvelope = {
+    data: {
+        payment_intent: PaymentIntent;
+    };
+    meta: Meta;
+};
+
+export type CreatePaymentIntentRequest = {
+    /**
+     * An order the caller owns. Anybody else's is `404`.
+     */
+    order_id: Uuid;
+    method_kind: PaymentMethodKind;
+};
+
+export type Refund = {
+    id: Uuid;
+    payment_intent_id: Uuid;
+    amount_minor: number;
+    /**
+     * Copied from the intent.
+     */
+    currency_code: CurrencyCode;
+    /**
+     * Always `completed` on this endpoint. The column also allows `pending` and `failed`.
+     */
+    status: string;
+    completed_at: string | null;
+};
+
+export type CreateRefundRequest = {
+    /**
+     * Whole minor units of the intent's currency. **Not checked against
+     * the captured amount or against refunds already recorded** — a
+     * client building a refund form is what stands between an operator
+     * and a typo.
+     *
+     */
+    amount_minor: number;
+};
+
+/**
+ * Whether a programme is currently something quotations may be drafted
+ * against. Extensible: clients must tolerate a value they do not know.
+ *
+ */
+export type CorporateProgrammeStatus = 'active' | 'suspended' | 'closed';
+
+/**
+ * The life of one corporate quotation (B5):
+ * `draft → submitted → quoted → accepted | declined | expired`.
+ *
+ * The buyer owns `draft` and `submitted`. The kitchen owns the move out
+ * of `submitted` into `quoted` — naming the prices is the one act
+ * neither the buyer nor the platform performs for them. From `quoted`
+ * the buyer decides again, or the clock runs out and a scheduled sweep
+ * writes `expired` seven days after `quoted_at`.
+ *
+ * **There is deliberately no route back into `draft`.** A buyer who
+ * wants to change a submitted set drafts a fresh quotation; a programme
+ * may hold many, and that costs them nothing.
+ *
+ */
+export type QuotationStatus = 'draft' | 'submitted' | 'quoted' | 'accepted' | 'declined' | 'expired';
+
+/**
+ * One corporate programme — a buyer organisation's standing arrangement with one kitchen.
+ */
+export type CorporateProgramme = {
+    id: Uuid;
+    /**
+     * The **buyer** organisation. This is the row's tenant.
+     */
+    organisation_id: Uuid;
+    /**
+     * The **seller** kitchen the programme is with.
+     */
+    kitchen_organisation_id: Uuid;
+    /**
+     * The signed agreement the programme hangs off. Its active price
+     * list is what fixes a quotation's currency and what the buyer's
+     * catalogue prices resolve through.
+     *
+     */
+    b2b_agreement_id: Uuid;
+    /**
+     * A short human-quotable code for the programme.
+     */
+    code: string;
+    name_en: string;
+    /**
+     * May be the empty string. Served as stored rather than hidden — an
+     * empty Arabic name is a fact about the data, and a client that
+     * wants to fall back can.
+     *
+     */
+    name_ar: string;
+    description: string | null;
+    status: CorporateProgrammeStatus;
+    /**
+     * The optimistic-concurrency validator. Carried for symmetry; there
+     * is no write on a programme in this phase, so no `ETag` is served.
+     *
+     */
+    lock_version: number;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+export type CorporateProgrammeEnvelope = {
+    data: {
+        programme: CorporateProgramme;
+    };
+    meta: Meta;
+};
+
+/**
+ * One line of a quotation — what the buyer asked for, and what the kitchen said it costs.
+ */
+export type QuotationLine = {
+    id: Uuid;
+    /**
+     * The line's position, renumbered from 1 every time the set is
+     * replaced. Not a stable identifier — `id` is.
+     *
+     */
+    line_number: number;
+    /**
+     * The article, which must be one the programme's kitchen sells.
+     */
+    catalogue_item_id: Uuid;
+    /**
+     * A variant of that article, when the line names one.
+     */
+    catalogue_item_variant_id: Uuid | null;
+    /**
+     * A decimal **string** at four places — `"12.0000"`. A string rather
+     * than a number because a quantity that survives a round trip
+     * through JSON's binary floats is a quantity somebody can reconcile
+     * an invoice against.
+     *
+     */
+    quantity: string;
+    /**
+     * The price the kitchen named for one unit, in whole minor units of
+     * the quotation's `currency_code`. `null` until the kitchen quotes —
+     * the absence **is** the statement that no price has been named, not
+     * a zero.
+     *
+     */
+    unit_amount_minor: number | null;
+    /**
+     * `quantity × unit_amount_minor`, rounded to the nearest minor unit
+     * and computed by the server. `null` until the kitchen quotes.
+     *
+     */
+    line_total_minor: number | null;
+    note: string | null;
+};
+
+/**
+ * One corporate quotation — a buyer's ask and a kitchen's answer.
+ */
+export type Quotation = {
+    id: Uuid;
+    /**
+     * The **buyer** organisation. This is the row's tenant, which is why the kitchen's side of this surface reaches it through the programme instead.
+     */
+    organisation_id: Uuid;
+    corporate_programme_id: Uuid;
+    /**
+     * A reference a person can read over the phone.
+     */
+    reference: string;
+    status: QuotationStatus;
+    /**
+     * Copied from the agreement's active price list when the draft is
+     * opened, and fixed for the quotation's life. The buyer does not
+     * choose it.
+     *
+     */
+    currency_code: CurrencyCode;
+    notes: string | null;
+    /**
+     * Set only when the buyer declined, and only when they gave one.
+     */
+    decline_reason: string | null;
+    submitted_at: string | null;
+    quoted_at: string | null;
+    /**
+     * Seven days after `quoted_at`. A `quoted` quotation past this
+     * instant behaves as expired even before the nightly sweep has
+     * caught up with it.
+     *
+     */
+    expires_at: string | null;
+    /**
+     * When the buyer accepted or declined.
+     */
+    decided_at: string | null;
+    /**
+     * The optimistic-concurrency validator, served as the `ETag` on the single-quotation reads and every write.
+     */
+    lock_version: number;
+    /**
+     * The complete set, in `line_number` order. **Always an empty array
+     * on the two list endpoints** — a list is a navigation aid, and the
+     * lines belong on a quotation somebody deliberately opened.
+     *
+     */
+    lines: Array<QuotationLine>;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+export type QuotationEnvelope = {
+    data: {
+        quotation: Quotation;
+    };
+    meta: Meta;
+};
+
+/**
+ * One line as the buyer sends it. **There is no price field**: naming a
+ * price is the kitchen's move, and this shape has nowhere to put one.
+ *
+ */
+export type QuotationLineInput = {
+    /**
+     * An article the **programme's kitchen** sells. One that does not
+     * exist, or belongs to another kitchen, is `422 validation.failed`
+     * against this line's own path.
+     *
+     */
+    catalogue_item_id: Uuid;
+    /**
+     * When given, must belong to the article on this line.
+     */
+    catalogue_item_variant_id?: Uuid | null;
+    /**
+     * Stored to four decimal places and served back as a string.
+     */
+    quantity: number;
+    note?: string | null;
+};
+
+export type CreateQuotationRequest = {
+    notes?: string | null;
+    /**
+     * Optional. A draft may be opened empty and filled in by a later
+     * `PATCH` — which is how a client that wants an identifier before
+     * the user has chosen anything gets one. When present it may not be
+     * empty; send no `lines` key at all instead.
+     *
+     */
+    lines?: Array<QuotationLineInput> | null;
+};
+
+export type UpdateQuotationRequest = {
+    notes?: string | null;
+    /**
+     * **The desired complete set**, not a delta — send every line to be
+     * kept. `[]` clears the draft. Omitting the key entirely leaves the
+     * existing lines untouched, which is what makes "save the note I
+     * just typed" a request that cannot lose a line.
+     *
+     */
+    lines?: Array<QuotationLineInput> | null;
+};
+
+export type DeclineQuotationRequest = {
+    /**
+     * Stored as the quotation's `decline_reason`, where the kitchen can read it.
+     */
+    reason?: string | null;
+};
+
+export type QuotationPriceInput = {
+    /**
+     * A line of **this** quotation. Any other identifier, or the same one twice, is `422`.
+     */
+    quotation_line_id: Uuid;
+    /**
+     * Whole minor units of the quotation's own currency — `1250` for
+     * 12.50. Never a decimal and never a formatted string. Zero is
+     * accepted; a kitchen may quote a line at no charge.
+     *
+     */
+    unit_amount_minor: number;
+};
+
+export type QuoteQuotationRequest = {
+    /**
+     * One entry for **every** line of the quotation — never fewer, never
+     * more. A short set is `422` with the outstanding identifiers in
+     * `details.fields.prices.missing_quotation_line_ids`.
+     *
+     */
+    prices: Array<QuotationPriceInput>;
+};
+
+/**
+ * One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+ */
+export type B2bCatalogueItem = {
+    id: Uuid;
+    /**
+     * The single name for the `language` asked for — the corporate
+     * catalogue serves one, not a bilingual pair, because a procurement
+     * screen shows one and the choice is per request.
+     *
+     */
+    name: string;
+    item_type: CatalogueItemType;
+    /**
+     * The kitchen that sells it.
+     */
+    seller_organisation_id: Uuid;
+    /**
+     * The private channel the price came from. Carried so a later basket
+     * can be opened on the same channel the price was quoted on.
+     *
+     */
+    sales_channel_id: Uuid;
+    /**
+     * The one price this buyer's agreement resolves to. Never `null` on
+     * these two endpoints — a row whose price does not resolve is
+     * omitted from the list and is a `404` on the single read, because
+     * an article with no current tariff is not a cheaper article, it is
+     * one this buyer cannot order.
+     *
+     */
+    price: {
+        /**
+         * Whole minor units — never formatted.
+         */
+        amount_minor: number;
+        currency_code: CurrencyCode;
+    } | null;
+};
+
+/**
  * The trading account an approval earns. Deliberately thin — the
  * addresses, dietary profile and consents hanging off a customer account
  * are somebody else's endpoints, and a fat shape here would make this
@@ -5800,6 +6462,78 @@ export type B2bAgreementEnvelope = {
 export type OrganisationInvitationEnvelope = {
     data: {
         invitation: OrganisationInvitation;
+    };
+    meta: Meta;
+};
+
+/**
+ * Derived from the row's own columns, never stored. `pending` is the
+ * platform's `live` under the name a person waiting to accept uses.
+ *
+ * **There is no `superseded`.** Re-inviting an address revokes the
+ * outstanding offer and issues a new token, so a superseded invitation is
+ * a revoked one; a fifth value would name a state the row cannot be in.
+ *
+ */
+export type PublicInvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+/**
+ * An invitation as the person holding the link may see it, before they
+ * have signed in. A deliberately narrower shape than
+ * `OrganisationInvitation`, which serves members already inside the
+ * organisation.
+ *
+ */
+export type PublicInvitation = {
+    id: Uuid;
+    status: PublicInvitationStatus;
+    /**
+     * The role the membership would carry, e.g. `kitchen_owner`. The code
+     * rather than a label: the label is the client's to translate, and a
+     * server-chosen one would be untranslatable the moment the screen
+     * renders in Arabic.
+     *
+     */
+    role_code: string;
+    /**
+     * The invited address with its local part hidden —
+     * `o•••@example.com`. Masked **server-side**, so a client cannot
+     * render what it was never sent. The number of dots is fixed rather
+     * than tracking the real length, which would leak how long the
+     * address is.
+     *
+     */
+    email_masked: string;
+    /**
+     * Always present, and in the past when `status` is `expired`. A
+     * screen can therefore say *when* the link stopped working rather
+     * than only that it has.
+     *
+     */
+    expires_at: string;
+    /**
+     * The organisation, named and nothing more. No identifier, no slug,
+     * no status — an anonymous endpoint that served them would answer
+     * questions about a tenant to anybody holding one link into it.
+     *
+     */
+    organisation: {
+        /**
+         * Whose workspace this is. `Organisation` carries a single name
+         * rather than a bilingual pair, so there is nothing to localise.
+         *
+         */
+        name: string;
+        /**
+         * The organisation's own default language, so the name renders in the right script and direction.
+         */
+        language_code: string;
+    };
+};
+
+export type PublicInvitationEnvelope = {
+    data: {
+        invitation: PublicInvitation;
     };
     meta: Meta;
 };
@@ -7490,6 +8224,60 @@ export type KycDocumentPath = Uuid;
  *
  */
 export type KycAccessPurpose = string;
+
+/**
+ * The ticket identifier. Unlike the catalogue paths this one takes an
+ * identifier only — a rail ticket has no stable key a human would hold.
+ *
+ */
+export type KitchenDisplayTicketPath = Uuid;
+
+/**
+ * The delivery job identifier. One that is not the caller's own answers
+ * 404, decided before the request body is looked at.
+ *
+ */
+export type DeliveryJobPath = Uuid;
+
+/**
+ * The payment intent identifier.
+ */
+export type PaymentIntentPath = Uuid;
+
+/**
+ * The programme identifier. Resolved inside the buyer organisation
+ * `org.context` already validated — another organisation's programme is
+ * `404`, never `403`.
+ *
+ */
+export type CorporateProgrammePath = Uuid;
+
+/**
+ * The quotation identifier. A malformed value is `404` rather than a
+ * server error: an identifier that cannot exist is a client's typo, not
+ * a database question.
+ *
+ */
+export type QuotationPath = Uuid;
+
+/**
+ * The article identifier. Unlike the kitchen-facing catalogue paths this
+ * one takes an identifier only, never a slug: a corporate buyer reaches
+ * articles by walking their own agreed list, and a guessable key on a
+ * private catalogue is a way to ask what other kitchens sell.
+ *
+ */
+export type B2bCatalogueItemPath = Uuid;
+
+/**
+ * Which of the two stored names to serve. `ar` selects the Arabic name;
+ * anything else — including an absent parameter — serves the English
+ * one. A presentation choice made per request rather than a stored
+ * preference, because the same buyer's procurement officer and warehouse
+ * may read in different languages.
+ *
+ */
+export type B2bCatalogueLanguage = 'en' | 'ar';
 
 /**
  * The organisation identifier. Must match the organisation
@@ -9954,6 +10742,74 @@ export type CreateRecipeResponses = {
 };
 
 export type CreateRecipeResponse = CreateRecipeResponses[keyof CreateRecipeResponses];
+
+export type PreviewRecipeRollupData = {
+    body: PreviewRecipeRollupRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/recipes/roll-up-preview';
+};
+
+export type PreviewRecipeRollupErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PreviewRecipeRollupError = PreviewRecipeRollupErrors[keyof PreviewRecipeRollupErrors];
+
+export type PreviewRecipeRollupResponses = {
+    /**
+     * The figures the draft would declare. Nothing was written.
+     */
+    200: {
+        data: RecipeRollupPreview;
+        meta: Meta;
+    };
+};
+
+export type PreviewRecipeRollupResponse = PreviewRecipeRollupResponses[keyof PreviewRecipeRollupResponses];
 
 export type ShowRecipeData = {
     body?: never;
@@ -13011,6 +13867,112 @@ export type ShowCatalogueItemAllergensResponses = {
 };
 
 export type ShowCatalogueItemAllergensResponse = ShowCatalogueItemAllergensResponses[keyof ShowCatalogueItemAllergensResponses];
+
+export type ReplaceCatalogueItemAvailabilityData = {
+    body: ReplaceCatalogueItemAvailabilityRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/availability';
+};
+
+export type ReplaceCatalogueItemAvailabilityErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceCatalogueItemAvailabilityError = ReplaceCatalogueItemAvailabilityErrors[keyof ReplaceCatalogueItemAvailabilityErrors];
+
+export type ReplaceCatalogueItemAvailabilityResponses = {
+    /**
+     * The item and the calendar it now has, in date order.
+     */
+    200: {
+        data: {
+            item: AdminCatalogueItem;
+            availability_days: Array<CatalogueItemAvailabilityDay>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceCatalogueItemAvailabilityResponse = ReplaceCatalogueItemAvailabilityResponses[keyof ReplaceCatalogueItemAvailabilityResponses];
 
 export type ShowCatalogueItemReadinessData = {
     body?: never;
@@ -19690,6 +20652,1880 @@ export type WithdrawMyConsentResponses = {
 
 export type WithdrawMyConsentResponse = WithdrawMyConsentResponses[keyof WithdrawMyConsentResponses];
 
+export type ListKitchenDisplayTicketsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         */
+        'X-Branch-Id'?: Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/kitchen-display/tickets';
+};
+
+export type ListKitchenDisplayTicketsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListKitchenDisplayTicketsError = ListKitchenDisplayTicketsErrors[keyof ListKitchenDisplayTicketsErrors];
+
+export type ListKitchenDisplayTicketsResponses = {
+    /**
+     * Up to 100 open tickets, oldest first.
+     */
+    200: {
+        data: {
+            tickets: Array<KitchenDisplayTicket>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ListKitchenDisplayTicketsResponse = ListKitchenDisplayTicketsResponses[keyof ListKitchenDisplayTicketsResponses];
+
+export type BumpKitchenDisplayTicketData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ticket identifier. Unlike the catalogue paths this one takes an
+         * identifier only — a rail ticket has no stable key a human would hold.
+         *
+         */
+        ticket: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/kitchen-display/tickets/{ticket}/bump';
+};
+
+export type BumpKitchenDisplayTicketErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type BumpKitchenDisplayTicketError = BumpKitchenDisplayTicketErrors[keyof BumpKitchenDisplayTicketErrors];
+
+export type BumpKitchenDisplayTicketResponses = {
+    /**
+     * The ticket, bumped.
+     */
+    200: {
+        data: {
+            ticket: {
+                id: Uuid;
+                /**
+                 * Always `bumped` on success.
+                 */
+                status: string;
+            };
+        };
+        meta: Meta;
+    };
+};
+
+export type BumpKitchenDisplayTicketResponse = BumpKitchenDisplayTicketResponses[keyof BumpKitchenDisplayTicketResponses];
+
+export type CreatePosSaleData = {
+    body: CreatePosSaleRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/pos/sales';
+};
+
+export type CreatePosSaleErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePosSaleError = CreatePosSaleErrors[keyof CreatePosSaleErrors];
+
+export type CreatePosSaleResponses = {
+    /**
+     * The recorded transaction — its identifier, the computed total and
+     * how it was paid. The lines are not echoed back; the caller sent
+     * them.
+     *
+     */
+    201: {
+        data: {
+            pos_transaction: PosTransaction;
+        };
+        meta: Meta;
+    };
+};
+
+export type CreatePosSaleResponse = CreatePosSaleResponses[keyof CreatePosSaleResponses];
+
+export type ListDeliveryJobsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/delivery/jobs';
+};
+
+export type ListDeliveryJobsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDeliveryJobsError = ListDeliveryJobsErrors[keyof ListDeliveryJobsErrors];
+
+export type ListDeliveryJobsResponses = {
+    /**
+     * Up to 50 delivery jobs, newest first.
+     */
+    200: {
+        data: {
+            delivery_jobs: Array<DeliveryJob>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ListDeliveryJobsResponse = ListDeliveryJobsResponses[keyof ListDeliveryJobsResponses];
+
+export type ListDriverJobsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/driver/jobs';
+};
+
+export type ListDriverJobsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDriverJobsError = ListDriverJobsErrors[keyof ListDriverJobsErrors];
+
+export type ListDriverJobsResponses = {
+    /**
+     * The caller's live jobs, oldest first. Empty when there is nothing to run.
+     */
+    200: {
+        data: {
+            jobs: Array<DriverJob>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ListDriverJobsResponse = ListDriverJobsResponses[keyof ListDriverJobsResponses];
+
+export type DeliverDriverJobData = {
+    body?: DeliverDriverJobRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. One that is not the caller's own answers
+         * 404, decided before the request body is looked at.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/driver/jobs/{job}/deliver';
+};
+
+export type DeliverDriverJobErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeliverDriverJobError = DeliverDriverJobErrors[keyof DeliverDriverJobErrors];
+
+export type DeliverDriverJobResponses = {
+    /**
+     * The job, delivered.
+     */
+    200: {
+        data: {
+            job: {
+                id: Uuid;
+                /**
+                 * Always `delivered` on success.
+                 */
+                status: string;
+            };
+        };
+        meta: Meta;
+    };
+};
+
+export type DeliverDriverJobResponse = DeliverDriverJobResponses[keyof DeliverDriverJobResponses];
+
+export type CreatePaymentIntentData = {
+    body: CreatePaymentIntentRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/payments/intents';
+};
+
+export type CreatePaymentIntentErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePaymentIntentError = CreatePaymentIntentErrors[keyof CreatePaymentIntentErrors];
+
+export type CreatePaymentIntentResponses = {
+    /**
+     * The authorised intent.
+     */
+    201: PaymentIntentEnvelope;
+};
+
+export type CreatePaymentIntentResponse = CreatePaymentIntentResponses[keyof CreatePaymentIntentResponses];
+
+export type CapturePaymentIntentData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The payment intent identifier.
+         */
+        paymentIntent: Uuid;
+    };
+    query?: never;
+    url: '/payments/intents/{paymentIntent}/capture';
+};
+
+export type CapturePaymentIntentErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CapturePaymentIntentError = CapturePaymentIntentErrors[keyof CapturePaymentIntentErrors];
+
+export type CapturePaymentIntentResponses = {
+    /**
+     * The captured intent.
+     */
+    200: PaymentIntentEnvelope;
+};
+
+export type CapturePaymentIntentResponse = CapturePaymentIntentResponses[keyof CapturePaymentIntentResponses];
+
+export type CreateRefundData = {
+    body: CreateRefundRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The payment intent identifier.
+         */
+        paymentIntent: Uuid;
+    };
+    query?: never;
+    url: '/payments/intents/{paymentIntent}/refunds';
+};
+
+export type CreateRefundErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateRefundError = CreateRefundErrors[keyof CreateRefundErrors];
+
+export type CreateRefundResponses = {
+    /**
+     * The refund, already completed.
+     */
+    201: {
+        data: {
+            refund: Refund;
+        };
+        meta: Meta;
+    };
+};
+
+export type CreateRefundResponse = CreateRefundResponses[keyof CreateRefundResponses];
+
+export type ListB2bCatalogueItemsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Which of the two stored names to serve. `ar` selects the Arabic name;
+         * anything else — including an absent parameter — serves the English
+         * one. A presentation choice made per request rather than a stored
+         * preference, because the same buyer's procurement officer and warehouse
+         * may read in different languages.
+         *
+         */
+        language?: 'en' | 'ar';
+    };
+    url: '/b2b/catalogue/items';
+};
+
+export type ListB2bCatalogueItemsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The corporate catalogue refused the caller, and the code says which
+     * kind of refusal it was.
+     *
+     * `cart.channel_refused` is the one specific to this family: private
+     * pricing exists for corporate buyers, and an account that is not one is
+     * told so plainly rather than shown an empty catalogue. It is the same
+     * code the cart raises when a personal account reaches for a private
+     * channel, because it is the same fact about the same account.
+     *
+     * The rest are the ordinary gates in front of every authenticated,
+     * organisation-scoped read: `auth.email_unverified`,
+     * `context.organisation_forbidden`, and
+     * `account.verification_required` when the signed-in person has no
+     * customer account behind their membership yet.
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListB2bCatalogueItemsError = ListB2bCatalogueItemsErrors[keyof ListB2bCatalogueItemsErrors];
+
+export type ListB2bCatalogueItemsResponses = {
+    /**
+     * The articles this buyer may order today, with their agreed prices.
+     */
+    200: {
+        data: {
+            items: Array<B2bCatalogueItem>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ListB2bCatalogueItemsResponse = ListB2bCatalogueItemsResponses[keyof ListB2bCatalogueItemsResponses];
+
+export type ShowB2bCatalogueItemData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The article identifier. Unlike the kitchen-facing catalogue paths this
+         * one takes an identifier only, never a slug: a corporate buyer reaches
+         * articles by walking their own agreed list, and a guessable key on a
+         * private catalogue is a way to ask what other kitchens sell.
+         *
+         */
+        item: Uuid;
+    };
+    query?: {
+        /**
+         * Which of the two stored names to serve. `ar` selects the Arabic name;
+         * anything else — including an absent parameter — serves the English
+         * one. A presentation choice made per request rather than a stored
+         * preference, because the same buyer's procurement officer and warehouse
+         * may read in different languages.
+         *
+         */
+        language?: 'en' | 'ar';
+    };
+    url: '/b2b/catalogue/items/{item}';
+};
+
+export type ShowB2bCatalogueItemErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The corporate catalogue refused the caller, and the code says which
+     * kind of refusal it was.
+     *
+     * `cart.channel_refused` is the one specific to this family: private
+     * pricing exists for corporate buyers, and an account that is not one is
+     * told so plainly rather than shown an empty catalogue. It is the same
+     * code the cart raises when a personal account reaches for a private
+     * channel, because it is the same fact about the same account.
+     *
+     * The rest are the ordinary gates in front of every authenticated,
+     * organisation-scoped read: `auth.email_unverified`,
+     * `context.organisation_forbidden`, and
+     * `account.verification_required` when the signed-in person has no
+     * customer account behind their membership yet.
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowB2bCatalogueItemError = ShowB2bCatalogueItemErrors[keyof ShowB2bCatalogueItemErrors];
+
+export type ShowB2bCatalogueItemResponses = {
+    /**
+     * The article and its agreed price.
+     */
+    200: {
+        data: {
+            item: B2bCatalogueItem;
+        };
+        meta: Meta;
+    };
+};
+
+export type ShowB2bCatalogueItemResponse = ShowB2bCatalogueItemResponses[keyof ShowB2bCatalogueItemResponses];
+
+export type ListCorporateProgrammesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/b2b/programmes';
+};
+
+export type ListCorporateProgrammesErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListCorporateProgrammesError = ListCorporateProgrammesErrors[keyof ListCorporateProgrammesErrors];
+
+export type ListCorporateProgrammesResponses = {
+    /**
+     * The buyer organisation's programmes.
+     */
+    200: {
+        data: Array<CorporateProgramme>;
+        meta: Meta & {
+            count: number;
+        };
+    };
+};
+
+export type ListCorporateProgrammesResponse = ListCorporateProgrammesResponses[keyof ListCorporateProgrammesResponses];
+
+export type ShowCorporateProgrammeData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The programme identifier. Resolved inside the buyer organisation
+         * `org.context` already validated — another organisation's programme is
+         * `404`, never `403`.
+         *
+         */
+        programme: Uuid;
+    };
+    query?: never;
+    url: '/b2b/programmes/{programme}';
+};
+
+export type ShowCorporateProgrammeErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowCorporateProgrammeError = ShowCorporateProgrammeErrors[keyof ShowCorporateProgrammeErrors];
+
+export type ShowCorporateProgrammeResponses = {
+    /**
+     * The programme.
+     */
+    200: CorporateProgrammeEnvelope;
+};
+
+export type ShowCorporateProgrammeResponse = ShowCorporateProgrammeResponses[keyof ShowCorporateProgrammeResponses];
+
+export type ListQuotationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The programme identifier. Resolved inside the buyer organisation
+         * `org.context` already validated — another organisation's programme is
+         * `404`, never `403`.
+         *
+         */
+        programme: Uuid;
+    };
+    query?: never;
+    url: '/b2b/programmes/{programme}/quotations';
+};
+
+export type ListQuotationsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListQuotationsError = ListQuotationsErrors[keyof ListQuotationsErrors];
+
+export type ListQuotationsResponses = {
+    /**
+     * The programme's quotations, newest first, without their lines.
+     */
+    200: {
+        data: Array<Quotation>;
+        meta: Meta & {
+            count: number;
+        };
+    };
+};
+
+export type ListQuotationsResponse = ListQuotationsResponses[keyof ListQuotationsResponses];
+
+export type CreateQuotationData = {
+    body: CreateQuotationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The programme identifier. Resolved inside the buyer organisation
+         * `org.context` already validated — another organisation's programme is
+         * `404`, never `403`.
+         *
+         */
+        programme: Uuid;
+    };
+    query?: never;
+    url: '/b2b/programmes/{programme}/quotations';
+};
+
+export type CreateQuotationErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateQuotationError = CreateQuotationErrors[keyof CreateQuotationErrors];
+
+export type CreateQuotationResponses = {
+    /**
+     * The new draft.
+     */
+    201: QuotationEnvelope;
+};
+
+export type CreateQuotationResponse = CreateQuotationResponses[keyof CreateQuotationResponses];
+
+export type ShowQuotationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quotation identifier. A malformed value is `404` rather than a
+         * server error: an identifier that cannot exist is a client's typo, not
+         * a database question.
+         *
+         */
+        quotation: Uuid;
+    };
+    query?: never;
+    url: '/b2b/quotations/{quotation}';
+};
+
+export type ShowQuotationErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowQuotationError = ShowQuotationErrors[keyof ShowQuotationErrors];
+
+export type ShowQuotationResponses = {
+    /**
+     * The quotation and its lines.
+     */
+    200: QuotationEnvelope;
+};
+
+export type ShowQuotationResponse = ShowQuotationResponses[keyof ShowQuotationResponses];
+
+export type UpdateQuotationData = {
+    body: UpdateQuotationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quotation identifier. A malformed value is `404` rather than a
+         * server error: an identifier that cannot exist is a client's typo, not
+         * a database question.
+         *
+         */
+        quotation: Uuid;
+    };
+    query?: never;
+    url: '/b2b/quotations/{quotation}';
+};
+
+export type UpdateQuotationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The quotation cannot make the move that was asked for — the same
+     * shape of refusal `b2b.application_state_invalid` gives an
+     * application, for a quotation instead: `details.status` is where it
+     * is, `details.requested_status` is where the caller wanted it, and
+     * `details.allowed_transitions` is what it *can* do next.
+     *
+     * Also the answer when a `quoted` quotation's `expires_at` has already
+     * passed and a buyer tries to accept or decline it — the sweep has not
+     * caught up yet, but the deadline already has.
+     *
+     * `details.current_lock_version` rides along for a caller that lost an
+     * `If-Match` race and needs the current validator to retry with.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateQuotationError = UpdateQuotationErrors[keyof UpdateQuotationErrors];
+
+export type UpdateQuotationResponses = {
+    /**
+     * The quotation after the write.
+     */
+    200: QuotationEnvelope;
+};
+
+export type UpdateQuotationResponse = UpdateQuotationResponses[keyof UpdateQuotationResponses];
+
+export type SubmitQuotationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quotation identifier. A malformed value is `404` rather than a
+         * server error: an identifier that cannot exist is a client's typo, not
+         * a database question.
+         *
+         */
+        quotation: Uuid;
+    };
+    query?: never;
+    url: '/b2b/quotations/{quotation}/submit';
+};
+
+export type SubmitQuotationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The quotation cannot make the move that was asked for — the same
+     * shape of refusal `b2b.application_state_invalid` gives an
+     * application, for a quotation instead: `details.status` is where it
+     * is, `details.requested_status` is where the caller wanted it, and
+     * `details.allowed_transitions` is what it *can* do next.
+     *
+     * Also the answer when a `quoted` quotation's `expires_at` has already
+     * passed and a buyer tries to accept or decline it — the sweep has not
+     * caught up yet, but the deadline already has.
+     *
+     * `details.current_lock_version` rides along for a caller that lost an
+     * `If-Match` race and needs the current validator to retry with.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * Submission was refused because the draft carries no lines. Its own
+     * code rather than `validation.failed`: nothing about the request body
+     * is malformed — the resource itself has nothing in it yet to send for
+     * pricing.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SubmitQuotationError = SubmitQuotationErrors[keyof SubmitQuotationErrors];
+
+export type SubmitQuotationResponses = {
+    /**
+     * The submitted quotation.
+     */
+    200: QuotationEnvelope;
+};
+
+export type SubmitQuotationResponse = SubmitQuotationResponses[keyof SubmitQuotationResponses];
+
+export type AcceptQuotationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quotation identifier. A malformed value is `404` rather than a
+         * server error: an identifier that cannot exist is a client's typo, not
+         * a database question.
+         *
+         */
+        quotation: Uuid;
+    };
+    query?: never;
+    url: '/b2b/quotations/{quotation}/accept';
+};
+
+export type AcceptQuotationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The quotation cannot make the move that was asked for — the same
+     * shape of refusal `b2b.application_state_invalid` gives an
+     * application, for a quotation instead: `details.status` is where it
+     * is, `details.requested_status` is where the caller wanted it, and
+     * `details.allowed_transitions` is what it *can* do next.
+     *
+     * Also the answer when a `quoted` quotation's `expires_at` has already
+     * passed and a buyer tries to accept or decline it — the sweep has not
+     * caught up yet, but the deadline already has.
+     *
+     * `details.current_lock_version` rides along for a caller that lost an
+     * `If-Match` race and needs the current validator to retry with.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AcceptQuotationError = AcceptQuotationErrors[keyof AcceptQuotationErrors];
+
+export type AcceptQuotationResponses = {
+    /**
+     * The accepted quotation.
+     */
+    200: QuotationEnvelope;
+};
+
+export type AcceptQuotationResponse = AcceptQuotationResponses[keyof AcceptQuotationResponses];
+
+export type DeclineQuotationData = {
+    body?: DeclineQuotationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quotation identifier. A malformed value is `404` rather than a
+         * server error: an identifier that cannot exist is a client's typo, not
+         * a database question.
+         *
+         */
+        quotation: Uuid;
+    };
+    query?: never;
+    url: '/b2b/quotations/{quotation}/decline';
+};
+
+export type DeclineQuotationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The quotation cannot make the move that was asked for — the same
+     * shape of refusal `b2b.application_state_invalid` gives an
+     * application, for a quotation instead: `details.status` is where it
+     * is, `details.requested_status` is where the caller wanted it, and
+     * `details.allowed_transitions` is what it *can* do next.
+     *
+     * Also the answer when a `quoted` quotation's `expires_at` has already
+     * passed and a buyer tries to accept or decline it — the sweep has not
+     * caught up yet, but the deadline already has.
+     *
+     * `details.current_lock_version` rides along for a caller that lost an
+     * `If-Match` race and needs the current validator to retry with.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeclineQuotationError = DeclineQuotationErrors[keyof DeclineQuotationErrors];
+
+export type DeclineQuotationResponses = {
+    /**
+     * The declined quotation.
+     */
+    200: QuotationEnvelope;
+};
+
+export type DeclineQuotationResponse = DeclineQuotationResponses[keyof DeclineQuotationResponses];
+
+export type ListKitchenQuotationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/b2b/kitchen/quotations';
+};
+
+export type ListKitchenQuotationsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListKitchenQuotationsError = ListKitchenQuotationsErrors[keyof ListKitchenQuotationsErrors];
+
+export type ListKitchenQuotationsResponses = {
+    /**
+     * The quotations submitted to this kitchen, newest first, without their lines.
+     */
+    200: {
+        data: Array<Quotation>;
+        meta: Meta & {
+            count: number;
+        };
+    };
+};
+
+export type ListKitchenQuotationsResponse = ListKitchenQuotationsResponses[keyof ListKitchenQuotationsResponses];
+
+export type ShowKitchenQuotationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quotation identifier. A malformed value is `404` rather than a
+         * server error: an identifier that cannot exist is a client's typo, not
+         * a database question.
+         *
+         */
+        quotation: Uuid;
+    };
+    query?: never;
+    url: '/b2b/kitchen/quotations/{quotation}';
+};
+
+export type ShowKitchenQuotationErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowKitchenQuotationError = ShowKitchenQuotationErrors[keyof ShowKitchenQuotationErrors];
+
+export type ShowKitchenQuotationResponses = {
+    /**
+     * The quotation and its lines.
+     */
+    200: QuotationEnvelope;
+};
+
+export type ShowKitchenQuotationResponse = ShowKitchenQuotationResponses[keyof ShowKitchenQuotationResponses];
+
+export type QuoteKitchenQuotationData = {
+    body: QuoteQuotationRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quotation identifier. A malformed value is `404` rather than a
+         * server error: an identifier that cannot exist is a client's typo, not
+         * a database question.
+         *
+         */
+        quotation: Uuid;
+    };
+    query?: never;
+    url: '/b2b/kitchen/quotations/{quotation}/quote';
+};
+
+export type QuoteKitchenQuotationErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The quotation cannot make the move that was asked for — the same
+     * shape of refusal `b2b.application_state_invalid` gives an
+     * application, for a quotation instead: `details.status` is where it
+     * is, `details.requested_status` is where the caller wanted it, and
+     * `details.allowed_transitions` is what it *can* do next.
+     *
+     * Also the answer when a `quoted` quotation's `expires_at` has already
+     * passed and a buyer tries to accept or decline it — the sweep has not
+     * caught up yet, but the deadline already has.
+     *
+     * `details.current_lock_version` rides along for a caller that lost an
+     * `If-Match` race and needs the current validator to retry with.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type QuoteKitchenQuotationError = QuoteKitchenQuotationErrors[keyof QuoteKitchenQuotationErrors];
+
+export type QuoteKitchenQuotationResponses = {
+    /**
+     * The quoted quotation, with every line priced.
+     */
+    200: QuotationEnvelope;
+};
+
+export type QuoteKitchenQuotationResponse = QuoteKitchenQuotationResponses[keyof QuoteKitchenQuotationResponses];
+
 export type ListB2bApplicationsData = {
     body?: never;
     headers?: {
@@ -21866,6 +24702,51 @@ export type RevokeOrganisationInvitationResponses = {
 };
 
 export type RevokeOrganisationInvitationResponse = RevokeOrganisationInvitationResponses[keyof RevokeOrganisationInvitationResponses];
+
+export type ShowInvitationByTokenData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The single-use token from the invitation email. Never an identifier —
+         * only its SHA-256 is stored, so this value cannot be recovered from the
+         * platform and a lost one is replaced by re-inviting.
+         *
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/invitations/{token}';
+};
+
+export type ShowInvitationByTokenErrors = {
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowInvitationByTokenError = ShowInvitationByTokenErrors[keyof ShowInvitationByTokenErrors];
+
+export type ShowInvitationByTokenResponses = {
+    /**
+     * The invitation's own facts, with the address masked.
+     */
+    200: PublicInvitationEnvelope;
+};
+
+export type ShowInvitationByTokenResponse = ShowInvitationByTokenResponses[keyof ShowInvitationByTokenResponses];
 
 export type AcceptOrganisationInvitationData = {
     body?: never;

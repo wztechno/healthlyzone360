@@ -23,6 +23,7 @@ use Healthy360\B2b\Http\Controllers\B2bCatalogueItemShowController;
 use Healthy360\B2b\Http\Controllers\CorporateProgrammeIndexController;
 use Healthy360\B2b\Http\Controllers\CorporateProgrammeShowController;
 use Healthy360\B2b\Http\Controllers\InvitationAcceptController;
+use Healthy360\B2b\Http\Controllers\InvitationShowController;
 use Healthy360\B2b\Http\Controllers\KitchenQuotationIndexController;
 use Healthy360\B2b\Http\Controllers\KitchenQuotationQuoteController;
 use Healthy360\B2b\Http\Controllers\KitchenQuotationShowController;
@@ -568,10 +569,30 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::post('/payments/intents/{paymentIntent}/capture', PaymentIntentCaptureController::class)->name('payments.intents.capture');
         Route::post('/payments/intents/{paymentIntent}/refunds', PaymentRefundStoreController::class)->name('payments.intents.refunds.store');
 
-        Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
-        Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
-
+        /*
+        |------------------------------------------------------------------
+        | Delivery jobs (F1)
+        |------------------------------------------------------------------
+        |
+        | `org.context` on **all three**, including the two driver routes.
+        | `DeliveryJob` is `OrganisationScoped` and `OrganisationScope` fails
+        | closed — it throws when no organisation is published — so the driver
+        | pair without it did not read the wrong rows, it raised
+        | `MissingTenantContext` on every call and rendered as `500`. The
+        | header was always required in substance; it is now required in the
+        | routing table, which is where a reader can see it.
+        |
+        | No permission code. A driver is staff of the kitchen whose jobs
+        | these are, and the narrowing that matters is `driver_user_id` — the
+        | caller's own assignments — which is ownership rather than authority
+        | and is enforced in the controllers. `/delivery/jobs` is the
+        | dispatcher's view of the same table and is scoped by the
+        | organisation alone.
+        */
         Route::middleware('org.context')->group(function (): void {
+            Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
+            Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
+
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
         });
 
@@ -1995,6 +2016,32 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             });
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Reading an invitation (PA1)
+|--------------------------------------------------------------------------
+|
+| **Anonymous, and outside the authenticated group on purpose.** The mailed
+| link lands somebody on a screen that has to render *before* it can ask them
+| to sign in: "join Cedar Kitchen as an owner" is the reason to sign in, and
+| putting `auth:sanctum` in front of it would be asking a person to
+| authenticate into something nobody has told them the name of. The token is
+| the capability, exactly as `X-Guest-Token` is for the guest family above.
+|
+| It reads and nothing else. The token is not consumed, no state moves, and
+| acceptance keeps every gate it had — `POST /invitations/{token}/accept` is
+| still signed-in, email-verified, and address-matched.
+|
+| `throttle:invitation-lookup` replaces the `api` group's limiter for this one
+| route: twenty a minute per address rather than sixty, because this is the
+| only anonymous read on the platform where a *wrong* answer is still an
+| answer. Unknown tokens and purged ones share the same 404.
+|
+*/
+Route::get('/invitations/{token}', InvitationShowController::class)
+    ->middleware('throttle:invitation-lookup')
+    ->name('invitations.show');
 
 /*
 |--------------------------------------------------------------------------

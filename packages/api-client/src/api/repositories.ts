@@ -41,6 +41,7 @@ import { createApiGuestRepository } from './guest-repository.ts';
 import { createApiPlatformAdminRepository } from './platform-admin-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { createApiBusinessRepository } from './business-repository.ts';
+import { createApiInvitationsRepository } from './invitations-repository.ts';
 import { createApiCartSurface } from './cart-repository.ts';
 import { createApiOrderPlacement } from './order-repository.ts';
 import {
@@ -515,6 +516,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             ...kitchenAdminWrites,
         },
         kitchenOps: createApiKitchenOpsRepository(transport),
+        invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),
     };
 }

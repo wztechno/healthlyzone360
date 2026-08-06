@@ -3,6 +3,7 @@ import type { AuthRepository } from './auth.ts';
 import type { B2BApplicationRepository } from './b2b-application.ts';
 import type { BusinessRepository } from './business.ts';
 import type { GuestRepository } from './guest.ts';
+import type { InvitationsRepository } from './invitations.ts';
 import type { CommerceRepository } from './commerce.ts';
 import type { FoodRepository } from './foods.ts';
 import type { KitchenAdminRepository } from './kitchen-admin.ts';
@@ -573,6 +574,15 @@ export type {
  * never a window in which registering it would have cost anything.
  * ---------------------------------------------------------------------------------------------- */
 
+export { INVITATION_STATUSES, isAcceptable } from './invitations.ts';
+export type {
+    AcceptedInvitation,
+    Invitation,
+    InvitationOrganisation,
+    InvitationStatus,
+    InvitationsRepository,
+} from './invitations.ts';
+
 export { KITCHEN_TENANT_STATUSES, isReactivatable, isTradingStatus } from './platform-admin.ts';
 export type {
     CreateKitchenRequest,
@@ -629,6 +639,20 @@ export type {
  * `Proxy` that threw. The endpoints exist now, so the fields are required and the shims are gone.
  */
 export interface Repositories {
+    /**
+     * Which implementation the application was handed.
+     *
+     * Both implementations already carried this as their own discriminant; it is declared here so a
+     * screen can ask without narrowing to `ApiRepositories` or `MockRepositories` first. The one
+     * legitimate use is a surface that exists **only** in the fixture world and has to say so
+     * honestly in `api` mode — never a behaviour switch inside a surface both implementations
+     * cover, which would be the mock and the API quietly diverging.
+     *
+     * Gate on this rather than on a build flag: a test harness injects mock repositories while the
+     * build's configured data mode is already `api`, so the flag and the truth disagree.
+     */
+    readonly kind: 'api' | 'mock';
+
     readonly auth: AuthRepository;
     readonly session: SessionRepository;
     readonly context: ContextRepository;
@@ -666,4 +690,18 @@ export interface Repositories {
      * the API implementations cover the same surface.
      */
     readonly platformAdmin: PlatformAdminRepository;
+
+    /**
+     * Taking up an offer of membership (PA1) — the twentieth field.
+     *
+     * Required like the rest, and required for a reason the others do not have: `getInvitation` is
+     * the one call on this bundle that is answered with **no credential at all**, so the screen
+     * behind it renders for a visitor who is not signed in and may have no account. An optional
+     * field would put a `?.` in front of the first thing that visitor's browser does.
+     *
+     * Not a branch of `platformAdmin` — that is the operator issuing invitations from behind two
+     * platform gates — and not a branch of `account`, because the acceptor may not have one. See
+     * `./invitations.ts` for the full argument.
+     */
+    readonly invitations: InvitationsRepository;
 }

@@ -104,11 +104,7 @@ function pickCursorFilter(filter?: CursorQueryFilter): CursorQueryFilter | undef
     if (filter.cursor !== undefined) picked.cursor = filter.cursor;
     if (filter.query !== undefined) picked.query = filter.query;
 
-    if (
-        picked.limit === undefined &&
-        picked.cursor === undefined &&
-        picked.query === undefined
-    ) {
+    if (picked.limit === undefined && picked.cursor === undefined && picked.query === undefined) {
         return undefined;
     }
     return picked;
@@ -171,7 +167,10 @@ export type ApiKitchenAdminReads = Pick<
     | 'getBranchOperating'
 >;
 
-function cursorQuery(filter?: CursorQueryFilter, extra?: Record<string, string | undefined>): string {
+function cursorQuery(
+    filter?: CursorQueryFilter,
+    extra?: Record<string, string | undefined>,
+): string {
     const search = new URLSearchParams();
 
     if (filter?.limit !== undefined) search.set('limit', String(filter.limit));
@@ -244,7 +243,9 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
     }
 
     return {
-        async listIngredients(filter?: IngredientAdminFilter): Promise<CursorPage<IngredientAdmin>> {
+        async listIngredients(
+            filter?: IngredientAdminFilter,
+        ): Promise<CursorPage<IngredientAdmin>> {
             const lookup = await loadCategoryLookup();
             categoryLookup = lookup;
 
@@ -284,7 +285,9 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const needsClientStatusFilter =
                 filter?.statuses !== undefined &&
                 (filter.statuses.length > 1 ||
-                    filter.statuses.some((status) => apiStatusForPublishableFilter(status) === null));
+                    filter.statuses.some(
+                        (status) => apiStatusForPublishableFilter(status) === null,
+                    ));
 
             if (!needsClientStatusFilter && filter?.ownedOnly !== true) {
                 const allergenFilter =
@@ -334,9 +337,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
         },
 
-        async listRecipes(
-            filter?: RecipeAdminFilter,
-        ): Promise<CursorPage<RecipeAdminSummary>> {
+        async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
             const status =
                 filter?.statuses !== undefined && filter.statuses.length === 1
                     ? filter.statuses[0] === 'retired'
@@ -459,10 +460,12 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
 
             return mapMealAdminFromItem(
-                {
-                    ...show.item,
-                    availability_days: show.availability_days,
-                },
+                // `availability_days` is spread in only when the show payload carried it:
+                // under `exactOptionalPropertyTypes` an explicit `undefined` is not the same
+                // as an absent key, and the mapper's optional field means "absent", not "unknown".
+                show.availability_days === undefined
+                    ? show.item
+                    : { ...show.item, availability_days: show.availability_days },
                 {
                     channelAvailability: mapChannelAssignments(show.channels, lookup),
                     dietClassifications: show.diet_classifications.filter(
@@ -479,7 +482,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems('subscription_plan', pickCursorFilter(filter), status);
+            const page = await listCatalogueItems(
+                'subscription_plan',
+                pickCursorFilter(filter),
+                status,
+            );
             return {
                 ...page,
                 items: page.items.map((wire) => mapPlanAdminFromItem(wire)),
@@ -497,50 +504,46 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/plans/${encodeURIComponent(id)}/profile`,
             });
 
-            let cells: PlanVariantCell[] = [];
-            let durations: PlanDurationOption[] = [];
-            let combinations: MealCombinationOption[] = [];
-            let bands: EnergyBand[] = [];
-
-            try {
-                const variantsEnvelope = await transport.requestEnvelope<{
+            /*
+             * Four optional reads, each degrading to an empty list.
+             *
+             * `.catch(() => [])` rather than a `let` and a `try`/`catch`: every branch of those
+             * assigned, which made the declaration's initialiser dead code the linter was right to
+             * flag. The behaviour is unchanged — a vocabulary endpoint that is unreachable leaves
+             * the plan renderable with the parts that did load, which is the point of not awaiting
+             * them together.
+             */
+            const cells = await transport
+                .requestEnvelope<{
                     item: AdminCatalogueItem;
                     cells: PlanVariantCell[];
                 }>({
                     method: 'GET',
                     path: `/catalogue/plans/${encodeURIComponent(id)}/variants`,
-                });
-                cells = variantsEnvelope.data.cells;
-            } catch {
-                cells = [];
-            }
+                })
+                .then((envelope) => envelope.data.cells)
+                .catch((): PlanVariantCell[] => []);
 
-            try {
-                durations = await transport.request<PlanDurationOption[]>({
+            const durations = await transport
+                .request<PlanDurationOption[]>({
                     method: 'GET',
                     path: '/catalogue/plan-vocabulary/durations',
-                });
-            } catch {
-                durations = [];
-            }
+                })
+                .catch((): PlanDurationOption[] => []);
 
-            try {
-                combinations = await transport.request<MealCombinationOption[]>({
+            const combinations = await transport
+                .request<MealCombinationOption[]>({
                     method: 'GET',
                     path: '/catalogue/plan-vocabulary/combinations',
-                });
-            } catch {
-                combinations = [];
-            }
+                })
+                .catch((): MealCombinationOption[] => []);
 
-            try {
-                bands = await transport.request<EnergyBand[]>({
+            const bands = await transport
+                .request<EnergyBand[]>({
                     method: 'GET',
                     path: '/catalogue/plan-vocabulary/energy-bands',
-                });
-            } catch {
-                bands = [];
-            }
+                })
+                .catch((): EnergyBand[] => []);
 
             const bandMap = new Map(bands.map((band) => [band.id, band]));
 
@@ -607,10 +610,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 return mapPriceListEntry(entry, itemType, entry.catalogue_item_id, variantCode);
             });
 
-            const channels = priceListChannelsFromAssignments(
-                showEnvelope.data.channels,
-                lookup,
-            );
+            const channels = priceListChannelsFromAssignments(showEnvelope.data.channels, lookup);
 
             return mapPriceListAdmin(showEnvelope.data.price_list, {
                 channels,
@@ -618,9 +618,10 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
         },
 
-        async listZones(filter?: { readonly limit?: number; readonly cursor?: string }): Promise<
-            CursorPage<DeliveryZoneAdmin>
-        > {
+        async listZones(filter?: {
+            readonly limit?: number;
+            readonly cursor?: string;
+        }): Promise<CursorPage<DeliveryZoneAdmin>> {
             const envelope = await transport.requestEnvelope<DeliveryZone[]>({
                 method: 'GET',
                 path: `/catalogue/delivery-zones${cursorQuery(pickCursorFilter(filter))}`,
@@ -645,15 +646,14 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/delivery-zones/${encodeURIComponent(id)}/areas`,
             });
 
-            let windowsWire: WireDeliveryWindow[] = [];
-            try {
-                windowsWire = await transport.request<WireDeliveryWindow[]>({
+            // Optional, on the same terms as the plan vocabulary above: a zone is still worth
+            // showing when the shared window list cannot be reached.
+            const windowsWire = await transport
+                .request<WireDeliveryWindow[]>({
                     method: 'GET',
                     path: '/catalogue/delivery-windows',
-                });
-            } catch {
-                windowsWire = [];
-            }
+                })
+                .catch((): WireDeliveryWindow[] => []);
 
             return mapDeliveryZoneAdmin(showEnvelope.data.delivery_zone, {
                 areas: areasWire.map(mapServiceAreaFromDeliveryArea),

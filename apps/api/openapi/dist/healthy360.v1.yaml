@@ -246,6 +246,50 @@ tags:
       Four permissions rather than one, because reviewing, deciding and
       provisioning are separable authorities — an approval can be revisited, a
       provisioned tenant cannot be un-provisioned.
+  - name: B2B corporate catalogue
+    description: |
+      What a provisioned corporate buyer may order: the articles their own
+      agreements put on the table, each with the one price that agreement
+      resolves to.
+
+      **No permission code, and that is the design.** The authority is the
+      buyer's account shape and the agreements behind it, not a membership
+      role — a code granted to every corporate buyer at provisioning would
+      answer "yes" for all of them and therefore answer nothing. An account
+      that is not a corporate buyer is `403 cart.channel_refused`.
+
+      **Nothing that is not offered is distinguishable from nothing that
+      exists.** Unpublished, unagreed, unassigned and unpriced all answer
+      `404`, because a refusal that told them apart would turn an identifier
+      into a probe for what other kitchens sell.
+  - name: B2B corporate programmes
+    description: |
+      A buyer organisation's standing arrangements with kitchens — the
+      container quotations are drafted against.
+
+      Read-only in this phase: a programme is created when an application is
+      provisioned, and there is no endpoint that changes one.
+  - name: B2B quotations
+    description: |
+      A buyer asks a kitchen what a set of articles would cost; the kitchen
+      names prices; the buyer accepts or declines.
+
+      **The two halves of this family are gated differently, on purpose.** The
+      buyer's side carries **no permission code** — drafting lines, submitting
+      them and deciding on prices are things any member of the buyer
+      organisation may do (B7: drafts are org-shared server state, not one
+      person's private tab), and membership, already proven by `org.context`,
+      is the only gate. The kitchen's side looks the other way across the same
+      relationship and is permission-gated:
+      `b2b_quotation.view_organisation` to read what buyers submitted,
+      `b2b_quotation.quote_organisation` to name a price. Both are
+      organisation-scoped and both are granted to `kitchen_manager` and
+      `commercial_manager`.
+
+      **Every state change is a sub-resource action, never a `PATCH status`**,
+      and every one of them requires `If-Match`. A quotation is a number
+      somebody will be held to; two tabs must not be able to submit and
+      re-price the same draft.
   - name: Invitations
     description: |
       Bringing a person into an organisation. The token is returned to nobody:
@@ -2277,6 +2321,86 @@ paths:
                         $ref: '#/components/schemas/AdminRecipeVersion'
                   meta:
                     $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/roll-up-preview:
+    post:
+      operationId: previewRecipeRollup
+      tags:
+        - Recipes
+      summary: What a draft formulation would declare
+      description: |
+        The figures for a set of lines **without persisting anything**, so a
+        chef composing a version can see what it would say before anybody
+        publishes it.
+
+        **Authorised in the request rather than by route middleware**, and the
+        `or` is the point: either `recipe.view_organisation` or
+        `recipe.manage_organisation` will do. A refusal is `403
+        authz.permission_denied` with an empty `details` — it comes from the
+        form request's own gate, not from the permission middleware, so there
+        is no `details.reason` to branch on.
+
+        **Cost is omitted unless the caller also holds
+        `recipe.view_costs_organisation`.** `estimated_cost` is then `null`,
+        and so it is when no line is fully costed, when the costed lines
+        disagree about currency, or when a line is costed only halfway — each
+        of which adds a `warnings` entry naming which.
+
+        **`per_recipe`, `per_serving` and `per_100g` are always `null`.**
+        Nutrition roll-up is not computed on the server yet; the keys are here
+        because the shape is the one the published version will carry, and a
+        client that had to grow three fields later would be a client that
+        shipped a screen with nothing to put in them. Every response therefore
+        carries at least the `nutrition_unavailable` warning — `warnings` is
+        never empty.
+
+        **An unknown or archived ingredient is a warning, not a refusal.** A
+        preview exists to be run against a half-finished draft, so a line
+        pointing at nothing yields `rollup.unknown_ingredient` and the rest of
+        the figures still come back. What *is* refused (`422`) is a
+        contradiction the caller stated: a cost amount with no currency, a
+        currency with no amount, or a measurement unit that does not exist.
+
+        `servings` is required and `recipe_id` is accepted, but neither
+        currently changes the answer — the per-serving figures are the `null`s
+        above. They are part of the request because they are part of the
+        question, and the day the roll-up computes they will be read.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewRecipeRollupRequest'
+      responses:
+        '200':
+          description: The figures the draft would declare. Nothing was written.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RecipeRollupPreview'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -4630,6 +4754,100 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/availability:
+    put:
+      operationId: replaceCatalogueItemAvailability
+      tags:
+        - Sellable catalogue
+      summary: Replace a meal's per-day availability
+      description: |
+        A PUT because the body is the complete calendar. **`days: []` clears
+        every day**, which is a thing somebody may genuinely mean, and a PATCH
+        surface would make it indistinguishable from "I did not touch the
+        calendar".
+
+        **Meals only.** A product or a subscription plan does not carry
+        per-day availability, and a submission against one is `422
+        validation.failed` with `details.item_type` naming what it actually is
+        — note that this one refusal puts the offending value at the top of
+        `details` rather than inside `fields`.
+
+        **The request field is `remaining`; the response field is
+        `remaining_portions`.** They are the same number and the asymmetry is
+        real, not a documentation slip: the request says how many are left to
+        sell, and the row records it as a portion count.
+
+        `order_cut_off_at` is accepted as `HH:MM` or `HH:MM:SS` and is
+        **always served back as `HH:MM`** — a cut-off is a wall-clock minute
+        and the seconds were never meaningful.
+
+        A date stated twice is refused rather than last-one-wins: two rows for
+        one day is a contradiction the caller can see and the server cannot
+        resolve.
+
+        `If-Match` carries the **item's** `lock_version`, not a day's: the
+        calendar is the unit of change, and a per-row validator would let two
+        editors replace different halves of one week. Requires
+        `catalogue.manage_organisation`, and the kitchen must be trading — a
+        suspended one is `409 organisation.suspended`, refused before the
+        permission is even consulted.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceCatalogueItemAvailabilityRequest'
+      responses:
+        '200':
+          description: The item and the calendar it now has, in date order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                      - availability_days
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/AdminCatalogueItem'
+                      availability_days:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CatalogueItemAvailabilityDay'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/items/{item}/readiness:
@@ -10333,6 +10551,1399 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/kitchen-display/tickets:
+    get:
+      operationId: listKitchenDisplayTickets
+      tags:
+        - Kitchen operations
+      summary: The live ticket rail
+      description: |
+        Everything the kitchen is currently working on — `new`, `preparing`
+        and `ready` — oldest first, because a ticket rail is a queue and a
+        queue is fair in arrival order.
+
+        **Capped at 100 rows with no pagination and no cursor**, deliberately.
+        A rail with more than a hundred open tickets is a kitchen in trouble,
+        and the answer to that is not a second page. There is no way for a
+        client to reach row 101 and none is offered.
+
+        `bumped` tickets are excluded: the rail shows work outstanding, and a
+        completed ticket leaving the screen is the whole point of bumping it.
+
+        **Organisation-scoped, not branch-scoped.** Every branch's tickets in
+        the organisation come back, even when the request carries
+        `X-Branch-Id` — the header is accepted by the stack but this endpoint
+        does not narrow on it. A client that wants one branch's rail filters
+        on what it is given.
+
+        Requires `catalogue.view_organisation`. No `org.trading`: suspension
+        stops a kitchen selling, not finishing the food it already owes
+        people.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Up to 100 open tickets, oldest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - tickets
+                    properties:
+                      tickets:
+                        type: array
+                        maxItems: 100
+                        items:
+                          $ref: '#/components/schemas/KitchenDisplayTicket'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/kitchen-display/tickets/{ticket}/bump:
+    post:
+      operationId: bumpKitchenDisplayTicket
+      tags:
+        - Kitchen operations
+      summary: Clear a ticket off the rail
+      description: |
+        Moves the ticket to `bumped`, which removes it from the rail. The body
+        is empty and any body sent is ignored.
+
+        **Idempotent in effect, unguarded in form.** There is no state-machine
+        check: bumping an already-bumped ticket succeeds and returns the same
+        answer. On a touchscreen in a kitchen that is the right behaviour —
+        the alternative is a conflict dialog under somebody's wet hands — and
+        it is why this endpoint carries no `If-Match` and no
+        `Idempotency-Key`.
+
+        The response is the ticket's identifier and its new status, and
+        nothing else. What the ticket was for has not changed, and the rail
+        re-reads itself.
+
+        A ticket belonging to another organisation is `404`, not `403`: the
+        tenant scope is the lookup. Requires
+        `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/KitchenDisplayTicketPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The ticket, bumped.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - ticket
+                    properties:
+                      ticket:
+                        type: object
+                        required:
+                          - id
+                          - status
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          status:
+                            type: string
+                            description: Always `bumped` on success.
+                            examples:
+                              - bumped
+                        additionalProperties: false
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/pos/sales:
+    post:
+      operationId: createPosSale
+      tags:
+        - Kitchen operations
+      summary: Record a counter sale
+      description: |
+        A completed over-the-counter transaction against an open till shift.
+
+        **The total is the server's arithmetic**, summed from the lines'
+        `line_total_minor`. There is no total in the request and none would be
+        accepted: a client-supplied total is a client-supplied discount.
+
+        **`payment_method_kind` is `cash_on_delivery` or `card` here**, even
+        though the underlying vocabulary also has `invoice`. A counter sale is
+        settled at the counter; an invoice is a different arrangement with a
+        different endpoint behind it, and this one refuses the word with
+        `422`.
+
+        **No `Idempotency-Key`, and that is worth stating rather than
+        implying.** A retried request records a second sale. Clients must not
+        retry this call automatically.
+
+        Requires `catalogue.manage_organisation`. No `org.trading` — the
+        operations family is deliberately left open to a suspended kitchen
+        finishing what it already owes.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePosSaleRequest'
+      responses:
+        '201':
+          description: |
+            The recorded transaction — its identifier, the computed total and
+            how it was paid. The lines are not echoed back; the caller sent
+            them.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - pos_transaction
+                    properties:
+                      pos_transaction:
+                        $ref: '#/components/schemas/PosTransaction'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /delivery/jobs:
+    get:
+      operationId: listDeliveryJobs
+      tags:
+        - Delivery
+      summary: The dispatcher's view of delivery jobs
+      description: |
+        The organisation's delivery jobs, newest first — every driver's, every
+        state, including `delivered` and `cancelled`. This is the dispatch
+        board rather than a driver's run sheet, which is why it carries
+        `driver_user_id` and the driver's own list does not.
+
+        **Capped at 50 rows with no pagination.** A dispatch board shows what
+        is happening now; a client that needs the history of a completed job
+        reads the order.
+
+        No permission code: the narrowing is the organisation, which
+        `org.context` has already validated a membership against.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Up to 50 delivery jobs, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - delivery_jobs
+                    properties:
+                      delivery_jobs:
+                        type: array
+                        maxItems: 50
+                        items:
+                          $ref: '#/components/schemas/DeliveryJob'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /driver/jobs:
+    get:
+      operationId: listDriverJobs
+      tags:
+        - Delivery
+      summary: The caller's own outstanding runs
+      description: |
+        The signed-in driver's jobs that are still live — everything except
+        `delivered` and `cancelled` — oldest first, which is the order they
+        should be worked.
+
+        **Scoped to the caller in the query, not filtered afterwards.** The
+        `where driver_user_id = me` *is* the isolation, and it is why this
+        endpoint needs no permission code: a driver's run sheet is theirs by
+        ownership, and there is no role that would make somebody else's run
+        sheet theirs.
+
+        `driver_user_id` is deliberately **absent** from the rows here. It
+        would say the same thing on every one of them, and the dispatch board
+        is the surface where whose job it is matters.
+
+        **No cap and no cursor**, unlike the dispatch board: a driver's
+        outstanding list is bounded by a shift, and a page break in the middle
+        of a run would be a page break in the middle of a run.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The caller's live jobs, oldest first. Empty when there is nothing to run.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - jobs
+                    properties:
+                      jobs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DriverJob'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /driver/jobs/{job}/deliver:
+    post:
+      operationId: deliverDriverJob
+      tags:
+        - Delivery
+      summary: Mark a run delivered
+      description: |
+        Sets the job to `delivered`, stamps the time, and stores whatever the
+        driver typed as proof.
+
+        **A job that is not the caller's is `404`, and it is decided before
+        the body is looked at.** A request with somebody else's job and a
+        thousand-character note answers `404`, not `422` — which is the right
+        order, because the note is nobody's business until the job is.
+
+        **`proof_of_delivery_notes` is replace-or-clear.** Omitting the key
+        writes `null` over whatever was there. There is no partial update: the
+        one field this endpoint owns is stated every time or not at all.
+
+        **No state guard and no `Idempotency-Key`.** A job already delivered
+        is delivered again, which succeeds — a driver on a bad connection
+        pressing the button twice must not meet a conflict dialog — but it
+        does overwrite the note and the timestamp, so a client should not
+        retry blindly with a different body.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliverDriverJobRequest'
+      responses:
+        '200':
+          description: The job, delivered.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - job
+                    properties:
+                      job:
+                        type: object
+                        required:
+                          - id
+                          - status
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          status:
+                            type: string
+                            description: Always `delivered` on success.
+                            examples:
+                              - delivered
+                        additionalProperties: false
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /payments/intents:
+    post:
+      operationId: createPaymentIntent
+      tags:
+        - Orders
+      summary: Open a payment intent against an order
+      description: |
+        Creates the intent and authorises it with the provider that handles
+        the chosen method, in one call.
+
+        **The amount and the currency come from the order, never from the
+        request.** A client that could name either could name a different one,
+        and a payment for an amount the order does not say is not a payment
+        for that order.
+
+        **One intent per order**, enforced by a unique index. A second attempt
+        is `409 resource.conflict` — which is also, in practice, the only
+        replay protection this endpoint has: there is **no `Idempotency-Key`**
+        and none is accepted.
+
+        `method_kind` accepts `invoice` at the validator and then fails at the
+        provider with `400 request.invalid`: no provider is configured for it.
+        The vocabulary is shared with the rest of the platform and this
+        endpoint does not narrow it, so a client must treat `invoice` as
+        unsupported here rather than as merely untested.
+
+        The order must be one the caller owns — `OrderLocator` scopes to the
+        signed-in person's own customer account and answers `404` otherwise.
+        A signed-in person with no customer account at all is `403
+        account.verification_required` with
+        `details.outstanding: ["customer_account_missing"]`.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentIntentRequest'
+      responses:
+        '201':
+          description: The authorised intent.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentIntentEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /payments/intents/{paymentIntent}/capture:
+    post:
+      operationId: capturePaymentIntent
+      tags:
+        - Orders
+      summary: Capture an authorised payment
+      description: |
+        Takes the money the intent was authorised for. The body is empty.
+
+        **Capture is not idempotent.** An intent that has already been
+        captured, or that failed or was cancelled, is `409
+        resource.conflict`. A cash-on-delivery intent may be captured straight
+        from `pending`, because for cash the authorisation and the collection
+        are the same moment; every other method must be `authorized` first.
+
+        There is no `If-Match` and no `Idempotency-Key`. The `409` is what
+        stops a double capture, so a client that retries must be prepared to
+        read it as "already done" rather than as a failure.
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The captured intent.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentIntentEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /payments/intents/{paymentIntent}/refunds:
+    post:
+      operationId: createRefund
+      tags:
+        - Orders
+      summary: Refund part or all of a captured payment
+      description: |
+        Records a refund against a captured intent. The currency is copied
+        from the intent; only the amount is sent.
+
+        **Only a `captured` intent may be refunded** — anything else is `409
+        resource.conflict`.
+
+        **The amount is not checked against what was captured, or against
+        what has already been refunded.** A caller may over-refund, and the
+        API will record it. That is stated here rather than hidden because a
+        client building a refund form is the only thing currently standing
+        between an operator and a typo.
+
+        The refund is a row of its own. **The intent's status does not
+        change**: there is no `refunded` state, and an intent that has been
+        refunded in full still reads `captured`.
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRefundRequest'
+      responses:
+        '201':
+          description: The refund, already completed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - refund
+                    properties:
+                      refund:
+                        $ref: '#/components/schemas/Refund'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/catalogue/items:
+    get:
+      operationId: listB2bCatalogueItems
+      tags:
+        - B2B corporate catalogue
+      summary: Articles this corporate buyer may order
+      description: |
+        The private catalogue behind a corporate buyer's own agreements: every
+        published article offered today on a private-pricing sales channel run
+        by a kitchen the buyer holds an **active agreement** with, each with
+        the one price that agreement resolves to.
+
+        **A row with no resolvable price is omitted rather than served
+        priceless.** A corporate catalogue exists so somebody can commit
+        budget against it; an article whose tariff has lapsed is not a
+        cheaper article, it is an article this buyer cannot currently order.
+
+        **No permission code**, only `org.context`. The authority is the
+        buyer's own account shape and the agreements behind it — a corporate
+        account is not a membership role, and a code granted to every
+        corporate buyer at provisioning would answer "yes" for all of them.
+        An account that is not a corporate buyer is **403
+        `cart.channel_refused`**, the same code the cart raises when a
+        personal account reaches for a private channel.
+
+        **No pagination and no filters.** The result is bounded by what the
+        buyer's own agreements put on the table, which is a merchandised set
+        somebody negotiated rather than an open catalogue, so `meta` carries
+        the correlation identifier and nothing else.
+
+        `language` selects which of the two stored names is served. It is a
+        presentation choice made per request rather than a stored preference,
+        because the same buyer's procurement officer and warehouse may read
+        in different languages.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bCatalogueLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The articles this buyer may order today, with their agreed prices.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - items
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/B2bCatalogueItem'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CorporateBuyerRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/catalogue/items/{item}:
+    get:
+      operationId: showB2bCatalogueItem
+      tags:
+        - B2B corporate catalogue
+      summary: One agreed article, with its price
+      description: |
+        The single-article read behind the same agreements as the list.
+
+        **Everything that is not offered to this buyer is `404`, never
+        `403`.** An article that is unpublished, that belongs to a kitchen the
+        buyer holds no active agreement with, that is not assigned to an
+        agreed channel today, or whose price does not resolve, all answer the
+        same "no such article, as far as you are concerned". A refusal that
+        distinguished them would turn an identifier into a probe for what
+        other kitchens sell.
+
+        The one refusal that is **not** a 404 is the account shape: a
+        non-corporate account is `403 cart.channel_refused` before any lookup
+        happens, because that is a fact about the caller rather than about
+        the article.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bCatalogueItemPath'
+        - $ref: '#/components/parameters/B2bCatalogueLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The article and its agreed price.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - item
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/B2bCatalogueItem'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CorporateBuyerRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/programmes:
+    get:
+      operationId: listCorporateProgrammes
+      tags:
+        - B2B corporate programmes
+      summary: The programmes this organisation buys under
+      description: |
+        Every corporate programme the caller's active organisation is the
+        **buyer** on, newest first.
+
+        **No permission code.** A programme is the organisation's own standing
+        arrangement with a kitchen, and every member sees the same list — the
+        B7 rule that a quotation draft is org-shared rather than personal
+        applies one level up as well. Membership, already proven by
+        `org.context`, is the whole gate.
+
+        `data` is the array itself rather than an object wrapping it, and
+        `meta.count` is the number of rows served. There is no cursor: a
+        programme is negotiated paperwork and an organisation has a handful,
+        not a book that grows while the kitchen trades.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The buyer organisation's programmes.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CorporateProgramme'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required:
+                          - count
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/programmes/{programme}:
+    get:
+      operationId: showCorporateProgramme
+      tags:
+        - B2B corporate programmes
+      summary: One corporate programme
+      description: |
+        The programme, resolved inside the buyer organisation `org.context`
+        already validated. A programme belonging to another organisation is
+        `404` — the tenant scope is the lookup, not a check bolted on after
+        one.
+
+        `lock_version` is carried in the body for symmetry with the other
+        lock-versioned resources, but this endpoint serves **no `ETag`**:
+        there is no write on a programme in this phase, so there is no
+        validator for a client to hold.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CorporateProgrammePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The programme.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CorporateProgrammeEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/programmes/{programme}/quotations:
+    get:
+      operationId: listQuotations
+      tags:
+        - B2B quotations
+      summary: Every quotation drafted against one programme
+      description: |
+        Newest first, and **without lines**: `lines` is served as an empty
+        array on every row here. A list is a navigation aid, and a set of
+        priced lines is the thing somebody opens a quotation to read.
+        `GET /b2b/quotations/{quotation}` carries them.
+
+        Drafts are included, unlike the kitchen's view of the same table — a
+        buyer's own unsent draft is exactly what they came back to finish.
+
+        `data` is the array itself with `meta.count`; there is no cursor.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CorporateProgrammePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The programme's quotations, newest first, without their lines.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quotation'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required:
+                          - count
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createQuotation
+      tags:
+        - B2B quotations
+      summary: Open a new quotation draft
+      description: |
+        A buyer opens a draft against a programme (B4). `lines` is optional:
+        a draft may be opened empty and filled in by a later `PATCH`, which is
+        how a client that wants a quotation identifier before the user has
+        chosen anything gets one.
+
+        **The currency is the programme's, never the caller's.** It is copied
+        from the agreement's active price list at creation, so a quotation
+        cannot be drafted against a programme whose agreement carries no
+        catalogue tariff yet — that is `409 resource.conflict`.
+
+        Every line must name an article **the programme's kitchen sells**; one
+        that does not is `422 validation.failed` with the offending
+        `lines.{index}.catalogue_item_id` in `details.fields`. A variant, when
+        given, must belong to the article on its own line.
+
+        **No permission code** (B7: org-shared server drafts). Any member of
+        the buyer organisation may open one, and every member can see it
+        afterwards.
+
+        Answers `201` with the created draft and its `ETag` — the validator
+        the very next `PATCH`, `submit` or decision must send back as
+        `If-Match`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/CorporateProgrammePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuotationRequest'
+      responses:
+        '201':
+          description: The new draft.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/quotations/{quotation}:
+    get:
+      operationId: showQuotation
+      tags:
+        - B2B quotations
+      summary: One quotation, with its lines
+      description: |
+        The buyer's own read, addressed directly rather than through the
+        programme: a client that walked the list holds the quotation's
+        identifier, and a path that repeated the programme would let the two
+        disagree.
+
+        Returns `ETag: "<lock_version>"` — the client's half of the
+        optimistic-concurrency contract. Read the quotation, keep the
+        validator, send it back as `If-Match` when patching, submitting,
+        accepting or declining.
+
+        `lines` is the complete set, in `line_number` order.
+        `unit_amount_minor` and `line_total_minor` are `null` on every line
+        until the kitchen quotes: the absence **is** the statement that no
+        price has been named, not a zero.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/QuotationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The quotation and its lines.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateQuotation
+      tags:
+        - B2B quotations
+      summary: Edit a draft's notes, its lines, or both
+      description: |
+        **`lines`, when present, is the desired complete set** — the same
+        PUT-shaped-as-PATCH convention a price list's entries use. A client
+        sends every line it wants kept, not a delta, and the server replaces
+        the set and renumbers `line_number` from 1. Omitting `lines`
+        altogether leaves them untouched, which is what makes "save the note I
+        just typed" a request that cannot lose a line.
+
+        **A price never arrives here.** `unit_amount_minor` is not a field of
+        this request at any nesting level: naming a price is the kitchen's
+        move and it has its own endpoint.
+
+        Refused outside `draft` with **409 `b2b.quotation_state_invalid`** —
+        a submitted quotation is waiting on the kitchen, not on another edit,
+        and there is deliberately no route back into `draft`. A buyer who
+        wants to change a submitted set drafts a fresh quotation; a programme
+        may hold many.
+
+        `If-Match` is required. A stale validator is `409 resource.conflict`
+        carrying `details.current_lock_version`; a malformed one — anything
+        that is not the numeric validator this API issues — is `400
+        request.invalid`, because that is a malformed request rather than a
+        lost race.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/QuotationPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuotationRequest'
+      responses:
+        '200':
+          description: The quotation after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/B2bQuotationStateInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/quotations/{quotation}/submit:
+    post:
+      operationId: submitQuotation
+      tags:
+        - B2B quotations
+      summary: Ask the kitchen for prices
+      description: |
+        `draft` → `submitted`, the buyer's ask (B5). The body is empty: what
+        is being sent is the quotation, and it is already on the server.
+
+        **`200`, never `201`.** Nothing is created — an existing quotation
+        moves state — and a `201` would invite a client to look for a
+        `Location` header naming something new.
+
+        **An empty draft is `422 b2b.quotation_empty`**, its own code rather
+        than `validation.failed`: nothing about the request is malformed, the
+        resource itself has nothing in it to send for pricing. Submitting from
+        any state other than `draft` is **409
+        `b2b.quotation_state_invalid`** with the allowed moves in
+        `details.allowed_transitions`.
+
+        `If-Match` is required, for the same reason the edit needs one: a
+        stale tab must not submit a set of lines it never saw.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/QuotationPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The submitted quotation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/B2bQuotationStateInvalid'
+        '422':
+          $ref: '#/components/responses/B2bQuotationEmpty'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/quotations/{quotation}/accept:
+    post:
+      operationId: acceptQuotation
+      tags:
+        - B2B quotations
+      summary: Accept the kitchen's prices
+      description: |
+        `quoted` → `accepted` (B5). The body is empty.
+
+        **The only side-effect is that nothing new happens (B6).** Catalogue
+        access for this buyer is already governed entirely by the agreement's
+        active price list, resolved fresh on every browse, and acceptance
+        changes neither the agreement nor the price list. What acceptance
+        records is that the buyer confirmed a total — there is no grant to
+        refresh and no catalogue to unlock.
+
+        **A quotation past its `expires_at` is refused even before the sweep
+        has moved it.** The nightly job that writes `expired` runs on a queue;
+        the buyer's deadline does not wait for a queue worker, so accepting a
+        lapsed quotation is `409 b2b.quotation_state_invalid` with
+        `details.status: expired`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/QuotationPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The accepted quotation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/B2bQuotationStateInvalid'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/quotations/{quotation}/decline:
+    post:
+      operationId: declineQuotation
+      tags:
+        - B2B quotations
+      summary: Decline the kitchen's prices
+      description: |
+        `quoted` → `declined` (B5). `reason` is optional and is stored on the
+        quotation as `decline_reason`, where the kitchen can read it — a
+        decline with a sentence behind it is the difference between a lost
+        deal and a renegotiated one.
+
+        Like acceptance, a quotation past its `expires_at` is `409
+        b2b.quotation_state_invalid` rather than a decline: the deadline
+        already decided.
+
+        Declining is terminal. There is no route back to `quoted`, and a
+        buyer who changes their mind drafts a fresh quotation.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/QuotationPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeclineQuotationRequest'
+      responses:
+        '200':
+          description: The declined quotation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/B2bQuotationStateInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/kitchen/quotations:
+    get:
+      operationId: listKitchenQuotations
+      tags:
+        - B2B quotations
+      summary: Quotations submitted to this kitchen
+      description: |
+        The same table read from the **seller's** side: every quotation
+        drafted against a programme the caller's active organisation is the
+        kitchen for.
+
+        **Drafts are excluded.** A kitchen has no business seeing a buyer's
+        unsent draft, only what was actually asked for — and the exclusion is
+        in the query rather than in a client filter, so there is no shape of
+        request that reveals one.
+
+        `Quotation.organisation_id` is the *buyer*, so the tenant scope that
+        protects a buyer's own read is exactly what has to be stepped around
+        here; ownership is proven instead by joining through the programme's
+        `kitchen_organisation_id`. That is why this half of the surface
+        carries a permission code where the buyer's half carries none:
+        `b2b_quotation.view_organisation`, granted to `kitchen_manager` and
+        `commercial_manager`.
+
+        Lines are omitted, as on the buyer's list.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The quotations submitted to this kitchen, newest first, without their lines.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quotation'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - type: object
+                        required:
+                          - count
+                        properties:
+                          count:
+                            type: integer
+                            minimum: 0
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/kitchen/quotations/{quotation}:
+    get:
+      operationId: showKitchenQuotation
+      tags:
+        - B2B quotations
+      summary: One submitted quotation, from the kitchen's side
+      description: |
+        The seller's read of one quotation and its lines, resolved through the
+        programmes this kitchen owns. A quotation belonging to another
+        kitchen's programme is `404`.
+
+        **A quotation still in `draft` is `404` here too**, not `403`. The
+        kitchen is not being told "there is a draft you may not read"; as far
+        as the seller's side of this relationship is concerned, a draft does
+        not exist.
+
+        Serves `ETag: "<lock_version>"` — the validator the kitchen sends back
+        as `If-Match` when it names its prices.
+
+        Requires `b2b_quotation.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/QuotationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The quotation and its lines.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /b2b/kitchen/quotations/{quotation}/quote:
+    post:
+      operationId: quoteKitchenQuotation
+      tags:
+        - B2B quotations
+      summary: Name a price for every line
+      description: |
+        `submitted` → `quoted` (B4, B5). The kitchen sets a unit price on
+        every line and the server computes each `line_total_minor` as
+        `quantity × unit_amount_minor`, rounded to the nearest minor unit — a
+        total the buyer is asked to accept is the server's arithmetic, never
+        the client's.
+
+        **Every line, never fewer, never more.** A partial quote would leave
+        the buyer deciding against a total that is not really the total, so a
+        missing line is `422 validation.failed` with
+        `details.fields.prices.missing_quotation_line_ids`. A `prices` entry
+        naming a line that is not on this quotation, or naming the same line
+        twice, is `422` against the offending
+        `prices.{index}.quotation_line_id`.
+
+        **Amounts are whole minor units.** `1250` means 12.50 in the
+        quotation's own currency; a decimal or a formatted string is `422`.
+        Zero is accepted — a kitchen may quote a line at no charge — and a
+        negative amount is not.
+
+        On success the quotation gains `quoted_at` and an `expires_at` **seven
+        days later**, after which the buyer can no longer accept or decline it
+        and a nightly sweep writes `expired`.
+
+        Requires `b2b_quotation.quote_organisation` — a separate authority
+        from reading the queue, because naming a price is the one act neither
+        the buyer nor the platform performs for the kitchen. Held by
+        `kitchen_manager` and `commercial_manager`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/QuotationPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteQuotationRequest'
+      responses:
+        '200':
+          description: The quoted quotation, with every line priced.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/B2bQuotationStateInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /b2b/applications:
     post:
       operationId: createB2bApplication
@@ -11884,6 +13495,76 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /invitations/{token}:
+    get:
+      operationId: showInvitationByToken
+      tags:
+        - Invitations
+      summary: What the link says, before deciding anything
+      description: |
+        **Anonymous — the token is the capability.** The mailed link lands
+        somebody on a screen that has to render *before* it can ask them to
+        sign in: "join Cedar Kitchen as an owner" is the reason to sign in, and
+        requiring authentication first would be asking a person to sign in to
+        something nobody has told them the name of. This is the same bargain
+        the guest family makes with `X-Guest-Token`, with the token in the path
+        because that is the shape the email delivered.
+
+        **It reads and nothing else.** The token is not consumed, no state
+        moves, and acceptance keeps every gate it had — `POST
+        /invitations/{token}/accept` is still signed-in, email-verified and
+        address-matched. Looking at an invitation brings it no closer to being
+        spent.
+
+        **The address comes back masked, and the masking is server-side.**
+        `o•••@example.com`: the domain in full because that is the half that
+        makes a person recognise their own address, the local part hidden
+        because an unauthenticated endpoint that turns a link into a working
+        email address is a harvesting endpoint. A client cannot render what it
+        was never sent.
+
+        **Only the invitation's own facts.** No organisation identifier, no
+        branch, no inviter, no message — an anonymous endpoint that served them
+        would answer questions about a tenant to anybody holding one link into
+        it. The organisation is named, because a person deciding whether to
+        join needs to know whose workspace it is, and `language_code` is its
+        own default so the name renders in the right script and direction.
+
+        **`status` reports the terminal states, deliberately.** A screen whose
+        only possible message was "this link does not work" would send people
+        to support to be told what the platform already knew, so `accepted`,
+        `revoked` and `expired` are all said plainly. `pending` is `live` under
+        the name a person waiting to accept uses for it. There is **no
+        `superseded`**: re-inviting the same address revokes the outstanding
+        offer and issues a new token, so a superseded invitation *is* a revoked
+        one, and inventing a fifth state would describe something the row
+        cannot be in.
+
+        **Enumeration.** A token this platform never issued is `404`; so is one
+        whose invitation has been purged, and the two are one response with one
+        message. Reporting state for a *known* token is the line: a caller who
+        gets that far is holding 256 bits the platform generated. The
+        `invitation-lookup` limiter — twenty a minute per address rather than
+        the usual sixty — is the floor under that argument, because this is the
+        one anonymous read where a wrong answer is still an answer.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/OrganisationInvitationTokenPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The invitation's own facts, with the address masked.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicInvitationEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /invitations/{token}/accept:
@@ -14589,6 +16270,78 @@ components:
         examples:
           - kyc_review
           - support_query_4821
+    KitchenDisplayTicketPath:
+      name: ticket
+      in: path
+      required: true
+      description: |
+        The ticket identifier. Unlike the catalogue paths this one takes an
+        identifier only — a rail ticket has no stable key a human would hold.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    DeliveryJobPath:
+      name: job
+      in: path
+      required: true
+      description: |
+        The delivery job identifier. One that is not the caller's own answers
+        404, decided before the request body is looked at.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    PaymentIntentPath:
+      name: paymentIntent
+      in: path
+      required: true
+      description: The payment intent identifier.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    CorporateProgrammePath:
+      name: programme
+      in: path
+      required: true
+      description: |
+        The programme identifier. Resolved inside the buyer organisation
+        `org.context` already validated — another organisation's programme is
+        `404`, never `403`.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    QuotationPath:
+      name: quotation
+      in: path
+      required: true
+      description: |
+        The quotation identifier. A malformed value is `404` rather than a
+        server error: an identifier that cannot exist is a client's typo, not
+        a database question.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    B2bCatalogueItemPath:
+      name: item
+      in: path
+      required: true
+      description: |
+        The article identifier. Unlike the kitchen-facing catalogue paths this
+        one takes an identifier only, never a slug: a corporate buyer reaches
+        articles by walking their own agreed list, and a guessable key on a
+        private catalogue is a way to ask what other kitchens sell.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    B2bCatalogueLanguage:
+      name: language
+      in: query
+      required: false
+      description: |
+        Which of the two stored names to serve. `ar` selects the Arabic name;
+        anything else — including an absent parameter — serves the English
+        one. A presentation choice made per request rather than a stored
+        preference, because the same buyer's procurement officer and warehouse
+        may read in different languages.
+      schema:
+        type: string
+        enum:
+          - en
+          - ar
+        default: en
     OrganisationPath:
       name: organisation
       in: path
@@ -15546,6 +17299,35 @@ components:
               details:
                 current_lock_version: 0
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
+    CorporateBuyerRequired:
+      description: |
+        The corporate catalogue refused the caller, and the code says which
+        kind of refusal it was.
+
+        `cart.channel_refused` is the one specific to this family: private
+        pricing exists for corporate buyers, and an account that is not one is
+        told so plainly rather than shown an empty catalogue. It is the same
+        code the cart raises when a personal account reaches for a private
+        channel, because it is the same fact about the same account.
+
+        The rest are the ordinary gates in front of every authenticated,
+        organisation-scoped read: `auth.email_unverified`,
+        `context.organisation_forbidden`, and
+        `account.verification_required` when the signed-in person has no
+        customer account behind their membership yet.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: cart.channel_refused
+              message: This sales channel is only available to corporate buyer accounts.
+              details: {}
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
     SubscriptionRefused:
       description: |
         The subscription cannot be started as it stands, with **every** reason
@@ -15899,10 +17681,13 @@ components:
         - address.area_not_served
         - guest.session_invalid
         - cart.line_refused
+        - cart.channel_refused
         - order.placement_refused
         - b2b.application_state_invalid
         - b2b.documents_incomplete
         - b2b.signatory_required
+        - b2b.quotation_state_invalid
+        - b2b.quotation_empty
         - subscription.refused
         - subscription.change_refused
         - closure.refused
@@ -26104,6 +27889,1058 @@ components:
             - string
             - 'null'
           format: date-time
+    RecipeRollupWarning:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - rollup.unknown_ingredient
+            - nutrition_unavailable
+            - rollup.missing_facts
+            - rollup.mixed_cost_currency
+            - rollup.missing_cost
+          description: |
+            The closed set the preview can emit.
+            `nutrition_unavailable` is on **every** response while the
+            roll-up is not computed server-side, which is why `warnings` is
+            never empty.
+        message:
+          type: string
+          description: A safe English summary. Clients translate from `code`, never from this.
+        ingredient_ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: |
+            Present on `rollup.unknown_ingredient` (exactly one) and
+            `rollup.missing_facts` (however many). Absent on the rest —
+            absent, not empty.
+      description: One thing the caller should know about the figures they are being shown.
+    RecipeRollupAllergenSource:
+      type: object
+      required:
+        - allergen_code
+        - containment
+        - ingredient_ids
+      properties:
+        allergen_code:
+          type: string
+        containment:
+          type: string
+          description: How the allergen is present — the recipe module's containment vocabulary.
+        ingredient_ids:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+      description: |
+        One allergen, at one containment, and every line that put it there.
+        Grouped by `allergen_code` + `containment` and ordered by that pair.
+    RecipeRollupPreview:
+      type: object
+      required:
+        - per_recipe
+        - per_serving
+        - per_100g
+        - allergen_sources
+        - estimated_cost
+        - warnings
+      properties:
+        per_recipe:
+          type: 'null'
+          description: |
+            **Always `null`.** Nutrition roll-up is not computed on the server
+            yet. The key exists because it is the shape the published version
+            will carry, and a client that had to grow three fields later would
+            have shipped a screen with nothing to put in them.
+        per_serving:
+          type: 'null'
+          description: Always `null`. See `per_recipe`.
+        per_100g:
+          type: 'null'
+          description: Always `null`. See `per_recipe`.
+        allergen_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeRollupAllergenSource'
+        estimated_cost:
+          oneOf:
+            - type: object
+              required:
+                - amount
+                - currency
+              properties:
+                amount:
+                  type: string
+                  description: |
+                    A decimal **string** at six places, not a number. Money
+                    that has been through a binary float is money somebody
+                    cannot reconcile.
+                  examples:
+                    - '12.450000'
+                currency:
+                  type: string
+                  minLength: 3
+                  maxLength: 3
+              additionalProperties: false
+            - type: 'null'
+          description: |
+            `null` when the caller does not hold
+            `recipe.view_costs_organisation`, when no line is fully costed,
+            when the costed lines disagree about currency, or when a line is
+            costed only halfway. The last three each add a `warnings` entry
+            naming which.
+        warnings:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RecipeRollupWarning'
+      description: What a draft formulation would declare, computed and thrown away.
+    PreviewRecipeRollupLine:
+      type: object
+      required:
+        - ingredient_id
+      properties:
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type:
+            - number
+            - 'null'
+          exclusiveMinimum: 0
+          maximum: 99999999.9999
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: A measurement unit that does not exist is `422`, unlike an ingredient that does not.
+        unit_cost_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 1000000000000
+        cost_currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: |
+            Upper-cased server-side. An amount without a currency, or a
+            currency without an amount, is `422` — a half-stated cost is a
+            contradiction rather than a partial answer.
+      additionalProperties: false
+    PreviewRecipeRollupRequest:
+      type: object
+      required:
+        - servings
+        - lines
+      properties:
+        recipe_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Accepted and validated, but does not currently change the answer.
+            Part of the request because it is part of the question.
+        servings:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 9999
+          description: Required. Does not currently change the answer — the per-serving figures are `null`.
+        waste_percent:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 100
+          description: Applied to `estimated_cost.amount` only.
+        lines:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/PreviewRecipeRollupLine'
+          description: |
+            Must be **present**, and may be `[]` — an empty draft is a
+            legitimate thing to preview, and the answer is the warnings.
+      additionalProperties: false
+    CatalogueItemAvailabilityDay:
+      type: object
+      required:
+        - id
+        - date
+        - is_available
+        - remaining_portions
+        - order_cut_off_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        date:
+          type: string
+          format: date
+        is_available:
+          type: boolean
+        remaining_portions:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: |
+            The request calls this `remaining`. Same number, different name —
+            the request says how many are left to sell, the row records a
+            portion count.
+        order_cut_off_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^[0-2][0-9]:[0-5][0-9]$
+          description: |
+            Always `HH:MM`, even when `HH:MM:SS` was sent. A cut-off is a
+            wall-clock minute and the seconds were never meaningful.
+          examples:
+            - '18:00'
+      additionalProperties: false
+    CatalogueItemAvailabilityDayInput:
+      type: object
+      required:
+        - date
+        - is_available
+      properties:
+        date:
+          type: string
+          format: date
+          description: '`YYYY-MM-DD`. Stating the same date twice is refused, not last-one-wins.'
+        is_available:
+          type: boolean
+        remaining:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Served back as `remaining_portions`.
+        order_cut_off_at:
+          type:
+            - string
+            - 'null'
+          description: '`HH:MM` or `HH:MM:SS`. Served back as `HH:MM`.'
+          examples:
+            - '18:00'
+            - '18:00:00'
+      additionalProperties: false
+    ReplaceCatalogueItemAvailabilityRequest:
+      type: object
+      required:
+        - days
+      properties:
+        days:
+          type: array
+          maxItems: 366
+          items:
+            $ref: '#/components/schemas/CatalogueItemAvailabilityDayInput'
+          description: |
+            The complete calendar. **`[]` clears every day** — a thing
+            somebody may genuinely mean, which is why this is a PUT.
+      additionalProperties: false
+    KitchenDisplayTicket:
+      type: object
+      required:
+        - id
+        - label
+        - status
+        - station
+        - source_type
+        - source_id
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: string
+          maxLength: 160
+          description: What the rail shows — the thing being made.
+        status:
+          type: string
+          enum:
+            - new
+            - preparing
+            - ready
+          description: |
+            The rail's three live states. `bumped` exists on the row but never
+            appears here: this list is work outstanding.
+        station:
+          type: string
+          maxLength: 64
+          description: Which station is working it.
+          examples:
+            - main
+        source_type:
+          type: string
+          maxLength: 48
+          description: What the ticket came from — an order line, a production batch.
+        source_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+      description: One ticket on the kitchen display rail.
+    CreatePosSaleLine:
+      type: object
+      required:
+        - catalogue_item_id
+        - quantity
+        - line_total_minor
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: number
+          minimum: 0.0001
+          description: Stored to four decimal places.
+        line_total_minor:
+          type: integer
+          minimum: 0
+          description: |
+            Whole minor units. The transaction's total is the **sum of these**,
+            computed by the server — there is no total field on this request.
+      additionalProperties: false
+    CreatePosSaleRequest:
+      type: object
+      required:
+        - pos_shift_id
+        - payment_method_kind
+        - currency_code
+        - lines
+      properties:
+        pos_shift_id:
+          $ref: '#/components/schemas/Uuid'
+        payment_method_kind:
+          type: string
+          enum:
+            - cash_on_delivery
+            - card
+          description: |
+            Narrower than the platform's payment vocabulary on purpose:
+            `invoice` is a different arrangement and is refused here.
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreatePosSaleLine'
+      additionalProperties: false
+    PosTransaction:
+      type: object
+      required:
+        - id
+        - total_minor
+        - payment_method_kind
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        total_minor:
+          type: integer
+          minimum: 0
+          description: The server's sum of the submitted lines.
+        payment_method_kind:
+          type: string
+          enum:
+            - cash_on_delivery
+            - card
+      additionalProperties: false
+      description: |
+        A recorded counter sale. Three fields — the lines are not echoed back,
+        because the caller sent them.
+    DeliveryJobStatus:
+      type: string
+      enum:
+        - pending
+        - assigned
+        - in_transit
+        - delivered
+        - failed
+        - cancelled
+      description: Where the job is in its life.
+    DeliveryJobTrackingStatus:
+      type: string
+      enum:
+        - awaiting_assignment
+        - picked_up
+        - en_route
+        - arrived
+        - delivered
+      description: |
+        What the customer would be told. A second axis rather than a finer
+        `status`, because "assigned but not yet collected" and "collected"
+        are the same dispatch state and different customer messages.
+    DeliveryJob:
+      type: object
+      required:
+        - id
+        - order_id
+        - status
+        - tracking_status
+        - driver_user_id
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        driver_user_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: '`null` until dispatch assigns one.'
+      additionalProperties: false
+      description: A delivery job as the dispatch board sees it.
+    DriverJob:
+      type: object
+      required:
+        - id
+        - order_id
+        - status
+        - tracking_status
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+      additionalProperties: false
+      description: |
+        The same job on the driver's own run sheet. `driver_user_id` is absent
+        because it would say the same thing on every row.
+    DeliverDriverJobRequest:
+      type: object
+      properties:
+        proof_of_delivery_notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 1000
+          description: |
+            **Replace-or-clear.** Omitting the key writes `null` over whatever
+            was there; there is no partial update of this field.
+      additionalProperties: false
+    PaymentMethodKind:
+      type: string
+      enum:
+        - cash_on_delivery
+        - card
+        - invoice
+      description: |
+        How a payment is settled. `invoice` is part of the vocabulary but has
+        no provider behind it — `POST /payments/intents` accepts it at the
+        validator and then answers `400 request.invalid`.
+    PaymentIntentStatus:
+      type: string
+      enum:
+        - pending
+        - authorized
+        - captured
+        - failed
+        - cancelled
+    PaymentIntent:
+      type: object
+      required:
+        - id
+        - order_id
+        - status
+        - method_kind
+        - currency_code
+        - amount_minor
+        - provider
+        - provider_ref
+        - authorized_at
+        - captured_at
+        - lock_version
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/PaymentIntentStatus'
+        method_kind:
+          $ref: '#/components/schemas/PaymentMethodKind'
+        currency_code:
+          allOf:
+            - $ref: '#/components/schemas/CurrencyCode'
+          description: Copied from the order. The request cannot name it.
+        amount_minor:
+          type: integer
+          minimum: 0
+          description: Copied from the order's total. The request cannot name it.
+        provider:
+          type:
+            - string
+            - 'null'
+          maxLength: 48
+          description: Which provider authorised it.
+        provider_ref:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+          description: The provider's own reference, when it issues one.
+        authorized_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        captured_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        lock_version:
+          type: integer
+          minimum: 0
+          description: |
+            Carried in the body, but **no `ETag` is served** and no `If-Match`
+            is read on this family: capture and refund are guarded by state
+            (`409`) rather than by version.
+      additionalProperties: false
+    PaymentIntentEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - payment_intent
+          properties:
+            payment_intent:
+              $ref: '#/components/schemas/PaymentIntent'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreatePaymentIntentRequest:
+      type: object
+      required:
+        - order_id
+        - method_kind
+      properties:
+        order_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: An order the caller owns. Anybody else's is `404`.
+        method_kind:
+          $ref: '#/components/schemas/PaymentMethodKind'
+      additionalProperties: false
+    Refund:
+      type: object
+      required:
+        - id
+        - payment_intent_id
+        - amount_minor
+        - currency_code
+        - status
+        - completed_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        payment_intent_id:
+          $ref: '#/components/schemas/Uuid'
+        amount_minor:
+          type: integer
+          minimum: 1
+        currency_code:
+          allOf:
+            - $ref: '#/components/schemas/CurrencyCode'
+          description: Copied from the intent.
+        status:
+          type: string
+          description: Always `completed` on this endpoint. The column also allows `pending` and `failed`.
+          examples:
+            - completed
+        completed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    CreateRefundRequest:
+      type: object
+      required:
+        - amount_minor
+      properties:
+        amount_minor:
+          type: integer
+          minimum: 1
+          description: |
+            Whole minor units of the intent's currency. **Not checked against
+            the captured amount or against refunds already recorded** — a
+            client building a refund form is what stands between an operator
+            and a typo.
+      additionalProperties: false
+    CorporateProgrammeStatus:
+      type: string
+      enum:
+        - active
+        - suspended
+        - closed
+      description: |
+        Whether a programme is currently something quotations may be drafted
+        against. Extensible: clients must tolerate a value they do not know.
+    QuotationStatus:
+      type: string
+      enum:
+        - draft
+        - submitted
+        - quoted
+        - accepted
+        - declined
+        - expired
+      description: |
+        The life of one corporate quotation (B5):
+        `draft → submitted → quoted → accepted | declined | expired`.
+
+        The buyer owns `draft` and `submitted`. The kitchen owns the move out
+        of `submitted` into `quoted` — naming the prices is the one act
+        neither the buyer nor the platform performs for them. From `quoted`
+        the buyer decides again, or the clock runs out and a scheduled sweep
+        writes `expired` seven days after `quoted_at`.
+
+        **There is deliberately no route back into `draft`.** A buyer who
+        wants to change a submitted set drafts a fresh quotation; a programme
+        may hold many, and that costs them nothing.
+    CorporateProgramme:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - kitchen_organisation_id
+        - b2b_agreement_id
+        - code
+        - name_en
+        - name_ar
+        - description
+        - status
+        - lock_version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The **buyer** organisation. This is the row's tenant.
+        kitchen_organisation_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The **seller** kitchen the programme is with.
+        b2b_agreement_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: |
+            The signed agreement the programme hangs off. Its active price
+            list is what fixes a quotation's currency and what the buyer's
+            catalogue prices resolve through.
+        code:
+          type: string
+          description: A short human-quotable code for the programme.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+          description: |
+            May be the empty string. Served as stored rather than hidden — an
+            empty Arabic name is a fact about the data, and a client that
+            wants to fall back can.
+        description:
+          type:
+            - string
+            - 'null'
+        status:
+          $ref: '#/components/schemas/CorporateProgrammeStatus'
+        lock_version:
+          type: integer
+          minimum: 0
+          description: |
+            The optimistic-concurrency validator. Carried for symmetry; there
+            is no write on a programme in this phase, so no `ETag` is served.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      description: One corporate programme — a buyer organisation's standing arrangement with one kitchen.
+    CorporateProgrammeEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - programme
+          properties:
+            programme:
+              $ref: '#/components/schemas/CorporateProgramme'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    QuotationLine:
+      type: object
+      required:
+        - id
+        - line_number
+        - catalogue_item_id
+        - catalogue_item_variant_id
+        - quantity
+        - unit_amount_minor
+        - line_total_minor
+        - note
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        line_number:
+          type: integer
+          minimum: 1
+          description: |
+            The line's position, renumbered from 1 every time the set is
+            replaced. Not a stable identifier — `id` is.
+        catalogue_item_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The article, which must be one the programme's kitchen sells.
+        catalogue_item_variant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: A variant of that article, when the line names one.
+        quantity:
+          type: string
+          description: |
+            A decimal **string** at four places — `"12.0000"`. A string rather
+            than a number because a quantity that survives a round trip
+            through JSON's binary floats is a quantity somebody can reconcile
+            an invoice against.
+          examples:
+            - '12.0000'
+        unit_amount_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: |
+            The price the kitchen named for one unit, in whole minor units of
+            the quotation's `currency_code`. `null` until the kitchen quotes —
+            the absence **is** the statement that no price has been named, not
+            a zero.
+        line_total_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: |
+            `quantity × unit_amount_minor`, rounded to the nearest minor unit
+            and computed by the server. `null` until the kitchen quotes.
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+      description: One line of a quotation — what the buyer asked for, and what the kitchen said it costs.
+    Quotation:
+      type: object
+      required:
+        - id
+        - organisation_id
+        - corporate_programme_id
+        - reference
+        - status
+        - currency_code
+        - notes
+        - decline_reason
+        - submitted_at
+        - quoted_at
+        - expires_at
+        - decided_at
+        - lock_version
+        - lines
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The **buyer** organisation. This is the row's tenant, which is why the kitchen's side of this surface reaches it through the programme instead.
+        corporate_programme_id:
+          $ref: '#/components/schemas/Uuid'
+        reference:
+          type: string
+          description: A reference a person can read over the phone.
+          examples:
+            - QUO-2026-7F3A9C21
+        status:
+          $ref: '#/components/schemas/QuotationStatus'
+        currency_code:
+          allOf:
+            - $ref: '#/components/schemas/CurrencyCode'
+          description: |
+            Copied from the agreement's active price list when the draft is
+            opened, and fixed for the quotation's life. The buyer does not
+            choose it.
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+        decline_reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+          description: Set only when the buyer declined, and only when they gave one.
+        submitted_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        quoted_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: |
+            Seven days after `quoted_at`. A `quoted` quotation past this
+            instant behaves as expired even before the nightly sweep has
+            caught up with it.
+        decided_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the buyer accepted or declined.
+        lock_version:
+          type: integer
+          minimum: 0
+          description: The optimistic-concurrency validator, served as the `ETag` on the single-quotation reads and every write.
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuotationLine'
+          description: |
+            The complete set, in `line_number` order. **Always an empty array
+            on the two list endpoints** — a list is a navigation aid, and the
+            lines belong on a quotation somebody deliberately opened.
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      description: One corporate quotation — a buyer's ask and a kitchen's answer.
+    QuotationEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - quotation
+          properties:
+            quotation:
+              $ref: '#/components/schemas/Quotation'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    QuotationLineInput:
+      type: object
+      required:
+        - catalogue_item_id
+        - quantity
+      properties:
+        catalogue_item_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: |
+            An article the **programme's kitchen** sells. One that does not
+            exist, or belongs to another kitchen, is `422 validation.failed`
+            against this line's own path.
+        catalogue_item_variant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: When given, must belong to the article on this line.
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+          description: Stored to four decimal places and served back as a string.
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+      description: |
+        One line as the buyer sends it. **There is no price field**: naming a
+        price is the kitchen's move, and this shape has nowhere to put one.
+    CreateQuotationRequest:
+      type: object
+      properties:
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+        lines:
+          type:
+            - array
+            - 'null'
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/QuotationLineInput'
+          description: |
+            Optional. A draft may be opened empty and filled in by a later
+            `PATCH` — which is how a client that wants an identifier before
+            the user has chosen anything gets one. When present it may not be
+            empty; send no `lines` key at all instead.
+      additionalProperties: false
+    UpdateQuotationRequest:
+      type: object
+      properties:
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+        lines:
+          type:
+            - array
+            - 'null'
+          items:
+            $ref: '#/components/schemas/QuotationLineInput'
+          description: |
+            **The desired complete set**, not a delta — send every line to be
+            kept. `[]` clears the draft. Omitting the key entirely leaves the
+            existing lines untouched, which is what makes "save the note I
+            just typed" a request that cannot lose a line.
+      additionalProperties: false
+    DeclineQuotationRequest:
+      type: object
+      properties:
+        reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+          description: Stored as the quotation's `decline_reason`, where the kitchen can read it.
+      additionalProperties: false
+    QuotationPriceInput:
+      type: object
+      required:
+        - quotation_line_id
+        - unit_amount_minor
+      properties:
+        quotation_line_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: A line of **this** quotation. Any other identifier, or the same one twice, is `422`.
+        unit_amount_minor:
+          type: integer
+          minimum: 0
+          description: |
+            Whole minor units of the quotation's own currency — `1250` for
+            12.50. Never a decimal and never a formatted string. Zero is
+            accepted; a kitchen may quote a line at no charge.
+      additionalProperties: false
+    QuoteQuotationRequest:
+      type: object
+      required:
+        - prices
+      properties:
+        prices:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/QuotationPriceInput'
+          description: |
+            One entry for **every** line of the quotation — never fewer, never
+            more. A short set is `422` with the outstanding identifiers in
+            `details.fields.prices.missing_quotation_line_ids`.
+      additionalProperties: false
+    B2bCatalogueItem:
+      type: object
+      required:
+        - id
+        - name
+        - item_type
+        - seller_organisation_id
+        - sales_channel_id
+        - price
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          description: |
+            The single name for the `language` asked for — the corporate
+            catalogue serves one, not a bilingual pair, because a procurement
+            screen shows one and the choice is per request.
+        item_type:
+          $ref: '#/components/schemas/CatalogueItemType'
+        seller_organisation_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The kitchen that sells it.
+        sales_channel_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: |
+            The private channel the price came from. Carried so a later basket
+            can be opened on the same channel the price was quoted on.
+        price:
+          oneOf:
+            - type: object
+              required:
+                - amount_minor
+                - currency_code
+              properties:
+                amount_minor:
+                  type: integer
+                  description: Whole minor units — never formatted.
+                currency_code:
+                  $ref: '#/components/schemas/CurrencyCode'
+              additionalProperties: false
+            - type: 'null'
+          description: |
+            The one price this buyer's agreement resolves to. Never `null` on
+            these two endpoints — a row whose price does not resolve is
+            omitted from the list and is a `404` on the single read, because
+            an article with no current tariff is not a cheaper article, it is
+            one this buyer cannot order.
+      description: One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
     B2bCustomerAccount:
       type: object
       description: |
@@ -26757,6 +29594,102 @@ components:
           properties:
             invitation:
               $ref: '#/components/schemas/OrganisationInvitation'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PublicInvitationStatus:
+      type: string
+      enum:
+        - pending
+        - accepted
+        - revoked
+        - expired
+      description: |
+        Derived from the row's own columns, never stored. `pending` is the
+        platform's `live` under the name a person waiting to accept uses.
+
+        **There is no `superseded`.** Re-inviting an address revokes the
+        outstanding offer and issues a new token, so a superseded invitation is
+        a revoked one; a fifth value would name a state the row cannot be in.
+    PublicInvitation:
+      type: object
+      required:
+        - id
+        - status
+        - role_code
+        - email_masked
+        - expires_at
+        - organisation
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/PublicInvitationStatus'
+        role_code:
+          type: string
+          description: |
+            The role the membership would carry, e.g. `kitchen_owner`. The code
+            rather than a label: the label is the client's to translate, and a
+            server-chosen one would be untranslatable the moment the screen
+            renders in Arabic.
+          examples:
+            - kitchen_owner
+        email_masked:
+          type: string
+          description: |
+            The invited address with its local part hidden —
+            `o•••@example.com`. Masked **server-side**, so a client cannot
+            render what it was never sent. The number of dots is fixed rather
+            than tracking the real length, which would leak how long the
+            address is.
+          examples:
+            - o•••@example.com
+        expires_at:
+          type: string
+          format: date-time
+          description: |
+            Always present, and in the past when `status` is `expired`. A
+            screen can therefore say *when* the link stopped working rather
+            than only that it has.
+        organisation:
+          type: object
+          required:
+            - name
+            - language_code
+          properties:
+            name:
+              type: string
+              description: |
+                Whose workspace this is. `Organisation` carries a single name
+                rather than a bilingual pair, so there is nothing to localise.
+            language_code:
+              type: string
+              description: The organisation's own default language, so the name renders in the right script and direction.
+              examples:
+                - en
+                - ar
+          additionalProperties: false
+          description: |
+            The organisation, named and nothing more. No identifier, no slug,
+            no status — an anonymous endpoint that served them would answer
+            questions about a tenant to anybody holding one link into it.
+      description: |
+        An invitation as the person holding the link may see it, before they
+        have signed in. A deliberately narrower shape than
+        `OrganisationInvitation`, which serves members already inside the
+        organisation.
+    PublicInvitationEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - invitation
+          properties:
+            invitation:
+              $ref: '#/components/schemas/PublicInvitation'
         meta:
           $ref: '#/components/schemas/Meta'
     AcceptedInvitationEnvelope:

@@ -168,6 +168,31 @@ final readonly class InvitationService
     }
 
     /**
+     * The invitation a token belongs to, **whatever state it is in**.
+     *
+     * The twin of `findLiveByToken()`, and the difference is the audience.
+     * That one answers the accept path, where "expired" and "wrong token" have
+     * to be indistinguishable because telling them apart confirms a guess.
+     * This one answers the landing screen, which exists precisely to say
+     * "this was already accepted" or "this expired on Tuesday" — a screen that
+     * could only ever render one message would send people to support to be
+     * told what the platform already knew.
+     *
+     * The line is still drawn, one step further out: a token this platform has
+     * never issued is `null` here too, and the caller answers `404` with the
+     * same shape an expired-and-purged invitation gets. Nothing distinguishes
+     * "no such token" from "there was one and it is gone".
+     */
+    public function findByToken(string $token): ?OrganisationInvitation
+    {
+        $invitation = OrganisationInvitation::query()
+            ->where('token_hash', $this->hash(trim($token)))
+            ->first();
+
+        return $invitation instanceof OrganisationInvitation ? $invitation : null;
+    }
+
+    /**
      * Take up an offer of membership.
      *
      * ## The address has to match, and that is new in PA1

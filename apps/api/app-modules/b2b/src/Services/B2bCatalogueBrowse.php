@@ -176,13 +176,16 @@ final readonly class B2bCatalogueBrowse
             return [];
         }
 
-        return CatalogueItem::withoutTenancy()
+        // `array_values` rather than the collection's own `all()`: an Eloquent collection is keyed
+        // by position here, but its declared key type is not, and the `list<>` this method promises
+        // is what the caller's `foreach` reads.
+        return array_values(CatalogueItem::withoutTenancy()
             ->whereIn('id', $itemIds)
             ->where('organisation_id', $channel->organisation_id)
             ->where('status', CatalogueItemStatus::Published->value)
             ->orderBy('name_en')
             ->get()
-            ->all();
+            ->all());
     }
 
     private function isOffered(SalesChannel $channel, CatalogueItem $item, CarbonImmutable $on): bool

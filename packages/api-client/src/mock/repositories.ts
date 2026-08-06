@@ -24,6 +24,7 @@ import { createGuestTokenStore } from '../session/guest-token-store.ts';
 import { createGuestMockRepositories } from './guest/repositories.ts';
 import type { GuestMockStore } from './guest/store.ts';
 import { createKitchenOpsMockRepositories } from './kitchen-ops/repositories.ts';
+import { createInvitationsMockRepositories } from './invitations/repositories.ts';
 import { createPlatformAdminMockRepositories } from './platform-admin/repositories.ts';
 import type { PlatformAdminMockStore } from './platform-admin/store.ts';
 import type { KitchenOpsMockStore } from './kitchen-ops/store.ts';
@@ -338,6 +339,30 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
     const kitchenOpsWorld = createKitchenOpsMockRepositories({ settle });
     const platformAdminWorld = createPlatformAdminMockRepositories({ settle });
 
+    /*
+     * The PA1 invitation world.
+     *
+     * `invitedEmail` is the scenario's own primary address, so the fixture link is addressed to
+     * whoever the switcher says to sign in as and the happy path works out of the box.
+     * `currentEmail` is read *per call* rather than captured: a tester signing out and back in as a
+     * different persona is exactly the mismatch state this world exists to make reachable, and a
+     * captured address would freeze the answer at construction time.
+     *
+     * It returns `null` rather than throwing when nobody is signed in — the read is anonymous, so
+     * "there is no session" is an ordinary condition on this surface rather than a failure.
+     */
+    const invitationsWorld = createInvitationsMockRepositories({
+        settle,
+        invitedEmail: scenario.primaryEmail,
+        currentEmail: () => {
+            try {
+                return current().user.email;
+            } catch {
+                return null;
+            }
+        },
+    });
+
     const auth: AuthRepository = {
         async login(request: LoginRequest): Promise<LoginResult> {
             await settle();
@@ -488,6 +513,7 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         kitchenAdmin: prototype.kitchenAdmin,
         kitchenOps: kitchenOpsWorld.kitchenOps,
         kitchenOpsStore: kitchenOpsWorld.store,
+        invitations: invitationsWorld.invitations,
         platformAdmin: platformAdminWorld.platformAdmin,
         platformAdminStore: platformAdminWorld.store,
     };

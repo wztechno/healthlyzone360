@@ -47,7 +47,11 @@ import type { OpsMetric } from '../ops-panel.tsx';
 
 export function QualityControlScreen() {
     return (
-        <Gate area="kitchen" requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }} testID="kitchen-qc">
+        <Gate
+            area="kitchen"
+            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
+            testID="kitchen-qc"
+        >
             <QualityControl />
         </Gate>
     );
@@ -59,14 +63,14 @@ function QualityControl() {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
     const checks = useQualityChecksQuery();
+    const checksFailure = toFailure(checks.error);
     const createCheck = useCreateQualityCheckMutation();
     const holdCheck = useHoldQualityCheckMutation();
     const releaseCheck = useReleaseQualityCheckMutation();
 
     const [creating, setCreating] = useState(false);
-    const [subjectType, setSubjectType] = useState<(typeof QUALITY_CHECK_SUBJECT_TYPES)[number]>(
-        'goods_receipt',
-    );
+    const [subjectType, setSubjectType] =
+        useState<(typeof QUALITY_CHECK_SUBJECT_TYPES)[number]>('goods_receipt');
     const [subjectId, setSubjectId] = useState('');
 
     const rows = checks.data ?? [];
@@ -228,16 +232,20 @@ function QualityControl() {
                 {checks.isPending ? (
                     <Skeleton testID="kitchen-qc-loading" heightClassName="h-40" />
                 ) : null}
-                {checks.isError ? (
+                {checksFailure !== null ? (
                     <ErrorState
                         testID="kitchen-qc-error"
                         title={t('kitchen:ops.qc.loadErrorTitle')}
-                        body={t('kitchen:ops.qc.loadErrorBody')}
+                        failure={checksFailure}
+                        onRetry={() => {
+                            void checks.refetch();
+                        }}
+                        retrying={checks.isFetching}
                     />
                 ) : null}
                 {!checks.isPending && !checks.isError ? (
                     <Stack space="sm">
-                        <Inline space="sm" align="center" justify="space-between">
+                        <Inline space="sm" align="center" justify="between">
                             <Heading level={2} testID="kitchen-qc-checks-title">
                                 {t('kitchen:ops.qc.checksHeading')}
                             </Heading>

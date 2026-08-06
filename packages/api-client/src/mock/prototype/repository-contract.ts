@@ -44,6 +44,11 @@ import {
  * absent. Their drift protection is the `Repositories` bundle in `../../contracts/index.ts`: the
  * fields are **required**, so a method added to any of those contracts fails the typecheck in
  * exactly two places — the mock and the API implementation — which is where it should fail.
+ *
+ * `invitations` is absent on the same born-real terms as `platformAdmin`, and one step further out:
+ * its two routes not only exist, one of them is **anonymous**, so its API implementation is the
+ * only one in this package that a visitor holding no credential at all can reach. A table entry
+ * asserting it rejects would be wrong twice over.
  */
 export const REPOSITORY_KEYS = [
     'marketplace',

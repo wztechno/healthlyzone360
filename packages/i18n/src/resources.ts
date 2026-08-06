@@ -11,6 +11,7 @@ import arCommon from '../catalogues/ar/common.json';
 import arDesignSystem from '../catalogues/ar/designSystem.json';
 import arErrors from '../catalogues/ar/errors.json';
 import arGuest from '../catalogues/ar/guest.json';
+import arInvitations from '../catalogues/ar/invitations.json';
 import arKitchen from '../catalogues/ar/kitchen.json';
 import arMarketplace from '../catalogues/ar/marketplace.json';
 import arNutrition from '../catalogues/ar/nutrition.json';
@@ -30,6 +31,7 @@ import enCommon from '../catalogues/en/common.json';
 import enDesignSystem from '../catalogues/en/designSystem.json';
 import enErrors from '../catalogues/en/errors.json';
 import enGuest from '../catalogues/en/guest.json';
+import enInvitations from '../catalogues/en/invitations.json';
 import enKitchen from '../catalogues/en/kitchen.json';
 import enMarketplace from '../catalogues/en/marketplace.json';
 import enNutrition from '../catalogues/en/nutrition.json';
@@ -63,6 +65,12 @@ import enVirtualDietitian from '../catalogues/en/virtualDietitian.json';
  * register is different, the vocabulary is different, and a shared namespace would have produced
  * two meanings for `status`.
  *
+ * `invitations` is the twentieth, added by PA1's acceptance screen. Its own namespace rather than a
+ * branch of `platformAdmin` for the reason that runs through this whole slice: `platformAdmin` is
+ * the operator *issuing* an invitation from inside a console, and this is the person who received
+ * one, who may not have an account and may not be signed in. The two never appear on the same
+ * screen and share no vocabulary — "revoke" is a verb in one and a terminal state in the other.
+ *
  * `guest` is the seventeenth, added by G1. It is its own namespace rather than a branch of
  * `commerce` because the whole point of the guest journey is that it belongs to somebody who has
  * *no* account and may never have one: the checkout copy, the conversion prompt and the public
@@ -95,6 +103,7 @@ export const TRANSLATION_NAMESPACES = [
     'guest',
     'b2bApplication',
     'platformAdmin',
+    'invitations',
 ] as const;
 export type TranslationNamespace = (typeof TRANSLATION_NAMESPACES)[number];
 
@@ -122,6 +131,7 @@ export const enResources = {
     guest: enGuest,
     b2bApplication: enB2bApplication,
     platformAdmin: enPlatformAdmin,
+    invitations: enInvitations,
 } as const;
 
 export const arResources = {
@@ -144,6 +154,7 @@ export const arResources = {
     guest: arGuest,
     b2bApplication: arB2bApplication,
     platformAdmin: arPlatformAdmin,
+    invitations: arInvitations,
 } as const;
 
 export const resources: Readonly<Record<Locale, CatalogueBundle>> = {

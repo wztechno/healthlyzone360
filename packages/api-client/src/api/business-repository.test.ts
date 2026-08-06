@@ -5,10 +5,7 @@ import { createMemoryTokenStore } from '../contracts/session.ts';
 import { createApiBusinessReads } from './business-repository.ts';
 import { createTransport } from './transport.ts';
 
-function harness(
-    responses: readonly { status: number; body: unknown }[],
-    token = 'token',
-) {
+function harness(responses: readonly { status: number; body: unknown }[], token = 'token') {
     const calls: { method: string; url: string; path: string }[] = [];
     let index = 0;
 
@@ -16,7 +13,7 @@ function harness(
         baseUrl: 'https://api.example',
         tokenStore: createMemoryTokenStore(token),
         fetch: async (input, init) => {
-            const url = typeof input === 'string' ? input : input.url;
+            const url = input instanceof Request ? input.url : String(input);
             const method = init?.method ?? 'GET';
             const path = url.replace('https://api.example/api/v1', '');
             calls.push({ method, url, path });

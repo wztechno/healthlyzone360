@@ -75,6 +75,7 @@ export const QUERY_ROOTS = [
     'guest',
     'b2bApplication',
     'platformAdmin',
+    'invitations',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -519,6 +520,20 @@ export const queryKeys = {
         all: () => ['platformAdmin'] as const,
         kitchens: (filter?: QueryScope) => ['platformAdmin', 'kitchens', scope(filter)] as const,
         kitchen: (kitchen: string) => ['platformAdmin', 'kitchen', kitchen] as const,
+    },
+
+    /**
+     * The token-scoped invitation read (PA1).
+     *
+     * **Keyed by the token**, which is the only thing that identifies it — the invitation's own id
+     * arrives *in* the response and is therefore useless as a key. That makes this the one key in
+     * this file that contains a credential, which is precisely why the root is absent from
+     * `PERSISTED_QUERY_ROOTS` below: a bearer-ish token must not reach disk, least of all on the
+     * shared device somebody opened a colleague's forwarded link on.
+     */
+    invitations: {
+        all: () => ['invitations'] as const,
+        byToken: (token: string) => ['invitations', 'token', token] as const,
     },
 } as const;
 
