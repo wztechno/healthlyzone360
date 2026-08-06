@@ -44,7 +44,7 @@ export {
     DEFAULT_CART_CHANNEL_CODE,
     createApiCartSurface,
 } from './cart-repository.ts';
-export { createApiBusinessReads } from './business-repository.ts';
+export { createApiBusinessRepository, createApiBusinessReads } from './business-repository.ts';
 export {
     NO_NUTRITION_FACTS,
     UNSTATED_SERVING,

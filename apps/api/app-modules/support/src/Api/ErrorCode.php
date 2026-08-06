@@ -229,6 +229,22 @@ enum ErrorCode: string
     case B2bSignatoryRequired = 'b2b.signatory_required';
 
     /**
+     * A quotation action is not available from its current state (B5) — a
+     * quoted quotation cannot be re-quoted, an accepted one cannot be
+     * declined, a draft with no lines cannot be submitted. `details.status`
+     * carries the state it is actually in.
+     */
+    case B2bQuotationStateInvalid = 'b2b.quotation_state_invalid';
+
+    /**
+     * Submission was refused because the draft carries no lines. Its own code
+     * rather than `validation.failed`: nothing about the request body is
+     * malformed, the resource itself has nothing in it yet to send for
+     * pricing.
+     */
+    case B2bQuotationEmpty = 'b2b.quotation_empty';
+
+    /**
      * A subscription could not be started (S1). Its own code rather than
      * `order.placement_refused`, which S1 borrowed while this enum was closed
      * to it: a client branches on the code to decide which screen to render,
@@ -323,6 +339,7 @@ enum ErrorCode: string
             self::ContactAlreadyInUse,
             self::OrderPlacementRefused,
             self::B2bApplicationStateInvalid,
+            self::B2bQuotationStateInvalid,
             self::SubscriptionRefused,
             self::SubscriptionChangeRefused,
             self::ClosureRefused,
@@ -340,7 +357,8 @@ enum ErrorCode: string
             self::OtpChannelUnavailable,
             self::AddressAreaNotServed,
             self::CartLineRefused,
-            self::B2bDocumentsIncomplete => 422,
+            self::B2bDocumentsIncomplete,
+            self::B2bQuotationEmpty => 422,
             self::RateLimitExceeded,
             self::OtpAttemptsExceeded,
             self::OtpCooldownActive,
@@ -395,6 +413,8 @@ enum ErrorCode: string
             self::B2bApplicationStateInvalid => 'This application cannot be changed from its current state.',
             self::B2bDocumentsIncomplete => 'The required documents are not all present and accepted.',
             self::B2bSignatoryRequired => 'Signing requires a verified passcode from the named signatory.',
+            self::B2bQuotationStateInvalid => 'This quotation cannot be changed from its current state.',
+            self::B2bQuotationEmpty => 'This quotation has no lines to submit.',
             self::SubscriptionRefused => 'This subscription cannot be started as it stands.',
             self::SubscriptionChangeRefused => 'This change cannot be made to the subscription as it stands.',
             self::ClosureRefused => 'This closure request cannot be handled as asked for.',

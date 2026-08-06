@@ -153,6 +153,34 @@ tags:
       replaced whole, so there is no `If-Match` and no half-week to protect.
 
       A **closed day is a row**; a day nobody has configured is an absent one.
+  - name: Kitchen inventory & production
+    description: |
+      Stock, receipts, production and the food-safety hold over both:
+      warehouse items and their on-hand levels, suppliers and the goods
+      receipts that post stock in, production orders and the stock they
+      consume and yield, and quality checks that can hold either one.
+
+      **No valuation anywhere.** A stock item, a level, a movement and a
+      receipt line carry a quantity and nothing that prices it — this
+      family is the physical ledger, not the costed one.
+
+      **Receipts stand alone (O2).** There is no purchase-order surface in
+      v1: `POST .../goods-receipts` posts stock straight into inventory, and
+      `purchase_order_id` on the row is always null.
+
+      **A hold is status-only (O3, O4).** A quality check attaches to a
+      goods receipt or a production order and moves between `pending`,
+      `passed`, `hold` and `released` — there is no separate hold record
+      and no other subject.
+
+      **No production tasks (O5).** Completing a production order is
+      entirely the stock it consumed and yielded; the checklist underneath
+      one is not part of this surface.
+
+      Reuses `catalogue.view_organisation` / `catalogue.manage_organisation`
+      (O7) rather than a family of its own: stock, receipts and production
+      are the same organisation-scoped kitchen authority as the rest of the
+      `/catalogue` prefix.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
   - name: Verification
@@ -313,6 +341,45 @@ tags:
       the signatory block go; the legal entity — legal name, registration
       number, tax number, incorporation date — survives, because a corporate
       record carries retention obligations the people named on it do not.
+  - name: Corporate programmes
+    description: |
+      A corporate programme is one buyer organisation's standing relationship
+      with a single seller kitchen, under one signed `B2bAgreement` — the
+      thing a company's own members read and quote against once provisioning
+      is done. Membership is the whole organisation (org-shared server
+      drafts): there is no per-user grant beneath a programme.
+
+      Programmes are not created here. They are provisioned alongside the
+      tenant, from the agreement's price list — there is no `POST`, because a
+      programme names a relationship that already exists rather than one a
+      buyer proposes.
+  - name: Quotations
+    description: |
+      One round of "what would this cost": a buyer drafts lines against a
+      programme's catalogue, asks for prices, and the seller kitchen answers
+      with one per line before the buyer accepts or declines.
+
+      **The state machine is one-way**: `draft` → `submitted` → `quoted` →
+      `accepted` | `declined` | `expired`. A quotation left `quoted` for seven
+      days without a decision expires on its own (nightly sweep,
+      `routes/console.php`), and the two decision endpoints refuse a
+      quotation whose deadline has already passed even before the sweep
+      catches up with it.
+
+      **Prices are the kitchen's alone.** `unit_amount_minor` and
+      `line_total_minor` are `null` until the kitchen quotes — never
+      accepted from the buyer at any step — and every line on a submitted
+      quotation must be priced, never fewer, never more.
+
+      **Accepting changes nothing beyond the quotation's own state.**
+      Catalogue access is already governed entirely by the programme's
+      agreement and its active price list; there is no separate grant this
+      endpoint could refresh, and no order is placed automatically.
+
+      Amounts are integers of minor units, `lock_version` and `If-Match`
+      protect every mutation the same way `B2bAgreement` and
+      `RecipeVersion` do, and there is no PDF export — a quotation is read
+      through this API, never rendered as a document.
 paths:
   /auth/register:
     post:
@@ -6821,22 +6888,24 @@ paths:
       operationId: listMarketplaceMeals
       tags:
         - Marketplace
-      summary: List meals
+      summary: List meals and products
       security: []
       description: |
-        **Anonymous.** Published meals, offered through a consumer channel,
-        carrying a confirmed price.
+        **Anonymous.** Published meals **and products**, offered through a consumer
+        listing channel, carrying a confirmed price. Filter with `item_types`
+        (`meal`, `product`, or both comma-separated); omit it to receive both.
 
-        **An unpriced meal is absent.** A placeholder row and a market-priced row
+        **An unpriced listing is absent.** A placeholder row and a market-priced row
         resolve to no price at all, and the consumer contract has no shape for a
-        meal without one: rendering `0` would be a lie, and a nullable price
+        listing without one: rendering `0` would be a lie, and a nullable price
         would push "we do not know what this costs" onto a surface with no way to
         act on it. The kitchen sees the difference on its own readiness screen.
 
-        **Prices come only from consumer channels.** The resolver is restricted
-        to channel kinds the domain declares non-private, so a negotiated
-        wholesale, corporate or insurance tariff - and any volume tier on one -
-        is structurally unreachable here rather than merely unrequested.
+        **Prices come only from consumer listing channels.** The resolver is
+        restricted to channel kinds the domain declares non-private for public
+        listing (`b2c_web`, `marketplace`), so a negotiated wholesale, corporate
+        or insurance tariff - and any volume tier on one - is structurally
+        unreachable here rather than merely unrequested.
 
         `exclude_allergens` is an exclusion rather than an inclusion on purpose:
         a person filters by what they must avoid. It is applied over the derived
@@ -6844,7 +6913,7 @@ paths:
         rule an allergen out of is excluded along with the ones that certainly
         contain it.
 
-        **`nutrition` and `serving` are `null` on every meal, and that is a
+        **`nutrition` and `serving` are `null` on every listing, and that is a
         deliberate deviation from the proposed draft.** The platform has no
         authoritative nutrition source; inventing per-serving figures for
         somebody choosing food for a medical reason is the one thing this
@@ -6867,6 +6936,16 @@ paths:
           description: Comma-separated kitchen identifiers.
           schema:
             type: string
+        - name: item_types
+          in: query
+          required: false
+          description: |
+            Comma-separated catalogue item types to include. Allowed values:
+            `meal`, `product`. Omit to receive both. Unknown values are `400`.
+          schema:
+            type: string
+            examples:
+              - meal,product
         - name: diet_classifications
           in: query
           required: false
@@ -7320,6 +7399,80 @@ paths:
           $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /checkouts/preview:
+    post:
+      operationId: previewCheckout
+      tags:
+        - Orders
+      summary: What a basket would cost, priced for real
+      description: |
+        **A query, not a command.** Nothing is reserved, nothing is written and
+        no `Idempotency-Key` is accepted — the same proposal always has the
+        same answer, so there is nothing here for a replay to protect against.
+        `POST` rather than `GET` because a cart identifier is not something to
+        put in a query string a proxy will log.
+
+        **Every amount is resolved exactly as `POST /orders` resolves it.**
+        This runs the identical `LineProbe` and `ZoneResolver` paths
+        `OrderPlacementService` runs at placement, so a preview and the
+        placement it precedes never quote two different numbers for a basket
+        nothing has changed about.
+
+        **Nothing here is a refusal.** Placement collects a list of reasons
+        and refuses the whole order with `409 order.placement_refused`; a
+        preview has no transaction to abort, so the same facts — `cart_empty`,
+        `address_missing`, `address_not_deliverable`, `area_not_served`,
+        `zone_suspended`, `currency_mismatch`, plus the line-probe vocabulary —
+        come back as `warnings` inside an ordinary `200`. Deliberately the
+        *same words* placement would refuse with: a customer taught one
+        vocabulary for "we don't deliver there" on the cart screen and a
+        different one at checkout has been taught nothing at all.
+
+        **`customer_address_id` is optional, unlike at placement.** A shopper
+        previews a total before they have chosen where it goes — the cart
+        screen has no address at all — and an absent address is reported as
+        the `address_missing` warning rather than refused.
+
+        **`delivery_fee_minor` is `null` whenever the fee is unresolved**,
+        never `0`: no address named, an unserved area, a suspended zone or a
+        zone with no fee configured are four different facts, and none of
+        them is "delivery is free" (OQ-045).
+
+        A cart or an address that is not the caller's own is **`404
+        resource.not_found`**, exactly as `OrderLocator` answers it for
+        placement: confirming that an identifier exists but belongs to
+        somebody else is a disclosure either way.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewCheckoutRequest'
+      responses:
+        '200':
+          description: |
+            What the basket would cost right now, and what stood in the way of
+            pricing any part of it completely.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutPreviewEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /orders:
     post:
       operationId: placeOrder
@@ -7530,6 +7683,554 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/items:
+    get:
+      operationId: listStockItems
+      tags:
+        - Kitchen inventory & production
+      summary: List stock items
+      description: |
+        Every warehouse item the organisation has declared (O1) — a free
+        code and name, and an optional link to the recipe ingredient
+        master. Not paginated: a kitchen's stock list is small enough to
+        fetch whole, the way suppliers and production orders already are.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every stock item.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockItemCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createStockItem
+      tags:
+        - Kitchen inventory & production
+      summary: Declare a stock item
+      description: |
+        `code` is a free SKU (O1) — no platform vocabulary constrains it,
+        and it need not match anything on a supplier's own invoice.
+        `ingredient_id` is optional: a stock item does not have to be
+        modelled as a recipe ingredient to be stocked.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStockItemRequest'
+      responses:
+        '201':
+          description: The stock item was created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockItemEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/levels:
+    get:
+      operationId: listStockLevels
+      tags:
+        - Kitchen inventory & production
+      summary: On-hand stock levels
+      description: |
+        Every level the organisation holds, enriched with the item's own
+        `item_code`, `item_name_en` and `ingredient_id` (O1) so a levels
+        screen never has to join to render a row. `X-Branch-Id` narrows
+        the list to one branch; absent, every branch's levels are
+        returned.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Stock levels, newest stock item first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLevelCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/adjustments:
+    post:
+      operationId: recordStockAdjustment
+      tags:
+        - Kitchen inventory & production
+      summary: Record a stock adjustment
+      description: |
+        A signed correction to a level — a stock take finding more or
+        less than the ledger says. `branch_id` is a body field rather
+        than `X-Branch-Id`, because the movement this writes is
+        organisation data, not a header-scoped read.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustmentRequest'
+      responses:
+        '201':
+          description: The adjustment was recorded and the level updated.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/waste:
+    post:
+      operationId: recordStockWaste
+      tags:
+        - Kitchen inventory & production
+      summary: Record stock waste
+      description: |
+        States the loss as a positive quantity; the server signs it
+        negative on the movement ledger (`reason: waste`) — the same
+        split as `POST .../production/orders/{productionOrder}/complete`'s
+        `consumes`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockWasteRequest'
+      responses:
+        '201':
+          description: The waste was recorded and the level reduced.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/suppliers:
+    get:
+      operationId: listSuppliers
+      tags:
+        - Kitchen inventory & production
+      summary: List suppliers
+      description: |
+        Every supplier the organisation has on file. Receipts-only in v1
+        (O2): a supplier has no purchase orders and no terms behind it
+        yet, only the goods receipts posted against it by name.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every supplier, ordered by code.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/goods-receipts:
+    get:
+      operationId: listGoodsReceipts
+      tags:
+        - Kitchen inventory & production
+      summary: List goods receipts
+      description: |
+        The most recent 50 receipts, newest first, each with its lines —
+        a receipt without them is only half the record. `purchase_order_id`
+        is always null in v1 (O2): there is no purchase-order surface yet
+        to have created one.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Recent goods receipts.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoodsReceiptCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createGoodsReceipt
+      tags:
+        - Kitchen inventory & production
+      summary: Post a goods receipt
+      description: |
+        Posts every line straight into the inventory ledger
+        (`reason: receipt`) inside one transaction, raising each named
+        stock item's level at the branch. There is no draft state: posting
+        a receipt is the same act as recording that the stock arrived.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostGoodsReceiptRequest'
+      responses:
+        '201':
+          description: The receipt was posted and inventory updated.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoodsReceiptEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/production/orders:
+    get:
+      operationId: listProductionOrders
+      tags:
+        - Kitchen inventory & production
+      summary: List production orders
+      description: |
+        The most recent 50 orders, newest first. No production tasks are
+        served here (O5) — an order's own checklist is not part of this
+        surface.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Recent production orders.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createProductionOrder
+      tags:
+        - Kitchen inventory & production
+      summary: Plan a production order
+      description: |
+        Starts an order in `planned`. Nothing is consumed or yielded yet —
+        that is what completing the order does.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductionOrderRequest'
+      responses:
+        '201':
+          description: The production order was planned.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/production/orders/{productionOrder}/complete:
+    post:
+      operationId: completeProductionOrder
+      tags:
+        - Kitchen inventory & production
+      summary: Complete a production order
+      description: |
+        Records what the run actually consumed and yielded, one inventory
+        movement per line (`reason: consume` and `reason: yield`), and
+        moves the order to `completed` — all inside one transaction. Both
+        lists are optional: an order with nothing yet consumed is a legal
+        call, though an unusual one.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteProductionOrderRequest'
+      responses:
+        '200':
+          description: The production order is completed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/checks:
+    get:
+      operationId: listQualityChecks
+      tags:
+        - Kitchen inventory & production
+      summary: List quality checks
+      description: |
+        The most recent 50 checks, newest first, over both subjects the
+        allow-list permits (O3): a goods receipt or a production order.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Recent quality checks.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityCheckCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createQualityCheck
+      tags:
+        - Kitchen inventory & production
+      summary: Open a quality check
+      description: |
+        Starts a check in `pending` against a goods receipt or a
+        production order (O3) — no other `subject_type` is accepted, and
+        one that is not is `422 validation.failed`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQualityCheckRequest'
+      responses:
+        '201':
+          description: The quality check was opened.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityCheckEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/checks/{qualityCheck}/hold:
+    post:
+      operationId: holdQualityCheck
+      tags:
+        - Kitchen inventory & production
+      summary: Hold a quality check
+      description: |
+        Moves the check to `hold` — status-only (O4): there is no separate
+        hold record, and nothing else about the subject changes here.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - name: qualityCheck
+          in: path
+          required: true
+          description: The quality check identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The check is on hold.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityCheckEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/checks/{qualityCheck}/release:
+    post:
+      operationId: releaseQualityCheck
+      tags:
+        - Kitchen inventory & production
+      summary: Release a quality check
+      description: |
+        Moves the check to `released` — the only other side of the O4
+        hold/release pair. There is no separate "pass" action in v1.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - name: qualityCheck
+          in: path
+          required: true
+          description: The quality check identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The check is released.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityCheckEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
         '429':
@@ -14228,6 +14929,59 @@ components:
               message: Only the signatory this application names may sign it. Ask them to sign in with the address on the application and sign for themselves.
               details: {}
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
+    B2bQuotationStateInvalid:
+      description: |
+        The quotation cannot make the move that was asked for — the same
+        shape of refusal `b2b.application_state_invalid` gives an
+        application, for a quotation instead: `details.status` is where it
+        is, `details.requested_status` is where the caller wanted it, and
+        `details.allowed_transitions` is what it *can* do next.
+
+        Also the answer when a `quoted` quotation's `expires_at` has already
+        passed and a buyer tries to accept or decline it — the sweep has not
+        caught up yet, but the deadline already has.
+
+        `details.current_lock_version` rides along for a caller that lost an
+        `If-Match` race and needs the current validator to retry with.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: b2b.quotation_state_invalid
+              message: A quotation that is quoted cannot become quoted.
+              details:
+                status: quoted
+                requested_status: quoted
+                allowed_transitions:
+                  - accepted
+                  - declined
+                current_lock_version: 3
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
+    B2bQuotationEmpty:
+      description: |
+        Submission was refused because the draft carries no lines. Its own
+        code rather than `validation.failed`: nothing about the request body
+        is malformed — the resource itself has nothing in it yet to send for
+        pricing.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: b2b.quotation_empty
+              message: This quotation has no lines to submit.
+              details:
+                current_lock_version: 0
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3c
     SubscriptionRefused:
       description: |
         The subscription cannot be started as it stands, with **every** reason
@@ -19396,6 +20150,7 @@ components:
         - diet_classifications
         - channels
         - branches
+        - delivery_windows
         - rating
         - rating_count
         - image_placeholder_id
@@ -19433,6 +20188,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MarketplaceBranch'
+        delivery_windows:
+          type: array
+          description: |
+            Active delivery slots the kitchen publishes for checkout. Empty when
+            the kitchen has not configured windows yet — the client must not
+            invent codes the kitchen does not recognise.
+          items:
+            $ref: '#/components/schemas/MarketplaceDeliveryWindow'
         rating:
           type:
             - number
@@ -19451,6 +20214,40 @@ components:
           description: |
             Always `false`. There is no verification module yet, so the platform
             has verified nobody — which is the fact rather than a placeholder.
+      additionalProperties: false
+    MarketplaceDeliveryWindow:
+      type: object
+      description: One named delivery slot a customer may pick at checkout.
+      required:
+        - code
+        - label
+        - starts_at
+        - ends_at
+        - weekdays
+      properties:
+        code:
+          type: string
+          description: Stable slot code sent on cart/checkout (`morning`, `evening`, …).
+        label:
+          type: string
+          description: Localised display label. One server-chosen language from Accept-Language.
+        starts_at:
+          type: string
+          description: Kitchen-local `HH:mm`.
+          example: '09:00'
+        ends_at:
+          type: string
+          description: Kitchen-local `HH:mm`.
+          example: '12:00'
+        weekdays:
+          type: array
+          description: |
+            ISO weekdays the window runs on (1 = Monday … 7 = Sunday). An empty
+            array means every day.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
       additionalProperties: false
     MarketplaceAvailability:
       type: object
@@ -19487,6 +20284,7 @@ components:
         - id
         - kitchen_id
         - kitchen_name
+        - item_type
         - name
         - slug
         - description
@@ -19510,6 +20308,15 @@ components:
           $ref: '#/components/schemas/Uuid'
         kitchen_name:
           type: string
+        item_type:
+          type: string
+          enum:
+            - meal
+            - product
+          description: |
+            Whether this listing is a prepared meal or a sellable product
+            (sauce, frozen pack, oil, and so on). Both appear on the kitchen
+            menu; clients filter with `item_types`.
         name:
           type: string
           description: Localised. One server-chosen language, never both columns.
@@ -20649,6 +21456,114 @@ components:
         Four fields, and none of them is a price. Every amount is decided during
         placement, against the tariff standing at that moment; a body that could
         state a total would be a client quoting the server its own prices.
+    PreviewCheckoutRequest:
+      type: object
+      required:
+        - cart_id
+      properties:
+        cart_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_address_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: |
+            Optional, unlike at `POST /orders`. A shopper previews a total
+            before choosing where it goes — the cart screen has no address at
+            all — and an absent address is reported as the `address_missing`
+            warning rather than refused.
+        delivery_window_code:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+          examples:
+            - evening
+        requested_delivery_date:
+          type:
+            - string
+            - 'null'
+          format: date
+      additionalProperties: false
+      description: |
+        The same four fields `PlaceOrderRequest` takes, and none of them is a
+        price here either — the server prices, the same way, for the same
+        reason.
+    CheckoutPreview:
+      type: object
+      required:
+        - cart_id
+        - currency_code
+        - subtotal_minor
+        - delivery_fee_minor
+        - total_minor
+        - line_count
+        - warnings
+      description: |
+        What a basket would cost, priced by the same `LineProbe` and
+        `ZoneResolver` `POST /orders` runs at placement — a preview and the
+        placement it precedes never quote two different numbers for a basket
+        nothing has changed about.
+
+        Nothing here is a refusal: every fact placement would refuse the whole
+        order over comes back in `warnings` instead, in the same vocabulary,
+        beside whatever total could still be priced.
+      properties:
+        cart_id:
+          $ref: '#/components/schemas/Uuid'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        subtotal_minor:
+          type: integer
+          description: |
+            The sum of every priceable line. A line the probe refuses
+            contributes nothing here and its reason to `warnings`, instead of
+            aborting the whole preview.
+        delivery_fee_minor:
+          type:
+            - integer
+            - 'null'
+          description: |
+            Null whenever the fee is unresolved — no address named, an
+            unserved area, a suspended zone, a currency mismatch, or a zone
+            with no fee configured. Never treated as zero: an unresolved fee
+            is a fact worth a warning, not a discount.
+        total_minor:
+          type: integer
+          description: The subtotal plus the delivery fee — or the subtotal alone, when the fee is null.
+        line_count:
+          type: integer
+          minimum: 0
+        warnings:
+          type: array
+          items:
+            type: string
+          description: |
+            Every unresolved fact about the cart or the address, in the same
+            vocabulary `409 order.placement_refused` uses at placement:
+            `cart_empty`, `address_missing`, `address_not_deliverable`,
+            `area_not_served`, `zone_suspended`, `currency_mismatch`, plus the
+            line-probe vocabulary. Deduplicated — three lines refused for the
+            same reason read as one fact, not three repeats of it.
+      additionalProperties: false
+    CheckoutPreviewEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - preview
+          properties:
+            preview:
+              $ref: '#/components/schemas/CheckoutPreview'
+        meta:
+          $ref: '#/components/schemas/Meta'
     CancelOrderRequest:
       type: object
       required:
@@ -20844,6 +21759,568 @@ components:
                 Which slice of the kitchen's delivery map the address fell into,
                 and what set the fee. The seller's operating arrangement, so it
                 is not on the customer's shape.
+    StockItem:
+      type: object
+      required:
+        - id
+        - code
+        - name_en
+        - unit_code
+        - ingredient_id
+      description: |
+        A warehouse item (O1): a free SKU or code, no platform vocabulary
+        behind it, and an optional link to the recipe ingredient master. A
+        kitchen may stock something — packaging, cleaning supplies — that
+        will never be a recipe ingredient, and the link exists for the
+        common case without requiring it.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 64
+        name_en:
+          type: string
+          maxLength: 160
+        unit_code:
+          type: string
+          maxLength: 16
+          description: Defaults to `kg` when not supplied at creation.
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+      additionalProperties: false
+    StockItemCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - stock_items
+          properties:
+            stock_items:
+              type: array
+              items:
+                $ref: '#/components/schemas/StockItem'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    StockItemEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - stock_item
+          properties:
+            stock_item:
+              $ref: '#/components/schemas/StockItem'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateStockItemRequest:
+      type: object
+      required:
+        - code
+        - name_en
+      properties:
+        code:
+          type: string
+          maxLength: 64
+          description: Unique within the organisation. A duplicate is `422 validation.failed`.
+        name_en:
+          type: string
+          maxLength: 160
+        unit_code:
+          type: string
+          maxLength: 16
+          description: Defaults to `kg` when omitted.
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+      additionalProperties: false
+    StockLevel:
+      type: object
+      required:
+        - id
+        - branch_id
+        - stock_item_id
+        - quantity
+        - item_code
+        - item_name_en
+        - ingredient_id
+      description: |
+        One stock item's on-hand quantity at one branch. `item_code`,
+        `item_name_en` and `ingredient_id` are denormalised from the stock
+        item, so a levels screen never has to round-trip to render a row.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: string
+          description: A decimal string, never a float — precision the wire must not round away.
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+      additionalProperties: false
+    StockLevelCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - levels
+          properties:
+            levels:
+              type: array
+              items:
+                $ref: '#/components/schemas/StockLevel'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    StockMovement:
+      type: object
+      required:
+        - id
+        - quantity_delta
+        - reason
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        quantity_delta:
+          type: string
+          description: A signed decimal string — negative for waste and consumption, positive for receipts, yields and upward adjustments.
+        reason:
+          type: string
+          enum:
+            - adjust
+            - waste
+            - receipt
+            - consume
+            - yield
+      additionalProperties: false
+    StockMovementEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - movement
+          properties:
+            movement:
+              $ref: '#/components/schemas/StockMovement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    StockAdjustmentRequest:
+      type: object
+      required:
+        - branch_id
+        - stock_item_id
+        - quantity_delta
+      properties:
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity_delta:
+          type: number
+          description: Signed — a correction that raises the level is positive, one that lowers it is negative.
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+      additionalProperties: false
+    StockWasteRequest:
+      type: object
+      required:
+        - branch_id
+        - stock_item_id
+        - quantity
+      properties:
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+          description: Always positive. The endpoint states the loss; the server signs it negative on the ledger.
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+      additionalProperties: false
+    Supplier:
+      type: object
+      required:
+        - id
+        - code
+        - name_en
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+      additionalProperties: false
+    SupplierCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - suppliers
+          properties:
+            suppliers:
+              type: array
+              items:
+                $ref: '#/components/schemas/Supplier'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    GoodsReceiptLine:
+      type: object
+      required:
+        - stock_item_id
+        - quantity
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: string
+      additionalProperties: false
+    GoodsReceipt:
+      type: object
+      required:
+        - id
+        - branch_id
+        - purchase_order_id
+        - received_at
+        - lines
+      description: |
+        A receipt stands alone in v1 (O2) — `purchase_order_id` is always
+        null, because there is no purchase-order surface yet to have created
+        one. The column exists for the day there is.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        purchase_order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        received_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoodsReceiptLine'
+      additionalProperties: false
+    GoodsReceiptCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - goods_receipts
+          properties:
+            goods_receipts:
+              type: array
+              items:
+                $ref: '#/components/schemas/GoodsReceipt'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    GoodsReceiptLineInput:
+      type: object
+      required:
+        - stock_item_id
+        - quantity
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+      additionalProperties: false
+    PostGoodsReceiptRequest:
+      type: object
+      required:
+        - branch_id
+        - lines
+      description: |
+        Posting a receipt writes every line straight into the inventory
+        ledger (`reason: receipt`) inside one transaction — there is no
+        draft state to save and return to.
+      properties:
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        purchase_order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Accepted for forward compatibility; no endpoint creates one yet (O2).
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/GoodsReceiptLineInput'
+      additionalProperties: false
+    GoodsReceiptEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - goods_receipt
+          properties:
+            goods_receipt:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  $ref: '#/components/schemas/Uuid'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ProductionOrder:
+      type: object
+      required:
+        - id
+        - recipe_version_id
+        - status
+        - branch_id
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        recipe_version_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum:
+            - planned
+            - in_progress
+            - completed
+            - cancelled
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    ProductionOrderCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - production_orders
+          properties:
+            production_orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductionOrder'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateProductionOrderRequest:
+      type: object
+      required:
+        - branch_id
+        - recipe_version_id
+      properties:
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        recipe_version_id:
+          $ref: '#/components/schemas/Uuid'
+        planned_yield:
+          type:
+            - number
+            - 'null'
+      additionalProperties: false
+    ProductionOrderEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - production_order
+          properties:
+            production_order:
+              type: object
+              required:
+                - id
+                - status
+              properties:
+                id:
+                  $ref: '#/components/schemas/Uuid'
+                status:
+                  type: string
+                  enum:
+                    - planned
+                    - in_progress
+                    - completed
+                    - cancelled
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ProductionMovementInput:
+      type: object
+      required:
+        - stock_item_id
+        - quantity
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: number
+      additionalProperties: false
+    CompleteProductionOrderRequest:
+      type: object
+      description: |
+        No production tasks here (O5) — completing an order is entirely
+        about the stock it consumed and yielded, not a checklist.
+      properties:
+        consumes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionMovementInput'
+          description: Stock taken from the branch's inventory to run this order. Omitted or empty is legal.
+        yields:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionMovementInput'
+          description: Stock produced by this order and added back to inventory.
+      additionalProperties: false
+    QualityCheckSubjectType:
+      type: string
+      enum:
+        - goods_receipt
+        - production_order
+      description: |
+        The only two subjects a check may attach to (O3). Anything else is
+        `422 validation.failed`.
+    QualityCheck:
+      type: object
+      required:
+        - id
+        - subject_type
+        - subject_id
+        - status
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        subject_type:
+          $ref: '#/components/schemas/QualityCheckSubjectType'
+        subject_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum:
+            - pending
+            - passed
+            - hold
+            - released
+          description: |
+            A hold is status-only in v1 (O4) — there is no separate hold
+            record, and releasing simply moves the same check back off
+            `hold`.
+      additionalProperties: false
+    QualityCheckCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - quality_checks
+          properties:
+            quality_checks:
+              type: array
+              items:
+                $ref: '#/components/schemas/QualityCheck'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateQualityCheckRequest:
+      type: object
+      required:
+        - subject_type
+        - subject_id
+      properties:
+        subject_type:
+          $ref: '#/components/schemas/QualityCheckSubjectType'
+        subject_id:
+          $ref: '#/components/schemas/Uuid'
+        notes:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    QualityCheckEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - quality_check
+          properties:
+            quality_check:
+              type: object
+              required:
+                - id
+                - status
+              properties:
+                id:
+                  $ref: '#/components/schemas/Uuid'
+                status:
+                  type: string
+                  enum:
+                    - pending
+                    - passed
+                    - hold
+                    - released
+        meta:
+          $ref: '#/components/schemas/Meta'
     CustomerOrder:
       type: object
       required:

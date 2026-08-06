@@ -71,7 +71,7 @@ export type { ButtonProps, ButtonSize, ButtonVariant, IconButtonProps } from './
 
 export { FormField, REQUIRED_MARK } from './forms/form-field.tsx';
 export type { FieldControlProps, FormFieldProps } from './forms/form-field.tsx';
-export { TextInputField, inputFrameClassName } from './forms/text-input.tsx';
+export { TextInputField, inputControlClassName, inputFrameClassName } from './forms/text-input.tsx';
 export type { TextInputFieldProps } from './forms/text-input.tsx';
 export { PasswordInput } from './forms/password-input.tsx';
 export type { PasswordInputProps } from './forms/password-input.tsx';

@@ -6,7 +6,9 @@ import type { MarketplaceMeal, MealAvailability } from '../../../contracts/marke
 import type { Recipe } from '../../../contracts/foods.ts';
 import {
     PROTOTYPE_AVAILABILITY_DAYS,
+    PROTOTYPE_NOW,
     PROTOTYPE_WEEK_START,
+    SYNTHETIC_SOURCE,
     addDays,
     aed,
     atOrThrow,
@@ -164,6 +166,9 @@ export interface MakeMarketplaceMealOverrides {
     readonly preparationMinutes?: number | null | undefined;
     readonly rating?: number | null | undefined;
     readonly ratingCount?: number | undefined;
+    readonly itemType?: 'meal' | 'product' | undefined;
+    readonly description?: string | undefined;
+    readonly allergens?: MarketplaceMeal['allergens'] | undefined;
 }
 
 export function makeMarketplaceMeal(
@@ -185,6 +190,7 @@ export function makeMarketplaceMeal(
 
     const kitchen = kitchenByKey(kitchenKey);
     const recipe = recipeByKey(recipeKey);
+    const itemType = overrides.itemType ?? 'meal';
 
     const servingGrams = recipe.serving.grams;
     const serving: Serving = makeServing({
@@ -198,34 +204,55 @@ export function makeMarketplaceMeal(
         householdMeasure: null,
     });
 
-    const nutrition: NutritionFacts = scaleFacts(recipe.nutrition.perServing, portionFactor, {
-        basis: 'per_serving',
-        serving,
-        method: 'fixture.meal_from_recipe_serving',
-        notes: [
-            `Derived from recipe ${recipe.slug} version ${recipe.version}, scaled to the portion this kitchen sells.`,
-        ],
-    });
+    const nutrition: NutritionFacts =
+        itemType === 'product'
+            ? {
+                  basis: 'per_serving',
+                  kind: 'planned',
+                  serving,
+                  totalGrams: null,
+                  amounts: [],
+                  source: SYNTHETIC_SOURCE,
+                  calculation: {
+                      method: 'fixture.product_no_nutrition',
+                      basis: 'per_serving',
+                      calculatedAt: PROTOTYPE_NOW,
+                      prototype: true,
+                      rounding: 'No amounts declared for this sellable product fixture.',
+                      notes: ['Sellable product — nutrition is not declared on the consumer card.'],
+                  },
+              }
+            : scaleFacts(recipe.nutrition.perServing, portionFactor, {
+                  basis: 'per_serving',
+                  serving,
+                  method: 'fixture.meal_from_recipe_serving',
+                  notes: [
+                      `Derived from recipe ${recipe.slug} version ${recipe.version}, scaled to the portion this kitchen sells.`,
+                  ],
+              });
 
     return {
         id: mealIdAt(ordinal),
         kitchenId: kitchen.id,
         kitchenName: kitchen.name,
+        itemType,
         name: overrides.name ?? name,
         slug: key.replace(/_/g, '-'),
-        description,
-        mealTypes: overrides.mealTypes ?? recipe.mealTypes,
-        dietClassifications: recipe.dietClassifications,
-        cuisines: recipe.cuisines,
-        allergens: recipe.allergens,
+        description: overrides.description ?? description,
+        mealTypes: overrides.mealTypes ?? (itemType === 'product' ? [] : recipe.mealTypes),
+        dietClassifications: itemType === 'product' ? [] : recipe.dietClassifications,
+        cuisines: itemType === 'product' ? [] : recipe.cuisines,
+        allergens: overrides.allergens ?? (itemType === 'product' ? [] : recipe.allergens),
         serving,
         nutrition,
         price: overrides.price ?? priceFor(recipe, kitchenKey, portionFactor),
         preparationMinutes:
             overrides.preparationMinutes === undefined
-                ? reheatMinutes(recipe)
+                ? itemType === 'product'
+                    ? null
+                    : reheatMinutes(recipe)
                 : overrides.preparationMinutes,
-        imagePlaceholderId: `meal-${key.replace(/_/g, '-')}`,
+        imagePlaceholderId: `${itemType}-${key.replace(/_/g, '-')}`,
         availability: overrides.availability ?? makeAvailability({ unavailableWeekdays }),
         channels: kitchen.channels,
         rating: overrides.rating === undefined ? rating : overrides.rating,
@@ -233,9 +260,41 @@ export function makeMarketplaceMeal(
     };
 }
 
-export const PROTOTYPE_MEALS: readonly MarketplaceMeal[] = ROWS.map((row, index) =>
-    makeMarketplaceMeal(row, index),
-);
+/** Two Verdant sellable products so the kitchen menu can exercise the type filter. */
+const PRODUCT_ROWS: readonly MealRow[] = [
+    [
+        'honey_mustard_sauce',
+        'Honey mustard sauce',
+        'Bottled dipping sauce from Verdant Kitchen.',
+        'verdant',
+        'herbed_chicken_freekeh',
+        1,
+        null,
+        0,
+        [],
+    ],
+    [
+        'classic_beef_sauce',
+        'Classic beef sauce',
+        'Bottled sauce for steaks and burgers.',
+        'verdant',
+        'herbed_chicken_freekeh',
+        1,
+        null,
+        0,
+        [],
+    ],
+];
+
+export const PROTOTYPE_MEALS: readonly MarketplaceMeal[] = [
+    ...ROWS.map((row, index) => makeMarketplaceMeal(row, index)),
+    ...PRODUCT_ROWS.map((row, index) =>
+        makeMarketplaceMeal(row, ROWS.length + index, {
+            itemType: 'product',
+            price: aed(12_00 + index * 50),
+        }),
+    ),
+];
 
 const BY_KEY: ReadonlyMap<string, MarketplaceMeal> = new Map(
     ROWS.map((row, index) => [

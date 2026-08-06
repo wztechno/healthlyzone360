@@ -37,8 +37,11 @@ Gate #2 is a runtime assertion inside the repository factory, added with the rep
 
 ## Commands
 
+Copy `.env.example` to `.env` once (already done for local clones that create `.env`). Defaults are
+**API mode** against `http://127.0.0.1:8000` — no shell `EXPO_PUBLIC_DATA_MODE=mock` needed.
+
 ```bash
-pnpm --filter universal dev            # expo start
+pnpm --filter universal dev            # expo start (reads apps/universal/.env)
 pnpm --filter universal build:web      # expo export -p web
 pnpm --filter universal test           # jest-expo render tests
 pnpm --filter universal typecheck

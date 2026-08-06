@@ -112,6 +112,7 @@ export function buildAccessState({ mode, phase, me }: BuildAccessStateInput): Ac
         emailVerified: me?.user.emailVerifiedAt != null,
         organisation,
         branch,
+        hasActiveMembership: selectableMemberships(me?.memberships ?? []).length > 0,
         permissions: new Set(context?.permissions ?? []),
         entitlements: new Set(context?.entitlements ?? []),
     };

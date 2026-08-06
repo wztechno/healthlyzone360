@@ -38,13 +38,11 @@
 #   two conditions hold across the whole family and each module has its own on
 #   top:
 #
-#     1. The universal app cannot yet run the capability against the real API.
-#        The api-mode client covers reference reads, verification, account,
-#        guest, B2B applications, marketplace reads and order placement; the
-#        kitchen-admin surface, cart and checkout preview still answer
-#        `prototype.not_implemented` for every method (risk R-030). A
-#        capability nobody can reach through an approved surface is not
-#        complete through one.
+#     1. The universal app cannot yet run *every* capability against the real API.
+#        Kitchen catalogue, marketplace, cart/checkout, subscriptions, kitchen
+#        ops and B2B programmes/quotations are wired; residual stubs are listed
+#        on risk R-030. A capability nobody can reach through an approved
+#        surface is not complete through one.
 #     2. Several declared capabilities are gated on decisions nobody has taken
 #        — a real SMS provider (A-011), real plan prices (A-013, R-031),
 #        supplier allergen confirmation (A-014, R-019), a payment module.
@@ -54,7 +52,7 @@
 #   kind of registry error the architecture test cannot catch.
 
 version: 1
-updated: "2026-08-04"
+updated: "2026-08-05"
 
 modules:
   # ── Active platform modules (phase 1) ─────────────────────────────────────

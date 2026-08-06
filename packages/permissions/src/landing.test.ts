@@ -38,6 +38,26 @@ describe('resolveLandingRoute', () => {
         });
     });
 
+    it('sends all-dev consumers with no memberships straight to the customer home', () => {
+        expect(
+            resolveLandingRoute(
+                makeAccessState({ mode: 'all-dev', hasActiveMembership: false }),
+            ),
+        ).toEqual({
+            href: ROUTE_PATHS.customerHome,
+            reason: 'workspace',
+        });
+    });
+
+    it('still offers the organisation picker in all-dev when memberships exist', () => {
+        expect(
+            resolveLandingRoute(makeAccessState({ mode: 'all-dev', hasActiveMembership: true })),
+        ).toEqual({
+            href: ROUTE_PATHS.selectOrganisation,
+            reason: 'no_organisation_context',
+        });
+    });
+
     it('treats a non-active membership as no organisation context', () => {
         const state = makeAccessState({
             mode: 'staff',

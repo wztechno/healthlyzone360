@@ -164,6 +164,29 @@ export const DeliveryWindowId: IdCodec<DeliveryWindowId> =
     createIdCodec<DeliveryWindowId>('DeliveryWindowId');
 export const ServiceAreaId: IdCodec<ServiceAreaId> = createIdCodec<ServiceAreaId>('ServiceAreaId');
 
+/* ------------------------------------------------------------------------------------------------
+ * Kitchen ops identifiers (O1–O4).
+ *
+ * Receipts-only inventory, procurement, production and quality control. None of these rows has a
+ * consumer counterpart either — a stock item, a supplier and a goods receipt are exactly as
+ * management-only as a recipe version is, hence their own brands rather than a reused `string`.
+ * ---------------------------------------------------------------------------------------------- */
+
+export type StockItemId = Brand<string, 'StockItemId'>;
+export type SupplierId = Brand<string, 'SupplierId'>;
+export type GoodsReceiptId = Brand<string, 'GoodsReceiptId'>;
+export type ProductionOrderId = Brand<string, 'ProductionOrderId'>;
+export type QualityCheckId = Brand<string, 'QualityCheckId'>;
+
+export const StockItemId: IdCodec<StockItemId> = createIdCodec<StockItemId>('StockItemId');
+export const SupplierId: IdCodec<SupplierId> = createIdCodec<SupplierId>('SupplierId');
+export const GoodsReceiptId: IdCodec<GoodsReceiptId> =
+    createIdCodec<GoodsReceiptId>('GoodsReceiptId');
+export const ProductionOrderId: IdCodec<ProductionOrderId> =
+    createIdCodec<ProductionOrderId>('ProductionOrderId');
+export const QualityCheckId: IdCodec<QualityCheckId> =
+    createIdCodec<QualityCheckId>('QualityCheckId');
+
 /** Every UUID identifier codec, keyed by label — handy for table-driven tests. */
 export const ID_CODECS = {
     UserId,
@@ -198,6 +221,11 @@ export const ID_CODECS = {
     RecipeVersionId,
     DeliveryWindowId,
     ServiceAreaId,
+    StockItemId,
+    SupplierId,
+    GoodsReceiptId,
+    ProductionOrderId,
+    QualityCheckId,
 } as const;
 
 export type IdCodecName = keyof typeof ID_CODECS;

@@ -143,20 +143,16 @@ describe('OrganisationPickerScreen', () => {
         ).toBeTruthy();
     });
 
-    it('explains an empty list rather than treating it as a failure', async () => {
+    it('redirects a consumer with no memberships straight to the customer home', async () => {
         await renderScreen(<OrganisationPickerScreen />, {
             scenario: 'customer-no-org',
             signInAs: MOCK_SCENARIOS['customer-no-org'].primaryEmail,
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('organisation-picker-empty')).toBeTruthy();
+            expect(routerMock.__replace).toHaveBeenCalledWith('/customer');
         });
-
-        // The copy offers "continue with your personal account", so a control must actually do
-        // that — a promise in body text with no way to act on it is a dead end.
-        await fireEvent.press(screen.getByTestId('organisation-picker-continue-personal'));
-        expect(routerMock.__replace).toHaveBeenCalledWith('/customer');
+        expect(screen.queryByTestId('organisation-picker-empty')).toBeNull();
     });
 
     it('auto-skips when there is exactly one active membership', async () => {

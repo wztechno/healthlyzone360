@@ -7,12 +7,15 @@ namespace Healthy360\B2b\Services;
 use App\Models\User;
 use Healthy360\B2b\Models\B2bAgreement;
 use Healthy360\B2b\Models\B2bApplication;
+use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\B2b\Models\KycDocument;
 use Healthy360\B2b\Models\OrganisationInvitation;
+use Healthy360\B2b\Models\Quotation;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Turns B2B route parameters into records the caller is allowed to see, or
@@ -180,6 +183,97 @@ final class B2bLocator
         }
 
         return $organisation;
+    }
+
+    /**
+     * A corporate programme in the caller's own (buyer) organisation
+     * context — `CorporateProgramme`'s global scope does the tenant check, so
+     * this is a lookup rather than an authorisation decision.
+     *
+     * @throws ApiException
+     */
+    public function programme(string $id): CorporateProgramme
+    {
+        $programme = CorporateProgramme::query()->whereKey($this->uuidOrNothing($id))->first();
+
+        if (! $programme instanceof CorporateProgramme) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
+
+        return $programme;
+    }
+
+    /**
+     * A quotation in the caller's own (buyer) organisation context, scoped to
+     * the given programme.
+     *
+     * @throws ApiException
+     */
+    public function programmeQuotation(CorporateProgramme $programme, string $id): Quotation
+    {
+        $quotation = Quotation::query()
+            ->where('corporate_programme_id', $programme->getKey())
+            ->whereKey($this->uuidOrNothing($id))
+            ->first();
+
+        if (! $quotation instanceof Quotation) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
+
+        return $quotation;
+    }
+
+    /**
+     * A quotation in the caller's own (buyer) organisation context, addressed
+     * directly.
+     *
+     * @throws ApiException
+     */
+    public function quotation(string $id): Quotation
+    {
+        $quotation = Quotation::query()->whereKey($this->uuidOrNothing($id))->first();
+
+        if (! $quotation instanceof Quotation) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
+
+        return $quotation;
+    }
+
+    /**
+     * A quotation reached from the *kitchen's* side — the other end of the
+     * relationship `B2bCatalogueBrowse` reaches for the same structural
+     * reason. `Quotation.organisation_id` is the buyer, so the tenant scope
+     * that protects a buyer's own read is exactly what has to be bypassed
+     * here: the caller's active organisation is the seller, and ownership is
+     * proven by joining through the programme's `kitchen_organisation_id`
+     * instead.
+     *
+     * @throws ApiException
+     */
+    public function kitchenQuotation(string $id, string $kitchenOrganisationId): Quotation
+    {
+        $quotation = $this->kitchenQuotationsQuery($kitchenOrganisationId)
+            ->whereKey($this->uuidOrNothing($id))
+            ->first();
+
+        if (! $quotation instanceof Quotation) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
+
+        return $quotation;
+    }
+
+    /**
+     * @return Builder<Quotation>
+     */
+    public function kitchenQuotationsQuery(string $kitchenOrganisationId): Builder
+    {
+        $programmeIds = CorporateProgramme::withoutTenancy()
+            ->where('kitchen_organisation_id', $kitchenOrganisationId)
+            ->pluck('id');
+
+        return Quotation::withoutTenancy()->whereIn('corporate_programme_id', $programmeIds);
     }
 
     /**

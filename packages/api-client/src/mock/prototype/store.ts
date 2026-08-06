@@ -11,6 +11,7 @@ import type {
     MealType,
     Money,
     NutritionTargetId,
+    QuotationId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
@@ -64,7 +65,7 @@ import type {
     SubscriptionQuoteRefusal,
     SubscriptionQuoteRequest,
 } from '../../contracts/commerce.ts';
-import { apiFailure, throwFailure, validationFailure } from '../../contracts/failure.ts';
+import { apiFailure, conflictFailure, throwFailure, validationFailure } from '../../contracts/failure.ts';
 import type { Food, GroceryList, Pantry, Recipe } from '../../contracts/foods.ts';
 import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '../../contracts/marketplace.ts';
 import type {
@@ -163,6 +164,7 @@ import {
     nutrientTargetsFor,
     planByKey,
     programmeById,
+    PROTOTYPE_PROGRAMMES,
     targetFactsFor,
 } from './fixtures/index.ts';
 import { KitchenCatalogueStore } from './catalogue-store.ts';
@@ -2416,6 +2418,10 @@ export class PrototypeStore {
 
     /* ── business ──────────────────────────────────────────────────────────────────────────── */
 
+    programmes(): readonly CorporateProgramme[] {
+        return PROTOTYPE_PROGRAMMES;
+    }
+
     programme(programmeId: CorporateProgrammeId): CorporateProgramme {
         const programme = programmeById(programmeId);
         if (programme === null) {
@@ -2494,6 +2500,62 @@ export class PrototypeStore {
         };
         this.#quotations = [quotation, ...this.#quotations];
         return quotation;
+    }
+
+    acceptQuotation(quotationId: QuotationId): Quotation {
+        const existing = this.#quotations.find((entry) => entry.id === quotationId);
+        if (existing === undefined) {
+            throwFailure(
+                apiFailure('resource.not_found', {
+                    message: `No quotation ${String(quotationId)} exists in this world.`,
+                    retryable: false,
+                }),
+            );
+        }
+        if (existing.state !== 'quoted') {
+            throwFailure(
+                conflictFailure({
+                    message: `Only a quoted quotation can be accepted (was ${existing.state}).`,
+                }),
+            );
+        }
+        const accepted: Quotation = {
+            ...existing,
+            state: 'accepted',
+            respondedAt: existing.respondedAt ?? PROTOTYPE_NOW,
+        };
+        this.#quotations = this.#quotations.map((entry) =>
+            entry.id === quotationId ? accepted : entry,
+        );
+        return accepted;
+    }
+
+    declineQuotation(quotationId: QuotationId, _reason?: string): Quotation {
+        const existing = this.#quotations.find((entry) => entry.id === quotationId);
+        if (existing === undefined) {
+            throwFailure(
+                apiFailure('resource.not_found', {
+                    message: `No quotation ${String(quotationId)} exists in this world.`,
+                    retryable: false,
+                }),
+            );
+        }
+        if (existing.state !== 'quoted') {
+            throwFailure(
+                conflictFailure({
+                    message: `Only a quoted quotation can be declined (was ${existing.state}).`,
+                }),
+            );
+        }
+        const declined: Quotation = {
+            ...existing,
+            state: 'declined',
+            respondedAt: existing.respondedAt ?? PROTOTYPE_NOW,
+        };
+        this.#quotations = this.#quotations.map((entry) =>
+            entry.id === quotationId ? declined : entry,
+        );
+        return declined;
     }
 }
 

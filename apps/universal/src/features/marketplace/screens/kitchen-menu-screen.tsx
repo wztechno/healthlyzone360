@@ -1,4 +1,4 @@
-import { Breadcrumbs, Heading, Stack, Text } from '@healthy360/design-system';
+import { Breadcrumbs, Button, Heading, Stack, Text } from '@healthy360/design-system';
 import type { MealFilter } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import type { MealType } from '@healthy360/domain-types';
@@ -6,7 +6,8 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useKitchenMenuQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
+import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { FilterBar, useMarketplaceFilters } from '../filter-bar.tsx';
 import { CardGrid, CardGridItem } from '../section-header.tsx';
@@ -14,21 +15,23 @@ import { MealCard } from '../meal-card.tsx';
 import { QueryStates } from '../query-states.tsx';
 
 const MEAL_TYPES: readonly MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
-const GROUP_KEYS = ['mealType'] as const;
+const ITEM_TYPES = ['meal', 'product'] as const;
+const GROUP_KEYS = ['itemType', 'mealType'] as const;
 
 export interface KitchenMenuScreenProps {
     readonly kitchenId: string | undefined;
 }
 
 /**
- * A kitchen's consumer menu.
+ * A kitchen's consumer menu — prepared meals and sellable products together.
  *
- * Pressing a meal navigates to `/meals/{meal}`, the marketplace meal record. That link replaced the
- * in-place drawer this screen used before the catalogue wave existed: a summary rendered from the
- * listing was the honest answer while the record did not exist, and is redundant now that it does.
+ * Pressing a listing navigates to `/meals/{id}` (the marketplace show endpoint
+ * accepts both published meals and products). Filter chips narrow by catalogue
+ * item type and, for meals, by meal type when that axis is known.
  *
- * The medical disclaimer is on the page and not only in the drawer: the cards themselves carry
- * energy and protein figures, and a figure on screen is a figure that needs its caveat beside it.
+ * Uses the same cursor paging as the global meals catalogue: a Verdant product
+ * sheet alone is already more than one page, and a single-shot query would
+ * silently truncate the menu.
  */
 export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
     const { t } = useTranslation();
@@ -39,16 +42,23 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
     const kitchen = useKitchenQuery(parsed);
 
     const { query: searchTerm, selected: selectedFilters } = filters;
-    const filter = useMemo<Omit<MealFilter, 'kitchenIds'>>(() => {
+    const filter = useMemo<MealFilter | undefined>(() => {
+        if (parsed === null) {
+            return undefined;
+        }
+
         const mealTypes = (selectedFilters['mealType'] ?? []) as readonly MealType[];
+        const itemTypes = (selectedFilters['itemType'] ?? []) as readonly ('meal' | 'product')[];
         return {
+            kitchenIds: [parsed],
             ...(searchTerm === '' ? {} : { query: searchTerm }),
+            ...(itemTypes.length === 0 ? {} : { itemTypes }),
             ...(mealTypes.length === 0 ? {} : { mealTypes }),
         };
-    }, [searchTerm, selectedFilters]);
+    }, [parsed, searchTerm, selectedFilters]);
 
-    const menu = useKitchenMenuQuery(parsed, filter);
-    const meals = menu.data?.items ?? [];
+    const menu = useMealsQuery(filter, parsed !== null);
+    const meals = mealsFromPages(menu.data?.pages);
 
     return (
         <Stack space="lg" testID="kitchen-menu-screen">
@@ -92,6 +102,15 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                 resultCount={menu.data === undefined ? undefined : meals.length}
                 groups={[
                     {
+                        key: 'itemType',
+                        label: t('marketplace:filters.itemType'),
+                        mode: 'single',
+                        options: ITEM_TYPES.map((itemType) => ({
+                            value: itemType,
+                            label: t(`marketplace:itemTypes.${itemType}`),
+                        })),
+                    },
+                    {
                         key: 'mealType',
                         label: t('marketplace:filters.mealType'),
                         options: MEAL_TYPES.map((mealType) => ({
@@ -109,18 +128,40 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                 emptyBody={t('marketplace:menu.emptyBody')}
                 testID="kitchen-menu"
             >
-                <CardGrid testID="kitchen-menu-grid">
-                    {meals.map((meal) => (
-                        <CardGridItem key={meal.id}>
-                            <MealCard
-                                meal={meal}
-                                onPress={() => {
-                                    router.push(`/meals/${String(meal.id)}` as never);
-                                }}
-                            />
-                        </CardGridItem>
-                    ))}
-                </CardGrid>
+                <Stack space="md">
+                    <CardGrid testID="kitchen-menu-grid">
+                        {meals.map((meal) => (
+                            <CardGridItem key={meal.id}>
+                                <MealCard
+                                    meal={meal}
+                                    onPress={() => {
+                                        router.push(`/meals/${String(meal.id)}` as never);
+                                    }}
+                                />
+                            </CardGridItem>
+                        ))}
+                    </CardGrid>
+
+                    {menu.hasNextPage ? (
+                        <Button
+                            testID="kitchen-menu-load-more"
+                            variant="secondary"
+                            label={
+                                menu.isFetchingNextPage
+                                    ? t('marketplace:menu.loadingMore')
+                                    : t('marketplace:menu.loadMore')
+                            }
+                            disabled={menu.isFetchingNextPage}
+                            onPress={() => {
+                                void menu.fetchNextPage();
+                            }}
+                        />
+                    ) : (
+                        <Text testID="kitchen-menu-all-loaded" tone="secondary" variant="caption">
+                            {t('marketplace:menu.allLoaded')}
+                        </Text>
+                    )}
+                </Stack>
             </QueryStates>
 
             <MedicalDisclaimer />

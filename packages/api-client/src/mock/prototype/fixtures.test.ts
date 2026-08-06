@@ -68,7 +68,9 @@ describe('fixture inventory', () => {
     it('meets every count the specification names', () => {
         expect(PROTOTYPE_KITCHENS).toHaveLength(6);
         expect(PROTOTYPE_KITCHEN_BRANCHES).toHaveLength(11);
-        expect(PROTOTYPE_MEALS).toHaveLength(40);
+        expect(PROTOTYPE_MEALS.filter((meal) => meal.itemType === 'meal')).toHaveLength(40);
+        expect(PROTOTYPE_MEALS.filter((meal) => meal.itemType === 'product')).toHaveLength(2);
+        expect(PROTOTYPE_MEALS).toHaveLength(42);
         expect(PROTOTYPE_RECIPES).toHaveLength(20);
         expect(PROTOTYPE_PLANS).toHaveLength(8);
         expect(PROTOTYPE_DIETITIANS).toHaveLength(5);
@@ -236,7 +238,7 @@ describe('recipe nutrition is derived, not typed', () => {
     });
 
     it('scales a marketplace meal from the recipe version it names', () => {
-        for (const meal of PROTOTYPE_MEALS) {
+        for (const meal of PROTOTYPE_MEALS.filter((row) => row.itemType === 'meal')) {
             const note = meal.nutrition.calculation.notes.join(' ');
             expect(note, meal.slug).toMatch(/Derived from recipe [a-z-]+ version [0-9.]+/);
         }
@@ -254,8 +256,10 @@ describe('recipe nutrition is derived, not typed', () => {
      * beside the fixtures rather than on the shape.
      */
     it('records which recipe version each meal was built from, outside the consumer shape', () => {
-        expect(MEAL_RECIPE_INDEX.size).toBe(PROTOTYPE_MEALS.length);
-        for (const meal of PROTOTYPE_MEALS) {
+        expect(MEAL_RECIPE_INDEX.size).toBe(
+            PROTOTYPE_MEALS.filter((meal) => meal.itemType === 'meal').length,
+        );
+        for (const meal of PROTOTYPE_MEALS.filter((row) => row.itemType === 'meal')) {
             const link = MEAL_RECIPE_INDEX.get(meal.id);
             expect(link, meal.slug).toBeDefined();
             const recipe = recipeByKey(link?.recipeKey ?? '');

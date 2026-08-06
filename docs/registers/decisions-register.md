@@ -145,6 +145,8 @@ D-036 to D-053 are the §4 decisions of the Order-Kitchen master plan v2, frozen
 | ID | Date | Decision | Detail / reference |
 |---|---|---|---|
 | D-084 | 2026-08-03 | `commerce.placeOrder` ships **whole and unwired**: contract, both repositories, hook and tests land, and the checkout *screen* keeps its prototype path | Frontend integration wave, applying the do-not-degrade rule the master plan sets for M1 and after. Real placement requires a saved address the typed-address checkout cannot resolve, so wiring the screen would have converted a working prototype flow into a blocked one. The recorded design change is a saved-address picker, which is a design slice rather than an integration one — and until it lands, the honest statement is that the endpoint is real and the screen is not on it |
+| D-085 | 2026-08-05 | Default runtime is **API mode** (`EXPO_PUBLIC_DATA_MODE=api`); mock remains test-only. Checkout uses saved addresses + server preview + kitchen delivery windows; COD placement is live | Real kitchen commerce plan Phases A–C; supersedes the D-084 "screen keeps prototype path" interim once the saved-address picker landed |
+| D-086 | 2026-08-05 | Corporate programmes are a real entity under a signed `B2bAgreement`; quotations follow `draft → submitted → quoted → accepted\|declined\|expired` (7-day). Partner commitments and quotation PDF stay deferred (B8/B9) | Closes OQ-022/OQ-023; locked B2B defaults B1–B12 |
 
 ## Pending — decisions awaiting the seam they describe
 

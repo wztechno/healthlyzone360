@@ -36,7 +36,7 @@ export function PublicLandingScreen() {
     const { t } = useTranslation();
     const router = useRouter();
 
-    const featured = useKitchensQuery({ limit: 3, channels: ['marketplace'] });
+    const featured = useKitchensQuery({ limit: 3, channels: ['b2c', 'marketplace'] });
     const kitchens = featured.data?.items ?? [];
 
     return (

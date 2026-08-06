@@ -46,6 +46,11 @@ interface NutrientRow {
     readonly amount: string;
 }
 
+/** True when `value` can be passed to `formatDate` without throwing. */
+function isRenderableTimestamp(value: string): boolean {
+    return value.length > 0 && !Number.isNaN(Date.parse(value));
+}
+
 export function NutritionFactsPanel({
     facts,
     title,
@@ -156,14 +161,22 @@ export function NutritionFactsPanel({
                     <Text testID={`${testID}-version`} tone="secondary" variant="caption">
                         {t('catalogue:facts.version', { version: active.source.version })}
                     </Text>
-                    <Text testID={`${testID}-calculated-at`} tone="secondary" variant="caption">
-                        {t('catalogue:facts.calculatedAt', {
-                            timestamp: formatter.formatDate(active.calculation.calculatedAt, {
-                                dateStyle: 'medium',
-                                timeStyle: 'short',
-                            }),
-                        })}
-                    </Text>
+                    {/* `UNKNOWN_ISO_DATE_TIME` is `''` when the API has no timestamp — never
+                        hand that to `formatDate`, which throws on an unparseable value. */}
+                    {isRenderableTimestamp(active.calculation.calculatedAt) ? (
+                        <Text
+                            testID={`${testID}-calculated-at`}
+                            tone="secondary"
+                            variant="caption"
+                        >
+                            {t('catalogue:facts.calculatedAt', {
+                                timestamp: formatter.formatDate(active.calculation.calculatedAt, {
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short',
+                                }),
+                            })}
+                        </Text>
+                    ) : null}
                     <Text tone="secondary" variant="caption">
                         {t('catalogue:facts.method', { method: active.calculation.method })}
                     </Text>

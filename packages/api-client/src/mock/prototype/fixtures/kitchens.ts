@@ -371,6 +371,7 @@ export interface MakeKitchenOverrides {
     readonly rating?: number | null | undefined;
     readonly ratingCount?: number | undefined;
     readonly isVerified?: boolean | undefined;
+    readonly deliveryWindows?: Kitchen['deliveryWindows'] | undefined;
 }
 
 export function makeKitchen(row: KitchenRow, overrides: MakeKitchenOverrides = {}): Kitchen {
@@ -412,6 +413,24 @@ export function makeKitchen(row: KitchenRow, overrides: MakeKitchenOverrides = {
         ratingCount: overrides.ratingCount ?? ratingCount,
         imagePlaceholderId: `kitchen-${slug}`,
         isVerified: overrides.isVerified ?? isVerified,
+        deliveryWindows:
+            overrides.deliveryWindows ??
+            ([
+                {
+                    code: 'morning',
+                    label: 'Morning',
+                    startsAt: '09:00',
+                    endsAt: '12:00',
+                    weekdays: [],
+                },
+                {
+                    code: 'evening',
+                    label: 'Evening',
+                    startsAt: '18:00',
+                    endsAt: '21:00',
+                    weekdays: [1, 2, 3, 4],
+                },
+            ] as const),
     };
 }
 

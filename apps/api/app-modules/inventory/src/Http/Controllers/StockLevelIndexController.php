@@ -15,6 +15,7 @@ final class StockLevelIndexController
     {
         $branchId = $context->branchId();
         $levels = StockLevel::query()
+            ->with('stockItem')
             ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('stock_item_id')
             ->get()
@@ -23,6 +24,9 @@ final class StockLevelIndexController
                 'branch_id' => $level->branch_id,
                 'stock_item_id' => $level->stock_item_id,
                 'quantity' => (string) $level->quantity,
+                'item_code' => $level->stockItem?->code,
+                'item_name_en' => $level->stockItem?->name_en,
+                'ingredient_id' => $level->stockItem?->ingredient_id,
             ]);
 
         return ApiResponse::data(['levels' => $levels]);

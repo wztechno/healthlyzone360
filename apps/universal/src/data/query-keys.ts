@@ -69,6 +69,7 @@ export const QUERY_ROOTS = [
     'business',
     'professional',
     'kitchenAdmin',
+    'kitchenOps',
     'account',
     'verification',
     'guest',
@@ -252,6 +253,7 @@ export const queryKeys = {
      */
     business: {
         all: () => ['business'] as const,
+        programmes: () => ['business', 'programmes'] as const,
         programme: (programmeId: CorporateProgrammeId) =>
             ['business', 'programme', programmeId] as const,
         catalogue: (filter: QueryScope) => ['business', 'catalogue', filter] as const,
@@ -338,6 +340,31 @@ export const queryKeys = {
          * workspace invalidates it along with everything else under the root prefix.
          */
         review: () => ['kitchenAdmin', 'review'] as const,
+    },
+
+    /**
+     * ── kitchenOps: inventory, receipts-only procurement, production and quality control (O1–O4)
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `kitchenAdmin` for the same reason `KitchenOpsRepository`
+     * is a sibling contract rather than a branch of it (`contracts/kitchen-ops.ts`'s header): none
+     * of these rows is lock-versioned or bilingual, and every list here is either the whole table
+     * (stock items, suppliers) or the most recent fifty (goods receipts, production orders, quality
+     * checks) — there is no row-by-identifier entry because no ops screen reads a single row on its
+     * own; each mutation form re-reads the list it just changed.
+     *
+     * **Never persisted**, on the same terms as `kitchenAdmin`: a stock level and a goods receipt
+     * are exactly as tied to one kitchen's costs as a technical-sheet line is, and this workspace
+     * runs on a shared tablet.
+     */
+    kitchenOps: {
+        all: () => ['kitchenOps'] as const,
+        stockItems: () => ['kitchenOps', 'stock-items'] as const,
+        stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
+        suppliers: () => ['kitchenOps', 'suppliers'] as const,
+        goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
+        productionOrders: () => ['kitchenOps', 'production-orders'] as const,
+        qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
     },
 
     /**

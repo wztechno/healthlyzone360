@@ -6,7 +6,7 @@
     "dashboard": {
         "title": "Corporate programmes",
         "body": "The programmes your organisation buys through, and what is outstanding on each.",
-        "sourceNote": "Prototype limitation: the proposed API has no way to list the programmes an account can reach, so the ones below are those your quotation history mentions. A programme nobody has raised a quotation against will not appear yet.",
+        "sourceNote": "Programmes listed here are the ones your organisation buys through. Open one to browse its negotiated catalogue or raise a quotation.",
         "emptyTitle": "No programme is visible yet",
         "emptyBody": "Programmes appear here once a quotation has been raised against one. Speak to your account manager if you expected to see one.",
         "quotationsTitle": "Quotations",
@@ -177,6 +177,7 @@
         "recurring": "Standing schedule",
         "oneOff": "One delivery",
         "accept": "Accept this quotation",
+        "decline": "Decline this quotation",
         "export": "Download as a document"
     },
     "partner": {
@@ -188,6 +189,8 @@
         "allKitchens": "All kitchens",
         "emptyTitle": "Nothing to supply",
         "emptyBody": "No quotation currently commits a line from this kitchen.",
+        "deferredTitle": "Partner commitments come later",
+        "deferredBody": "There is no supplier commitments API yet (B9). This surface stays deferred until one exists — we do not invent production schedules from quotations on the live stack.",
         "clearKitchen": "Show every kitchen",
         "quantity": "Quantity requested: {{count}}",
         "reference": "From {{reference}}, raised {{date}}",
@@ -201,6 +204,8 @@
         "derivationBody": "Each line opens at its requested delivery date, or at the day the request was raised plus its lead time, and then repeats on the delivery days agreed for that line. The next {{days}} days are shown.",
         "emptyTitle": "Nothing scheduled",
         "emptyBody": "No committed line falls inside the planning horizon.",
+        "deferredTitle": "Partner schedule comes later",
+        "deferredBody": "There is no supplier commitments API yet (B9), so there is nothing honest to schedule. This surface stays deferred on the live stack.",
         "line": "{{name}} — quantity {{count}}",
         "back": "Back to commitments"
     }

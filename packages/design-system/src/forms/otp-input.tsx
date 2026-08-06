@@ -6,7 +6,8 @@ import { neutral } from '@healthy360/design-tokens';
 
 import { FormField } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
-import { inputFrameClassName } from './text-input.tsx';
+import { cx } from '../internal/class-names.ts';
+import { inputControlClassName, inputFrameClassName } from './text-input.tsx';
 
 /**
  * One-time-code input.
@@ -151,7 +152,7 @@ export function OtpInput({
                         autoCapitalize="none"
                         autoCorrect={false}
                         spellCheck={false}
-                        className="flex-1 text-lg font-semibold text-content-primary"
+                        className={cx(inputControlClassName, 'text-lg font-semibold')}
                         placeholderTextColor={neutral[600]}
                         style={{
                             textAlign: 'center',

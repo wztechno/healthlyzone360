@@ -6,8 +6,11 @@ namespace Healthy360\B2b\Services;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
+use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Enums\CustomerAccountType;
@@ -43,12 +46,7 @@ final readonly class B2bCatalogueBrowse
 
         foreach ($channels as $channel) {
             foreach ($this->offeredItems($channel, $on) as $item) {
-                $price = $this->prices->currentFor(
-                    (string) $channel->getKey(),
-                    (string) $item->getKey(),
-                    buyer: $buyer,
-                    date: $on,
-                );
+                $price = $this->resolvePrice($channel, $item, $buyer, $on);
 
                 if (! $price instanceof ResolvedPrice) {
                     continue;
@@ -92,12 +90,7 @@ final readonly class B2bCatalogueBrowse
                 continue;
             }
 
-            $price = $this->prices->currentFor(
-                (string) $channel->getKey(),
-                (string) $article->getKey(),
-                buyer: $buyer,
-                date: $on,
-            );
+            $price = $this->resolvePrice($channel, $article, $buyer, $on);
 
             if ($price instanceof ResolvedPrice) {
                 return [
@@ -109,6 +102,37 @@ final readonly class B2bCatalogueBrowse
         }
 
         throw new ApiException(ErrorCode::ResourceNotFound);
+    }
+
+    private function resolvePrice(
+        SalesChannel $channel,
+        CatalogueItem $item,
+        CustomerAccount $buyer,
+        CarbonImmutable $on,
+    ): ?ResolvedPrice {
+        $variantId = $item->item_type === CatalogueItemType::Product
+            ? $this->defaultPackVariantId($item)
+            : null;
+
+        return $this->prices->currentFor(
+            (string) $channel->getKey(),
+            (string) $item->getKey(),
+            $variantId,
+            buyer: $buyer,
+            date: $on,
+        );
+    }
+
+    private function defaultPackVariantId(CatalogueItem $item): ?string
+    {
+        $id = CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('status', VariantStatus::Active->value)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->value('id');
+
+        return $id === null ? null : (string) $id;
     }
 
     /**

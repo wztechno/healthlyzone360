@@ -37,6 +37,9 @@ export const MODE_LANDING_PATHS: Readonly<Record<AppMode, string>> = {
  * The `customer` family is intentionally *not* forced through organisation selection here: a
  * consumer who is authenticated and verified lands on the customer home, and any organisation-bound
  * screen inside it is still gated by `ROUTE_REQUIREMENTS`.
+ *
+ * In `all-dev`, a verified person with **no active memberships** is treated the same way — they
+ * are a pure consumer and must not see the organisation picker empty state.
  */
 export function resolveLandingRoute(state: AccessState): LandingRoute {
     if (state.session === 'restoring') {
@@ -49,6 +52,9 @@ export function resolveLandingRoute(state: AccessState): LandingRoute {
         return { href: ROUTE_PATHS.verifyEmail, reason: 'email_unverified' };
     }
     if (state.mode !== 'customer' && !hasOrganisationContext(state)) {
+        if (state.mode === 'all-dev' && !state.hasActiveMembership) {
+            return { href: ROUTE_PATHS.customerHome, reason: 'workspace' };
+        }
         return { href: ROUTE_PATHS.selectOrganisation, reason: 'no_organisation_context' };
     }
     if (state.organisation?.requiresBranchSelection === true && !hasBranchContext(state)) {

@@ -95,7 +95,14 @@ export interface CheckoutPreview {
 
 export interface PreviewCheckoutRequest {
     readonly cartId: CartId;
-    readonly address?: DeliveryAddress | undefined;
+    /**
+     * A saved delivery address, exactly as {@link PlaceOrderRequest.addressId} names one — the
+     * zone, and the fee it prices, are resolved server-side from the address's service area, so a
+     * typed street line would resolve to neither. Omitted when the shopper has not chosen an
+     * address yet: the cart screen has no address at all, and the preview reports that absence as
+     * a warning (`address_missing`) rather than refusing to price the basket.
+     */
+    readonly addressId?: string | undefined;
     readonly slotCode?: string | undefined;
     readonly deliveryDate?: string | undefined;
 }

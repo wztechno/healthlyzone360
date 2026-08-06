@@ -15,7 +15,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { useMeQuery } from '../../../data/hooks.ts';
+import { toFailure, useMeQuery } from '../../../data/hooks.ts';
 import {
     useConsumerDayQuery,
     useCurrentTargetsQuery,
@@ -60,7 +60,12 @@ export function ConsumerHomeScreen() {
     const resume = useResumeIntent();
 
     const hasTarget = targets.data != null;
-    const onboardingPending = targets.data === null && !targets.isPending;
+    // Nutrition/planner are deferred on the API: a `prototype.not_implemented` answer must not
+    // open the onboarding CTA (that CTA still names an unimplemented endpoint).
+    const targetsUnavailable =
+        toFailure(targets.error)?.code === 'prototype.not_implemented';
+    const onboardingPending =
+        !targetsUnavailable && targets.data === null && !targets.isPending;
 
     const summary = day.data?.day.summary;
     const dayTargets = day.data?.day.targets ?? [];
@@ -142,6 +147,17 @@ export function ConsumerHomeScreen() {
                     isEmpty={day.data === null || (day.data?.day.entries.length ?? 0) === 0}
                     emptyTitle={t('marketplace:consumer.today.emptyTitle')}
                     emptyBody={t('marketplace:consumer.today.emptyBody')}
+                    treatFailuresAsEmpty={['prototype.not_implemented']}
+                    emptyActions={
+                        <Button
+                            testID="consumer-today-browse"
+                            variant="secondary"
+                            label={t('marketplace:landing.browseKitchens')}
+                            onPress={() => {
+                                router.push('/kitchens');
+                            }}
+                        />
+                    }
                     skeletonCount={1}
                     testID="today-card"
                 >
@@ -214,6 +230,7 @@ export function ConsumerHomeScreen() {
                     isEmpty={!hasTarget || readings.length === 0}
                     emptyTitle={t('marketplace:consumer.nutrition.emptyTitle')}
                     emptyBody={t('marketplace:consumer.nutrition.emptyBody')}
+                    treatFailuresAsEmpty={['prototype.not_implemented']}
                     skeletonCount={1}
                     testID="nutrition-snapshot"
                 >

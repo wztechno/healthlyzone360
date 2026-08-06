@@ -3,6 +3,7 @@ import {
     Button,
     Callout,
     Card,
+    EmptyState,
     Heading,
     Inline,
     Stack,
@@ -14,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useSupplyCommitmentsQuery } from '../../../data/business-hooks.ts';
 import type { SupplyCommitment } from '../../../data/business-hooks.ts';
+import { useRepositories } from '../../../data/repository-provider.tsx';
 import { isoWeekday } from '../../commerce/dates.ts';
 import { weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -36,6 +38,11 @@ import { SUPPLY_HORIZON_DAYS, supplyDates } from '../format.ts';
  * inverted here relative to the commitments screen: one card per date, every line due on it, and the
  * quantity beside each. No prices — see the commitments screen for why that is a decision rather
  * than an omission.
+ *
+ * ## Deferred on the API (B9)
+ *
+ * Schedule is derived from commitments. Without a partner commitments API, API mode shows an honest
+ * deferred empty rather than inventing dates from quotations.
  */
 
 /** How many supply days each line contributes. Four weeks of a five-day line is twenty. */
@@ -50,8 +57,29 @@ export function PartnerScheduleScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const repositories = useRepositories();
 
     const query = useSupplyCommitmentsQuery();
+
+    // Gate on the repository kind, not `appConfig.isMockData`: Jest injects mock
+    // repositories while the default build config is already `api`.
+    if (repositories.kind !== 'mock') {
+        return (
+            <Stack space="lg" testID="partner-schedule-screen">
+                <Stack space="xs">
+                    <Heading level={1} testID="partner-schedule-title">
+                        {t('business:schedule.title')}
+                    </Heading>
+                    <Text tone="secondary">{t('business:schedule.body')}</Text>
+                </Stack>
+                <EmptyState
+                    testID="partner-schedule-deferred"
+                    title={t('business:schedule.deferredTitle')}
+                    body={t('business:schedule.deferredBody')}
+                />
+            </Stack>
+        );
+    }
 
     const byDate = new Map<string, SupplyCommitment[]>();
     for (const commitment of query.data ?? []) {

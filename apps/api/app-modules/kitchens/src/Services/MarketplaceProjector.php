@@ -6,6 +6,7 @@ namespace Healthy360\Kitchens\Services;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Kitchens\Presenters\MarketplaceKitchenPresenter;
@@ -39,6 +40,7 @@ final class MarketplaceProjector
      *     kitchen: Organisation|null,
      *     branches: list<OrganisationBranch>,
      *     hours: list<BranchOpeningHour>,
+     *     windows: list<DeliveryWindow>,
      *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
@@ -82,6 +84,7 @@ final class MarketplaceProjector
             $this->meals->dietClassificationCodesOfKitchen((string) $kitchen->getKey()),
             $context['channels'],
             $branches,
+            $context['windows'],
         );
     }
 
@@ -178,6 +181,7 @@ final class MarketplaceProjector
      *     kitchen: Organisation|null,
      *     branches: list<OrganisationBranch>,
      *     hours: list<BranchOpeningHour>,
+     *     windows: list<DeliveryWindow>,
      *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
@@ -201,6 +205,7 @@ final class MarketplaceProjector
                 'kitchen' => null,
                 'branches' => [],
                 'hours' => [],
+                'windows' => [],
                 'zones' => [],
                 'channels' => MarketplaceChannels::none(),
                 'listing_channels' => [],
@@ -215,6 +220,7 @@ final class MarketplaceProjector
             'kitchen' => $organisation,
             'branches' => $branches,
             'hours' => $hours,
+            'windows' => $this->kitchens->deliveryWindowsOf($organisation),
             'zones' => $this->kitchens->deliveryZonesOf($organisation, $branches),
             'channels' => MarketplaceChannels::switchesFor(MarketplaceChannels::activeFor($id)),
             'listing_channels' => $this->meals->listingChannelsOf($id),

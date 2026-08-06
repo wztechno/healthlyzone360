@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Healthy360\Identity\Providers;
 
 use Healthy360\Identity\Auth\ActiveUserProvider;
+use Healthy360\Identity\Contracts\ProgrammeMembershipLookup;
 use Healthy360\Identity\Listeners\MarkLoginContactVerified;
 use Healthy360\Identity\Models\PersonalAccessToken;
+use Healthy360\Identity\Services\NullProgrammeMembershipLookup;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Hashing\Hasher;
@@ -18,6 +20,16 @@ use Laravel\Sanctum\Sanctum;
 
 class IdentityServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        // `bindIf`: the B2B module's provider may already have registered
+        // the real implementation, and a default that overwrote it would
+        // silently drop every programme from `/me` in a deployment that
+        // plainly has one — the same asymmetry `B2bServiceProvider` documents
+        // for `SellerOpenOrders`.
+        $this->app->bindIf(ProgrammeMembershipLookup::class, NullProgrammeMembershipLookup::class);
+    }
+
     /**
      * Sanctum's tokens belong to this module: the platform identifier
      * strategy (plan §8) gives them UUIDv7 primary keys, and the table is

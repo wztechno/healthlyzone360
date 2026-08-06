@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Healthy360\B2b\Jobs\ExpireQuotations;
 use Healthy360\B2b\Jobs\PurgeExpiredInvitations;
 use Healthy360\B2b\Jobs\PurgeExpiredKycDocuments;
 use Healthy360\B2b\Jobs\PurgeExpiredRecordExports;
@@ -207,6 +208,27 @@ Schedule::job(new PurgeExpiredRecordExports)
     ->dailyAt('05:45')
     ->timezone('UTC')
     ->name('b2b:purge-expired-record-exports')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| B5 — daily at 06:00 UTC. A quotation left `quoted` for seven days without a
+| decision closes itself; the buyer's silence is treated as a decision not to
+| act, the same way an unattended cart or an unclaimed offboarding does.
+|
+| `QuotationService::accept()`/`decline()` also refuse a decision on a
+| quotation whose `expires_at` has already passed, so a buyer cannot beat the
+| sweep to it — only the order in which the two learn about the deadline
+| differs.
+|
+| Offset again rather than sharing an hour with the sweeps above, and
+| carrying `withoutOverlapping()` and `onOneServer()` for the reason every
+| entry on this list carries them.
+*/
+Schedule::job(new ExpireQuotations)
+    ->dailyAt('06:00')
+    ->timezone('UTC')
+    ->name('b2b:expire-quotations')
     ->withoutOverlapping()
     ->onOneServer();
 

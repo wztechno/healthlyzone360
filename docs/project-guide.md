@@ -1,7 +1,7 @@
 # Healthy360 — Project Guide
 
 What was built across the two delivery prompts, what state the project is in, and exactly how to
-run everything on a local machine. Written 2026-07-31, current as of commit `c77967c`.
+run everything on a local machine. Written 2026-07-31, updated 2026-08-05 for real kitchen commerce.
 
 ---
 
@@ -19,10 +19,11 @@ The project was delivered in two sequenced prompts:
 | **1 — Platform foundation** | Laravel 13 API + PostgreSQL row-level security + Expo universal app, with a working end-to-end vertical slice (register → verify e-mail → pick organisation → pick branch → permissions → workspace) proven against the real API | **Complete** — 175 backend tests, acceptance suite 7/7 against the live stack |
 | **2 — Reference research + UI prototype** | 18 evidence-classified research documents on two reference products, plus a full mock-first UI prototype (~83 routes: marketplace, onboarding, nutrition, virtual dietitian, planner, commerce, B2B, professional) and six **proposed** (not implemented) API contract drafts | **Complete** — 254/254 e2e + 38/38 visual baselines; no backend domain code written |
 
-The critical honesty rule that governs everything: **the prototype is a presentation of proposed
-behaviour, not an implemented product.** Every prototype screen runs against an in-memory mock
-world behind a repository boundary; the real API implements only the foundation (auth, tenancy,
-devices, context). `apps/api` is byte-identical between the end of Prompt 1 (`b70c80a`) and today.
+The critical honesty rule that governs everything: **mock mode is a test fixture, not the
+product runtime.** Default builds use `EXPO_PUBLIC_DATA_MODE=api` against the Laravel API.
+Kitchen catalogue, marketplace, cart/checkout (COD), subscriptions, kitchen ops, and B2B
+programmes/quotations are wired. Surfaces that remain deferred are listed in §6 below and are
+hidden or honestly empty in the product UI — they are not silently mocked in API mode.
 
 ---
 
@@ -437,7 +438,29 @@ docker compose up -d --wait        # daily start (setup is one-time)
 
 ---
 
-## 6. Where to read more
+## 6. Still deferred (honest absences)
+
+These stay out of the primary product path until their modules graduate. Nav hides or labels them
+`planned`; API-mode screens must not invent behaviour.
+
+| Surface | Why deferred |
+| --- | --- |
+| Planner / MealPlanning (N1) | No meal-plan backend; consumption tracking OQ-017 |
+| Nutrition targets as authoritative clinical data | Engine is prototype-labelled; N1 owns a real source |
+| Virtual Dietitian | No VD session API |
+| Dietitian public directory | Marketplace dietitians stay `planned` |
+| Clinical / patient intake | CL1 not started |
+| Partner supply commitments / schedule | B9 — no supplier resource; API mode shows deferred empty |
+| Quotation PDF / document export | B8 — status only in v1 |
+| Full purchase-order UI | O2 receipts-only |
+| Production task UI | O5 |
+| Live card PSP | Sandbox/COD only |
+| SMS / WhatsApp OTP production provider | Log drivers only (A-011) |
+| Malware scan for new KYC uploads | OQ-035 still open |
+
+---
+
+## 7. Where to read more
 
 - `docs/architecture/00-executive-summary.md` — start here for architecture.
 - `docs/architecture/adr/` — the twelve ADRs (RLS, tenancy, auth, spec-first API, ...).
@@ -445,4 +468,5 @@ docker compose up -d --wait        # daily start (setup is one-time)
 - `docs/requirements/prompt2-completion-report.md` — Prompt 2, all fourteen mandated sections.
 - `docs/reference-research/` — the research corpus (00 scope → 17 recommendations).
 - `docs/api/proposed/` — the draft contracts the backend phase would implement.
-- `docs/registers/` — decisions (D-001–053), open questions (OQ-001–040), risks, assumptions.
+- `docs/registers/` — decisions (D-001–086), open questions, risks, assumptions.
+- `apps/universal/e2e/acceptance/` — real-API Playwright acceptance (after `build:web:api`).

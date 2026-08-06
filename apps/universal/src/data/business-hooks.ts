@@ -9,7 +9,7 @@ import type {
     QuotationFilter,
     RequestQuotationRequest,
 } from '@healthy360/api-client/contracts';
-import type { CorporateProgrammeId, MealId } from '@healthy360/domain-types';
+import type { CorporateProgrammeId, MealId, QuotationId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -32,16 +32,12 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  * `contracts/business.ts` is built around. Equally, every read here is keyed under `business` —
  * a contract price cached under `catalogue.meal(...)` would be a consumer-visible cache entry.
  *
- * ## Which programmes the caller can see is a contract gap, probed rather than invented
+ * ## Programmes are listed for the organisation
  *
- * `BusinessRepository` publishes `getCorporateProgramme(programmeId)` and no way to *discover* a
- * programme identifier: there is no `listCorporateProgrammes()`, and `GET /api/v1/me` carries no
- * programme membership. So {@link useCorporateProgrammesQuery} discovers them the only way the
- * contract allows — from the quotation history, which does carry `programmeId` — and then resolves
- * each one. That is honest and uses only the interface; it is also wrong in an obvious way, because
- * a programme nobody has raised a quotation against is invisible. A real backend should publish
- * `GET /api/v1/business/programmes` scoped to the session's organisation, at which point this
- * derivation collapses into one request. The screens say so where a person can see it.
+ * `BusinessRepository.listCorporateProgrammes()` is the discovery path (B2).
+ * Membership is also mirrored on `/me`'s active context; the list endpoint is
+ * what the corporate dashboard reads so a programme with no quotations yet is
+ * still visible.
  *
  * ## The quotation request is a real mutation
  *
@@ -107,38 +103,20 @@ export function useCorporateProgrammeQuery(
 }
 
 /**
- * Every programme this session can reach, resolved end to end in one query.
+ * Every programme this session can reach.
  *
- * Two steps, folded into a single `queryFn` for the same reason `useConsumerDayQuery` folds its
- * three (`./marketplace-hooks.ts`): the second step's inputs are the first step's output, so as two
- * hooks it would be a query that is `enabled` only after another settles, and every screen would
- * have to render the intermediate pending state itself. One query has one pending state, one error
- * and one `refetch`, which is exactly what `QueryStates` needs.
- *
- * Step one derives the identifiers from the quotation history, because the contract publishes no
- * listing (see the module note). Step two resolves them in parallel.
+ * Served by `BusinessRepository.listCorporateProgrammes()` (B2) — one request,
+ * no derivation from quotation history.
  */
 export function useCorporateProgrammesQuery(): UseQueryResult<readonly CorporateProgramme[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.business.quotations({ derive: 'programmes' }),
+        queryKey: queryKeys.business.programmes(),
         enabled: repositories !== null,
         queryFn: async (): Promise<readonly CorporateProgramme[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-
-            const page = await repositories.business.listQuotations();
-            const seen = new Set<string>();
-            const ids: CorporateProgrammeId[] = [];
-            for (const quotation of page.items) {
-                if (seen.has(quotation.programmeId)) continue;
-                seen.add(quotation.programmeId);
-                ids.push(quotation.programmeId);
-            }
-
-            return Promise.all(
-                ids.map((programmeId) => repositories.business.getCorporateProgramme(programmeId)),
-            );
+            return repositories.business.listCorporateProgrammes();
         },
     });
 }
@@ -289,6 +267,36 @@ export function useRequestQuotationMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: RequestQuotationRequest) =>
             repositories.business.requestQuotation(request),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        },
+    });
+}
+
+export function useAcceptQuotationMutation(): UseMutationResult<Quotation, unknown, QuotationId> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (quotationId: QuotationId) =>
+            repositories.business.acceptQuotation(quotationId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        },
+    });
+}
+
+export function useDeclineQuotationMutation(): UseMutationResult<
+    Quotation,
+    unknown,
+    { readonly quotationId: QuotationId; readonly reason?: string }
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ quotationId, reason }) =>
+            repositories.business.declineQuotation(quotationId, reason),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
         },

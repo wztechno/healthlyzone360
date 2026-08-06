@@ -1,0 +1,301 @@
+import type {
+    CompleteProductionOrderRequest,
+    CreateProductionOrderRequest,
+    CreateQualityCheckRequest,
+    CreateStockItemRequest,
+    GoodsReceipt,
+    GoodsReceiptResult,
+    PostGoodsReceiptRequest,
+    ProductionOrder,
+    ProductionOrderResult,
+    QualityCheck,
+    QualityCheckResult,
+    StockAdjustmentRequest,
+    StockItem,
+    StockLevel,
+    StockMovement,
+    StockWasteRequest,
+    Supplier,
+} from '@healthy360/api-client/contracts';
+import type { ProductionOrderId, QualityCheckId } from '@healthy360/domain-types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
+
+import { queryKeys } from './query-keys.ts';
+import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
+
+/**
+ * The kitchen ops workspace's data access (O1–O4).
+ *
+ * One hook per repository operation, same as `./kitchen-admin-hooks.ts` — but simpler throughout,
+ * for the reason `contracts/kitchen-ops.ts`'s header gives: nothing here is lock-versioned and
+ * every list is either the whole table or the most recent fifty, so there is no per-row detail
+ * query and no lock version to rebase after a write.
+ *
+ * ## Every mutation invalidates the whole root, and nothing writes a detail entry
+ *
+ * `useIngredientWriteEffects` and its siblings in `kitchen-admin-hooks.ts` write the record they
+ * just got back into its own cache entry *and* invalidate the root, because a detail screen reads
+ * that entry directly. No screen here does: a mutation form re-reads the list it just changed, so
+ * the only cache action a write needs is to make the next read of `queryKeys.kitchenOps.all()`
+ * fetch again. That is also the honest answer to the wire's own shape — posting a goods receipt or
+ * completing a production order answers an id and a status, not the row, so there is nothing to
+ * seed a detail cache with even if one existed.
+ *
+ * ## `enabled` defaults to `true` here, unlike the summary hooks above
+ *
+ * The ops screens have no hub card that reads a count before the workspace is open, so there is no
+ * caller that needs to hold a query back the way `useIngredientSummaryQuery(enabled)` does. The
+ * parameter exists anyway, for the one caller that legitimately needs it: a query gated on a
+ * permission the screen has not confirmed yet.
+ */
+
+export { toFailure } from './hooks.ts';
+
+/* ── inventory (O1) ──────────────────────────────────────────────────────────────────────────── */
+
+/** Every stock item the organisation has declared. Not paginated — the table is small by design. */
+export function useStockItemsQuery(enabled = true): UseQueryResult<readonly StockItem[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.stockItems(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listStockItems();
+        },
+    });
+}
+
+/** Every level the active branch context can see (`X-Branch-Id`, set by `ContextRepository`). */
+export function useStockLevelsQuery(enabled = true): UseQueryResult<readonly StockLevel[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.stockLevels(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listStockLevels();
+        },
+    });
+}
+
+/** Invalidates every ops list. The one cache action every write in this workspace needs. */
+function useKitchenOpsWriteEffects(): () => void {
+    const queryClient = useQueryClient();
+    return () => {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOps.all() });
+    };
+}
+
+export function useCreateStockItemMutation(): UseMutationResult<
+    StockItem,
+    unknown,
+    CreateStockItemRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreateStockItemRequest) =>
+            repositories.kitchenOps.createStockItem(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** A signed correction to one item's level at one branch. Creates the level row if none exists. */
+export function useRecordStockAdjustmentMutation(): UseMutationResult<
+    StockMovement,
+    unknown,
+    StockAdjustmentRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: StockAdjustmentRequest) =>
+            repositories.kitchenOps.recordStockAdjustment(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** A positive quantity lost to waste; the server signs it negative on the ledger. */
+export function useRecordStockWasteMutation(): UseMutationResult<
+    StockMovement,
+    unknown,
+    StockWasteRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: StockWasteRequest) => repositories.kitchenOps.recordStockWaste(request),
+        onSuccess: onWritten,
+    });
+}
+
+/* ── procurement (O2) — receipts-only ────────────────────────────────────────────────────────── */
+
+/** The supplier book. No writer — see `contracts/kitchen-ops.ts`'s header: receipts-only in v1. */
+export function useSuppliersQuery(enabled = true): UseQueryResult<readonly Supplier[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.suppliers(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listSuppliers();
+        },
+    });
+}
+
+/** The most recent fifty goods receipts, newest first. */
+export function useGoodsReceiptsQuery(enabled = true): UseQueryResult<readonly GoodsReceipt[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.goodsReceipts(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listGoodsReceipts();
+        },
+    });
+}
+
+/** Posts every line straight into the inventory ledger. There is no draft to save and return to. */
+export function usePostGoodsReceiptMutation(): UseMutationResult<
+    GoodsReceiptResult,
+    unknown,
+    PostGoodsReceiptRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: PostGoodsReceiptRequest) =>
+            repositories.kitchenOps.postGoodsReceipt(request),
+        onSuccess: onWritten,
+    });
+}
+
+/* ── production (O5) — no task UI ────────────────────────────────────────────────────────────── */
+
+/** The most recent fifty production orders, newest first. */
+export function useProductionOrdersQuery(enabled = true): UseQueryResult<readonly ProductionOrder[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.productionOrders(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listProductionOrders();
+        },
+    });
+}
+
+export function useCreateProductionOrderMutation(): UseMutationResult<
+    ProductionOrderResult,
+    unknown,
+    CreateProductionOrderRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreateProductionOrderRequest) =>
+            repositories.kitchenOps.createProductionOrder(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface CompleteProductionOrderVariables {
+    readonly productionOrderId: ProductionOrderId;
+    readonly request: CompleteProductionOrderRequest;
+}
+
+/** States what an order consumed and yielded. Not a checklist — see the module note. */
+export function useCompleteProductionOrderMutation(): UseMutationResult<
+    ProductionOrderResult,
+    unknown,
+    CompleteProductionOrderVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productionOrderId, request }: CompleteProductionOrderVariables) =>
+            repositories.kitchenOps.completeProductionOrder(productionOrderId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/* ── quality control (O4) — hold/release only ────────────────────────────────────────────────── */
+
+/** The most recent fifty checks, newest first, over both allow-listed subjects. */
+export function useQualityChecksQuery(enabled = true): UseQueryResult<readonly QualityCheck[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.qualityChecks(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listQualityChecks();
+        },
+    });
+}
+
+export function useCreateQualityCheckMutation(): UseMutationResult<
+    QualityCheckResult,
+    unknown,
+    CreateQualityCheckRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreateQualityCheckRequest) =>
+            repositories.kitchenOps.createQualityCheck(request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * Holds and releases are the entire lifecycle beyond opening a check (see the contract header), so
+ * both take nothing but the identifier — there is no hold record distinct from the check's own
+ * status for a request body to carry.
+ */
+export function useHoldQualityCheckMutation(): UseMutationResult<
+    QualityCheckResult,
+    unknown,
+    QualityCheckId
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (qualityCheckId: QualityCheckId) =>
+            repositories.kitchenOps.holdQualityCheck(qualityCheckId),
+        onSuccess: onWritten,
+    });
+}
+
+export function useReleaseQualityCheckMutation(): UseMutationResult<
+    QualityCheckResult,
+    unknown,
+    QualityCheckId
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (qualityCheckId: QualityCheckId) =>
+            repositories.kitchenOps.releaseQualityCheck(qualityCheckId),
+        onSuccess: onWritten,
+    });
+}

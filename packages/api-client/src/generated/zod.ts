@@ -2000,6 +2000,17 @@ export const zMarketplaceBranch = z.object({
     is_active: z.boolean()
 });
 
+/**
+ * One named delivery slot a customer may pick at checkout.
+ */
+export const zMarketplaceDeliveryWindow = z.object({
+    code: z.string(),
+    label: z.string(),
+    starts_at: z.string(),
+    ends_at: z.string(),
+    weekdays: z.array(z.int().gte(1).lte(7))
+});
+
 export const zMarketplaceKitchen = z.object({
     id: zUuid,
     name: z.string(),
@@ -2011,6 +2022,7 @@ export const zMarketplaceKitchen = z.object({
     diet_classifications: z.array(z.string()),
     channels: zMarketplaceSalesChannels,
     branches: z.array(zMarketplaceBranch),
+    delivery_windows: z.array(zMarketplaceDeliveryWindow),
     rating: z.number().nullable(),
     rating_count: z.int().gte(0),
     image_placeholder_id: z.string(),
@@ -2035,6 +2047,7 @@ export const zMarketplaceMeal = z.object({
     id: zUuid,
     kitchen_id: zUuid,
     kitchen_name: z.string(),
+    item_type: z.enum(['meal', 'product']),
     name: z.string(),
     slug: z.string(),
     description: z.string(),
@@ -2449,6 +2462,47 @@ export const zPlaceOrderRequest = z.object({
     requested_delivery_date: z.iso.date().nullish()
 });
 
+/**
+ * The same four fields `PlaceOrderRequest` takes, and none of them is a
+ * price here either — the server prices, the same way, for the same
+ * reason.
+ *
+ */
+export const zPreviewCheckoutRequest = z.object({
+    cart_id: zUuid,
+    customer_address_id: z.uuid().nullish(),
+    delivery_window_code: z.string().max(40).nullish(),
+    requested_delivery_date: z.iso.date().nullish()
+});
+
+/**
+ * What a basket would cost, priced by the same `LineProbe` and
+ * `ZoneResolver` `POST /orders` runs at placement — a preview and the
+ * placement it precedes never quote two different numbers for a basket
+ * nothing has changed about.
+ *
+ * Nothing here is a refusal: every fact placement would refuse the whole
+ * order over comes back in `warnings` instead, in the same vocabulary,
+ * beside whatever total could still be priced.
+ *
+ */
+export const zCheckoutPreview = z.object({
+    cart_id: zUuid,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    line_count: z.int().gte(0),
+    warnings: z.array(z.string())
+});
+
+export const zCheckoutPreviewEnvelope = z.object({
+    data: z.object({
+        preview: zCheckoutPreview
+    }),
+    meta: zMeta
+});
+
 export const zCancelOrderRequest = z.object({
     reason: zCancellationReason
 });
@@ -2516,6 +2570,266 @@ export const zCustomerOrderDelivery = z.object({
 export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
     zone_id: z.uuid().nullable()
 }));
+
+/**
+ * A warehouse item (O1): a free SKU or code, no platform vocabulary
+ * behind it, and an optional link to the recipe ingredient master. A
+ * kitchen may stock something — packaging, cleaning supplies — that
+ * will never be a recipe ingredient, and the link exists for the
+ * common case without requiring it.
+ *
+ */
+export const zStockItem = z.object({
+    id: zUuid,
+    code: z.string().max(64),
+    name_en: z.string().max(160),
+    unit_code: z.string().max(16),
+    ingredient_id: zUuid.nullable()
+});
+
+export const zStockItemCollection = z.object({
+    data: z.object({
+        stock_items: z.array(zStockItem)
+    }),
+    meta: zMeta
+});
+
+export const zStockItemEnvelope = z.object({
+    data: z.object({
+        stock_item: zStockItem
+    }),
+    meta: zMeta
+});
+
+export const zCreateStockItemRequest = z.object({
+    code: z.string().max(64),
+    name_en: z.string().max(160),
+    unit_code: z.string().max(16).optional(),
+    ingredient_id: zUuid.nullish()
+});
+
+/**
+ * One stock item's on-hand quantity at one branch. `item_code`,
+ * `item_name_en` and `ingredient_id` are denormalised from the stock
+ * item, so a levels screen never has to round-trip to render a row.
+ *
+ */
+export const zStockLevel = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    quantity: z.string(),
+    item_code: z.string(),
+    item_name_en: z.string(),
+    ingredient_id: zUuid.nullable()
+});
+
+export const zStockLevelCollection = z.object({
+    data: z.object({
+        levels: z.array(zStockLevel)
+    }),
+    meta: zMeta
+});
+
+export const zStockMovement = z.object({
+    id: zUuid,
+    quantity_delta: z.string(),
+    reason: z.enum([
+        'adjust',
+        'waste',
+        'receipt',
+        'consume',
+        'yield'
+    ])
+});
+
+export const zStockMovementEnvelope = z.object({
+    data: z.object({
+        movement: zStockMovement
+    }),
+    meta: zMeta
+});
+
+export const zStockAdjustmentRequest = z.object({
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    quantity_delta: z.number(),
+    notes: z.string().max(255).nullish()
+});
+
+export const zStockWasteRequest = z.object({
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    quantity: z.number().gt(0),
+    notes: z.string().max(255).nullish()
+});
+
+export const zSupplier = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string()
+});
+
+export const zSupplierCollection = z.object({
+    data: z.object({
+        suppliers: z.array(zSupplier)
+    }),
+    meta: zMeta
+});
+
+export const zGoodsReceiptLine = z.object({
+    stock_item_id: zUuid,
+    quantity: z.string()
+});
+
+/**
+ * A receipt stands alone in v1 (O2) — `purchase_order_id` is always
+ * null, because there is no purchase-order surface yet to have created
+ * one. The column exists for the day there is.
+ *
+ */
+export const zGoodsReceipt = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    purchase_order_id: zUuid.nullable(),
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    lines: z.array(zGoodsReceiptLine)
+});
+
+export const zGoodsReceiptCollection = z.object({
+    data: z.object({
+        goods_receipts: z.array(zGoodsReceipt)
+    }),
+    meta: zMeta
+});
+
+export const zGoodsReceiptLineInput = z.object({
+    stock_item_id: zUuid,
+    quantity: z.number().gt(0)
+});
+
+/**
+ * Posting a receipt writes every line straight into the inventory
+ * ledger (`reason: receipt`) inside one transaction — there is no
+ * draft state to save and return to.
+ *
+ */
+export const zPostGoodsReceiptRequest = z.object({
+    branch_id: zUuid,
+    purchase_order_id: zUuid.nullish(),
+    lines: z.array(zGoodsReceiptLineInput).min(1)
+});
+
+export const zGoodsReceiptEnvelope = z.object({
+    data: z.object({
+        goods_receipt: z.object({
+            id: zUuid
+        })
+    }),
+    meta: zMeta
+});
+
+export const zProductionOrder = z.object({
+    id: zUuid,
+    recipe_version_id: zUuid,
+    status: z.enum([
+        'planned',
+        'in_progress',
+        'completed',
+        'cancelled'
+    ]),
+    branch_id: zUuid
+});
+
+export const zProductionOrderCollection = z.object({
+    data: z.object({
+        production_orders: z.array(zProductionOrder)
+    }),
+    meta: zMeta
+});
+
+export const zCreateProductionOrderRequest = z.object({
+    branch_id: zUuid,
+    recipe_version_id: zUuid,
+    planned_yield: z.number().nullish()
+});
+
+export const zProductionOrderEnvelope = z.object({
+    data: z.object({
+        production_order: z.object({
+            id: zUuid,
+            status: z.enum([
+                'planned',
+                'in_progress',
+                'completed',
+                'cancelled'
+            ])
+        })
+    }),
+    meta: zMeta
+});
+
+export const zProductionMovementInput = z.object({
+    stock_item_id: zUuid,
+    quantity: z.number()
+});
+
+/**
+ * No production tasks here (O5) — completing an order is entirely
+ * about the stock it consumed and yielded, not a checklist.
+ *
+ */
+export const zCompleteProductionOrderRequest = z.object({
+    consumes: z.array(zProductionMovementInput).optional(),
+    yields: z.array(zProductionMovementInput).optional()
+});
+
+/**
+ * The only two subjects a check may attach to (O3). Anything else is
+ * `422 validation.failed`.
+ *
+ */
+export const zQualityCheckSubjectType = z.enum(['goods_receipt', 'production_order']);
+
+export const zQualityCheck = z.object({
+    id: zUuid,
+    subject_type: zQualityCheckSubjectType,
+    subject_id: zUuid,
+    status: z.enum([
+        'pending',
+        'passed',
+        'hold',
+        'released'
+    ])
+});
+
+export const zQualityCheckCollection = z.object({
+    data: z.object({
+        quality_checks: z.array(zQualityCheck)
+    }),
+    meta: zMeta
+});
+
+export const zCreateQualityCheckRequest = z.object({
+    subject_type: zQualityCheckSubjectType,
+    subject_id: zUuid,
+    notes: z.string().nullish()
+});
+
+export const zQualityCheckEnvelope = z.object({
+    data: z.object({
+        quality_check: z.object({
+            id: zUuid,
+            status: z.enum([
+                'pending',
+                'passed',
+                'hold',
+                'released'
+            ])
+        })
+    }),
+    meta: zMeta
+});
 
 /**
  * The receipt. **Five things on the row are deliberately absent**, each
@@ -7633,6 +7947,7 @@ export const zListMarketplaceMealsHeaders = z.object({
 export const zListMarketplaceMealsQuery = z.object({
     query: z.string().max(120).optional(),
     kitchen_ids: z.string().optional(),
+    item_types: z.string().optional(),
     diet_classifications: z.string().optional(),
     exclude_allergens: z.string().optional(),
     price_max: z.int().gte(0).optional(),
@@ -7758,6 +8073,20 @@ export const zSetCartItemQuantityPath = z.object({
  */
 export const zSetCartItemQuantityResponse = zCartLineEnvelope;
 
+export const zPreviewCheckoutBody = zPreviewCheckoutRequest;
+
+export const zPreviewCheckoutHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * What the basket would cost right now, and what stood in the way of
+ * pricing any part of it completely.
+ *
+ */
+export const zPreviewCheckoutResponse = zCheckoutPreviewEnvelope;
+
 export const zPlaceOrderBody = zPlaceOrderRequest;
 
 export const zPlaceOrderHeaders = z.object({
@@ -7806,6 +8135,183 @@ export const zShowMyOrderPath = z.object({
  * The order as the customer sees it.
  */
 export const zShowMyOrderResponse = zCustomerOrderEnvelope;
+
+export const zListStockItemsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every stock item.
+ */
+export const zListStockItemsResponse = zStockItemCollection;
+
+export const zCreateStockItemBody = zCreateStockItemRequest;
+
+export const zCreateStockItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The stock item was created.
+ */
+export const zCreateStockItemResponse = zStockItemEnvelope;
+
+export const zListStockLevelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Stock levels, newest stock item first.
+ */
+export const zListStockLevelsResponse = zStockLevelCollection;
+
+export const zRecordStockAdjustmentBody = zStockAdjustmentRequest;
+
+export const zRecordStockAdjustmentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The adjustment was recorded and the level updated.
+ */
+export const zRecordStockAdjustmentResponse = zStockMovementEnvelope;
+
+export const zRecordStockWasteBody = zStockWasteRequest;
+
+export const zRecordStockWasteHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The waste was recorded and the level reduced.
+ */
+export const zRecordStockWasteResponse = zStockMovementEnvelope;
+
+export const zListSuppliersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every supplier, ordered by code.
+ */
+export const zListSuppliersResponse = zSupplierCollection;
+
+export const zListGoodsReceiptsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Recent goods receipts.
+ */
+export const zListGoodsReceiptsResponse = zGoodsReceiptCollection;
+
+export const zCreateGoodsReceiptBody = zPostGoodsReceiptRequest;
+
+export const zCreateGoodsReceiptHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The receipt was posted and inventory updated.
+ */
+export const zCreateGoodsReceiptResponse = zGoodsReceiptEnvelope;
+
+export const zListProductionOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Recent production orders.
+ */
+export const zListProductionOrdersResponse = zProductionOrderCollection;
+
+export const zCreateProductionOrderBody = zCreateProductionOrderRequest;
+
+export const zCreateProductionOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The production order was planned.
+ */
+export const zCreateProductionOrderResponse = zProductionOrderEnvelope;
+
+export const zCompleteProductionOrderBody = zCompleteProductionOrderRequest;
+
+export const zCompleteProductionOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCompleteProductionOrderPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The production order is completed.
+ */
+export const zCompleteProductionOrderResponse = zProductionOrderEnvelope;
+
+export const zListQualityChecksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Recent quality checks.
+ */
+export const zListQualityChecksResponse = zQualityCheckCollection;
+
+export const zCreateQualityCheckBody = zCreateQualityCheckRequest;
+
+export const zCreateQualityCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The quality check was opened.
+ */
+export const zCreateQualityCheckResponse = zQualityCheckEnvelope;
+
+export const zHoldQualityCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zHoldQualityCheckPath = z.object({
+    qualityCheck: zUuid
+});
+
+/**
+ * The check is on hold.
+ */
+export const zHoldQualityCheckResponse = zQualityCheckEnvelope;
+
+export const zReleaseQualityCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReleaseQualityCheckPath = z.object({
+    qualityCheck: zUuid
+});
+
+/**
+ * The check is released.
+ */
+export const zReleaseQualityCheckResponse = zQualityCheckEnvelope;
 
 export const zListKitchenOrdersHeaders = z.object({
     'X-Organisation-Id': zUuid,

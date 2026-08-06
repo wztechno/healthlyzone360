@@ -23,6 +23,8 @@ import type { GuestTokenStore } from '../session/guest-token-store.ts';
 import { createGuestTokenStore } from '../session/guest-token-store.ts';
 import { createGuestMockRepositories } from './guest/repositories.ts';
 import type { GuestMockStore } from './guest/store.ts';
+import { createKitchenOpsMockRepositories } from './kitchen-ops/repositories.ts';
+import type { KitchenOpsMockStore } from './kitchen-ops/store.ts';
 import type {
     ContextRepository,
     DeviceRepository,
@@ -85,6 +87,14 @@ export interface MockRepositories extends Repositories {
      */
     readonly guestTokenStore: GuestTokenStore;
     readonly b2bApplicationStore: B2bMockStore;
+    /**
+     * The O1–O4 kitchen ops world's mutable store.
+     *
+     * A sibling of `prototypeStore` on the same terms: self-contained (see `./kitchen-ops/store.ts`'s
+     * header for why it does not read the prototype catalogue), exposed only so a test can assert
+     * what a mutation did without going back through a repository.
+     */
+    readonly kitchenOpsStore: KitchenOpsMockStore;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -303,6 +313,17 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         },
     });
 
+    /**
+     * The O1–O4 kitchen ops world.
+     *
+     * Built here rather than inside `createPrototypeRepositories`, on purpose: it is a *sibling* of
+     * the K1 catalogue (`kitchenAdmin`), not a branch of it — see `../contracts/kitchen-ops.ts`'s
+     * header — and its own store is deliberately self-contained (see `./kitchen-ops/store.ts`'s
+     * header), so composing it here keeps that independence visible rather than folding it into the
+     * one store the K1 catalogue already shares with eleven other domains.
+     */
+    const kitchenOpsWorld = createKitchenOpsMockRepositories({ settle });
+
     const auth: AuthRepository = {
         async login(request: LoginRequest): Promise<LoginResult> {
             await settle();
@@ -451,5 +472,7 @@ export function createMockRepositories(options: MockRepositoriesOptions = {}): M
         business: prototype.business,
         professional: prototype.professional,
         kitchenAdmin: prototype.kitchenAdmin,
+        kitchenOps: kitchenOpsWorld.kitchenOps,
+        kitchenOpsStore: kitchenOpsWorld.store,
     };
 }

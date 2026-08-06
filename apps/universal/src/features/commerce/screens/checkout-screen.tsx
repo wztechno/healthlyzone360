@@ -13,7 +13,7 @@ import {
 import type { Cart, CheckoutPreview, CustomerAddress, PlacedOrder } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
@@ -23,9 +23,14 @@ import {
     useCheckoutPreviewQuery,
     usePlaceOrderMutation,
 } from '../../../data/commerce-hooks.ts';
+import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { earliestStartDate } from '../dates.ts';
-import { DEFAULT_SLOT_CODE, DELIVERY_SLOTS } from '../delivery.ts';
+import {
+    defaultSlotCodeForKitchen,
+    deliverySlotByCode,
+    deliverySlotsForKitchen,
+} from '../delivery.ts';
 import { PriceSummary } from '../price-summary.tsx';
 import type { PriceRow } from '../price-summary.tsx';
 import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../warnings.ts';
@@ -69,21 +74,35 @@ export function CheckoutScreen() {
     const addresses = useAddressesQuery();
     const placeOrder = usePlaceOrderMutation(channelCode);
 
+    const kitchenId = basket?.items[0]?.kitchenId ?? null;
+    const kitchen = useKitchenQuery(kitchenId);
+    const deliverySlots = deliverySlotsForKitchen(kitchen.data);
+
     const [addressId, setAddressId] = useState<string | null>(null);
-    const [slotCode, setSlotCode] = useState<string>(DEFAULT_SLOT_CODE);
+    const [slotCode, setSlotCode] = useState<string>(() => defaultSlotCodeForKitchen(undefined));
     const [deliveryDate, setDeliveryDate] = useState<string | null>(() => earliestStartDate());
     const [showErrors, setShowErrors] = useState(false);
     const [committed, setCommitted] = useState<CommittedDelivery | null>(null);
     const [phase, setPhase] = useState<Phase>('collecting');
     const [placed, setPlaced] = useState<PlacedOrder | null>(null);
 
+    useEffect(() => {
+        if (kitchen.data === undefined) return;
+        if (deliverySlots.some((slot) => slot.code === slotCode)) return;
+        setSlotCode(defaultSlotCodeForKitchen(kitchen.data));
+    }, [deliverySlots, kitchen.data, slotCode]);
+
     const addressList = addresses.data ?? [];
     const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
 
     const previewRequest = useMemo(() => {
         if (basket === undefined || basket.items.length === 0) return null;
-        return { cartId: basket.id };
-    }, [basket]);
+        return {
+            cartId: basket.id,
+            ...(addressId === null ? {} : { addressId }),
+            ...(deliveryDate === null ? {} : { deliveryDate }),
+        };
+    }, [addressId, basket, deliveryDate]);
 
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation: CheckoutPreview | undefined = preview.data;
@@ -253,18 +272,20 @@ export function CheckoutScreen() {
                                     setSlotCode(next);
                                     setCommitted(null);
                                 }}
-                                items={DELIVERY_SLOTS.map((slot) => ({
+                                items={deliverySlots.map((slot) => ({
                                     value: slot.code,
-                                    label: t(`commerce:slots.${slot.code}`),
+                                    label:
+                                        slot.label ??
+                                        t(`commerce:slots.${slot.code}`, {
+                                            defaultValue: slot.code,
+                                        }),
                                     testID: `checkout-slot-${slot.code}`,
                                 }))}
                             />
                             <Text tone="secondary" variant="caption" testID="checkout-slot-window">
                                 {t('commerce:checkout.slotWindow', {
-                                    from: DELIVERY_SLOTS.find((slot) => slot.code === slotCode)
-                                        ?.startsAt,
-                                    to: DELIVERY_SLOTS.find((slot) => slot.code === slotCode)
-                                        ?.endsAt,
+                                    from: deliverySlotByCode(slotCode, kitchen.data)?.startsAt,
+                                    to: deliverySlotByCode(slotCode, kitchen.data)?.endsAt,
                                 })}
                             </Text>
                         </Stack>

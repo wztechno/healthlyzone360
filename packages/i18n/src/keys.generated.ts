@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 4660 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 4813 keys across 18 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -877,6 +877,8 @@ export interface NamespaceKeys {
     | 'partner.allKitchens'
     | 'partner.body'
     | 'partner.clearKitchen'
+    | 'partner.deferredBody'
+    | 'partner.deferredTitle'
     | 'partner.emptyBody'
     | 'partner.emptyTitle'
     | 'partner.kitchenFilter'
@@ -913,6 +915,7 @@ export interface NamespaceKeys {
     | 'quotations.back'
     | 'quotations.body'
     | 'quotations.clearFilter'
+    | 'quotations.decline'
     | 'quotations.emptyBody'
     | 'quotations.emptyFilteredBody'
     | 'quotations.emptyFilteredTitle'
@@ -934,6 +937,8 @@ export interface NamespaceKeys {
     | 'quotations.total'
     | 'schedule.back'
     | 'schedule.body'
+    | 'schedule.deferredBody'
+    | 'schedule.deferredTitle'
     | 'schedule.derivationBody'
     | 'schedule.derivationTitle'
     | 'schedule.emptyBody'
@@ -2103,6 +2108,56 @@ export interface NamespaceKeys {
     | 'allergens.upgradeOnlyContainment'
     | 'allergens.upgradeOnlyVerification'
     | 'allergens.verificationLabel'
+    | 'analytics.charts.channelVolume'
+    | 'analytics.charts.channels.aLaCarte'
+    | 'analytics.charts.channels.b2b'
+    | 'analytics.charts.channels.pos'
+    | 'analytics.charts.channels.staff'
+    | 'analytics.charts.channels.subscription'
+    | 'analytics.charts.productionTrend'
+    | 'analytics.charts.statusCenter'
+    | 'analytics.charts.statusMix'
+    | 'analytics.filters.dateRange'
+    | 'analytics.filters.segment'
+    | 'analytics.kpi.onTime'
+    | 'analytics.kpi.prep'
+    | 'analytics.kpi.produced'
+    | 'analytics.kpi.review'
+    | 'analytics.ranges.30d'
+    | 'analytics.ranges.7d'
+    | 'analytics.ranges.90d'
+    | 'analytics.ranges.ytd'
+    | 'analytics.sampleBadge'
+    | 'analytics.segments.all'
+    | 'analytics.segments.delivery'
+    | 'analytics.segments.meals'
+    | 'analytics.segments.recipes'
+    | 'analytics.segments.stock'
+    | 'analytics.status.all'
+    | 'analytics.status.blocked'
+    | 'analytics.status.onTrack'
+    | 'analytics.status.watch'
+    | 'analytics.subtitle'
+    | 'analytics.table.avgMinutes'
+    | 'analytics.table.caption'
+    | 'analytics.table.completion'
+    | 'analytics.table.empty'
+    | 'analytics.table.name'
+    | 'analytics.table.search'
+    | 'analytics.table.searchPlaceholder'
+    | 'analytics.table.segment'
+    | 'analytics.table.status'
+    | 'analytics.table.statusFilter'
+    | 'analytics.table.subtitle'
+    | 'analytics.table.title'
+    | 'analytics.table.updated'
+    | 'analytics.table.volume'
+    | 'analytics.theme.dark'
+    | 'analytics.theme.light'
+    | 'analytics.title'
+    | 'analytics.trend.down'
+    | 'analytics.trend.flat'
+    | 'analytics.trend.up'
     | 'areas.groupLabel'
     | 'areas.inactive'
     | 'areas.matchCount'
@@ -2255,6 +2310,8 @@ export interface NamespaceKeys {
     | 'editor.unsaved'
     | 'families.allergenClasses.description'
     | 'families.allergenClasses.name'
+    | 'families.analytics.description'
+    | 'families.analytics.name'
     | 'families.branchOperating.description'
     | 'families.branchOperating.name'
     | 'families.deliveryZones.description'
@@ -2413,35 +2470,127 @@ export interface NamespaceKeys {
     | 'nav.overview'
     | 'nav.railTitle'
     | 'ops.metricUnavailable'
+    | 'ops.procurement.addLine'
+    | 'ops.procurement.columnLines'
+    | 'ops.procurement.columnReceivedAt'
+    | 'ops.procurement.columnSupplier'
     | 'ops.procurement.emptyBody'
     | 'ops.procurement.emptyTitle'
-    | 'ops.procurement.metrics.openOrders'
+    | 'ops.procurement.fieldLineItem'
+    | 'ops.procurement.fieldLineQuantity'
+    | 'ops.procurement.metrics.lines'
     | 'ops.procurement.metrics.receipts'
     | 'ops.procurement.metrics.suppliers'
+    | 'ops.procurement.noSuppliers'
+    | 'ops.procurement.notYetReceived'
+    | 'ops.procurement.postFailed'
+    | 'ops.procurement.postReceipt'
+    | 'ops.procurement.postTitle'
+    | 'ops.procurement.postedToast'
+    | 'ops.procurement.receiptsTitle'
+    | 'ops.procurement.removeLine'
     | 'ops.procurement.subtitle'
+    | 'ops.procurement.suppliersTitle'
     | 'ops.procurement.title'
+    | 'ops.production.columnActions'
+    | 'ops.production.columnId'
+    | 'ops.production.columnStatus'
+    | 'ops.production.complete'
+    | 'ops.production.completedToast'
+    | 'ops.production.create'
+    | 'ops.production.createFailed'
+    | 'ops.production.createSubmit'
+    | 'ops.production.createTitle'
+    | 'ops.production.createdToast'
     | 'ops.production.emptyBody'
     | 'ops.production.emptyTitle'
+    | 'ops.production.loadErrorBody'
+    | 'ops.production.loadErrorTitle'
     | 'ops.production.metrics.batches'
     | 'ops.production.metrics.inProgress'
     | 'ops.production.metrics.yield'
+    | 'ops.production.noBranchBody'
+    | 'ops.production.noBranchTitle'
+    | 'ops.production.ordersHeading'
+    | 'ops.production.status.cancelled'
+    | 'ops.production.status.completed'
+    | 'ops.production.status.inProgress'
+    | 'ops.production.status.planned'
     | 'ops.production.subtitle'
     | 'ops.production.title'
+    | 'ops.production.versionHint'
+    | 'ops.production.versionLabel'
+    | 'ops.qc.checksHeading'
+    | 'ops.qc.columnActions'
+    | 'ops.qc.columnStatus'
+    | 'ops.qc.columnSubject'
+    | 'ops.qc.create'
+    | 'ops.qc.createFailed'
+    | 'ops.qc.createSubmit'
+    | 'ops.qc.createTitle'
+    | 'ops.qc.createdToast'
     | 'ops.qc.emptyBody'
     | 'ops.qc.emptyTitle'
+    | 'ops.qc.heldToast'
+    | 'ops.qc.hold'
+    | 'ops.qc.loadErrorBody'
+    | 'ops.qc.loadErrorTitle'
     | 'ops.qc.metrics.holds'
     | 'ops.qc.metrics.openChecks'
     | 'ops.qc.metrics.releases'
+    | 'ops.qc.release'
+    | 'ops.qc.releasedToast'
+    | 'ops.qc.status.hold'
+    | 'ops.qc.status.passed'
+    | 'ops.qc.status.pending'
+    | 'ops.qc.status.released'
+    | 'ops.qc.subject.goodsReceipt'
+    | 'ops.qc.subject.productionOrder'
+    | 'ops.qc.subjectIdHint'
+    | 'ops.qc.subjectIdLabel'
+    | 'ops.qc.subjectTypeLabel'
     | 'ops.qc.subtitle'
     | 'ops.qc.title'
     | 'ops.readyForApi'
+    | 'ops.stock.addItem'
+    | 'ops.stock.addItemTitle'
+    | 'ops.stock.adjust'
+    | 'ops.stock.adjustHint'
+    | 'ops.stock.adjustTitle'
+    | 'ops.stock.adjustedToast'
+    | 'ops.stock.columnActions'
+    | 'ops.stock.columnIngredient'
+    | 'ops.stock.columnItem'
+    | 'ops.stock.columnQuantity'
+    | 'ops.stock.columnUnit'
+    | 'ops.stock.createdToast'
+    | 'ops.stock.direction'
+    | 'ops.stock.directionDecrease'
+    | 'ops.stock.directionIncrease'
     | 'ops.stock.emptyBody'
     | 'ops.stock.emptyTitle'
-    | 'ops.stock.metrics.adjustments'
-    | 'ops.stock.metrics.onHand'
-    | 'ops.stock.metrics.waste'
+    | 'ops.stock.fieldAdjustQuantity'
+    | 'ops.stock.fieldCode'
+    | 'ops.stock.fieldIngredient'
+    | 'ops.stock.fieldName'
+    | 'ops.stock.fieldUnit'
+    | 'ops.stock.fieldUnitHint'
+    | 'ops.stock.fieldWasteQuantity'
+    | 'ops.stock.itemsTitle'
+    | 'ops.stock.levelsTitle'
+    | 'ops.stock.linkedIngredient'
+    | 'ops.stock.metrics.items'
+    | 'ops.stock.metrics.levels'
+    | 'ops.stock.metrics.outOfStock'
+    | 'ops.stock.noIngredient'
+    | 'ops.stock.noIngredientOption'
+    | 'ops.stock.noLevels'
+    | 'ops.stock.saveFailed'
     | 'ops.stock.subtitle'
     | 'ops.stock.title'
+    | 'ops.stock.waste'
+    | 'ops.stock.wasteTitle'
+    | 'ops.stock.wastedToast'
     | 'plans.addCombination'
     | 'plans.addDuration'
     | 'plans.backToList'
@@ -3236,6 +3385,7 @@ export interface NamespaceKeys {
     | 'filters.clear'
     | 'filters.cuisine'
     | 'filters.howToGetIt'
+    | 'filters.itemType'
     | 'filters.mealType'
     | 'filters.resultCount'
     | 'filters.specialism'
@@ -3280,6 +3430,8 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'itemTypes.meal'
+    | 'itemTypes.product'
     | 'kitchen.branchArea'
     | 'kitchen.branchesTitle'
     | 'kitchen.closedOn'
@@ -3366,6 +3518,7 @@ export interface NamespaceKeys {
     | 'nav.howItWorks'
     | 'nav.kitchens'
     | 'nav.meals'
+    | 'nav.myHome'
     | 'nav.plannedNotice'
     | 'nav.plannedSuffix'
     | 'nav.plans'
@@ -5561,6 +5714,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:partner.allKitchens',
   'business:partner.body',
   'business:partner.clearKitchen',
+  'business:partner.deferredBody',
+  'business:partner.deferredTitle',
   'business:partner.emptyBody',
   'business:partner.emptyTitle',
   'business:partner.kitchenFilter',
@@ -5597,6 +5752,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.back',
   'business:quotations.body',
   'business:quotations.clearFilter',
+  'business:quotations.decline',
   'business:quotations.emptyBody',
   'business:quotations.emptyFilteredBody',
   'business:quotations.emptyFilteredTitle',
@@ -5618,6 +5774,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.total',
   'business:schedule.back',
   'business:schedule.body',
+  'business:schedule.deferredBody',
+  'business:schedule.deferredTitle',
   'business:schedule.derivationBody',
   'business:schedule.derivationTitle',
   'business:schedule.emptyBody',
@@ -6780,6 +6938,56 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.upgradeOnlyContainment',
   'kitchen:allergens.upgradeOnlyVerification',
   'kitchen:allergens.verificationLabel',
+  'kitchen:analytics.charts.channelVolume',
+  'kitchen:analytics.charts.channels.aLaCarte',
+  'kitchen:analytics.charts.channels.b2b',
+  'kitchen:analytics.charts.channels.pos',
+  'kitchen:analytics.charts.channels.staff',
+  'kitchen:analytics.charts.channels.subscription',
+  'kitchen:analytics.charts.productionTrend',
+  'kitchen:analytics.charts.statusCenter',
+  'kitchen:analytics.charts.statusMix',
+  'kitchen:analytics.filters.dateRange',
+  'kitchen:analytics.filters.segment',
+  'kitchen:analytics.kpi.onTime',
+  'kitchen:analytics.kpi.prep',
+  'kitchen:analytics.kpi.produced',
+  'kitchen:analytics.kpi.review',
+  'kitchen:analytics.ranges.30d',
+  'kitchen:analytics.ranges.7d',
+  'kitchen:analytics.ranges.90d',
+  'kitchen:analytics.ranges.ytd',
+  'kitchen:analytics.sampleBadge',
+  'kitchen:analytics.segments.all',
+  'kitchen:analytics.segments.delivery',
+  'kitchen:analytics.segments.meals',
+  'kitchen:analytics.segments.recipes',
+  'kitchen:analytics.segments.stock',
+  'kitchen:analytics.status.all',
+  'kitchen:analytics.status.blocked',
+  'kitchen:analytics.status.onTrack',
+  'kitchen:analytics.status.watch',
+  'kitchen:analytics.subtitle',
+  'kitchen:analytics.table.avgMinutes',
+  'kitchen:analytics.table.caption',
+  'kitchen:analytics.table.completion',
+  'kitchen:analytics.table.empty',
+  'kitchen:analytics.table.name',
+  'kitchen:analytics.table.search',
+  'kitchen:analytics.table.searchPlaceholder',
+  'kitchen:analytics.table.segment',
+  'kitchen:analytics.table.status',
+  'kitchen:analytics.table.statusFilter',
+  'kitchen:analytics.table.subtitle',
+  'kitchen:analytics.table.title',
+  'kitchen:analytics.table.updated',
+  'kitchen:analytics.table.volume',
+  'kitchen:analytics.theme.dark',
+  'kitchen:analytics.theme.light',
+  'kitchen:analytics.title',
+  'kitchen:analytics.trend.down',
+  'kitchen:analytics.trend.flat',
+  'kitchen:analytics.trend.up',
   'kitchen:areas.groupLabel',
   'kitchen:areas.inactive',
   'kitchen:areas.matchCount',
@@ -6932,6 +7140,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.unsaved',
   'kitchen:families.allergenClasses.description',
   'kitchen:families.allergenClasses.name',
+  'kitchen:families.analytics.description',
+  'kitchen:families.analytics.name',
   'kitchen:families.branchOperating.description',
   'kitchen:families.branchOperating.name',
   'kitchen:families.deliveryZones.description',
@@ -7090,35 +7300,127 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
   'kitchen:ops.metricUnavailable',
+  'kitchen:ops.procurement.addLine',
+  'kitchen:ops.procurement.columnLines',
+  'kitchen:ops.procurement.columnReceivedAt',
+  'kitchen:ops.procurement.columnSupplier',
   'kitchen:ops.procurement.emptyBody',
   'kitchen:ops.procurement.emptyTitle',
-  'kitchen:ops.procurement.metrics.openOrders',
+  'kitchen:ops.procurement.fieldLineItem',
+  'kitchen:ops.procurement.fieldLineQuantity',
+  'kitchen:ops.procurement.metrics.lines',
   'kitchen:ops.procurement.metrics.receipts',
   'kitchen:ops.procurement.metrics.suppliers',
+  'kitchen:ops.procurement.noSuppliers',
+  'kitchen:ops.procurement.notYetReceived',
+  'kitchen:ops.procurement.postFailed',
+  'kitchen:ops.procurement.postReceipt',
+  'kitchen:ops.procurement.postTitle',
+  'kitchen:ops.procurement.postedToast',
+  'kitchen:ops.procurement.receiptsTitle',
+  'kitchen:ops.procurement.removeLine',
   'kitchen:ops.procurement.subtitle',
+  'kitchen:ops.procurement.suppliersTitle',
   'kitchen:ops.procurement.title',
+  'kitchen:ops.production.columnActions',
+  'kitchen:ops.production.columnId',
+  'kitchen:ops.production.columnStatus',
+  'kitchen:ops.production.complete',
+  'kitchen:ops.production.completedToast',
+  'kitchen:ops.production.create',
+  'kitchen:ops.production.createFailed',
+  'kitchen:ops.production.createSubmit',
+  'kitchen:ops.production.createTitle',
+  'kitchen:ops.production.createdToast',
   'kitchen:ops.production.emptyBody',
   'kitchen:ops.production.emptyTitle',
+  'kitchen:ops.production.loadErrorBody',
+  'kitchen:ops.production.loadErrorTitle',
   'kitchen:ops.production.metrics.batches',
   'kitchen:ops.production.metrics.inProgress',
   'kitchen:ops.production.metrics.yield',
+  'kitchen:ops.production.noBranchBody',
+  'kitchen:ops.production.noBranchTitle',
+  'kitchen:ops.production.ordersHeading',
+  'kitchen:ops.production.status.cancelled',
+  'kitchen:ops.production.status.completed',
+  'kitchen:ops.production.status.inProgress',
+  'kitchen:ops.production.status.planned',
   'kitchen:ops.production.subtitle',
   'kitchen:ops.production.title',
+  'kitchen:ops.production.versionHint',
+  'kitchen:ops.production.versionLabel',
+  'kitchen:ops.qc.checksHeading',
+  'kitchen:ops.qc.columnActions',
+  'kitchen:ops.qc.columnStatus',
+  'kitchen:ops.qc.columnSubject',
+  'kitchen:ops.qc.create',
+  'kitchen:ops.qc.createFailed',
+  'kitchen:ops.qc.createSubmit',
+  'kitchen:ops.qc.createTitle',
+  'kitchen:ops.qc.createdToast',
   'kitchen:ops.qc.emptyBody',
   'kitchen:ops.qc.emptyTitle',
+  'kitchen:ops.qc.heldToast',
+  'kitchen:ops.qc.hold',
+  'kitchen:ops.qc.loadErrorBody',
+  'kitchen:ops.qc.loadErrorTitle',
   'kitchen:ops.qc.metrics.holds',
   'kitchen:ops.qc.metrics.openChecks',
   'kitchen:ops.qc.metrics.releases',
+  'kitchen:ops.qc.release',
+  'kitchen:ops.qc.releasedToast',
+  'kitchen:ops.qc.status.hold',
+  'kitchen:ops.qc.status.passed',
+  'kitchen:ops.qc.status.pending',
+  'kitchen:ops.qc.status.released',
+  'kitchen:ops.qc.subject.goodsReceipt',
+  'kitchen:ops.qc.subject.productionOrder',
+  'kitchen:ops.qc.subjectIdHint',
+  'kitchen:ops.qc.subjectIdLabel',
+  'kitchen:ops.qc.subjectTypeLabel',
   'kitchen:ops.qc.subtitle',
   'kitchen:ops.qc.title',
   'kitchen:ops.readyForApi',
+  'kitchen:ops.stock.addItem',
+  'kitchen:ops.stock.addItemTitle',
+  'kitchen:ops.stock.adjust',
+  'kitchen:ops.stock.adjustHint',
+  'kitchen:ops.stock.adjustTitle',
+  'kitchen:ops.stock.adjustedToast',
+  'kitchen:ops.stock.columnActions',
+  'kitchen:ops.stock.columnIngredient',
+  'kitchen:ops.stock.columnItem',
+  'kitchen:ops.stock.columnQuantity',
+  'kitchen:ops.stock.columnUnit',
+  'kitchen:ops.stock.createdToast',
+  'kitchen:ops.stock.direction',
+  'kitchen:ops.stock.directionDecrease',
+  'kitchen:ops.stock.directionIncrease',
   'kitchen:ops.stock.emptyBody',
   'kitchen:ops.stock.emptyTitle',
-  'kitchen:ops.stock.metrics.adjustments',
-  'kitchen:ops.stock.metrics.onHand',
-  'kitchen:ops.stock.metrics.waste',
+  'kitchen:ops.stock.fieldAdjustQuantity',
+  'kitchen:ops.stock.fieldCode',
+  'kitchen:ops.stock.fieldIngredient',
+  'kitchen:ops.stock.fieldName',
+  'kitchen:ops.stock.fieldUnit',
+  'kitchen:ops.stock.fieldUnitHint',
+  'kitchen:ops.stock.fieldWasteQuantity',
+  'kitchen:ops.stock.itemsTitle',
+  'kitchen:ops.stock.levelsTitle',
+  'kitchen:ops.stock.linkedIngredient',
+  'kitchen:ops.stock.metrics.items',
+  'kitchen:ops.stock.metrics.levels',
+  'kitchen:ops.stock.metrics.outOfStock',
+  'kitchen:ops.stock.noIngredient',
+  'kitchen:ops.stock.noIngredientOption',
+  'kitchen:ops.stock.noLevels',
+  'kitchen:ops.stock.saveFailed',
   'kitchen:ops.stock.subtitle',
   'kitchen:ops.stock.title',
+  'kitchen:ops.stock.waste',
+  'kitchen:ops.stock.wasteTitle',
+  'kitchen:ops.stock.wastedToast',
   'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
   'kitchen:plans.backToList',
@@ -7912,6 +8214,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:filters.clear',
   'marketplace:filters.cuisine',
   'marketplace:filters.howToGetIt',
+  'marketplace:filters.itemType',
   'marketplace:filters.mealType',
   'marketplace:filters.resultCount',
   'marketplace:filters.specialism',
@@ -7956,6 +8259,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:itemTypes.meal',
+  'marketplace:itemTypes.product',
   'marketplace:kitchen.branchArea',
   'marketplace:kitchen.branchesTitle',
   'marketplace:kitchen.closedOn',
@@ -8042,6 +8347,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.howItWorks',
   'marketplace:nav.kitchens',
   'marketplace:nav.meals',
+  'marketplace:nav.myHome',
   'marketplace:nav.plannedNotice',
   'marketplace:nav.plannedSuffix',
   'marketplace:nav.plans',

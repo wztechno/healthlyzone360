@@ -15,21 +15,26 @@ import { ApiError, apiFailure, validationFailure } from '../contracts/failure.ts
 import type {
     Cart as WireCart,
     CartLine as WireCartLine,
+    CheckoutPreview as WireCheckoutPreview,
     MarketplaceMeal as WireMeal,
 } from '../generated/types.ts';
 import { mapMarketplaceMeal, pathSegment } from './marketplace-mappers.ts';
 import type { Transport } from './transport.ts';
 
 /**
- * Cart + interim checkout preview, over HTTP.
+ * Cart + real server-side checkout preview, over HTTP.
  *
  * The wire cart carries **no prices** (repriced at placement). Domain `Cart` needs names, unit
  * prices and allergens for the UI, so every projection hydrates lines via
  * `GET /marketplace/meals/{id}` for consumer channels, or `GET /b2b/catalogue/items/{id}` for
  * wholesale channels — the same enrichment the mock world does from fixtures.
  *
- * `previewCheckout` has no Laravel route. The interim builds a quotation from the hydrated cart
- * subtotal with `deliveryFee: null` and a warning that delivery is priced at placement.
+ * `previewCheckout` calls `POST /checkouts/preview`, which runs the identical `LineProbe` and
+ * `ZoneResolver` paths placement runs, so the number a person sees here and the number they are
+ * charged at `POST /orders` are never two different answers for a basket nothing has changed
+ * about. The endpoint returns totals only — no per-line breakdown — so `lines` is a simplified
+ * two-entry summary (`subtotal`, and `delivery_fee` when one resolved) rather than the hydrated
+ * per-meal lines `getCart` builds; a screen that needs the meals already holds the cart.
  */
 
 /** Channel code the authenticated consumer storefront opens. Matches the Verdant demo `web-shop`. */
@@ -71,10 +76,6 @@ function money(amountMinor: number, currency: string): Money {
         );
     }
     return { amount: amountMinor, currency };
-}
-
-function zeroMoney(currency: string): Money {
-    return money(0, isCurrencyCode(currency) ? currency : 'USD');
 }
 
 async function fetchMeal(transport: Transport, mealId: string) {
@@ -185,24 +186,37 @@ async function mapCart(
     };
 }
 
-function previewFromCart(cart: Cart, request: PreviewCheckoutRequest): CheckoutPreview {
-    const warnings: string[] = ['checkout.delivery_priced_at_placement'];
-    if (cart.items.length === 0) warnings.unshift('checkout.empty_cart');
+/**
+ * The one warning code the wire and the UI vocabulary (`warnings.ts`) already agree on. Every
+ * other server code is passed through under the same `checkout.` namespace the UI's
+ * {@link warningMessageKey} expects — an unrecognised one still renders (as the generic key), it
+ * simply has no written copy yet.
+ */
+const WIRE_CART_EMPTY = 'cart_empty';
 
-    const lines: PriceLine[] = [{ code: 'subtotal', label: 'Subtotal', amount: cart.subtotal }];
+function mapPreviewWarning(code: string): string {
+    return code === WIRE_CART_EMPTY ? 'checkout.empty_cart' : `checkout.${code}`;
+}
+
+function mapCheckoutPreview(wire: WireCheckoutPreview, request: PreviewCheckoutRequest): CheckoutPreview {
+    const currency = isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD';
+    const subtotal = money(wire.subtotal_minor, currency);
+    const deliveryFee = wire.delivery_fee_minor === null ? null : money(wire.delivery_fee_minor, currency);
+
+    const lines: PriceLine[] = [{ code: 'subtotal', label: 'Subtotal', amount: subtotal }];
+    if (deliveryFee !== null) {
+        lines.push({ code: 'delivery_fee', label: 'Delivery fee', amount: deliveryFee });
+    }
 
     return {
-        cartId: cart.id,
+        cartId: CartId.unsafe(wire.cart_id),
         lines,
-        subtotal: cart.subtotal,
-        deliveryFee: null,
+        subtotal,
+        deliveryFee,
         discount: null,
-        total: cart.subtotal,
-        earliestDeliveryDate:
-            request.deliveryDate ??
-            cart.items.find((item) => item.deliveryDate)?.deliveryDate ??
-            null,
-        warnings,
+        total: money(wire.total_minor, currency),
+        earliestDeliveryDate: request.deliveryDate ?? null,
+        warnings: wire.warnings.map(mapPreviewWarning),
         paymentDeferred: true,
     };
 }
@@ -255,21 +269,23 @@ export function createApiCartSurface(transport: Transport): ApiCartSurface {
         },
 
         async previewCheckout(request: PreviewCheckoutRequest): Promise<CheckoutPreview> {
-            const cart = await openCart();
-            if (cart.items.length === 0) {
-                return {
-                    cartId: CartId.unsafe(String(request.cartId)),
-                    lines: [],
-                    subtotal: zeroMoney('USD'),
-                    deliveryFee: null,
-                    discount: null,
-                    total: zeroMoney('USD'),
-                    earliestDeliveryDate: null,
-                    warnings: ['checkout.empty_cart'],
-                    paymentDeferred: true,
-                };
-            }
-            return previewFromCart(cart, request);
+            const payload = await transport.request<{ preview: WireCheckoutPreview }>({
+                method: 'POST',
+                path: '/checkouts/preview',
+                body: {
+                    cart_id: String(request.cartId),
+                    ...(request.addressId === undefined
+                        ? {}
+                        : { customer_address_id: request.addressId }),
+                    ...(request.slotCode === undefined
+                        ? {}
+                        : { delivery_window_code: request.slotCode }),
+                    ...(request.deliveryDate === undefined
+                        ? {}
+                        : { requested_delivery_date: request.deliveryDate }),
+                },
+            });
+            return mapCheckoutPreview(payload.preview, request);
         },
     };
 }

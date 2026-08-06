@@ -136,9 +136,9 @@ const scratchRepositories = createMockRepositories({
 
 async function firstKitchenId(): Promise<string> {
     const page = await scratchRepositories.marketplace.listKitchens({
-        channels: ['marketplace'],
+        channels: ['b2c', 'marketplace'],
     });
-    const kitchen = page.items[0];
+    const kitchen = page.items.find((row) => row.slug === 'verdant-kitchen') ?? page.items[0];
     if (kitchen === undefined) throw new Error('The prototype world has no marketplace kitchens.');
     return String(kitchen.id);
 }
@@ -233,6 +233,22 @@ describe('KitchenMenuScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-menu-empty')).toBeTruthy();
         });
+    });
+
+    it('filters the mixed menu down to products only', async () => {
+        const id = await firstKitchenId();
+
+        routerState.params = { itemType: 'product' };
+        await renderScreen(<KitchenMenuScreen kitchenId={id} />, {
+            scenario: 'consumer-prototype',
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-menu-grid')).toBeTruthy();
+        });
+
+        expect(screen.getAllByTestId(/^meal-card-[a-z0-9-]+$/).length).toBeGreaterThan(0);
+        expect(screen.queryAllByTestId(/^meal-card-.*-nutrition$/)).toHaveLength(0);
     });
 });
 

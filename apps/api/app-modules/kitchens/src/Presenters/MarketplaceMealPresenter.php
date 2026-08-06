@@ -70,6 +70,7 @@ final class MarketplaceMealPresenter
             'id' => (string) $meal->getKey(),
             'kitchen_id' => $meal->organisation_id,
             'kitchen_name' => $kitchenName,
+            'item_type' => $meal->item_type->value,
             'name' => MarketplaceLocale::pick($locale, $meal->name_en, $meal->name_ar),
             'slug' => $meal->slug,
             'description' => MarketplaceLocale::pick($locale, $meal->description_en, $meal->description_ar),
@@ -90,7 +91,7 @@ final class MarketplaceMealPresenter
             // production time a kitchen plans with is not the wait a customer
             // experiences anyway.
             'preparation_minutes' => null,
-            'image_placeholder_id' => 'meal-'.$meal->slug,
+            'image_placeholder_id' => $meal->item_type->value.'-'.$meal->slug,
             'availability' => $availability,
             'channels' => $channels,
             'rating' => null,

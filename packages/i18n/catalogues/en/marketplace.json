@@ -19,6 +19,7 @@
         "forBusiness": "For business",
         "signIn": "Sign in",
         "register": "Create account",
+        "myHome": "My home",
         "skipToContent": "Skip to content",
         "plannedSuffix": "{{label}} (soon)",
         "plannedNotice": "{{label}} is not built yet. Nothing was changed."
@@ -131,9 +132,9 @@
     "menu": {
         "title": "Menu",
         "titleFor": "{{kitchen}} menu",
-        "subtitle": "Energy and protein are per serving. Allergens are declared by the kitchen.",
+        "subtitle": "Meals and products from this kitchen. Energy and protein are per serving when the kitchen publishes them.",
         "searchLabel": "Search this menu",
-        "searchPlaceholder": "A dish, an ingredient",
+        "searchPlaceholder": "A dish, a product, an ingredient",
         "cardLabel": "{{meal}} — {{energy}} kilocalories, {{protein}} grams of protein. Open the summary.",
         "imageLabel": "Illustration standing in for a photograph of {{meal}}",
         "containsAllergens": "Contains {{allergens}}",
@@ -145,7 +146,10 @@
         "fullDetailsTitle": "This is a summary",
         "fullDetailsBody": "The full record — ingredients, preparation steps, micronutrients, portion control and ordering — arrives with the meal catalogue.",
         "emptyTitle": "Nothing on this menu matches",
-        "emptyBody": "Try another meal type, or clear the filters to see the whole menu."
+        "emptyBody": "Try meals or products, another meal type, or clear the filters to see the whole menu.",
+        "loadMore": "Show more on this menu",
+        "loadingMore": "Loading more from this menu",
+        "allLoaded": "That is everything on this menu that matches."
     },
     "dietitians": {
         "title": "Dietitians",
@@ -274,13 +278,13 @@
             "forDate": "{{date}}",
             "locked": "Locked",
             "emptyTitle": "Nothing planned yet",
-            "emptyBody": "Once a week has been generated, the next meals appear here.",
+            "emptyBody": "Meal planning is not live on the API yet. Browse kitchens and meals to order for now.",
             "openPlanner": "Open the planner"
         },
         "nutrition": {
             "title": "Against your target",
             "emptyTitle": "No target set yet",
-            "emptyBody": "Finish setting up and the day's figures will be measured against your own target rather than a generic one.",
+            "emptyBody": "Nutrition targets are not live on the API yet. Ordering and subscriptions still work without them.",
             "whyThisTarget": "Why this target?"
         },
         "subscription": {
@@ -300,6 +304,7 @@
         "clear": "Clear filters",
         "cuisine": "Cuisine",
         "howToGetIt": "How to get it",
+        "itemType": "Type",
         "mealType": "Meal",
         "specialism": "Specialism",
         "availability": "Availability",
@@ -345,6 +350,10 @@
         "lunch": "Lunch",
         "dinner": "Dinner",
         "snack": "Snack"
+    },
+    "itemTypes": {
+        "meal": "Meal",
+        "product": "Product"
     },
     "diets": {
         "omnivore": "Omnivore",

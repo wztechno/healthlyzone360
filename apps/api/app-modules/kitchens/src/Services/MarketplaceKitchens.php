@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Kitchens\Services;
 
 use Healthy360\Delivery\Enums\DeliveryZoneStatus;
+use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
@@ -182,6 +183,22 @@ final readonly class MarketplaceKitchens
             ->whereIn('branch_id', $branchIds)
             ->orderBy('branch_id')
             ->orderBy('weekday')
+            ->get()
+            ->all());
+    }
+
+    /**
+     * Active delivery windows the kitchen publishes for checkout slot pickers.
+     *
+     * @return list<DeliveryWindow>
+     */
+    public function deliveryWindowsOf(Organisation $kitchen): array
+    {
+        return array_values(DeliveryWindow::withoutTenancy()
+            ->where('organisation_id', $kitchen->getKey())
+            ->where('is_active', true)
+            ->orderBy('display_order')
+            ->orderBy('code')
             ->get()
             ->all());
     }

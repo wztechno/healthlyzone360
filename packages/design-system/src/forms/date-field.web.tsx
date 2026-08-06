@@ -76,7 +76,7 @@ export function DateField({
                                 withinBounds(next, min, max) ? next : clampIso(next, min, max),
                             );
                         }}
-                        className="h-11 flex-1 border-0 bg-transparent text-base text-content-primary"
+                        className="h-11 flex-1 border-0 bg-transparent text-base text-content-primary outline-none"
                     />
                 </View>
             )}

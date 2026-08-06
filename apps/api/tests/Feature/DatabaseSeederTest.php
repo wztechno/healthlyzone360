@@ -555,6 +555,23 @@ it('seeds the demonstration tariff with a tier and an honest placeholder', funct
         );
 });
 
+it('seeds Verdant sellable products alongside the three demonstration meals', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $published = CatalogueItem::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('status', CatalogueItemStatus::Published->value)
+        ->get();
+
+    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(3)
+        ->and($published->where('item_type', CatalogueItemType::Product)->count())->toBeGreaterThan(3)
+        ->and(PriceList::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->whereIn('code', ['verdant-products-b2c-usd', 'verdant-products-b2b-usd'])
+            ->where('status', PriceListStatus::Active->value)
+            ->count())->toBe(2);
+});
+
 it('seeds a plan vocabulary that includes a one-off duration', function (): void {
     $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
 
@@ -574,7 +591,7 @@ it('seeds a plan vocabulary that includes a one-off duration', function (): void
 
     expect($oneOff)->not->toBeNull()
         ->and($oneOff->duration_days)->toBeNull()
-        ->and($durations->firstWhere(static fn (PlanDuration $row): bool => $row->duration_kind === PlanDurationKind::FixedDays)->duration_days)->toBe(20);
+        ->and($durations->firstWhere(static fn (PlanDuration $row): bool => $row->duration_kind === PlanDurationKind::FixedDays)->duration_days)->toBe(28);
 });
 
 it('seeds a draft plan that is exactly one confirmed price short of publishable', function (): void {

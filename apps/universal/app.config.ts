@@ -77,7 +77,7 @@ function readEnum<T extends string>(name: string, allowed: readonly T[], fallbac
 
 const appMode = readEnum<AppMode>('APP_MODE', APP_MODES, 'all-dev');
 const appEnv = readEnum<AppEnv>('APP_ENV', APP_ENVS, 'development');
-const dataMode = readEnum<DataMode>('EXPO_PUBLIC_DATA_MODE', DATA_MODES, 'mock');
+const dataMode = readEnum<DataMode>('EXPO_PUBLIC_DATA_MODE', DATA_MODES, 'api');
 
 const identity = MODE_IDENTITIES[appMode];
 

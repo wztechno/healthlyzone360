@@ -2699,6 +2699,13 @@ export type MarketplaceKitchen = {
     channels: MarketplaceSalesChannels;
     branches: Array<MarketplaceBranch>;
     /**
+     * Active delivery slots the kitchen publishes for checkout. Empty when
+     * the kitchen has not configured windows yet — the client must not
+     * invent codes the kitchen does not recognise.
+     *
+     */
+    delivery_windows: Array<MarketplaceDeliveryWindow>;
+    /**
      * Always null; no reviews exist.
      */
     rating: number | null;
@@ -2715,6 +2722,34 @@ export type MarketplaceKitchen = {
      *
      */
     is_verified: boolean;
+};
+
+/**
+ * One named delivery slot a customer may pick at checkout.
+ */
+export type MarketplaceDeliveryWindow = {
+    /**
+     * Stable slot code sent on cart/checkout (`morning`, `evening`, …).
+     */
+    code: string;
+    /**
+     * Localised display label. One server-chosen language from Accept-Language.
+     */
+    label: string;
+    /**
+     * Kitchen-local `HH:mm`.
+     */
+    starts_at: string;
+    /**
+     * Kitchen-local `HH:mm`.
+     */
+    ends_at: string;
+    /**
+     * ISO weekdays the window runs on (1 = Monday … 7 = Sunday). An empty
+     * array means every day.
+     *
+     */
+    weekdays: Array<number>;
 };
 
 /**
@@ -2738,6 +2773,13 @@ export type MarketplaceMeal = {
     id: Uuid;
     kitchen_id: Uuid;
     kitchen_name: string;
+    /**
+     * Whether this listing is a prepared meal or a sellable product
+     * (sauce, frozen pack, oil, and so on). Both appear on the kitchen
+     * menu; clients filter with `item_types`.
+     *
+     */
+    item_type: 'meal' | 'product';
     /**
      * Localised. One server-chosen language, never both columns.
      */
@@ -3377,6 +3419,79 @@ export type PlaceOrderRequest = {
     requested_delivery_date?: string | null;
 };
 
+/**
+ * The same four fields `PlaceOrderRequest` takes, and none of them is a
+ * price here either — the server prices, the same way, for the same
+ * reason.
+ *
+ */
+export type PreviewCheckoutRequest = {
+    cart_id: Uuid;
+    /**
+     * Optional, unlike at `POST /orders`. A shopper previews a total
+     * before choosing where it goes — the cart screen has no address at
+     * all — and an absent address is reported as the `address_missing`
+     * warning rather than refused.
+     *
+     */
+    customer_address_id?: string | null;
+    delivery_window_code?: string | null;
+    requested_delivery_date?: string | null;
+};
+
+/**
+ * What a basket would cost, priced by the same `LineProbe` and
+ * `ZoneResolver` `POST /orders` runs at placement — a preview and the
+ * placement it precedes never quote two different numbers for a basket
+ * nothing has changed about.
+ *
+ * Nothing here is a refusal: every fact placement would refuse the whole
+ * order over comes back in `warnings` instead, in the same vocabulary,
+ * beside whatever total could still be priced.
+ *
+ */
+export type CheckoutPreview = {
+    cart_id: Uuid;
+    currency_code: string;
+    /**
+     * The sum of every priceable line. A line the probe refuses
+     * contributes nothing here and its reason to `warnings`, instead of
+     * aborting the whole preview.
+     *
+     */
+    subtotal_minor: number;
+    /**
+     * Null whenever the fee is unresolved — no address named, an
+     * unserved area, a suspended zone, a currency mismatch, or a zone
+     * with no fee configured. Never treated as zero: an unresolved fee
+     * is a fact worth a warning, not a discount.
+     *
+     */
+    delivery_fee_minor: number | null;
+    /**
+     * The subtotal plus the delivery fee — or the subtotal alone, when the fee is null.
+     */
+    total_minor: number;
+    line_count: number;
+    /**
+     * Every unresolved fact about the cart or the address, in the same
+     * vocabulary `409 order.placement_refused` uses at placement:
+     * `cart_empty`, `address_missing`, `address_not_deliverable`,
+     * `area_not_served`, `zone_suspended`, `currency_mismatch`, plus the
+     * line-probe vocabulary. Deduplicated — three lines refused for the
+     * same reason read as one fact, not three repeats of it.
+     *
+     */
+    warnings: Array<string>;
+};
+
+export type CheckoutPreviewEnvelope = {
+    data: {
+        preview: CheckoutPreview;
+    };
+    meta: Meta;
+};
+
 export type CancelOrderRequest = {
     reason: CancellationReason;
 };
@@ -3475,6 +3590,276 @@ export type KitchenOrderDelivery = CustomerOrderDelivery & {
      *
      */
     zone_id: string | null;
+};
+
+/**
+ * A warehouse item (O1): a free SKU or code, no platform vocabulary
+ * behind it, and an optional link to the recipe ingredient master. A
+ * kitchen may stock something — packaging, cleaning supplies — that
+ * will never be a recipe ingredient, and the link exists for the
+ * common case without requiring it.
+ *
+ */
+export type StockItem = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    /**
+     * Defaults to `kg` when not supplied at creation.
+     */
+    unit_code: string;
+    ingredient_id: Uuid | null;
+};
+
+export type StockItemCollection = {
+    data: {
+        stock_items: Array<StockItem>;
+    };
+    meta: Meta;
+};
+
+export type StockItemEnvelope = {
+    data: {
+        stock_item: StockItem;
+    };
+    meta: Meta;
+};
+
+export type CreateStockItemRequest = {
+    /**
+     * Unique within the organisation. A duplicate is `422 validation.failed`.
+     */
+    code: string;
+    name_en: string;
+    /**
+     * Defaults to `kg` when omitted.
+     */
+    unit_code?: string;
+    ingredient_id?: Uuid | null;
+};
+
+/**
+ * One stock item's on-hand quantity at one branch. `item_code`,
+ * `item_name_en` and `ingredient_id` are denormalised from the stock
+ * item, so a levels screen never has to round-trip to render a row.
+ *
+ */
+export type StockLevel = {
+    id: Uuid;
+    branch_id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * A decimal string, never a float — precision the wire must not round away.
+     */
+    quantity: string;
+    item_code: string;
+    item_name_en: string;
+    ingredient_id: Uuid | null;
+};
+
+export type StockLevelCollection = {
+    data: {
+        levels: Array<StockLevel>;
+    };
+    meta: Meta;
+};
+
+export type StockMovement = {
+    id: Uuid;
+    /**
+     * A signed decimal string — negative for waste and consumption, positive for receipts, yields and upward adjustments.
+     */
+    quantity_delta: string;
+    reason: 'adjust' | 'waste' | 'receipt' | 'consume' | 'yield';
+};
+
+export type StockMovementEnvelope = {
+    data: {
+        movement: StockMovement;
+    };
+    meta: Meta;
+};
+
+export type StockAdjustmentRequest = {
+    branch_id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * Signed — a correction that raises the level is positive, one that lowers it is negative.
+     */
+    quantity_delta: number;
+    notes?: string | null;
+};
+
+export type StockWasteRequest = {
+    branch_id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * Always positive. The endpoint states the loss; the server signs it negative on the ledger.
+     */
+    quantity: number;
+    notes?: string | null;
+};
+
+export type Supplier = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+};
+
+export type SupplierCollection = {
+    data: {
+        suppliers: Array<Supplier>;
+    };
+    meta: Meta;
+};
+
+export type GoodsReceiptLine = {
+    stock_item_id: Uuid;
+    quantity: string;
+};
+
+/**
+ * A receipt stands alone in v1 (O2) — `purchase_order_id` is always
+ * null, because there is no purchase-order surface yet to have created
+ * one. The column exists for the day there is.
+ *
+ */
+export type GoodsReceipt = {
+    id: Uuid;
+    branch_id: Uuid;
+    purchase_order_id: Uuid | null;
+    received_at: string | null;
+    lines: Array<GoodsReceiptLine>;
+};
+
+export type GoodsReceiptCollection = {
+    data: {
+        goods_receipts: Array<GoodsReceipt>;
+    };
+    meta: Meta;
+};
+
+export type GoodsReceiptLineInput = {
+    stock_item_id: Uuid;
+    quantity: number;
+};
+
+/**
+ * Posting a receipt writes every line straight into the inventory
+ * ledger (`reason: receipt`) inside one transaction — there is no
+ * draft state to save and return to.
+ *
+ */
+export type PostGoodsReceiptRequest = {
+    branch_id: Uuid;
+    /**
+     * Accepted for forward compatibility; no endpoint creates one yet (O2).
+     */
+    purchase_order_id?: Uuid | null;
+    lines: Array<GoodsReceiptLineInput>;
+};
+
+export type GoodsReceiptEnvelope = {
+    data: {
+        goods_receipt: {
+            id: Uuid;
+        };
+    };
+    meta: Meta;
+};
+
+export type ProductionOrder = {
+    id: Uuid;
+    recipe_version_id: Uuid;
+    status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+    branch_id: Uuid;
+};
+
+export type ProductionOrderCollection = {
+    data: {
+        production_orders: Array<ProductionOrder>;
+    };
+    meta: Meta;
+};
+
+export type CreateProductionOrderRequest = {
+    branch_id: Uuid;
+    recipe_version_id: Uuid;
+    planned_yield?: number | null;
+};
+
+export type ProductionOrderEnvelope = {
+    data: {
+        production_order: {
+            id: Uuid;
+            status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+        };
+    };
+    meta: Meta;
+};
+
+export type ProductionMovementInput = {
+    stock_item_id: Uuid;
+    quantity: number;
+};
+
+/**
+ * No production tasks here (O5) — completing an order is entirely
+ * about the stock it consumed and yielded, not a checklist.
+ *
+ */
+export type CompleteProductionOrderRequest = {
+    /**
+     * Stock taken from the branch's inventory to run this order. Omitted or empty is legal.
+     */
+    consumes?: Array<ProductionMovementInput>;
+    /**
+     * Stock produced by this order and added back to inventory.
+     */
+    yields?: Array<ProductionMovementInput>;
+};
+
+/**
+ * The only two subjects a check may attach to (O3). Anything else is
+ * `422 validation.failed`.
+ *
+ */
+export type QualityCheckSubjectType = 'goods_receipt' | 'production_order';
+
+export type QualityCheck = {
+    id: Uuid;
+    subject_type: QualityCheckSubjectType;
+    subject_id: Uuid;
+    /**
+     * A hold is status-only in v1 (O4) — there is no separate hold
+     * record, and releasing simply moves the same check back off
+     * `hold`.
+     *
+     */
+    status: 'pending' | 'passed' | 'hold' | 'released';
+};
+
+export type QualityCheckCollection = {
+    data: {
+        quality_checks: Array<QualityCheck>;
+    };
+    meta: Meta;
+};
+
+export type CreateQualityCheckRequest = {
+    subject_type: QualityCheckSubjectType;
+    subject_id: Uuid;
+    notes?: string | null;
+};
+
+export type QualityCheckEnvelope = {
+    data: {
+        quality_check: {
+            id: Uuid;
+            status: 'pending' | 'passed' | 'hold' | 'released';
+        };
+    };
+    meta: Meta;
 };
 
 /**
@@ -15384,6 +15769,12 @@ export type ListMarketplaceMealsData = {
          */
         kitchen_ids?: string;
         /**
+         * Comma-separated catalogue item types to include. Allowed values:
+         * `meal`, `product`. Omit to receive both. Unknown values are `400`.
+         *
+         */
+        item_types?: string;
+        /**
          * Comma-separated classification codes. Meals must carry **every** one:
          * a person ticking vegan and gluten-free is stating two requirements.
          *
@@ -15862,6 +16253,61 @@ export type SetCartItemQuantityResponses = {
 
 export type SetCartItemQuantityResponse = SetCartItemQuantityResponses[keyof SetCartItemQuantityResponses];
 
+export type PreviewCheckoutData = {
+    body: PreviewCheckoutRequest;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/checkouts/preview';
+};
+
+export type PreviewCheckoutErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PreviewCheckoutError = PreviewCheckoutErrors[keyof PreviewCheckoutErrors];
+
+export type PreviewCheckoutResponses = {
+    /**
+     * What the basket would cost right now, and what stood in the way of
+     * pricing any part of it completely.
+     *
+     */
+    200: CheckoutPreviewEnvelope;
+};
+
+export type PreviewCheckoutResponse = PreviewCheckoutResponses[keyof PreviewCheckoutResponses];
+
 export type PlaceOrderData = {
     body: PlaceOrderRequest;
     headers?: {
@@ -16064,6 +16510,832 @@ export type ShowMyOrderResponses = {
 };
 
 export type ShowMyOrderResponse = ShowMyOrderResponses[keyof ShowMyOrderResponses];
+
+export type ListStockItemsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/items';
+};
+
+export type ListStockItemsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListStockItemsError = ListStockItemsErrors[keyof ListStockItemsErrors];
+
+export type ListStockItemsResponses = {
+    /**
+     * Every stock item.
+     */
+    200: StockItemCollection;
+};
+
+export type ListStockItemsResponse = ListStockItemsResponses[keyof ListStockItemsResponses];
+
+export type CreateStockItemData = {
+    body: CreateStockItemRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/items';
+};
+
+export type CreateStockItemErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateStockItemError = CreateStockItemErrors[keyof CreateStockItemErrors];
+
+export type CreateStockItemResponses = {
+    /**
+     * The stock item was created.
+     */
+    201: StockItemEnvelope;
+};
+
+export type CreateStockItemResponse = CreateStockItemResponses[keyof CreateStockItemResponses];
+
+export type ListStockLevelsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         */
+        'X-Branch-Id'?: Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/levels';
+};
+
+export type ListStockLevelsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListStockLevelsError = ListStockLevelsErrors[keyof ListStockLevelsErrors];
+
+export type ListStockLevelsResponses = {
+    /**
+     * Stock levels, newest stock item first.
+     */
+    200: StockLevelCollection;
+};
+
+export type ListStockLevelsResponse = ListStockLevelsResponses[keyof ListStockLevelsResponses];
+
+export type RecordStockAdjustmentData = {
+    body: StockAdjustmentRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/adjustments';
+};
+
+export type RecordStockAdjustmentErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordStockAdjustmentError = RecordStockAdjustmentErrors[keyof RecordStockAdjustmentErrors];
+
+export type RecordStockAdjustmentResponses = {
+    /**
+     * The adjustment was recorded and the level updated.
+     */
+    201: StockMovementEnvelope;
+};
+
+export type RecordStockAdjustmentResponse = RecordStockAdjustmentResponses[keyof RecordStockAdjustmentResponses];
+
+export type RecordStockWasteData = {
+    body: StockWasteRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/waste';
+};
+
+export type RecordStockWasteErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordStockWasteError = RecordStockWasteErrors[keyof RecordStockWasteErrors];
+
+export type RecordStockWasteResponses = {
+    /**
+     * The waste was recorded and the level reduced.
+     */
+    201: StockMovementEnvelope;
+};
+
+export type RecordStockWasteResponse = RecordStockWasteResponses[keyof RecordStockWasteResponses];
+
+export type ListSuppliersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/suppliers';
+};
+
+export type ListSuppliersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListSuppliersError = ListSuppliersErrors[keyof ListSuppliersErrors];
+
+export type ListSuppliersResponses = {
+    /**
+     * Every supplier, ordered by code.
+     */
+    200: SupplierCollection;
+};
+
+export type ListSuppliersResponse = ListSuppliersResponses[keyof ListSuppliersResponses];
+
+export type ListGoodsReceiptsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/goods-receipts';
+};
+
+export type ListGoodsReceiptsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListGoodsReceiptsError = ListGoodsReceiptsErrors[keyof ListGoodsReceiptsErrors];
+
+export type ListGoodsReceiptsResponses = {
+    /**
+     * Recent goods receipts.
+     */
+    200: GoodsReceiptCollection;
+};
+
+export type ListGoodsReceiptsResponse = ListGoodsReceiptsResponses[keyof ListGoodsReceiptsResponses];
+
+export type CreateGoodsReceiptData = {
+    body: PostGoodsReceiptRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/goods-receipts';
+};
+
+export type CreateGoodsReceiptErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateGoodsReceiptError = CreateGoodsReceiptErrors[keyof CreateGoodsReceiptErrors];
+
+export type CreateGoodsReceiptResponses = {
+    /**
+     * The receipt was posted and inventory updated.
+     */
+    201: GoodsReceiptEnvelope;
+};
+
+export type CreateGoodsReceiptResponse = CreateGoodsReceiptResponses[keyof CreateGoodsReceiptResponses];
+
+export type ListProductionOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/production/orders';
+};
+
+export type ListProductionOrdersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListProductionOrdersError = ListProductionOrdersErrors[keyof ListProductionOrdersErrors];
+
+export type ListProductionOrdersResponses = {
+    /**
+     * Recent production orders.
+     */
+    200: ProductionOrderCollection;
+};
+
+export type ListProductionOrdersResponse = ListProductionOrdersResponses[keyof ListProductionOrdersResponses];
+
+export type CreateProductionOrderData = {
+    body: CreateProductionOrderRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/production/orders';
+};
+
+export type CreateProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateProductionOrderError = CreateProductionOrderErrors[keyof CreateProductionOrderErrors];
+
+export type CreateProductionOrderResponses = {
+    /**
+     * The production order was planned.
+     */
+    201: ProductionOrderEnvelope;
+};
+
+export type CreateProductionOrderResponse = CreateProductionOrderResponses[keyof CreateProductionOrderResponses];
+
+export type CompleteProductionOrderData = {
+    body?: CompleteProductionOrderRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/complete';
+};
+
+export type CompleteProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CompleteProductionOrderError = CompleteProductionOrderErrors[keyof CompleteProductionOrderErrors];
+
+export type CompleteProductionOrderResponses = {
+    /**
+     * The production order is completed.
+     */
+    200: ProductionOrderEnvelope;
+};
+
+export type CompleteProductionOrderResponse = CompleteProductionOrderResponses[keyof CompleteProductionOrderResponses];
+
+export type ListQualityChecksData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/quality-control/checks';
+};
+
+export type ListQualityChecksErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListQualityChecksError = ListQualityChecksErrors[keyof ListQualityChecksErrors];
+
+export type ListQualityChecksResponses = {
+    /**
+     * Recent quality checks.
+     */
+    200: QualityCheckCollection;
+};
+
+export type ListQualityChecksResponse = ListQualityChecksResponses[keyof ListQualityChecksResponses];
+
+export type CreateQualityCheckData = {
+    body: CreateQualityCheckRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/quality-control/checks';
+};
+
+export type CreateQualityCheckErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateQualityCheckError = CreateQualityCheckErrors[keyof CreateQualityCheckErrors];
+
+export type CreateQualityCheckResponses = {
+    /**
+     * The quality check was opened.
+     */
+    201: QualityCheckEnvelope;
+};
+
+export type CreateQualityCheckResponse = CreateQualityCheckResponses[keyof CreateQualityCheckResponses];
+
+export type HoldQualityCheckData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quality check identifier.
+         */
+        qualityCheck: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/quality-control/checks/{qualityCheck}/hold';
+};
+
+export type HoldQualityCheckErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type HoldQualityCheckError = HoldQualityCheckErrors[keyof HoldQualityCheckErrors];
+
+export type HoldQualityCheckResponses = {
+    /**
+     * The check is on hold.
+     */
+    200: QualityCheckEnvelope;
+};
+
+export type HoldQualityCheckResponse = HoldQualityCheckResponses[keyof HoldQualityCheckResponses];
+
+export type ReleaseQualityCheckData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The quality check identifier.
+         */
+        qualityCheck: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/quality-control/checks/{qualityCheck}/release';
+};
+
+export type ReleaseQualityCheckErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReleaseQualityCheckError = ReleaseQualityCheckErrors[keyof ReleaseQualityCheckErrors];
+
+export type ReleaseQualityCheckResponses = {
+    /**
+     * The check is released.
+     */
+    200: QualityCheckEnvelope;
+};
+
+export type ReleaseQualityCheckResponse = ReleaseQualityCheckResponses[keyof ReleaseQualityCheckResponses];
 
 export type ListKitchenOrdersData = {
     body?: never;

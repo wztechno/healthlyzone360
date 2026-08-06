@@ -211,6 +211,18 @@ final class PermissionRegistry
             // business cancelling somebody's dinner.
             'order.view_organisation' => ['domain' => 'order', 'description' => 'View the orders placed with the organisation'],
             'order.manage_organisation' => ['domain' => 'order', 'description' => 'Confirm, fulfil and cancel the orders placed with the organisation'],
+
+            // B1 (quotations). The buyer side of a quotation — drafting
+            // lines, submitting, accepting, declining — needs no permission
+            // beyond organisation membership (B7: org-shared server drafts).
+            // These two codes gate the *kitchen's* side of the same
+            // relationship: reading what a corporate buyer has submitted
+            // against one of this kitchen's programmes, and naming a price
+            // against it. Split for the K1.5 reason `price_list.*` was split:
+            // seeing a submitted request and deciding what to charge for it
+            // are different authorities, and `kitchen_staff` holds neither.
+            'b2b_quotation.view_organisation' => ['domain' => 'b2b_quotation', 'description' => 'View quotations submitted against programmes this kitchen supplies'],
+            'b2b_quotation.quote_organisation' => ['domain' => 'b2b_quotation', 'description' => 'Set prices on a submitted quotation against a programme this kitchen supplies'],
         ];
     }
 
@@ -437,6 +449,13 @@ final class PermissionRegistry
                     'order.view_organisation',
                     'order.manage_organisation',
 
+                    // B1 (quotations). The kitchen manager reads and prices
+                    // what corporate buyers submit against this kitchen's
+                    // programmes — the same pairing `price_list.*` gave them
+                    // in K1.5, one relationship later.
+                    'b2b_quotation.view_organisation',
+                    'b2b_quotation.quote_organisation',
+
                     // S1. `subscription.view_organisation` has existed in the
                     // registry since the foundation as a proposal and had no
                     // endpoint until the schedule projection; it is granted here
@@ -548,6 +567,14 @@ final class PermissionRegistry
                     // commercial manager who could not see what they had sold
                     // would be designing in the dark.
                     'subscription.view_organisation',
+
+                    // B1 (quotations). Pricing a corporate buyer's submitted
+                    // lines is a commercial decision before it is a kitchen
+                    // one — the same argument that gave this role the tariff
+                    // pair — so it holds both quotation codes alongside the
+                    // kitchen manager rather than deferring to them.
+                    'b2b_quotation.view_organisation',
+                    'b2b_quotation.quote_organisation',
                 ],
             ],
         ];

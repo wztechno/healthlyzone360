@@ -282,11 +282,12 @@ export const PROTOTYPE_ENDPOINTS = {
     acceptProposal: `POST ${BASE}/virtual-dietitian/sessions/{session}/accept`,
     overrideProposal: `POST ${BASE}/virtual-dietitian/sessions/{session}/override`,
 
-    getCorporateProgramme: `GET ${BASE}/business/programmes/{programme}`,
-    listCatalogue: `GET ${BASE}/business/programmes/{programme}/catalogue`,
-    getCatalogueItem: `GET ${BASE}/business/catalogue/{item}`,
-    requestQuotation: `POST ${BASE}/business/quotations`,
-    listQuotations: `GET ${BASE}/business/quotations`,
+    listCorporateProgrammes: `GET ${BASE}/b2b/programmes`,
+    getCorporateProgramme: `GET ${BASE}/b2b/programmes/{programme}`,
+    listCatalogue: `GET ${BASE}/b2b/catalogue/items`,
+    getCatalogueItem: `GET ${BASE}/b2b/catalogue/items/{item}`,
+    requestQuotation: `POST ${BASE}/b2b/programmes/{programme}/quotations`,
+    listQuotations: `GET ${BASE}/b2b/programmes/{programme}/quotations`,
 
     listReviewQueue: `GET ${BASE}/professional/reviews`,
     getReview: `GET ${BASE}/professional/reviews/{review}`,
@@ -618,6 +619,9 @@ export const apiCommerceRepository: CommerceRepository = {
  * ---------------------------------------------------------------------------------------------- */
 
 export const apiBusinessRepository: BusinessRepository = {
+    listCorporateProgrammes(): Promise<readonly CorporateProgramme[]> {
+        return notImplemented(PROTOTYPE_ENDPOINTS.listCorporateProgrammes);
+    },
     getCorporateProgramme(_programmeId: CorporateProgrammeId): Promise<CorporateProgramme> {
         return notImplemented(PROTOTYPE_ENDPOINTS.getCorporateProgramme);
     },

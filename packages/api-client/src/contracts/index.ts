@@ -6,6 +6,7 @@ import type { GuestRepository } from './guest.ts';
 import type { CommerceRepository } from './commerce.ts';
 import type { FoodRepository } from './foods.ts';
 import type { KitchenAdminRepository } from './kitchen-admin.ts';
+import type { KitchenOpsRepository } from './kitchen-ops.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
 import type { MealPlanRepository } from './planner.ts';
@@ -90,6 +91,7 @@ export type {
     DietitianFilter,
     Kitchen,
     KitchenBranch,
+    KitchenDeliveryWindow,
     KitchenFilter,
     KitchenSalesChannels,
     MarketplaceMeal,
@@ -344,6 +346,40 @@ export type {
     UpdateRecipeRequest,
 } from './kitchen-admin.ts';
 
+export {
+    PRODUCTION_ORDER_STATUSES,
+    QUALITY_CHECK_STATUSES,
+    QUALITY_CHECK_SUBJECT_TYPES,
+    STOCK_MOVEMENT_REASONS,
+} from './kitchen-ops.ts';
+export type {
+    CompleteProductionOrderRequest,
+    CreateProductionOrderRequest,
+    CreateQualityCheckRequest,
+    CreateStockItemRequest,
+    GoodsReceipt,
+    GoodsReceiptLine,
+    GoodsReceiptLineInput,
+    GoodsReceiptResult,
+    KitchenOpsRepository,
+    PostGoodsReceiptRequest,
+    ProductionMovementInput,
+    ProductionOrder,
+    ProductionOrderResult,
+    ProductionOrderStatus,
+    QualityCheck,
+    QualityCheckResult,
+    QualityCheckStatus,
+    QualityCheckSubjectType,
+    StockAdjustmentRequest,
+    StockItem,
+    StockLevel,
+    StockMovement,
+    StockMovementReason,
+    StockWasteRequest,
+    Supplier,
+} from './kitchen-ops.ts';
+
 export { REVIEW_PRIORITIES, REVIEW_QUEUE_STATES, REVIEW_SUBJECTS } from './professional.ts';
 export type {
     ApproveReviewRequest,
@@ -583,4 +619,11 @@ export interface Repositories {
     readonly business: BusinessRepository;
     readonly professional: ProfessionalRepository;
     readonly kitchenAdmin: KitchenAdminRepository;
+    /**
+     * Inventory, receipts-only procurement, production and quality control (O1–O4).
+     *
+     * A sibling of `kitchenAdmin` rather than a branch of it — see `./kitchen-ops.ts`'s header for
+     * why the two contracts do not share a shape.
+     */
+    readonly kitchenOps: KitchenOpsRepository;
 }

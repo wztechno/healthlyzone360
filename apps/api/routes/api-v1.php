@@ -20,7 +20,12 @@ use Healthy360\B2b\Http\Controllers\B2bApplicationSubmitController;
 use Healthy360\B2b\Http\Controllers\B2bApplicationWithdrawController;
 use Healthy360\B2b\Http\Controllers\B2bCatalogueItemIndexController;
 use Healthy360\B2b\Http\Controllers\B2bCatalogueItemShowController;
+use Healthy360\B2b\Http\Controllers\CorporateProgrammeIndexController;
+use Healthy360\B2b\Http\Controllers\CorporateProgrammeShowController;
 use Healthy360\B2b\Http\Controllers\InvitationAcceptController;
+use Healthy360\B2b\Http\Controllers\KitchenQuotationIndexController;
+use Healthy360\B2b\Http\Controllers\KitchenQuotationQuoteController;
+use Healthy360\B2b\Http\Controllers\KitchenQuotationShowController;
 use Healthy360\B2b\Http\Controllers\KycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\KycDocumentIndexController;
 use Healthy360\B2b\Http\Controllers\KycDocumentStoreController;
@@ -45,6 +50,13 @@ use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationRequestInformationCont
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationShowController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentReviewController;
+use Healthy360\B2b\Http\Controllers\QuotationAcceptController;
+use Healthy360\B2b\Http\Controllers\QuotationDeclineController;
+use Healthy360\B2b\Http\Controllers\QuotationIndexController;
+use Healthy360\B2b\Http\Controllers\QuotationShowController;
+use Healthy360\B2b\Http\Controllers\QuotationStoreController;
+use Healthy360\B2b\Http\Controllers\QuotationSubmitController;
+use Healthy360\B2b\Http\Controllers\QuotationUpdateController;
 use Healthy360\B2b\Http\Controllers\RecordExportShowController;
 use Healthy360\B2b\Http\Controllers\RecordExportStoreController;
 use Healthy360\Cart\Http\Controllers\CartItemDestroyController;
@@ -144,6 +156,8 @@ use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
+use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
+use Healthy360\Inventory\Http\Controllers\StockItemStoreController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
 use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketBumpController;
@@ -156,6 +170,7 @@ use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealShowController;
+use Healthy360\Orders\Http\Controllers\CheckoutPreviewController;
 use Healthy360\Orders\Http\Controllers\GuestOrderShowController;
 use Healthy360\Orders\Http\Controllers\GuestOrderStoreController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderCancelController;
@@ -180,6 +195,7 @@ use Healthy360\Pricing\Http\Controllers\PriceListPublishController;
 use Healthy360\Pricing\Http\Controllers\PriceListShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
+use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
@@ -485,6 +501,23 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::delete('/carts/{cart}/items/{item}', CartItemDestroyController::class)->name('carts.items.destroy');
 
         /*
+        | A query, not a command — no `idempotency` middleware, because the
+        | same proposal always has the same answer and there is nothing here
+        | for a replay to protect against.
+        |
+        | **`customer_address_id` is optional here and required at
+        | `/orders`.** A shopper previews a total before choosing where it
+        | goes — the cart screen has no address at all — and an absent one is
+        | reported as the `address_missing` warning rather than refused,
+        | because a preview has no transaction to abort. `CheckoutPreviewService`
+        | runs the identical `LineProbe` and `ZoneResolver` paths
+        | `OrderPlacementService` runs at placement, so this and `POST /orders`
+        | never quote two different numbers for a basket nothing has changed
+        | about.
+        */
+        Route::post('/checkouts/preview', CheckoutPreviewController::class)->name('checkouts.preview');
+
+        /*
         | The platform's **first genuinely non-idempotent command**, and the
         | first consumer of the `idempotency` alias that has existed since the
         | foundation. A double tap on a slow connection, a mobile client
@@ -546,6 +579,65 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::middleware('org.context')->prefix('/b2b/catalogue')->group(function (): void {
             Route::get('/items', B2bCatalogueItemIndexController::class)->name('b2b.catalogue.items.index');
             Route::get('/items/{item}', B2bCatalogueItemShowController::class)->name('b2b.catalogue.items.show');
+        });
+
+        /*
+        |------------------------------------------------------------------
+        | Corporate programmes & quotations (B1-B12)
+        |------------------------------------------------------------------
+        |
+        | `org.context` throughout: a programme belongs to a provisioned
+        | buyer organisation (B12), so there is nothing here for an
+        | applicant that has not yet been provisioned — that flow is the
+        | unscoped `/b2b/applications` block below.
+        |
+        | The buyer side carries **no permission code**. Reading the
+        | programme list, drafting a quotation's lines, submitting it, and
+        | deciding on a kitchen's prices are things any member of the buyer
+        | organisation may do (B7: org-shared server drafts) — membership,
+        | already proven by `org.context`, is the only gate. This mirrors
+        | the B2B catalogue block immediately above, for the same reason.
+        |
+        | The kitchen side is permission-gated because it looks the other
+        | way across the same relationship: `b2b_quotation.view_organisation`
+        | for reading what buyers submitted, `b2b_quotation.quote_organisation`
+        | for naming a price. Both are organisation-scoped roles, granted to
+        | `kitchen_manager` and `commercial_manager` in
+        | `PermissionRegistry::organisationPermissions()`.
+        */
+        Route::middleware('org.context')->prefix('/b2b')->group(function (): void {
+            Route::get('/programmes', CorporateProgrammeIndexController::class)->name('b2b.programmes.index');
+            Route::get('/programmes/{programme}', CorporateProgrammeShowController::class)->name('b2b.programmes.show');
+
+            Route::get('/programmes/{programme}/quotations', QuotationIndexController::class)->name('b2b.programmes.quotations.index');
+            Route::post('/programmes/{programme}/quotations', QuotationStoreController::class)->name('b2b.programmes.quotations.store');
+
+            Route::get('/quotations/{quotation}', QuotationShowController::class)->name('b2b.quotations.show');
+
+            Route::patch('/quotations/{quotation}', QuotationUpdateController::class)
+                ->middleware('precondition')
+                ->name('b2b.quotations.update');
+
+            Route::post('/quotations/{quotation}/submit', QuotationSubmitController::class)
+                ->middleware('precondition')
+                ->name('b2b.quotations.submit');
+
+            Route::post('/quotations/{quotation}/accept', QuotationAcceptController::class)
+                ->middleware('precondition')
+                ->name('b2b.quotations.accept');
+
+            Route::post('/quotations/{quotation}/decline', QuotationDeclineController::class)
+                ->middleware('precondition')
+                ->name('b2b.quotations.decline');
+
+            Route::middleware('permission:b2b_quotation.view_organisation')->group(function (): void {
+                Route::get('/kitchen/quotations', KitchenQuotationIndexController::class)->name('b2b.kitchen.quotations.index');
+                Route::get('/kitchen/quotations/{quotation}', KitchenQuotationShowController::class)->name('b2b.kitchen.quotations.show');
+            });
+
+            Route::post('/kitchen/quotations/{quotation}/quote', KitchenQuotationQuoteController::class)
+                ->middleware(['permission:b2b_quotation.quote_organisation', 'precondition'])
+                ->name('b2b.kitchen.quotations.quote');
         });
 
         /*
@@ -1171,14 +1263,17 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             });
 
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
+                Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
                 Route::get('/inventory/levels', StockLevelIndexController::class)->name('catalogue.inventory.levels.index');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
+                Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
                 Route::get('/kitchen-display/tickets', KdsTicketIndexController::class)->name('catalogue.kitchen-display.tickets.index');
             });
 
             Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
+                Route::post('/inventory/items', StockItemStoreController::class)->name('catalogue.inventory.items.store');
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');

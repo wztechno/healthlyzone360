@@ -53,7 +53,7 @@ final class PublicMealShowController
             : null;
 
         if ($projected === null) {
-            throw new ApiException(ErrorCode::ResourceNotFound, 'No meal with that identifier is on sale.');
+            throw new ApiException(ErrorCode::ResourceNotFound, 'No meal or product with that identifier is on sale.');
         }
 
         return ApiResponse::data($projected, ['locale' => $locale]);

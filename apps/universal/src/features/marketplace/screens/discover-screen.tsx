@@ -53,7 +53,7 @@ export function DiscoverScreen() {
     const router = useRouter();
     const [term, setTerm] = useState('');
 
-    const kitchens = useKitchensQuery({ limit: 4, channels: ['marketplace'] });
+    const kitchens = useKitchensQuery({ limit: 4, channels: ['b2c', 'marketplace'] });
     const dietitians = useDietitiansQuery({ limit: 3, acceptingClients: true });
 
     const kitchenItems = kitchens.data?.items ?? [];

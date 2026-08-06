@@ -90,6 +90,22 @@ const RECORDED_KITCHENS = {
             rating_count: 0,
             image_placeholder_id: 'kitchen-verdant-kitchen',
             is_verified: false,
+            delivery_windows: [
+                {
+                    code: 'morning',
+                    label: 'Morning',
+                    starts_at: '09:00',
+                    ends_at: '12:00',
+                    weekdays: [],
+                },
+                {
+                    code: 'evening',
+                    label: 'Evening',
+                    starts_at: '18:00',
+                    ends_at: '21:00',
+                    weekdays: [1, 2, 3, 4],
+                },
+            ],
         },
     ],
     meta: {

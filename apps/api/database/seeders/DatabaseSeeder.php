@@ -42,6 +42,11 @@ class DatabaseSeeder extends Seeder
             // the activation evaluator would refuse it — which is exactly the
             // behaviour the persona exists to demonstrate.
             DemoCustomerSeeder::class,
+            // After the tenants too: synthetic stock needs the demonstration
+            // kitchen and its branch to already exist.
+            OpsDemoSeeder::class,
+            // After Verdant's wholesale channel and published meals exist.
+            B2bProgrammesDemoSeeder::class,
         ]);
     }
 }

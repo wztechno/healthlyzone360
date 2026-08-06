@@ -3,6 +3,7 @@ import {
     Button,
     Callout,
     Card,
+    EmptyState,
     FilterChip,
     Heading,
     Inline,
@@ -18,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { useSupplyCommitmentsQuery } from '../../../data/business-hooks.ts';
 import type { SupplyCommitment } from '../../../data/business-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { useRepositories } from '../../../data/repository-provider.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { catalogueKindKey, quotationStateKey } from '../format.ts';
@@ -35,19 +37,17 @@ import { catalogueKindKey, quotationStateKey } from '../format.ts';
  * list of exceptions. The screen says so in its own copy, so the omission reads as a decision rather
  * than as missing data.
  *
- * ## Commitments are derived from quotations, because that is what the contract publishes
+ * ## Commitments are deferred on the API (B9)
  *
- * `BusinessRepository` has no supplier-side resource at all: no orders, no production schedule, no
- * fulfilment. What it does have is quotations, whose lines carry a catalogue item and a quantity,
- * and catalogue items, which carry the lead time and delivery weekdays. So a commitment here is
- * exactly that join, and nothing is invented on top of it. A real backend should publish
- * `GET /api/v1/partner/commitments`; the wave report records the gap.
+ * There is no `GET /api/v1/partner/commitments`. Mock mode still derives commitments from
+ * quotations for prototype review; API mode shows an honest deferred empty state.
  */
 
 export function PartnerCommitmentsScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const repositories = useRepositories();
 
     const [kitchenId, setKitchenId] = useState<KitchenId | null>(null);
 
@@ -57,6 +57,26 @@ export function PartnerCommitmentsScreen() {
     const commitments: readonly SupplyCommitment[] = (query.data ?? []).filter(
         (commitment) => kitchenId === null || commitment.item.kitchenId === kitchenId,
     );
+
+    // Gate on the repository kind, not `appConfig.isMockData`: Jest injects mock
+    // repositories while the default build config is already `api`.
+    if (repositories.kind !== 'mock') {
+        return (
+            <Stack space="lg" testID="partner-commitments-screen">
+                <Stack space="xs">
+                    <Heading level={1} testID="partner-commitments-title">
+                        {t('business:partner.title')}
+                    </Heading>
+                    <Text tone="secondary">{t('business:partner.body')}</Text>
+                </Stack>
+                <EmptyState
+                    testID="partner-commitments-deferred"
+                    title={t('business:partner.deferredTitle')}
+                    body={t('business:partner.deferredBody')}
+                />
+            </Stack>
+        );
+    }
 
     return (
         <Stack space="lg" testID="partner-commitments-screen">

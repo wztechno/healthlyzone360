@@ -35,6 +35,7 @@ import type {
     MarketplaceOpeningHours as WireOpeningHours,
     MarketplaceSalesChannels as WireChannels,
 } from '../generated/types.ts';
+import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
 
 /**
  * Wire (`snake_case`, OpenAPI) → domain (`camelCase`, the marketplace contract).
@@ -90,12 +91,13 @@ export const NO_NUTRITION_FACTS: NutritionFacts = {
         kind: 'synthetic_prototype',
         label: 'No nutrition source is recorded for this meal.',
         version: '0',
-        calculatedAt: '',
+        // Empty on purpose — screens must not format this (see `UNKNOWN_ISO_DATE_TIME`).
+        calculatedAt: UNKNOWN_ISO_DATE_TIME,
     },
     calculation: {
         method: 'none.no_recorded_source',
         basis: 'per_serving',
-        calculatedAt: '',
+        calculatedAt: UNKNOWN_ISO_DATE_TIME,
         prototype: true,
         rounding: 'none',
         notes: [
@@ -184,6 +186,16 @@ export function mapKitchenBranch(wire: WireBranch): KitchenBranch {
 }
 
 export function mapKitchen(wire: WireKitchen): Kitchen {
+    const windows = (wire as WireKitchen & {
+        readonly delivery_windows?: readonly {
+            readonly code: string;
+            readonly label: string;
+            readonly starts_at: string;
+            readonly ends_at: string;
+            readonly weekdays: readonly number[];
+        }[];
+    }).delivery_windows;
+
     return {
         id: KitchenId.unsafe(wire.id),
         name: wire.name,
@@ -195,6 +207,13 @@ export function mapKitchen(wire: WireKitchen): Kitchen {
         dietClassifications: wire.diet_classifications as readonly DietClassification[],
         channels: mapSalesChannels(wire.channels),
         branches: wire.branches.map(mapKitchenBranch),
+        deliveryWindows: (windows ?? []).map((window) => ({
+            code: window.code,
+            label: window.label,
+            startsAt: window.starts_at,
+            endsAt: window.ends_at,
+            weekdays: window.weekdays,
+        })),
         rating: wire.rating,
         ratingCount: wire.rating_count,
         imagePlaceholderId: wire.image_placeholder_id,
@@ -232,6 +251,7 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         id: MealId.unsafe(wire.id),
         kitchenId: KitchenId.unsafe(wire.kitchen_id),
         kitchenName: wire.kitchen_name,
+        itemType: wire.item_type === 'product' ? 'product' : 'meal',
         name: wire.name,
         slug: wire.slug,
         description: wire.description,

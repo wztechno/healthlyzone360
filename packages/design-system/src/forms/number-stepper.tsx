@@ -10,7 +10,7 @@ import { KEYS, keyDownProps } from '../internal/web-props.ts';
 import type { WebKeyEvent } from '../internal/web-props.ts';
 import { FormField } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
-import { inputFrameClassName } from './text-input.tsx';
+import { inputControlClassName, inputFrameClassName } from './text-input.tsx';
 
 export interface NumberStepperProps {
     readonly label: string;
@@ -169,7 +169,7 @@ export function NumberStepper({
                             onChangeText={commit}
                             onBlur={blur}
                             {...keyDownProps(onKeyDown)}
-                            className="flex-1 text-base text-content-primary"
+                            className={inputControlClassName}
                             placeholderTextColor={neutral[600]}
                             style={{ textAlign: 'auto' }}
                         />

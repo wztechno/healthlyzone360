@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Providers;
 
+use Healthy360\Kitchens\Console\ActivateImportedTariffsCommand;
 use Healthy360\Kitchens\Console\ApplyAllergenDeterminationsCommand;
 use Healthy360\Kitchens\Console\ImportKitchenWorkbookCommand;
 use Healthy360\Kitchens\Console\PublishReadyCatalogueCommand;
@@ -29,6 +30,7 @@ class KitchensServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ImportKitchenWorkbookCommand::class,
+                ActivateImportedTariffsCommand::class,
                 ApplyAllergenDeterminationsCommand::class,
                 SeedApproximatePlanPricesCommand::class,
                 PublishReadyCatalogueCommand::class,

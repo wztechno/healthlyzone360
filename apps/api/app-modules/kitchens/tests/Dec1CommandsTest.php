@@ -180,6 +180,11 @@ it('writes nothing at all on a dry run of every DEC1 command', function (): void
         '--dry-run' => true,
     ])->assertSuccessful();
 
+    $this->artisan('kitchen:activate-imported-tariffs', [
+        '--org' => 'healthy360-kitchen',
+        '--dry-run' => true,
+    ])->assertSuccessful();
+
     expect(dec1RowCounts())->toBe($before);
 });
 

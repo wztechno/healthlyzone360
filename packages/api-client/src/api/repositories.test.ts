@@ -1740,12 +1740,21 @@ describe('subscriptions (S1)', () => {
             rating_count: 0,
         };
 
+        const wirePreview = {
+            cart_id: cartId,
+            currency_code: 'USD',
+            subtotal_minor: 8400,
+            delivery_fee_minor: null,
+            total_minor: 8400,
+            line_count: 1,
+            warnings: ['address_missing'],
+        };
+
         const { repositories, calls } = harness(
             [
                 { status: 200, body: { data: { cart: wireCart }, meta: {} } },
                 { status: 200, body: { data: wireMeal, meta: {} } },
-                { status: 200, body: { data: { cart: wireCart }, meta: {} } },
-                { status: 200, body: { data: wireMeal, meta: {} } },
+                { status: 200, body: { data: { preview: wirePreview }, meta: {} } },
             ],
             createMemoryTokenStore('token'),
         );
@@ -1760,11 +1769,16 @@ describe('subscriptions (S1)', () => {
         expect(cart.items[0]?.unitPrice).toEqual({ amount: 4200, currency: 'USD' });
         expect(cart.subtotal).toEqual({ amount: 8400, currency: 'USD' });
 
+        // A real server-side preview: one POST, the same numbers `LineProbe` and `ZoneResolver`
+        // would resolve at placement, and no delivery fee invented for the address it was not given.
         const preview = await repositories.commerce.previewCheckout({ cartId: cart.id });
+        expect(calls[2]?.method).toBe('POST');
+        expect(calls[2]?.url).toBe('https://api.example/api/v1/checkouts/preview');
+        expect(calls[2]?.body).toEqual({ cart_id: cartId });
         expect(preview.deliveryFee).toBeNull();
         expect(preview.paymentDeferred).toBe(true);
         expect(preview.total).toEqual({ amount: 8400, currency: 'USD' });
-        expect(preview.warnings).toContain('checkout.delivery_priced_at_placement');
+        expect(preview.warnings).toContain('checkout.address_missing');
     });
 
     it('adds a cart line then hydrates the returned basket', async () => {

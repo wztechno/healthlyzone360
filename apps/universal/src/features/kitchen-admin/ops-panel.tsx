@@ -1,33 +1,40 @@
 import {
-    Badge,
     EmptyState,
     FadeIn,
     Heading,
-    Inline,
     PageTransition,
     Stack,
     Text,
     useMotion,
 } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 /**
- * Shared chrome for stock / procurement / production / QC — intentional ops panels that are
- * UI-ready but do not invent API numbers.
+ * Shared chrome for stock / procurement / production / QC.
+ *
+ * ## Metrics are live list counts, not KPIs
+ *
+ * Every `OpsMetric.value` is a count of rows a screen actually fetched — never a fabricated figure.
+ * `null` is the honest "not known yet" state (the underlying query is still pending, or it failed),
+ * and renders as an em dash rather than a zero, because a zero would tell a kitchen manager there is
+ * nothing on hand when the true answer is "the count could not be read".
  */
 
-export interface OpsMetricPlaceholder {
+export interface OpsMetric {
     readonly key: string;
     readonly labelKey: string;
+    /** A count from a list the screen fetched. `null` while pending or unavailable. */
+    readonly value: number | null;
 }
 
 export interface OpsPanelProps {
     readonly testID: string;
     readonly titleKey: string;
     readonly subtitleKey: string;
-    readonly metrics: readonly OpsMetricPlaceholder[];
+    readonly metrics: readonly OpsMetric[];
     readonly emptyTitleKey: string;
     readonly emptyBodyKey: string;
     readonly children?: ReactNode | undefined;
@@ -36,11 +43,13 @@ export interface OpsPanelProps {
 function MetricSlot({
     testID,
     label,
+    value,
 }: {
     readonly testID: string;
     readonly label: string;
+    readonly value: number | null;
 }) {
-    const { t } = useTranslation();
+    const formatter = useFormatter();
 
     return (
         <View
@@ -49,15 +58,12 @@ function MetricSlot({
         >
             <Text
                 testID={`${testID}-value`}
-                className="font-display text-[25px] font-bold text-content-secondary"
+                className="font-display text-[25px] font-bold text-content-primary"
             >
-                —
+                {value === null ? '—' : formatter.formatNumber(value)}
             </Text>
             <Text tone="secondary" variant="caption" className="mt-0.5">
                 {label}
-            </Text>
-            <Text tone="secondary" variant="caption" className="mt-1.5 font-bold text-brand-600">
-                {t('kitchen:ops.metricUnavailable')}
             </Text>
         </View>
     );
@@ -79,21 +85,14 @@ export function OpsPanel({
         <PageTransition testID={testID} transitionKey={testID}>
             <Stack space="lg">
                 <FadeIn delayMs={stagger(0)}>
-                    <Inline space="sm" align="center" wrap>
-                        <Stack space="xs" grow>
-                            <Heading level={1} testID={`${testID}-title`}>
-                                {t(titleKey)}
-                            </Heading>
-                            <Text tone="secondary" testID={`${testID}-subtitle`}>
-                                {t(subtitleKey)}
-                            </Text>
-                        </Stack>
-                        <Badge
-                            testID={`${testID}-status`}
-                            tone="brand"
-                            label={t('kitchen:ops.readyForApi')}
-                        />
-                    </Inline>
+                    <Stack space="xs">
+                        <Heading level={1} testID={`${testID}-title`}>
+                            {t(titleKey)}
+                        </Heading>
+                        <Text tone="secondary" testID={`${testID}-subtitle`}>
+                            {t(subtitleKey)}
+                        </Text>
+                    </Stack>
                 </FadeIn>
 
                 <FadeIn delayMs={stagger(1)} testID={`${testID}-metrics`}>
@@ -103,6 +102,7 @@ export function OpsPanel({
                                 key={metric.key}
                                 testID={`${testID}-metric-${metric.key}`}
                                 label={t(metric.labelKey)}
+                                value={metric.value}
                             />
                         ))}
                     </View>

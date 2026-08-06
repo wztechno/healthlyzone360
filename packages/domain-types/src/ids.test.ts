@@ -28,6 +28,15 @@ const KITCHEN_MANAGEMENT_ID_LABELS: readonly string[] = [
     'ServiceAreaId',
 ];
 
+/** The identifiers the kitchen ops surface (inventory, procurement, production, QC) introduced. */
+const KITCHEN_OPS_ID_LABELS: readonly string[] = [
+    'GoodsReceiptId',
+    'ProductionOrderId',
+    'QualityCheckId',
+    'StockItemId',
+    'SupplierId',
+];
+
 describe('isUuid', () => {
     it.each([UUID_V7, UUID_V4, UUID_V7.toUpperCase()])('accepts %s', (value) => {
         expect(isUuid(value)).toBe(true);
@@ -87,6 +96,7 @@ describe('identifier codecs', () => {
                             'RoleId',
                             'UserId',
                             ...KITCHEN_MANAGEMENT_ID_LABELS,
+                            ...KITCHEN_OPS_ID_LABELS,
                         ].includes(label),
                 )
                 .sort(),
@@ -126,6 +136,14 @@ describe('identifier codecs', () => {
                 .filter((label) => KITCHEN_MANAGEMENT_ID_LABELS.includes(label))
                 .sort(),
         ).toEqual([...KITCHEN_MANAGEMENT_ID_LABELS].sort());
+    });
+
+    it('exposes the five kitchen ops identifiers', () => {
+        expect(
+            Object.keys(ID_CODECS)
+                .filter((label) => KITCHEN_OPS_ID_LABELS.includes(label))
+                .sort(),
+        ).toEqual([...KITCHEN_OPS_ID_LABELS].sort());
     });
 
     it('keeps every codec label unique', () => {

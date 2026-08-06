@@ -148,6 +148,7 @@ class DemoTenantSeeder extends Seeder
         $this->seedMarketplacePlan($verdant, $webShop, $verdantOwner);
         $this->seedVerdantDelivery($verdant, $alQuoz, $verdantOwner);
         $this->seedVerdantMenu($verdant, $webShop, $verdantOwner);
+        $this->call(VerdantProductCatalogueSeeder::class);
 
         $this->seedPlatformOperator();
     }
@@ -414,7 +415,10 @@ class DemoTenantSeeder extends Seeder
         // The one-off first: it is the shortest commitment there is, and it
         // carries no number of days at all.
         $oneOff = $this->planDuration($verdant, 'one-off', PlanDurationKind::OneOff, null, 'One-off order', 'طلب لمرة واحدة', 1, $creator);
-        $twentyDays = $this->planDuration($verdant, 'days-20', PlanDurationKind::FixedDays, 20, '20 days', '٢٠ يوماً', 2, $creator);
+        // 28 days maps to the client's closed `4w` duration vocabulary (7/14/28/84).
+        // A 20-day fixture would publish on the wire but drop out of every consumer
+        // chooser — leaving a plan with no buyable duration.
+        $twentyEightDays = $this->planDuration($verdant, 'days-28', PlanDurationKind::FixedDays, 28, '28 days', '٢٨ يوماً', 2, $creator);
 
         $plan = $this->catalogueItem($verdant, $catalogue, 'balanced-plan', CatalogueItemType::SubscriptionPlan, 'Balanced plan', 'الخطة المتوازنة', $creator);
 
@@ -442,8 +446,8 @@ class DemoTenantSeeder extends Seeder
         $premium = $this->planConfiguration($plan, $verdant, $fullDay, $upperBand, ServiceTier::Premium, 3, 1, '3 meals + snack · 1500–1800 kcal', $creator);
 
         $this->planDurationAssignment($verdant, $standard, $oneOff, null, $creator);
-        $this->planDurationAssignment($verdant, $standard, $twentyDays, null, $creator);
-        $this->planDurationAssignment($verdant, $premium, $twentyDays, '10.00', $creator);
+        $this->planDurationAssignment($verdant, $standard, $twentyEightDays, null, $creator);
+        $this->planDurationAssignment($verdant, $premium, $twentyEightDays, '10.00', $creator);
 
         $this->seedVerdantPlanTariff($verdant, $plan, $standard, $creator);
     }
@@ -483,9 +487,9 @@ class DemoTenantSeeder extends Seeder
             ->where('organisation_id', $verdant->getKey())
             ->where('code', 'one-off')
             ->sole();
-        $twentyDays = PlanDuration::withoutTenancy()
+        $twentyEightDays = PlanDuration::withoutTenancy()
             ->where('organisation_id', $verdant->getKey())
-            ->where('code', 'days-20')
+            ->where('code', 'days-28')
             ->sole();
 
         $plan = $this->catalogueItem(
@@ -517,8 +521,8 @@ class DemoTenantSeeder extends Seeder
         $premium = $this->planConfiguration($plan, $verdant, $fullDay, $upperBand, ServiceTier::Premium, 3, 1, '3 meals + snack · 1500–1800 kcal', $creator);
 
         $this->planDurationAssignment($verdant, $standard, $oneOff, null, $creator);
-        $this->planDurationAssignment($verdant, $standard, $twentyDays, null, $creator);
-        $this->planDurationAssignment($verdant, $premium, $twentyDays, '10.00', $creator);
+        $this->planDurationAssignment($verdant, $standard, $twentyEightDays, null, $creator);
+        $this->planDurationAssignment($verdant, $premium, $twentyEightDays, '10.00', $creator);
 
         $tariff = PriceList::withoutTenancy()->updateOrCreate(
             ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-marketplace-plans-usd'],

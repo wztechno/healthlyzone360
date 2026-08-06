@@ -57,7 +57,7 @@ export interface AppConfig {
 
 const appMode: AppMode = isAppMode(extra.appMode) ? extra.appMode : 'all-dev';
 const appEnv: AppEnv = isAppEnv(extra.appEnv) ? extra.appEnv : 'development';
-const dataMode: DataMode = isDataMode(extra.dataMode) ? extra.dataMode : 'mock';
+const dataMode: DataMode = isDataMode(extra.dataMode) ? extra.dataMode : 'api';
 
 /**
  * `EXPO_PUBLIC_*` variables are inlined by Metro at build time, so this is read from

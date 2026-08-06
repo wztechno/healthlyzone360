@@ -1,5 +1,6 @@
 import { createMemoryTokenStore } from '@healthy360/api-client';
 import { MOCK_SCENARIOS, createMockRepositories } from '@healthy360/api-client/mock';
+import type { NutritionFacts } from '@healthy360/nutrition';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
@@ -16,6 +17,7 @@ import {
 import { MACRO_DISTRIBUTION_RANGES, macroDistributionLevel } from './macro-rings.tsx';
 import { toTargetRequest, DEFAULT_CALCULATOR_INPUTS } from './calculator-fields.tsx';
 import { toMealFilter } from './meal-filters.tsx';
+import { NutritionFactsPanel } from './nutrition-facts-panel.tsx';
 import {
     cheapestVariant,
     distinctKitchenIds,
@@ -379,6 +381,42 @@ describe('MealsScreen', () => {
 });
 
 /* ── /meals/{meal} ───────────────────────────────────────────────────────────────────────────── */
+
+describe('NutritionFactsPanel', () => {
+    it('renders API meals with no recorded nutrition without formatting an empty timestamp', async () => {
+        // Mirrors `NO_NUTRITION_FACTS` from the API mapper: empty `calculatedAt` is the sentinel
+        // for "the platform has no timestamp" and must never reach `formatDate`.
+        const unrecorded: NutritionFacts = {
+            basis: 'per_serving',
+            kind: 'planned',
+            serving: null,
+            totalGrams: null,
+            amounts: [],
+            source: {
+                kind: 'synthetic_prototype',
+                label: 'No nutrition source is recorded for this meal.',
+                version: '0',
+                calculatedAt: '',
+            },
+            calculation: {
+                method: 'none.no_recorded_source',
+                basis: 'per_serving',
+                calculatedAt: '',
+                prototype: true,
+                rounding: 'none',
+                notes: ['The platform holds no nutrition figures for this meal.'],
+            },
+        };
+
+        await renderScreen(
+            <NutritionFactsPanel facts={unrecorded} testID="meal-detail-facts" />,
+        );
+
+        expect(screen.getByTestId('meal-detail-facts')).toBeTruthy();
+        expect(screen.getByTestId('meal-detail-facts-synthetic')).toBeTruthy();
+        expect(screen.queryByTestId('meal-detail-facts-calculated-at')).toBeNull();
+    });
+});
 
 describe('MealDetailScreen', () => {
     it('renders the record: facts, provenance, macros, allergens, availability and price', async () => {

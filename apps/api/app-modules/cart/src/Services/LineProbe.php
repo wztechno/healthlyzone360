@@ -14,6 +14,7 @@ use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 
 /**
  * "Can this customer order this, through this channel, on this day — and at
@@ -55,13 +56,23 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  *    another currency is not a price in this one — converting it would be this
  *    class inventing an exchange rate nobody agreed to.
  *
+ * **Tenant context.** `price_list_items` is row-level-secured: even
+ * `withoutTenancy()` cannot see a kitchen's tariff until
+ * `app.organisation_id` is that kitchen. The marketplace listing already
+ * wraps its price read the same way (`MarketplaceMeals::priceOf`); this probe
+ * must match, or a customer would see a dish with a price and then be refused
+ * when they try to buy it.
+ *
  * Every failure is collected, never short-circuited, except where a later
  * check has nothing to stand on: there is no point pricing an article that
  * does not exist.
  */
 final readonly class LineProbe
 {
-    public function __construct(private PriceResolver $prices) {}
+    public function __construct(
+        private PriceResolver $prices,
+        private DatabaseTenantContext $tenantContext,
+    ) {}
 
     /**
      * @param  string  $quantity  decimal string, as `cart_items.quantity` is held
@@ -76,6 +87,35 @@ final readonly class LineProbe
         ?CarbonImmutable $on,
         string $currencyCode,
         ?CustomerAccount $buyer = null,
+    ): LineProbeResult {
+        // Scoped to the channel's kitchen for the whole probe: prices (and any
+        // future RLS-bound catalogue tables) must answer under that tenant, not
+        // under whatever membership the shopper happens to hold — which for a
+        // pure consumer is none.
+        return $this->tenantContext->during(
+            null,
+            (string) $channel->organisation_id,
+            null,
+            fn (): LineProbeResult => $this->probeWithinTenant(
+                $channel,
+                $catalogueItemId,
+                $catalogueItemVariantId,
+                $quantity,
+                $on,
+                $currencyCode,
+                $buyer,
+            ),
+        );
+    }
+
+    private function probeWithinTenant(
+        SalesChannel $channel,
+        string $catalogueItemId,
+        ?string $catalogueItemVariantId,
+        string $quantity,
+        ?CarbonImmutable $on,
+        string $currencyCode,
+        ?CustomerAccount $buyer,
     ): LineProbeResult {
         $day = ($on ?? CarbonImmutable::now())->startOfDay();
         $refusals = [];

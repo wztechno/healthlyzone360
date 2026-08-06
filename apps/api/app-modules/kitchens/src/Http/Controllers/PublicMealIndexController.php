@@ -12,6 +12,7 @@ use Healthy360\Kitchens\Services\MarketplacePage;
 use Healthy360\Kitchens\Services\MarketplaceProjector;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
+use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,9 +20,10 @@ use Illuminate\Http\Request;
 /**
  * GET /api/v1/marketplace/meals — anonymous.
  *
- * The meal catalogue. Published meals, offered through a consumer channel,
- * carrying a confirmed price — the three conditions `MarketplaceMeals`
- * documents, applied in that order.
+ * The meal catalogue. Published meals **and products**, offered through a
+ * consumer listing channel, carrying a confirmed price — the conditions
+ * `MarketplaceMeals` documents. Filter with `item_types=meal`, `product`, or
+ * both (comma-separated); omit the parameter to receive both kinds.
  *
  * **`exclude_allergens` is an exclusion, never an inclusion.** A person filters
  * by what they must avoid, and the two are not symmetrical: "show me dishes
@@ -68,6 +70,22 @@ final class PublicMealIndexController
 
         if ($diets !== null) {
             $this->meals->whereDietClassifications($query, $diets);
+        }
+
+        $itemTypes = $this->listParameter($request, 'item_types', 2);
+
+        if ($itemTypes !== null) {
+            $unknown = array_values(array_diff($itemTypes, MarketplaceMeals::LISTING_ITEM_TYPES));
+
+            if ($unknown !== []) {
+                throw new ApiException(
+                    ErrorCode::RequestInvalid,
+                    'item_types accepts only meal and product.',
+                    ['parameter' => 'item_types', 'unknown' => $unknown],
+                );
+            }
+
+            $this->meals->whereItemTypes($query, $itemTypes);
         }
 
         $excludeAllergens = $this->listParameter($request, 'exclude_allergens', 20) ?? [];

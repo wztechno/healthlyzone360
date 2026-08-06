@@ -147,6 +147,9 @@ export interface QuotationFilter extends CursorPageRequest {
 }
 
 export interface BusinessRepository {
+    /** Every programme the caller's organisation is the buyer on. */
+    listCorporateProgrammes(): Promise<readonly CorporateProgramme[]>;
+
     /** The caller's corporate programme. Rejects with `context.organisation_required` without one. */
     getCorporateProgramme(programmeId: CorporateProgrammeId): Promise<CorporateProgramme>;
 
@@ -156,4 +159,17 @@ export interface BusinessRepository {
     /** Submits a quotation request. No price is agreed and nothing is ordered. */
     requestQuotation(request: RequestQuotationRequest): Promise<Quotation>;
     listQuotations(filter?: QuotationFilter): Promise<CursorPage<Quotation>>;
+
+    /**
+     * Buyer accepts a `quoted` quotation (`quoted` → `accepted`). Catalogue
+     * access stays on the agreement's price list — acceptance records the
+     * decision only (B6).
+     */
+    acceptQuotation(quotationId: QuotationId): Promise<Quotation>;
+
+    /**
+     * Buyer declines a `quoted` quotation (`quoted` → `declined`). Optional
+     * reason is stored for the seller; PDF export remains deferred.
+     */
+    declineQuotation(quotationId: QuotationId, reason?: string): Promise<Quotation>;
 }

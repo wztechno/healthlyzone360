@@ -10,7 +10,9 @@ use Healthy360\B2b\Services\BuyerAgreementLookup;
 use Healthy360\B2b\Services\NoInvoicingSettlementLookup;
 use Healthy360\B2b\Services\NoSellerOpenOrders;
 use Healthy360\B2b\Services\PendingB2bSignatoryQuery;
+use Healthy360\B2b\Services\ProgrammeMembershipLookup;
 use Healthy360\Customers\Closure\Contracts\B2bSignatoryPresence;
+use Healthy360\Identity\Contracts\ProgrammeMembershipLookup as ProgrammeMembershipLookupContract;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -107,6 +109,11 @@ class B2bServiceProvider extends ServiceProvider
             \Healthy360\Pricing\Contracts\BuyerAgreementLookup::class,
             BuyerAgreementLookup::class,
         );
+
+        // B1 (corporate programmes and quotations). Same shape again: the
+        // port is Identity's, so `/me` can name a buyer's programmes without
+        // depending on this module, and the answer is B2B's to give.
+        $this->app->bind(ProgrammeMembershipLookupContract::class, ProgrammeMembershipLookup::class);
     }
 
     public function boot(): void {}

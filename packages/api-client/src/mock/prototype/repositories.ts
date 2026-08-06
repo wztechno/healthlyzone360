@@ -370,6 +370,13 @@ export function createPrototypeRepositories(
                 ) {
                     return false;
                 }
+                if (
+                    filter?.itemTypes !== undefined &&
+                    filter.itemTypes.length > 0 &&
+                    !filter.itemTypes.includes(meal.itemType)
+                ) {
+                    return false;
+                }
                 if (!overlaps(meal.mealTypes, filter?.mealTypes)) return false;
                 if (!overlaps(meal.dietClassifications, filter?.dietClassifications)) return false;
                 if (!overlaps(meal.cuisines, filter?.cuisines)) return false;
@@ -963,6 +970,11 @@ export function createPrototypeRepositories(
     /* ── business ──────────────────────────────────────────────────────────────────────────── */
 
     const business: BusinessRepository = {
+        async listCorporateProgrammes(): Promise<readonly CorporateProgramme[]> {
+            await settle();
+            return store.programmes();
+        },
+
         async getCorporateProgramme(programmeId): Promise<CorporateProgramme> {
             await settle();
             return store.programme(programmeId);
@@ -1020,6 +1032,16 @@ export function createPrototypeRepositories(
                 return true;
             });
             return paginate(matched, filter);
+        },
+
+        async acceptQuotation(quotationId) {
+            await settle();
+            return store.acceptQuotation(quotationId);
+        },
+
+        async declineQuotation(quotationId, reason) {
+            await settle();
+            return store.declineQuotation(quotationId, reason);
         },
     };
 

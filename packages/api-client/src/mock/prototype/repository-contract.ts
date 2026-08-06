@@ -124,11 +124,14 @@ export const CONTRACT_METHODS: Readonly<Record<RepositoryKey, readonly string[]>
         'setSubscriptionMealChoices',
     ],
     business: [
+        'listCorporateProgrammes',
         'getCorporateProgramme',
         'listCatalogue',
         'getCatalogueItem',
         'requestQuotation',
         'listQuotations',
+        'acceptQuotation',
+        'declineQuotation',
     ],
     professional: [
         'listReviewQueue',
@@ -750,6 +753,17 @@ export function describeRepositoryContract(options: RepositoryContractOptions): 
                 })
                 .then(() => null, asApiFailure);
             expect(failure?.code).toBe('validation.failed');
+        });
+
+        it('accepts a quoted quotation', async () => {
+            const { business } = create();
+            const listed = await business.listQuotations({ states: ['quoted'] });
+            const quoted = listed.items[0];
+            expect(quoted).toBeDefined();
+            if (quoted === undefined) return;
+
+            const accepted = await business.acceptQuotation(quoted.id);
+            expect(accepted.state).toBe('accepted');
         });
     });
 }

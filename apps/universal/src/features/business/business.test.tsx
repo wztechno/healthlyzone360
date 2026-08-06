@@ -534,15 +534,21 @@ describe('quotation list', () => {
         });
     });
 
-    it('offers accepting and exporting as prototype controls, because neither is on the contract', async () => {
+    it('accepts a quoted quotation for real and keeps export as a prototype control', async () => {
         await renderBusiness(<QuotationsScreen />);
 
         await waitFor(() => {
             expect(screen.getByTestId('quotations-list')).toBeTruthy();
         });
-        const actions = screen.getAllByTestId('prototype-action');
-        expect(actions.length).toBeGreaterThanOrEqual(2);
 
+        const accept = screen.getByTestId('quotation-H360-Q-2026-0039-accept');
+        fireEvent.press(accept);
+        await waitFor(() => {
+            expect(screen.queryByTestId('quotation-H360-Q-2026-0039-accept')).toBeNull();
+        });
+
+        const actions = screen.getAllByTestId('prototype-action');
+        expect(actions.length).toBeGreaterThanOrEqual(1);
         fireEvent.press(actions[0]!);
         await waitFor(() => {
             expect(screen.getByTestId('prototype-notice')).toBeTruthy();

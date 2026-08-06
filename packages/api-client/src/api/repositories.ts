@@ -39,7 +39,7 @@ import { createApiAccountRepository } from './account-repository.ts';
 import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
-import { createApiBusinessReads } from './business-repository.ts';
+import { createApiBusinessRepository } from './business-repository.ts';
 import { createApiCartSurface } from './cart-repository.ts';
 import { createApiOrderPlacement } from './order-repository.ts';
 import {
@@ -50,6 +50,7 @@ import {
 import { createApiReferenceReads } from './reference-repository.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
 import { createApiKitchenAdminWrites } from './kitchen-admin-writes.ts';
+import { createApiKitchenOpsRepository } from './kitchen-ops-repository.ts';
 import { createApiSubscriptionReads } from './subscription-repository.ts';
 import { createApiVerificationRepository } from './verification-repository.ts';
 import {
@@ -473,7 +474,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
     const verification = createApiVerificationRepository(transport);
     const kitchenAdminReads = createApiKitchenAdminReads(transport);
     const kitchenAdminWrites = createApiKitchenAdminWrites(transport);
-    const businessReads = createApiBusinessReads(transport);
+    const business = createApiBusinessRepository(transport);
     const account = createApiAccountRepository({
         transport,
         reference,
@@ -498,10 +499,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         b2bApplication: createApiB2bApplicationRepository(transport),
         marketplace: createApiMarketplaceRepository(transport),
         ...API_PROTOTYPE_REPOSITORIES,
-        business: {
-            ...API_PROTOTYPE_REPOSITORIES.business,
-            ...businessReads,
-        },
+        business,
         commerce: {
             ...apiCommerceRepository,
             ...createApiCartSurface(transport),
@@ -515,5 +513,6 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             ...kitchenAdminReads,
             ...kitchenAdminWrites,
         },
+        kitchenOps: createApiKitchenOpsRepository(transport),
     };
 }

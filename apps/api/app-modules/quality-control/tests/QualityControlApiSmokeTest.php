@@ -34,9 +34,28 @@ it('creates and releases a quality check', function (): void {
 
     $id = $created->json('data.quality_check.id');
 
+    $this->getJson('/api/v1/catalogue/quality-control/checks', $this->headers)->assertOk()
+        ->assertJsonFragment(['id' => $id, 'subject_type' => 'goods_receipt', 'status' => 'pending']);
+
     $this->postJson('/api/v1/catalogue/quality-control/checks/'.$id.'/hold', [], $this->headers)->assertOk()
         ->assertJsonPath('data.quality_check.status', 'hold');
 
     $this->postJson('/api/v1/catalogue/quality-control/checks/'.$id.'/release', [], $this->headers)->assertOk()
         ->assertJsonPath('data.quality_check.status', 'released');
+});
+
+it('accepts a production_order subject, the other half of the O3 allow-list', function (): void {
+    $this->postJson('/api/v1/catalogue/quality-control/checks', [
+        'subject_type' => 'production_order',
+        'subject_id' => (string) Str::uuid(),
+    ], $this->headers)->assertCreated()
+        ->assertJsonPath('data.quality_check.status', 'pending');
+});
+
+it('refuses a subject_type outside the allow-list', function (): void {
+    $this->postJson('/api/v1/catalogue/quality-control/checks', [
+        'subject_type' => 'purchase_order',
+        'subject_id' => (string) Str::uuid(),
+    ], $this->headers)->assertUnprocessable()
+        ->assertJsonPath('error.code', 'validation.failed');
 });

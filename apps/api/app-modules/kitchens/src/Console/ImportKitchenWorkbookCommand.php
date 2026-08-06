@@ -40,7 +40,8 @@ final class ImportKitchenWorkbookCommand extends Command
         {--source= : The folder holding the five workbook exports}
         {--dry-run : Do everything and roll it back; report what would be created}
         {--validate-only : Parse and report findings; never touch the database}
-        {--org= : The organisation slug to import into (defaults to the configured one)}';
+        {--org= : The organisation slug to import into (defaults to the configured one; use verdant-kitchen for the demo kitchen)}
+        {--activate-and-publish : After a writing import, activate B2C/B2B tariffs and publish ready catalogue items}';
 
     protected $description = 'Import a private kitchen workbook into one Healthy360 kitchen organisation.';
 
@@ -112,6 +113,39 @@ final class ImportKitchenWorkbookCommand extends Command
         }
 
         $import->auditFinish($options, $report);
+
+        if ($options->writes() && (bool) $this->option('activate-and-publish')) {
+            $this->line('');
+            $this->components->info('Making imported products buyable…');
+
+            $activate = $this->call('kitchen:activate-imported-tariffs', [
+                '--org' => $options->organisationSlug,
+            ]);
+
+            if ($activate !== self::SUCCESS) {
+                return self::FAILURE;
+            }
+
+            $publish = $this->call('kitchen:publish-ready', [
+                '--org' => $options->organisationSlug,
+            ]);
+
+            if ($publish !== self::SUCCESS) {
+                return self::FAILURE;
+            }
+        } elseif ($options->writes()) {
+            $this->line('');
+            $this->line('  Imported rows stay draft until tariffs are active and items pass readiness.');
+            $this->line(sprintf(
+                '  Next (local / onboarding): kitchen:activate-imported-tariffs --org=%s',
+                $options->organisationSlug,
+            ));
+            $this->line(sprintf(
+                '                           kitchen:publish-ready --org=%s',
+                $options->organisationSlug,
+            ));
+            $this->line('  Or re-run with --activate-and-publish.');
+        }
 
         // A run with failures still exits zero: report-and-continue means a
         // failed line is an output, not a crash, and a non-zero exit would make

@@ -7,8 +7,10 @@ namespace Healthy360\Kitchens\Services;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
 use Healthy360\Pricing\Services\PriceResolver;
@@ -18,15 +20,17 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * The published meals a customer can see, and what each one costs.
+ * The published sellable catalogue a customer can see on the marketplace, and
+ * what each listing costs.
  *
- * ## What makes a meal public
+ * ## What makes a listing public
  *
  * Four conditions, and every one of them is somebody's decision rather than an
  * inference:
  *
- * 1. **`item_type = meal`.** Products and subscription plans share the table
- *    and have their own surfaces.
+ * 1. **`item_type` is `meal` or `product`.** Subscription plans share the table
+ *    and have their own surface. Kitchens sell dishes *and* packaged goods
+ *    (sauces, frozen packs, oils); both must be discoverable here when published.
  * 2. **`status = published`.** `CatalogueItemStatus::isConsumerVisible()` is the
  *    predicate, called rather than re-spelled, so a draft, a quarantined item
  *    (`review_required`) and a retired one are all invisible for the same
@@ -34,21 +38,21 @@ use Illuminate\Database\Eloquent\Builder;
  * 3. **Offered through a listing channel today.** A row in
  *    `channel_catalogue_items` marked available, inside its own dates, on an
  *    active channel of a listing kind. Publication and availability are
- *    different questions — a complete, published, sellable meal that no channel
+ *    different questions — a complete, published, sellable item that no channel
  *    offers is not on sale — and this is the second one.
  * 4. **It has a price.** Not a filter a caller can turn off: the consumer
- *    contract types `price` as a `Money`, an unpriced meal is not sellable, and
+ *    contract types `price` as a `Money`, an unpriced item is not sellable, and
  *    the alternatives are both worse than exclusion. Rendering `0` would be a
  *    lie about the price; widening the contract to a nullable price would push
  *    "we do not know what this costs" onto every consumer surface that has no
  *    way to act on it. A placeholder row and a market-priced row resolve to no
  *    price at all (`PriceResolver` makes the three indistinguishable on
- *    purpose), so a meal a kitchen has not finished pricing simply does not
+ *    purpose), so an item a kitchen has not finished pricing simply does not
  *    appear — which is the same answer the kitchen's own readiness gate gives.
  *
  * ## Where the price comes from
  *
- * `PriceResolver`, through the same channels that made the meal visible, in the
+ * `PriceResolver`, through the same channels that made the item visible, in the
  * kitchen's own channel order, first answer wins. The channels are restricted
  * to `MarketplaceChannels::listingKinds()`, which is a subset of the kinds the
  * domain declares non-private, so a negotiated wholesale or corporate tariff is
@@ -64,6 +68,9 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final readonly class MarketplaceMeals
 {
+    /** @var list<string> */
+    public const array LISTING_ITEM_TYPES = ['meal', 'product'];
+
     public function __construct(
         private PriceResolver $prices,
         private DerivedAllergenService $allergens,
@@ -71,14 +78,14 @@ final readonly class MarketplaceMeals
     ) {}
 
     /**
-     * Every meal a customer may see, unordered.
+     * Every meal or product a customer may see, unordered.
      *
      * @return Builder<CatalogueItem>
      */
     public function visible(): Builder
     {
         return CatalogueItem::withoutTenancy()
-            ->where('item_type', CatalogueItemType::Meal->value)
+            ->whereIn('item_type', self::LISTING_ITEM_TYPES)
             ->where('status', CatalogueItemStatus::Published->value)
             ->whereIn('organisation_id', app(MarketplaceKitchens::class)->visible()->select('organisations.id'))
             ->whereExists(fn ($query) => $query->from('channel_catalogue_items')
@@ -91,6 +98,25 @@ final readonly class MarketplaceMeals
                     ->orWhere('channel_catalogue_items.available_from', '<=', CarbonImmutable::now()->toDateString()))
                 ->where(fn ($dates) => $dates->whereNull('channel_catalogue_items.available_to')
                     ->orWhere('channel_catalogue_items.available_to', '>=', CarbonImmutable::now()->toDateString())));
+    }
+
+    /**
+     * Restrict to one or more listing item types (`meal`, `product`).
+     *
+     * @param  Builder<CatalogueItem>  $query
+     * @param  list<string>  $types
+     */
+    public function whereItemTypes(Builder $query, array $types): void
+    {
+        $allowed = array_values(array_intersect(array_unique($types), self::LISTING_ITEM_TYPES));
+
+        if ($allowed === []) {
+            $query->whereRaw('false');
+
+            return;
+        }
+
+        $query->whereIn('item_type', $allowed);
     }
 
     /**
@@ -165,7 +191,17 @@ final readonly class MarketplaceMeals
     }
 
     /**
-     * What one meal costs, or null when nothing prices it.
+     * What one meal or product costs, or null when nothing prices it.
+     *
+     * Meals are priced at item level. Products from the workbook are priced on
+     * pack variants; {@see PriceResolver} deliberately refuses to invent an
+     * article price from a pack row, so the pack choice happens here.
+     *
+     * Dual-pack rows (retail gram pack on B2C, kilo pack on B2B) often mark the
+     * wholesale pack as `is_default` because it is first on the sheet. The
+     * consumer listing must still find the pack that actually has a public
+     * tariff — try the default first, then every other active pack, then the
+     * item-level row — rather than vanishing a sellable product.
      *
      * @param  list<SalesChannel>  $channels
      */
@@ -175,17 +211,49 @@ final readonly class MarketplaceMeals
             return null;
         }
 
-        return $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal, $channels): ?ResolvedPrice {
-            foreach ($channels as $channel) {
-                $price = $this->prices->currentFor((string) $channel->getKey(), (string) $meal->getKey());
+        $variantIds = $meal->item_type === CatalogueItemType::Product
+            ? $this->listingPackVariantIds($meal)
+            : [null];
 
-                if ($price instanceof ResolvedPrice) {
-                    return $price;
+        return $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal, $channels, $variantIds): ?ResolvedPrice {
+            foreach ($variantIds as $variantId) {
+                foreach ($channels as $channel) {
+                    $price = $this->prices->currentFor(
+                        (string) $channel->getKey(),
+                        (string) $meal->getKey(),
+                        $variantId,
+                    );
+
+                    if ($price instanceof ResolvedPrice) {
+                        return $price;
+                    }
                 }
             }
 
             return null;
         });
+    }
+
+    /**
+     * Packs to try for an unattended consumer price, default first.
+     *
+     * @return list<string|null>
+     */
+    private function listingPackVariantIds(CatalogueItem $item): array
+    {
+        $ids = CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('status', VariantStatus::Active->value)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+
+        // Item-level rows are rare for products but remain a valid last resort.
+        $ids[] = null;
+
+        return $ids;
     }
 
     /**

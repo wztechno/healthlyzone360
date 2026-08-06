@@ -19,40 +19,11 @@ import { listParameter, mapCursorPage, mapMoney } from './marketplace-mappers.ts
 import type { Transport } from './transport.ts';
 
 /**
- * Subscription plans — **written, tested and deliberately not switched on**.
+ * Subscription plans — marketplace reads over HTTP.
  *
- * `GET /marketplace/meal-plans` exists and this file speaks it. `createApiMarketplaceRepository`
- * still answers `listPlans` and `getPlan` with `prototype.not_implemented`, and their entries are
- * still in `PROTOTYPE_ENDPOINTS`. That is not an oversight and it is not laziness — it is the
- * phase's own rule, *do not degrade the plan page*:
- *
- * The plan catalogue a person browses today is the fixture world's, and it is complete: variants
- * with energy bands, four durations with discounts, sample menus. The endpoint answers honestly
- * with whatever kitchens have actually published, and until a real kitchen publishes a real plan
- * that answer is short or empty. Flipping the switch before then would replace a working catalogue
- * with an empty state, which is a worse product and a worse demonstration.
- *
- * So the mapper lands now, with the switch left for the commit that can prove the catalogue is
- * populated — at which point {@link createApiPlanReads} is spread into the marketplace repository
- * and two ledger entries are deleted. Landing it now rather than later is the point: the shape
- * questions below were answered while the wire types were in front of me, and answering them under
- * time pressure on switch day is how a mapper acquires a silent wrong default.
- *
- * ## Three places the wire holds less than the contract
- *
- * 1. **`PlanVariant.energyRange` is required and the wire's is nullable.** A variant with no band
- *    is a variant a person cannot choose between — "1,600–1,800 kcal" *is* the choice — so a
- *    variant without one is **dropped**, exactly as a meal with an unformattable price is dropped.
- *    A zero-to-zero band would render as a plan offering no food.
- * 2. **`protein_range`, `carbohydrate_range` and `fat_range` are typed `null` on the wire.** Not
- *    "nullable": literally the null type, because the platform stores none. They map straight
- *    through as `null`, which the contract already allows.
- * 3. **Durations are codes, and the contract's are a closed vocabulary.** The wire sends
- *    `{ code, kind, days }`; `PlanDuration` is `1w | 2w | 4w | 12w`. {@link mapDuration} resolves by
- *    days rather than by code string, because the code is a kitchen-authored slug and the number of
- *    days is the fact. A duration that resolves to nothing this build knows is dropped rather than
- *    rounded to the nearest one — a person offered "4 weeks" who is charged for twelve is the worst
- *    outcome available here.
+ * Durations map by day count onto the closed `1w | 2w | 4w | 12w` vocabulary
+ * ({@link mapDuration}). Seeded demo durations must therefore use 7/14/28/84
+ * days (see `DemoTenantSeeder`), or they drop out of every consumer chooser.
  */
 
 /** Wire day counts → the closed duration vocabulary. Resolved by days, never by the code string. */

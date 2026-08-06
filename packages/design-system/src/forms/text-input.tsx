@@ -48,6 +48,16 @@ export function inputFrameClassName(options: {
     );
 }
 
+/**
+ * Styles for the native control *inside* {@link inputFrameClassName}.
+ *
+ * On web, `TextInput` becomes a real `<input>` and the UA stylesheet draws its own border and
+ * focus outline. Leaving those on produces a black rectangle nested inside the green frame ring —
+ * the frame already owns focus indication, so the inner control must be borderless and transparent.
+ */
+export const inputControlClassName =
+    'flex-1 border-0 bg-transparent text-base text-content-primary outline-none';
+
 export function TextInputField({
     label,
     hint,
@@ -88,7 +98,7 @@ export function TextInputField({
                         {...control}
                         testID={testID === undefined ? undefined : `${testID}-input`}
                         editable={!disabled}
-                        className="flex-1 text-base text-content-primary"
+                        className={inputControlClassName}
                         // neutral.600: placeholder text is still text to WCAG - neutral.500 sits
                         // just below the 4.5:1 AA threshold on the base surface (axe caught it).
                         placeholderTextColor={neutral[600]}

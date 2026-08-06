@@ -116,6 +116,7 @@ export function createApiMarketplaceRepository(transport: Transport): Marketplac
                 path: `/marketplace/meals${query({
                     query: filter?.query,
                     kitchen_ids: listParameter(filter?.kitchenIds),
+                    item_types: listParameter(filter?.itemTypes),
                     diet_classifications: listParameter(filter?.dietClassifications),
                     exclude_allergens: listParameter(filter?.excludeAllergens),
 

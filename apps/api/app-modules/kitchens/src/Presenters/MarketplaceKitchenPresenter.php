@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Presenters;
 
+use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Models\Organisation;
@@ -55,6 +56,7 @@ final class MarketplaceKitchenPresenter
      * @param  list<string>  $dietClassifications
      * @param  array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool}  $channels
      * @param  list<array{branch: OrganisationBranch, zones: list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>, hours: list<BranchOpeningHour>}>  $branches
+     * @param  list<DeliveryWindow>  $windows
      * @return array<string, mixed>
      */
     public function kitchen(
@@ -63,6 +65,7 @@ final class MarketplaceKitchenPresenter
         array $dietClassifications,
         array $channels,
         array $branches,
+        array $windows = [],
     ): array {
         return [
             'id' => (string) $kitchen->getKey(),
@@ -84,10 +87,30 @@ final class MarketplaceKitchenPresenter
                 ),
                 $branches,
             ),
+            'delivery_windows' => array_map(
+                fn (DeliveryWindow $window): array => $this->deliveryWindow($window, $locale),
+                $windows,
+            ),
             'rating' => null,
             'rating_count' => 0,
             'image_placeholder_id' => 'kitchen-'.$kitchen->slug,
             'is_verified' => false,
+        ];
+    }
+
+    /**
+     * One checkout slot the kitchen publishes.
+     *
+     * @return array{code: string, label: string, starts_at: string, ends_at: string, weekdays: list<int>}
+     */
+    public function deliveryWindow(DeliveryWindow $window, string $locale): array
+    {
+        return [
+            'code' => $window->code,
+            'label' => MarketplaceLocale::pick($locale, $window->name_en, $window->name_ar),
+            'starts_at' => self::clock($window->starts_at) ?? '00:00',
+            'ends_at' => self::clock($window->ends_at) ?? '00:00',
+            'weekdays' => $window->weekdays,
         ];
     }
 

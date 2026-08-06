@@ -45,7 +45,14 @@ it('lists the demonstration kitchen to an anonymous caller', function (): void {
         ->and($verdant['channels']['b2c'])->toBeTrue()
         ->and($verdant['channels']['b2b'])->toBeTrue()
         ->and($verdant['channels']['marketplace'])->toBeFalse()
-        ->and($verdant['branches'])->toHaveCount(1);
+        ->and($verdant['branches'])->toHaveCount(1)
+        ->and($verdant['delivery_windows'])->not->toBeEmpty();
+
+    $morning = collect($verdant['delivery_windows'])->firstWhere('code', 'morning');
+
+    expect($morning)->not->toBeNull()
+        ->and($morning['starts_at'])->toBe('09:00')
+        ->and($morning['ends_at'])->toBe('12:00');
 
     $branch = $verdant['branches'][0];
 
@@ -60,6 +67,66 @@ it('reads one kitchen by slug', function (): void {
         ->assertOk()
         ->assertJsonPath('data.slug', 'verdant-kitchen')
         ->assertJsonPath('meta.locale', 'en');
+});
+
+it('lists published products beside meals and filters by item type', function (): void {
+    $all = collect($this->getJson('/api/v1/marketplace/meals')->assertOk()->json('data'));
+
+    expect($all->pluck('slug')->all())->toContain('grilled-chicken-freekeh', 'mezze-plate', 'red-lentil-soup')
+        ->and($all->where('item_type', 'product')->count())->toBeGreaterThan(0)
+        ->and($all->count())->toBeGreaterThan(3);
+
+    $products = collect($this->getJson('/api/v1/marketplace/meals?item_types=product')->assertOk()->json('data'));
+
+    expect($products)->not->toBeEmpty()
+        ->and($products->every(static fn (array $row): bool => $row['item_type'] === 'product'))->toBeTrue()
+        ->and($products->pluck('slug')->all())->not->toContain('mezze-plate');
+
+    $mealsOnly = collect($this->getJson('/api/v1/marketplace/meals?item_types=meal')->assertOk()->json('data'));
+
+    expect($mealsOnly->every(static fn (array $row): bool => $row['item_type'] === 'meal'))->toBeTrue()
+        ->and($mealsOnly->pluck('slug')->all())->toContain('mezze-plate')
+        ->and($mealsOnly->where('item_type', 'product'))->toBeEmpty();
+
+    $sample = $products->first();
+    expect($sample['price'])->toHaveKeys(['amount', 'currency'])
+        ->and($sample['price']['amount'])->toBeGreaterThan(0);
+
+    $this->getJson('/api/v1/marketplace/meals/'.$sample['slug'])
+        ->assertOk()
+        ->assertJsonPath('data.item_type', 'product');
+
+    $this->getJson('/api/v1/marketplace/meals?item_types=plan')
+        ->assertStatus(400)
+        ->assertJsonPath('error.code', 'request.invalid');
+});
+
+it('surfaces seeded Verdant products on the wholesale B2B catalogue at B2B amounts', function (): void {
+    $buyer = \App\Models\User::query()->where('email', 'buyer@acme-wellness.test')->sole();
+    $org = Organisation::query()->where('slug', 'acme-wellness')->sole();
+
+    $response = $this->actingAs($buyer)
+        ->getJson('/api/v1/b2b/catalogue/items', firstPartyHeaders() + [
+            'X-Organisation-Id' => (string) $org->getKey(),
+        ])
+        ->assertOk();
+
+    $items = collect($response->json('data.items'));
+    $products = $items->where('item_type', 'product');
+
+    expect($products->count())->toBeGreaterThan(0);
+
+    // Honey Mustard: B2B $5 / B2C $3 on dual packs — public list must show the
+    // retail bottle amount, not vanish because the kilo pack is is_default.
+    $public = collect($this->getJson('/api/v1/marketplace/meals?item_types=product')->assertOk()->json('data'))
+        ->firstWhere('name', 'Honey Mustard Sauce');
+
+    expect($public)->not->toBeNull()
+        ->and($public['price']['amount'])->toBe(300);
+
+    $wholesale = $products->firstWhere('name', 'Honey Mustard Sauce');
+    expect($wholesale)->not->toBeNull()
+        ->and($wholesale['price']['amount_minor'])->toBe(500);
 });
 
 it('lists the published menu with prices and derived allergens', function (): void {

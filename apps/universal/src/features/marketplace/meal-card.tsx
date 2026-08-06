@@ -61,15 +61,31 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
             />
 
             <Stack space="sm" className="p-4">
-                <Text variant="bodyStrong">{meal.name}</Text>
+                <Inline space="xs" align="center" wrap>
+                    <Text variant="bodyStrong">{meal.name}</Text>
+                    <Badge
+                        testID={`${resolvedTestID}-item-type`}
+                        tone="neutral"
+                        icon={null}
+                        label={t(`marketplace:itemTypes.${meal.itemType}`)}
+                    />
+                </Inline>
                 <Text tone="secondary" variant="caption" numberOfLines={2}>
                     {meal.description}
                 </Text>
 
-                <Inline space="xs" wrap testID={`${resolvedTestID}-nutrition`}>
-                    <Badge tone="neutral" label={t('marketplace:nutrition.energy', { energy })} />
-                    <Badge tone="neutral" label={t('marketplace:nutrition.protein', { protein })} />
-                </Inline>
+                {meal.itemType === 'meal' && meal.nutrition.amounts.length > 0 ? (
+                    <Inline space="xs" wrap testID={`${resolvedTestID}-nutrition`}>
+                        <Badge
+                            tone="neutral"
+                            label={t('marketplace:nutrition.energy', { energy })}
+                        />
+                        <Badge
+                            tone="neutral"
+                            label={t('marketplace:nutrition.protein', { protein })}
+                        />
+                    </Inline>
+                ) : null}
 
                 {/* Diet classifications are read-only labels, so they are compact `Badge`s (12px,
                     tight padding) rather than touch-height `Chip`s — a card can carry seven of them
