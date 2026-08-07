@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5091 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5098 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1028,6 +1028,7 @@ export interface NamespaceKeys {
     | 'filters.protein'
     | 'filters.rangesHint'
     | 'filters.rangesTitle'
+    | 'filters.removeFilter'
     | 'filters.unitGrams'
     | 'filters.unitKcal'
     | 'filters.unitMinutes'
@@ -3623,6 +3624,7 @@ export interface NamespaceKeys {
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
     | 'kitchens.imageLabel'
+    | 'kitchens.noPublishedZone'
     | 'kitchens.notRatedYet'
     | 'kitchens.ratingLabel'
     | 'kitchens.searchLabel'
@@ -3674,10 +3676,15 @@ export interface NamespaceKeys {
     | 'menu.loadMore'
     | 'menu.loadingMore'
     | 'menu.noDeclaredAllergens'
+    | 'menu.openMeal'
     | 'menu.perServing'
     | 'menu.preparationMinutes'
     | 'menu.searchLabel'
     | 'menu.searchPlaceholder'
+    | 'menu.stats.carbohydrate'
+    | 'menu.stats.energy'
+    | 'menu.stats.fat'
+    | 'menu.stats.protein'
     | 'menu.subtitle'
     | 'menu.title'
     | 'menu.titleFor'
@@ -6144,6 +6151,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.protein',
   'catalogue:filters.rangesHint',
   'catalogue:filters.rangesTitle',
+  'catalogue:filters.removeFilter',
   'catalogue:filters.unitGrams',
   'catalogue:filters.unitKcal',
   'catalogue:filters.unitMinutes',
@@ -8731,6 +8739,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
   'marketplace:kitchens.imageLabel',
+  'marketplace:kitchens.noPublishedZone',
   'marketplace:kitchens.notRatedYet',
   'marketplace:kitchens.ratingLabel',
   'marketplace:kitchens.searchLabel',
@@ -8782,10 +8791,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.loadMore',
   'marketplace:menu.loadingMore',
   'marketplace:menu.noDeclaredAllergens',
+  'marketplace:menu.openMeal',
   'marketplace:menu.perServing',
   'marketplace:menu.preparationMinutes',
   'marketplace:menu.searchLabel',
   'marketplace:menu.searchPlaceholder',
+  'marketplace:menu.stats.carbohydrate',
+  'marketplace:menu.stats.energy',
+  'marketplace:menu.stats.fat',
+  'marketplace:menu.stats.protein',
   'marketplace:menu.subtitle',
   'marketplace:menu.title',
   'marketplace:menu.titleFor',
