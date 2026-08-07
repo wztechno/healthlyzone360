@@ -1,11 +1,20 @@
-import { AppShell, Button, Inline, OfflineIndicator, Stack, Text } from '@healthy360/design-system';
+import {
+    AppShell,
+    Button,
+    Icon,
+    Inline,
+    OfflineIndicator,
+    Stack,
+    Text,
+} from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Platform, Pressable, Text as RNText, View } from 'react-native';
 
 import { DevBanner } from '../dev/dev-banner.tsx';
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
@@ -157,11 +166,29 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
             onPress={() => {
                 router.push('/');
             }}
-            className="min-h-touch justify-center pe-2"
+            className="min-h-touch flex-row items-center gap-2 pe-2"
         >
-            <Text variant="bodyStrong" className="text-lg text-content-primary">
+            {/*
+              * The violet-to-green tile is the one place the two brand colours meet as a mark
+              * rather than as meaning — everywhere else violet is reserved for machine-generated
+              * content (Rule 5). It is a graphic carrying a single large letter, so the gradient
+              * needs no scrim: the "H" is 15px bold white over #6D28D9 at the leading edge.
+              */}
+            <LinearGradient
+                colors={['#6d28d9', '#16a34a']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ width: 32, height: 32, borderRadius: 8 }}
+            >
+                <View className="h-full w-full items-center justify-center">
+                    <RNText className="font-display text-base text-content-on-canopy">
+                        {t('marketplace:brand.name').slice(0, 1)}
+                    </RNText>
+                </View>
+            </LinearGradient>
+            <RNText className="font-display text-lg text-content-primary">
                 {t('marketplace:brand.name')}
-            </Text>
+            </RNText>
         </Pressable>
     );
 
@@ -202,8 +229,21 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     <Button
                         testID="marketplace-basket"
                         size="sm"
-                        variant="ghost"
+                        variant="primary"
                         label={cartButtonLabel}
+                        iconStart={<Icon name="basket" />}
+                        iconEnd={
+                            cartCount === 0 ? undefined : (
+                                <View
+                                    testID="marketplace-basket-count"
+                                    className="min-w-[20px] items-center justify-center rounded-full bg-surface-raised px-1.5"
+                                >
+                                    <RNText className="text-xs font-bold text-surface-brand">
+                                        {String(cartCount)}
+                                    </RNText>
+                                </View>
+                            )
+                        }
                         onPress={() => {
                             router.push('/customer/cart' as never);
                         }}
@@ -211,7 +251,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     <Button
                         testID="marketplace-sign-out"
                         size="sm"
-                        variant="secondary"
+                        variant="quiet"
                         label={t('common:action.signOut')}
                         loading={logout.isPending}
                         onPress={() => {
@@ -264,11 +304,13 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     ];
 
     const footer = (
-        <Stack space="sm" testID="marketplace-footer">
-            <Text variant="bodyStrong">{t('marketplace:brand.name')}</Text>
-            <Text tone="secondary" variant="caption">
+        <Stack space="sm" testID="marketplace-footer" className="bg-surface-canopy p-8 md:px-10 lg:px-11">
+            <RNText className="font-display text-base text-content-on-canopy">
+                {t('marketplace:brand.name')}
+            </RNText>
+            <RNText className="text-sm text-content-on-canopy-muted/75">
                 {t('marketplace:footer.about')}
-            </Text>
+            </RNText>
             <Inline space="sm" wrap>
                 {footerLinks.map((link) => (
                     <Pressable
@@ -282,9 +324,9 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                         }}
                         className="min-h-touch justify-center pe-3"
                     >
-                        <Text variant="caption" className="text-content-on-brand-subtle underline">
+                        <RNText className="text-sm text-content-on-canopy-muted underline">
                             {t(link.labelKey)}
-                        </Text>
+                        </RNText>
                     </Pressable>
                 ))}
             </Inline>
@@ -294,9 +336,9 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
              * dead control in the one place a person is most entitled to expect a real document.
              * Saying so is the honest substitute.
              */}
-            <Text testID="footer-legal" tone="secondary" variant="caption">
+            <RNText testID="footer-legal" className="text-xs text-content-on-canopy-muted/65">
                 {t('marketplace:footer.legalPrototype')}
-            </Text>
+            </RNText>
         </Stack>
     );
 

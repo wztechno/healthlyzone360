@@ -1,11 +1,11 @@
-import { AppShell, Button, Inline, OfflineIndicator } from '@healthy360/design-system';
+import { AppShell, Button, Icon, Inline, OfflineIndicator } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Gate } from '../access/gate.tsx';
 import { useCartQuery } from '../data/marketplace-hooks.ts';
@@ -101,8 +101,14 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
         </View>
     );
 
+    const cartLabel = t('marketplace:consumer.nav.cart');
+    const basketLabel =
+        cartCount > 0
+            ? t('marketplace:consumer.nav.cartWithCount', { label: cartLabel, items: cartCount })
+            : cartLabel;
+
     const topbarEnd = (
-        <Inline space="xs" wrap={false}>
+        <Inline space="xs" wrap className="shrink">
             <Button
                 testID="locale-toggle"
                 size="sm"
@@ -112,10 +118,38 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
                     void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
                 }}
             />
+            {/*
+              * The basket, which this shell did not have. Rule 4 gives the customer area's primary
+              * slot to the revenue action, and until now the only way to the basket from a customer
+              * screen was the navigation list — which is under the thumb on a phone but a long way
+              * from the eye on a desktop, where the sidebar is a column of eight.
+              */}
+            <Button
+                testID="consumer-basket"
+                size="sm"
+                variant="primary"
+                label={basketLabel}
+                iconStart={<Icon name="basket" />}
+                iconEnd={
+                    cartCount === 0 ? undefined : (
+                        <View
+                            testID="consumer-basket-count"
+                            className="min-w-[20px] items-center justify-center rounded-full bg-surface-raised px-1.5"
+                        >
+                            <RNText className="text-xs font-bold text-surface-brand">
+                                {String(cartCount)}
+                            </RNText>
+                        </View>
+                    )
+                }
+                onPress={() => {
+                    router.push('/customer/cart' as never);
+                }}
+            />
             <Button
                 testID="sign-out"
                 size="sm"
-                variant="secondary"
+                variant="quiet"
                 label={t('common:action.signOut')}
                 loading={logout.isPending}
                 onPress={() => {

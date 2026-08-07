@@ -531,14 +531,27 @@ export function AppShell({
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     role="main"
                     className="flex-1"
-                    contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                    // A measure, not a stretch. Past ~1150px a catalogue row grows to five and six
+                    // cards and the eye loses the start of the next line; the gutters are wider
+                    // here than in a workspace because there is no sidebar taking the same space.
+                    contentContainerClassName={cx(
+                        'flex-grow gap-4 p-4 md:px-10 lg:px-11',
+                        contentClassName,
+                    )}
                 >
-                    {children}
+                    <View className="w-full max-w-[1152px] flex-col gap-4 self-center">
+                        {children}
+                    </View>
                     {footer === undefined ? null : (
                         <View
                             testID={testID === undefined ? undefined : `${testID}-footer`}
                             role="contentinfo"
-                            className="border-t border-stroke-subtle pt-4"
+                            // Bled back out through the content gutters so the band reaches both
+                            // page edges. The negative margins mirror the padding above exactly —
+                            // a footer inset by 44px reads as a misplaced card rather than as the
+                            // end of the page. No rule above it either: a hairline between the
+                            // page and a dark band draws a line on an edge that is already there.
+                            className="-mx-4 -mb-4 self-stretch md:-mx-10 lg:-mx-11"
                         >
                             {footer}
                         </View>
@@ -566,7 +579,10 @@ export function AppShell({
                         testID={testID === undefined ? undefined : `${testID}-content`}
                         role="main"
                         className="flex-1"
-                        contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                        contentContainerClassName={cx(
+                            'flex-grow gap-4 p-4 lg:p-7',
+                            contentClassName,
+                        )}
                     >
                         {children}
                         {footer}
@@ -594,7 +610,7 @@ export function AppShell({
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     role="main"
                     className="flex-1"
-                    contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                    contentContainerClassName={cx('flex-grow gap-4 p-4 lg:p-7', contentClassName)}
                 >
                     {children}
                     {footer}
