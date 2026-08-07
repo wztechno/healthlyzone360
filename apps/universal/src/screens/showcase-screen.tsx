@@ -304,6 +304,46 @@ export function ShowcaseScreen() {
                             onPress={() => undefined}
                         />
                     </Inline>
+                    {/*
+                      * The emphasis order the shells now use, shown as a row so it can be judged as
+                      * one. The thing to check is that the eye lands on Basket and not on Sign out
+                      * — the inversion is the point, and it is only visible in company.
+                      */}
+                    <Inline space="xs" align="center">
+                        <Button
+                            testID="showcase-emphasis-locale"
+                            size="sm"
+                            variant="ghost"
+                            label="العربية"
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID="showcase-emphasis-my-home"
+                            size="sm"
+                            variant="ghost"
+                            label="My home"
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID="showcase-emphasis-basket"
+                            size="sm"
+                            variant="primary"
+                            label="Basket"
+                            iconEnd={
+                                <View className="rounded-full bg-surface-raised px-2 py-0.5">
+                                    <Text className="text-xs font-bold text-surface-brand">3</Text>
+                                </View>
+                            }
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID="showcase-emphasis-sign-out"
+                            size="sm"
+                            variant="quiet"
+                            label="Sign out"
+                            onPress={() => undefined}
+                        />
+                    </Inline>
                 </Section>
 
                 <Section id="forms" title={t('designSystem:showcase.sections.forms')}>
