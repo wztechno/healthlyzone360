@@ -295,3 +295,49 @@ test.describe('the public calculators (en)', () => {
         await expect(page.getByTestId('meals-screen')).toBeVisible();
     });
 });
+
+/**
+ * Rule 1's acceptance check, stated as geometry.
+ *
+ * §8 asks for exactly this and there was no equivalent before: "in any card grid, every card's
+ * price occupies the same vertical offset from the card bottom". It is the objective form of the
+ * complaint the whole redesign opens with — that the one figure a shopper compares across cards
+ * sits at a different height in every one — and it is measured rather than asserted about classes,
+ * because the mechanism is a flex behaviour and class names cannot prove a flex behaviour worked.
+ *
+ * The grid deliberately mixes meals and products, which carry different amounts of content. If the
+ * pinned footer ever comes undone, this is where it will be caught.
+ */
+test.describe('card grid baselines (en)', () => {
+    test('every price in a row sits the same distance from its card bottom', async ({ page }) => {
+        await page.goto('/meals');
+        await expect(page.getByTestId('meals-grid')).toBeVisible();
+        await expect(page.locator('[data-testid^="meal-card-"]').first()).toBeVisible();
+
+        const offsets = await page.evaluate(() => {
+            const cards = [...document.querySelectorAll('[data-testid^="meal-card-"]')].filter(
+                (card) => card.querySelector('[data-testid$="-price"]') !== null,
+            );
+
+            // Group by the top edge, so cards on different rows are compared within their own row
+            // rather than against each other — a wrapped grid has several rows and only cards
+            // sharing one are required to share a baseline.
+            const rows = new Map<number, number[]>();
+            for (const card of cards) {
+                const price = card.querySelector('[data-testid$="-price"]');
+                if (price === null) continue;
+                const cardBox = card.getBoundingClientRect();
+                const priceBox = price.getBoundingClientRect();
+                const top = Math.round(cardBox.top);
+                const offset = Math.round(cardBox.bottom - priceBox.bottom);
+                rows.set(top, [...(rows.get(top) ?? []), offset]);
+            }
+            return [...rows.values()].filter((row) => row.length > 1);
+        });
+
+        expect(offsets.length).toBeGreaterThan(0);
+        for (const row of offsets) {
+            expect(new Set(row).size, `row offsets: ${row.join(', ')}`).toBe(1);
+        }
+    });
+});

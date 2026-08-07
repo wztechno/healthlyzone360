@@ -149,7 +149,14 @@
         "emptyBody": "Try meals or products, another meal type, or clear the filters to see the whole menu.",
         "loadMore": "Show more on this menu",
         "loadingMore": "Loading more from this menu",
-        "allLoaded": "That is everything on this menu that matches."
+        "allLoaded": "That is everything on this menu that matches.",
+        "stats": {
+            "energy": "kcal",
+            "protein": "protein",
+            "carbohydrate": "carbs",
+            "fat": "fat"
+        },
+        "openMeal": "Open {{meal}}"
     },
     "dietitians": {
         "title": "Dietitians",

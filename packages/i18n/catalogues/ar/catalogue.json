@@ -60,7 +60,8 @@
         "unitGrams": "غ",
         "unitMinutes": "دقيقة",
         "clear": "امسح المرشّحات",
-        "activeCount": "{{active}} مرشّحات مفعّلة"
+        "activeCount": "{{active}} مرشّحات مفعّلة",
+        "removeFilter": "إزالة عامل التصفية: {{filter}}"
     },
     "meal": {
         "loading": "جارٍ تحميل الوجبة",

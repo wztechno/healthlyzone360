@@ -1,10 +1,7 @@
 import {
-    Breadcrumbs,
     Button,
     Collapse,
-    Heading,
     Icon,
-    Inline,
     Select,
     Stack,
     Text,
@@ -27,6 +24,8 @@ import { mealsFromPages, totalFromPages, useMealsQuery } from '../../../data/cat
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { FilterBar, useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
+import { ToolbarRow } from '../../marketplace/toolbar-row.tsx';
+import { PageHero } from '../../../ui/page-hero.tsx';
 import { MealCard } from '../../marketplace/meal-card.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
@@ -124,6 +123,32 @@ const PAGE_SIZE = 20;
  */
 const PRICE_CURRENCY: CurrencyCode = 'USD';
 
+/**
+ * The label a filter chip shows, resolved the same way the panel's own control resolves it.
+ *
+ * Kitchens are the awkward one: the URL carries an id, and only the fetched kitchen list knows the
+ * name. Until it arrives the chip falls back to the id rather than rendering nothing — a chip that
+ * appears late is worse than one that is briefly unlovely, because the person is looking at a
+ * filtered grid either way.
+ */
+function chipLabel(
+    groupKey: (typeof CHIP_GROUP_KEYS)[number],
+    value: string,
+    kitchens: readonly { readonly id: unknown; readonly name: string }[],
+    t: (key: string) => string,
+): string {
+    switch (groupKey) {
+        case 'kitchen':
+            return kitchens.find((kitchen) => String(kitchen.id) === value)?.name ?? value;
+        case 'mealType':
+            return t(`marketplace:mealTypes.${value}`);
+        case 'diet':
+            return t(`marketplace:diets.${value}`);
+        case 'exclude':
+            return t(`marketplace:allergens.${value}`);
+    }
+}
+
 export function MealsScreen() {
     const { t } = useTranslation();
     const router = useRouter();
@@ -131,7 +156,9 @@ export function MealsScreen() {
     const ranges = useMealRanges();
 
     const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
-    const kitchenItems = kitchens.data?.items ?? [];
+    // Memoised because the chip labels below depend on it: `?? []` allocates a fresh array on
+    // every render, which would rebuild the chip list every time regardless of the data.
+    const kitchenItems = useMemo(() => kitchens.data?.items ?? [], [kitchens.data]);
 
     const { query: searchTerm, selected } = filters;
     const { values: rangeValues } = ranges;
@@ -178,75 +205,119 @@ export function MealsScreen() {
         ranges.clear();
     };
 
+    /**
+     * The chip groups currently in force, flattened into removable chips for the toolbar.
+     *
+     * This is what makes the closed-by-default panel honest. Arriving on a shared link with three
+     * filters applied, the grid is short and — until now — nothing on screen said why; the filters
+     * were real but invisible behind a disclosure that stays shut. Each chip names one and removes
+     * exactly that one, so widening the search never requires opening the panel.
+     *
+     * Labels come from the same `groups` definitions the panel renders, so a chip can never
+     * disagree with the control it mirrors. The numeric ranges are deliberately *not* here: a range
+     * is two bounds and a unit, which does not survive being squeezed into a pill, and it is
+     * already counted in the toggle's badge.
+     */
+    const activeChips = useMemo(
+        () =>
+            CHIP_GROUP_KEYS.flatMap((groupKey) =>
+                (selected[groupKey] ?? []).map((value) => ({
+                    key: `${groupKey}-${value}`,
+                    label: chipLabel(groupKey, value, kitchenItems, t),
+                    removeLabel: t('catalogue:filters.removeFilter', {
+                        filter: chipLabel(groupKey, value, kitchenItems, t),
+                    }),
+                    onRemove: () => {
+                        filters.toggle(groupKey, value, false);
+                    },
+                })),
+            ),
+        [selected, kitchenItems, filters, t],
+    );
+
     return (
         <Stack space="lg" testID="meals-screen">
-            <Breadcrumbs
-                testID="meals-breadcrumbs"
-                items={[
+            {/*
+             * Rule 3: the page opens with weight rather than with a breadcrumb, a heading and a
+             * form field. The breadcrumbs move inside the band and the search moves into its
+             * trailing panel, which is what frees the toolbar below to be a single row.
+             */}
+            <PageHero
+                testID="meals-hero"
+                breadcrumbs={[
                     {
                         key: 'home',
                         label: t('catalogue:nav.home'),
                         onPress: () => {
                             router.push('/');
                         },
+                        testID: 'meals-breadcrumbs-home',
                     },
-                    { key: 'meals', label: t('catalogue:nav.meals') },
+                    { key: 'meals', label: t('catalogue:nav.meals'), testID: 'meals-title' },
                 ]}
+                title={t('catalogue:meals.title')}
+                subtitle={t('catalogue:meals.subtitle')}
+                trailing={
+                    <TextInputField
+                        testID="meals-filter-search"
+                        id="meals-filter-search"
+                        label={t('catalogue:meals.searchLabel')}
+                        placeholder={t('catalogue:meals.searchPlaceholder')}
+                        value={searchTerm}
+                        onChangeText={filters.setQuery}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        returnKeyType="search"
+                        trailing={<Icon name="search" />}
+                        className="rounded-xl bg-surface-raised p-3 shadow-elevation-3"
+                    />
+                }
             />
 
-            <Stack space="xs">
-                <Heading level={1} testID="meals-title">
-                    {t('catalogue:meals.title')}
-                </Heading>
-                <Text tone="secondary">{t('catalogue:meals.subtitle')}</Text>
-            </Stack>
-
-            {/* Always-visible toolbar: search, then a compact row of the disclosure toggle and sort. */}
-            <TextInputField
-                testID="meals-filter-search"
-                id="meals-filter-search"
-                label={t('catalogue:meals.searchLabel')}
-                placeholder={t('catalogue:meals.searchPlaceholder')}
-                value={searchTerm}
-                onChangeText={filters.setQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
-                trailing={<Icon name="search" />}
+            {/*
+             * Rule 2: one row. The disclosure toggle, the filters currently in force, the count
+             * and the sort share a baseline instead of stacking three deep.
+             */}
+            <ToolbarRow
+                testID="meals-toolbar"
+                filtersTestID="meals-filter-toggle"
+                countTestID="meals-count"
+                filtersLabel={
+                    activeCount === 0
+                        ? t('catalogue:meals.filters')
+                        : t('catalogue:meals.filtersActive', { n: activeCount })
+                }
+                filtersActive={activeCount}
+                filtersExpanded={showFilters}
+                filtersPanelId="meals-filter-panel"
+                onToggleFilters={() => {
+                    setShowFilters((open) => !open);
+                }}
+                activeFilters={activeChips}
+                onClearAll={clearEverything}
+                clearAllLabel={t('catalogue:filters.clear')}
+                resultSummary={
+                    total === null
+                        ? t('catalogue:meals.showingUnknownTotal', { shown: items.length })
+                        : t('catalogue:meals.showing', { shown: items.length, total })
+                }
+                sort={
+                    <Select
+                        testID="meals-sort"
+                        id="meals-sort"
+                        label={t('catalogue:meals.sortLabel')}
+                        value={sort}
+                        options={MEAL_SORTS.map((option) => ({
+                            value: option,
+                            label: t(`catalogue:meals.sort.${option}`),
+                        }))}
+                        onChange={(next) => {
+                            filters.select('sort', next === 'relevance' ? null : next);
+                        }}
+                        className="min-w-[200px]"
+                    />
+                }
             />
-
-            <Inline space="sm" align="center" justify="between" wrap>
-                <Button
-                    testID="meals-filter-toggle"
-                    variant="secondary"
-                    size="sm"
-                    iconStart={<Icon name="filter" />}
-                    label={
-                        activeCount === 0
-                            ? t('catalogue:meals.filters')
-                            : t('catalogue:meals.filtersActive', { n: activeCount })
-                    }
-                    onPress={() => {
-                        setShowFilters((open) => !open);
-                    }}
-                    aria-expanded={showFilters}
-                    aria-controls="meals-filter-panel"
-                />
-                <Select
-                    testID="meals-sort"
-                    id="meals-sort"
-                    label={t('catalogue:meals.sortLabel')}
-                    value={sort}
-                    options={MEAL_SORTS.map((option) => ({
-                        value: option,
-                        label: t(`catalogue:meals.sort.${option}`),
-                    }))}
-                    onChange={(next) => {
-                        filters.select('sort', next === 'relevance' ? null : next);
-                    }}
-                    className="min-w-[200px]"
-                />
-            </Inline>
 
             <Collapse open={showFilters} nativeID="meals-filter-panel" testID="meals-filter-panel">
                 <Stack space="md">
@@ -321,12 +392,6 @@ export function MealsScreen() {
                 testID="meals"
             >
                 <Stack space="md">
-                    <Text testID="meals-count" tone="secondary" variant="caption">
-                        {total === null
-                            ? t('catalogue:meals.showingUnknownTotal', { shown: items.length })
-                            : t('catalogue:meals.showing', { shown: items.length, total })}
-                    </Text>
-
                     <CardGrid testID="meals-grid">
                         {items.map((meal) => (
                             <CardGridItem key={meal.id}>

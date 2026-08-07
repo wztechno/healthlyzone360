@@ -539,7 +539,14 @@ export function AppShell({
                         contentClassName,
                     )}
                 >
-                    <View className="w-full max-w-[1152px] flex-col gap-4 self-center">
+                    {/*
+                      * `self-stretch` then capped, not `self-center`. `align-self: center` makes
+                      * the box shrink to its own content in the cross axis, which collapsed the
+                      * whole catalogue column to 237px and stacked a forty-card grid one card
+                      * wide. Stretch fills the container, `max-w` caps it, and the auto inline
+                      * margins centre what is left over.
+                      */}
+                    <View className="mx-auto max-w-[1152px] flex-col gap-4 self-stretch">
                         {children}
                     </View>
                     {footer === undefined ? null : (

@@ -55,6 +55,13 @@ export interface ToolbarRowProps {
     readonly resultSummary?: string | undefined;
     /** The sort control, which keeps its own visible label. */
     readonly sort?: ReactNode | undefined;
+    /**
+     * Override the derived handles for the two controls that existed before this row did. A
+     * testID is a contract with the suites that already point at it, and renaming one to suit a
+     * new component's naming scheme is churn paid for by whoever has to re-find them.
+     */
+    readonly filtersTestID?: string | undefined;
+    readonly countTestID?: string | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -69,8 +76,12 @@ export function ToolbarRow({
     clearAllLabel,
     resultSummary,
     sort,
+    filtersTestID,
+    countTestID,
     testID = 'toolbar-row',
 }: ToolbarRowProps) {
+    const filtersId = filtersTestID ?? `${testID}-filters`;
+    const countId = countTestID ?? `${testID}-count`;
     return (
         <View
             testID={testID}
@@ -80,7 +91,7 @@ export function ToolbarRow({
             className="flex-row flex-wrap items-center gap-2"
         >
             <Pressable
-                testID={`${testID}-filters`}
+                testID={filtersId}
                 role="button"
                 accessibilityRole="button"
                 accessibilityLabel={filtersLabel}
@@ -98,7 +109,7 @@ export function ToolbarRow({
                 </Text>
                 {filtersActive === 0 ? null : (
                     <View
-                        testID={`${testID}-filters-count`}
+                        testID={`${filtersId}-count`}
                         className="min-w-[22px] items-center justify-center rounded-full bg-surface-brand px-1.5 py-0.5"
                     >
                         <Text className="text-xs font-bold text-content-on-brand">
@@ -149,7 +160,7 @@ export function ToolbarRow({
 
             {resultSummary === undefined ? null : (
                 <Text
-                    testID={`${testID}-count`}
+                    testID={countId}
                     role="status"
                     aria-live="polite"
                     // The display face, per §2.5. The figure inside is deliberately *not* coloured

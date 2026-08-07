@@ -60,7 +60,8 @@
         "unitGrams": "g",
         "unitMinutes": "min",
         "clear": "Clear filters",
-        "activeCount": "{{active}} filters applied"
+        "activeCount": "{{active}} filters applied",
+        "removeFilter": "Remove filter: {{filter}}"
     },
     "meal": {
         "loading": "Loading the meal",
