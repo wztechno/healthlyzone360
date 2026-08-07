@@ -109,6 +109,50 @@ describe('Table — wide', () => {
         );
     });
 
+    it('draws column headers as demoted, tracked capitals rather than body text', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+            />,
+        );
+
+        // A header labels its column; it must not compete with the figures beneath it. The role is
+        // `content-disabled` — one of the two greys §1.3 permits — not a grey invented here.
+        const header = screen.getByTestId('nutrients-columnheader-name').props.className;
+        expect(header).toContain('uppercase');
+        expect(header).toContain('tracking-widest');
+        expect(header).toContain('text-content-disabled');
+        expect(header).not.toContain('text-content-secondary');
+    });
+
+    it('sets the primary numeric column in the display face, and only that one', async () => {
+        const withPrimary = columns.map((column) =>
+            column.key === 'amount' ? { ...column, primary: true } : column,
+        );
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={withPrimary}
+                rows={rows}
+                rowKey={(row) => row.key}
+            />,
+        );
+
+        const key = rows[0]!.key;
+        expect(screen.getByTestId(`nutrients-cell-${key}-amount`).props.className).toContain(
+            'font-display',
+        );
+        // Two "most important" numbers is none, so the treatment must not leak to its neighbours.
+        expect(screen.getByTestId(`nutrients-cell-${key}-target`).props.className).not.toContain(
+            'font-display',
+        );
+    });
+
     it('shows a translated empty message instead of an empty table', async () => {
         await renderWithI18n(
             <Table

@@ -189,6 +189,8 @@ export function ShowcaseScreen() {
             key: 'amount',
             header: t('designSystem:showcase.tableColumnAmount'),
             numeric: true,
+            // The one figure a reader compares down the column, so it carries the display face.
+            primary: true,
             render: (row) => <Text align="end">{row.amount}</Text>,
         },
         {

@@ -10,6 +10,17 @@ import { cx } from '../internal/class-names.ts';
 export type TableSortDirection = 'asc' | 'desc';
 
 /**
+ * Column headers: small, bold, upper-case and widely tracked, in the demoted text role.
+ *
+ * A header is a label for the column, not a competitor to the figures under it — so it is the
+ * quietest thing in the table by colour and the most distinct by shape. `content-disabled` is the
+ * demoted role rather than a grey invented for the purpose (§1.3 allows exactly two), and it still
+ * owes the normal-text ratio because it carries real words: 5.17:1 on `surface-raised`, 4.69:1 on
+ * `surface-sunken`. Both are asserted in `packages/design-tokens/src/colour.test.ts`.
+ */
+const HEADER_CELL_CLASS = 'text-xs font-bold uppercase tracking-widest text-content-disabled';
+
+/**
  * A trailing per-row control — "View", "Edit", a menu. `header` names the column above `md` and is
  * what a screen reader meets before the buttons; it is required for that reason.
  */
@@ -23,6 +34,12 @@ export interface TableColumn<Row> {
     readonly header: string;
     /** Aligns to the trailing edge so figures line up on their last digit. */
     readonly numeric?: boolean | undefined;
+    /**
+     * The one figure in the row a reader is actually comparing — a total, a price, a count. It is
+     * set in the display face so the eye finds it without reading the row, and at most one column
+     * should claim it: two "most important" numbers is none.
+     */
+    readonly primary?: boolean | undefined;
     /**
      * Marks the column that names the row. It becomes a `rowheader` in the table presentation and
      * the card's leading line in the stacked presentation. At most one column should set this.
@@ -213,12 +230,12 @@ export function Table<Row>({
                     {...naming}
                     aria-rowcount={rows.length + 1}
                     aria-colcount={columnCount}
-                    className="flex-col overflow-hidden rounded-lg border border-stroke-subtle"
+                    className="flex-col"
                 >
                     <View
                         testID={`${base}-header`}
                         role="row"
-                        className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-sunken px-3 py-2"
+                        className="flex-row items-center gap-3 border-b-2 border-stroke-subtle px-1 pb-2"
                     >
                         {columns.map((column) => {
                             if (column.sortable !== true) {
@@ -229,7 +246,7 @@ export function Table<Row>({
                                         role="columnheader"
                                         numberOfLines={2}
                                         className={cx(
-                                            'text-xs font-semibold text-content-secondary',
+                                            HEADER_CELL_CLASS,
                                             column.numeric === true ? 'text-end' : 'text-start',
                                         )}
                                         style={{ flex: column.flex ?? 1 }}
@@ -288,10 +305,9 @@ export function Table<Row>({
                                         <RNText
                                             numberOfLines={2}
                                             className={cx(
-                                                'shrink text-xs font-semibold',
-                                                active
-                                                    ? 'text-content-primary'
-                                                    : 'text-content-secondary',
+                                                'shrink',
+                                                HEADER_CELL_CLASS,
+                                                active ? 'text-content-primary' : null,
                                                 column.numeric === true ? 'text-end' : 'text-start',
                                             )}
                                         >
@@ -318,7 +334,7 @@ export function Table<Row>({
                                 testID={`${base}-columnheader-action`}
                                 role="columnheader"
                                 numberOfLines={2}
-                                className="text-xs font-semibold text-content-secondary text-end"
+                                className={cx(HEADER_CELL_CLASS, 'text-end')}
                                 style={{ flex: 1 }}
                             >
                                 {rowAction.header}
@@ -331,16 +347,22 @@ export function Table<Row>({
                             key={rowKey(row)}
                             testID={`${base}-row-${rowKey(row)}`}
                             role="row"
-                            className="flex-row items-center gap-3 border-t border-stroke-subtle px-3 py-2"
+                            className="flex-row items-center gap-3 border-b border-surface-sunken px-1 py-3"
                         >
                             {columns.map((column) => (
                                 <View
                                     key={column.key}
                                     testID={`${base}-cell-${rowKey(row)}-${column.key}`}
                                     role={column.rowHeader === true ? 'rowheader' : 'cell'}
-                                    className={
-                                        column.numeric === true ? 'items-end' : 'items-start'
-                                    }
+                                    className={cx(
+                                        column.numeric === true ? 'items-end' : 'items-start',
+                                        // The display face is applied to the *cell*, so a caller
+                                        // gets the treatment by declaring which column matters
+                                        // rather than by repeating a class in every `render`.
+                                        column.primary === true
+                                            ? 'font-display text-base text-content-primary'
+                                            : null,
+                                    )}
                                     style={{ flex: column.flex ?? 1 }}
                                 >
                                     {column.render(row)}
