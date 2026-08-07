@@ -66,6 +66,86 @@ describe('Card', () => {
         );
         assertSubtreeIsLogical(screen.getByTestId('logical'));
     });
+
+    it('fills its cell and pushes the footer down when it has one', async () => {
+        await renderWithI18n(
+            <Card testID="footed" footer={<Text>Price</Text>}>
+                <Text>Body</Text>
+            </Card>,
+        );
+
+        // `h-full` + `flex-1` body + `mt-auto` footer is the whole mechanism behind a row of cards
+        // sharing one price baseline. Any one of the three missing and the footers go ragged.
+        expect(screen.getByTestId('footed').props.className).toMatch(/h-full/);
+        expect(screen.getByTestId('footed-body').props.className).toMatch(/flex-1/);
+        expect(screen.getByTestId('footed-footer').props.className).toMatch(/mt-auto/);
+    });
+
+    it('drops the sibling gap when a footer is present, and keeps it otherwise', async () => {
+        // Otherwise the footer sits a gap *plus* the free space away from the body.
+        await renderWithI18n(
+            <Card testID="footed" footer={<Text>Price</Text>}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('footed').props.className).not.toMatch(/(^|\s)gap-3(\s|$)/);
+
+        await renderWithI18n(
+            <Card testID="plain-gap">
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('plain-gap').props.className).toMatch(/(^|\s)gap-3(\s|$)/);
+    });
+
+    it('clips only when the padding is none, so a padded card can still show a Popover', async () => {
+        await renderWithI18n(
+            <Card testID="media" padding="none">
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('media').props.className).toMatch(/overflow-hidden/);
+
+        await renderWithI18n(
+            <Card testID="padded" padding="lg">
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('padded').props.className).not.toMatch(/overflow-hidden/);
+    });
+
+    it('lifts on hover only when asked, and drives the timing from a duration token', async () => {
+        // Not implied by `onPress`: `plan-card.tsx` is pressable in parts and must not lift as one.
+        await renderWithI18n(
+            <Card testID="lift" interactive onPress={() => {}}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        const lifted = screen.getByTestId('lift').props.className;
+        expect(lifted).toMatch(/hover:-translate-y-1/);
+        expect(lifted).toMatch(/hover:shadow-elevation-card-hover/);
+        // A literal duration would keep animating for a reader who asked it not to; the tokens are
+        // what `prefers-reduced-motion` zeroes.
+        expect(lifted).toMatch(/duration-normal/);
+
+        await renderWithI18n(
+            <Card testID="still" onPress={() => {}}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('still').props.className).not.toMatch(/hover:/);
+    });
+
+    it('keeps the footer inside the pressable target when the card is one', async () => {
+        const onPress = jest.fn();
+        await renderWithI18n(
+            <Card testID="pressable-footed" onPress={onPress} footer={<Text>Price</Text>}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('pressable-footed')).toHaveTextContent(/Price/);
+        expect(screen.getByTestId('pressable-footed').props.accessibilityRole).toBe('button');
+    });
 });
 
 describe('ListItem', () => {

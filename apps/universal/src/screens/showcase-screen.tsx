@@ -60,6 +60,7 @@ import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'nativewind';
+import { View } from 'react-native';
 
 interface SectionProps {
     readonly id: string;
@@ -534,6 +535,69 @@ export function ShowcaseScreen() {
                             </Card>
                         ))}
                     </Inline>
+                    {/*
+                      * The pinned footer, shown the only way it can be judged: a row of cards whose
+                      * bodies are deliberately different lengths. The three prices must sit on one
+                      * line. If they go ragged, the card is not filling its cell — the classes on
+                      * the cells below mirror `CardGridItem` so this behaves as the real grid does.
+                      */}
+                    <View className="flex-row flex-wrap gap-4">
+                        {[
+                            {
+                                key: 'short',
+                                name: 'Garden Bowl',
+                                body: 'Two lines of description.',
+                                price: '$14',
+                            },
+                            {
+                                key: 'long',
+                                name: 'Slow-Braised Lamb',
+                                body: 'A much longer description that wraps onto several lines, so this card would otherwise be the tallest in the row and drag its price down with it.',
+                                price: '$26',
+                            },
+                            {
+                                key: 'none',
+                                name: 'Sparkling Water',
+                                body: '',
+                                price: '$3',
+                            },
+                        ].map((item) => (
+                            <View key={item.key} className="min-w-[200px] flex-1 grow basis-[220px]">
+                                <Card
+                                    testID={`showcase-card-baseline-${item.key}`}
+                                    padding="none"
+                                    tone="raised"
+                                    interactive
+                                    onPress={() => undefined}
+                                    accessibilityLabel={item.name}
+                                    footer={
+                                        <View className="border-t border-stroke-subtle px-4 pb-4 pt-3">
+                                            <Text
+                                                testID={`showcase-card-baseline-${item.key}-price`}
+                                                className="font-display text-2xl text-surface-brand"
+                                            >
+                                                {item.price}
+                                            </Text>
+                                        </View>
+                                    }
+                                >
+                                    <ImagePlaceholder
+                                        seed={`showcase-card-${item.key}`}
+                                        label={item.name}
+                                        aspect="wide"
+                                    />
+                                    <Stack space="xs" className="px-4 pt-4">
+                                        <Text className="font-display text-lg text-content-primary">
+                                            {item.name}
+                                        </Text>
+                                        <Text tone="secondary" variant="caption">
+                                            {item.body}
+                                        </Text>
+                                    </Stack>
+                                </Card>
+                            </View>
+                        ))}
+                    </View>
                     <ListItem
                         testID="showcase-list-item"
                         title="Cedar Clinic"
