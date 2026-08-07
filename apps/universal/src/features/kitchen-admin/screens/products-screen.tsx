@@ -501,7 +501,7 @@ function ProductsList() {
                     <>
                         <Button
                             testID="kitchen-products-archive-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setArchiving(null);

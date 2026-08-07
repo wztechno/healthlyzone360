@@ -424,7 +424,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     actions={
                         <Button
                             testID="kitchen-zone-not-found-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:zones.backToList')}
                             onPress={() => {
                                 router.push('/kitchen/delivery-zones' as never);
@@ -864,7 +864,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-zone-archive-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowArchive(false);

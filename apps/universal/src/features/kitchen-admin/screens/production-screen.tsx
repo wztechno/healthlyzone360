@@ -255,7 +255,7 @@ function Production() {
                     <>
                         <Button
                             testID="kitchen-production-create-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={closeCreating}
                         />

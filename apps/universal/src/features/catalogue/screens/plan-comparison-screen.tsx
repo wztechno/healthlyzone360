@@ -250,7 +250,7 @@ export function PlanComparisonScreen() {
                     actions={
                         <Button
                             testID="plan-comparison-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('catalogue:compare.backToPlans')}
                             onPress={() => {
                                 router.push('/plans');
@@ -267,7 +267,7 @@ export function PlanComparisonScreen() {
                     emptyActions={
                         <Button
                             testID="plan-comparison-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('catalogue:compare.backToPlans')}
                             onPress={() => {
                                 router.push('/plans');

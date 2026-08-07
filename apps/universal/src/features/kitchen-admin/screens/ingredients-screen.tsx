@@ -408,7 +408,7 @@ function IngredientsList() {
                     <>
                         <Button
                             testID="kitchen-ingredients-archive-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setArchiving(null);

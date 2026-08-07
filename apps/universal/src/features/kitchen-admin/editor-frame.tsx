@@ -165,7 +165,7 @@ export function EditorFrame({
                         <>
                             <Button
                                 testID={`${testID}-unsaved-keep`}
-                                variant="secondary"
+                                variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
@@ -190,7 +190,7 @@ export function EditorFrame({
                         <>
                             <Button
                                 testID={`${testID}-conflict-keep`}
-                                variant="secondary"
+                                variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />

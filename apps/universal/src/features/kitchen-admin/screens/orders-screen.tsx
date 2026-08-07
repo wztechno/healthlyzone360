@@ -823,7 +823,7 @@ function Orders() {
                     <>
                         <Button
                             testID="kitchen-orders-cancel-dismiss"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:ops.orders.cancelDismiss')}
                             onPress={() => {
                                 setCancelling(false);

@@ -227,6 +227,10 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const listAction = (
         <Button
             testID="subscription-detail-list"
+            // "Back to list" is navigation, and Rule 4 forbids promoting navigation into the
+            // primary slot. The actions that advance this screen's loop — skip a delivery, change
+            // a plan, cancel a subscription — are further down and own the emphasis.
+            variant="quiet"
             label={t('commerce:subscription.backToList')}
             onPress={() => {
                 router.push('/customer/subscriptions' as never);
@@ -428,7 +432,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                     {canPauseOrSkip(subscription.state) ? (
                                         <Button
                                             testID="subscription-skip"
-                                            variant="secondary"
+                                            variant="quiet"
                                             label={t('commerce:subscription.skip')}
                                             disabled={busy || upcoming.length === 0}
                                             onPress={() => {
@@ -554,7 +558,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     <>
                         <Button
                             testID="subscription-pause-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('commerce:common.cancel')}
                             onPress={close}
                         />
@@ -617,7 +621,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     <>
                         <Button
                             testID="subscription-resume-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('commerce:common.cancel')}
                             onPress={close}
                         />
@@ -651,7 +655,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     <>
                         <Button
                             testID="subscription-skip-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('commerce:common.cancel')}
                             onPress={close}
                         />
@@ -694,7 +698,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     <>
                         <Button
                             testID="subscription-address-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('commerce:common.cancel')}
                             onPress={close}
                         />
@@ -766,7 +770,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     <>
                         <Button
                             testID="subscription-slot-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('commerce:common.cancel')}
                             onPress={close}
                         />

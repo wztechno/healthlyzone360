@@ -511,7 +511,7 @@ export function PlannerMealCard({
                     <>
                         <Button
                             testID={`${base}-repeat-cancel`}
-                            variant="secondary"
+                            variant="quiet"
                             label={t('planner:common.cancel')}
                             onPress={() => {
                                 setRepeatOpen(false);

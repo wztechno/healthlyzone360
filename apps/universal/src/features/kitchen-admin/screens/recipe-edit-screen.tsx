@@ -638,7 +638,7 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
                     actions={
                         <Button
                             testID="kitchen-recipe-not-found-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:recipes.backToList')}
                             onPress={() => {
                                 router.push('/kitchen/recipes' as never);
@@ -995,7 +995,7 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
                                     <Button
                                         testID="kitchen-recipe-version-back-to-current"
                                         size="sm"
-                                        variant="secondary"
+                                        variant="quiet"
                                         label={t('kitchen:recipes.backToCurrentVersion')}
                                         onPress={() => {
                                             setSelectedVersionId(null);
@@ -1153,7 +1153,7 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-recipe-publish-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowPublish(false);
@@ -1340,7 +1340,7 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-recipe-retire-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowRetire(false);

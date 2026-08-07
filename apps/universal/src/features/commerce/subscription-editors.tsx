@@ -92,7 +92,7 @@ export function CancelSubscriptionDialog({
                     <>
                         <Button
                             testID={`${testID}-dismiss`}
-                            variant="secondary"
+                            variant="quiet"
                             label={t('commerce:cancel.keep')}
                             onPress={onClose}
                         />
@@ -235,7 +235,7 @@ export function WeekdayEditorDialog({
                 <>
                     <Button
                         testID={`${testID}-cancel`}
-                        variant="secondary"
+                        variant="quiet"
                         label={t('commerce:common.cancel')}
                         onPress={onClose}
                     />
@@ -368,7 +368,7 @@ export function MealChoicesDialog({
                 <>
                     <Button
                         testID={`${testID}-cancel`}
-                        variant="secondary"
+                        variant="quiet"
                         label={t('commerce:common.cancel')}
                         onPress={onClose}
                     />

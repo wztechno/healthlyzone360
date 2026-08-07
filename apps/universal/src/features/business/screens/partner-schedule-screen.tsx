@@ -168,7 +168,7 @@ export function PartnerScheduleScreen() {
             <Inline space="sm" wrap>
                 <Button
                     testID="partner-schedule-back"
-                    variant="secondary"
+                    variant="quiet"
                     label={t('business:schedule.back')}
                     onPress={() => {
                         router.push('/partner' as never);

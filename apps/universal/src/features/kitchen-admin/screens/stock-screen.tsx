@@ -387,7 +387,7 @@ function Stock() {
                     <>
                         <Button
                             testID="kitchen-stock-create-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={closeCreate}
                         />
@@ -481,7 +481,7 @@ function Stock() {
                     <>
                         <Button
                             testID="kitchen-stock-movement-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={closeMovement}
                         />

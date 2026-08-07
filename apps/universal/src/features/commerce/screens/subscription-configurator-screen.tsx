@@ -508,7 +508,7 @@ export function SubscriptionConfiguratorScreen({
                         <Inline space="sm" wrap testID="configurator-navigation">
                             <Button
                                 testID="configurator-back"
-                                variant="secondary"
+                                variant="quiet"
                                 label={t('commerce:configurator.back')}
                                 disabled={previousConfiguratorStep(step) === null}
                                 onPress={onBack}

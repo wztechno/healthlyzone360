@@ -413,7 +413,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                     actions={
                         <Button
                             testID="kitchen-meal-not-found-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:meals.backToList')}
                             onPress={() => {
                                 router.push('/kitchen/meals' as never);
@@ -904,7 +904,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-meal-publish-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowPublish(false);
@@ -1032,7 +1032,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-meal-retire-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowRetire(false);

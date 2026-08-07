@@ -563,7 +563,7 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
                     <>
                         <Button
                             testID="planner-week-regenerate-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('planner:common.cancel')}
                             onPress={() => {
                                 setConfirmRegenerate(false);
@@ -617,7 +617,7 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
                     <>
                         <Button
                             testID="planner-week-template-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('planner:common.cancel')}
                             onPress={() => {
                                 setTemplateOpen(false);
@@ -672,7 +672,7 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
                     <>
                         <Button
                             testID="planner-week-duplicate-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('planner:common.cancel')}
                             onPress={() => {
                                 setDuplicateOpen(false);

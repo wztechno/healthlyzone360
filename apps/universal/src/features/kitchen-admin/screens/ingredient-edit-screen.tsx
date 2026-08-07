@@ -502,7 +502,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                     actions={
                         <Button
                             testID="kitchen-ingredient-not-found-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:editor.backToList')}
                             onPress={() => {
                                 router.push('/kitchen/ingredients' as never);
@@ -1142,7 +1142,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-ingredient-archive-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowArchive(false);

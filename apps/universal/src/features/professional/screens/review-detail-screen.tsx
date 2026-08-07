@@ -115,7 +115,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
     const backAction = (
         <Button
             testID="review-detail-back"
-            variant="secondary"
+            variant="quiet"
             label={t('professional:review.back')}
             onPress={() => {
                 router.push('/dietitian' as never);
@@ -489,7 +489,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                     <>
                         <Button
                             testID="review-approve-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('professional:common.cancel')}
                             onPress={close}
                         />
@@ -549,7 +549,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                     <>
                         <Button
                             testID="review-changes-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('professional:common.cancel')}
                             onPress={close}
                         />
@@ -619,7 +619,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                     <>
                         <Button
                             testID="review-override-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('professional:common.cancel')}
                             onPress={close}
                         />
@@ -693,7 +693,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                     <>
                         <Button
                             testID="review-note-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('professional:common.cancel')}
                             onPress={close}
                         />

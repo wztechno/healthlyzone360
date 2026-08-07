@@ -164,7 +164,7 @@ export function AddressesScreen() {
                     <Inline space="sm">
                         <Button
                             testID={`${TEST_ID}-remove-cancel`}
-                            variant="secondary"
+                            variant="quiet"
                             label={t('common:action.cancel')}
                             onPress={() => {
                                 setPendingRemoval(null);
@@ -172,6 +172,12 @@ export function AddressesScreen() {
                         />
                         <Button
                             testID={`${TEST_ID}-remove-confirm`}
+                            // Destructive, so it is `danger` rather than the primary it was.
+                            // Rule 4 is explicit that letting a destructive action occupy the
+                            // primary slot is worse than leaving the slot empty — and here it was
+                            // not even empty, it was the strongest control in a dialog whose other
+                            // option is "keep my address".
+                            variant="danger"
                             label={t('account:addresses.remove')}
                             loading={remove.isPending}
                             onPress={() => {

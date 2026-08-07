@@ -214,7 +214,7 @@ export function DevicesScreen() {
                     <>
                         <Button
                             testID="revoke-dialog-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('common:action.cancel')}
                             onPress={() => {
                                 setPendingDevice(null);
@@ -247,7 +247,7 @@ export function DevicesScreen() {
                     <>
                         <Button
                             testID="step-up-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('common:action.cancel')}
                             onPress={() => {
                                 setStepUpDevice(null);

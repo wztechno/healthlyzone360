@@ -289,7 +289,7 @@ function QualityControl() {
                     <>
                         <Button
                             testID="kitchen-qc-create-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={closeCreating}
                         />

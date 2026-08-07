@@ -279,7 +279,7 @@ export function OnboardingScreen({ slug }: OnboardingScreenProps) {
                 <Inline space="sm" wrap testID="onboarding-navigation">
                     <Button
                         testID="onboarding-back"
-                        variant="secondary"
+                        variant="quiet"
                         label={t('onboarding:back')}
                         disabled={previousStep(slug) === null}
                         onPress={onBack}

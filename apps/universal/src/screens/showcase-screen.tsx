@@ -1021,7 +1021,7 @@ export function ShowcaseScreen() {
                             <>
                                 <Button
                                     testID="showcase-dialog-cancel"
-                                    variant="secondary"
+                                    variant="quiet"
                                     label={t('common:action.cancel')}
                                     onPress={() => {
                                         setDialogOpen(false);

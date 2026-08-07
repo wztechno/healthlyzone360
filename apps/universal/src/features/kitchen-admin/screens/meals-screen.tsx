@@ -451,7 +451,7 @@ function MealsList() {
                     <>
                         <Button
                             testID="kitchen-meals-retire-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setRetiring(null);

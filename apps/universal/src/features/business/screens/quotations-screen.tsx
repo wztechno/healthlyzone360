@@ -290,7 +290,7 @@ export function QuotationsScreen() {
             <Inline space="sm" wrap>
                 <Button
                     testID="quotations-back"
-                    variant="secondary"
+                    variant="quiet"
                     label={t('business:quotations.back')}
                     onPress={() => {
                         router.push('/corporate' as never);

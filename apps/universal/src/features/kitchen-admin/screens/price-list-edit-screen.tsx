@@ -364,7 +364,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     actions={
                         <Button
                             testID="kitchen-price-list-not-found-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:priceLists.backToList')}
                             onPress={() => {
                                 router.push('/kitchen/price-lists' as never);
@@ -626,7 +626,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-price-list-publish-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowPublish(false);

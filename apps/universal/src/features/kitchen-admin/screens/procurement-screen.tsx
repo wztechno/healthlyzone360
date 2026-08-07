@@ -292,7 +292,7 @@ function Procurement() {
                     <>
                         <Button
                             testID="kitchen-procurement-post-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={closePosting}
                         />

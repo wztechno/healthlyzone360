@@ -125,7 +125,7 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
     const backAction = (
         <Button
             testID="catalogue-item-back"
-            variant="secondary"
+            variant="quiet"
             label={t('business:item.back')}
             onPress={() => {
                 if (item === undefined) {

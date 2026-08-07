@@ -413,7 +413,7 @@ function ProductEditor({ product }: ProductEditScreenProps) {
                     actions={
                         <Button
                             testID="kitchen-product-not-found-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:products.backToList')}
                             onPress={() => {
                                 router.push('/kitchen/products' as never);
@@ -821,7 +821,7 @@ function ProductEditor({ product }: ProductEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-product-archive-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowArchive(false);

@@ -335,7 +335,7 @@ function KitchenDetail() {
                     <>
                         <Button
                             testID="platform-admin-suspend-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('platformAdmin:detail.backToList')}
                             onPress={() => {
                                 setPending(null);
@@ -395,7 +395,7 @@ function KitchenDetail() {
                     <>
                         <Button
                             testID="platform-admin-reactivate-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('platformAdmin:detail.backToList')}
                             onPress={() => {
                                 setPending(null);
@@ -442,7 +442,7 @@ function KitchenDetail() {
                     <>
                         <Button
                             testID="platform-admin-revoke-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('platformAdmin:detail.backToList')}
                             onPress={() => {
                                 setRevoking(null);

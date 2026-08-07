@@ -105,7 +105,7 @@ export function OverrideDialog({
                 <>
                     <Button
                         testID={`${VD_OVERRIDE_DIALOG_TEST_ID}-cancel`}
-                        variant="secondary"
+                        variant="quiet"
                         label={t('virtualDietitian:override.cancel')}
                         onPress={onClose}
                     />

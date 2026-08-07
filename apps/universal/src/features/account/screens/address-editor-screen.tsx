@@ -358,7 +358,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                                 />
                                 <Button
                                     testID={`${TEST_ID}-cancel`}
-                                    variant="secondary"
+                                    variant="quiet"
                                     label={t('common:action.cancel')}
                                     onPress={() => {
                                         router.push('/customer/account/addresses' as never);

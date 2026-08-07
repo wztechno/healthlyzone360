@@ -127,7 +127,7 @@ export function QuotationBuilderScreen({
     const backAction = (
         <Button
             testID="quotation-builder-back"
-            variant="secondary"
+            variant="quiet"
             label={t('business:builder.back')}
             onPress={() => {
                 if (parsed === null) {

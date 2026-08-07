@@ -572,7 +572,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     actions={
                         <Button
                             testID="kitchen-plan-not-found-back"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:plans.backToList')}
                             onPress={() => {
                                 router.push('/kitchen/plans' as never);
@@ -1318,7 +1318,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-plan-publish-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowPublish(false);
@@ -1443,7 +1443,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     <>
                         <Button
                             testID="kitchen-plan-retire-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={() => {
                                 setShowRetire(false);

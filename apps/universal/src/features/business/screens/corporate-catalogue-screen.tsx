@@ -127,7 +127,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
     const backAction = (
         <Button
             testID="corporate-catalogue-back"
-            variant="secondary"
+            variant="quiet"
             label={t('business:catalogue.back')}
             onPress={() => {
                 router.push('/corporate' as never);
