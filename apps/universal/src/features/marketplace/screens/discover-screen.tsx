@@ -1,9 +1,7 @@
 import {
     Button,
     Card,
-    Heading,
     Icon,
-    Inline,
     Stack,
     Text,
     TextInputField,
@@ -12,10 +10,12 @@ import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { useDietitiansQuery, useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
+import { PageHero } from '../../../ui/page-hero.tsx';
 import { DietitianCard } from '../dietitian-card.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
 import { QueryStates } from '../query-states.tsx';
@@ -68,32 +68,40 @@ export function DiscoverScreen() {
 
     return (
         <Stack space="xl" testID="discover-screen">
-            <Stack space="sm">
-                <Heading level={1} testID="discover-title">
-                    {t('marketplace:discover.title')}
-                </Heading>
-                <Text tone="secondary">{t('marketplace:discover.subtitle')}</Text>
-                <TextInputField
-                    testID="discover-search"
-                    id="discover-search"
-                    label={t('marketplace:discover.searchLabel')}
-                    placeholder={t('marketplace:discover.searchPlaceholder')}
-                    value={term}
-                    onChangeText={setTerm}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="search"
-                    onSubmitEditing={search}
-                    trailing={<Icon name="search" />}
-                />
-                <Inline space="sm" wrap>
-                    <Button
-                        testID="discover-search-submit"
-                        label={t('marketplace:discover.searchSubmit')}
-                        onPress={search}
-                    />
-                </Inline>
-            </Stack>
+            {/*
+             * Rule 3, on the surface that most needed it: this is the front door, and it opened
+             * with a heading, a line of grey text and a form field. The search panel moves into
+             * the band's trailing column, which is the arrangement the hero exists for — the page
+             * says what it is and offers the one thing you came to do, in the same breath.
+             */}
+            <PageHero
+                testID="discover"
+                title={t('marketplace:discover.title')}
+                subtitle={t('marketplace:discover.subtitle')}
+                trailing={
+                    <View className="flex-col gap-2 rounded-xl bg-surface-raised p-3 shadow-elevation-3">
+                        <TextInputField
+                            testID="discover-search"
+                            id="discover-search"
+                            label={t('marketplace:discover.searchLabel')}
+                            placeholder={t('marketplace:discover.searchPlaceholder')}
+                            value={term}
+                            onChangeText={setTerm}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            returnKeyType="search"
+                            onSubmitEditing={search}
+                            trailing={<Icon name="search" />}
+                        />
+                        <Button
+                            testID="discover-search-submit"
+                            block
+                            label={t('marketplace:discover.searchSubmit')}
+                            onPress={search}
+                        />
+                    </View>
+                }
+            />
 
             <Stack space="sm" testID="discover-kitchens">
                 <SectionHeader

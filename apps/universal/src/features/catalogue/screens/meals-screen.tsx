@@ -243,7 +243,7 @@ export function MealsScreen() {
              * trailing panel, which is what frees the toolbar below to be a single row.
              */}
             <PageHero
-                testID="meals-hero"
+                testID="meals"
                 breadcrumbs={[
                     {
                         key: 'home',
@@ -251,9 +251,8 @@ export function MealsScreen() {
                         onPress: () => {
                             router.push('/');
                         },
-                        testID: 'meals-breadcrumbs-home',
                     },
-                    { key: 'meals', label: t('catalogue:nav.meals'), testID: 'meals-title' },
+                    { key: 'meals', label: t('catalogue:nav.meals') },
                 ]}
                 title={t('catalogue:meals.title')}
                 subtitle={t('catalogue:meals.subtitle')}

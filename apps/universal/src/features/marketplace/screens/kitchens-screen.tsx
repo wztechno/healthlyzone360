@@ -1,4 +1,4 @@
-import { Breadcrumbs, Button, Heading, Stack, Text } from '@healthy360/design-system';
+import { Button, Stack } from '@healthy360/design-system';
 import type { KitchenFilter } from '@healthy360/api-client/contracts';
 import type { SalesChannel } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { FilterBar, useMarketplaceFilters } from '../filter-bar.tsx';
+import { PageHero } from '../../../ui/page-hero.tsx';
 import { CardGrid, CardGridItem } from '../section-header.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
 import { QueryStates } from '../query-states.tsx';
@@ -63,9 +64,14 @@ export function KitchensScreen() {
 
     return (
         <Stack space="lg" testID="kitchens-screen">
-            <Breadcrumbs
-                testID="kitchens-breadcrumbs"
-                items={[
+            {/*
+             * Rule 3: a browse surface opens with weight. The breadcrumbs move inside the band and
+             * the heading becomes the display face on the canopy, so the page says what it is
+             * before it says how to filter it.
+             */}
+            <PageHero
+                testID="kitchens"
+                breadcrumbs={[
                     {
                         key: 'home',
                         label: t('marketplace:nav.home'),
@@ -73,16 +79,14 @@ export function KitchensScreen() {
                             router.push('/');
                         },
                     },
-                    { key: 'kitchens', label: t('marketplace:nav.kitchens') },
+                    {
+                        key: 'kitchens',
+                        label: t('marketplace:nav.kitchens'),
+                    },
                 ]}
+                title={t('marketplace:kitchens.title')}
+                subtitle={t('marketplace:kitchens.subtitle')}
             />
-
-            <Stack space="xs">
-                <Heading level={1} testID="kitchens-title">
-                    {t('marketplace:kitchens.title')}
-                </Heading>
-                <Text tone="secondary">{t('marketplace:kitchens.subtitle')}</Text>
-            </Stack>
 
             <FilterBar
                 testID="kitchens-filter"

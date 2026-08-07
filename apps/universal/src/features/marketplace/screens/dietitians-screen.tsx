@@ -1,4 +1,4 @@
-import { Breadcrumbs, Button, Heading, Stack, Text } from '@healthy360/design-system';
+import { Button, Stack } from '@healthy360/design-system';
 import type { DietitianFilter } from '@healthy360/api-client/contracts';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDietitiansQuery } from '../../../data/marketplace-hooks.ts';
 import { FilterBar, useMarketplaceFilters } from '../filter-bar.tsx';
+import { PageHero } from '../../../ui/page-hero.tsx';
 import { CardGrid, CardGridItem } from '../section-header.tsx';
 import { DietitianCard } from '../dietitian-card.tsx';
 import { QueryStates } from '../query-states.tsx';
@@ -49,9 +50,14 @@ export function DietitiansScreen() {
 
     return (
         <Stack space="lg" testID="dietitians-screen">
-            <Breadcrumbs
-                testID="dietitians-breadcrumbs"
-                items={[
+            {/*
+             * Rule 3: a browse surface opens with weight. The breadcrumbs move inside the band and
+             * the heading becomes the display face on the canopy, so the page says what it is
+             * before it says how to filter it.
+             */}
+            <PageHero
+                testID="dietitians"
+                breadcrumbs={[
                     {
                         key: 'home',
                         label: t('marketplace:nav.home'),
@@ -59,16 +65,14 @@ export function DietitiansScreen() {
                             router.push('/');
                         },
                     },
-                    { key: 'dietitians', label: t('marketplace:nav.dietitians') },
+                    {
+                        key: 'dietitians',
+                        label: t('marketplace:nav.dietitians'),
+                    },
                 ]}
+                title={t('marketplace:dietitians.title')}
+                subtitle={t('marketplace:dietitians.subtitle')}
             />
-
-            <Stack space="xs">
-                <Heading level={1} testID="dietitians-title">
-                    {t('marketplace:dietitians.title')}
-                </Heading>
-                <Text tone="secondary">{t('marketplace:dietitians.subtitle')}</Text>
-            </Stack>
 
             <FilterBar
                 testID="dietitians-filter"
