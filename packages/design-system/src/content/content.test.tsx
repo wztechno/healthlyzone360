@@ -576,6 +576,30 @@ describe('ImagePlaceholder', () => {
         expect(screen.getByTestId('ph-pattern').props['aria-hidden']).toBe(true);
     });
 
+    it('offers a 4:3 card aspect without disturbing the 16:9 one', async () => {
+        // Separate aspects on purpose: a grid card wants the taller crop, a detail page still wants
+        // the cinematic frame. Redefining `wide` would have moved both.
+        await renderWithI18n(
+            <ImagePlaceholder testID="card-aspect" seed="meal-01" label="Meal" aspect="card" />,
+        );
+        expect(screen.getByTestId('card-aspect').props.className).toContain('aspect-[4/3]');
+
+        await renderWithI18n(
+            <ImagePlaceholder testID="wide-aspect" seed="meal-01" label="Meal" aspect="wide" />,
+        );
+        expect(screen.getByTestId('wide-aspect').props.className).toContain('aspect-video');
+    });
+
+    it('drops its own radius when flush, so media meets a clipped card corner cleanly', async () => {
+        await renderWithI18n(
+            <ImagePlaceholder testID="flush" seed="meal-01" label="Meal" flush />,
+        );
+        expect(screen.getByTestId('flush').props.className).not.toMatch(/rounded-lg/);
+
+        await renderWithI18n(<ImagePlaceholder testID="round" seed="meal-01" label="Meal" />);
+        expect(screen.getByTestId('round').props.className).toMatch(/rounded-lg/);
+    });
+
     it('varies the pattern across seeds so a grid does not look repetitive', async () => {
         const first = await renderWithI18n(
             <ImagePlaceholder testID="a" seed="meal-01" label="A" />,

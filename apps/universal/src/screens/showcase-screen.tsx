@@ -62,6 +62,8 @@ import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'nativewind';
 import { View } from 'react-native';
 
+import { EntityImage, MediaChip } from '../media/entity-image.tsx';
+
 interface SectionProps {
     readonly id: string;
     readonly title: string;
@@ -581,10 +583,13 @@ export function ShowcaseScreen() {
                                         </View>
                                     }
                                 >
-                                    <ImagePlaceholder
+                                    <EntityImage
+                                        testID={`showcase-card-baseline-${item.key}-media`}
                                         seed={`showcase-card-${item.key}`}
                                         label={item.name}
-                                        aspect="wide"
+                                        aspect="card"
+                                        flush
+                                        overlayStart={<MediaChip label="Verdant Kitchen" />}
                                     />
                                     <Stack space="xs" className="px-4 pt-4">
                                         <Text className="font-display text-lg text-content-primary">

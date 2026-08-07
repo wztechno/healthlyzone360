@@ -11,7 +11,10 @@
  */
 module.exports = {
     preset: 'jest-expo',
-    roots: ['<rootDir>/app', '<rootDir>/src', '<rootDir>/__tests__'],
+    // `app` and `src` only. A third root for `__tests__` was listed here but that directory has
+    // never existed, and jest validates roots before it collects anything — so the whole suite,
+    // all thirty-four files of it, aborted on startup rather than running.
+    roots: ['<rootDir>/app', '<rootDir>/src'],
     testMatch: ['**/*.test.ts', '**/*.test.tsx'],
     setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     // Fourteen suites saturate every core, and under `pnpm turbo run test` the other packages'
