@@ -144,8 +144,12 @@ export { SegmentedControl, TABS_VARIANTS, Tabs } from './navigation/tabs.tsx';
 export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './navigation/tabs.tsx';
 export { Stepper } from './navigation/stepper.tsx';
 export type { StepperProps } from './navigation/stepper.tsx';
-export { Breadcrumbs } from './navigation/breadcrumbs.tsx';
-export type { BreadcrumbItem, BreadcrumbsProps } from './navigation/breadcrumbs.tsx';
+export { BREADCRUMB_TONES, Breadcrumbs } from './navigation/breadcrumbs.tsx';
+export type {
+    BreadcrumbItem,
+    BreadcrumbTone,
+    BreadcrumbsProps,
+} from './navigation/breadcrumbs.tsx';
 
 export { Table } from './data/table.tsx';
 export type { TableColumn, TableProps, TableRowAction, TableSortDirection } from './data/table.tsx';

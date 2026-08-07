@@ -64,6 +64,7 @@ import { useColorScheme } from 'nativewind';
 import { View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
+import { PageHero } from '../ui/page-hero.tsx';
 
 interface SectionProps {
     readonly id: string;
@@ -564,6 +565,38 @@ export function ShowcaseScreen() {
                                 <Text variant="caption">{slot?.label ?? day.label}</Text>
                             </Card>
                         )}
+                    />
+                </Section>
+
+                <Section id="hero" title="Page hero">
+                    {/*
+                      * The canopy band, with the scrim that makes it legible. What to check: the
+                      * title and subtitle stay readable all the way across, including over the
+                      * bright end of the sweep on the trailing side, where the bare 0.62 alpha
+                      * floor does not hold on its own.
+                      */}
+                    <PageHero
+                        testID="showcase-page-hero"
+                        breadcrumbs={[
+                            { key: 'home', label: 'Home', onPress: () => undefined },
+                            { key: 'meals', label: 'Meals' },
+                        ]}
+                        title="Meals"
+                        subtitle="Every dish on the marketplace, filterable by kitchen, diet, allergen and six numeric axes."
+                        chips={['40 meals', '6 kitchens', 'Nutrition on every card']}
+                        trailing={
+                            <View className="flex-row items-center gap-2 rounded-xl bg-surface-raised p-1.5 ps-4 shadow-elevation-3">
+                                <Text tone="secondary" className="flex-1">
+                                    Search meals
+                                </Text>
+                                <Button
+                                    testID="showcase-hero-search"
+                                    size="sm"
+                                    label="Search"
+                                    onPress={() => undefined}
+                                />
+                            </View>
+                        }
                     />
                 </Section>
 

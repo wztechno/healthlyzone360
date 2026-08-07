@@ -266,6 +266,26 @@ describe('Breadcrumbs', () => {
         expect(screen.getByTestId('crumb-home').props['aria-current']).toBeUndefined();
     });
 
+    it('recolours every crumb for the canopy, not just its container', async () => {
+        await renderWithI18n(<Breadcrumbs testID="trail" items={trail} tone="canopy" />);
+
+        // The colours live on the items, and React Native text does not inherit colour through a
+        // View — a class on the container would recolour nothing. Left on `content-secondary`, the
+        // trail is 2.16:1 against the canopy, which is why this is a prop rather than a className.
+        expect(screen.getByTestId('crumb-current').props.className).toContain('on-canopy-muted');
+        expect(screen.getByTestId('crumb-home').props.className).not.toContain(
+            'text-content-secondary',
+        );
+    });
+
+    it('keeps the default tone off the canopy colours', async () => {
+        await renderWithI18n(<Breadcrumbs testID="trail" items={trail} />);
+        expect(screen.getByTestId('crumb-current').props.className).toContain(
+            'text-content-primary',
+        );
+        expect(screen.getByTestId('crumb-current').props.className).not.toContain('on-canopy');
+    });
+
     it('navigates from an ancestor crumb', async () => {
         const onPress = jest.fn();
         await renderWithI18n(

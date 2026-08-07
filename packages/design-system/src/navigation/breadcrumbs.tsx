@@ -12,10 +12,20 @@ export interface BreadcrumbItem {
     readonly testID?: string | undefined;
 }
 
+export const BREADCRUMB_TONES = ['default', 'canopy'] as const;
+export type BreadcrumbTone = (typeof BREADCRUMB_TONES)[number];
+
 export interface BreadcrumbsProps {
     readonly items: readonly BreadcrumbItem[];
     /** Landmark name. Defaults to the translated word for the trail. */
     readonly label?: string | undefined;
+    /**
+     * `canopy` for a trail sitting inside the hero band. It is a prop rather than a `className`
+     * because the colours live on the *items*, and React Native text does not inherit colour
+     * through a View — a class on the container would recolour nothing at all. Left as
+     * `content-secondary`, the trail is 2.16:1 on the canopy.
+     */
+    readonly tone?: BreadcrumbTone | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -31,9 +41,22 @@ export interface BreadcrumbsProps {
  * `aria-current="page"`. The separators are direction-aware chevrons that resolve their glyph from
  * the active locale, so the trail points the right way in Arabic without a transform.
  */
-export function Breadcrumbs({ items, label, className, testID }: BreadcrumbsProps) {
+export function Breadcrumbs({
+    items,
+    label,
+    tone = 'default',
+    className,
+    testID,
+}: BreadcrumbsProps) {
     const { t } = useTranslation();
     const lastIndex = items.length - 1;
+    const onCanopy = tone === 'canopy';
+    // 75 and 90 rather than the §1.3 floor of 62: a trail is small text and the current crumb is
+    // the one word in it that says where you are.
+    const mutedClass = onCanopy ? 'text-content-on-canopy-muted/75' : 'text-content-secondary';
+    const currentClass = onCanopy
+        ? 'font-semibold text-content-on-canopy-muted/90'
+        : 'font-semibold text-content-primary';
 
     return (
         <View
@@ -51,7 +74,7 @@ export function Breadcrumbs({ items, label, className, testID }: BreadcrumbsProp
                             <Icon
                                 name="chevronEnd"
                                 size="sm"
-                                className="text-content-secondary"
+                                className={mutedClass}
                                 testID={
                                     testID === undefined
                                         ? undefined
@@ -67,9 +90,7 @@ export function Breadcrumbs({ items, label, className, testID }: BreadcrumbsProp
                                 numberOfLines={1}
                                 className={cx(
                                     'text-sm text-start',
-                                    isCurrent
-                                        ? 'font-semibold text-content-primary'
-                                        : 'text-content-secondary',
+                                    isCurrent ? currentClass : mutedClass,
                                 )}
                             >
                                 {item.label}
@@ -86,7 +107,7 @@ export function Breadcrumbs({ items, label, className, testID }: BreadcrumbsProp
                             >
                                 <RNText
                                     numberOfLines={1}
-                                    className="text-sm text-content-secondary underline text-start"
+                                    className={cx('text-sm underline text-start', mutedClass)}
                                 >
                                     {item.label}
                                 </RNText>
