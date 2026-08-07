@@ -50,16 +50,13 @@ export interface ConsumerNavigationDescriptor extends NavigationDescriptor {
  * the intended shape: browsing is the same surface for everybody, and giving signed-in people a
  * second, parallel catalogue is how two catalogues drift apart.
  *
- * Icon choices are constrained by the design system's glyph vocabulary, which has no cart, no home
- * and no plate. The closest honest glyph is used in each case and the gap is recorded in the wave
- * report rather than solved by smuggling a new glyph into the design system from here.
  */
 export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
     {
         key: 'home',
         labelKey: 'marketplace:consumer.nav.home',
         href: '/customer',
-        icon: 'organisation',
+        icon: 'home',
         area: 'customer',
         status: 'available',
     },
@@ -83,7 +80,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         key: 'nutrition',
         labelKey: 'marketplace:consumer.nav.nutrition',
         href: '/customer/nutrition',
-        icon: 'success',
+        icon: 'leaf',
         area: 'customer',
         status: 'available',
     },
@@ -91,7 +88,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         key: 'virtual-dietitian',
         labelKey: 'marketplace:consumer.nav.virtualDietitian',
         href: '/customer/virtual-dietitian',
-        icon: 'info',
+        icon: 'sparkle',
         area: 'customer',
         status: 'available',
     },
@@ -107,7 +104,7 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         key: 'cart',
         labelKey: 'marketplace:consumer.nav.cart',
         href: '/customer/cart',
-        icon: 'plus',
+        icon: 'basket',
         area: 'customer',
         status: 'available',
         badge: 'cart',
@@ -150,7 +147,7 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         key: 'meals',
         labelKey: 'marketplace:nav.meals',
         href: '/meals',
-        icon: 'dot',
+        icon: 'plate',
         area: 'public',
         status: 'available',
     },

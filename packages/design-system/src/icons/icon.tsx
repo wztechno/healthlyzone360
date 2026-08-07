@@ -51,6 +51,26 @@ export const ICON_GLYPHS = {
     filter: '⚟',
     calendar: '▤',
     more: '⋯',
+    /*
+     * Closing the gap `consumer-items.ts` and `onboarding/steps.ts` both used to record.
+     *
+     * Still characters, not drawings. The handoff's §2.8 originally specified stroked 24×24 SVGs;
+     * that was written without this file in front of it, and adopting it would have meant
+     * `react-native-svg` — a native module, a config plugin, an expo-doctor entry and a rebuild of
+     * every development client — to draw seven decorative marks. The reference art in the design
+     * files indicates *meaning and weight*, not form, so the nearest glyph that carries the right
+     * meaning is the right answer and approximate fidelity is the accepted outcome.
+     *
+     * Note what is deliberately absent: `search`, `filter`, `calendar`, `refresh` and `user`
+     * already existed. Five of the eight the handoff lists were never missing.
+     */
+    basket: '⛃',
+    home: '⌂',
+    plate: '◯',
+    lock: '⚿',
+    leaf: '❦',
+    medicalCross: '✚',
+    sparkle: '✧',
 } as const;
 
 export type IconGlyphName = keyof typeof ICON_GLYPHS;

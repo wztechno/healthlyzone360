@@ -25,6 +25,7 @@ import {
     FileUploadField,
     FilterChip,
     Heading,
+    ICON_GLYPHS,
     Icon,
     IconButton,
     ImagePlaceholder,
@@ -55,7 +56,7 @@ import {
     useAnimatedNumber,
     useToast,
 } from '@healthy360/design-system';
-import type { RangeValue, TableColumn } from '@healthy360/design-system';
+import type { IconName, RangeValue, TableColumn } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -694,6 +695,26 @@ export function ShowcaseScreen() {
                             body={t('designSystem:showcase.calloutBody')}
                         />
                     ))}
+                    {/*
+                      * Every glyph in the vocabulary, iterated from the exported constant so a new
+                      * one cannot be added without appearing here. Names are shown beside the marks
+                      * because the point of review is whether the glyph reads as its name — a
+                      * basket that reads as a bin is a defect this page is supposed to catch.
+                      */}
+                    <Inline space="sm" wrap testID="showcase-icons">
+                        {Object.keys(ICON_GLYPHS).map((name) => (
+                            <View
+                                key={name}
+                                testID={`showcase-icon-${name}`}
+                                className="min-w-[92px] flex-row items-center gap-2 rounded-lg border border-stroke-subtle px-3 py-2"
+                            >
+                                <Icon name={name as IconName} />
+                                <Text variant="caption" tone="secondary">
+                                    {name}
+                                </Text>
+                            </View>
+                        ))}
+                    </Inline>
                     <Accordion
                         testID="showcase-accordion"
                         defaultExpandedKeys={['one']}

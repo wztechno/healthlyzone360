@@ -210,9 +210,9 @@ export interface RestrictionKindPresentation {
  * a `switch` so a test can assert that all seven are present, that no two share a glyph, and that
  * the authority column is what the domain's `isSafetyCriticalRestriction` says it is.
  *
- * The glyph vocabulary is the design system's thirty characters; it has no padlock, no leaf and no
- * medical cross, so each choice below is the nearest honest one and the gap is recorded in the wave
- * report rather than closed by adding a glyph from a feature module.
+ * Every kind carries the glyph that actually means it — the padlock on the one the person may not
+ * edit, the medical cross on the one they declared themselves. The vocabulary gained those in the
+ * Wellness Green pass; before it, each was the nearest honest approximation.
  */
 export const RESTRICTION_PRESENTATION: Readonly<
     Record<RestrictionKind, RestrictionKindPresentation>
@@ -251,7 +251,7 @@ export const RESTRICTION_PRESENTATION: Readonly<
     },
     self_declared_medical: {
         kind: 'self_declared_medical',
-        icon: 'user',
+        icon: 'medicalCross',
         tone: 'warning',
         authority: 'person',
         capturedAt: 'restrictions',
@@ -259,7 +259,7 @@ export const RESTRICTION_PRESENTATION: Readonly<
     },
     dietitian_enforced: {
         kind: 'dietitian_enforced',
-        icon: 'success',
+        icon: 'lock',
         tone: 'info',
         authority: 'dietitian',
         capturedAt: 'restrictions',
