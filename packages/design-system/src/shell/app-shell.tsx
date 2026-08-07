@@ -506,10 +506,16 @@ export function AppShell({
                                           */}
                                         {item.active === true ? (
                                             <View
+                                                // Named off the *shell*, not off the item. The
+                                                // responsive suite enumerates controls with
+                                                // `[data-testid^="marketplace-nav-"]` and checks
+                                                // each one is touch-sized; an item-derived name put
+                                                // this 2px decoration in that set. Exactly one item
+                                                // is ever active, so one handle is enough.
                                                 testID={
-                                                    item.testID === undefined
+                                                    testID === undefined
                                                         ? undefined
-                                                        : `${item.testID}-active-bar`
+                                                        : `${testID}-nav-active-bar`
                                                 }
                                                 aria-hidden
                                                 accessibilityElementsHidden

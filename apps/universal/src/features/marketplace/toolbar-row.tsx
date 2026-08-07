@@ -1,6 +1,6 @@
-import { Button, Icon, Text } from '@healthy360/design-system';
+import { Button, Icon } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
  * The single row of controls that sits above a listing.
@@ -104,17 +104,15 @@ export function ToolbarRow({
             >
                 {/* eslint-disable-next-line no-restricted-syntax -- §1.3 permits brand-500 on graphics: this glyph is decorative, the adjacent label carries the meaning, and 3.05:1 clears the 3:1 non-text threshold. It is not a text colour. */}
                 <Icon name="filter" className="text-brand-500" />
-                <Text variant="label" className="text-content-primary">
-                    {filtersLabel}
-                </Text>
+                <RNText className="text-sm font-medium text-content-primary">{filtersLabel}</RNText>
                 {filtersActive === 0 ? null : (
                     <View
                         testID={`${filtersId}-count`}
                         className="min-w-[22px] items-center justify-center rounded-full bg-surface-brand px-1.5 py-0.5"
                     >
-                        <Text className="text-xs font-bold text-content-on-brand">
+                        <RNText className="text-xs font-bold text-content-on-brand">
                             {String(filtersActive)}
-                        </Text>
+                        </RNText>
                     </View>
                 )}
             </Pressable>
@@ -132,9 +130,9 @@ export function ToolbarRow({
                     // are the subtle pair, which is contrast-tested as a pair.
                     className="min-h-touch flex-row items-center gap-2 rounded-full border border-brand-500 bg-surface-brand-subtle px-4"
                 >
-                    <Text className="text-sm font-medium text-content-on-brand-subtle">
+                    <RNText className="text-sm font-medium text-content-on-brand-subtle">
                         {chip.label}
-                    </Text>
+                    </RNText>
                     <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
                 </Pressable>
             ))}
@@ -159,7 +157,7 @@ export function ToolbarRow({
             <View className="grow" />
 
             {resultSummary === undefined ? null : (
-                <Text
+                <RNText
                     testID={countId}
                     role="status"
                     aria-live="polite"
@@ -169,7 +167,7 @@ export function ToolbarRow({
                     className="font-display text-sm text-content-primary"
                 >
                     {resultSummary}
-                </Text>
+                </RNText>
             )}
 
             {sort}

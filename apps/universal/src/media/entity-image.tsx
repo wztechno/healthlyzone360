@@ -1,7 +1,7 @@
-import { Avatar, ImagePlaceholder, Text } from '@healthy360/design-system';
+import { Avatar, ImagePlaceholder } from '@healthy360/design-system';
 import type { AvatarSize } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { Image, View } from 'react-native';
+import { Image, Text as RNText, View } from 'react-native';
 import type { ImageRequireSource } from 'react-native';
 
 import { IMAGE_ASSETS } from './image-manifest.generated.ts';
@@ -269,6 +269,15 @@ export interface MediaChipProps {
  * a chip over an unknown photograph cannot rely on the image behind it for contrast, and the worst
  * case here (the chip over a pure-white photo) still puts white text at 6.9:1. A lighter wash would
  * be legible over the dish photographs currently in the manifest and illegible over the next batch.
+ *
+ *
+ * RNText throughout, never the design system's `Text`.
+ *
+ * `Text` emits its own variant and tone classes ahead of a caller's `className`, and which colour
+ * actually wins is decided by stylesheet order rather than by the order they appear in the
+ * attribute. This chip shipped as `text-content-primary` on the canopy — 2.13:1, which the axe
+ * suite caught — despite asking for `text-content-on-canopy` right there in its className.
+ * Anything that states its own colour on a dark surface says so with a plain RNText.
  */
 export function MediaChip({ label, testID }: MediaChipProps) {
     return (
@@ -276,7 +285,7 @@ export function MediaChip({ label, testID }: MediaChipProps) {
             testID={testID}
             className="rounded-full bg-surface-canopy/80 px-3 py-1"
         >
-            <Text className="text-xs font-bold text-content-on-canopy">{label}</Text>
+            <RNText className="text-xs font-bold text-content-on-canopy">{label}</RNText>
         </View>
     );
 }

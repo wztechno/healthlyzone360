@@ -16,6 +16,7 @@ import {
     Card,
     Checkbox,
     Chip,
+    Collapse,
     DateField,
     Dialog,
     Drawer,
@@ -61,7 +62,7 @@ import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'nativewind';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
@@ -336,7 +337,7 @@ export function ShowcaseScreen() {
                             label="Basket"
                             iconEnd={
                                 <View className="rounded-full bg-surface-raised px-2 py-0.5">
-                                    <Text className="text-xs font-bold text-surface-brand">3</Text>
+                                    <RNText className="text-xs font-bold text-surface-brand">3</RNText>
                                 </View>
                             }
                             onPress={() => undefined}
@@ -525,6 +526,28 @@ export function ShowcaseScreen() {
                             />
                         }
                     />
+                    {/*
+                      * A real panel, not just a toggle. `aria-controls` has to name an element that
+                      * exists — axe reports a dangling reference as critical — and a disclosure
+                      * demo that discloses nothing is not demonstrating the disclosure anyway.
+                      */}
+                    <Collapse
+                        open={filterOn}
+                        nativeID="showcase-toolbar-panel"
+                        testID="showcase-toolbar-panel"
+                    >
+                        <Inline space="xs" wrap>
+                            {['Vegan', 'High protein', 'Under 500 kcal'].map((label) => (
+                                <FilterChip
+                                    key={label}
+                                    testID={`showcase-toolbar-panel-${label}`}
+                                    label={label}
+                                    selected={label !== 'Under 500 kcal'}
+                                    onChange={() => undefined}
+                                />
+                            ))}
+                        </Inline>
+                    </Collapse>
                     <Inline space="sm">
                         <Chip
                             testID="showcase-chip"
@@ -694,12 +717,12 @@ export function ShowcaseScreen() {
                                     accessibilityLabel={item.name}
                                     footer={
                                         <View className="border-t border-stroke-subtle px-4 pb-4 pt-3">
-                                            <Text
+                                            <RNText
                                                 testID={`showcase-card-baseline-${item.key}-price`}
-                                                className="font-display text-2xl text-surface-brand"
+                                                className="font-display text-2xl text-surface-brand text-start"
                                             >
                                                 {item.price}
-                                            </Text>
+                                            </RNText>
                                         </View>
                                     }
                                 >
@@ -712,9 +735,9 @@ export function ShowcaseScreen() {
                                         overlayStart={<MediaChip label="Verdant Kitchen" />}
                                     />
                                     <Stack space="xs" className="px-4 pt-4">
-                                        <Text className="font-display text-lg text-content-primary">
+                                        <RNText className="font-display text-lg text-content-primary text-start">
                                             {item.name}
-                                        </Text>
+                                        </RNText>
                                         <Text tone="secondary" variant="caption">
                                             {item.body}
                                         </Text>

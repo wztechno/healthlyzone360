@@ -106,14 +106,13 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
                             : 'h-1.5 w-1.5 rounded-full bg-surface-brand'
                     }
                 />
-                <Text
+                <RNText
                     testID={`${resolvedTestID}-allergens`}
-                    variant="caption"
                     numberOfLines={1}
                     className={
                         hasAllergens
-                            ? 'flex-1 text-warning-on-subtle'
-                            : 'flex-1 text-content-secondary'
+                            ? 'flex-1 text-xs text-warning-on-subtle text-start'
+                            : 'flex-1 text-xs text-content-secondary text-start'
                     }
                 >
                     {hasAllergens
@@ -123,7 +122,7 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
                                   .join(t('marketplace:common.listSeparator')),
                           })
                         : t('marketplace:menu.noDeclaredAllergens')}
-                </Text>
+                </RNText>
             </View>
 
             <View className="flex-row items-end justify-between gap-3 border-t border-surface-sunken pt-3">

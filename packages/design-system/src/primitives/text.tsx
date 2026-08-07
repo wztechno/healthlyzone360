@@ -63,6 +63,19 @@ export interface TextProps extends Omit<RNTextProps, 'className' | 'style'> {
     readonly testID?: string | undefined;
 }
 
+/**
+ * Body text.
+ *
+ * **`className` cannot reliably recolour or resize this.** The variant and tone classes are emitted
+ * ahead of a caller's `className`, and which of two same-specificity utilities wins is decided by
+ * stylesheet order, not by the order they appear in the attribute. `<Text className="text-2xl
+ * text-content-on-canopy">` has shipped as 16px `content-primary` more than once, and one of those
+ * was 2.13:1 on a dark chip until axe caught it.
+ *
+ * So: pick the `variant` and `tone` that say what you mean. If neither can — a display-face price,
+ * a 48px hero title, a label on the canopy, none of which this scale covers — reach for React
+ * Native's own `Text` and state the classes there, where nothing competes with them.
+ */
 export function Text({
     variant = 'body',
     tone = 'primary',
