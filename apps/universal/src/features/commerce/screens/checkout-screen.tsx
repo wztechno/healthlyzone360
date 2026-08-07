@@ -168,7 +168,6 @@ export function CheckoutScreen() {
             <OrderPlaced
                 order={placed}
                 delivery={committed}
-                rows={rows}
                 onBrowse={() => {
                     router.push('/meals');
                 }}
@@ -489,22 +488,43 @@ export function CheckoutScreen() {
 interface OrderPlacedProps {
     readonly order: PlacedOrder;
     readonly delivery: CommittedDelivery;
-    readonly rows: readonly PriceRow[];
     readonly onBrowse: () => void;
     readonly onCart: () => void;
     readonly onSubscriptions: () => void;
 }
 
-function OrderPlaced({
-    order,
-    delivery,
-    rows,
-    onBrowse,
-    onCart,
-    onSubscriptions,
-}: OrderPlacedProps) {
+/** Catalogue copy for the price-line codes the order repository emits; unknown codes keep the
+ * server's own label rather than disappearing. */
+const PRICE_LINE_LABEL_KEYS: Record<string, string> = {
+    subtotal: 'commerce:cart.subtotal',
+    delivery: 'commerce:cart.delivery',
+};
+
+function OrderPlaced({ order, delivery, onBrowse, onCart, onSubscriptions }: OrderPlacedProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+
+    /*
+     * Priced from the order, not from the checkout preview. Placement empties the basket, which
+     * disables the preview query — a confirmation that read its figures from there rendered an
+     * empty price block. The placed order carries the figures the platform actually charged for.
+     */
+    const rows: readonly PriceRow[] = [
+        ...order.priceLines.map((line) => {
+            const labelKey = PRICE_LINE_LABEL_KEYS[line.code];
+            return {
+                key: line.code,
+                label: labelKey === undefined ? line.label : t(labelKey),
+                amount: line.amount,
+            };
+        }),
+        {
+            key: 'total',
+            label: t('commerce:cart.total'),
+            amount: order.total,
+            emphasis: true,
+        },
+    ];
 
     return (
         <Stack space="lg" testID="checkout-success-screen">

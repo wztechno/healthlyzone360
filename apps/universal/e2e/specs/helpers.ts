@@ -18,6 +18,38 @@ export async function signIn(page: Page, email = DIETITIAN_EMAIL, password = MOC
 export const CONSUMER_EMAIL = 'nour.saleh@example.com';
 
 /**
+ * Put one address in the signed-in account's book, through the two screens that own it.
+ *
+ * Checkout and the subscription record both take a delivery address by *identifier* (D-084) — the
+ * zone, the window and the fee resolve from a saved entry — so neither offers a form to type into.
+ * Nobody in the mock world starts with one: `mock/account/store.ts` opens with an empty list in
+ * every scenario, deliberately, because "add an address" is one of the steps the account area exists
+ * to walk somebody through. A journey that needs one therefore has to create it, and because the
+ * mock world lives only as long as the document, it has to create it in the *same* document.
+ *
+ * Expects the page to already be on `/customer/account/addresses`, and leaves it there with the list
+ * no longer empty — so the caller carries on through the shell's own navigation rather than through
+ * a second `page.goto`, which would start a new world with an empty book.
+ *
+ * Driven entirely by test identifier, so it is direction- and locale-agnostic.
+ */
+export async function saveAddress(page: Page, label: string, line1: string) {
+    await expect(page.getByTestId('addresses-screen')).toBeVisible();
+    await page.getByTestId('addresses-screen-add').click();
+    await expect(page.getByTestId('address-editor')).toBeVisible();
+
+    await page.getByTestId('address-editor-label').locator('input').first().fill(label);
+    // The area is a foreign key into the platform's service areas, so it is chosen, never typed.
+    await page.getByTestId('address-editor-area-trigger').click();
+    await page.locator('[data-testid^="address-editor-area-option-"]').first().click();
+    await page.getByTestId('address-editor-line1').locator('input').first().fill(line1);
+    await page.getByTestId('address-editor-save').click();
+
+    // The save reached the store rather than merely the form: the empty state is gone.
+    await expect(page.getByTestId('addresses-screen-list')).toBeVisible();
+}
+
+/**
  * Switch the mock world at runtime through the development banner's scenario control.
  *
  * Two properties of that control decide how this can be used, and both are the repository

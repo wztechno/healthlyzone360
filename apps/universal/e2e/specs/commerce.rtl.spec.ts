@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { saveAddress, signIn } from './helpers.ts';
 
 const ARABIC_SCRIPT = /[؀-ۿ]/;
 /** Eastern Arabic-Indic digits — what a `-u-nu-arab` formatter would emit. */
@@ -122,14 +122,19 @@ test.describe('subscription detail (ar, RTL)', () => {
 });
 
 test.describe('basket and checkout (ar, RTL)', () => {
-    test('the basket, its prices and the prototype checkout all read in Arabic', async ({
-        page,
-    }) => {
+    test('the basket, its prices and the checkout all read in Arabic', async ({ page }) => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
 
-        await page.goto('/customer/cart');
+        // The one navigation goes to the address book, because the checkout's address is chosen
+        // from it rather than typed and nobody starts with one saved. See `saveAddress`. The
+        // helper is driven by test identifier, so it reads the same in either direction.
+        await page.goto('/customer/account/addresses');
         await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+        await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+        await saveAddress(page, 'المنزل', 'شقة ٤، خليج الأعمال');
+
+        await page.getByTestId('consumer-nav-cart').click();
         await expect(page.getByTestId('cart-title')).toContainText(ARABIC_SCRIPT);
         await expect(page.getByTestId('cart-empty')).toBeVisible();
 
@@ -149,10 +154,16 @@ test.describe('basket and checkout (ar, RTL)', () => {
 
         await page.getByTestId('cart-checkout').click();
         await expect(page.getByTestId('checkout-screen')).toBeVisible();
-        await expect(page.getByTestId('checkout-prototype-notice')).toContainText(ARABIC_SCRIPT);
+        // Cash at the door is the payment story now, and it is the sentence most likely to be
+        // written once in English and never translated.
+        await expect(page.getByTestId('checkout-payment-notice')).toContainText(ARABIC_SCRIPT);
         await expect(page.getByTestId('checkout-date-field')).toContainText(ARABIC_SCRIPT);
-        await expect(page.getByTestId('checkout-address-form-storage-note')).toContainText(
-            ARABIC_SCRIPT,
-        );
+        // The address is chosen from the book, so the Arabic that matters is the picker's — and the
+        // entry inside it is the one this journey saved a moment ago.
+        await expect(page.getByTestId('checkout-address-picker')).toContainText(ARABIC_SCRIPT);
+        await page.getByTestId('checkout-address-picker-trigger').click();
+        await expect(
+            page.locator('[data-testid^="checkout-address-picker-option-"]').first(),
+        ).toContainText(ARABIC_SCRIPT);
     });
 });

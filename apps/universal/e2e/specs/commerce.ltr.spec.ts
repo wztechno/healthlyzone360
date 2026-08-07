@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { saveAddress, signIn } from './helpers.ts';
 
 /**
  * Basket, checkout and subscriptions, in English, against the exported static build.
@@ -19,15 +19,35 @@ import { signIn } from './helpers.ts';
  * "browse meals" is a real in-application push, the meal record's *add to basket* is a real
  * mutation, and two history steps return to the basket with the line in it.
  *
+ * ## Why the address book is filled before anything else
+ *
+ * Both the checkout and the subscription record take a delivery address by *identifier* now (D-084):
+ * the zone, the window and the fee resolve from a saved entry, so neither screen offers a form to
+ * type into. The fixture person starts with nothing saved — `mock/account/store.ts` opens with an
+ * empty list in every scenario — so a journey that needs one has to create it, and by the paragraph
+ * above it has to create it inside the same document. Hence `saveAddress`, and hence the single
+ * `page.goto` landing on the address book rather than on the screen under test.
+ *
  * ## What is deliberately never asserted
  *
- * A payment. There is no card field, no wallet control and no confirmation endpoint anywhere in
- * these flows, and the checkout test asserts that absence rather than assuming it.
+ * A card. Payment is collected at the door, so there is no PAN field and no wallet control anywhere
+ * in these flows, and the checkout test asserts that absence rather than assuming it.
  */
 
 /** The plan the subscription journey configures. Stable slug, six delivery days out of seven. */
 const PLAN_SLUG = 'balanced-week';
 
+/**
+ * The street line the subscription-management journey saves to the address book and then moves a
+ * live subscription onto. Distinct from anything a fixture carries, so the closing assertion cannot
+ * pass on a subscription nobody touched.
+ */
+const SAVED_LINE1 = 'Villa 12, Garden Row';
+
+/** The street line the checkout journey orders to. */
+const CHECKOUT_LINE1 = 'Apartment 4, Bay View';
+
+/** The free-form address the configurator still falls back to when nothing is saved. */
 async function fillAddress(page: Page, prefix: string, area: string) {
     await page.getByTestId(`${prefix}-label`).locator('input').first().fill('Home');
     await page
@@ -41,14 +61,19 @@ async function fillAddress(page: Page, prefix: string, area: string) {
 }
 
 test.describe('basket and checkout (en)', () => {
-    test('fill a basket from the marketplace, price it, and stop at the prototype', async ({
+    test('fill a basket from the marketplace, price it, and place a cash-on-delivery order', async ({
         page,
     }) => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
 
-        // One navigation. Everything after this is the application's own routing.
-        await page.goto('/customer/cart');
+        // One navigation, and it lands on the address book rather than the basket: placement takes
+        // an address identifier, and the only thing that produces one is this pair of screens.
+        await page.goto('/customer/account/addresses');
+        await saveAddress(page, 'Home', CHECKOUT_LINE1);
+
+        // Everything after this is the application's own routing.
+        await page.getByTestId('consumer-nav-cart').click();
         await expect(page.getByTestId('cart-screen')).toBeVisible();
         await expect(page.getByTestId('cart-empty')).toBeVisible();
 
@@ -79,26 +104,52 @@ test.describe('basket and checkout (en)', () => {
         await page.getByTestId('cart-checkout').click();
         await expect(page.getByTestId('checkout-screen')).toBeVisible();
 
-        // The property that matters most on this screen is an absence.
-        await expect(page.getByTestId('checkout-prototype-notice')).toBeVisible();
+        // Cash at the door, said out loud — and the property that matters most is still an absence.
+        await expect(page.getByTestId('checkout-payment-notice')).toBeVisible();
         await expect(page.locator('input[type="password"]')).toHaveCount(0);
         await expect(page.locator('input[autocomplete*="cc-"]')).toHaveCount(0);
 
-        await fillAddress(page, 'checkout-address-form', 'Business Bay');
+        // The address is chosen from the book. The delivery date is already the earliest the
+        // kitchen accepts, so the only other decision is the window.
+        await page.getByTestId('checkout-address-picker-trigger').click();
+        await page.locator('[data-testid^="checkout-address-picker-option-"]').first().click();
         await page.getByTestId('checkout-slot-evening').click();
-        await page.getByTestId('checkout-review').click();
 
+        // The quotation is the server's, and it is shown before anybody commits to it. The total
+        // is captured here so the confirmation can be held to the same figure.
+        await expect(page.getByTestId('checkout-price-subtotal-amount')).toBeVisible();
+        await expect(page.getByTestId('checkout-price-total-amount')).toBeVisible();
+        const committedTotal = await page.getByTestId('checkout-price-total-amount').innerText();
+
+        await page.getByTestId('checkout-review').click();
         await expect(page.getByTestId('checkout-place-order')).toBeVisible();
-        await expect(page.getByTestId('checkout-committed-address')).toContainText('Business Bay');
+        await expect(page.getByTestId('checkout-committed-address')).toContainText(CHECKOUT_LINE1);
+        await expect(page.getByTestId('checkout-committed-slot')).toBeVisible();
 
         await page.getByTestId('checkout-place-order').click();
         await expect(page.getByTestId('checkout-success-screen')).toBeVisible();
-        await expect(page.getByTestId('checkout-success-prototype')).toContainText('prototype');
-        await expect(page.getByTestId('checkout-success-price-total-amount')).toBeVisible();
+        await expect(page.getByTestId('checkout-success-notice')).toBeVisible();
+        // Cash on delivery, stated rather than implied by the absence of a receipt.
+        await expect(page.getByTestId('checkout-success-cod')).toBeVisible();
+        await expect(page.getByTestId('checkout-success-reference')).not.toBeEmpty();
+        await expect(page.getByTestId('checkout-success-address')).toContainText(CHECKOUT_LINE1);
+        await expect(page.getByTestId('checkout-success-slot')).toBeVisible();
+        /*
+         * The confirmation prices itself from the *placed order*, not the checkout preview —
+         * placement empties the basket, which disables the preview query, and a price block fed
+         * from there rendered nothing. The order's own figures are the ones the platform charged
+         * for, so the total on the confirmation must equal the one decided on at review.
+         */
+        await expect(page.getByTestId('checkout-success-summary')).toBeVisible();
+        await expect(page.getByTestId('checkout-success-price-subtotal-amount')).not.toBeEmpty();
+        await expect(page.getByTestId('checkout-success-price-total-amount')).toHaveText(
+            committedTotal,
+        );
 
-        // The basket is deliberately intact: emptying it would assert that an order exists.
+        // The basket *became* the order. Lines left behind would let one screen place the same
+        // basket twice, so the emptiness is the assertion rather than an afterthought.
         await page.getByTestId('checkout-success-cart').click();
-        await expect(page.getByTestId('cart-lines')).toBeVisible();
+        await expect(page.getByTestId('cart-empty')).toBeVisible();
     });
 
     test('an empty basket says so and offers the marketplace rather than a dead checkout', async ({
@@ -221,7 +272,13 @@ test.describe('subscription management (en)', () => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
 
-        await page.goto('/customer/subscriptions');
+        // The change-address dialog at the end of this journey is a picker over saved addresses, so
+        // the book is filled before the record is opened. See the header for why that ordering is
+        // forced rather than chosen.
+        await page.goto('/customer/account/addresses');
+        await saveAddress(page, 'Garden', SAVED_LINE1);
+
+        await page.getByTestId('consumer-nav-subscriptions').click();
         await expect(page.getByTestId('subscriptions-screen')).toBeVisible();
         await expect(page.getByTestId('subscriptions-list')).toBeVisible();
 
@@ -263,17 +320,17 @@ test.describe('subscription management (en)', () => {
         await expect(page.getByTestId('subscription-detail-config-table')).toBeVisible();
         await expect(page.getByTestId('subscription-detail-error')).toHaveCount(0);
 
-        /* change the address */
+        /* change the address, by choosing the saved one this journey put in the book */
+        await expect(page.getByTestId('subscription-detail-config-table')).not.toContainText(
+            SAVED_LINE1,
+        );
         await page.getByTestId('subscription-change-address').click();
-        await expect(page.getByTestId('subscription-address-form')).toBeVisible();
-        await page
-            .getByTestId('subscription-address-form-line1')
-            .locator('input')
-            .first()
-            .fill('Villa 12, Garden Row');
+        await expect(page.getByTestId('subscription-address-dialog')).toBeVisible();
+        await page.getByTestId('subscription-address-picker-trigger').click();
+        await page.locator('[data-testid^="subscription-address-picker-option-"]').first().click();
         await page.getByTestId('subscription-address-confirm').click();
         await expect(page.getByTestId('subscription-detail-config-table')).toContainText(
-            'Villa 12, Garden Row',
+            SAVED_LINE1,
         );
     });
 

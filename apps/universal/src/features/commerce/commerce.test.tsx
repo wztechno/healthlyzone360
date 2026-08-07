@@ -1093,6 +1093,11 @@ describe('CheckoutScreen', () => {
         // Cash on delivery, said out loud rather than implied by the absence of a receipt.
         expect(screen.getByTestId('checkout-success-cod')).toBeTruthy();
 
+        // The confirmation prices itself from the placed order — the preview query dies with the
+        // emptied basket, and a price block fed from there rendered nothing.
+        expect(screen.getByTestId('checkout-success-price-subtotal-amount')).toBeTruthy();
+        expect(screen.getByTestId('checkout-success-price-total-amount')).toHaveTextContent(/\d/);
+
         // The basket became the order. Leaving the lines behind would let one screen place the
         // same basket twice.
         const cart = await harness.repositories.commerce.getCart();

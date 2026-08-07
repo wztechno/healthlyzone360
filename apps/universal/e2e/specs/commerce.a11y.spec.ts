@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { saveAddress, signIn } from './helpers.ts';
 
 /**
  * The accessibility gate for the commerce surfaces: zero serious or critical axe violations.
@@ -28,14 +28,15 @@ async function expectNoSeriousViolations(page: Page, screen: string) {
 }
 
 /**
- * Fills the basket without leaving the document.
+ * Fills the basket without leaving the document, starting from the basket's own empty state.
  *
  * The mock world lives for as long as the page does, so the basket is built through the empty
  * state's own "browse meals" push and two history steps back — never through a second `goto`, which
- * would start a new world with an empty basket.
+ * would start a new world with an empty basket. The caller is responsible for arriving at
+ * `/customer/cart`, for the same reason: the checkout sweep has to visit the address book first and
+ * cannot spend its one navigation here.
  */
 async function fillBasket(page: Page) {
-    await page.goto('/customer/cart');
     await expect(page.getByTestId('cart-empty')).toBeVisible();
     await page.getByTestId('cart-browse').click();
     await expect(page.getByTestId('meals-screen')).toBeVisible();
@@ -52,38 +53,29 @@ test.describe('commerce accessibility (axe)', () => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
 
+        await page.goto('/customer/cart');
         await fillBasket(page);
         await expectNoSeriousViolations(page, 'cart');
     });
 
-    test('the prototype checkout, before and after the delivery details are committed', async ({
-        page,
-    }) => {
+    test('the checkout, before and after the delivery details are committed', async ({ page }) => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
 
+        // The address book first: the checkout picks a saved address rather than offering a form,
+        // and this journey's one navigation has to be spent where that address is made. See
+        // `saveAddress`.
+        await page.goto('/customer/account/addresses');
+        await saveAddress(page, 'Home', 'Apartment 4, Bay View');
+
+        await page.getByTestId('consumer-nav-cart').click();
         await fillBasket(page);
         await page.getByTestId('cart-checkout').click();
         await expect(page.getByTestId('checkout-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'checkout');
 
-        await page.getByTestId('checkout-address-form-label').locator('input').first().fill('Home');
-        await page
-            .getByTestId('checkout-address-form-line1')
-            .locator('input')
-            .first()
-            .fill('Apartment 4, Bay View');
-        await page
-            .getByTestId('checkout-address-form-area')
-            .locator('input')
-            .first()
-            .fill('Business Bay');
-        await page.getByTestId('checkout-address-form-city').locator('input').first().fill('Dubai');
-        await page
-            .getByTestId('checkout-address-form-countryCode')
-            .locator('input')
-            .first()
-            .fill('AE');
+        await page.getByTestId('checkout-address-picker-trigger').click();
+        await page.locator('[data-testid^="checkout-address-picker-option-"]').first().click();
         await page.getByTestId('checkout-review').click();
         await expect(page.getByTestId('checkout-place-order')).toBeVisible();
         await expectNoSeriousViolations(page, 'checkout-reviewed');
