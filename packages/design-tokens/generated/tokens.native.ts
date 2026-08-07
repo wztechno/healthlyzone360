@@ -28,6 +28,12 @@ export const nativeTokens = {
         "onBrandSurfaceSubtle": "#14532d",
         "accentSurface": "#6d28d9",
         "onAccentSurface": "#ffffff",
+        "surfaceCanopy": "#0b3b26",
+        "surfaceCanopyDeep": "#124f33",
+        "onCanopy": "#ffffff",
+        "onCanopyMuted": "#dcfce7",
+        "accentSubtle": "#f1ebfd",
+        "onAccentSubtle": "#4c1d95",
         "ratingStar": "#b57d0d",
         "overlay": "#14231ccc"
       },
@@ -127,6 +133,12 @@ export const nativeTokens = {
         "onBrandSurfaceSubtle": "#b6e8c2",
         "accentSurface": "#a78bfa",
         "onAccentSurface": "#1e1541",
+        "surfaceCanopy": "#123324",
+        "surfaceCanopyDeep": "#17402c",
+        "onCanopy": "#ffffff",
+        "onCanopyMuted": "#dcfce7",
+        "accentSubtle": "#251b3d",
+        "onAccentSubtle": "#cdbcf7",
         "ratingStar": "#e0a92a",
         "overlay": "#000000b3"
       },
@@ -296,6 +308,7 @@ export const nativeTokens = {
       "normal": 0,
       "wide": 0.4
     },
+    "displayLetterSpacing": "-0.02em",
     "lineHeights": {
       "latin": {
         "xs": 18,
@@ -380,6 +393,28 @@ export const nativeTokens = {
       },
       "shadowOpacity": 0.16,
       "shadowRadius": 28,
+      "elevation": 10
+    }
+  },
+  "namedElevation": {
+    "card": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 6
+      },
+      "shadowOpacity": 0.18,
+      "shadowRadius": 15,
+      "elevation": 6
+    },
+    "card-hover": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 10
+      },
+      "shadowOpacity": 0.26,
+      "shadowRadius": 23,
       "elevation": 10
     }
   },

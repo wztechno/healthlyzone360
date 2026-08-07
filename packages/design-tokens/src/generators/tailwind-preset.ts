@@ -1,10 +1,11 @@
 import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES } from '../colour.ts';
-import { ELEVATION_LEVELS, elevation } from '../elevation.ts';
+import { ELEVATION_LEVELS, NAMED_ELEVATIONS, elevation, namedElevation } from '../elevation.ts';
 import { breakpoints, focusRing, MIN_TOUCH_TARGET, radius, spacing, zIndex } from '../layout.ts';
 import { DURATION_NAMES, durations, easings } from '../motion.ts';
 import {
     FONT_SIZE_NAMES,
     displayFamilies,
+    displayLetterSpacing,
     fontFamilies,
     fontSizes,
     fontWeights,
@@ -32,6 +33,9 @@ function colours(): Record<string, unknown> {
         brand: variableReference('brand-surface'),
         'brand-subtle': variableReference('brand-surface-subtle'),
         accent: variableReference('accent-surface'),
+        'accent-subtle': variableReference('accent-subtle'),
+        canopy: variableReference('surface-canopy'),
+        'canopy-deep': variableReference('surface-canopy-deep'),
     };
 
     result['content'] = {
@@ -42,6 +46,9 @@ function colours(): Record<string, unknown> {
         'on-brand': variableReference('text-on-brand'),
         'on-brand-subtle': variableReference('on-brand-surface-subtle'),
         'on-accent': variableReference('on-accent-surface'),
+        'on-accent-subtle': variableReference('on-accent-subtle'),
+        'on-canopy': variableReference('on-canopy'),
+        'on-canopy-muted': variableReference('on-canopy-muted'),
     };
 
     result['stroke'] = {
@@ -121,18 +128,28 @@ export function renderTailwindPreset(): string {
                 fontSize: fontSizeScale(),
                 lineHeight: lineHeightScale(),
                 fontWeight: fontWeights,
-                letterSpacing: Object.fromEntries(
-                    Object.entries(letterSpacing).map(([k, v]) => [k, px(v)]),
-                ),
+                letterSpacing: {
+                    ...Object.fromEntries(
+                        Object.entries(letterSpacing).map(([k, v]) => [k, px(v)]),
+                    ),
+                    display: displayLetterSpacing,
+                },
                 screens: Object.fromEntries(
                     Object.entries(breakpoints)
                         .filter(([, value]) => value > 0)
                         .map(([name, value]) => [name, px(value)]),
                 ),
                 zIndex: Object.fromEntries(Object.entries(zIndex).map(([k, v]) => [k, String(v)])),
-                boxShadow: Object.fromEntries(
-                    ELEVATION_LEVELS.map((level) => [`elevation-${level}`, elevation[level].web]),
-                ),
+                boxShadow: Object.fromEntries([
+                    ...ELEVATION_LEVELS.map((level) => [
+                        `elevation-${level}`,
+                        elevation[level].web,
+                    ]),
+                    ...NAMED_ELEVATIONS.map((name) => [
+                        `elevation-${name}`,
+                        namedElevation[name].web,
+                    ]),
+                ]),
                 transitionDuration: Object.fromEntries(
                     DURATION_NAMES.map((name) => [name, `${durations[name]}ms`]),
                 ),

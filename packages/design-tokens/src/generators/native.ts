@@ -1,8 +1,21 @@
 import { NUTRITION_LEVELS, SEMANTIC_ROLES, themes } from '../colour.ts';
-import { ELEVATION_LEVELS, elevation, elevationRoles } from '../elevation.ts';
+import {
+    ELEVATION_LEVELS,
+    NAMED_ELEVATIONS,
+    elevation,
+    elevationRoles,
+    namedElevation,
+} from '../elevation.ts';
 import { breakpoints, focusRing, MIN_TOUCH_TARGET, radius, spacing, zIndex } from '../layout.ts';
 import { durations, easings, reducedDurations } from '../motion.ts';
-import { fontFamilies, fontSizes, fontWeights, letterSpacing, lineHeights } from '../typography.ts';
+import {
+    displayLetterSpacing,
+    fontFamilies,
+    fontSizes,
+    fontWeights,
+    letterSpacing,
+    lineHeights,
+} from '../typography.ts';
 import { GENERATED_BANNER } from './shared.ts';
 
 /**
@@ -40,10 +53,14 @@ export function renderTokensNative(): string {
             fontSizes,
             fontWeights,
             letterSpacing,
+            displayLetterSpacing,
             lineHeights,
         },
         elevation: Object.fromEntries(
             ELEVATION_LEVELS.map((level) => [level, elevation[level].native]),
+        ),
+        namedElevation: Object.fromEntries(
+            NAMED_ELEVATIONS.map((name) => [name, namedElevation[name].native]),
         ),
         elevationRoles,
         motion: { durations, reducedDurations, easings },

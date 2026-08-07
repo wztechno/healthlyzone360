@@ -123,6 +123,20 @@ export const letterSpacing = {
 export type LetterSpacingName = keyof typeof letterSpacing;
 
 /**
+ * Display tracking — for Space Grotesk at {@link DISPLAY_SIZE_THRESHOLD} and above.
+ *
+ * Expressed in `em` rather than px, which is why it is not a fourth stop on {@link letterSpacing}:
+ * the three above are absolute and the same at every size, but display tracking has to scale with
+ * the type or it means nothing. `tight` (−0.4px) is a tenth of what a 48px heading needs, and large
+ * display type set at normal tracking genuinely reads loose.
+ *
+ * Web only in practice: React Native's `letterSpacing` takes a number of points and has no `em`, so
+ * native headings keep their default tracking. The design is reviewed on the web, and inventing a
+ * single px value here would be wrong at three of the four display sizes.
+ */
+export const displayLetterSpacing = '-0.02em';
+
+/**
  * Resolved line height for a size in a script, rounded to a whole pixel so text baselines line up
  * across platforms (React Native does not sub-pixel line heights consistently).
  */

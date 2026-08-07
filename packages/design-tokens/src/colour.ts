@@ -290,6 +290,24 @@ export interface ThemeColours {
     readonly onBrandSurfaceSubtle: string;
     readonly accentSurface: string;
     readonly onAccentSurface: string;
+    /**
+     * Canopy — the deep forest band behind page heroes, the marketplace footer and the shell
+     * chrome. Dark enough that white headings and `onCanopyMuted` body copy both clear AA on it,
+     * which is the whole reason it is a role of its own rather than `brand.900`.
+     */
+    readonly surfaceCanopy: string;
+    /** The canopy gradient's second stop. Never used as a flat fill on its own. */
+    readonly surfaceCanopyDeep: string;
+    readonly onCanopy: string;
+    /**
+     * Body copy on the canopy. **Minimum alpha 0.62** — at that opacity it is 5.42:1 on
+     * `surfaceCanopy`, and 0.45 is 3.60:1 and fails. Navigation sits at 0.74–0.78, body at
+     * 0.82–0.86.
+     */
+    readonly onCanopyMuted: string;
+    /** Violet tint for AI surfaces. Pairs with `onAccentSubtle`, never with `textPrimary`. */
+    readonly accentSubtle: string;
+    readonly onAccentSubtle: string;
     /** Gold, for Rating stars — the one place a warm point-of-emphasis colour earns its keep. */
     readonly ratingStar: string;
     readonly overlay: string;
@@ -314,6 +332,12 @@ export const themeLight: ThemeColours = {
     onBrandSurfaceSubtle: '#14532d',
     accentSurface: '#6d28d9', // violet — the AI / premium accent, white-text-safe
     onAccentSurface: '#ffffff',
+    surfaceCanopy: '#0b3b26', // deep forest band
+    surfaceCanopyDeep: '#124f33', // gradient partner
+    onCanopy: '#ffffff',
+    onCanopyMuted: '#dcfce7',
+    accentSubtle: '#f1ebfd', // violet tint, AI surfaces
+    onAccentSubtle: '#4c1d95',
     ratingStar: '#b57d0d', // gold, AA on mint and white
     overlay: '#14231ccc',
 };
@@ -337,6 +361,16 @@ export const themeDark: ThemeColours = {
     onBrandSurfaceSubtle: '#b6e8c2',
     accentSurface: '#a78bfa', // violet accent, lightened for dark surfaces
     onAccentSurface: '#1e1541',
+    // Lifted off the near-black page so the hero band still reads as a band; in light mode the
+    // canopy is darker than the page, in dark mode it is lighter, and both directions separate.
+    surfaceCanopy: '#123324',
+    surfaceCanopyDeep: '#17402c',
+    // The canopy is dark in *both* themes, so its foregrounds do not flip. Declared here because
+    // every role needs a value per theme, not because these two change.
+    onCanopy: '#ffffff',
+    onCanopyMuted: '#dcfce7',
+    accentSubtle: '#251b3d', // the pale violet tint inverts; a lavender panel on a dark page does not
+    onAccentSubtle: '#cdbcf7',
     ratingStar: '#e0a92a', // gold, brighter for dark surfaces
     overlay: '#000000b3',
 };

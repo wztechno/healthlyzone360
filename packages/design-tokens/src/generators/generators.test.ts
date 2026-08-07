@@ -67,6 +67,7 @@ describe('renderTailwindPreset', () => {
                 spacing: Record<string, string>;
                 screens: Record<string, string>;
                 boxShadow: Record<string, string>;
+                letterSpacing: Record<string, string>;
                 fontSize: Record<string, [string, string]>;
                 lineHeight: Record<string, string>;
             };
@@ -119,7 +120,7 @@ describe('renderTailwindPreset', () => {
         expect(preset.theme.extend.lineHeight['latin-base']).toBe('24px');
     });
 
-    it('exposes all six elevations as box shadows', () => {
+    it('exposes the six ramp elevations plus the two named ones as box shadows', () => {
         expect(Object.keys(preset.theme.extend.boxShadow)).toEqual([
             'elevation-0',
             'elevation-1',
@@ -127,7 +128,25 @@ describe('renderTailwindPreset', () => {
             'elevation-3',
             'elevation-4',
             'elevation-5',
+            'elevation-card',
+            'elevation-card-hover',
         ]);
+    });
+
+    it('gives the named card elevations two layers and a canopy-tinted cast', () => {
+        // The two-layer shape is the point: a 1px contact shadow for the edge and a wide offset
+        // cast for the lift. A single-layer value here would silently be a ramp step by another
+        // name, which is what the named tokens exist to not be.
+        for (const name of ['elevation-card', 'elevation-card-hover'] as const) {
+            const value = preset.theme.extend.boxShadow[name] ?? '';
+            expect(value.split('),').length).toBe(2);
+            expect(value).toContain('rgb(11 59 38 /');
+        }
+    });
+
+    it('carries the display tracking in em, not px — it has to scale with the type', () => {
+        expect(preset.theme.extend.letterSpacing.display).toBe('-0.02em');
+        expect(preset.theme.extend.letterSpacing.tight).toBe('-0.4px');
     });
 
     it('contains no physical direction keys — the RTL policy applies to tokens too', () => {

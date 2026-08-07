@@ -89,6 +89,57 @@ export const elevation: Readonly<Record<ElevationLevel, ElevationToken>> = {
     ),
 };
 
+/**
+ * Named elevations — shadows that are not a step on the 0–5 ramp.
+ *
+ * The ramp is a single warm-black shadow at increasing distance, which is right for menus, drawers
+ * and dialogs that sit *above* the page. A content card in a grid is doing something else: it has to
+ * lift off a tinted page without reading as a floating overlay. That takes two layers — a 1px
+ * contact shadow that defines the edge, and a wide, heavily-offset green-black cast that gives the
+ * lift — and the pair cannot be expressed as a level, so it is named instead.
+ *
+ * The cast is tinted with the canopy (`#0b3b26`) rather than the ramp's neutral `#171514`: a warm
+ * grey shadow on the mint page reads as dirt, and a green-black one reads as depth.
+ *
+ * Note these are distinct from {@link elevationRoles}, which maps a role onto a *numeric* level.
+ */
+export const NAMED_ELEVATIONS = ['card', 'card-hover'] as const;
+export type NamedElevationName = (typeof NAMED_ELEVATIONS)[number];
+
+export interface NamedElevationToken {
+    readonly native: NativeShadow;
+    readonly web: string;
+}
+
+/** Approximates a two-layer web shadow with the single shadow React Native supports. */
+function namedToken(height: number, opacity: number, radius: number, web: string): NamedElevationToken {
+    return {
+        native: {
+            shadowColor: '#0b3b26',
+            shadowOffset: { width: 0, height },
+            shadowOpacity: opacity,
+            shadowRadius: radius,
+            elevation: height,
+        },
+        web,
+    };
+}
+
+export const namedElevation: Readonly<Record<NamedElevationName, NamedElevationToken>> = {
+    card: namedToken(
+        6,
+        0.18,
+        15,
+        '0 1px 2px rgb(23 21 20 / 0.05), 0 14px 30px -18px rgb(11 59 38 / 0.35)',
+    ),
+    'card-hover': namedToken(
+        10,
+        0.26,
+        23,
+        '0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)',
+    ),
+};
+
 /** Semantic aliases so components ask for a role, not a number. */
 export const elevationRoles = {
     flat: 0,

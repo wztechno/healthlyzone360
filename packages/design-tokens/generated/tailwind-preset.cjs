@@ -56,7 +56,10 @@ module.exports = {
           "inverse": "rgb(var(--h360-color-surface-inverse) / <alpha-value>)",
           "brand": "rgb(var(--h360-color-brand-surface) / <alpha-value>)",
           "brand-subtle": "rgb(var(--h360-color-brand-surface-subtle) / <alpha-value>)",
-          "accent": "rgb(var(--h360-color-accent-surface) / <alpha-value>)"
+          "accent": "rgb(var(--h360-color-accent-surface) / <alpha-value>)",
+          "accent-subtle": "rgb(var(--h360-color-accent-subtle) / <alpha-value>)",
+          "canopy": "rgb(var(--h360-color-surface-canopy) / <alpha-value>)",
+          "canopy-deep": "rgb(var(--h360-color-surface-canopy-deep) / <alpha-value>)"
         },
         "content": {
           "primary": "rgb(var(--h360-color-text-primary) / <alpha-value>)",
@@ -65,7 +68,10 @@ module.exports = {
           "inverse": "rgb(var(--h360-color-text-inverse) / <alpha-value>)",
           "on-brand": "rgb(var(--h360-color-text-on-brand) / <alpha-value>)",
           "on-brand-subtle": "rgb(var(--h360-color-on-brand-surface-subtle) / <alpha-value>)",
-          "on-accent": "rgb(var(--h360-color-on-accent-surface) / <alpha-value>)"
+          "on-accent": "rgb(var(--h360-color-on-accent-surface) / <alpha-value>)",
+          "on-accent-subtle": "rgb(var(--h360-color-on-accent-subtle) / <alpha-value>)",
+          "on-canopy": "rgb(var(--h360-color-on-canopy) / <alpha-value>)",
+          "on-canopy-muted": "rgb(var(--h360-color-on-canopy-muted) / <alpha-value>)"
         },
         "stroke": {
           "subtle": "rgb(var(--h360-color-border-subtle) / <alpha-value>)",
@@ -256,7 +262,8 @@ module.exports = {
       "letterSpacing": {
         "tight": "-0.4px",
         "normal": "0px",
-        "wide": "0.4px"
+        "wide": "0.4px",
+        "display": "-0.02em"
       },
       "screens": {
         "sm": "480px",
@@ -279,7 +286,9 @@ module.exports = {
         "elevation-2": "0 2px 4px -1px rgb(23 21 20 / 0.08), 0 1px 2px -1px rgb(23 21 20 / 0.05)",
         "elevation-3": "0 4px 8px -2px rgb(23 21 20 / 0.10), 0 2px 4px -2px rgb(23 21 20 / 0.06)",
         "elevation-4": "0 8px 16px -4px rgb(23 21 20 / 0.12), 0 4px 8px -4px rgb(23 21 20 / 0.07)",
-        "elevation-5": "0 16px 32px -8px rgb(23 21 20 / 0.16), 0 8px 16px -8px rgb(23 21 20 / 0.08)"
+        "elevation-5": "0 16px 32px -8px rgb(23 21 20 / 0.16), 0 8px 16px -8px rgb(23 21 20 / 0.08)",
+        "elevation-card": "0 1px 2px rgb(23 21 20 / 0.05), 0 14px 30px -18px rgb(11 59 38 / 0.35)",
+        "elevation-card-hover": "0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)"
       },
       "transitionDuration": {
         "instant": "0ms",
