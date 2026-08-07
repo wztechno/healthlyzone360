@@ -214,7 +214,70 @@ describe('AppShell — rail', () => {
 
         const sidebar = screen.getByTestId('shell-sidebar');
         expect(sidebar.props.className).toContain('w-[88px]');
-        expect(sidebar.props.className).toContain('border-e');
+        // The rail is separated from the page by its own fill rather than by a hairline. A border
+        // on the canopy would be a second edge drawn over an edge that is already there.
+        expect(sidebar.props.className).toContain('bg-surface-canopy');
+        expect(sidebar.props.className).not.toContain('border-e');
+    });
+});
+
+describe('AppShell — sidebar navigation', () => {
+    const grouped = [
+        { key: 'home', label: 'Home', onPress: () => {}, testID: 'nav-home', active: true },
+        { key: 'meals', label: 'Meals', group: 'Catalogue', onPress: () => {}, testID: 'nav-meals' },
+        { key: 'plans', label: 'Plans', group: 'Catalogue', onPress: () => {}, testID: 'nav-plans' },
+        { key: 'orders', label: 'Orders', group: 'Operations', onPress: () => {}, testID: 'nav-o' },
+    ];
+
+    it('draws a heading per group, keeps caller order, and leads with the ungrouped items', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" navigation={grouped}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-navigation-group-Catalogue')).toHaveTextContent(
+            'Catalogue',
+        );
+        expect(screen.getByTestId('shell-navigation-group-Operations')).toHaveTextContent(
+            'Operations',
+        );
+        // Every item still renders exactly once — grouping must not drop or duplicate a
+        // destination, which is the failure mode that would strand somebody.
+        for (const id of ['nav-home', 'nav-meals', 'nav-plans', 'nav-o']) {
+            expect(screen.getAllByTestId(id)).toHaveLength(1);
+        }
+    });
+
+    it('fills the active item rather than tinting it, because it carries white text', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" navigation={grouped}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        // `surface-brand` (#157043), never `brand-500` (#16A34A) — white on the latter is 3.05:1
+        // and this pill carries a 14px label (§1.3).
+        const active = screen.getByTestId('nav-home');
+        expect(active.props.className).toContain('bg-surface-brand');
+        expect(active.props.className).not.toContain('bg-brand-500');
+    });
+
+    it('renders no headings at all when nothing is grouped', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[{ key: 'a', label: 'A', onPress: () => {}, testID: 'nav-a' }]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+        expect(screen.queryByTestId('shell-navigation-group-Catalogue')).toBeNull();
+        expect(screen.getByTestId('nav-a')).toBeTruthy();
     });
 });
 
