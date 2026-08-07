@@ -15,15 +15,26 @@ import type {
     KitchenOrderStatus,
     KitchenOrderTransitionRequest,
 } from '../../contracts/kitchen-orders.ts';
+import { MOCK_BRANCH_IDS } from '../ids.ts';
 import { orderIdAt, orderLineIdAt } from './ids.ts';
 
 /**
  * The kitchen orders fixture world.
  *
- * A flat, self-contained mock over one array — nothing here reads the foundation account world or
- * the K1 prototype catalogue, on the same terms as `../kitchen-ops/store.ts`. Five Verdant Kitchen
- * orders spanning all four statuses, so an order list, its four status filters and a slide-in
- * detail all have something honest to render before a single HTTP call exists in the build.
+ * A flat mock over one array — nothing here reads the K1 prototype catalogue, on the same terms as
+ * `../kitchen-ops/store.ts`, and the only thing it borrows from the foundation account world is the
+ * branch identifier its rows hang off (see {@link SEED_BRANCH_ID}). Five Verdant Kitchen orders
+ * spanning all four statuses, so an order list, its four status filters and a slide-in detail all
+ * have something honest to render before a single HTTP call exists in the build.
+ *
+ * ## The rows span three branch attributions, not one
+ *
+ * `branchId` is nullable on the contract because it is nullable in life, so the seed carries all
+ * three cases a branch-scoped surface has to survive: one order attributed to Al Quoz (the branch a
+ * signed-in manager holds), one attributed to a *different* Verdant kitchen, and one attributed to
+ * **no branch at all** — a delivery resolved through the organisation-wide zone, which is what the
+ * live book's real COD orders look like. A fixture where every row named the same branch let a
+ * display ship that silently dropped unattributed work.
  *
  * ## What this store enforces, and why it enforces exactly this
  *
@@ -48,9 +59,35 @@ import { orderIdAt, orderLineIdAt } from './ids.ts';
  * endpoint has, so a screen that pages correctly here pages correctly there.
  */
 
-/** The single branch every seed row belongs to — Verdant Kitchen's Al Quoz kitchen. */
-const SEED_BRANCH_ID = BranchId.unsafe('01935f6d-0000-7000-8000-0000000000f1');
+/**
+ * Verdant Kitchen's Al Quoz kitchen — and *the same* branch the account world puts in the manager's
+ * membership (`../ids.ts`).
+ *
+ * It used to be an identifier local to this file, which was harmless while every screen read the
+ * whole book. The kitchen display is branch-scoped, so a seed under an identifier no session can
+ * ever hold made the fixture world answer an empty board to the one person it was seeded for.
+ * Borrowing the account world's branch id is the smallest honest fix: the rest of this store stays
+ * self-contained, and it now agrees with the context a signed-in manager actually carries.
+ */
+const SEED_BRANCH_ID = MOCK_BRANCH_IDS.alQuoz;
+
+/**
+ * A second Verdant kitchen, which the account world does not model.
+ *
+ * It exists so the fixture world can hold an order that is *somebody else's* — a branch-scoped
+ * display has to be shown refusing something, or its scoping rule is untested. No membership ever
+ * carries this id, which is exactly the point.
+ */
+const OTHER_BRANCH_ID = BranchId.unsafe('01935f6d-0000-7000-8000-0000000000f2');
+
 const SEED_ZONE_ID = DeliveryZoneId.unsafe('01935f70-0000-7000-8000-000000000f01');
+
+/**
+ * The zone an organisation-wide delivery resolves through — the one that attributes an order to no
+ * branch at all. Seeded because production does exactly this: an emirates-wide zone leaves
+ * `branch_id` null, and a display that dropped those rows would hide real, uncooked work.
+ */
+const ORG_WIDE_ZONE_ID = DeliveryZoneId.unsafe('01935f70-0000-7000-8000-000000000f02');
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -86,6 +123,7 @@ function delivery(
     areaNameAr: string,
     windowCode: string,
     requestedDate: string,
+    zoneId: KitchenOrder['delivery']['zoneId'] = SEED_ZONE_ID,
 ): KitchenOrder['delivery'] {
     return {
         label: 'Home',
@@ -97,7 +135,7 @@ function delivery(
         areaId: null,
         windowCode,
         requestedDate,
-        zoneId: SEED_ZONE_ID,
+        zoneId,
     };
 }
 
@@ -111,7 +149,9 @@ function seedOrders(): KitchenOrder[] {
         {
             id: orderIdAt(1),
             orderNumber: 'VK-2026-0148',
-            branchId: SEED_BRANCH_ID,
+            // The one row belonging to Verdant's *other* kitchen: it is in the manager's book and
+            // must never be on Al Quoz's wall.
+            branchId: OTHER_BRANCH_ID,
             status: 'placed',
             currencyCode: 'AED',
             subtotalMinor: 14_500,
@@ -140,7 +180,9 @@ function seedOrders(): KitchenOrder[] {
         {
             id: orderIdAt(2),
             orderNumber: 'VK-2026-0147',
-            branchId: SEED_BRANCH_ID,
+            // Delivered through the organisation-wide zone, so no kitchen was ever named. This is
+            // what the live book's real COD orders look like, and it is work somebody has to cook.
+            branchId: null,
             status: 'placed',
             currencyCode: 'AED',
             subtotalMinor: 7_200,
@@ -153,6 +195,7 @@ function seedOrders(): KitchenOrder[] {
                 'البرشاء',
                 'afternoon',
                 '2026-08-08',
+                ORG_WIDE_ZONE_ID,
             ),
             placedAt: '2026-08-06T06:40:00Z',
             confirmedAt: null,

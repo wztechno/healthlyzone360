@@ -68,8 +68,11 @@ final class VerdantProductCatalogueSeeder extends Seeder
             ->where('code', 'wholesale')
             ->sole();
 
-        $creator = User::query()->where('email', 'kitchen.owner@healthy360.test')->first()
-            ?? User::query()->orderBy('created_at')->firstOrFail();
+        $creator = User::query()->where('email', 'owner@verdant.test')->first();
+
+        if (! $creator instanceof User) {
+            throw new RuntimeException("Verdant's owner (owner@verdant.test) must exist before its product catalogue is seeded.");
+        }
 
         $catalogue = Catalogue::withoutTenancy()
             ->where('organisation_id', $verdant->getKey())

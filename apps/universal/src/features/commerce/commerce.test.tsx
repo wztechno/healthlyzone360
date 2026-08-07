@@ -1644,11 +1644,36 @@ describe('SubscriptionDetailScreen', () => {
         });
     });
 
+    /**
+     * The dialog does not offer a form. A delivery address is *chosen* from the account's address
+     * book — the same rule checkout follows, and for the same reason: a subscription's address has
+     * to be one the placement can resolve a zone and a window from, which only a saved entry is.
+     * So the fixture person, who starts with nothing saved, gets one address put there first, and
+     * the assertion stays where it was: the store, not the screen, has to be holding it afterwards.
+     */
     it('changes the delivery address for real', async () => {
+        const line1 = 'Villa 12, Garden Row';
         const id = await seededSubscriptionId();
         const harness = await renderCommerce(
             <SubscriptionDetailScreen subscriptionId={String(id)} />,
+            {
+                seed: async (repositories) => {
+                    const areas = await repositories.account.listServiceAreas();
+                    await repositories.account.addAddress({
+                        label: 'Garden',
+                        areaId: areas[0]!.id,
+                        line1,
+                    });
+                },
+            },
         );
+
+        const [saved] = await harness.repositories.account.listAddresses();
+        expect(saved).toBeDefined();
+        // Otherwise the closing assertion would pass on a subscription nobody touched.
+        const before = await harness.repositories.commerce.getSubscription(id);
+        expect(before.configuration.address.line1).not.toBe(line1);
+
         await waitFor(() => {
             expect(screen.getByTestId('subscription-change-address')).toBeTruthy();
         });
@@ -1656,22 +1681,17 @@ describe('SubscriptionDetailScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-change-address'));
         });
-        await waitFor(() => {
-            expect(screen.getByTestId('subscription-address-form')).toBeTruthy();
-        });
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('subscription-address-form-line1-input'),
-                'Villa 12, Garden Row',
-            );
-        });
+        await fireEvent.press(await screen.findByTestId('subscription-address-picker-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`subscription-address-picker-option-${String(saved?.id)}`),
+        );
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-address-confirm'));
         });
 
         await waitFor(async () => {
             const updated = await harness.repositories.commerce.getSubscription(id);
-            expect(updated.configuration.address.line1).toBe('Villa 12, Garden Row');
+            expect(updated.configuration.address.line1).toBe(line1);
         });
     });
 

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5067 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5091 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2434,6 +2434,30 @@ export interface NamespaceKeys {
     | 'hub.referenceOnly'
     | 'hub.subtitle'
     | 'hub.title'
+    | 'kds.column.done'
+    | 'kds.column.incoming'
+    | 'kds.column.preparing'
+    | 'kds.columnEmpty.done'
+    | 'kds.columnEmpty.incoming'
+    | 'kds.columnEmpty.preparing'
+    | 'kds.conflictBody'
+    | 'kds.conflictRefresh'
+    | 'kds.conflictTitle'
+    | 'kds.deliveryOn'
+    | 'kds.deliveryOnAt'
+    | 'kds.deliveryUnknown'
+    | 'kds.emptyBody'
+    | 'kds.emptyTitle'
+    | 'kds.lastUpdated'
+    | 'kds.lineSummary'
+    | 'kds.loadErrorTitle'
+    | 'kds.noBranchBody'
+    | 'kds.noBranchTitle'
+    | 'kds.placedAgo'
+    | 'kds.ready'
+    | 'kds.start'
+    | 'kds.subtitle'
+    | 'kds.title'
     | 'list.actionHeader'
     | 'list.allLoaded'
     | 'list.archive'
@@ -7519,6 +7543,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.referenceOnly',
   'kitchen:hub.subtitle',
   'kitchen:hub.title',
+  'kitchen:kds.column.done',
+  'kitchen:kds.column.incoming',
+  'kitchen:kds.column.preparing',
+  'kitchen:kds.columnEmpty.done',
+  'kitchen:kds.columnEmpty.incoming',
+  'kitchen:kds.columnEmpty.preparing',
+  'kitchen:kds.conflictBody',
+  'kitchen:kds.conflictRefresh',
+  'kitchen:kds.conflictTitle',
+  'kitchen:kds.deliveryOn',
+  'kitchen:kds.deliveryOnAt',
+  'kitchen:kds.deliveryUnknown',
+  'kitchen:kds.emptyBody',
+  'kitchen:kds.emptyTitle',
+  'kitchen:kds.lastUpdated',
+  'kitchen:kds.lineSummary',
+  'kitchen:kds.loadErrorTitle',
+  'kitchen:kds.noBranchBody',
+  'kitchen:kds.noBranchTitle',
+  'kitchen:kds.placedAgo',
+  'kitchen:kds.ready',
+  'kitchen:kds.start',
+  'kitchen:kds.subtitle',
+  'kitchen:kds.title',
   'kitchen:list.actionHeader',
   'kitchen:list.allLoaded',
   'kitchen:list.archive',

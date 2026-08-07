@@ -279,6 +279,36 @@
             }
         }
     },
+    "kds": {
+        "title": "Kitchen display",
+        "subtitle": "Every open ticket for this kitchen, longest wait first. The board refreshes itself while it is on screen.",
+        "lastUpdated": "Updated {{time}}",
+        "column": {
+            "incoming": "Incoming",
+            "preparing": "In preparation",
+            "done": "Ready"
+        },
+        "columnEmpty": {
+            "incoming": "Nothing waiting to be started.",
+            "preparing": "Nothing being prepared.",
+            "done": "Nothing finished today yet."
+        },
+        "emptyTitle": "No tickets on the board",
+        "emptyBody": "Orders placed against this kitchen appear here the moment they arrive.",
+        "loadErrorTitle": "The board could not be loaded",
+        "placedAgo": "Placed {{elapsed}}",
+        "lineSummary": "{{name}} × {{quantity}}",
+        "deliveryOn": "For {{date}}",
+        "deliveryOnAt": "For {{date}} · {{window}}",
+        "deliveryUnknown": "No delivery day recorded",
+        "start": "Start",
+        "ready": "Ready",
+        "conflictTitle": "A ticket moved while it was on screen",
+        "conflictBody": "Another station started or finished it. Refresh the board to see where it stands now.",
+        "conflictRefresh": "Refresh the board",
+        "noBranchTitle": "No kitchen chosen",
+        "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets."
+    },
     "families": {
         "ingredients": {
             "name": "Ingredients",

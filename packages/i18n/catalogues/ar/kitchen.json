@@ -295,6 +295,36 @@
             }
         }
     },
+    "kds": {
+        "title": "شاشة المطبخ",
+        "subtitle": "كل تذكرة مفتوحة في هذا المطبخ، الأطول انتظاراً أولاً. تُحدَّث اللوحة تلقائياً ما دامت معروضة.",
+        "lastUpdated": "آخر تحديث {{time}}",
+        "column": {
+            "incoming": "واردة",
+            "preparing": "قيد التحضير",
+            "done": "جاهزة"
+        },
+        "columnEmpty": {
+            "incoming": "لا شيء بانتظار البدء.",
+            "preparing": "لا شيء قيد التحضير.",
+            "done": "لم يكتمل شيء اليوم بعد."
+        },
+        "emptyTitle": "لا توجد تذاكر على اللوحة",
+        "emptyBody": "تظهر هنا الطلبات الواردة إلى هذا المطبخ فور وصولها.",
+        "loadErrorTitle": "تعذّر تحميل اللوحة",
+        "placedAgo": "قُدِّم {{elapsed}}",
+        "lineSummary": "{{quantity}} × {{name}}",
+        "deliveryOn": "للتسليم في {{date}}",
+        "deliveryOnAt": "للتسليم في {{date}} · {{window}}",
+        "deliveryUnknown": "لم يُسجَّل يوم تسليم",
+        "start": "ابدأ",
+        "ready": "جاهزة",
+        "conflictTitle": "تغيّرت تذكرة أثناء عرضها",
+        "conflictBody": "قامت محطة أخرى ببدئها أو إنهائها. حدّث اللوحة لمعرفة وضعها الآن.",
+        "conflictRefresh": "تحديث اللوحة",
+        "noBranchTitle": "لم يُحدَّد فرع",
+        "noBranchBody": "اختر الفرع الذي تعرضه هذه الشاشة كي تظهر تذاكره."
+    },
     "families": {
         "ingredients": {
             "name": "المكوّنات",

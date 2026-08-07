@@ -68,9 +68,14 @@ describe('kitchen orders', () => {
         const { repositories, tokenStore } = await signIn();
         await renderOrders(repositories, tokenStore);
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-        });
+        // Cold module load under parallel jest workers can exceed the 1 s waitFor default; the
+        // wait covers the suite's first render, not anything slow in the screen itself.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
 
         // The fixture world seeds five Verdant orders across all four statuses.
         expect(screen.getByTestId('kitchen-orders-panel-metric-loaded-value')).toHaveTextContent(
