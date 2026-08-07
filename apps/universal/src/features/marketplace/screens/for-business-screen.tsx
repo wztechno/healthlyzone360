@@ -111,6 +111,9 @@ export function ForBusinessScreen() {
                                 testID={`for-business-programme-${programme.key}`}
                                 padding="md"
                                 tone="raised"
+                                // Rule 1 for a card with no price to align: fill the cell, so a
+                                // row of programmes shares one height instead of three.
+                                className="h-full"
                             >
                                 <Stack space="xs">
                                     <EntityImage

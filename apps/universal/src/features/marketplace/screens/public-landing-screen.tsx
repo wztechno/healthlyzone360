@@ -80,7 +80,14 @@ export function PublicLandingScreen() {
                 <CardGrid>
                     {VALUE_PROPS.map((prop) => (
                         <CardGridItem key={prop.key}>
-                            <Card padding="md" tone="raised" testID={`landing-value-${prop.key}`}>
+                            <Card
+                                padding="md"
+                                tone="raised"
+                                testID={`landing-value-${prop.key}`}
+                                // Fills the cell so the row shares a height — Rule 1 where there
+                                // is no figure to pin, only a ragged edge to remove.
+                                className="h-full"
+                            >
                                 <Stack space="xs">
                                     <Icon
                                         name={prop.icon}

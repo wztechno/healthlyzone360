@@ -4,8 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { BrandGradient } from '../../ui/brand-gradient.tsx';
 
 /**
- * The closing note on the plan catalogue: for anyone who reached the end still unsure. It carries
- * the mood board's violet→emerald accent gradient — the "AI / premium" treatment — with white copy.
+ * The closing note on the plan catalogue: for anyone who reached the end still unsure.
+ *
+ * It used to carry the violet accent gradient, described here as the "AI / premium" treatment.
+ * That was wrong once violet meant something: Rule 5 reserves `accent-surface` for
+ * machine-generated content and nothing else, and this band's whole purpose is to offer a
+ * *human* dietitian. A violet panel promising a qualified person is the exact confusion the rule
+ * exists to prevent. It carries the green hero sweep instead — still the closing note, no longer
+ * claiming a machine wrote it.
  *
  * Its two actions go only where the model actually helps that person: a dietitian, and the
  * explanation of how plans work. There is no "find my plan" here on purpose — it would point back up
@@ -24,7 +30,7 @@ export function PlanRecommendationCta({
     const { t } = useTranslation();
 
     return (
-        <BrandGradient variant="accent" testID="plans-cta" className="p-6 md:p-8">
+        <BrandGradient variant="hero" testID="plans-cta" className="p-6 md:p-8">
             <Stack space="sm">
                 <Heading level={2} tone="inverse">
                     {t('catalogue:plans.ctaTitle')}

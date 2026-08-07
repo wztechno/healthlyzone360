@@ -608,10 +608,16 @@ export function KitchenHomeScreen() {
                                 </View>
                             </FadeIn>
 
+                            {/*
+                              * The review band carries the green sweep, not the violet one. It
+                              * counts what is waiting in the review queue — operational fact,
+                              * computed from records a person created. Rule 5 keeps violet for
+                              * machine-generated content, and a queue length is not that.
+                              */}
                             <FadeIn delayMs={stagger(2)} testID="kitchen-home-review-band">
                                 {reviewQueue !== null && reviewQueue.total > 0 ? (
                                     <BrandGradient
-                                        variant="accent"
+                                        variant="hero"
                                         testID="kitchen-review-insight"
                                         className="p-5"
                                     >
