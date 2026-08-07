@@ -93,7 +93,7 @@ export function ListToolbar({
     return (
         <View
             testID={testID}
-            className="rounded-2xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1 md:p-4"
+            className="rounded-[14px] border border-brand-100 bg-surface-raised p-3 shadow-elevation-1 md:p-4"
         >
             <Stack space="sm">
             <TextInputField
@@ -149,20 +149,24 @@ export function ListToolbar({
                 />
             )}
 
-            <Inline space="sm" align="center" justify="between" wrap>
-                <Stack space="none" grow>
-                    {resultSummary === undefined ? null : (
-                        <Text
-                            testID={`${testID}-result-summary`}
-                            tone="secondary"
-                            variant="caption"
-                            role="status"
-                            aria-live="polite"
-                        >
-                            {resultSummary}
-                        </Text>
-                    )}
-                </Stack>
+            {/*
+              * One row, sharing a baseline: the count sits with the controls rather than in a
+              * paragraph of its own below them, and the create button is the trailing primary —
+              * this area's core-loop action (§4, Rule 4). It is the same shape as the marketplace
+              * `ToolbarRow`, expressed against this component's own props.
+              */}
+            <Inline space="sm" align="center" wrap>
+                {resultSummary === undefined ? null : (
+                    <Text
+                        testID={`${testID}-result-summary`}
+                        role="status"
+                        aria-live="polite"
+                        className="font-display text-sm text-content-primary"
+                    >
+                        {resultSummary}
+                    </Text>
+                )}
+                <View className="grow" />
                 {onCreate === undefined ? null : (
                     <Button
                         testID={`${testID}-create`}

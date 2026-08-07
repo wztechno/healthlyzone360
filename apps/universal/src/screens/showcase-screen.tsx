@@ -64,6 +64,7 @@ import { useColorScheme } from 'nativewind';
 import { View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
+import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
 
 interface SectionProps {
@@ -481,6 +482,49 @@ export function ShowcaseScreen() {
                 </Section>
 
                 <Section id="filters" title={t('designSystem:showcase.sections.filters')}>
+                    {/*
+                      * The one-row toolbar. What to check: every control shares a baseline, the
+                      * count states a total rather than just a shown-count, and each active chip
+                      * removes the filter it names without opening the panel.
+                      */}
+                    <ToolbarRow
+                        testID="showcase-toolbar"
+                        filtersLabel="Filters (2)"
+                        filtersActive={2}
+                        filtersExpanded={filterOn}
+                        filtersPanelId="showcase-toolbar-panel"
+                        onToggleFilters={() => {
+                            setFilterOn((open) => !open);
+                        }}
+                        activeFilters={[
+                            {
+                                key: 'vegan',
+                                label: 'Vegan',
+                                removeLabel: 'Remove filter: Vegan',
+                                onRemove: () => undefined,
+                            },
+                            {
+                                key: 'kitchen',
+                                label: 'Verdant Kitchen',
+                                removeLabel: 'Remove filter: Verdant Kitchen',
+                                onRemove: () => undefined,
+                            },
+                        ]}
+                        onClearAll={() => undefined}
+                        clearAllLabel="Clear filters"
+                        resultSummary="Showing 6 of 40 matching meals"
+                        sort={
+                            <Select
+                                testID="showcase-toolbar-sort"
+                                id="showcase-toolbar-sort"
+                                label="Order by"
+                                value={selected ?? 'option-1'}
+                                options={options}
+                                onChange={setSelected}
+                                className="min-w-[200px]"
+                            />
+                        }
+                    />
                     <Inline space="sm">
                         <Chip
                             testID="showcase-chip"
