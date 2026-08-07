@@ -2,6 +2,8 @@ import { Badge, Card, Chip, Inline, Rating, Stack, Text } from '@healthy360/desi
 import type { Dietitian } from '@healthy360/api-client/contracts';
 import { useTranslation } from 'react-i18next';
 
+import { View } from 'react-native';
+
 import { EntityAvatar } from '../../media/entity-image.tsx';
 
 const LOCALE_LABEL_KEY: Readonly<Record<string, string>> = {
@@ -31,11 +33,49 @@ export function DietitianCard({ dietitian, onPress, testID }: DietitianCardProps
     const { t } = useTranslation();
     const resolvedTestID = testID ?? `dietitian-card-${String(dietitian.id)}`;
 
+    /*
+     * Languages and the synthetic-record note, pinned (§4, Rule 1).
+     *
+     * The note is not a footnote to trim. Every registration entry in this prototype is invented,
+     * and a directory of professionals that does not say so is the one page where an unlabelled
+     * fixture could actually mislead somebody into contacting a person who does not exist. Pinning
+     * it also means it sits in the same place on every card rather than wherever the specialisms
+     * above happen to end.
+     */
+    const footer = (
+        <View className="flex-col gap-1 border-t border-surface-sunken pt-3">
+            <Text
+                testID={`${resolvedTestID}-languages`}
+                tone="secondary"
+                variant="caption"
+                numberOfLines={1}
+            >
+                {t('marketplace:dietitians.speaks', {
+                    languages: dietitian.locales
+                        .map((locale) => {
+                            const key = LOCALE_LABEL_KEY[locale];
+                            return key === undefined ? locale : t(key);
+                        })
+                        .join(t('marketplace:common.listSeparator')),
+                })}
+            </Text>
+            <Text
+                testID={`${resolvedTestID}-synthetic-credentials`}
+                tone="secondary"
+                variant="caption"
+            >
+                {t('marketplace:dietitians.syntheticCredentials')}
+            </Text>
+        </View>
+    );
+
     return (
         <Card
             testID={resolvedTestID}
             padding="md"
             tone="raised"
+            interactive
+            footer={footer}
             onPress={onPress}
             accessibilityLabel={t('marketplace:dietitians.cardLabel', {
                 dietitian: dietitian.displayName,
@@ -87,24 +127,6 @@ export function DietitianCard({ dietitian, onPress, testID }: DietitianCardProps
                     ))}
                 </Inline>
 
-                <Text testID={`${resolvedTestID}-languages`} tone="secondary" variant="caption">
-                    {t('marketplace:dietitians.speaks', {
-                        languages: dietitian.locales
-                            .map((locale) => {
-                                const key = LOCALE_LABEL_KEY[locale];
-                                return key === undefined ? locale : t(key);
-                            })
-                            .join(t('marketplace:common.listSeparator')),
-                    })}
-                </Text>
-
-                <Text
-                    testID={`${resolvedTestID}-synthetic-credentials`}
-                    tone="secondary"
-                    variant="caption"
-                >
-                    {t('marketplace:dietitians.syntheticCredentials')}
-                </Text>
             </Stack>
         </Card>
     );

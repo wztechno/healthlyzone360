@@ -107,7 +107,8 @@
         "deliversTo": "Delivers to {{area}}",
         "deliversToTimed": "Delivers to {{area}} in about {{minutes}} minutes",
         "emptyTitle": "No kitchens match",
-        "emptyBody": "Try a different cuisine, or clear the filters to see everything on the marketplace."
+        "emptyBody": "Try a different cuisine, or clear the filters to see everything on the marketplace.",
+        "noPublishedZone": "No delivery zone published"
     },
     "kitchen": {
         "loading": "Loading",

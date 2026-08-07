@@ -2,6 +2,7 @@ import { Inline, Stack, Text } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText } from 'react-native';
 
 import { formatMoney } from '../marketplace/format.ts';
 import { DAYS_PER_WEEK, cheapestVariant } from './plan-catalogue.ts';
@@ -40,9 +41,18 @@ export function PlanPrice({ plan, testID }: PlanPriceProps) {
                 {t('catalogue:plans.priceFrom')}
             </Text>
             <Inline space="xs" align="baseline" wrap>
-                <Text variant="bodyStrong" className="font-display text-2xl leading-tight">
+                {/*
+                  * RNText, not the design system's `Text`. `Text` applies its variant's own
+                  * `text-base` and a caller's `text-2xl` cannot reliably outrank it — the same
+                  * trap that first rendered the page hero's 48px title at 16px. The price is the
+                  * figure this card is compared on, so it states its own size.
+                  */}
+                <RNText
+                    testID={testID === undefined ? undefined : `${testID}-amount`}
+                    className="font-display text-2xl leading-tight text-surface-brand text-start"
+                >
                     {formatMoney(formatter, cheapest.pricePerWeek)}
-                </Text>
+                </RNText>
                 <Text tone="secondary" variant="caption">
                     {t('catalogue:plans.perWeekSuffix')}
                 </Text>
