@@ -18,6 +18,31 @@ import { cx } from '../internal/class-names.ts';
  * CSS transform. That matters because the NativeWind spike found that inline logical style props do
  * not re-mirror on a live web `dir` change (notes/nativewind-spike.md §4) — but re-picking a
  * character does, since the component re-renders when the locale changes.
+ *
+ * ## Which characters are in bounds, and why it is not a block rule
+ *
+ * Nothing in this application sets a `fontFamily` on text, so an icon renders in the *platform's*
+ * default font and whatever that font falls back to — Roboto then Noto on Android, not the bundled
+ * Inter. A codepoint the platform cannot draw becomes a tofu box, and a tofu box in the top bar is
+ * a visible defect on the first screen anybody sees.
+ *
+ * The tempting rule is "stay inside well-covered Unicode blocks". Measured against the fonts this
+ * repository actually ships, that rule does not hold: `star` U+2605 and `warning` U+26A0 are both
+ * Miscellaneous Symbols and both present in Inter, while `close` U+2715, `success` U+2714 and
+ * `more` U+22EF are in blocks usually called safe and are absent from it. Coverage is a property of
+ * the codepoint, not of the range it happens to fall in.
+ *
+ * So the real constraint is **age**, and it is enforced as an explicit reviewed list in
+ * `icon.test.tsx` rather than as a range check that would pass characters nothing can draw. Every
+ * glyph here comes from the repertoire that has been in system fonts for decades — Zapf Dingbats,
+ * Geometric Shapes, the card suits, arrows, the cp437-heritage symbols. Four characters were
+ * removed for failing that standard: `basket` was U+26C3 BLACK DRAUGHTS KING, `lock` U+26BF SQUARED
+ * KEY, `filter` U+269F THREE LINES CONVERGING LEFT and `leaf` U+2766 FLORAL HEART — all obscure
+ * enough that font vendors routinely skip them, and the first of those was semantically a checkers
+ * piece sitting in the marketplace top bar.
+ *
+ * Adding a glyph means adding a line to that list, which is the point: the question gets asked once,
+ * deliberately, instead of being discovered by a user.
  */
 export const ICON_GLYPHS = {
     chevronForward: '›',
@@ -48,7 +73,7 @@ export const ICON_GLYPHS = {
     dotOutline: '◦',
     star: '★',
     starOutline: '☆',
-    filter: '⚟',
+    filter: '▽',
     calendar: '▤',
     more: '⋯',
     /*
@@ -64,11 +89,11 @@ export const ICON_GLYPHS = {
      * Note what is deliberately absent: `search`, `filter`, `calendar`, `refresh` and `user`
      * already existed. Five of the eight the handoff lists were never missing.
      */
-    basket: '⛃',
+    basket: '▣',
     home: '⌂',
     plate: '◯',
-    lock: '⚿',
-    leaf: '❦',
+    lock: '⊗',
+    leaf: '♣',
     medicalCross: '✚',
     sparkle: '✧',
 } as const;

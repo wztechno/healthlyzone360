@@ -53,7 +53,7 @@ export function PlanComparisonTray({
             testID="plans-compare-tray"
             role="region"
             aria-label={t('catalogue:plans.compareTrayLabel')}
-            className="rounded-2xl border border-stroke-default bg-surface-raised p-4 shadow-elevation-1"
+            className="rounded-panel border border-stroke-default bg-surface-raised p-4 shadow-elevation-1"
         >
             <Stack space="sm">
                 <Inline space="sm" align="center" justify="between" wrap>

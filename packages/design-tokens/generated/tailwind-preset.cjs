@@ -155,6 +155,7 @@ module.exports = {
         "sm": "4px",
         "DEFAULT": "8px",
         "lg": "12px",
+        "panel": "14px",
         "xl": "16px",
         "2xl": "24px",
         "full": "9999px"

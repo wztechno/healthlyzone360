@@ -83,7 +83,7 @@ export function EditorFrame({
     return (
         <PageTransition testID={testID} transitionKey={testID}>
             <Stack space="lg">
-                <View className="rounded-2xl border border-brand-100 bg-surface-raised p-4 shadow-elevation-1">
+                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1">
                     <Stack space="sm">
                         <Button
                             testID={`${testID}-back`}
@@ -131,7 +131,7 @@ export function EditorFrame({
 
                 {banner}
 
-                <View className="rounded-2xl border border-brand-100 bg-surface-raised p-4 md:p-5">
+                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
                     {children}
                 </View>
 

@@ -93,7 +93,7 @@ export function ListToolbar({
     return (
         <View
             testID={testID}
-            className="rounded-[14px] border border-brand-100 bg-surface-raised p-3 shadow-elevation-1 md:p-4"
+            className="rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-1 md:p-4"
         >
             <Stack space="sm">
             <TextInputField

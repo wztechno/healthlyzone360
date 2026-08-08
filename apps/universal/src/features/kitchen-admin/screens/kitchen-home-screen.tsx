@@ -446,7 +446,7 @@ function KpiTile({
     return (
         <View
             testID={testID}
-            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-[14px] border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
         >
             {pending ? (
                 <Skeleton testID={`${testID}-loading`} heightClassName="h-8" widthClassName="w-1/2" />

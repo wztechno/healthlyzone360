@@ -54,7 +54,7 @@ function MetricSlot({
     return (
         <View
             testID={testID}
-            className="min-h-[88px] flex-1 rounded-[14px] border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+            className="min-h-[88px] flex-1 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
         >
             <Text
                 testID={`${testID}-value`}
@@ -109,7 +109,7 @@ export function OpsPanel({
                 </FadeIn>
 
                 <FadeIn delayMs={stagger(2)}>
-                    <View className="rounded-2xl border border-brand-100 bg-surface-raised p-4 shadow-elevation-1 md:p-5">
+                    <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1 md:p-5">
                         {children ?? (
                             <EmptyState
                                 testID={`${testID}-empty`}

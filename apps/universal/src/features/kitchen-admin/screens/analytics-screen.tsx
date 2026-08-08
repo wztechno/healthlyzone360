@@ -61,7 +61,7 @@ function KpiCard({ kpi, testID }: { readonly kpi: AnalyticsKpi; readonly testID:
     return (
         <View
             testID={testID}
-            className="min-h-[108px] min-w-[148px] flex-1 basis-[148px] rounded-[14px] border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+            className="min-h-[108px] min-w-[148px] flex-1 basis-[148px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
         >
             <Text tone="secondary" variant="caption">
                 {t(kpi.labelKey)}
@@ -238,7 +238,7 @@ function AnalyticsDashboard() {
                 <FadeIn delayMs={stagger(1)}>
                     <View
                         testID="kitchen-analytics-filters"
-                        className="gap-4 rounded-[14px] border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
                     >
                         <Tabs
                             testID="kitchen-analytics-range"
@@ -324,7 +324,7 @@ function AnalyticsDashboard() {
                 <FadeIn delayMs={stagger(5)}>
                     <View
                         testID="kitchen-analytics-table-panel"
-                        className="gap-4 rounded-[14px] border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
                     >
                         <Stack space="xs">
                             <Heading level={2}>{t('kitchen:analytics.table.title')}</Heading>
