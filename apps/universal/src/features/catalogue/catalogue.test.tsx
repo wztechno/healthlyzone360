@@ -368,14 +368,24 @@ describe('MealsScreen', () => {
         await renderScreen(<MealsScreen />, { scenario: 'consumer-prototype' });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        const before = mealCardCount();
-        expect(before).toBe(20);
+        const firstPage = mealCardCount();
+        expect(firstPage).toBe(20);
 
-        await fireEvent.press(screen.getByTestId('meals-load-more'));
+        // Page to the end rather than assuming how many pages there are. This test was written when
+        // the marketplace held exactly two pages of meals, and it broke the day the fixture world
+        // gained two sellable products; what is actually worth asserting is that every press adds
+        // meals and that the cursor eventually runs out and says so.
+        let loaded = firstPage;
+        while (screen.queryByTestId('meals-load-more') !== null) {
+            const previous = loaded;
+            await fireEvent.press(screen.getByTestId('meals-load-more'));
+            await waitFor(() => {
+                expect(mealCardCount()).toBeGreaterThan(previous);
+            });
+            loaded = mealCardCount();
+        }
 
-        await waitFor(() => {
-            expect(mealCardCount()).toBeGreaterThan(before);
-        });
+        expect(loaded).toBeGreaterThan(firstPage);
         expect(screen.getByTestId('meals-all-loaded')).toBeTruthy();
     });
 });

@@ -26,10 +26,21 @@ test.describe('meal catalogue (en)', () => {
 
         // Twenty per page, and a control that says there are more rather than loading on scroll.
         await expect(page.getByTestId('meals-load-more')).toBeVisible();
-        const firstPage = await page.locator('[data-testid$="-price"]').count();
-        await page.getByTestId('meals-load-more').click();
+        const priced = page.locator('[data-testid$="-price"]');
+        const firstPage = await priced.count();
+
+        // Page to the end rather than assuming how many pages there are. One press exhausted the
+        // catalogue while it held exactly forty meals, and stopped doing so the day the fixture
+        // world gained two sellable products. The claim worth pinning is that every press adds
+        // meals and that the cursor eventually runs out and says so.
+        let loaded = firstPage;
+        while ((await page.getByTestId('meals-load-more').count()) > 0) {
+            await page.getByTestId('meals-load-more').click();
+            await expect.poll(async () => priced.count()).toBeGreaterThan(loaded);
+            loaded = await priced.count();
+        }
         await expect(page.getByTestId('meals-all-loaded')).toBeVisible();
-        expect(await page.locator('[data-testid$="-price"]').count()).toBeGreaterThan(firstPage);
+        expect(loaded).toBeGreaterThan(firstPage);
 
         // Filters are collapsed by default so the grid leads; open the disclosure to reach them.
         await page.getByTestId('meals-filter-toggle').click();
@@ -114,12 +125,22 @@ test.describe('meal detail (en)', () => {
         }
     });
 
-    test('an anonymous visitor is sent to sign in rather than given a basket', async ({ page }) => {
+    test('an anonymous visitor is asked how to continue rather than given a basket', async ({
+        page,
+    }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
         await page.locator('[data-testid^="meal-card-"]').first().click();
 
         await page.getByTestId('meal-detail-add-to-basket').click();
+
+        // Guest ordering turned the straight redirect into a choice, so the press still does not
+        // quietly start a basket — it asks, and names both ways out. Signing in remains one of
+        // them and still lands on the sign-in screen, which is what this test was written to prove.
+        await expect(page.getByTestId('meal-detail-guest-entry-dialog')).toBeVisible();
+        await expect(page.getByTestId('meal-detail-guest-continue')).toBeVisible();
+
+        await page.getByTestId('meal-detail-guest-sign-in').click();
         await expect(page.getByTestId('sign-in-screen')).toBeVisible();
     });
 

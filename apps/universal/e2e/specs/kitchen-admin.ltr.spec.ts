@@ -243,8 +243,29 @@ test.describe('kitchen workspace (en)', () => {
         await openKitchen(page);
         await page.getByTestId('kitchen-family-stock-open').click();
         await expect(page.getByTestId('kitchen-stock-panel')).toBeVisible();
-        await expect(page.getByTestId('kitchen-stock-panel-metric-onHand-value')).toHaveText('—');
-        await expect(page.getByTestId('kitchen-stock-panel-empty')).toBeVisible();
+
+        // The panel was a placeholder when this was written: three metrics named `onHand`,
+        // `adjustments` and `waste`, none of them carrying a value, over an empty state. Stock is
+        // implemented now, so the honest form of "invents no counts" is that each metric equals
+        // the number of rows the screen actually fetched — which is what is checked below.
+        await expect(page.getByTestId('kitchen-stock-items-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-stock-levels-table')).toBeVisible();
+
+        const itemRows = page.locator('[data-testid^="kitchen-stock-item-"][data-testid$="-name"]');
+        const levelRows = page.locator(
+            '[data-testid^="kitchen-stock-level-"][data-testid$="-quantity"]',
+        );
+
+        await expect(page.getByTestId('kitchen-stock-panel-metric-items-value')).toHaveText(
+            String(await itemRows.count()),
+        );
+        await expect(page.getByTestId('kitchen-stock-panel-metric-levels-value')).toHaveText(
+            String(await levelRows.count()),
+        );
+        // A count, never a blank: an unread figure would render an em dash rather than a zero.
+        await expect(page.getByTestId('kitchen-stock-panel-metric-outOfStock-value')).toHaveText(
+            /^\d+$/,
+        );
     });
 
     test('lists the seeded library with its allergens, statuses and provenance', async ({

@@ -113,7 +113,8 @@ let quotations: readonly Quotation[];
 let programmes: readonly CorporateProgramme[];
 /** The one line priced in SAR — the fixture world's multi-currency proof. */
 let sarItem: CatalogueItem;
-let aedItem: CatalogueItem;
+/** A line in the fixture world's default currency, which is USD. */
+let usdItem: CatalogueItem;
 
 beforeAll(async () => {
     const page = await scratch.business.listQuotations();
@@ -123,10 +124,10 @@ beforeAll(async () => {
     programmes = await Promise.all(ids.map((id) => scratch.business.getCorporateProgramme(id)));
 
     sarItem = await scratch.business.getCatalogueItem('catalogue-wholesale-prepared-pallet');
-    aedItem = await scratch.business.getCatalogueItem('catalogue-staff-lunch-box');
+    usdItem = await scratch.business.getCatalogueItem('catalogue-staff-lunch-box');
 });
 
-function aed(amount: number): Money {
+function usd(amount: number): Money {
     return { amount, currency: 'USD' };
 }
 
@@ -145,11 +146,11 @@ describe('contract-price marker', () => {
 
 describe('money across currencies', () => {
     it('totals each currency separately rather than producing one wrong number', () => {
-        const totals = totalsByCurrency([aed(1000), sar(500), aed(2500)]);
+        const totals = totalsByCurrency([usd(1000), sar(500), usd(2500)]);
 
-        expect(totals).toEqual([aed(3500), sar(500)]);
-        expect(isMixedCurrency([aed(1000), sar(500)])).toBe(true);
-        expect(isMixedCurrency([aed(1000), aed(500)])).toBe(false);
+        expect(totals).toEqual([usd(3500), sar(500)]);
+        expect(isMixedCurrency([usd(1000), sar(500)])).toBe(true);
+        expect(isMixedCurrency([usd(1000), usd(500)])).toBe(false);
     });
 
     it('answers an empty list with no totals rather than a zero in some arbitrary currency', () => {
@@ -157,11 +158,11 @@ describe('money across currencies', () => {
         expect(isMixedCurrency([])).toBe(false);
     });
 
-    it('keeps the fixture world non-AED line in its own currency', () => {
+    it('keeps the fixture world off-default line in its own currency', () => {
         expect(sarItem.contractPrice?.currency).toBe('SAR');
-        expect(aedItem.contractPrice?.currency).toBe('USD');
+        expect(usdItem.contractPrice?.currency).toBe('USD');
 
-        const mixed = [sarItem.contractPrice, aedItem.contractPrice].filter(
+        const mixed = [sarItem.contractPrice, usdItem.contractPrice].filter(
             (value): value is Money => value !== null && value !== undefined,
         );
         expect(isMixedCurrency(mixed)).toBe(true);
@@ -171,18 +172,18 @@ describe('money across currencies', () => {
 
 describe('volume tiers', () => {
     it('resolves a quantity to the tier it earns, and to nothing below the first one', () => {
-        expect(tierForQuantity(aedItem.volumeTiers, 1)).toBeNull();
-        expect(tierForQuantity(aedItem.volumeTiers, 40)?.minimumQuantity).toBe(40);
-        expect(tierForQuantity(aedItem.volumeTiers, 120)?.minimumQuantity).toBe(100);
+        expect(tierForQuantity(usdItem.volumeTiers, 1)).toBeNull();
+        expect(tierForQuantity(usdItem.volumeTiers, 40)?.minimumQuantity).toBe(40);
+        expect(tierForQuantity(usdItem.volumeTiers, 120)?.minimumQuantity).toBe(100);
         // The last tier has no ceiling.
-        expect(tierForQuantity(aedItem.volumeTiers, 100_000)?.maximumQuantity).toBeNull();
+        expect(tierForQuantity(usdItem.volumeTiers, 100_000)?.maximumQuantity).toBeNull();
     });
 
     it('prices a line at its tier, and refuses to price one below the minimum order', () => {
-        expect(lineValue(aedItem, 1)).toBeNull();
+        expect(lineValue(usdItem, 1)).toBeNull();
 
-        const tier = tierForQuantity(aedItem.volumeTiers, 120);
-        const value = lineValue(aedItem, 120);
+        const tier = tierForQuantity(usdItem.volumeTiers, 120);
+        const value = lineValue(usdItem, 120);
         expect(value).not.toBeNull();
         expect(value?.currency).toBe(tier?.unitPrice.currency);
         expect(value?.amount).toBe((tier?.unitPrice.amount ?? 0) * 120);
@@ -197,12 +198,12 @@ describe('the supply calendar', () => {
 
     it('projects that window onto the delivery weekdays agreed for the line', () => {
         const quotation = quotations.find((candidate) =>
-            candidate.lines.some((line) => line.catalogueItemId === aedItem.id),
+            candidate.lines.some((line) => line.catalogueItemId === usdItem.id),
         );
         expect(quotation).toBeDefined();
         if (quotation === undefined) return;
 
-        const dates = supplyDates(quotation, aedItem, 4);
+        const dates = supplyDates(quotation, usdItem, 4);
         expect(dates).toHaveLength(4);
 
         for (const date of dates) {
@@ -219,7 +220,7 @@ describe('the supply calendar', () => {
         const quotation = quotations[0];
         expect(quotation).toBeDefined();
         if (quotation === undefined) return;
-        expect(supplyDates(quotation, { ...aedItem, deliveryWeekdays: [] }, 4)).toEqual([]);
+        expect(supplyDates(quotation, { ...usdItem, deliveryWeekdays: [] }, 4)).toEqual([]);
     });
 });
 
@@ -234,24 +235,24 @@ describe('quotation draft validation', () => {
     };
 
     it('refuses an empty draft', () => {
-        const errors = validateDraft([aedItem], {}, contact, translate);
+        const errors = validateDraft([usdItem], {}, contact, translate);
         expect(errors.lines).toBe('business:builder.errorNoLines');
     });
 
     it('refuses a line below its minimum order', () => {
-        const errors = validateDraft([aedItem], { [aedItem.id]: 1 }, contact, translate);
+        const errors = validateDraft([usdItem], { [usdItem.id]: 1 }, contact, translate);
         expect(errors.lines).toBe('business:builder.errorBelowMinimum');
     });
 
     it('requires a contact who can actually be replied to', () => {
-        const quantities = { [aedItem.id]: aedItem.minimumOrderQuantity };
+        const quantities = { [usdItem.id]: usdItem.minimumOrderQuantity };
         expect(
-            validateDraft([aedItem], quantities, { ...contact, name: '  ' }, translate).name,
+            validateDraft([usdItem], quantities, { ...contact, name: '  ' }, translate).name,
         ).toBe('errors:validation.required');
         expect(
-            validateDraft([aedItem], quantities, { ...contact, email: 'dana' }, translate).email,
+            validateDraft([usdItem], quantities, { ...contact, email: 'dana' }, translate).email,
         ).toBe('errors:validation.email');
-        expect(validateDraft([aedItem], quantities, contact, translate)).toEqual({});
+        expect(validateDraft([usdItem], quantities, contact, translate)).toEqual({});
     });
 });
 
@@ -306,16 +307,16 @@ describe('corporate dashboard', () => {
 describe('corporate catalogue', () => {
     it('renders a contract price, a minimum order and a lead time on every line', async () => {
         await renderBusiness(
-            <CorporateCatalogueScreen programmeId={String(aedItem.programmeId)} />,
+            <CorporateCatalogueScreen programmeId={String(usdItem.programmeId)} />,
         );
 
         await waitFor(() => {
-            expect(screen.getByTestId(`catalogue-item-${aedItem.id}`)).toBeTruthy();
+            expect(screen.getByTestId(`catalogue-item-${usdItem.id}`)).toBeTruthy();
         });
-        expect(screen.getByTestId(contractPriceTestId(aedItem.id))).toBeTruthy();
-        expect(screen.getByTestId(`catalogue-item-${aedItem.id}-minimum`)).toBeTruthy();
-        expect(screen.getByTestId(`catalogue-item-${aedItem.id}-lead-time`)).toBeTruthy();
-        expect(screen.getByTestId(`catalogue-item-${aedItem.id}-weekdays`)).toBeTruthy();
+        expect(screen.getByTestId(contractPriceTestId(usdItem.id))).toBeTruthy();
+        expect(screen.getByTestId(`catalogue-item-${usdItem.id}-minimum`)).toBeTruthy();
+        expect(screen.getByTestId(`catalogue-item-${usdItem.id}-lead-time`)).toBeTruthy();
+        expect(screen.getByTestId(`catalogue-item-${usdItem.id}-weekdays`)).toBeTruthy();
         expect(screen.getByTestId('corporate-catalogue-currencies')).toBeTruthy();
     });
 
@@ -359,19 +360,19 @@ describe('corporate catalogue', () => {
 
 describe('catalogue line detail', () => {
     it('prices every volume tier, and marks each one', async () => {
-        await renderBusiness(<CatalogueItemScreen itemId={aedItem.id} />);
+        await renderBusiness(<CatalogueItemScreen itemId={usdItem.id} />);
 
         await waitFor(() => {
             expect(screen.getByTestId('catalogue-item-name')).toBeTruthy();
         });
-        expect(screen.getByTestId(contractPriceTestId(`headline-${aedItem.id}`))).toBeTruthy();
-        for (const tier of aedItem.volumeTiers) {
+        expect(screen.getByTestId(contractPriceTestId(`headline-${usdItem.id}`))).toBeTruthy();
+        for (const tier of usdItem.volumeTiers) {
             expect(screen.getByTestId(contractPriceTestId(`tier-${String(tier.id)}`))).toBeTruthy();
         }
     });
 
     it('answers the standing-order control honestly rather than with a dead button', async () => {
-        await renderBusiness(<CatalogueItemScreen itemId={aedItem.id} />);
+        await renderBusiness(<CatalogueItemScreen itemId={usdItem.id} />);
 
         await waitFor(() => {
             expect(screen.getByTestId('prototype-action')).toBeTruthy();
@@ -394,15 +395,15 @@ describe('catalogue line detail', () => {
 
 describe('quotation builder', () => {
     it('states that it asks for a price and orders nothing', async () => {
-        await renderBusiness(<QuotationBuilderScreen programmeId={String(aedItem.programmeId)} />);
+        await renderBusiness(<QuotationBuilderScreen programmeId={String(usdItem.programmeId)} />);
         expect(screen.getByTestId('quotation-builder-scope')).toBeTruthy();
     });
 
     it('refuses an empty draft and says which rule it broke', async () => {
-        await renderBusiness(<QuotationBuilderScreen programmeId={String(aedItem.programmeId)} />);
+        await renderBusiness(<QuotationBuilderScreen programmeId={String(usdItem.programmeId)} />);
 
         await waitFor(() => {
-            expect(screen.getByTestId(`quotation-line-${aedItem.id}`)).toBeTruthy();
+            expect(screen.getByTestId(`quotation-line-${usdItem.id}`)).toBeTruthy();
         });
 
         fireEvent.press(screen.getByTestId('quotation-builder-submit'));
@@ -414,22 +415,28 @@ describe('quotation builder', () => {
     it('seeds the line the catalogue sent it at that minimum order, and values it', async () => {
         await renderBusiness(
             <QuotationBuilderScreen
-                programmeId={String(aedItem.programmeId)}
-                initialItemId={aedItem.id}
+                programmeId={String(usdItem.programmeId)}
+                initialItemId={usdItem.id}
             />,
         );
 
         await waitFor(() => {
-            expect(screen.getByTestId(contractPriceTestId(`line-${aedItem.id}`))).toBeTruthy();
+            expect(screen.getByTestId(contractPriceTestId(`line-${usdItem.id}`))).toBeTruthy();
         });
-        expect(screen.getByTestId(contractPriceTestId('draft-total-AED'))).toBeTruthy();
+        // The draft total is keyed by the currency it is stated in, and the fixture world's default
+        // moved from AED to USD. Read the currency off the line rather than writing it down twice.
+        const currency = usdItem.contractPrice?.currency;
+        expect(currency).toBeDefined();
+        expect(
+            screen.getByTestId(contractPriceTestId(`draft-total-${String(currency)}`)),
+        ).toBeTruthy();
     });
 
     it('really files a quotation, and the store really has one more', async () => {
         const { repositories } = await renderBusiness(
             <QuotationBuilderScreen
-                programmeId={String(aedItem.programmeId)}
-                initialItemId={aedItem.id}
+                programmeId={String(usdItem.programmeId)}
+                initialItemId={usdItem.id}
             />,
         );
 
@@ -440,7 +447,7 @@ describe('quotation builder', () => {
 
         // The seeded line has to have arrived before the form is worth submitting.
         await waitFor(() => {
-            expect(screen.getByTestId(contractPriceTestId(`line-${aedItem.id}`))).toBeTruthy();
+            expect(screen.getByTestId(contractPriceTestId(`line-${usdItem.id}`))).toBeTruthy();
         });
 
         await act(async () => {
@@ -464,7 +471,7 @@ describe('quotation builder', () => {
     });
 
     it('says out loud that a half-composed draft cannot be stored', async () => {
-        await renderBusiness(<QuotationBuilderScreen programmeId={String(aedItem.programmeId)} />);
+        await renderBusiness(<QuotationBuilderScreen programmeId={String(usdItem.programmeId)} />);
 
         expect(screen.getByTestId('quotation-builder-draft-note')).toBeTruthy();
         fireEvent.press(screen.getByTestId('prototype-action'));

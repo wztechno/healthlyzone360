@@ -54,9 +54,13 @@ test.describe('corporate workspace (en)', () => {
         await openCorporate(page);
 
         await expect(page.getByTestId('corporate-programme-list')).toBeVisible();
-        // The derivation is a contract gap, and the screen says so rather than hiding it.
+        // This note used to read "Prototype limitation", because the list was derived from
+        // quotation history for want of a way to ask for it. `BusinessRepository` gained
+        // `listCorporateProgrammes()`, the derivation went, and the note now says what the list is
+        // instead of apologising for how it was built. What is still worth pinning is that the
+        // screen explains the list at all rather than presenting it unsourced.
         await expect(page.getByTestId('corporate-programme-source')).toContainText(
-            'Prototype limitation',
+            'your organisation buys through',
         );
 
         const base = await firstProgrammeBase(page);
@@ -78,11 +82,16 @@ test.describe('corporate workspace (en)', () => {
 
         await expect(page.getByTestId('corporate-catalogue-screen')).toBeVisible();
         await expect(page.getByTestId('corporate-catalogue-privacy')).toBeVisible();
-        await expect(page.getByTestId('corporate-catalogue-currencies')).toBeVisible();
+
+        // Which currency the catalogue is priced in is stated once, by this note, and not repeated
+        // on every line: an amount is formatted the way the reader's locale formats it, and en
+        // renders USD as "$". Asserting "USD" on a line was only ever true while the fixture
+        // world's default was AED, which en has no symbol for.
+        await expect(page.getByTestId('corporate-catalogue-currencies')).toContainText('USD');
 
         const price = page.locator('[data-testid^="contract-price-catalogue-"]').first();
         await expect(price).toBeVisible();
-        await expect(price).toContainText('USD');
+        await expect(price).toContainText(/\d/);
 
         const line = page.locator('[data-testid^="catalogue-item-"][data-testid$="-minimum"]');
         await expect(line.first()).toBeVisible();

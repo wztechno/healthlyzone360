@@ -27,14 +27,16 @@ import { signIn } from './helpers.ts';
  *
  * | surface                              | source                                                  | shared id | named |
  * | ------------------------------------ | ------------------------------------------------------- | --------- | ----- |
- * | `/customer` consumer home            | `features/marketplace/screens/consumer-home-screen`      | 3         | —     |
+ * | `/customer` consumer home            | `features/marketplace/screens/consumer-home-screen`      | 2 (+1)    | —     |
  * | `/dietitians/{dietitian}`            | `features/marketplace/screens/dietitian-profile-screen`  | 1         | —     |
  * | `/customer/grocery/{week}`           | `features/planner/screens/grocery-list-screen`           | 1         | —     |
  * | `/customer/planner/week/{week}` menu | `features/planner/screens/planner-week-screen`           | 0         | 2     |
  * | Virtual Dietitian, draft generated   | `features/virtual-dietitian/state-panels`                | 1         | —     |
  *
- * Six controls carry `prototype-action`; two more — the planner week's share and export — are
- * `ActionSheet` rows and carry their own ids. Eight in total, all pressed below.
+ * Five controls always carry `prototype-action`, and a sixth — the consumer home's "open the
+ * planner" — only while the today card has entries to plan against (`conditionalControls`). Two
+ * more, the planner week's share and export, are `ActionSheet` rows and carry their own ids. Seven
+ * or eight in total depending on that one state, and every one of them is pressed below.
  *
  * Both shells (`shell/consumer-shell.tsx`, `shell/marketplace-shell.tsx`) also call
  * `usePrototypeAction()`, for navigation destinations whose `status` is `planned`. Every descriptor
@@ -71,8 +73,18 @@ interface PrototypeSurface {
      * makes the comparison a claim about the *press* rather than about the loading state.
      */
     readonly settled: readonly string[];
-    /** How many `prototype-action` controls this surface offers. */
+    /** How many `prototype-action` controls this surface always offers. */
     readonly controls: number;
+    /**
+     * Controls that exist only in one of a screen's states, with the marker that state renders.
+     *
+     * Kept out of {@link controls} rather than folded into it, because a count that quietly covers
+     * two different screens is not an inventory. Each entry names the test id that proves the state
+     * is on screen, so the expected total is still derived from a written-down rule.
+     */
+    readonly conditionalControls?:
+        | readonly { readonly whenVisible: string; readonly controls: number }[]
+        | undefined;
     /**
      * Controls that call `usePrototypeAction()` **without** carrying the shared test id, named one
      * by one.
@@ -96,10 +108,13 @@ const SURFACES: readonly PrototypeSurface[] = [
         },
         marker: 'consumer-home-screen',
         settled: ['nutrition-snapshot-content', 'subscription-card-content'],
-        // Open the planner, why this target, manage the subscription. The fourth control in the
-        // screen — "start onboarding" — renders only when the person has no nutrition target, and
-        // the default mock world has one.
-        controls: 3,
+        // Why this target, and manage the subscription. Two more are conditional: "start
+        // onboarding" renders only for a person with no nutrition target, and the default mock
+        // world has one; "open the planner" lives inside the today card, which shows its designed
+        // empty state whenever the wall clock has left the pinned fixture week — the same
+        // either-answer-is-correct state `marketplace.ltr.spec.ts` already allows for.
+        controls: 2,
+        conditionalControls: [{ whenVisible: 'today-card-content', controls: 1 }],
     },
     {
         key: 'dietitian profile',
@@ -177,15 +192,22 @@ test.describe('prototype controls answer honestly and change nothing', () => {
                 await expect(page.getByTestId(testId)).toBeVisible();
             }
 
+            let expected = surface.controls;
+            for (const conditional of surface.conditionalControls ?? []) {
+                if (await page.getByTestId(conditional.whenVisible).isVisible()) {
+                    expected += conditional.controls;
+                }
+            }
+
             const shared = page.getByTestId('prototype-action');
             await expect(
                 shared,
-                `${surface.key}: expected ${String(surface.controls)} shared-id prototype controls.`,
-            ).toHaveCount(surface.controls);
+                `${surface.key}: expected ${String(expected)} shared-id prototype controls.`,
+            ).toHaveCount(expected);
 
             /** Each press, described by how the control is found. */
             const presses: readonly (() => Promise<void>)[] = [
-                ...Array.from({ length: surface.controls }, (_unused, index) => async () => {
+                ...Array.from({ length: expected }, (_unused, index) => async () => {
                     await shared.nth(index).click();
                 }),
                 ...(surface.namedControls ?? []).map((testId) => async () => {
