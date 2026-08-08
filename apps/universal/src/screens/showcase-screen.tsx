@@ -66,6 +66,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
+import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
 
 interface SectionProps {
@@ -665,6 +666,32 @@ export function ShowcaseScreen() {
                             </View>
                         }
                     />
+                </Section>
+
+                <Section id="ai" title="AI surfaces">
+                    {/*
+                      * The only two places violet means something. What to check: both say "AI
+                      * dietitian" in words as well as in colour — origin is never carried by
+                      * colour alone — and white stays legible across both sweeps without the
+                      * scrim the canopy band needs, because violet is the lightest stop either
+                      * gradient passes through.
+                      */}
+                    <AiBand
+                        testID="showcase-ai-band"
+                        title="Ask the AI dietitian"
+                        body="Describe how you eat and it will suggest a target and a week, with every step of the arithmetic shown."
+                        actionLabel="Start a session"
+                        onAction={() => undefined}
+                    />
+                    <View className="w-full max-w-[340px]">
+                        <AiRailCard
+                            testID="showcase-ai-rail"
+                            title="Ask the AI dietitian"
+                            body="A suggestion, labelled as one. A registered dietitian can review it and override anything."
+                            actionLabel="Start a session"
+                            onAction={() => undefined}
+                        />
+                    </View>
                 </Section>
 
                 <Section id="content" title={t('designSystem:showcase.sections.content')}>

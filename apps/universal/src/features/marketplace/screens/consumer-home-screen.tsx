@@ -26,6 +26,7 @@ import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { clearResumeIntent, useResumeIntent } from '../resume-intent.ts';
 import { formatMoney } from '../format.ts';
 import { QueryStates } from '../query-states.tsx';
+import { AiBand } from '../../../ui/ai-surface.tsx';
 
 /** The nutrients the snapshot shows, in the order a person reads them. */
 const SNAPSHOT_NUTRIENTS: readonly string[] = ['energy', 'protein', 'carbohydrate', 'fat', 'fibre'];
@@ -139,6 +140,23 @@ export function ConsumerHomeScreen() {
                     </Stack>
                 </Card>
             ) : null}
+
+            {/*
+             * Rule 5's band. The virtual dietitian is a destination in the sidebar and nowhere
+             * else on this page, which for the product's most distinctive feature is a poor
+             * showing — and it is precisely the thing violet is reserved to mark, so the band has
+             * somewhere honest to be. It says "AI dietitian" in words as well as in colour,
+             * because origin is never carried by colour alone.
+             */}
+            <AiBand
+                testID="consumer-ai-band"
+                title={t('virtualDietitian:entry.title')}
+                body={t('virtualDietitian:entry.startBody')}
+                actionLabel={t('virtualDietitian:entry.start')}
+                onAction={() => {
+                    router.push('/customer/virtual-dietitian' as never);
+                }}
+            />
 
             <Stack space="sm" testID="consumer-today">
                 <Heading level={2}>{t('marketplace:consumer.today.title')}</Heading>

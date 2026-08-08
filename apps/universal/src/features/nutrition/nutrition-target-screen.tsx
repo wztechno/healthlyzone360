@@ -27,6 +27,7 @@ import {
     useSaveTargetsMutation,
 } from '../../data/nutrition-hooks.ts';
 import { MedicalDisclaimer } from '../../safety/medical-disclaimer.tsx';
+import { AiRailCard } from '../../ui/ai-surface.tsx';
 import { QueryStates } from '../marketplace/query-states.tsx';
 import { TargetExplanation } from './target-explanation.tsx';
 
@@ -204,6 +205,24 @@ export function NutritionTargetScreen() {
                                 }}
                             />
                         </Inline>
+
+                        {/*
+                         * Rule 5's rail form. This page states a target and shows the arithmetic
+                         * behind it; the question it leaves a person with is "so what do I eat",
+                         * and the virtual dietitian is the thing that answers it. The card is
+                         * violet and says "AI dietitian" in words, because a suggestion that
+                         * cannot be told from a clinician's advice is the single most damaging
+                         * thing this feature could ship.
+                         */}
+                        <AiRailCard
+                            testID="nutrition-ai-rail"
+                            title={t('virtualDietitian:entry.title')}
+                            body={t('virtualDietitian:entry.lead')}
+                            actionLabel={t('virtualDietitian:entry.start')}
+                            onAction={() => {
+                                router.push('/customer/virtual-dietitian' as never);
+                            }}
+                        />
                     </Stack>
                 )}
             </QueryStates>
