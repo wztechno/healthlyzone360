@@ -14,6 +14,7 @@ import { isDietClassification } from '@healthy360/domain-types';
 import type {
     BranchOperating,
     DeliveryZoneAdmin,
+    DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
     KitchenAdminRepository,
@@ -48,7 +49,8 @@ import type {
     IngredientAllergenMapping as WireAllergenMapping,
     IngredientCategory as WireIngredientCategory,
     MealCombinationOption,
-    PaginationMeta,
+    NumberedPaginationMeta,
+    PaginatedOrNumberedMeta,
     PlanDurationOption,
     PlanProfile,
     PlanVariantCell,
@@ -94,25 +96,44 @@ type CursorQueryFilter = {
     readonly limit?: number | undefined;
     readonly cursor?: string | undefined;
     readonly query?: string | undefined;
+    readonly page?: number | undefined;
+    readonly perPage?: number | undefined;
 };
 
 function pickCursorFilter(filter?: CursorQueryFilter): CursorQueryFilter | undefined {
     if (filter === undefined) return undefined;
 
-    const picked: { limit?: number; cursor?: string; query?: string } = {};
+    const picked: {
+        limit?: number;
+        cursor?: string;
+        query?: string;
+        page?: number;
+        perPage?: number;
+    } = {};
     if (filter.limit !== undefined) picked.limit = filter.limit;
     if (filter.cursor !== undefined) picked.cursor = filter.cursor;
     if (filter.query !== undefined) picked.query = filter.query;
+    if (filter.page !== undefined) picked.page = filter.page;
+    if (filter.perPage !== undefined) picked.perPage = filter.perPage;
 
-    if (picked.limit === undefined && picked.cursor === undefined && picked.query === undefined) {
-        return undefined;
-    }
+    if (Object.keys(picked).length === 0) return undefined;
     return picked;
+}
+
+/**
+ * Whether the envelope describes a numbered page rather than a step of a keyset walk.
+ *
+ * Read off the response instead of off the request, because the response is what actually has to be
+ * mapped: an endpoint that ignored a `page` it does not support would otherwise be read as numbered
+ * and answer `hasMore: false` on a list with more to come.
+ */
+function isNumbered(meta: PaginatedOrNumberedMeta): meta is NumberedPaginationMeta {
+    return 'total_pages' in meta;
 }
 
 function mapAdminCursorPage<TWire, TDomain>(
     data: readonly TWire[],
-    meta: PaginationMeta,
+    meta: PaginatedOrNumberedMeta,
     map: (wire: TWire) => TDomain | null,
 ): CursorPage<TDomain> {
     const items: TDomain[] = [];
@@ -121,10 +142,23 @@ function mapAdminCursorPage<TWire, TDomain>(
         if (mapped !== null) items.push(mapped);
     }
 
+    if (isNumbered(meta)) {
+        return {
+            items,
+            // A numbered page has no cursor to hand out. Handing one out anyway would invite a
+            // caller to mix the two and land somewhere neither describes.
+            nextCursor: null,
+            hasMore: meta.page < meta.total_pages,
+            totalCount: meta.total_count,
+        };
+    }
+
     return {
         items,
         nextCursor: meta.next_cursor,
         hasMore: meta.has_more,
+        // The keyset path answers `has_more` by reading one row beyond the page rather than by
+        // counting, so there is no total to report and `null` is the truthful answer.
         totalCount: null,
     };
 }
@@ -175,6 +209,10 @@ function cursorQuery(
 
     if (filter?.limit !== undefined) search.set('limit', String(filter.limit));
     if (filter?.cursor !== undefined) search.set('cursor', filter.cursor);
+    // Only the kitchen catalogue accepts these; every other endpoint answers 400. Which is which is
+    // settled by `docs/api/conventions.md`, and by only these seven filters carrying the fields.
+    if (filter?.page !== undefined) search.set('page', String(filter.page));
+    if (filter?.perPage !== undefined) search.set('per_page', String(filter.perPage));
     if (filter?.query !== undefined && filter.query.trim() !== '') {
         search.set('query', filter.query.trim());
     }
@@ -238,7 +276,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             })}`,
         });
 
-        const meta = envelope.meta as PaginationMeta;
+        const meta = envelope.meta as PaginatedOrNumberedMeta;
         return mapAdminCursorPage(envelope.data, meta, (wire) => wire);
     }
 
@@ -253,6 +291,8 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             if (filter?.limit !== undefined) search.set('limit', String(filter.limit));
             if (filter?.cursor !== undefined) search.set('cursor', filter.cursor);
+            if (filter?.page !== undefined) search.set('page', String(filter.page));
+            if (filter?.perPage !== undefined) search.set('per_page', String(filter.perPage));
             if (filter?.query !== undefined && filter.query.trim() !== '') {
                 search.set('query', filter.query.trim());
             }
@@ -277,7 +317,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path,
             });
 
-            const meta = envelope.meta as PaginationMeta;
+            const meta = envelope.meta as PaginatedOrNumberedMeta;
             const page = mapAdminCursorPage(envelope.data, meta, (wire) =>
                 mapIngredientAdmin(wire, lookup),
             );
@@ -355,7 +395,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 })}`,
             });
 
-            const meta = envelope.meta as PaginationMeta;
+            const meta = envelope.meta as PaginatedOrNumberedMeta;
             return mapAdminCursorPage(envelope.data, meta, (wire) => mapRecipeAdminSummary(wire));
         },
 
@@ -561,7 +601,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter))}`,
             });
 
-            const meta = envelope.meta as PaginationMeta;
+            const meta = envelope.meta as PaginatedOrNumberedMeta;
             return mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
         },
 
@@ -618,16 +658,13 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
         },
 
-        async listZones(filter?: {
-            readonly limit?: number;
-            readonly cursor?: string;
-        }): Promise<CursorPage<DeliveryZoneAdmin>> {
+        async listZones(filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {
             const envelope = await transport.requestEnvelope<DeliveryZone[]>({
                 method: 'GET',
                 path: `/catalogue/delivery-zones${cursorQuery(pickCursorFilter(filter))}`,
             });
 
-            const meta = envelope.meta as PaginationMeta;
+            const meta = envelope.meta as PaginatedOrNumberedMeta;
             return mapAdminCursorPage(envelope.data, meta, (wire) => mapDeliveryZoneAdmin(wire));
         },
 

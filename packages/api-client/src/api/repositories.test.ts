@@ -2207,3 +2207,116 @@ describe('the refusal envelopes', () => {
         expect(failure).toMatchObject({ code: 'record_export.unavailable', retryable: false });
     });
 });
+
+describe('numbered pages on the kitchen catalogue (docs/api/conventions.md)', () => {
+    const CATEGORIES_OK: Scripted = {
+        status: 200,
+        body: { data: [], meta: { correlation_id: 'c-categories' } },
+    };
+
+    /** One ingredient row, trimmed to what `mapIngredientAdmin` actually reads. */
+    function ingredientRow(id: string) {
+        return {
+            id,
+            name_en: `Ingredient ${id}`,
+            name_ar: `مكون ${id}`,
+            slug: id,
+            status: 'active',
+            is_platform: false,
+            aliases: [],
+            allergens: [],
+            diet_classifications: [],
+            ingredient_category_id: null,
+            default_unit_code: 'kg',
+            organisation_id: 'org-1',
+            notes: null,
+            lock_version: 0,
+        };
+    }
+
+    it('sends page and per_page, and reports the total the server counted', async () => {
+        const { repositories, calls } = harness([
+            CATEGORIES_OK,
+            {
+                status: 200,
+                body: {
+                    data: [ingredientRow('a'), ingredientRow('b')],
+                    meta: {
+                        correlation_id: 'c-page',
+                        count: 2,
+                        page: 2,
+                        per_page: 2,
+                        total_count: 5,
+                        total_pages: 3,
+                    },
+                },
+            },
+        ]);
+
+        const page = await repositories.kitchenAdmin.listIngredients({ page: 2, perPage: 2 });
+
+        const url = new URL(calls[1]!.url);
+        expect(url.searchParams.get('page')).toBe('2');
+        expect(url.searchParams.get('per_page')).toBe('2');
+        expect(url.searchParams.get('cursor')).toBeNull();
+
+        expect(page.items).toHaveLength(2);
+        expect(page.totalCount).toBe(5);
+        // Page 2 of 3, so there is more — and no cursor, because a caller that sent `page` is not
+        // walking and must not be handed something to walk with.
+        expect(page.hasMore).toBe(true);
+        expect(page.nextCursor).toBeNull();
+    });
+
+    it('closes the list on the last page', async () => {
+        const { repositories } = harness([
+            CATEGORIES_OK,
+            {
+                status: 200,
+                body: {
+                    data: [ingredientRow('e')],
+                    meta: {
+                        correlation_id: 'c-last',
+                        count: 1,
+                        page: 3,
+                        per_page: 2,
+                        total_count: 5,
+                        total_pages: 3,
+                    },
+                },
+            },
+        ]);
+
+        const page = await repositories.kitchenAdmin.listIngredients({ page: 3, perPage: 2 });
+
+        expect(page.hasMore).toBe(false);
+        expect(page.nextCursor).toBeNull();
+        expect(page.totalCount).toBe(5);
+    });
+
+    it('leaves the keyset walk alone when no page is asked for', async () => {
+        const { repositories, calls } = harness([
+            CATEGORIES_OK,
+            {
+                status: 200,
+                body: {
+                    data: [ingredientRow('a')],
+                    meta: { correlation_id: 'c-cursor', count: 1, next_cursor: 'abc', has_more: true },
+                },
+            },
+        ]);
+
+        const page = await repositories.kitchenAdmin.listIngredients({ limit: 1 });
+
+        const url = new URL(calls[1]!.url);
+        expect(url.searchParams.get('page')).toBeNull();
+        expect(url.searchParams.get('per_page')).toBeNull();
+        expect(url.searchParams.get('limit')).toBe('1');
+
+        expect(page.nextCursor).toBe('abc');
+        expect(page.hasMore).toBe(true);
+        // Null rather than 0: the keyset path reads one row beyond the page instead of counting,
+        // so there is no total to report and a 0 here would read as "the list is empty".
+        expect(page.totalCount).toBeNull();
+    });
+});

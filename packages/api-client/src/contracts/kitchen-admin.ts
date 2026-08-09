@@ -22,7 +22,7 @@ import type {
 } from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition';
 
-import type { CursorPage, CursorPageRequest } from './pagination.ts';
+import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
  * The kitchen-management contract (phase K1).
@@ -275,7 +275,7 @@ export interface IngredientAdmin {
     readonly notes: string | null;
 }
 
-export interface IngredientAdminFilter extends CursorPageRequest {
+export interface IngredientAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly categoryCode?: string | undefined;
@@ -431,7 +431,7 @@ export interface RecipeAdmin extends RecipeAdminSummary {
     readonly versions: readonly RecipeVersionSummary[];
 }
 
-export interface RecipeAdminFilter extends CursorPageRequest {
+export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly kitchenId?: KitchenId | undefined;
@@ -571,7 +571,7 @@ export interface ProductAdmin {
     readonly dataQualityFlags: readonly string[];
 }
 
-export interface ProductAdminFilter extends CursorPageRequest {
+export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly categoryCode?: string | undefined;
@@ -655,7 +655,7 @@ export interface PriceListAdmin {
     readonly entries: readonly PriceListEntry[];
 }
 
-export interface PriceListAdminFilter extends CursorPageRequest {
+export interface PriceListAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
@@ -706,7 +706,7 @@ export interface MealAdmin {
     readonly marginPercent: number | null;
 }
 
-export interface MealAdminFilter extends CursorPageRequest {
+export interface MealAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly kitchenId?: KitchenId | undefined;
@@ -806,7 +806,7 @@ export interface PlanAdmin {
     readonly deliveryWeekdays: readonly number[];
 }
 
-export interface PlanAdminFilter extends CursorPageRequest {
+export interface PlanAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly kitchenId?: KitchenId | undefined;
@@ -892,7 +892,7 @@ export interface DeliveryZoneAdmin {
     readonly deliveryWindows: readonly DeliveryWindow[];
 }
 
-export interface DeliveryZoneAdminFilter extends CursorPageRequest {
+export interface DeliveryZoneAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly branchId?: KitchenBranchId | undefined;

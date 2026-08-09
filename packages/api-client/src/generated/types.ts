@@ -265,6 +265,50 @@ export type PaginationMeta = Meta & {
 };
 
 /**
+ * Which of the two the endpoint answers with is decided by the request:
+ * send `page` and it is `NumberedPaginationMeta`, omit it and it is
+ * `PaginationMeta`. Only the kitchen catalogue offers the choice.
+ *
+ */
+export type PaginatedOrNumberedMeta = PaginationMeta | NumberedPaginationMeta;
+
+/**
+ * What the kitchen catalogue answers with when `page` was sent. The
+ * cursor fields are absent: a numbered page has no cursor to hand back,
+ * and a client that sent `page` is not walking.
+ *
+ */
+export type NumberedPaginationMeta = Meta & {
+    /**
+     * Rows on this page. Below `per_page` only on the last one.
+     */
+    count: number;
+    /**
+     * The page served, echoing the request.
+     */
+    page: number;
+    per_page: number;
+    /**
+     * Rows in the whole collection **after filtering** — so a page
+     * control under a filtered list counts what the filter left, not
+     * what the catalogue holds.
+     *
+     */
+    total_count: number;
+    /**
+     * `0` for an empty collection, so nothing renders "page 1 of 0".
+     *
+     * Costs a `COUNT` the keyset path deliberately avoids, and can
+     * therefore disagree with the page under a concurrent write. That
+     * staleness is accepted: a control that says "of 12" a moment
+     * after a thirteenth page appeared is a smaller problem than a
+     * control that cannot say "of" at all.
+     *
+     */
+    total_pages: number;
+};
+
+/**
  * A canonical allergen class code — an immutable regulatory identity.
  * Never renamed and never deleted; a class that should no longer be
  * offered is deactivated instead. The fourteen seeded values match the
@@ -2531,7 +2575,7 @@ export type DeliveryZoneDetailEnvelope = {
 
 export type DeliveryZonesEnvelope = {
     data: Array<DeliveryZone>;
-    meta: PaginationMeta;
+    meta: PaginatedOrNumberedMeta;
 };
 
 /**
@@ -8066,6 +8110,29 @@ export type Cursor = string;
 export type CursorLimit = number;
 
 /**
+ * Ask for a numbered page instead of walking the cursor. 1-based.
+ *
+ * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+ * for why offset is safe on these five collections and on nothing else.
+ * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+ * omitting it leaves the keyset behaviour exactly as it was, so a client
+ * that has never heard of `page` is unaffected.
+ *
+ * A page past the last is `400 request.invalid`, not an empty list. Page
+ * 1 of an empty collection is not: that is a legitimate empty answer.
+ *
+ */
+export type PageNumber = number;
+
+/**
+ * Page size for a numbered page. A synonym for `limit`, accepted so a
+ * client does not have to change which word it sends when it starts
+ * asking for pages; `per_page` wins if both are present.
+ *
+ */
+export type PerPage = number;
+
+/**
  * The kitchen's identifier or its slug.
  */
 export type MarketplaceKitchenPath = string;
@@ -9695,6 +9762,27 @@ export type ListIngredientsData = {
          */
         cursor?: string;
         /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
          * Case-insensitive substring match over both names and every alias.
          */
         query?: string;
@@ -9743,7 +9831,7 @@ export type ListIngredientsResponses = {
      */
     200: {
         data: Array<AdminIngredient>;
-        meta: PaginationMeta;
+        meta: PaginatedOrNumberedMeta;
     };
 };
 
@@ -10628,6 +10716,27 @@ export type ListRecipesData = {
          */
         cursor?: string;
         /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
          * Case-insensitive substring match over both names and the slug.
          */
         query?: string;
@@ -10676,7 +10785,7 @@ export type ListRecipesResponses = {
      */
     200: {
         data: Array<AdminRecipe>;
-        meta: PaginationMeta;
+        meta: PaginatedOrNumberedMeta;
     };
 };
 
@@ -12883,6 +12992,27 @@ export type ListCatalogueItemsData = {
          */
         cursor?: string;
         /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
          * Case-insensitive substring match over both names and the slug.
          */
         query?: string;
@@ -12934,7 +13064,7 @@ export type ListCatalogueItemsResponses = {
      */
     200: {
         data: Array<AdminCatalogueItem>;
-        meta: PaginationMeta;
+        meta: PaginatedOrNumberedMeta;
     };
 };
 
@@ -14118,6 +14248,27 @@ export type ListPriceListsData = {
          */
         cursor?: string;
         /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
          * Case-insensitive substring match over both names and the code.
          */
         query?: string;
@@ -14166,7 +14317,7 @@ export type ListPriceListsResponses = {
      */
     200: {
         data: Array<AdminPriceList>;
-        meta: PaginationMeta;
+        meta: PaginatedOrNumberedMeta;
     };
 };
 
@@ -16020,6 +16171,27 @@ export type ListDeliveryZonesData = {
          *
          */
         cursor?: string;
+        /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
         /**
          * Page size.
          */

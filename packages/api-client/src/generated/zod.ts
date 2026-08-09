@@ -239,6 +239,31 @@ export const zPaginationMeta = zMeta.and(z.object({
 }));
 
 /**
+ * What the kitchen catalogue answers with when `page` was sent. The
+ * cursor fields are absent: a numbered page has no cursor to hand back,
+ * and a client that sent `page` is not walking.
+ *
+ */
+export const zNumberedPaginationMeta = zMeta.and(z.object({
+    count: z.int().gte(0),
+    page: z.int().gte(1),
+    per_page: z.int().gte(1).lte(100),
+    total_count: z.int().gte(0),
+    total_pages: z.int().gte(0)
+}));
+
+/**
+ * Which of the two the endpoint answers with is decided by the request:
+ * send `page` and it is `NumberedPaginationMeta`, omit it and it is
+ * `PaginationMeta`. Only the kitchen catalogue offers the choice.
+ *
+ */
+export const zPaginatedOrNumberedMeta = z.union([
+    zPaginationMeta,
+    zNumberedPaginationMeta
+]);
+
+/**
  * A canonical allergen class code — an immutable regulatory identity.
  * Never renamed and never deleted; a class that should no longer be
  * offered is deactivated instead. The fourteen seeded values match the
@@ -1904,7 +1929,7 @@ export const zDeliveryZoneDetailEnvelope = z.object({
 
 export const zDeliveryZonesEnvelope = z.object({
     data: z.array(zDeliveryZone),
-    meta: zPaginationMeta
+    meta: zPaginatedOrNumberedMeta
 });
 
 /**
@@ -6130,6 +6155,29 @@ export const zCursor = z.string().max(200);
 export const zCursorLimit = z.int().gte(1).lte(100).default(25);
 
 /**
+ * Ask for a numbered page instead of walking the cursor. 1-based.
+ *
+ * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+ * for why offset is safe on these five collections and on nothing else.
+ * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+ * omitting it leaves the keyset behaviour exactly as it was, so a client
+ * that has never heard of `page` is unaffected.
+ *
+ * A page past the last is `400 request.invalid`, not an empty list. Page
+ * 1 of an empty collection is not: that is a legitimate empty answer.
+ *
+ */
+export const zPageNumber = z.int().gte(1);
+
+/**
+ * Page size for a numbered page. A synonym for `limit`, accepted so a
+ * client does not have to change which word it sends when it starts
+ * asking for pages; `per_page` wins if both are present.
+ *
+ */
+export const zPerPage = z.int().gte(1).lte(100).default(25);
+
+/**
  * The kitchen's identifier or its slug.
  */
 export const zMarketplaceKitchenPath = z.string().max(160);
@@ -6930,6 +6978,8 @@ export const zListIngredientsHeaders = z.object({
 export const zListIngredientsQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zIngredientStatus.optional(),
     category: zUuid.optional()
@@ -6940,7 +6990,7 @@ export const zListIngredientsQuery = z.object({
  */
 export const zListIngredientsResponse = z.object({
     data: z.array(zAdminIngredient),
-    meta: zPaginationMeta
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zCreateIngredientBody = zCreateIngredientRequest;
@@ -7154,6 +7204,8 @@ export const zListRecipesHeaders = z.object({
 export const zListRecipesQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zRecipeStatus.optional(),
     category: z.string().max(40).optional()
@@ -7164,7 +7216,7 @@ export const zListRecipesQuery = z.object({
  */
 export const zListRecipesResponse = z.object({
     data: z.array(zAdminRecipe),
-    meta: zPaginationMeta
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zCreateRecipeBody = zCreateRecipeRequest;
@@ -7706,6 +7758,8 @@ export const zListCatalogueItemsHeaders = z.object({
 export const zListCatalogueItemsQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zCatalogueItemStatus.optional(),
     item_type: zCatalogueItemType.optional(),
@@ -7717,7 +7771,7 @@ export const zListCatalogueItemsQuery = z.object({
  */
 export const zListCatalogueItemsResponse = z.object({
     data: z.array(zAdminCatalogueItem),
-    meta: zPaginationMeta
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zCreateCatalogueItemBody = zCreateCatalogueItemRequest;
@@ -8021,6 +8075,8 @@ export const zListPriceListsHeaders = z.object({
 export const zListPriceListsQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zPriceListStatus.optional(),
     customer_scope: zPriceListCustomerScope.optional()
@@ -8031,7 +8087,7 @@ export const zListPriceListsQuery = z.object({
  */
 export const zListPriceListsResponse = z.object({
     data: z.array(zAdminPriceList),
-    meta: zPaginationMeta
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zCreatePriceListBody = zCreatePriceListRequest;
@@ -8455,6 +8511,8 @@ export const zListDeliveryZonesHeaders = z.object({
 
 export const zListDeliveryZonesQuery = z.object({
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     limit: z.int().gte(1).lte(100).optional().default(25),
     status: zDeliveryZoneStatus.optional(),
     branch_id: z.union([

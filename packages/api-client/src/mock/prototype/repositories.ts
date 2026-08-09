@@ -109,6 +109,7 @@ import type {
     CursorPage,
     CursorPageRequest,
     NumericRangeFilter,
+    OffsetPageRequest,
 } from '../../contracts/pagination.ts';
 import type {
     AddEntryRequest,
@@ -174,18 +175,43 @@ import { PrototypeStore } from './store.ts';
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
+function cursorOffset(cursor: string | undefined): number {
+    const parsed = Number.parseInt(cursor ?? '0', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 /**
- * Cursor pagination.
+ * Cursor pagination, and — for the kitchen catalogue only — numbered pages.
  *
  * The cursor is the offset, as a decimal string. It is opaque by *contract* — a client stores it and
  * sends it back, and never parses one — so the representation can become a keyset cursor on the real
  * backend without a single screen changing. An unparseable cursor restarts from the beginning rather
  * than rejecting: a stale cursor in a deep link should show the first page, not an error state.
+ *
+ * ## The `page` branch, and the trap it hides
+ *
+ * A request carrying `page` is served by offset instead. That the two branches agree here is an
+ * accident of the mock storing everything in an array — and it is exactly the accident that would
+ * let a screen work in `mock` mode and fail in `api` mode, because the real backend accepts `page`
+ * on five endpoints and rejects it with a 400 everywhere else. Which endpoints those are is settled
+ * in `docs/api/conventions.md` and enforced there, not here: this helper cannot see which collection
+ * it was handed. Adding `page` to a filter is therefore a decision about the *backend*, and the mock
+ * agreeing is not evidence that it was the right one.
+ *
+ * A page past the end returns empty rather than throwing, unlike the backend. The mock's job is to
+ * let screens render; reproducing the refusal would mean teaching it which collections refuse.
  */
-export function paginate<T>(items: readonly T[], request?: CursorPageRequest): CursorPage<T> {
-    const limit = Math.min(Math.max(1, request?.limit ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
-    const parsed = Number.parseInt(request?.cursor ?? '0', 10);
-    const offset = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+export function paginate<T>(
+    items: readonly T[],
+    request?: CursorPageRequest & OffsetPageRequest,
+): CursorPage<T> {
+    const limit = Math.min(
+        Math.max(1, request?.perPage ?? request?.limit ?? DEFAULT_PAGE_SIZE),
+        MAX_PAGE_SIZE,
+    );
+
+    const numbered = request?.page !== undefined;
+    const offset = numbered ? (Math.max(1, request.page ?? 1) - 1) * limit : cursorOffset(request?.cursor);
 
     const page = items.slice(offset, offset + limit);
     const nextOffset = offset + page.length;
@@ -193,7 +219,9 @@ export function paginate<T>(items: readonly T[], request?: CursorPageRequest): C
 
     return {
         items: page,
-        nextCursor: hasMore ? String(nextOffset) : null,
+        // Null on the numbered branch: a caller that sent `page` is not walking, and handing it a
+        // cursor would invite a screen to mix the two and land somewhere neither describes.
+        nextCursor: hasMore && !numbered ? String(nextOffset) : null,
         hasMore,
         totalCount: items.length,
     };
