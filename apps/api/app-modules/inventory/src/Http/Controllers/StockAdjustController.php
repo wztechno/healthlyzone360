@@ -26,7 +26,7 @@ final class StockAdjustController
             $validated['branch_id'],
             $validated['stock_item_id'],
             'adjust',
-            (float) $validated['quantity_delta'],
+            (string) $validated['quantity_delta'],
             notes: $validated['notes'] ?? null,
         );
 

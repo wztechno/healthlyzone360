@@ -223,6 +223,27 @@ final class PermissionRegistry
             // are different authorities, and `kitchen_staff` holds neither.
             'b2b_quotation.view_organisation' => ['domain' => 'b2b_quotation', 'description' => 'View quotations submitted against programmes this kitchen supplies'],
             'b2b_quotation.quote_organisation' => ['domain' => 'b2b_quotation', 'description' => 'Set prices on a submitted quotation against a programme this kitchen supplies'],
+
+            // INV1.0 — the kitchen's own operating surface (stock, procurement,
+            // production, quality control and the display rail) gets its own
+            // domain rather than the `catalogue.*` piggyback it inherited. An
+            // order clerk counting stock is doing a different job from a
+            // merchandiser writing a listing, and folding the two into one code
+            // meant a kitchen hand who could read the catalogue could also read
+            // and write inventory. Reads and writes split for the ordinary
+            // reason a pair does — seeing the shelves and moving what is on them
+            // are different authorities.
+            'inventory.view_organisation' => ['domain' => 'inventory', 'description' => 'View stock items, levels, procurement, production, quality checks and the kitchen display'],
+            'inventory.manage_organisation' => ['domain' => 'inventory', 'description' => 'Record stock movements and manage procurement, production and quality-control operations'],
+
+            // A third code, and the one INV1 exists for. The quantity of flour
+            // on a shelf is operational; what that flour *cost* and what a dish
+            // made from it is worth are commercial, and this code gates every
+            // money-bearing inventory surface exactly as
+            // `recipe.view_costs_organisation` gates recipe costs. Kitchen staff
+            // count stock without ever seeing its value; the purchase cost,
+            // valuation and COGS that INV1.1 and INV1.2 add all sit behind this.
+            'inventory.view_costs_organisation' => ['domain' => 'inventory', 'description' => 'View inventory costs: purchase prices, stock valuation and cost of goods sold'],
         ];
     }
 
@@ -469,6 +490,15 @@ final class PermissionRegistry
                     'b2b_quotation.view_organisation',
                     'b2b_quotation.quote_organisation',
 
+                    // INV1.0. The kitchen manager runs the ops surface — stock,
+                    // procurement, production, QC, the rail — and, alone among
+                    // the operating roles alongside the commercial manager, sees
+                    // what it all costs. Managing a kitchen is knowing both what
+                    // is on the shelf and what it is worth.
+                    'inventory.view_organisation',
+                    'inventory.manage_organisation',
+                    'inventory.view_costs_organisation',
+
                     // S1. `subscription.view_organisation` has existed in the
                     // registry since the foundation as a proposal and had no
                     // endpoint until the schedule projection; it is granted here
@@ -502,6 +532,17 @@ final class PermissionRegistry
                     'recipe.view_organisation',
                     'recipe.manage_organisation',
                     'recipe.view_costs_organisation',
+
+                    // INV1.0. A chef runs the line — receiving, producing,
+                    // consuming, wasting — so both inventory operating codes are
+                    // theirs. Inventory *costs* are not: a chef sees what a
+                    // substitution does to a recipe's cost (they hold
+                    // `recipe.view_costs_organisation`), but purchase prices,
+                    // valuation and COGS are the commercial side's, so
+                    // `inventory.view_costs_organisation` stops here — the same
+                    // line the plan draws.
+                    'inventory.view_organisation',
+                    'inventory.manage_organisation',
                 ],
             ],
 
@@ -515,6 +556,13 @@ final class PermissionRegistry
                 'permissions' => [
                     'catalogue.view_organisation',
                     'recipe.view_organisation',
+
+                    // INV1.0. Kitchen staff read stock quantities — the whole
+                    // point of the cost split is that they can count the shelf
+                    // without ever seeing what is on it in money. They hold the
+                    // view code and neither `inventory.manage_organisation` nor
+                    // `inventory.view_costs_organisation`.
+                    'inventory.view_organisation',
                 ],
             ],
 
@@ -588,6 +636,16 @@ final class PermissionRegistry
                     // kitchen manager rather than deferring to them.
                     'b2b_quotation.view_organisation',
                     'b2b_quotation.quote_organisation',
+
+                    // INV1.0. The commercial manager reads the ops surface and
+                    // its money — purchase spend, valuation, COGS are this
+                    // role's whole reason to exist — but does not run it:
+                    // `inventory.manage_organisation` stays absent for the same
+                    // reason `catalogue.manage_organisation` and
+                    // `recipe.manage_organisation` do. It reads the shelves and
+                    // owns the numbers; it does not move the stock.
+                    'inventory.view_organisation',
+                    'inventory.view_costs_organisation',
                 ],
             ],
         ];

@@ -42,7 +42,7 @@ final readonly class GoodsReceiptService
                     $branchId,
                     $line['stock_item_id'],
                     'receipt',
-                    $line['quantity'],
+                    (string) $line['quantity'],
                     'goods_receipt',
                     (string) $receipt->getKey(),
                 );

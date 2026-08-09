@@ -28,7 +28,9 @@ final readonly class ProductionService
                     $order->branch_id,
                     $line['stock_item_id'],
                     'consume',
-                    -abs($line['quantity']),
+                    // A production consume is a positive quantity taken off the
+                    // shelf; the ledger records it negative.
+                    '-'.(string) $line['quantity'],
                     'production_order',
                     (string) $order->getKey(),
                 );
@@ -40,7 +42,7 @@ final readonly class ProductionService
                     $order->branch_id,
                     $line['stock_item_id'],
                     'yield',
-                    $line['quantity'],
+                    (string) $line['quantity'],
                     'production_order',
                     (string) $order->getKey(),
                 );

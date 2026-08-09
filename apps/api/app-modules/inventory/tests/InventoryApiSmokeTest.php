@@ -42,7 +42,7 @@ it('lists stock levels enriched with the item code, name and ingredient, and rec
         'quantity_delta' => 10,
     ], $this->headers)->assertCreated();
 
-    expect(StockLevel::query()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('10.0000');
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('10.0000');
 
     $this->getJson('/api/v1/catalogue/inventory/levels', $this->headers)->assertOk()
         ->assertJsonFragment([

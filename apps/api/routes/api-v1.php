@@ -1325,7 +1325,29 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::patch('/delivery-windows/{window}', DeliveryWindowUpdateController::class)->name('catalogue.delivery-windows.update');
             });
 
-            Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
+            /*
+            |--------------------------------------------------------------
+            | Kitchen operations — stock, procurement, production, QC, rail
+            |--------------------------------------------------------------
+            |
+            | Re-pointed to the `inventory.*` domain by INV1.0. The whole ops
+            | surface used to piggyback `catalogue.view_organisation` /
+            | `catalogue.manage_organisation`, which meant everyone who could
+            | read the catalogue could read the shelves and everyone who could
+            | edit a listing could move stock. Counting stock and writing a
+            | product listing are different jobs, so they are now different
+            | codes: reads take `inventory.view_organisation`, writes take
+            | `inventory.manage_organisation`. A third code,
+            | `inventory.view_costs_organisation`, gates the money INV1.1/INV1.2
+            | add and is wired into the registry now; nothing in this slice is
+            | cost-bearing yet, so no route checks it.
+            |
+            | `pos/sales` deliberately stays on `catalogue.manage_organisation`:
+            | recording a till sale is a commerce action, not an inventory one,
+            | and INV1.0's re-point named inventory, procurement, production, QC
+            | and the display rail — not POS.
+            */
+            Route::middleware('permission:inventory.view_organisation')->group(function (): void {
                 Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
                 Route::get('/inventory/levels', StockLevelIndexController::class)->name('catalogue.inventory.levels.index');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
@@ -1335,7 +1357,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/kitchen-display/tickets', KdsTicketIndexController::class)->name('catalogue.kitchen-display.tickets.index');
             });
 
-            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
+            Route::middleware('permission:inventory.manage_organisation')->group(function (): void {
                 Route::post('/inventory/items', StockItemStoreController::class)->name('catalogue.inventory.items.store');
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
@@ -1346,6 +1368,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/quality-control/checks/{qualityCheck}/hold', QualityCheckHoldController::class)->name('catalogue.quality-control.checks.hold');
                 Route::post('/quality-control/checks/{qualityCheck}/release', QualityCheckReleaseController::class)->name('catalogue.quality-control.checks.release');
                 Route::post('/kitchen-display/tickets/{ticket}/bump', KdsTicketBumpController::class)->name('catalogue.kitchen-display.tickets.bump');
+            });
+
+            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
                 Route::post('/pos/sales', PosSaleStoreController::class)->name('catalogue.pos.sales.store');
             });
 

@@ -26,7 +26,9 @@ final class StockWasteController
             $validated['branch_id'],
             $validated['stock_item_id'],
             'waste',
-            -abs((float) $validated['quantity']),
+            // Stated as a positive quantity (validated `min:0.0001`); the ledger
+            // records it negative. The service narrows and validates the string.
+            '-'.(string) $validated['quantity'],
             notes: $validated['notes'] ?? null,
         );
 

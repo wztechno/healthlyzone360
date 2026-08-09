@@ -177,10 +177,14 @@ tags:
       entirely the stock it consumed and yielded; the checklist underneath
       one is not part of this surface.
 
-      Reuses `catalogue.view_organisation` / `catalogue.manage_organisation`
-      (O7) rather than a family of its own: stock, receipts and production
-      are the same organisation-scoped kitchen authority as the rest of the
-      `/catalogue` prefix.
+      Gated by `inventory.view_organisation` (reads) and
+      `inventory.manage_organisation` (writes) since INV1.0, which lifted the
+      operating surface off the `catalogue.*` piggyback it used to share:
+      counting stock and writing a product listing are different jobs. A third
+      code, `inventory.view_costs_organisation`, gates the purchase cost,
+      valuation and COGS that INV1.1 and INV1.2 add. `POST .../pos/sales` is the
+      exception — a till sale is a commerce action, so it stays on
+      `catalogue.manage_organisation`.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
   - name: Verification
@@ -7960,7 +7964,7 @@ paths:
         master. Not paginated: a kitchen's stock list is small enough to
         fetch whole, the way suppliers and production orders already are.
 
-        Requires `catalogue.view_organisation`.
+        Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -7991,7 +7995,7 @@ paths:
         `ingredient_id` is optional: a stock item does not have to be
         modelled as a recipe ingredient to be stocked.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8032,7 +8036,7 @@ paths:
         the list to one branch; absent, every branch's levels are
         returned.
 
-        Requires `catalogue.view_organisation`.
+        Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XBranchId'
@@ -8065,7 +8069,7 @@ paths:
         than `X-Branch-Id`, because the movement this writes is
         organisation data, not a header-scoped read.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8105,7 +8109,7 @@ paths:
         split as `POST .../production/orders/{productionOrder}/complete`'s
         `consumes`.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8144,7 +8148,7 @@ paths:
         (O2): a supplier has no purchase orders and no terms behind it
         yet, only the goods receipts posted against it by name.
 
-        Requires `catalogue.view_organisation`.
+        Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8176,7 +8180,7 @@ paths:
         is always null in v1 (O2): there is no purchase-order surface yet
         to have created one.
 
-        Requires `catalogue.view_organisation`.
+        Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8207,7 +8211,7 @@ paths:
         stock item's level at the branch. There is no draft state: posting
         a receipt is the same act as recording that the stock arrived.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8246,7 +8250,7 @@ paths:
         served here (O5) — an order's own checklist is not part of this
         surface.
 
-        Requires `catalogue.view_organisation`.
+        Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8275,7 +8279,7 @@ paths:
         Starts an order in `planned`. Nothing is consumed or yielded yet —
         that is what completing the order does.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8316,7 +8320,7 @@ paths:
         lists are optional: an order with nothing yet consumed is a legal
         call, though an unusual one.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - name: productionOrder
           in: path
@@ -8362,7 +8366,7 @@ paths:
         The most recent 50 checks, newest first, over both subjects the
         allow-list permits (O3): a goods receipt or a production order.
 
-        Requires `catalogue.view_organisation`.
+        Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8392,7 +8396,7 @@ paths:
         production order (O3) — no other `subject_type` is accepted, and
         one that is not is `422 validation.failed`.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8430,7 +8434,7 @@ paths:
         Moves the check to `hold` — status-only (O4): there is no separate
         hold record, and nothing else about the subject changes here.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - name: qualityCheck
           in: path
@@ -8468,7 +8472,7 @@ paths:
         Moves the check to `released` — the only other side of the O4
         hold/release pair. There is no separate "pass" action in v1.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `inventory.manage_organisation`.
       parameters:
         - name: qualityCheck
           in: path
@@ -10586,7 +10590,7 @@ paths:
         does not narrow on it. A client that wants one branch's rail filters
         on what it is given.
 
-        Requires `catalogue.view_organisation`. No `org.trading`: suspension
+        Requires `inventory.view_organisation`. No `org.trading`: suspension
         stops a kitchen selling, not finishing the food it already owes
         people.
       parameters:
@@ -10650,7 +10654,7 @@ paths:
 
         A ticket belonging to another organisation is `404`, not `403`: the
         tenant scope is the lookup. Requires
-        `catalogue.manage_organisation`.
+        `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/KitchenDisplayTicketPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -17798,6 +17802,8 @@ components:
         - offboarding.settlement_outstanding
         - record_export.unavailable
         - payment.refund_exceeds_capture
+        - inventory.insufficient_stock
+        - unit.conversion_unsupported
         - rate_limit.exceeded
         - server.internal_error
     Error:

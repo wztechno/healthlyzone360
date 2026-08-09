@@ -345,6 +345,30 @@ enum ErrorCode: string
      */
     case PaymentRefundExceedsCapture = 'payment.refund_exceeds_capture';
 
+    /**
+     * A stock consume would drive a branch stock level below zero (INV1.0). A
+     * 409 rather than a 422: the request is perfectly well formed, and what
+     * refuses it is the state of the world — there is not enough of the
+     * ingredient to take what was asked for. Only `consume` is guarded;
+     * `adjust` and `waste` are explicit corrections a kitchen may take negative
+     * (a count found short is a real negative). `details.stock_item_id`,
+     * `details.branch_id`, `details.available` and `details.requested` carry the
+     * arithmetic, so a caller can say "8 left, 10 asked for" rather than "no".
+     */
+    case InventoryInsufficientStock = 'inventory.insufficient_stock';
+
+    /**
+     * Two measurement units cannot be converted between (INV1.0). A 422, and
+     * the sibling of `validation.failed`'s use for mixed cost currencies: the
+     * request shape is fine, but the combination is not a thing that can be
+     * computed — a mass and a volume have no ratio between them, and the
+     * dimensions this system has not given validated factors (count, serving,
+     * package, energy, length) refuse to convert between two different units
+     * rather than invent one. `details.reason` is `cross_dimension` or
+     * `dimension_not_convertible`, with the two unit codes and their dimensions.
+     */
+    case UnitConversionUnsupported = 'unit.conversion_unsupported';
+
     case RateLimitExceeded = 'rate_limit.exceeded';
 
     case ServerInternalError = 'server.internal_error';
@@ -385,7 +409,8 @@ enum ErrorCode: string
             self::OffboardingRefused,
             self::OffboardingSettlementOutstanding,
             self::RecordExportUnavailable,
-            self::PaymentRefundExceedsCapture => 409,
+            self::PaymentRefundExceedsCapture,
+            self::InventoryInsufficientStock => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
@@ -398,7 +423,8 @@ enum ErrorCode: string
             self::AddressAreaNotServed,
             self::CartLineRefused,
             self::B2bDocumentsIncomplete,
-            self::B2bQuotationEmpty => 422,
+            self::B2bQuotationEmpty,
+            self::UnitConversionUnsupported => 422,
             self::RateLimitExceeded,
             self::OtpAttemptsExceeded,
             self::OtpCooldownActive,
@@ -463,6 +489,8 @@ enum ErrorCode: string
             self::OffboardingSettlementOutstanding => 'Settlement is not resolved, so this offboarding cannot move to sign-off.',
             self::RecordExportUnavailable => 'This records bundle is not available to download.',
             self::PaymentRefundExceedsCapture => 'This refund is larger than the amount still refundable on this payment.',
+            self::InventoryInsufficientStock => 'There is not enough stock to record this consumption.',
+            self::UnitConversionUnsupported => 'These measurement units cannot be converted between.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
         };

@@ -54,5 +54,5 @@ it('lists suppliers and posts a goods receipt into inventory', function (): void
         ->assertJsonFragment(['id' => $receiptId])
         ->assertJsonFragment(['stock_item_id' => (string) $item->getKey(), 'quantity' => '5.0000']);
 
-    expect(StockLevel::query()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('5.0000');
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('5.0000');
 });

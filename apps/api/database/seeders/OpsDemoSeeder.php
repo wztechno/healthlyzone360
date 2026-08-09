@@ -115,9 +115,11 @@ class OpsDemoSeeder extends Seeder
 
     private function stockLevel(OrganisationBranch $branch, StockItem $item, string $quantity): void
     {
-        StockLevel::query()->firstOrCreate(
+        // `withoutTenancy()` + an explicit organisation: the seeder runs with no
+        // tenant context, and StockLevel is organisation-scoped since INV1.0.
+        StockLevel::withoutTenancy()->firstOrCreate(
             ['branch_id' => $branch->getKey(), 'stock_item_id' => $item->getKey()],
-            ['quantity' => $quantity],
+            ['organisation_id' => $branch->organisation_id, 'quantity' => $quantity],
         );
     }
 }

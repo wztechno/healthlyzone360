@@ -317,7 +317,19 @@ it('seeds exactly the registered permission set', function (): void {
     //
     // `subscription.view_organisation` is **not** new; it has been in the
     // registry since the foundation and this wave is the first to grant it.
-    expect(Permission::query()->count())->toBe(45)
+    //
+    // INV1.0 adds three: the `inventory.*` domain — a view and a manage code
+    // for the kitchen operating surface that used to piggyback `catalogue.*`,
+    // and `inventory.view_costs_organisation`, which gates the money INV1.1 and
+    // INV1.2 add and is wired in now so a role can hold it before an endpoint
+    // spends it.
+    //
+    // The count is 51, not 48, because the B5 quotation pair
+    // (`b2b_quotation.view_organisation` / `.quote_organisation`) and one
+    // platform code had already been added to the registry without this pin
+    // being refreshed — the registry stood at 48 before INV1.0, and the three
+    // inventory codes take it to 51. Re-pinned to the registry's actual size.
+    expect(Permission::query()->count())->toBe(51)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -333,7 +345,7 @@ it('keeps the platform permissions out of every organisation template role', fun
     // four newest are exactly the kind that would be tempting to hand to an
     // organisation owner, since a wind-up and a closure are both about a
     // specific organisation's or person's records.
-    expect($platformIds)->toHaveCount(11)
+    expect($platformIds)->toHaveCount(12)
         ->and(RolePermission::withoutTenancy()
             ->whereIn('permission_id', $platformIds)
             ->whereIn('role_id', Role::withoutTenancy()->whereNull('organisation_id')->select('id'))
@@ -353,14 +365,14 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 34],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 33],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 39],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 38],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map and reads the subscription book' => ['kitchen_manager', 19],
-    'chef edits recipes and their costs but never publishes one and never sees a price' => ['kitchen_chef', 5],
-    'kitchen staff read the catalogue and recipes, and no money at all' => ['kitchen_staff', 2],
-    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery and reads the subscription book' => ['commercial_manager', 11],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book and runs inventory including its costs' => ['kitchen_manager', 24],
+    'chef edits recipes and their costs and runs inventory, but never publishes and never sees a price or an inventory cost' => ['kitchen_chef', 7],
+    'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book and reads inventory and its costs' => ['commercial_manager', 15],
 ]);
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
@@ -819,6 +831,12 @@ it('grants the platform permissions only inside the platform operator organisati
         'customer_account.close_platform',
         'catalogue.view_organisation',
         'catalogue.manage_organisation',
+        // INV1.0. The kitchen operating surface moved to its own domain, so the
+        // platform operator's bespoke curation role gains the three inventory
+        // codes alongside the catalogue pair.
+        'inventory.view_organisation',
+        'inventory.manage_organisation',
+        'inventory.view_costs_organisation',
     ]);
 
     $ops = User::query()->where('email', 'ops@healthy360.test')->sole();

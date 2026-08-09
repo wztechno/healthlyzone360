@@ -892,15 +892,22 @@ it('protects exactly the eleven declared tables and no others', function (): voi
     ]);
 });
 
-it('revokes write-back privileges on exactly the two append-only ledgers', function (): void {
+it('revokes write-back privileges on exactly the three append-only ledgers', function (): void {
     // The `append-only-ledger` strategy is a grant, not a policy, so nothing
     // in pg_policies would reveal its absence. Pinned for the same reason the
-    // policy set is: a third ledger has to be a deliberate act, and a
+    // policy set is: a fourth ledger has to be a deliberate act, and a
     // migration that quietly granted UPDATE back would fail here.
+    //
+    // INV1.0 makes `stock_movements` the third ledger, after `audit_logs` and
+    // `recipe_cost_snapshots`. The movement ledger was append-only by
+    // convention only — `recordMovement` never rewrote a row, but nothing
+    // stopped the application role — and it is the audit trail behind every
+    // COGS figure INV1.2 will value on these rows, so a history that can be
+    // edited after the fact is not a history.
     $writable = DB::table('information_schema.table_privileges')
         ->where('grantee', 'healthy360_app')
         ->whereIn('privilege_type', ['UPDATE', 'DELETE'])
-        ->whereIn('table_name', ['audit_logs', 'price_list_items', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines'])
+        ->whereIn('table_name', ['audit_logs', 'price_list_items', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines', 'stock_movements'])
         ->orderBy('table_name')
         ->pluck('table_name')
         ->unique()
@@ -911,6 +918,8 @@ it('revokes write-back privileges on exactly the two append-only ledgers', funct
     // near-miss: it is the most confidential table in the schema and it is
     // still not a ledger. Naming it here proves the K1.5 decision rather than
     // leaving its absence from the ledger list to look like an oversight.
+    // `stock_movements` is the opposite proof — named and *absent* from the
+    // result because its writes are revoked.
     expect($writable)->toBe(['price_list_items', 'recipe_version_lines', 'recipe_versions']);
 });
 

@@ -70,8 +70,8 @@ it('creates a production order and completes it with consumed and yielded stock'
     ], $this->headers)->assertOk()
         ->assertJsonPath('data.production_order.status', 'completed');
 
-    expect(StockLevel::query()->where('stock_item_id', $flour->getKey())->value('quantity'))->toBe('40.0000');
-    expect(StockLevel::query()->where('stock_item_id', $bread->getKey())->value('quantity'))->toBe('20.0000');
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $flour->getKey())->value('quantity'))->toBe('40.0000');
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $bread->getKey())->value('quantity'))->toBe('20.0000');
 });
 
 it('refuses to complete a production order that does not exist', function (): void {

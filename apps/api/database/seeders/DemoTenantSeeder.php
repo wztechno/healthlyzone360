@@ -1149,9 +1149,18 @@ class DemoTenantSeeder extends Seeder
             );
         }
 
-        // Platform operators also curate the shared ingredient library, which
-        // is an organisation-scoped capability like any other.
-        foreach (['catalogue.view_organisation', 'catalogue.manage_organisation'] as $code) {
+        // Platform operators also curate the shared ingredient library and can
+        // exercise the kitchen operating surface, both organisation-scoped
+        // capabilities like any other. INV1.0 moved that surface onto its own
+        // `inventory.*` domain, so the bespoke role gains the three inventory
+        // codes alongside the catalogue pair to keep the demo consistent.
+        foreach ([
+            'catalogue.view_organisation',
+            'catalogue.manage_organisation',
+            'inventory.view_organisation',
+            'inventory.manage_organisation',
+            'inventory.view_costs_organisation',
+        ] as $code) {
             $permission = Permission::query()->where('code', $code)->firstOrFail();
 
             RolePermission::withoutTenancy()->updateOrCreate(

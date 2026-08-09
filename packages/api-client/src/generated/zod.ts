@@ -71,6 +71,8 @@ export const zErrorCode = z.enum([
     'offboarding.settlement_outstanding',
     'record_export.unavailable',
     'payment.refund_exceeds_capture',
+    'inventory.insufficient_stock',
+    'unit.conversion_unsupported',
     'rate_limit.exceeded',
     'server.internal_error'
 ]);

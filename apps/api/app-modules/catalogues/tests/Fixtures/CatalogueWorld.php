@@ -59,6 +59,15 @@ final class CatalogueWorld
         // testing a caller who cannot design or publish a plan.
         'plan.manage_organisation',
         'plan.publish_organisation',
+
+        // INV1.0. The kitchen operating surface (stock, procurement,
+        // production, QC, the rail) moved off the `catalogue.*` piggyback onto
+        // its own domain, so the manager this fixture represents holds all
+        // three inventory codes — the ops smoke suites drive those routes and
+        // would 403 without them.
+        'inventory.view_organisation',
+        'inventory.manage_organisation',
+        'inventory.view_costs_organisation',
     ];
 
     /**
