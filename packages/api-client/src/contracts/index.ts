@@ -374,10 +374,13 @@ export type {
     ProductionOrder,
     ProductionOrderResult,
     ProductionOrderStatus,
+    PurchaseLedgerFilter,
+    PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
     QualityCheckStatus,
     QualityCheckSubjectType,
+    SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,
     StockLevel,
@@ -385,6 +388,7 @@ export type {
     StockMovementReason,
     StockWasteRequest,
     Supplier,
+    SupplierRef,
 } from './kitchen-ops.ts';
 
 export {

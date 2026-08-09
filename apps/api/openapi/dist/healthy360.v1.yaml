@@ -8057,6 +8057,86 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/low-stock-count:
+    get:
+      operationId: countLowStockLevels
+      tags:
+        - Kitchen inventory & production
+      summary: Low-stock level count
+      description: |
+        How many levels are low right now (INV1.3): a level with a
+        `reorder_threshold` set whose `quantity` has reached or fallen to or
+        below it. Computed in the query — the same rule the levels index
+        applies per row as `is_low` — so a hub badge and the stock screen
+        never disagree. `X-Branch-Id` narrows the count to one branch;
+        absent, every branch's levels are counted. A null threshold is
+        never low and is excluded.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The count of low-stock levels in scope.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LowStockCountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/threshold:
+    patch:
+      operationId: setStockThreshold
+      tags:
+        - Kitchen inventory & production
+      summary: Set or clear a reorder threshold
+      description: |
+        Sets — or clears — the `reorder_threshold` (and optional
+        `par_level`) for one (branch, stock item) pair (INV1.3). A null
+        `reorder_threshold` clears it, which the low-stock computation reads
+        as *never low*; nothing here stores a flag. The level row is created
+        if the item has never moved at this branch, so a threshold can be set
+        before the first receipt. A PATCH rather than the ops family's usual
+        POST because it edits a level's property in place and is idempotent,
+        where an adjustment or a waste appends a movement.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetStockThresholdRequest'
+      responses:
+        '200':
+          description: The threshold was set and the level returned.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLevelEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/adjustments:
     post:
       operationId: recordStockAdjustment
@@ -8237,6 +8317,71 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/purchases-ledger:
+    get:
+      operationId: listPurchasesLedger
+      tags:
+        - Kitchen inventory & production
+      summary: Browse the purchases ledger
+      description: |
+        Every goods-receipt line, newest first, flattened with the date,
+        supplier and item it belongs to — the browsable record behind the
+        monthly spend figure (INV1.1). Filterable by date range, supplier and
+        ingredient.
+
+        Behind `inventory.view_costs_organisation`: this surface exists to read
+        the valuation, so a person without the cost permission gets a 403 here
+        rather than a redacted page. Cursor-paginated, newest first. The
+        presenter reads no recipe line, formulation quantity or derivation — a
+        purchases ledger is a record of what was bought, nothing about how it is
+        used.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Only lines whose receipt was received on or after this date.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Only lines whose receipt was received on or before this date.
+        - name: supplier_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: ingredient_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of purchases-ledger lines, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchasesLedgerCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/production/orders:
@@ -24449,6 +24594,9 @@ components:
         - branch_id
         - stock_item_id
         - quantity
+        - reorder_threshold
+        - par_level
+        - is_low
         - item_code
         - item_name_en
         - ingredient_id
@@ -24456,6 +24604,9 @@ components:
         One stock item's on-hand quantity at one branch. `item_code`,
         `item_name_en` and `ingredient_id` are denormalised from the stock
         item, so a levels screen never has to round-trip to render a row.
+        `is_low` is computed on read (INV1.3): true when `reorder_threshold`
+        is set and `quantity` is at or below it, false when no threshold is
+        set — never a stored flag.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -24466,6 +24617,19 @@ components:
         quantity:
           type: string
           description: A decimal string, never a float — precision the wire must not round away.
+        reorder_threshold:
+          oneOf:
+            - type: string
+            - type: 'null'
+          description: The reorder point as a decimal string, or null when no threshold is set (never low).
+        par_level:
+          oneOf:
+            - type: string
+            - type: 'null'
+          description: The level to restock back up to, as a decimal string, or null when not set.
+        is_low:
+          type: boolean
+          description: Computed — the threshold is set and quantity is at or below it.
         item_code:
           type: string
         item_name_en:
@@ -24474,6 +24638,66 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+      additionalProperties: false
+    StockLevelEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - level
+          properties:
+            level:
+              $ref: '#/components/schemas/StockLevel'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    LowStockCountEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - count
+          properties:
+            count:
+              type: integer
+              minimum: 0
+              description: How many levels in scope are low right now.
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SetStockThresholdRequest:
+      type: object
+      required:
+        - branch_id
+        - stock_item_id
+        - reorder_threshold
+      description: |
+        Sets or clears a level's reorder threshold. `reorder_threshold` is
+        required as a field but nullable as a value — passing null clears the
+        threshold. `par_level` is optional and independently nullable.
+      properties:
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        reorder_threshold:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: 'null'
+          description: The reorder point; null clears the threshold (the item is then never low).
+        par_level:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: 'null'
+          description: Optional target level to restock back up to; null clears it.
       additionalProperties: false
     StockLevelCollection:
       type: object
@@ -24575,6 +24799,9 @@ components:
         - id
         - code
         - name_en
+        - currency_code
+        - contact_email
+        - contact_phone
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -24582,6 +24809,19 @@ components:
           type: string
         name_en:
           type: string
+        currency_code:
+          type:
+            - string
+            - 'null'
+          description: The currency this supplier usually invoices in (ISO 4217), or null (INV1.1).
+        contact_email:
+          type:
+            - string
+            - 'null'
+        contact_phone:
+          type:
+            - string
+            - 'null'
       additionalProperties: false
     SupplierCollection:
       type: object
@@ -24605,29 +24845,73 @@ components:
       required:
         - stock_item_id
         - quantity
+        - unit_id
+        - unit_price_amount
+        - line_total_amount
+        - cost_currency_code
+      description: |
+        The money fields (INV1.1) are served as `null` when the reader lacks
+        `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
+        `quantity` and `unit_id` are warehouse facts and are never redacted.
       properties:
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
         quantity:
           type: string
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The unit the price is quoted per (INV1.1).
+        unit_price_amount:
+          type:
+            - string
+            - 'null'
+          description: Major currency units per unit_id (§4.4), or null when unpriced or redacted.
+        line_total_amount:
+          type:
+            - string
+            - 'null'
+        cost_currency_code:
+          type:
+            - string
+            - 'null'
       additionalProperties: false
     GoodsReceipt:
       type: object
       required:
         - id
         - branch_id
+        - supplier
+        - document_ref
         - purchase_order_id
         - received_at
+        - currency_code
+        - receipt_total_amount
+        - costs_redacted
         - lines
       description: |
-        A receipt stands alone in v1 (O2) — `purchase_order_id` is always
-        null, because there is no purchase-order surface yet to have created
-        one. The column exists for the day there is.
+        A receipt still has no purchase-order surface in v1 (O2) —
+        `purchase_order_id` is always null. Since INV1.1 it also records who was
+        paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
+        in `currency_code`, offered only when every priced line shares one
+        currency (there is no exchange rate in this system, §4.4). When the
+        reader lacks `inventory.view_costs_organisation` every money field is
+        null and `costs_redacted` is true.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
         branch_id:
           $ref: '#/components/schemas/Uuid'
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        document_ref:
+          type:
+            - string
+            - 'null'
+          description: The supplier delivery note or invoice number, as written (INV1.1).
         purchase_order_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -24637,10 +24921,36 @@ components:
             - string
             - 'null'
           format: date-time
+        currency_code:
+          type:
+            - string
+            - 'null'
+        receipt_total_amount:
+          type:
+            - string
+            - 'null'
+        costs_redacted:
+          type: boolean
+          description: True when the reader lacks inventory.view_costs_organisation and money fields were nulled (INV1.1).
         lines:
           type: array
           items:
             $ref: '#/components/schemas/GoodsReceiptLine'
+      additionalProperties: false
+    SupplierRef:
+      type: object
+      required:
+        - id
+        - code
+        - name_en
+      description: A supplier named on a receipt or ledger line (INV1.1).
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
       additionalProperties: false
     GoodsReceiptCollection:
       type: object
@@ -24664,12 +24974,29 @@ components:
       required:
         - stock_item_id
         - quantity
+      description: |
+        A line's price is optional (INV1.1). `cost_currency_code` is required
+        with a price — a price with no currency is not a price. `unit_id` is
+        optional: omit it and the price is taken as per the stock item's own
+        unit, which is how a delivery note reads. A priced line whose stock item
+        is backed by an ingredient blends into that ingredient's weighted
+        moving-average cost; an unpriced line moves stock only.
       properties:
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
         quantity:
           type: number
           exclusiveMinimum: 0
+        unit_id:
+          $ref: '#/components/schemas/Uuid'
+        unit_price_amount:
+          type: number
+          minimum: 0
+          description: Major currency units per unit_id (§4.4).
+        cost_currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
       additionalProperties: false
     PostGoodsReceiptRequest:
       type: object
@@ -24679,10 +25006,21 @@ components:
       description: |
         Posting a receipt writes every line straight into the inventory
         ledger (`reason: receipt`) inside one transaction — there is no
-        draft state to save and return to.
+        draft state to save and return to. Since INV1.1 it also records the
+        supplier and document reference and blends each priced line's cost.
       properties:
         branch_id:
           $ref: '#/components/schemas/Uuid'
+        supplier_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Who the stock was bought from (INV1.1).
+        document_ref:
+          type:
+            - string
+            - 'null'
+          description: The supplier delivery note or invoice number (INV1.1).
         purchase_order_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -24714,6 +25052,95 @@ components:
                   $ref: '#/components/schemas/Uuid'
         meta:
           $ref: '#/components/schemas/Meta'
+    PurchasesLedgerLine:
+      type: object
+      required:
+        - id
+        - goods_receipt_id
+        - received_at
+        - supplier
+        - document_ref
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - ingredient_id
+        - quantity
+        - unit_id
+        - unit_price_amount
+        - line_total_amount
+        - cost_currency_code
+        - costs_redacted
+      description: One purchases-ledger row — a receipt line with its date, supplier and item (INV1.1).
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        goods_receipt_id:
+          $ref: '#/components/schemas/Uuid'
+        received_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        document_ref:
+          type:
+            - string
+            - 'null'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type:
+            - string
+            - 'null'
+        item_name_en:
+          type:
+            - string
+            - 'null'
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        quantity:
+          type: string
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        unit_price_amount:
+          type:
+            - string
+            - 'null'
+        line_total_amount:
+          type:
+            - string
+            - 'null'
+        cost_currency_code:
+          type:
+            - string
+            - 'null'
+        costs_redacted:
+          type: boolean
+      additionalProperties: false
+    PurchasesLedgerCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - purchases
+          properties:
+            purchases:
+              type: array
+              items:
+                $ref: '#/components/schemas/PurchasesLedgerLine'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
     ProductionOrder:
       type: object
       required:

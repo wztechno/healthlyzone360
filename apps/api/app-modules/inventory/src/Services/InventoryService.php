@@ -95,6 +95,30 @@ final readonly class InventoryService
     }
 
     /**
+     * Whether a level is low: it has a threshold set and its quantity has
+     * reached or fallen below it (INV1.3).
+     *
+     * Computed, never stored — the same live read as {@see isOutOfStock()} on
+     * the client (`ops-format.ts`). A null threshold is "no threshold set",
+     * which is *never low* rather than low-at-zero: a kitchen that has not asked
+     * to be warned about an item is not warned. The comparison is bccomp on the
+     * decimal strings so `10.0000 <= 10` is exact rather than a float's
+     * near-miss, and the boundary is inclusive — quantity equal to the threshold
+     * is already low, because that is the moment to reorder.
+     *
+     * @param  numeric-string|null  $reorderThreshold
+     * @param  numeric-string  $quantity
+     */
+    public static function isLowStock(?string $reorderThreshold, string $quantity): bool
+    {
+        if ($reorderThreshold === null) {
+            return false;
+        }
+
+        return bccomp($quantity, $reorderThreshold, self::SCALE) <= 0;
+    }
+
+    /**
      * bcmath handed a non-numeric string returns zero rather than erroring,
      * which would turn a malformed delta into a silent no-op movement. This
      * guard makes that a loud failure instead.

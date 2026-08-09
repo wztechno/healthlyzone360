@@ -16,6 +16,9 @@ final class SupplierIndexController
             'id' => (string) $s->getKey(),
             'code' => $s->code,
             'name_en' => $s->name_en,
+            'currency_code' => $s->currency_code,
+            'contact_email' => $s->contact_email,
+            'contact_phone' => $s->contact_phone,
         ]);
 
         return ApiResponse::data(['suppliers' => $suppliers]);

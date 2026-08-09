@@ -40,6 +40,14 @@ export function createKitchenOpsMockRepositories(
             await settle();
             return store.recordWaste(request);
         },
+        async setStockThreshold(request) {
+            await settle();
+            return store.setThreshold(request);
+        },
+        async countLowStockLevels() {
+            await settle();
+            return store.lowStockCount();
+        },
         async listSuppliers() {
             await settle();
             return store.suppliers();
@@ -51,6 +59,10 @@ export function createKitchenOpsMockRepositories(
         async postGoodsReceipt(request) {
             await settle();
             return store.postGoodsReceipt(request);
+        },
+        async listPurchasesLedger(filter) {
+            await settle();
+            return store.purchasesLedger(filter);
         },
         async listProductionOrders() {
             await settle();

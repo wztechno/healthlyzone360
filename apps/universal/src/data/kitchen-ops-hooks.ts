@@ -8,8 +8,11 @@ import type {
     PostGoodsReceiptRequest,
     ProductionOrder,
     ProductionOrderResult,
+    PurchaseLedgerFilter,
+    PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
+    SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,
     StockLevel,
@@ -17,6 +20,7 @@ import type {
     StockWasteRequest,
     Supplier,
 } from '@healthy360/api-client/contracts';
+import type { CursorPage } from '@healthy360/api-client/contracts';
 import type { ProductionOrderId, QualityCheckId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
@@ -82,6 +86,25 @@ export function useStockLevelsQuery(enabled = true): UseQueryResult<readonly Sto
     });
 }
 
+/**
+ * How many levels are low right now (INV1.3), for the hub badge — scoped to the active branch
+ * context by the backend, or org-wide when none is set. A dedicated count read so the hub never has
+ * to fetch the whole levels list to show one number, matching the other summary queries the hub
+ * fires. `enabled` gates it on the permission the hub confirms before firing, like its siblings.
+ */
+export function useLowStockCountQuery(enabled = true): UseQueryResult<number> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.lowStockCount(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.countLowStockLevels();
+        },
+    });
+}
+
 /** Invalidates every ops list. The one cache action every write in this workspace needs. */
 function useKitchenOpsWriteEffects(): () => void {
     const queryClient = useQueryClient();
@@ -136,6 +159,22 @@ export function useRecordStockWasteMutation(): UseMutationResult<
     });
 }
 
+/** Sets or clears a level's reorder threshold, then re-reads the ops lists (levels and the count). */
+export function useSetStockThresholdMutation(): UseMutationResult<
+    StockLevel,
+    unknown,
+    SetStockThresholdRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: SetStockThresholdRequest) =>
+            repositories.kitchenOps.setStockThreshold(request),
+        onSuccess: onWritten,
+    });
+}
+
 /* ── procurement (O2) — receipts-only ────────────────────────────────────────────────────────── */
 
 /** The supplier book. No writer — see `contracts/kitchen-ops.ts`'s header: receipts-only in v1. */
@@ -179,6 +218,27 @@ export function usePostGoodsReceiptMutation(): UseMutationResult<
         mutationFn: (request: PostGoodsReceiptRequest) =>
             repositories.kitchenOps.postGoodsReceipt(request),
         onSuccess: onWritten,
+    });
+}
+
+/**
+ * The purchases ledger (INV1.1) — every receipt line, filtered and cursor-paginated. Behind
+ * `inventory.view_costs_organisation` on the server, so a caller without that code gets a failure
+ * rather than a page; the screen gates its card on the same permission.
+ */
+export function usePurchasesLedgerQuery(
+    filter: PurchaseLedgerFilter = {},
+    enabled = true,
+): UseQueryResult<CursorPage<PurchaseLedgerLine>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.purchasesLedger(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listPurchasesLedger(filter);
+        },
     });
 }
 

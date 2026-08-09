@@ -12,15 +12,20 @@ import type {
     PostGoodsReceiptRequest,
     ProductionOrder,
     ProductionOrderResult,
+    PurchaseLedgerFilter,
+    PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
+    SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,
     StockLevel,
     StockMovement,
     StockWasteRequest,
     Supplier,
+    SupplierRef,
 } from '../../contracts/kitchen-ops.ts';
+import type { CursorPage } from '../../contracts/pagination.ts';
 import {
     KITCHEN_OPS_RUNTIME_ORDINAL_START,
     goodsReceiptIdAt,
@@ -32,6 +37,19 @@ import {
 
 /** The single branch every seed row belongs to — see the module header for why that is safe. */
 const SEED_BRANCH_ID = BranchId.unsafe('01935f6d-0000-7000-8000-0000000000f1');
+
+/**
+ * The mock's copy of `InventoryService::isLowStock` (INV1.3): a level is low when a threshold is
+ * set and its quantity has reached or fallen to or below it. `null` threshold is never low. Numeric
+ * comparison here rather than bcmath — the mock quantities are small and exact — but the boundary is
+ * the same inclusive `<=` the backend enforces.
+ */
+function computeIsLow(quantity: string, reorderThreshold: string | null): boolean {
+    if (reorderThreshold === null) {
+        return false;
+    }
+    return Number(quantity) <= Number(reorderThreshold);
+}
 
 /**
  * The kitchen ops fixture world (O1–O4).
@@ -85,6 +103,9 @@ export class KitchenOpsMockStore {
             branchId: SEED_BRANCH_ID,
             stockItemId: stockItemIdAt(1),
             quantity: '42.500',
+            reorderThreshold: '10.000',
+            parLevel: '50.000',
+            isLow: false,
             itemCode: 'FLR-001',
             itemNameEn: 'All-purpose flour',
             ingredientId: null,
@@ -94,15 +115,23 @@ export class KitchenOpsMockStore {
             branchId: SEED_BRANCH_ID,
             stockItemId: stockItemIdAt(2),
             quantity: '18.000',
+            reorderThreshold: null,
+            parLevel: null,
+            isLow: false,
             itemCode: 'OIL-002',
             itemNameEn: 'Olive oil',
             ingredientId: null,
         },
         {
+            // Seeded below its threshold (9.75 <= 15) so mock mode shows the low-stock flag on the
+            // stock screen and a count of 1 on the hub badge without any interaction (INV1.3).
             id: 'level-3',
             branchId: SEED_BRANCH_ID,
             stockItemId: stockItemIdAt(4),
             quantity: '9.750',
+            reorderThreshold: '15.000',
+            parLevel: '40.000',
+            isLow: true,
             itemCode: 'CHK-020',
             itemNameEn: 'Chicken breast',
             ingredientId: null,
@@ -112,17 +141,45 @@ export class KitchenOpsMockStore {
     #movements: StockMovement[] = [];
 
     #suppliers: Supplier[] = [
-        { id: supplierIdAt(1), code: 'SUP-001', nameEn: 'Gulf Fresh Produce' },
-        { id: supplierIdAt(2), code: 'SUP-002', nameEn: 'Al Waha Meats' },
+        {
+            id: supplierIdAt(1),
+            code: 'SUP-001',
+            nameEn: 'Gulf Fresh Produce',
+            currencyCode: 'USD',
+            contactEmail: 'orders@gulffresh.example',
+            contactPhone: null,
+        },
+        {
+            id: supplierIdAt(2),
+            code: 'SUP-002',
+            nameEn: 'Al Waha Meats',
+            currencyCode: 'USD',
+            contactEmail: null,
+            contactPhone: null,
+        },
     ];
 
     #goodsReceipts: GoodsReceipt[] = [
         {
             id: goodsReceiptIdAt(1),
             branchId: SEED_BRANCH_ID,
+            supplier: { id: supplierIdAt(1), code: 'SUP-001', nameEn: 'Gulf Fresh Produce' },
+            documentRef: 'DN-1001',
             purchaseOrderId: null,
             receivedAt: '2026-08-01T09:00:00.000Z',
-            lines: [{ stockItemId: stockItemIdAt(1), quantity: '25.000' }],
+            currencyCode: 'USD',
+            receiptTotalAmount: '50.000000',
+            costsRedacted: false,
+            lines: [
+                {
+                    stockItemId: stockItemIdAt(1),
+                    quantity: '25.000',
+                    unitId: 'unit-kg',
+                    unitPriceAmount: '2.000000',
+                    lineTotalAmount: '50.000000',
+                    costCurrencyCode: 'USD',
+                },
+            ],
         },
     ];
 
@@ -182,6 +239,9 @@ export class KitchenOpsMockStore {
                 branchId,
                 stockItemId,
                 quantity: '0.000',
+                reorderThreshold: null,
+                parLevel: null,
+                isLow: false,
                 itemCode: item.code,
                 itemNameEn: item.nameEn,
                 ingredientId: item.ingredientId,
@@ -189,10 +249,16 @@ export class KitchenOpsMockStore {
             this.#stockLevels.push(level);
         }
 
-        const next = Number(level.quantity) + delta;
+        const nextQuantity = (Number(level.quantity) + delta).toFixed(3);
         const levelId = level.id;
         this.#stockLevels = this.#stockLevels.map((candidate) =>
-            candidate.id === levelId ? { ...candidate, quantity: next.toFixed(3) } : candidate,
+            candidate.id === levelId
+                ? {
+                      ...candidate,
+                      quantity: nextQuantity,
+                      isLow: computeIsLow(nextQuantity, candidate.reorderThreshold),
+                  }
+                : candidate,
         );
 
         const movement: StockMovement = {
@@ -225,6 +291,62 @@ export class KitchenOpsMockStore {
         );
     }
 
+    /**
+     * Sets or clears a level's reorder threshold (INV1.3). Creates the level at quantity zero if the
+     * item has never moved at this branch — the same `firstOrCreate` the backend does — so a
+     * threshold can be set before the first receipt. `isLow` is recomputed against the new threshold.
+     */
+    setThreshold(request: SetStockThresholdRequest): StockLevel {
+        const item = this.#findStockItem(request.stockItemId);
+        let level = this.#stockLevels.find(
+            (candidate) =>
+                candidate.branchId === request.branchId &&
+                candidate.stockItemId === request.stockItemId,
+        );
+
+        if (level === undefined) {
+            level = {
+                id: `level-${String(this.#stockLevels.length + 1)}`,
+                branchId: request.branchId,
+                stockItemId: request.stockItemId,
+                quantity: '0.000',
+                reorderThreshold: null,
+                parLevel: null,
+                isLow: false,
+                itemCode: item.code,
+                itemNameEn: item.nameEn,
+                ingredientId: item.ingredientId,
+            };
+            this.#stockLevels.push(level);
+        }
+
+        const reorderThreshold =
+            request.reorderThreshold === null ? null : request.reorderThreshold.toFixed(3);
+        const parLevel =
+            request.parLevel === undefined
+                ? level.parLevel
+                : request.parLevel === null
+                  ? null
+                  : request.parLevel.toFixed(3);
+
+        const updated: StockLevel = {
+            ...level,
+            reorderThreshold,
+            parLevel,
+            isLow: computeIsLow(level.quantity, reorderThreshold),
+        };
+        const levelId = level.id;
+        this.#stockLevels = this.#stockLevels.map((candidate) =>
+            candidate.id === levelId ? updated : candidate,
+        );
+        return updated;
+    }
+
+    /** How many levels are low right now — the count the hub badge reads. */
+    lowStockCount(): number {
+        return this.#stockLevels.filter((level) => level.isLow).length;
+    }
+
     suppliers(): readonly Supplier[] {
         return [...this.#suppliers];
     }
@@ -244,18 +366,113 @@ export class KitchenOpsMockStore {
             this.#applyMovement(request.branchId, line.stockItemId, line.quantity, 'receipt');
         }
 
+        const lines = request.lines.map((line) => {
+            const priced =
+                line.unitPriceAmount !== undefined && line.unitPriceAmount !== null;
+            const lineTotal = priced ? line.quantity * (line.unitPriceAmount ?? 0) : null;
+            return {
+                stockItemId: line.stockItemId,
+                quantity: line.quantity.toFixed(3),
+                unitId: line.unitId ?? null,
+                unitPriceAmount: priced ? (line.unitPriceAmount ?? 0).toFixed(6) : null,
+                lineTotalAmount: lineTotal === null ? null : lineTotal.toFixed(6),
+                costCurrencyCode: priced ? (line.costCurrencyCode ?? null) : null,
+            };
+        });
+
+        const currencies = new Set(
+            lines
+                .map((line) => line.costCurrencyCode)
+                .filter((code): code is string => code !== null),
+        );
+        const currencyCode = currencies.size === 1 ? ([...currencies][0] ?? null) : null;
+        const total =
+            currencyCode === null
+                ? null
+                : lines
+                      .filter((line) => line.costCurrencyCode === currencyCode)
+                      .reduce((sum, line) => sum + Number(line.lineTotalAmount ?? 0), 0)
+                      .toFixed(6);
+
+        const supplier =
+            request.supplierId === undefined || request.supplierId === null
+                ? null
+                : (this.#suppliers.find((candidate) => candidate.id === request.supplierId) ?? null);
+
         const receipt: GoodsReceipt = {
             id: goodsReceiptIdAt(this.#goodsReceiptOrdinal++),
             branchId: request.branchId,
+            supplier:
+                supplier === null
+                    ? null
+                    : { id: supplier.id, code: supplier.code, nameEn: supplier.nameEn },
+            documentRef: request.documentRef ?? null,
             purchaseOrderId: request.purchaseOrderId ?? null,
             receivedAt: new Date().toISOString(),
-            lines: request.lines.map((line) => ({
-                stockItemId: line.stockItemId,
-                quantity: line.quantity.toFixed(3),
-            })),
+            currencyCode,
+            receiptTotalAmount: total,
+            costsRedacted: false,
+            lines,
         };
         this.#goodsReceipts.push(receipt);
         return { id: receipt.id };
+    }
+
+    /**
+     * The purchases ledger (INV1.1) — every receipt line flattened with the date, supplier and item
+     * it belongs to, newest first. A single-page mock: the fixture set is small, so it answers the
+     * whole filtered list at once with no cursor, which is a legal {@link CursorPage}.
+     */
+    purchasesLedger(filter: PurchaseLedgerFilter = {}): CursorPage<PurchaseLedgerLine> {
+        const items: PurchaseLedgerLine[] = [];
+
+        for (const receipt of [...this.#goodsReceipts].sort((left, right) =>
+            (right.receivedAt ?? '').localeCompare(left.receivedAt ?? ''),
+        )) {
+            if (filter.supplierId !== undefined && receipt.supplier?.id !== filter.supplierId) {
+                continue;
+            }
+            if (filter.from !== undefined && (receipt.receivedAt ?? '') < filter.from) continue;
+            if (filter.to !== undefined && (receipt.receivedAt ?? '') > `${filter.to}T23:59:59Z`) {
+                continue;
+            }
+
+            const supplierRef: SupplierRef | null =
+                receipt.supplier === null ? null : receipt.supplier;
+
+            for (const line of receipt.lines) {
+                const item = this.#stockItems.find(
+                    (candidate) => candidate.id === line.stockItemId,
+                );
+
+                if (
+                    filter.ingredientId !== undefined &&
+                    item?.ingredientId !== filter.ingredientId
+                ) {
+                    continue;
+                }
+
+                items.push({
+                    id: `ledger-${String(receipt.id)}-${String(line.stockItemId)}`,
+                    goodsReceiptId: receipt.id,
+                    receivedAt: receipt.receivedAt,
+                    supplier: supplierRef,
+                    documentRef: receipt.documentRef,
+                    stockItemId: line.stockItemId,
+                    itemCode: item?.code ?? null,
+                    itemNameEn: item?.nameEn ?? null,
+                    ingredientId: item?.ingredientId ?? null,
+                    quantity: line.quantity,
+                    unitId: line.unitId,
+                    unitPriceAmount: line.unitPriceAmount,
+                    lineTotalAmount: line.lineTotalAmount,
+                    costCurrencyCode: line.costCurrencyCode,
+                    costsRedacted: false,
+                });
+            }
+        }
+
+        return { items, nextCursor: null, hasMore: false, totalCount: items.length };
     }
 
     productionOrders(): readonly ProductionOrder[] {

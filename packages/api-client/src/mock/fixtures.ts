@@ -88,6 +88,12 @@ export const MOCK_ROLE_PERMISSIONS: Readonly<Record<string, readonly string[]>> 
         'delivery_zone.manage_organisation',
         'order.view_organisation',
         'order.manage_organisation',
+        // The inventory domain INV1.0 split out and INV1.1 gave a cost code: this manager counts
+        // stock, moves it, and reads what it cost, so the purchases-ledger card is theirs. Mirrors
+        // the backend `kitchen_manager` template role, which grants the same three.
+        'inventory.view_organisation',
+        'inventory.manage_organisation',
+        'inventory.view_costs_organisation',
         'device.manage_own',
         'session.revoke_own',
     ],

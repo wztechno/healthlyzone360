@@ -1,5 +1,6 @@
 import type { StockItem, StockLevel } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Dialog,
     EmptyState,
@@ -28,6 +29,7 @@ import {
     useCreateStockItemMutation,
     useRecordStockAdjustmentMutation,
     useRecordStockWasteMutation,
+    useSetStockThresholdMutation,
     useStockItemsQuery,
     useStockLevelsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
@@ -90,6 +92,7 @@ function Stock() {
     const createItem = useCreateStockItemMutation();
     const adjustment = useRecordStockAdjustmentMutation();
     const waste = useRecordStockWasteMutation();
+    const threshold = useSetStockThresholdMutation();
 
     const [creating, setCreating] = useState(false);
     const [newCode, setNewCode] = useState('');
@@ -100,6 +103,10 @@ function Stock() {
     const [movement, setMovement] = useState<{ item: StockItem; mode: MovementMode } | null>(null);
     const [movementQuantity, setMovementQuantity] = useState('');
     const [movementDirection, setMovementDirection] = useState<'increase' | 'decrease'>('increase');
+
+    const [thresholdItem, setThresholdItem] = useState<StockItem | null>(null);
+    const [thresholdValue, setThresholdValue] = useState('');
+    const [parLevelValue, setParLevelValue] = useState('');
 
     const itemRows = items.data ?? [];
     const levelRows = levels.data ?? [];
@@ -121,6 +128,11 @@ function Stock() {
             value: levels.isPending
                 ? null
                 : levelRows.filter((level) => isOutOfStock(level.quantity)).length,
+        },
+        {
+            key: 'lowStock',
+            labelKey: 'kitchen:ops.stock.metrics.lowStock',
+            value: levels.isPending ? null : levelRows.filter((level) => level.isLow).length,
         },
     ];
 
@@ -150,6 +162,59 @@ function Stock() {
         setMovementDirection('increase');
         adjustment.reset();
         waste.reset();
+    }
+
+    function openThreshold(item: StockItem) {
+        const level = levelRows.find((row) => String(row.stockItemId) === String(item.id));
+        setThresholdItem(item);
+        setThresholdValue(level?.reorderThreshold ?? '');
+        setParLevelValue(level?.parLevel ?? '');
+        threshold.reset();
+    }
+
+    function closeThreshold() {
+        setThresholdItem(null);
+        setThresholdValue('');
+        setParLevelValue('');
+        threshold.reset();
+    }
+
+    const thresholdTrimmed = thresholdValue.trim();
+    const parLevelTrimmed = parLevelValue.trim();
+    const thresholdMagnitude = thresholdTrimmed === '' ? null : parseQuantity(thresholdTrimmed);
+    const parLevelMagnitude = parLevelTrimmed === '' ? null : parseQuantity(parLevelTrimmed);
+    // Each field is valid when blank (blank = clear) or a parseable non-negative number.
+    const thresholdFieldsValid =
+        (thresholdTrimmed === '' || thresholdMagnitude !== null) &&
+        (parLevelTrimmed === '' || parLevelMagnitude !== null);
+    const thresholdError = toFailure(threshold.error);
+
+    function submitThreshold() {
+        if (thresholdItem === null || branchId === null || !thresholdFieldsValid) {
+            return;
+        }
+        const name = thresholdItem.nameEn;
+        const cleared = thresholdMagnitude === null;
+        threshold.mutate(
+            {
+                branchId,
+                stockItemId: thresholdItem.id,
+                reorderThreshold: thresholdMagnitude,
+                parLevel: parLevelMagnitude,
+            },
+            {
+                onSuccess: () => {
+                    closeThreshold();
+                    toast.show({
+                        testID: 'kitchen-stock-threshold-toast',
+                        tone: 'success',
+                        message: cleared
+                            ? t('kitchen:ops.stock.thresholdClearedToast', { name })
+                            : t('kitchen:ops.stock.thresholdSetToast', { name }),
+                    });
+                },
+            },
+        );
     }
 
     const movementMagnitude = parseQuantity(movementQuantity);
@@ -214,11 +279,33 @@ function Stock() {
             header: t('kitchen:ops.stock.columnQuantity'),
             numeric: true,
             render: (row) => (
-                <Text
-                    testID={`${stockLevelRowTestId(row.id)}-quantity`}
-                    tone={isOutOfStock(row.quantity) ? 'danger' : 'primary'}
-                >
-                    {formatter.formatNumber(Number(row.quantity))}
+                <Inline space="xs" align="center" justify="end">
+                    {row.isLow && !isOutOfStock(row.quantity) ? (
+                        <Badge
+                            testID={`${stockLevelRowTestId(row.id)}-low`}
+                            tone="danger"
+                            icon="warning"
+                            label={t('kitchen:ops.stock.lowBadge')}
+                        />
+                    ) : null}
+                    <Text
+                        testID={`${stockLevelRowTestId(row.id)}-quantity`}
+                        tone={isOutOfStock(row.quantity) || row.isLow ? 'danger' : 'primary'}
+                    >
+                        {formatter.formatNumber(Number(row.quantity))}
+                    </Text>
+                </Inline>
+            ),
+        },
+        {
+            key: 'threshold',
+            header: t('kitchen:ops.stock.columnThreshold'),
+            numeric: true,
+            render: (row) => (
+                <Text tone="secondary" testID={`${stockLevelRowTestId(row.id)}-threshold`}>
+                    {row.reorderThreshold === null
+                        ? t('kitchen:ops.stock.noThreshold')
+                        : formatter.formatNumber(Number(row.reorderThreshold))}
                 </Text>
             ),
         },
@@ -364,6 +451,15 @@ function Stock() {
                                                               label={t('kitchen:ops.stock.waste')}
                                                               onPress={() => {
                                                                   setMovement({ item: row, mode: 'waste' });
+                                                              }}
+                                                          />
+                                                          <Button
+                                                              testID={`${stockItemRowTestId(String(row.id))}-threshold`}
+                                                              size="sm"
+                                                              variant="ghost"
+                                                              label={t('kitchen:ops.stock.threshold')}
+                                                              onPress={() => {
+                                                                  openThreshold(row);
                                                               }}
                                                           />
                                                       </Inline>
@@ -528,6 +624,60 @@ function Stock() {
                         }
                         value={movementQuantity}
                         onChangeText={setMovementQuantity}
+                        keyboardType="decimal-pad"
+                    />
+                </Stack>
+            </Dialog>
+
+            <Dialog
+                testID="kitchen-stock-threshold-dialog"
+                open={thresholdItem !== null}
+                onClose={closeThreshold}
+                title={
+                    thresholdItem === null
+                        ? ''
+                        : t('kitchen:ops.stock.thresholdTitle', {
+                              name: stockItemLabel(thresholdItem),
+                          })
+                }
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-stock-threshold-cancel"
+                            variant="quiet"
+                            label={t('kitchen:common.cancel')}
+                            onPress={closeThreshold}
+                        />
+                        <Button
+                            testID="kitchen-stock-threshold-confirm"
+                            label={t('kitchen:common.save')}
+                            loading={threshold.isPending}
+                            disabled={branchId === null || !thresholdFieldsValid}
+                            onPress={submitThreshold}
+                        />
+                    </>
+                }
+            >
+                <Stack space="md">
+                    {thresholdError === null ? null : (
+                        <Text testID="kitchen-stock-threshold-error" tone="danger">
+                            {thresholdError.message}
+                        </Text>
+                    )}
+                    <TextInputField
+                        testID="kitchen-stock-threshold-value"
+                        label={t('kitchen:ops.stock.fieldThreshold')}
+                        hint={t('kitchen:ops.stock.fieldThresholdHint')}
+                        value={thresholdValue}
+                        onChangeText={setThresholdValue}
+                        keyboardType="decimal-pad"
+                    />
+                    <TextInputField
+                        testID="kitchen-stock-threshold-par"
+                        label={t('kitchen:ops.stock.fieldParLevel')}
+                        hint={t('kitchen:ops.stock.fieldParLevelHint')}
+                        value={parLevelValue}
+                        onChangeText={setParLevelValue}
                         keyboardType="decimal-pad"
                     />
                 </Stack>

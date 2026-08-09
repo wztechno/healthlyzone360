@@ -61,6 +61,13 @@ export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 
 /**
+ * The cost permission (INV1.1). It gates every money-bearing inventory surface exactly as
+ * `recipe.view_costs_organisation` gates recipe costs — here, the purchases ledger. A kitchen hand
+ * who counts stock and posts receipts does not thereby see what those receipts cost.
+ */
+export const INVENTORY_VIEW_COSTS_PERMISSION = 'inventory.view_costs_organisation';
+
+/**
  * How a family's card reports how much is in it.
  *
  * `managed` families are counted from their own listing and can carry a draft badge; `reference`
@@ -309,6 +316,24 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         href: '/kitchen/procurement',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'purchases',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.purchases.name',
+        descriptionKey: 'kitchen:families.purchases.description',
+        // `☰`, three stacked rules — a schedule of priced rows, the same reading the price-list and
+        // order cards give it. The purchases ledger is a ledger of lines with a total, so the glyph
+        // is honest; the label beside the card separates it, and a real icon set retires the
+        // compromise the whole workspace records.
+        icon: 'menu',
+        href: '/kitchen/purchases-ledger',
+        // The one card in the workspace gated on the cost permission (INV1.1): the ledger *is* the
+        // valuation, so a person without `inventory.view_costs_organisation` never sees the card and
+        // the screen behind it refuses. There is nothing to write from a ledger.
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
     },
     {
         key: 'production',

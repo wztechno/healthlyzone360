@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5104 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5142 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2405,6 +2405,8 @@ export interface NamespaceKeys {
     | 'families.production.name'
     | 'families.products.description'
     | 'families.products.name'
+    | 'families.purchases.description'
+    | 'families.purchases.name'
     | 'families.qc.description'
     | 'families.qc.name'
     | 'families.recipes.description'
@@ -2432,6 +2434,7 @@ export interface NamespaceKeys {
     | 'hub.itemCount'
     | 'hub.kpi.deliveryZones'
     | 'hub.kpi.drafts'
+    | 'hub.kpi.lowStock'
     | 'hub.kpi.needsReview'
     | 'hub.kpi.publishedMeals'
     | 'hub.open'
@@ -2568,6 +2571,21 @@ export interface NamespaceKeys {
     | 'nav.groups.workbench'
     | 'nav.overview'
     | 'nav.railTitle'
+    | 'ops.ledger.allSuppliers'
+    | 'ops.ledger.columnDate'
+    | 'ops.ledger.columnItem'
+    | 'ops.ledger.columnLineTotal'
+    | 'ops.ledger.columnSupplier'
+    | 'ops.ledger.columnUnitPrice'
+    | 'ops.ledger.emptyBody'
+    | 'ops.ledger.emptyTitle'
+    | 'ops.ledger.filterFrom'
+    | 'ops.ledger.filterSupplier'
+    | 'ops.ledger.filterTo'
+    | 'ops.ledger.nextPage'
+    | 'ops.ledger.noSupplier'
+    | 'ops.ledger.subtitle'
+    | 'ops.ledger.title'
     | 'ops.metricUnavailable'
     | 'ops.orders.allLoaded'
     | 'ops.orders.cancel'
@@ -2648,19 +2666,26 @@ export interface NamespaceKeys {
     | 'ops.procurement.columnLines'
     | 'ops.procurement.columnReceivedAt'
     | 'ops.procurement.columnSupplier'
+    | 'ops.procurement.columnTotal'
+    | 'ops.procurement.costsRedacted'
     | 'ops.procurement.emptyBody'
     | 'ops.procurement.emptyTitle'
+    | 'ops.procurement.fieldDocumentRef'
     | 'ops.procurement.fieldLineItem'
     | 'ops.procurement.fieldLineQuantity'
+    | 'ops.procurement.fieldLineUnitPrice'
+    | 'ops.procurement.fieldSupplier'
     | 'ops.procurement.metrics.lines'
     | 'ops.procurement.metrics.receipts'
     | 'ops.procurement.metrics.suppliers'
+    | 'ops.procurement.noSupplier'
     | 'ops.procurement.noSuppliers'
     | 'ops.procurement.notYetReceived'
     | 'ops.procurement.postFailed'
     | 'ops.procurement.postReceipt'
     | 'ops.procurement.postTitle'
     | 'ops.procurement.postedToast'
+    | 'ops.procurement.priceNeedsSupplierCurrency'
     | 'ops.procurement.receiptsTitle'
     | 'ops.procurement.removeLine'
     | 'ops.procurement.subtitle'
@@ -2736,6 +2761,7 @@ export interface NamespaceKeys {
     | 'ops.stock.columnIngredient'
     | 'ops.stock.columnItem'
     | 'ops.stock.columnQuantity'
+    | 'ops.stock.columnThreshold'
     | 'ops.stock.columnUnit'
     | 'ops.stock.createdToast'
     | 'ops.stock.direction'
@@ -2747,20 +2773,32 @@ export interface NamespaceKeys {
     | 'ops.stock.fieldCode'
     | 'ops.stock.fieldIngredient'
     | 'ops.stock.fieldName'
+    | 'ops.stock.fieldParLevel'
+    | 'ops.stock.fieldParLevelHint'
+    | 'ops.stock.fieldThreshold'
+    | 'ops.stock.fieldThresholdHint'
     | 'ops.stock.fieldUnit'
     | 'ops.stock.fieldUnitHint'
     | 'ops.stock.fieldWasteQuantity'
     | 'ops.stock.itemsTitle'
     | 'ops.stock.levelsTitle'
     | 'ops.stock.linkedIngredient'
+    | 'ops.stock.lowBadge'
+    | 'ops.stock.lowStockCount'
     | 'ops.stock.metrics.items'
     | 'ops.stock.metrics.levels'
+    | 'ops.stock.metrics.lowStock'
     | 'ops.stock.metrics.outOfStock'
     | 'ops.stock.noIngredient'
     | 'ops.stock.noIngredientOption'
     | 'ops.stock.noLevels'
+    | 'ops.stock.noThreshold'
     | 'ops.stock.saveFailed'
     | 'ops.stock.subtitle'
+    | 'ops.stock.threshold'
+    | 'ops.stock.thresholdClearedToast'
+    | 'ops.stock.thresholdSetToast'
+    | 'ops.stock.thresholdTitle'
     | 'ops.stock.title'
     | 'ops.stock.waste'
     | 'ops.stock.wasteTitle'
@@ -7527,6 +7565,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.production.name',
   'kitchen:families.products.description',
   'kitchen:families.products.name',
+  'kitchen:families.purchases.description',
+  'kitchen:families.purchases.name',
   'kitchen:families.qc.description',
   'kitchen:families.qc.name',
   'kitchen:families.recipes.description',
@@ -7554,6 +7594,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.itemCount',
   'kitchen:hub.kpi.deliveryZones',
   'kitchen:hub.kpi.drafts',
+  'kitchen:hub.kpi.lowStock',
   'kitchen:hub.kpi.needsReview',
   'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.open',
@@ -7690,6 +7731,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.groups.workbench',
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
+  'kitchen:ops.ledger.allSuppliers',
+  'kitchen:ops.ledger.columnDate',
+  'kitchen:ops.ledger.columnItem',
+  'kitchen:ops.ledger.columnLineTotal',
+  'kitchen:ops.ledger.columnSupplier',
+  'kitchen:ops.ledger.columnUnitPrice',
+  'kitchen:ops.ledger.emptyBody',
+  'kitchen:ops.ledger.emptyTitle',
+  'kitchen:ops.ledger.filterFrom',
+  'kitchen:ops.ledger.filterSupplier',
+  'kitchen:ops.ledger.filterTo',
+  'kitchen:ops.ledger.nextPage',
+  'kitchen:ops.ledger.noSupplier',
+  'kitchen:ops.ledger.subtitle',
+  'kitchen:ops.ledger.title',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.allLoaded',
   'kitchen:ops.orders.cancel',
@@ -7770,19 +7826,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.columnLines',
   'kitchen:ops.procurement.columnReceivedAt',
   'kitchen:ops.procurement.columnSupplier',
+  'kitchen:ops.procurement.columnTotal',
+  'kitchen:ops.procurement.costsRedacted',
   'kitchen:ops.procurement.emptyBody',
   'kitchen:ops.procurement.emptyTitle',
+  'kitchen:ops.procurement.fieldDocumentRef',
   'kitchen:ops.procurement.fieldLineItem',
   'kitchen:ops.procurement.fieldLineQuantity',
+  'kitchen:ops.procurement.fieldLineUnitPrice',
+  'kitchen:ops.procurement.fieldSupplier',
   'kitchen:ops.procurement.metrics.lines',
   'kitchen:ops.procurement.metrics.receipts',
   'kitchen:ops.procurement.metrics.suppliers',
+  'kitchen:ops.procurement.noSupplier',
   'kitchen:ops.procurement.noSuppliers',
   'kitchen:ops.procurement.notYetReceived',
   'kitchen:ops.procurement.postFailed',
   'kitchen:ops.procurement.postReceipt',
   'kitchen:ops.procurement.postTitle',
   'kitchen:ops.procurement.postedToast',
+  'kitchen:ops.procurement.priceNeedsSupplierCurrency',
   'kitchen:ops.procurement.receiptsTitle',
   'kitchen:ops.procurement.removeLine',
   'kitchen:ops.procurement.subtitle',
@@ -7858,6 +7921,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.columnIngredient',
   'kitchen:ops.stock.columnItem',
   'kitchen:ops.stock.columnQuantity',
+  'kitchen:ops.stock.columnThreshold',
   'kitchen:ops.stock.columnUnit',
   'kitchen:ops.stock.createdToast',
   'kitchen:ops.stock.direction',
@@ -7869,20 +7933,32 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.fieldCode',
   'kitchen:ops.stock.fieldIngredient',
   'kitchen:ops.stock.fieldName',
+  'kitchen:ops.stock.fieldParLevel',
+  'kitchen:ops.stock.fieldParLevelHint',
+  'kitchen:ops.stock.fieldThreshold',
+  'kitchen:ops.stock.fieldThresholdHint',
   'kitchen:ops.stock.fieldUnit',
   'kitchen:ops.stock.fieldUnitHint',
   'kitchen:ops.stock.fieldWasteQuantity',
   'kitchen:ops.stock.itemsTitle',
   'kitchen:ops.stock.levelsTitle',
   'kitchen:ops.stock.linkedIngredient',
+  'kitchen:ops.stock.lowBadge',
+  'kitchen:ops.stock.lowStockCount',
   'kitchen:ops.stock.metrics.items',
   'kitchen:ops.stock.metrics.levels',
+  'kitchen:ops.stock.metrics.lowStock',
   'kitchen:ops.stock.metrics.outOfStock',
   'kitchen:ops.stock.noIngredient',
   'kitchen:ops.stock.noIngredientOption',
   'kitchen:ops.stock.noLevels',
+  'kitchen:ops.stock.noThreshold',
   'kitchen:ops.stock.saveFailed',
   'kitchen:ops.stock.subtitle',
+  'kitchen:ops.stock.threshold',
+  'kitchen:ops.stock.thresholdClearedToast',
+  'kitchen:ops.stock.thresholdSetToast',
+  'kitchen:ops.stock.thresholdTitle',
   'kitchen:ops.stock.title',
   'kitchen:ops.stock.waste',
   'kitchen:ops.stock.wasteTitle',

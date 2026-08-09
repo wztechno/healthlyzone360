@@ -6,14 +6,16 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Select,
     Skeleton,
     Stack,
     Table,
     Text,
+    TextInputField,
     useToast,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
-import { StockItemId } from '@healthy360/domain-types';
+import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +33,7 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import { goodsReceiptRowTestId, stockItemLabel, supplierRowTestId } from '../ops-format.ts';
 import {
     StockItemLineEditor,
-    stockItemLinesToInputs,
+    stockItemLinesToReceiptInputs,
     stockItemLinesWellFormed,
 } from '../ops-line-editor.tsx';
 import type { StockItemLineDraft } from '../ops-line-editor.tsx';
@@ -74,10 +76,29 @@ function Procurement() {
 
     const [posting, setPosting] = useState(false);
     const [lines, setLines] = useState<readonly StockItemLineDraft[]>([]);
+    const [supplierId, setSupplierId] = useState<string | null>(null);
+    const [documentRef, setDocumentRef] = useState('');
 
     const supplierRows = suppliers.data ?? [];
     const receiptRows = receipts.data ?? [];
     const totalLinesReceived = receiptRows.reduce((sum, receipt) => sum + receipt.lines.length, 0);
+
+    const supplierOptions = useMemo(
+        () =>
+            (suppliers.data ?? []).map((row) => ({
+                value: String(row.id),
+                label: `${row.code} — ${row.nameEn}`,
+            })),
+        [suppliers.data],
+    );
+
+    // The currency prices are captured in — the chosen supplier's, when it has one. Without a
+    // currency there is nowhere to book a price, so the line editor still records quantities and
+    // the prices are simply not sent.
+    const selectedSupplier = supplierRows.find((row) => String(row.id) === supplierId) ?? null;
+    const currencyCode = selectedSupplier?.currencyCode ?? null;
+    const formatMoney = (amount: number) =>
+        `${formatter.formatNumber(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${currencyCode === null ? '' : ` ${currencyCode}`}`;
 
     const metrics: readonly OpsMetric[] = [
         {
@@ -111,6 +132,8 @@ function Procurement() {
     function closePosting() {
         setPosting(false);
         setLines([]);
+        setSupplierId(null);
+        setDocumentRef('');
         postReceipt.reset();
     }
 
@@ -121,10 +144,18 @@ function Procurement() {
         postReceipt.mutate(
             {
                 branchId,
+                supplierId: supplierId === null ? null : SupplierId.unsafe(supplierId),
+                documentRef: documentRef.trim() === '' ? null : documentRef.trim(),
                 purchaseOrderId: null,
-                lines: stockItemLinesToInputs(lines).map((line) => ({
+                lines: stockItemLinesToReceiptInputs(lines, currencyCode).map((line) => ({
                     stockItemId: StockItemId.unsafe(line.stockItemId),
                     quantity: line.quantity,
+                    ...(line.unitPriceAmount === undefined
+                        ? {}
+                        : {
+                              unitPriceAmount: line.unitPriceAmount,
+                              costCurrencyCode: line.costCurrencyCode,
+                          }),
                 })),
             },
             {
@@ -179,6 +210,19 @@ function Procurement() {
             ),
         },
         {
+            key: 'supplier',
+            header: t('kitchen:ops.procurement.columnSupplier'),
+            render: (row) => (
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    testID={`${goodsReceiptRowTestId(String(row.id))}-supplier`}
+                >
+                    {row.supplier === null ? t('kitchen:ops.procurement.noSupplier') : row.supplier.nameEn}
+                </Text>
+            ),
+        },
+        {
             key: 'lines',
             header: t('kitchen:ops.procurement.columnLines'),
             flex: 2,
@@ -191,6 +235,26 @@ function Procurement() {
                         </Text>
                     ))}
                 </Stack>
+            ),
+        },
+        {
+            key: 'total',
+            header: t('kitchen:ops.procurement.columnTotal'),
+            render: (row) => (
+                <Text
+                    variant="bodyStrong"
+                    tone="secondary"
+                    testID={`${goodsReceiptRowTestId(String(row.id))}-total`}
+                >
+                    {row.receiptTotalAmount === null || row.currencyCode === null
+                        ? row.costsRedacted
+                            ? t('kitchen:ops.procurement.costsRedacted')
+                            : '—'
+                        : `${formatter.formatNumber(Number(row.receiptTotalAmount), {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                          })} ${row.currencyCode}`}
+                </Text>
             ),
         },
     ];
@@ -313,6 +377,33 @@ function Procurement() {
                                 t('kitchen:ops.procurement.postFailed')}
                         </Text>
                     )}
+                    <Inline space="sm" align="start" wrap>
+                        <Select
+                            testID="kitchen-procurement-post-supplier"
+                            label={t('kitchen:ops.procurement.fieldSupplier')}
+                            options={supplierOptions}
+                            value={supplierId}
+                            onChange={setSupplierId}
+                            searchable
+                            className="min-w-[220px] flex-1"
+                        />
+                        <TextInputField
+                            testID="kitchen-procurement-post-document-ref"
+                            label={t('kitchen:ops.procurement.fieldDocumentRef')}
+                            value={documentRef}
+                            onChangeText={setDocumentRef}
+                            className="min-w-[160px] flex-1"
+                        />
+                    </Inline>
+                    {currencyCode === null ? (
+                        <Text
+                            testID="kitchen-procurement-post-no-currency"
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {t('kitchen:ops.procurement.priceNeedsSupplierCurrency')}
+                        </Text>
+                    ) : null}
                     <StockItemLineEditor
                         testID="kitchen-procurement-post-lines"
                         lines={lines}
@@ -322,6 +413,9 @@ function Procurement() {
                         quantityLabel={t('kitchen:ops.procurement.fieldLineQuantity')}
                         addLabel={t('kitchen:ops.procurement.addLine')}
                         removeLabel={t('kitchen:ops.procurement.removeLine')}
+                        withCost={currencyCode !== null}
+                        unitPriceLabel={t('kitchen:ops.procurement.fieldLineUnitPrice')}
+                        formatMoney={formatMoney}
                     />
                 </Stack>
             </Dialog>

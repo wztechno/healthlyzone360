@@ -10,6 +10,8 @@ import type {
     SupplierId,
 } from '@healthy360/domain-types';
 
+import type { CursorPage, CursorPageRequest } from './pagination.ts';
+
 /**
  * The kitchen ops contract (O1–O4): inventory, receipts-only procurement, production and quality
  * control.
@@ -71,9 +73,33 @@ export interface StockLevel {
     readonly stockItemId: StockItemId;
     /** A decimal string, never a float — the wire's own precision guarantee. */
     readonly quantity: string;
+    /** The reorder point as a decimal string, or `null` when no threshold is set (never low). */
+    readonly reorderThreshold: string | null;
+    /** The level to restock back up to, as a decimal string, or `null` when not set. */
+    readonly parLevel: string | null;
+    /**
+     * Computed on read (INV1.3), never a stored flag: `true` when a threshold is set and the
+     * quantity has reached or fallen to or below it. The same live pattern as {@link isOutOfStock}.
+     */
+    readonly isLow: boolean;
     readonly itemCode: string;
     readonly itemNameEn: string;
     readonly ingredientId: IngredientId | null;
+}
+
+/**
+ * Sets — or clears — a level's reorder threshold (and optional par level) for one (branch, stock
+ * item) pair. A `null` `reorderThreshold` clears it, which makes the item never low; `parLevel` is
+ * optional and independently nullable. The server creates the level row if the item has never moved
+ * at this branch, so a threshold can be set before the first receipt.
+ */
+export interface SetStockThresholdRequest {
+    readonly branchId: BranchId;
+    readonly stockItemId: StockItemId;
+    /** The reorder point; `null` clears the threshold. */
+    readonly reorderThreshold: number | null;
+    /** Optional target level to restock back up to; `null` clears it. */
+    readonly parLevel?: number | null | undefined;
 }
 
 export const STOCK_MOVEMENT_REASONS = ['adjust', 'waste', 'receipt', 'consume', 'yield'] as const;
@@ -110,29 +136,68 @@ export interface Supplier {
     readonly id: SupplierId;
     readonly code: string;
     readonly nameEn: string;
+    /** ISO 4217, the currency this supplier usually invoices in, or `null` (INV1.1). */
+    readonly currencyCode: string | null;
+    readonly contactEmail: string | null;
+    readonly contactPhone: string | null;
+}
+
+/** A supplier named on a receipt or ledger line (INV1.1). */
+export interface SupplierRef {
+    readonly id: SupplierId;
+    readonly code: string;
+    readonly nameEn: string;
 }
 
 export interface GoodsReceiptLine {
     readonly stockItemId: StockItemId;
     readonly quantity: string;
+    /** The unit the price is quoted per (INV1.1); `null` on an unpriced line. */
+    readonly unitId: string | null;
+    /**
+     * Major-unit decimal string, or `null` — either the line was unpriced, or the reader lacks
+     * `inventory.view_costs_organisation` and {@link GoodsReceipt.costsRedacted} is `true`.
+     */
+    readonly unitPriceAmount: string | null;
+    readonly lineTotalAmount: string | null;
+    readonly costCurrencyCode: string | null;
 }
 
 export interface GoodsReceipt {
     readonly id: GoodsReceiptId;
     readonly branchId: BranchId;
+    /** Who the stock was bought from (INV1.1), or `null`. */
+    readonly supplier: SupplierRef | null;
+    /** The supplier delivery note or invoice number, as written (INV1.1). */
+    readonly documentRef: string | null;
     /** Always `null` in v1 — there is no purchase-order surface yet to have created one. */
     readonly purchaseOrderId: string | null;
     readonly receivedAt: IsoDateTime | null;
+    /** The one currency the priced lines share, or `null` (mixed, unpriced, or redacted). */
+    readonly currencyCode: string | null;
+    /** The sum of the priced lines, or `null` when mixed-currency, unpriced or redacted. */
+    readonly receiptTotalAmount: string | null;
+    /** `true` when the reader lacks the cost permission and every money field was nulled (INV1.1). */
+    readonly costsRedacted: boolean;
     readonly lines: readonly GoodsReceiptLine[];
 }
 
 export interface GoodsReceiptLineInput {
     readonly stockItemId: StockItemId;
     readonly quantity: number;
+    /** Required whenever a price is given: the unit the price is quoted per (INV1.1). */
+    readonly unitId?: string | null | undefined;
+    /** Major-unit price per {@link unitId}. A priced line needs a `unitId` and a `costCurrencyCode`. */
+    readonly unitPriceAmount?: number | null | undefined;
+    readonly costCurrencyCode?: string | null | undefined;
 }
 
 export interface PostGoodsReceiptRequest {
     readonly branchId: BranchId;
+    /** Who the stock was bought from (INV1.1). */
+    readonly supplierId?: SupplierId | null | undefined;
+    /** The supplier delivery note or invoice number (INV1.1). */
+    readonly documentRef?: string | null | undefined;
     readonly purchaseOrderId?: string | null | undefined;
     readonly lines: readonly GoodsReceiptLineInput[];
 }
@@ -140,6 +205,40 @@ export interface PostGoodsReceiptRequest {
 /** The store's own reply to a post — an id only; the caller re-reads the list for the full row. */
 export interface GoodsReceiptResult {
     readonly id: GoodsReceiptId;
+}
+
+/**
+ * One purchases-ledger row (INV1.1) — a goods-receipt line flattened with the date, supplier and
+ * item it belongs to. The browsable record behind the monthly spend figure; behind
+ * `inventory.view_costs_organisation`, so the money is always present here (unlike the receipts
+ * list, which redacts it for readers without that code).
+ */
+export interface PurchaseLedgerLine {
+    readonly id: string;
+    readonly goodsReceiptId: GoodsReceiptId;
+    readonly receivedAt: IsoDateTime | null;
+    readonly supplier: SupplierRef | null;
+    readonly documentRef: string | null;
+    readonly stockItemId: StockItemId;
+    readonly itemCode: string | null;
+    readonly itemNameEn: string | null;
+    readonly ingredientId: IngredientId | null;
+    readonly quantity: string;
+    readonly unitId: string | null;
+    readonly unitPriceAmount: string | null;
+    readonly lineTotalAmount: string | null;
+    readonly costCurrencyCode: string | null;
+    readonly costsRedacted: boolean;
+}
+
+/** Date range / supplier / ingredient filters over the purchases ledger, plus the cursor. */
+export interface PurchaseLedgerFilter extends CursorPageRequest {
+    /** Inclusive lower bound on the receipt date, as `YYYY-MM-DD`. */
+    readonly from?: string | undefined;
+    /** Inclusive upper bound on the receipt date, as `YYYY-MM-DD`. */
+    readonly to?: string | undefined;
+    readonly supplierId?: SupplierId | undefined;
+    readonly ingredientId?: IngredientId | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -224,11 +323,20 @@ export interface KitchenOpsRepository {
     listStockLevels(): Promise<readonly StockLevel[]>;
     recordStockAdjustment(request: StockAdjustmentRequest): Promise<StockMovement>;
     recordStockWaste(request: StockWasteRequest): Promise<StockMovement>;
+    /** Sets or clears a level's reorder threshold; returns the updated level with its computed `isLow`. */
+    setStockThreshold(request: SetStockThresholdRequest): Promise<StockLevel>;
+    /**
+     * How many levels are low right now, scoped to the active branch context (`X-Branch-Id`) or the
+     * whole organisation when none is set — the count the hub badge reads without opening the list.
+     */
+    countLowStockLevels(): Promise<number>;
 
     listSuppliers(): Promise<readonly Supplier[]>;
-    /** The most recent fifty receipts, newest first. */
+    /** The most recent fifty receipts, newest first. Costs redacted without the cost permission. */
     listGoodsReceipts(): Promise<readonly GoodsReceipt[]>;
     postGoodsReceipt(request: PostGoodsReceiptRequest): Promise<GoodsReceiptResult>;
+    /** The purchases ledger — every receipt line, cursor-paginated. Needs `inventory.view_costs_organisation`. */
+    listPurchasesLedger(filter?: PurchaseLedgerFilter): Promise<CursorPage<PurchaseLedgerLine>>;
 
     /** The most recent fifty production orders, newest first. */
     listProductionOrders(): Promise<readonly ProductionOrder[]>;

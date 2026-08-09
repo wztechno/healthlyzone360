@@ -2644,6 +2644,9 @@ export const zCreateStockItemRequest = z.object({
  * One stock item's on-hand quantity at one branch. `item_code`,
  * `item_name_en` and `ingredient_id` are denormalised from the stock
  * item, so a levels screen never has to round-trip to render a row.
+ * `is_low` is computed on read (INV1.3): true when `reorder_threshold`
+ * is set and `quantity` is at or below it, false when no threshold is
+ * set — never a stored flag.
  *
  */
 export const zStockLevel = z.object({
@@ -2651,9 +2654,39 @@ export const zStockLevel = z.object({
     branch_id: zUuid,
     stock_item_id: zUuid,
     quantity: z.string(),
+    reorder_threshold: z.string().nullable(),
+    par_level: z.string().nullable(),
+    is_low: z.boolean(),
     item_code: z.string(),
     item_name_en: z.string(),
     ingredient_id: zUuid.nullable()
+});
+
+export const zStockLevelEnvelope = z.object({
+    data: z.object({
+        level: zStockLevel
+    }),
+    meta: zMeta
+});
+
+export const zLowStockCountEnvelope = z.object({
+    data: z.object({
+        count: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
+ * Sets or clears a level's reorder threshold. `reorder_threshold` is
+ * required as a field but nullable as a value — passing null clears the
+ * threshold. `par_level` is optional and independently nullable.
+ *
+ */
+export const zSetStockThresholdRequest = z.object({
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    reorder_threshold: z.number().gte(0).nullable(),
+    par_level: z.number().gte(0).nullish()
 });
 
 export const zStockLevelCollection = z.object({
@@ -2699,7 +2732,10 @@ export const zStockWasteRequest = z.object({
 export const zSupplier = z.object({
     id: zUuid,
     code: z.string(),
-    name_en: z.string()
+    name_en: z.string(),
+    currency_code: z.string().nullable(),
+    contact_email: z.string().nullable(),
+    contact_phone: z.string().nullable()
 });
 
 export const zSupplierCollection = z.object({
@@ -2709,22 +2745,50 @@ export const zSupplierCollection = z.object({
     meta: zMeta
 });
 
+/**
+ * The money fields (INV1.1) are served as `null` when the reader lacks
+ * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
+ * `quantity` and `unit_id` are warehouse facts and are never redacted.
+ *
+ */
 export const zGoodsReceiptLine = z.object({
     stock_item_id: zUuid,
-    quantity: z.string()
+    quantity: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_price_amount: z.string().nullable(),
+    line_total_amount: z.string().nullable(),
+    cost_currency_code: z.string().nullable()
 });
 
 /**
- * A receipt stands alone in v1 (O2) — `purchase_order_id` is always
- * null, because there is no purchase-order surface yet to have created
- * one. The column exists for the day there is.
+ * A supplier named on a receipt or ledger line (INV1.1).
+ */
+export const zSupplierRef = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string()
+});
+
+/**
+ * A receipt still has no purchase-order surface in v1 (O2) —
+ * `purchase_order_id` is always null. Since INV1.1 it also records who was
+ * paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
+ * in `currency_code`, offered only when every priced line shares one
+ * currency (there is no exchange rate in this system, §4.4). When the
+ * reader lacks `inventory.view_costs_organisation` every money field is
+ * null and `costs_redacted` is true.
  *
  */
 export const zGoodsReceipt = z.object({
     id: zUuid,
     branch_id: zUuid,
+    supplier: zSupplierRef.nullable(),
+    document_ref: z.string().nullable(),
     purchase_order_id: zUuid.nullable(),
     received_at: z.iso.datetime({ offset: true }).nullable(),
+    currency_code: z.string().nullable(),
+    receipt_total_amount: z.string().nullable(),
+    costs_redacted: z.boolean(),
     lines: z.array(zGoodsReceiptLine)
 });
 
@@ -2735,19 +2799,34 @@ export const zGoodsReceiptCollection = z.object({
     meta: zMeta
 });
 
+/**
+ * A line's price is optional (INV1.1). `cost_currency_code` is required
+ * with a price — a price with no currency is not a price. `unit_id` is
+ * optional: omit it and the price is taken as per the stock item's own
+ * unit, which is how a delivery note reads. A priced line whose stock item
+ * is backed by an ingredient blends into that ingredient's weighted
+ * moving-average cost; an unpriced line moves stock only.
+ *
+ */
 export const zGoodsReceiptLineInput = z.object({
     stock_item_id: zUuid,
-    quantity: z.number().gt(0)
+    quantity: z.number().gt(0),
+    unit_id: zUuid.optional(),
+    unit_price_amount: z.number().gte(0).optional(),
+    cost_currency_code: z.string().length(3).optional()
 });
 
 /**
  * Posting a receipt writes every line straight into the inventory
  * ledger (`reason: receipt`) inside one transaction — there is no
- * draft state to save and return to.
+ * draft state to save and return to. Since INV1.1 it also records the
+ * supplier and document reference and blends each priced line's cost.
  *
  */
 export const zPostGoodsReceiptRequest = z.object({
     branch_id: zUuid,
+    supplier_id: zUuid.nullish(),
+    document_ref: z.string().nullish(),
     purchase_order_id: zUuid.nullish(),
     lines: z.array(zGoodsReceiptLineInput).min(1)
 });
@@ -2759,6 +2838,34 @@ export const zGoodsReceiptEnvelope = z.object({
         })
     }),
     meta: zMeta
+});
+
+/**
+ * One purchases-ledger row — a receipt line with its date, supplier and item (INV1.1).
+ */
+export const zPurchasesLedgerLine = z.object({
+    id: zUuid,
+    goods_receipt_id: zUuid,
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    supplier: zSupplierRef.nullable(),
+    document_ref: z.string().nullable(),
+    stock_item_id: zUuid,
+    item_code: z.string().nullable(),
+    item_name_en: z.string().nullable(),
+    ingredient_id: zUuid.nullable(),
+    quantity: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_price_amount: z.string().nullable(),
+    line_total_amount: z.string().nullable(),
+    cost_currency_code: z.string().nullable(),
+    costs_redacted: z.boolean()
+});
+
+export const zPurchasesLedgerCollection = z.object({
+    data: z.object({
+        purchases: z.array(zPurchasesLedgerLine)
+    }),
+    meta: zPaginationMeta
 });
 
 export const zProductionOrder = z.object({
@@ -8980,6 +9087,29 @@ export const zListStockLevelsHeaders = z.object({
  */
 export const zListStockLevelsResponse = zStockLevelCollection;
 
+export const zCountLowStockLevelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The count of low-stock levels in scope.
+ */
+export const zCountLowStockLevelsResponse = zLowStockCountEnvelope;
+
+export const zSetStockThresholdBody = zSetStockThresholdRequest;
+
+export const zSetStockThresholdHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The threshold was set and the level returned.
+ */
+export const zSetStockThresholdResponse = zStockLevelEnvelope;
+
 export const zRecordStockAdjustmentBody = zStockAdjustmentRequest;
 
 export const zRecordStockAdjustmentHeaders = z.object({
@@ -9035,6 +9165,25 @@ export const zCreateGoodsReceiptHeaders = z.object({
  * The receipt was posted and inventory updated.
  */
 export const zCreateGoodsReceiptResponse = zGoodsReceiptEnvelope;
+
+export const zListPurchasesLedgerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPurchasesLedgerQuery = z.object({
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    supplier_id: zUuid.optional(),
+    ingredient_id: zUuid.optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of purchases-ledger lines, newest first.
+ */
+export const zListPurchasesLedgerResponse = zPurchasesLedgerCollection;
 
 export const zListProductionOrdersHeaders = z.object({
     'X-Organisation-Id': zUuid,

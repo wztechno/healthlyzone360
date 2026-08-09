@@ -3686,6 +3686,9 @@ export type CreateStockItemRequest = {
  * One stock item's on-hand quantity at one branch. `item_code`,
  * `item_name_en` and `ingredient_id` are denormalised from the stock
  * item, so a levels screen never has to round-trip to render a row.
+ * `is_low` is computed on read (INV1.3): true when `reorder_threshold`
+ * is set and `quantity` is at or below it, false when no threshold is
+ * set — never a stored flag.
  *
  */
 export type StockLevel = {
@@ -3696,9 +3699,57 @@ export type StockLevel = {
      * A decimal string, never a float — precision the wire must not round away.
      */
     quantity: string;
+    /**
+     * The reorder point as a decimal string, or null when no threshold is set (never low).
+     */
+    reorder_threshold: string | null;
+    /**
+     * The level to restock back up to, as a decimal string, or null when not set.
+     */
+    par_level: string | null;
+    /**
+     * Computed — the threshold is set and quantity is at or below it.
+     */
+    is_low: boolean;
     item_code: string;
     item_name_en: string;
     ingredient_id: Uuid | null;
+};
+
+export type StockLevelEnvelope = {
+    data: {
+        level: StockLevel;
+    };
+    meta: Meta;
+};
+
+export type LowStockCountEnvelope = {
+    data: {
+        /**
+         * How many levels in scope are low right now.
+         */
+        count: number;
+    };
+    meta: Meta;
+};
+
+/**
+ * Sets or clears a level's reorder threshold. `reorder_threshold` is
+ * required as a field but nullable as a value — passing null clears the
+ * threshold. `par_level` is optional and independently nullable.
+ *
+ */
+export type SetStockThresholdRequest = {
+    branch_id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * The reorder point; null clears the threshold (the item is then never low).
+     */
+    reorder_threshold: number | null;
+    /**
+     * Optional target level to restock back up to; null clears it.
+     */
+    par_level?: number | null;
 };
 
 export type StockLevelCollection = {
@@ -3748,6 +3799,12 @@ export type Supplier = {
     id: Uuid;
     code: string;
     name_en: string;
+    /**
+     * The currency this supplier usually invoices in (ISO 4217), or null (INV1.1).
+     */
+    currency_code: string | null;
+    contact_email: string | null;
+    contact_phone: string | null;
 };
 
 export type SupplierCollection = {
@@ -3757,23 +3814,63 @@ export type SupplierCollection = {
     meta: Meta;
 };
 
+/**
+ * The money fields (INV1.1) are served as `null` when the reader lacks
+ * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
+ * `quantity` and `unit_id` are warehouse facts and are never redacted.
+ *
+ */
 export type GoodsReceiptLine = {
     stock_item_id: Uuid;
     quantity: string;
+    /**
+     * The unit the price is quoted per (INV1.1).
+     */
+    unit_id: Uuid | null;
+    /**
+     * Major currency units per unit_id (§4.4), or null when unpriced or redacted.
+     */
+    unit_price_amount: string | null;
+    line_total_amount: string | null;
+    cost_currency_code: string | null;
 };
 
 /**
- * A receipt stands alone in v1 (O2) — `purchase_order_id` is always
- * null, because there is no purchase-order surface yet to have created
- * one. The column exists for the day there is.
+ * A receipt still has no purchase-order surface in v1 (O2) —
+ * `purchase_order_id` is always null. Since INV1.1 it also records who was
+ * paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
+ * in `currency_code`, offered only when every priced line shares one
+ * currency (there is no exchange rate in this system, §4.4). When the
+ * reader lacks `inventory.view_costs_organisation` every money field is
+ * null and `costs_redacted` is true.
  *
  */
 export type GoodsReceipt = {
     id: Uuid;
     branch_id: Uuid;
+    supplier: SupplierRef | null;
+    /**
+     * The supplier delivery note or invoice number, as written (INV1.1).
+     */
+    document_ref: string | null;
     purchase_order_id: Uuid | null;
     received_at: string | null;
+    currency_code: string | null;
+    receipt_total_amount: string | null;
+    /**
+     * True when the reader lacks inventory.view_costs_organisation and money fields were nulled (INV1.1).
+     */
+    costs_redacted: boolean;
     lines: Array<GoodsReceiptLine>;
+};
+
+/**
+ * A supplier named on a receipt or ledger line (INV1.1).
+ */
+export type SupplierRef = {
+    id: Uuid;
+    code: string;
+    name_en: string;
 };
 
 export type GoodsReceiptCollection = {
@@ -3783,19 +3880,43 @@ export type GoodsReceiptCollection = {
     meta: Meta;
 };
 
+/**
+ * A line's price is optional (INV1.1). `cost_currency_code` is required
+ * with a price — a price with no currency is not a price. `unit_id` is
+ * optional: omit it and the price is taken as per the stock item's own
+ * unit, which is how a delivery note reads. A priced line whose stock item
+ * is backed by an ingredient blends into that ingredient's weighted
+ * moving-average cost; an unpriced line moves stock only.
+ *
+ */
 export type GoodsReceiptLineInput = {
     stock_item_id: Uuid;
     quantity: number;
+    unit_id?: Uuid;
+    /**
+     * Major currency units per unit_id (§4.4).
+     */
+    unit_price_amount?: number;
+    cost_currency_code?: string;
 };
 
 /**
  * Posting a receipt writes every line straight into the inventory
  * ledger (`reason: receipt`) inside one transaction — there is no
- * draft state to save and return to.
+ * draft state to save and return to. Since INV1.1 it also records the
+ * supplier and document reference and blends each priced line's cost.
  *
  */
 export type PostGoodsReceiptRequest = {
     branch_id: Uuid;
+    /**
+     * Who the stock was bought from (INV1.1).
+     */
+    supplier_id?: Uuid | null;
+    /**
+     * The supplier delivery note or invoice number (INV1.1).
+     */
+    document_ref?: string | null;
     /**
      * Accepted for forward compatibility; no endpoint creates one yet (O2).
      */
@@ -3810,6 +3931,34 @@ export type GoodsReceiptEnvelope = {
         };
     };
     meta: Meta;
+};
+
+/**
+ * One purchases-ledger row — a receipt line with its date, supplier and item (INV1.1).
+ */
+export type PurchasesLedgerLine = {
+    id: Uuid;
+    goods_receipt_id: Uuid;
+    received_at: string | null;
+    supplier: SupplierRef | null;
+    document_ref: string | null;
+    stock_item_id: Uuid;
+    item_code: string | null;
+    item_name_en: string | null;
+    ingredient_id: Uuid | null;
+    quantity: string;
+    unit_id: Uuid | null;
+    unit_price_amount: string | null;
+    line_total_amount: string | null;
+    cost_currency_code: string | null;
+    costs_redacted: boolean;
+};
+
+export type PurchasesLedgerCollection = {
+    data: {
+        purchases: Array<PurchasesLedgerLine>;
+    };
+    meta: PaginationMeta;
 };
 
 export type ProductionOrder = {
@@ -18182,6 +18331,118 @@ export type ListStockLevelsResponses = {
 
 export type ListStockLevelsResponse = ListStockLevelsResponses[keyof ListStockLevelsResponses];
 
+export type CountLowStockLevelsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         */
+        'X-Branch-Id'?: Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/low-stock-count';
+};
+
+export type CountLowStockLevelsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CountLowStockLevelsError = CountLowStockLevelsErrors[keyof CountLowStockLevelsErrors];
+
+export type CountLowStockLevelsResponses = {
+    /**
+     * The count of low-stock levels in scope.
+     */
+    200: LowStockCountEnvelope;
+};
+
+export type CountLowStockLevelsResponse = CountLowStockLevelsResponses[keyof CountLowStockLevelsResponses];
+
+export type SetStockThresholdData = {
+    body: SetStockThresholdRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/threshold';
+};
+
+export type SetStockThresholdErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SetStockThresholdError = SetStockThresholdErrors[keyof SetStockThresholdErrors];
+
+export type SetStockThresholdResponses = {
+    /**
+     * The threshold was set and the level returned.
+     */
+    200: StockLevelEnvelope;
+};
+
+export type SetStockThresholdResponse = SetStockThresholdResponses[keyof SetStockThresholdResponses];
+
 export type RecordStockAdjustmentData = {
     body: StockAdjustmentRequest;
     headers: {
@@ -18448,6 +18709,85 @@ export type CreateGoodsReceiptResponses = {
 };
 
 export type CreateGoodsReceiptResponse = CreateGoodsReceiptResponses[keyof CreateGoodsReceiptResponses];
+
+export type ListPurchasesLedgerData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Only lines whose receipt was received on or after this date.
+         */
+        from?: string;
+        /**
+         * Only lines whose receipt was received on or before this date.
+         */
+        to?: string;
+        supplier_id?: Uuid;
+        ingredient_id?: Uuid;
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/catalogue/procurement/purchases-ledger';
+};
+
+export type ListPurchasesLedgerErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPurchasesLedgerError = ListPurchasesLedgerErrors[keyof ListPurchasesLedgerErrors];
+
+export type ListPurchasesLedgerResponses = {
+    /**
+     * A page of purchases-ledger lines, newest first.
+     */
+    200: PurchasesLedgerCollection;
+};
+
+export type ListPurchasesLedgerResponse = ListPurchasesLedgerResponses[keyof ListPurchasesLedgerResponses];
 
 export type ListProductionOrdersData = {
     body?: never;

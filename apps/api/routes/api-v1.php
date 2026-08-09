@@ -160,6 +160,8 @@ use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
 use Healthy360\Inventory\Http\Controllers\StockItemStoreController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
+use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
+use Healthy360\Inventory\Http\Controllers\StockThresholdController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
 use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketBumpController;
 use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketIndexController;
@@ -205,6 +207,7 @@ use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
+use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
@@ -1350,6 +1353,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:inventory.view_organisation')->group(function (): void {
                 Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
                 Route::get('/inventory/levels', StockLevelIndexController::class)->name('catalogue.inventory.levels.index');
+                Route::get('/inventory/low-stock-count', StockLowStockCountController::class)->name('catalogue.inventory.low-stock-count');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
@@ -1361,6 +1365,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/items', StockItemStoreController::class)->name('catalogue.inventory.items.store');
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
+                Route::patch('/inventory/threshold', StockThresholdController::class)->name('catalogue.inventory.threshold.update');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
                 Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
                 Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');
@@ -1368,6 +1373,17 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/quality-control/checks/{qualityCheck}/hold', QualityCheckHoldController::class)->name('catalogue.quality-control.checks.hold');
                 Route::post('/quality-control/checks/{qualityCheck}/release', QualityCheckReleaseController::class)->name('catalogue.quality-control.checks.release');
                 Route::post('/kitchen-display/tickets/{ticket}/bump', KdsTicketBumpController::class)->name('catalogue.kitchen-display.tickets.bump');
+            });
+
+            /*
+            | The purchases ledger (INV1.1) reads the money on every receipt
+            | line, so it sits behind `inventory.view_costs_organisation` rather
+            | than the plain view code the rest of this surface takes. A person
+            | who may count stock and post receipts but not read their valuation
+            | gets a 403 here — the redacted goods-receipts index is their read.
+            */
+            Route::middleware('permission:inventory.view_costs_organisation')->group(function (): void {
+                Route::get('/procurement/purchases-ledger', PurchasesLedgerIndexController::class)->name('catalogue.procurement.purchases-ledger.index');
             });
 
             Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {

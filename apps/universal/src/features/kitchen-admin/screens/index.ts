@@ -42,6 +42,7 @@ export { ProcurementScreen } from './procurement-screen.tsx';
 export { ProductEditScreen } from './product-edit-screen.tsx';
 export { ProductsScreen } from './products-screen.tsx';
 export { ProductionScreen } from './production-screen.tsx';
+export { PurchasesLedgerScreen } from './purchases-ledger-screen.tsx';
 export { QualityControlScreen } from './quality-control-screen.tsx';
 export { RecipeEditScreen } from './recipe-edit-screen.tsx';
 export { RecipesScreen } from './recipes-screen.tsx';

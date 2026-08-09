@@ -1,16 +1,21 @@
-import { Button, Inline, Select, Stack, TextInputField } from '@healthy360/design-system';
+import { Button, Inline, Select, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 
 /**
  * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line, a production
  * order's consumed or yielded quantities. `key` is a client-only identity for React's list
  * reconciliation; it never reaches the wire (`GoodsReceiptLineInput` / `ProductionMovementInput`
- * carry only `stockItemId` and `quantity`).
+ * carry only `stockItemId`, `quantity` and, for a receipt, an optional `unitPriceAmount`).
+ *
+ * `unitPrice` is captured only by the goods-receipt form (INV1.1), where `withCost` is set; the
+ * production-order form leaves it untouched and never renders the column.
  */
 export interface StockItemLineDraft {
     readonly key: string;
     readonly stockItemId: string | null;
     readonly quantity: string;
+    /** Major-unit price per the item's own unit; only the receipt form fills it (INV1.1). */
+    readonly unitPrice?: string;
 }
 
 export function emptyStockItemLine(key: string): StockItemLineDraft {
@@ -26,6 +31,11 @@ export interface StockItemLineEditorProps {
     readonly quantityLabel: string;
     readonly addLabel: string;
     readonly removeLabel: string;
+    /** When set, each row also captures a unit price and shows a running line total (INV1.1). */
+    readonly withCost?: boolean;
+    readonly unitPriceLabel?: string;
+    /** Renders a per-row line total and the receipt total: `(quantity, unitPrice) => formatted`. */
+    readonly formatMoney?: (amount: number) => string;
 }
 
 /**
@@ -43,6 +53,9 @@ export function StockItemLineEditor({
     quantityLabel,
     addLabel,
     removeLabel,
+    withCost = false,
+    unitPriceLabel,
+    formatMoney,
 }: StockItemLineEditorProps) {
     function updateLine(key: string, patch: Partial<StockItemLineDraft>) {
         onChange(lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -55,6 +68,9 @@ export function StockItemLineEditor({
     function addLine() {
         onChange([...lines, emptyStockItemLine(`${testID}-line-${String(lines.length + 1)}-${String(Date.now())}`)]);
     }
+
+    const money = formatMoney ?? ((amount: number) => amount.toFixed(2));
+    const receiptTotal = withCost ? lines.reduce((sum, line) => sum + lineTotal(line), 0) : 0;
 
     return (
         <Stack space="sm" testID={testID}>
@@ -81,6 +97,27 @@ export function StockItemLineEditor({
                         keyboardType="decimal-pad"
                         className="w-28"
                     />
+                    {withCost ? (
+                        <TextInputField
+                            testID={`${testID}-row-${String(index)}-unit-price`}
+                            label={unitPriceLabel ?? ''}
+                            value={line.unitPrice ?? ''}
+                            onChangeText={(value) => {
+                                updateLine(line.key, { unitPrice: value });
+                            }}
+                            keyboardType="decimal-pad"
+                            className="w-28"
+                        />
+                    ) : null}
+                    {withCost ? (
+                        <Text
+                            testID={`${testID}-row-${String(index)}-line-total`}
+                            variant="bodyStrong"
+                            tone="secondary"
+                        >
+                            {lineTotal(line) === 0 ? '—' : money(lineTotal(line))}
+                        </Text>
+                    ) : null}
                     <Button
                         testID={`${testID}-row-${String(index)}-remove`}
                         variant="ghost"
@@ -92,9 +129,26 @@ export function StockItemLineEditor({
                     />
                 </Inline>
             ))}
+            {withCost ? (
+                <Inline space="sm" align="center" justify="end">
+                    <Text testID={`${testID}-receipt-total`} variant="bodyStrong">
+                        {receiptTotal === 0 ? '—' : money(receiptTotal)}
+                    </Text>
+                </Inline>
+            ) : null}
             <Button testID={`${testID}-add`} variant="secondary" size="sm" label={addLabel} onPress={addLine} />
         </Stack>
     );
+}
+
+/** quantity × unit price for one row, or `0` when either is missing or non-positive. */
+function lineTotal(line: StockItemLineDraft): number {
+    const quantity = Number(line.quantity);
+    const price = Number(line.unitPrice ?? '');
+    if (!Number.isFinite(quantity) || !Number.isFinite(price) || quantity <= 0 || price < 0) {
+        return 0;
+    }
+    return quantity * price;
 }
 
 /**
@@ -119,4 +173,38 @@ export function stockItemLinesToInputs(
     return lines
         .filter((line) => line.stockItemId !== null && line.quantity.trim() !== '')
         .map((line) => ({ stockItemId: line.stockItemId as string, quantity: Number(line.quantity) }));
+}
+
+/**
+ * Maps drafts to `GoodsReceiptLineInput`s (INV1.1): the shared `stockItemId`/`quantity`, plus an
+ * optional `unitPriceAmount` (per the item's own unit) and its `costCurrencyCode`. A blank or
+ * non-positive price is dropped rather than sent as zero — an unpriced line is a legal receipt
+ * line that moves stock without touching cost.
+ */
+export function stockItemLinesToReceiptInputs(
+    lines: readonly StockItemLineDraft[],
+    currencyCode: string | null,
+): readonly {
+    stockItemId: string;
+    quantity: number;
+    unitPriceAmount?: number;
+    costCurrencyCode?: string;
+}[] {
+    return lines
+        .filter((line) => line.stockItemId !== null && line.quantity.trim() !== '')
+        .map((line) => {
+            const price = Number(line.unitPrice ?? '');
+            const priced =
+                line.unitPrice !== undefined &&
+                line.unitPrice.trim() !== '' &&
+                Number.isFinite(price) &&
+                price >= 0 &&
+                currencyCode !== null;
+
+            return {
+                stockItemId: line.stockItemId as string,
+                quantity: Number(line.quantity),
+                ...(priced ? { unitPriceAmount: price, costCurrencyCode: currencyCode } : {}),
+            };
+        });
 }

@@ -249,14 +249,14 @@ modules:
   - name: Inventory
     status: foundation
     phase: 2
-    description: Stock items, per-branch stock levels and a movement ledger (adjust, waste, receipt, consume, yield) without valuation in v1.
+    description: Stock items, per-branch stock levels and an append-only movement ledger (adjust, waste, receipt, consume, yield), plus each ingredient's weighted moving-average cost and its cost-event ledger (INV1.1); COGS reads the average at consume time.
     depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Ingredients, Kitchens]
 
   - name: Procurement
     status: foundation
     phase: 2
-    description: Suppliers, purchase orders and goods receipts that post quantity into the inventory ledger.
-    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Inventory]
+    description: Suppliers, purchase orders and goods receipts that post quantity and cost into the inventory ledger, blending each priced purchase into an ingredient's weighted moving-average cost.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Inventory]
 
   - name: Production
     status: foundation

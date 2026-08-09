@@ -37,6 +37,7 @@ import {
     useZoneSummaryQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { PublishedFamilySummary } from '../../../data/kitchen-admin-hooks.ts';
+import { useLowStockCountQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
@@ -501,6 +502,7 @@ export function KitchenHomeScreen() {
     const zoneSummary = useZoneSummaryQuery(permitted.has('delivery-zones'));
     const ingredientSummary = useIngredientSummaryQuery(permitted.has('ingredients'));
     const reviewSources = useReviewQueueQuery(permitted.has('review'));
+    const lowStock = useLowStockCountQuery(permitted.has('stock'));
 
     const reviewQueue = useMemo(() => {
         const data = reviewSources.data;
@@ -548,6 +550,19 @@ export function KitchenHomeScreen() {
         ? null
         : (mealSummary.data?.published ?? null);
     const zoneTotal = zoneSummary.isPending ? null : (zoneSummary.data?.total ?? null);
+    // Low-stock count for the KPI strip (INV1.3): an operational fact computed from
+    // records people created — quantities and the reorder points a manager set — so it
+    // carries the green/operational tone (Rule 5 keeps violet for machine-generated
+    // content). Only shown when the manager can see stock at all.
+    //
+    // Clean seam for a later phase: when an email/WhatsApp low-stock alert is built, it
+    // reads the same `countLowStockLevels` count (or the per-level `isLow`) this tile shows
+    // — there is no stored flag and no job to reconcile with. Nothing is notified now.
+    const lowStockCount = permitted.has('stock')
+        ? lowStock.isPending
+            ? null
+            : (lowStock.data ?? null)
+        : null;
 
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
@@ -605,6 +620,21 @@ export function KitchenHomeScreen() {
                                         value={zoneTotal}
                                         pending={zoneSummary.isPending}
                                     />
+                                    {permitted.has('stock') ? (
+                                        <KpiTile
+                                            testID="kitchen-kpi-low-stock"
+                                            label={t('kitchen:hub.kpi.lowStock')}
+                                            value={lowStockCount}
+                                            pending={lowStock.isPending}
+                                            hint={
+                                                lowStockCount !== null && lowStockCount > 0
+                                                    ? t('kitchen:ops.stock.lowStockCount', {
+                                                          count: lowStockCount,
+                                                      })
+                                                    : undefined
+                                            }
+                                        />
+                                    ) : null}
                                 </View>
                             </FadeIn>
 

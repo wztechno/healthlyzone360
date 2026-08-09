@@ -37,7 +37,8 @@
             "needsReview": "Needs review",
             "drafts": "Catalogue drafts",
             "publishedMeals": "Published meals",
-            "deliveryZones": "Delivery zones"
+            "deliveryZones": "Delivery zones",
+            "lowStock": "Low stock"
         }
     },
     "nav": {
@@ -144,7 +145,8 @@
             "metrics": {
                 "items": "Items",
                 "levels": "With stock",
-                "outOfStock": "Out of stock"
+                "outOfStock": "Out of stock",
+                "lowStock": "Low stock"
             },
             "levelsTitle": "On-hand levels",
             "itemsTitle": "Stock items",
@@ -177,7 +179,20 @@
             "createdToast": "Stock item {{name}} created.",
             "adjustedToast": "Stock adjusted for {{name}}.",
             "wastedToast": "Waste logged for {{name}}.",
-            "saveFailed": "The stock item could not be saved."
+            "saveFailed": "The stock item could not be saved.",
+            "columnThreshold": "Reorder at",
+            "noThreshold": "No threshold",
+            "lowBadge": "Low",
+            "threshold": "Threshold",
+            "thresholdTitle": "Reorder threshold — {{name}}",
+            "fieldThreshold": "Reorder threshold",
+            "fieldThresholdHint": "Flag as low when on-hand falls to or below this. Leave blank for no threshold.",
+            "fieldParLevel": "Par level (optional)",
+            "fieldParLevelHint": "The level to restock back up to.",
+            "thresholdSetToast": "Reorder threshold set for {{name}}.",
+            "thresholdClearedToast": "Reorder threshold cleared for {{name}}.",
+            "lowStockCount_one": "{{count}} item at or below its reorder point",
+            "lowStockCount_other": "{{count}} items at or below their reorder point"
         },
         "procurement": {
             "title": "Procurement",
@@ -202,8 +217,32 @@
             "notYetReceived": "Pending",
             "fieldLineItem": "Stock item",
             "fieldLineQuantity": "Quantity",
+            "fieldLineUnitPrice": "Unit price",
+            "fieldSupplier": "Supplier",
+            "fieldDocumentRef": "Document reference",
+            "priceNeedsSupplierCurrency": "Choose a supplier with a currency to enter prices.",
+            "columnTotal": "Total",
+            "noSupplier": "No supplier",
+            "costsRedacted": "Hidden",
             "addLine": "Add line",
             "removeLine": "Remove"
+        },
+        "ledger": {
+            "title": "Purchases ledger",
+            "subtitle": "Every goods-receipt line — date, supplier, item, quantity and price. The record behind the month's spend.",
+            "emptyTitle": "No purchases yet",
+            "emptyBody": "Posted goods receipts appear here, newest first, once stock has been received.",
+            "allSuppliers": "All suppliers",
+            "noSupplier": "No supplier",
+            "columnDate": "Date",
+            "columnSupplier": "Supplier",
+            "columnItem": "Item",
+            "columnUnitPrice": "Unit price",
+            "columnLineTotal": "Line total",
+            "filterSupplier": "Supplier",
+            "filterFrom": "From",
+            "filterTo": "To",
+            "nextPage": "Next 25"
         },
         "production": {
             "title": "Production",
@@ -357,6 +396,10 @@
         "procurement": {
             "name": "Procurement",
             "description": "Suppliers, purchase orders and goods receipts that post into stock."
+        },
+        "purchases": {
+            "name": "Purchases ledger",
+            "description": "Every purchase — date, supplier, item, quantity and price — behind the month's spend."
         },
         "production": {
             "name": "Production",

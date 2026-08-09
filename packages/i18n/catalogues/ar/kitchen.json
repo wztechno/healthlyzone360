@@ -53,7 +53,8 @@
             "needsReview": "يحتاج مراجعة",
             "drafts": "مسودات الكتالوج",
             "publishedMeals": "وجبات منشورة",
-            "deliveryZones": "مناطق التوصيل"
+            "deliveryZones": "مناطق التوصيل",
+            "lowStock": "مخزون منخفض"
         }
     },
     "nav": {
@@ -160,7 +161,8 @@
             "metrics": {
                 "items": "أصناف",
                 "levels": "بمخزون",
-                "outOfStock": "نفد المخزون"
+                "outOfStock": "نفد المخزون",
+                "lowStock": "مخزون منخفض"
             },
             "levelsTitle": "المستويات المتوفرة",
             "itemsTitle": "أصناف المخزون",
@@ -193,7 +195,24 @@
             "createdToast": "تم إنشاء صنف المخزون {{name}}.",
             "adjustedToast": "تم تعديل مخزون {{name}}.",
             "wastedToast": "تم تسجيل هدر لـ {{name}}.",
-            "saveFailed": "تعذّر حفظ صنف المخزون."
+            "saveFailed": "تعذّر حفظ صنف المخزون.",
+            "columnThreshold": "حد إعادة الطلب",
+            "noThreshold": "بلا حد",
+            "lowBadge": "منخفض",
+            "threshold": "الحد",
+            "thresholdTitle": "حد إعادة الطلب — {{name}}",
+            "fieldThreshold": "حد إعادة الطلب",
+            "fieldThresholdHint": "يُعلَّم منخفضًا عندما يبلغ المتوفر هذا الحد أو أقل. اتركه فارغًا لإلغاء الحد.",
+            "fieldParLevel": "المستوى المستهدف (اختياري)",
+            "fieldParLevelHint": "المستوى المطلوب إعادة التخزين إليه.",
+            "thresholdSetToast": "تم ضبط حد إعادة الطلب لـ {{name}}.",
+            "thresholdClearedToast": "تم إلغاء حد إعادة الطلب لـ {{name}}.",
+            "lowStockCount_zero": "لا أصناف عند حد إعادة الطلب أو دونه",
+            "lowStockCount_one": "صنف واحد عند حد إعادة الطلب أو دونه",
+            "lowStockCount_two": "صنفان عند حد إعادة الطلب أو دونه",
+            "lowStockCount_few": "{{count}} أصناف عند حد إعادة الطلب أو دونها",
+            "lowStockCount_many": "{{count}} صنفًا عند حد إعادة الطلب أو دونه",
+            "lowStockCount_other": "{{count}} صنف عند حد إعادة الطلب أو دونه"
         },
         "procurement": {
             "title": "المشتريات",
@@ -218,8 +237,32 @@
             "notYetReceived": "معلّق",
             "fieldLineItem": "صنف المخزون",
             "fieldLineQuantity": "الكمية",
+            "fieldLineUnitPrice": "سعر الوحدة",
+            "fieldSupplier": "المورّد",
+            "fieldDocumentRef": "المرجع المستندي",
+            "priceNeedsSupplierCurrency": "اختر مورّدًا له عملة لإدخال الأسعار.",
+            "columnTotal": "الإجمالي",
+            "noSupplier": "بدون مورّد",
+            "costsRedacted": "مخفي",
             "addLine": "إضافة بند",
             "removeLine": "إزالة"
+        },
+        "ledger": {
+            "title": "سجل المشتريات",
+            "subtitle": "كل بند استلام — التاريخ والمورّد والصنف والكمية والسعر. السجل وراء إنفاق الشهر.",
+            "emptyTitle": "لا مشتريات بعد",
+            "emptyBody": "تظهر سندات الاستلام هنا، الأحدث أولًا، بعد استلام المخزون.",
+            "allSuppliers": "كل المورّدين",
+            "noSupplier": "بدون مورّد",
+            "columnDate": "التاريخ",
+            "columnSupplier": "المورّد",
+            "columnItem": "الصنف",
+            "columnUnitPrice": "سعر الوحدة",
+            "columnLineTotal": "إجمالي البند",
+            "filterSupplier": "المورّد",
+            "filterFrom": "من",
+            "filterTo": "إلى",
+            "nextPage": "التالي ٢٥"
         },
         "production": {
             "title": "الإنتاج",
@@ -373,6 +416,10 @@
         "procurement": {
             "name": "المشتريات",
             "description": "الموردون وأوامر الشراء واستلام البضائع التي تدخل المخزون."
+        },
+        "purchases": {
+            "name": "سجل المشتريات",
+            "description": "كل عملية شراء — التاريخ والمورّد والصنف والكمية والسعر — وراء إنفاق الشهر."
         },
         "production": {
             "name": "الإنتاج",

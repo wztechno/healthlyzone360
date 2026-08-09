@@ -389,8 +389,11 @@ export const queryKeys = {
         all: () => ['kitchenOps'] as const,
         stockItems: () => ['kitchenOps', 'stock-items'] as const,
         stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
+        lowStockCount: () => ['kitchenOps', 'low-stock-count'] as const,
         suppliers: () => ['kitchenOps', 'suppliers'] as const,
         goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
+        purchasesLedger: (filter: object = {}) =>
+            ['kitchenOps', 'purchases-ledger', filter] as const,
         productionOrders: () => ['kitchenOps', 'production-orders'] as const,
         qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
     },

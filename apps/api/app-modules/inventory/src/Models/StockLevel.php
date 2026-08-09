@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property string $branch_id
  * @property string $stock_item_id
  * @property numeric-string $quantity
+ * @property numeric-string|null $reorder_threshold the reorder point; null means no threshold set, which reads as never low (INV1.3)
+ * @property numeric-string|null $par_level the level to restock back up to; recorded beside the threshold, unused by the low-stock computation
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -33,7 +35,11 @@ class StockLevel extends BaseModel implements OrganisationScoped
 
     protected function casts(): array
     {
-        return ['quantity' => 'decimal:4'];
+        return [
+            'quantity' => 'decimal:4',
+            'reorder_threshold' => 'decimal:4',
+            'par_level' => 'decimal:4',
+        ];
     }
 
     /**

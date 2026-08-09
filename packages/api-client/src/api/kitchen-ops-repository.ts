@@ -9,34 +9,43 @@ import {
     SupplierId,
 } from '@healthy360/domain-types';
 
+import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     CompleteProductionOrderRequest,
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
     GoodsReceipt,
+    GoodsReceiptLine,
     GoodsReceiptResult,
     KitchenOpsRepository,
     PostGoodsReceiptRequest,
     ProductionOrder,
     ProductionOrderResult,
+    PurchaseLedgerFilter,
+    PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
+    SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,
     StockLevel,
     StockMovement,
     StockWasteRequest,
     Supplier,
+    SupplierRef,
 } from '../contracts/kitchen-ops.ts';
 import type {
     GoodsReceipt as WireGoodsReceipt,
+    GoodsReceiptLine as WireGoodsReceiptLine,
     ProductionOrder as WireProductionOrder,
+    PurchasesLedgerLine as WirePurchaseLedgerLine,
     QualityCheck as WireQualityCheck,
     StockItem as WireStockItem,
     StockLevel as WireStockLevel,
     StockMovement as WireStockMovement,
     Supplier as WireSupplier,
+    SupplierRef as WireSupplierRef,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
 
@@ -68,6 +77,9 @@ function mapStockLevel(wire: WireStockLevel): StockLevel {
         branchId: BranchId.unsafe(wire.branch_id),
         stockItemId: StockItemId.unsafe(wire.stock_item_id),
         quantity: wire.quantity,
+        reorderThreshold: wire.reorder_threshold,
+        parLevel: wire.par_level,
+        isLow: wire.is_low,
         itemCode: wire.item_code,
         itemNameEn: wire.item_name_en,
         ingredientId: wire.ingredient_id === null ? null : IngredientId.unsafe(wire.ingredient_id),
@@ -83,19 +95,65 @@ function mapStockMovement(wire: WireStockMovement): StockMovement {
 }
 
 function mapSupplier(wire: WireSupplier): Supplier {
-    return { id: SupplierId.unsafe(wire.id), code: wire.code, nameEn: wire.name_en };
+    return {
+        id: SupplierId.unsafe(wire.id),
+        code: wire.code,
+        nameEn: wire.name_en,
+        currencyCode: wire.currency_code,
+        contactEmail: wire.contact_email,
+        contactPhone: wire.contact_phone,
+    };
+}
+
+function mapSupplierRef(wire: WireSupplierRef | null): SupplierRef | null {
+    return wire === null
+        ? null
+        : { id: SupplierId.unsafe(wire.id), code: wire.code, nameEn: wire.name_en };
+}
+
+function mapGoodsReceiptLine(line: WireGoodsReceiptLine): GoodsReceiptLine {
+    return {
+        stockItemId: StockItemId.unsafe(line.stock_item_id),
+        quantity: line.quantity,
+        unitId: line.unit_id,
+        unitPriceAmount: line.unit_price_amount,
+        lineTotalAmount: line.line_total_amount,
+        costCurrencyCode: line.cost_currency_code,
+    };
 }
 
 function mapGoodsReceipt(wire: WireGoodsReceipt): GoodsReceipt {
     return {
         id: GoodsReceiptId.unsafe(wire.id),
         branchId: BranchId.unsafe(wire.branch_id),
+        supplier: mapSupplierRef(wire.supplier),
+        documentRef: wire.document_ref,
         purchaseOrderId: wire.purchase_order_id,
         receivedAt: wire.received_at,
-        lines: wire.lines.map((line) => ({
-            stockItemId: StockItemId.unsafe(line.stock_item_id),
-            quantity: line.quantity,
-        })),
+        currencyCode: wire.currency_code,
+        receiptTotalAmount: wire.receipt_total_amount,
+        costsRedacted: wire.costs_redacted,
+        lines: wire.lines.map(mapGoodsReceiptLine),
+    };
+}
+
+function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine {
+    return {
+        id: wire.id,
+        goodsReceiptId: GoodsReceiptId.unsafe(wire.goods_receipt_id),
+        receivedAt: wire.received_at,
+        supplier: mapSupplierRef(wire.supplier),
+        documentRef: wire.document_ref,
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        itemCode: wire.item_code,
+        itemNameEn: wire.item_name_en,
+        ingredientId: wire.ingredient_id === null ? null : IngredientId.unsafe(wire.ingredient_id),
+        quantity: wire.quantity,
+        unitId: wire.unit_id,
+        unitPriceAmount: wire.unit_price_amount,
+        lineTotalAmount: wire.line_total_amount,
+        costCurrencyCode: wire.cost_currency_code,
+        costsRedacted: wire.costs_redacted,
     };
 }
 
@@ -188,6 +246,29 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return mapStockMovement(envelope.data.movement);
         },
 
+        async setStockThreshold(request: SetStockThresholdRequest): Promise<StockLevel> {
+            const envelope = await transport.requestEnvelope<{
+                readonly level: WireStockLevel;
+            }>({
+                method: 'PATCH',
+                path: '/catalogue/inventory/threshold',
+                body: {
+                    branch_id: String(request.branchId),
+                    stock_item_id: String(request.stockItemId),
+                    reorder_threshold: request.reorderThreshold,
+                    ...(request.parLevel === undefined ? {} : { par_level: request.parLevel }),
+                },
+            });
+            return mapStockLevel(envelope.data.level);
+        },
+
+        async countLowStockLevels(): Promise<number> {
+            const envelope = await transport.requestEnvelope<{
+                readonly count: number;
+            }>({ method: 'GET', path: '/catalogue/inventory/low-stock-count' });
+            return envelope.data.count;
+        },
+
         async listSuppliers(): Promise<readonly Supplier[]> {
             const envelope = await transport.requestEnvelope<{
                 readonly suppliers: readonly WireSupplier[];
@@ -210,16 +291,65 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 path: '/catalogue/procurement/goods-receipts',
                 body: {
                     branch_id: String(request.branchId),
+                    ...(request.supplierId === undefined
+                        ? {}
+                        : { supplier_id: request.supplierId === null ? null : String(request.supplierId) }),
+                    ...(request.documentRef === undefined ? {} : { document_ref: request.documentRef }),
                     ...(request.purchaseOrderId === undefined
                         ? {}
                         : { purchase_order_id: request.purchaseOrderId }),
                     lines: request.lines.map((line) => ({
                         stock_item_id: String(line.stockItemId),
                         quantity: line.quantity,
+                        ...(line.unitId === undefined || line.unitId === null
+                            ? {}
+                            : { unit_id: String(line.unitId) }),
+                        ...(line.unitPriceAmount === undefined || line.unitPriceAmount === null
+                            ? {}
+                            : { unit_price_amount: line.unitPriceAmount }),
+                        ...(line.costCurrencyCode === undefined || line.costCurrencyCode === null
+                            ? {}
+                            : { cost_currency_code: line.costCurrencyCode }),
                     })),
                 },
             });
             return { id: GoodsReceiptId.unsafe(envelope.data.goods_receipt.id) };
+        },
+
+        async listPurchasesLedger(
+            filter: PurchaseLedgerFilter = {},
+        ): Promise<CursorPage<PurchaseLedgerLine>> {
+            const params = new URLSearchParams();
+            if (filter.from !== undefined) params.set('from', filter.from);
+            if (filter.to !== undefined) params.set('to', filter.to);
+            if (filter.supplierId !== undefined) params.set('supplier_id', String(filter.supplierId));
+            if (filter.ingredientId !== undefined) {
+                params.set('ingredient_id', String(filter.ingredientId));
+            }
+            if (filter.cursor !== undefined) params.set('cursor', filter.cursor);
+            if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+
+            const query = params.toString();
+            const envelope = await transport.requestEnvelope<{
+                readonly purchases: readonly WirePurchaseLedgerLine[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/purchases-ledger${query === '' ? '' : `?${query}`}`,
+            });
+
+            // Keyset meta only — `next_cursor`/`has_more`; a keyset never counts
+            // its total, so `totalCount` is null, which the contract reserves.
+            const meta = (envelope.meta ?? {}) as {
+                readonly next_cursor?: string | null;
+                readonly has_more?: boolean;
+            };
+
+            return {
+                items: envelope.data.purchases.map(mapPurchaseLedgerLine),
+                nextCursor: meta.next_cursor ?? null,
+                hasMore: meta.has_more ?? false,
+                totalCount: null,
+            };
         },
 
         async listProductionOrders(): Promise<readonly ProductionOrder[]> {
