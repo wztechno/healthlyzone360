@@ -559,7 +559,9 @@
         "archiveConfirm": "Archive it",
         "notFoundTitle": "No such ingredient",
         "notFoundBody": "The link may be out of date, or the record belongs to another kitchen.",
-        "loadErrorTitle": "That ingredient could not be loaded"
+        "loadErrorTitle": "That ingredient could not be loaded",
+        "platformLibraryTitle": "This is a platform library ingredient",
+        "platformLibraryBody": "Name, classification and other names are shared across kitchens and cannot be edited here. Allergen mappings can still be strengthened — use Save the mapping in that section."
     },
     "bilingual": {
         "englishLabel": "{{field}} (English)",

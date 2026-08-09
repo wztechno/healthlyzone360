@@ -73,18 +73,18 @@ beforeEach(() => {
 
 interface Harness {
     readonly repositories: MockRepositories;
+    readonly tokenStore: ReturnType<typeof createMemoryTokenStore>;
 }
 
 /**
- * Signs in and applies an organisation context before rendering.
+ * Signs in and applies an organisation context.
  *
  * The kitchen area requires an organisation *and* a branch (`ROUTE_REQUIREMENTS.kitchen`), so a
  * screen rendered without one would answer with the picker redirect rather than with itself. The
  * mock server applies the only branch automatically when a membership has exactly one, which is the
  * same behaviour the branch picker relies on.
  */
-async function renderKitchen(
-    node: ReactNode,
+async function bootKitchen(
     options: {
         readonly email?: string;
         readonly organisationSlug?: string;
@@ -109,11 +109,25 @@ async function renderKitchen(
     if (membership === undefined) throw new Error(`No active membership in "${slug}".`);
     await repositories.context.setContext({ organisationId: membership.organisation.id });
 
+    return { repositories, tokenStore };
+}
+
+async function renderKitchen(
+    node: ReactNode,
+    options: {
+        readonly email?: string;
+        readonly organisationSlug?: string;
+        readonly latencyMs?: number;
+        readonly boot?: Harness;
+    } = {},
+): Promise<Harness> {
+    const harness = options.boot ?? (await bootKitchen(options));
+
     await render(
         <AppProviders
             initialMetrics={TEST_METRICS}
-            repositories={repositories}
-            tokenStore={tokenStore}
+            repositories={harness.repositories}
+            tokenStore={harness.tokenStore}
             queryClient={createTestQueryClient()}
             initialOnline
         >
@@ -121,7 +135,7 @@ async function renderKitchen(
         </AppProviders>,
     );
 
-    return { repositories };
+    return harness;
 }
 
 /**
@@ -139,6 +153,21 @@ function untilVisible(testID: string) {
         },
         { timeout: 10_000 },
     );
+}
+
+/**
+ * A kitchen-owned draft the editor may rename and alias — seeded rows are platform-library
+ * and those fields are read-only there.
+ */
+async function createOwnedIngredient(
+    repositories: MockRepositories,
+    nameEn = 'Owned kitchen ingredient',
+): Promise<IngredientAdmin> {
+    return repositories.kitchenAdmin.createIngredient({
+        name: { en: nameEn, ar: '' },
+        categoryCode: seededIngredients[0]!.categoryCode,
+        measurementUnit: 'g',
+    });
 }
 
 /**
@@ -433,10 +462,23 @@ describe('the ingredient editor', () => {
         expect(page.items[0]!.meta.status).toBe('draft');
     });
 
+    it('keeps platform-library details read-only and leaves allergen mapping as the writable path', async () => {
+        await renderKitchen(<IngredientEditScreen ingredient={String(mappedIngredient.id)} />);
+
+        await untilVisible('kitchen-ingredient-platform-library');
+        expect(screen.queryByTestId('kitchen-ingredient-editor-screen-save')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-archive')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-alias-input-input')).toBeNull();
+
+        await untilVisible('kitchen-ingredient-mapping-save');
+    });
+
     it('saves a rename and rebases onto the version the write produced', async () => {
-        const target = unmappedIngredient;
+        const boot = await bootKitchen();
+        const target = await createOwnedIngredient(boot.repositories, 'Rename me');
         const { repositories } = await renderKitchen(
             <IngredientEditScreen ingredient={String(target.id)} />,
+            { boot },
         );
 
         await untilVisible('kitchen-ingredient-name-ar-input');
@@ -466,7 +508,9 @@ describe('the ingredient editor', () => {
     });
 
     it('asks before discarding unsaved changes, and leaves when told to', async () => {
-        await renderKitchen(<IngredientEditScreen ingredient={String(unmappedIngredient.id)} />);
+        const boot = await bootKitchen();
+        const target = await createOwnedIngredient(boot.repositories, 'Discard me');
+        await renderKitchen(<IngredientEditScreen ingredient={String(target.id)} />, { boot });
 
         await untilVisible('kitchen-ingredient-name-en-input');
 
@@ -494,9 +538,11 @@ describe('the ingredient editor', () => {
     });
 
     it('adds and removes an alias, and can take the removal back', async () => {
-        const target = unmappedIngredient;
+        const boot = await bootKitchen();
+        const target = await createOwnedIngredient(boot.repositories, 'Alias me');
         const { repositories } = await renderKitchen(
             <IngredientEditScreen ingredient={String(target.id)} />,
+            { boot },
         );
 
         await untilVisible('kitchen-ingredient-alias-input-input');
@@ -673,9 +719,11 @@ describe('the allergen mapping editor', () => {
 
 describe('optimistic concurrency', () => {
     it('offers reload-or-keep when somebody else has moved the record on', async () => {
-        const target = unmappedIngredient;
+        const boot = await bootKitchen();
+        const target = await createOwnedIngredient(boot.repositories, 'Conflict me');
         const { repositories } = await renderKitchen(
             <IngredientEditScreen ingredient={String(target.id)} />,
+            { boot },
         );
 
         await untilVisible('kitchen-ingredient-name-en-input');

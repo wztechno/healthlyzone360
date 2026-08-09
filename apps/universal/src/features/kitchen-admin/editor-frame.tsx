@@ -44,6 +44,14 @@ export interface EditorFrameProps {
     readonly saveLabel: string;
     readonly saving?: boolean | undefined;
     readonly saveDisabled?: boolean | undefined;
+    /**
+     * Hide the draft-save control entirely.
+     *
+     * Use when the record cannot be written here at all (for example a platform-library
+     * ingredient): a permanently disabled save button is furniture, and the allergen section
+     * already carries its own save.
+     */
+    readonly hideSave?: boolean | undefined;
     /** Extra controls beside the save button — archive, publish, whatever the slice owns. */
     readonly primaryAction?: ReactNode | undefined;
     /** Rendered between the header and the children — callouts, quarantine notices, errors. */
@@ -63,6 +71,7 @@ export function EditorFrame({
     saveLabel,
     saving = false,
     saveDisabled = false,
+    hideSave = false,
     primaryAction,
     banner,
     onBack,
@@ -146,13 +155,15 @@ export function EditorFrame({
                     className="flex-row flex-wrap items-center justify-end gap-2 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1"
                 >
                     {primaryAction}
-                    <Button
-                        testID={`${testID}-save`}
-                        label={saveLabel}
-                        loading={saving}
-                        disabled={saveDisabled || saving}
-                        onPress={onSaveDraft}
-                    />
+                    {hideSave ? null : (
+                        <Button
+                            testID={`${testID}-save`}
+                            label={saveLabel}
+                            loading={saving}
+                            disabled={saveDisabled || saving}
+                            onPress={onSaveDraft}
+                        />
+                    )}
                 </View>
 
                 <Dialog

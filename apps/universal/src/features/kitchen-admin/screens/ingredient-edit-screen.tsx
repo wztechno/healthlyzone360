@@ -389,7 +389,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
     const categoryMissing = details.categoryCode.trim() === '';
 
     const saveDetails = () => {
-        if (nameMissing || categoryMissing) return;
+        if (isPlatformLibrary || nameMissing || categoryMissing) return;
 
         if (isCreating) {
             create.mutate(
@@ -555,12 +555,16 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
             saveLabel={t('kitchen:common.saveDraft')}
             saving={create.isPending || update.isPending}
             saveDisabled={!canManage || nameMissing || categoryMissing}
+            hideSave={isPlatformLibrary}
             backLabel={t('kitchen:editor.backToList')}
             onBack={() => {
                 router.push('/kitchen/ingredients' as never);
             }}
             primaryAction={
-                isCreating || !canManage || data?.meta.status === 'retired' ? null : (
+                isCreating ||
+                isPlatformLibrary ||
+                !canManage ||
+                data?.meta.status === 'retired' ? null : (
                     <Button
                         testID="kitchen-ingredient-archive"
                         variant="secondary"
@@ -573,6 +577,15 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
             }
             banner={
                 <Stack space="sm">
+                    {isPlatformLibrary ? (
+                        <Callout
+                            testID="kitchen-ingredient-platform-library"
+                            role="note"
+                            tone="info"
+                            title={t('kitchen:editor.platformLibraryTitle')}
+                            body={t('kitchen:editor.platformLibraryBody')}
+                        />
+                    ) : null}
                     {quarantined ? (
                         <Callout
                             testID="kitchen-ingredient-quarantine"
@@ -604,6 +617,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         fieldLabel={t('kitchen:fields.name')}
                         value={details.name}
                         requiredEnglish
+                        disabled={isPlatformLibrary}
                         {...(nameMissing ? { englishError: t('kitchen:editor.nameRequired') } : {})}
                         onChange={(next) => {
                             setDetails({ ...details, name: next });
@@ -626,6 +640,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         value={details.reference}
                         autoCapitalize="characters"
                         autoCorrect={false}
+                        disabled={isPlatformLibrary}
                         onChangeText={(next) => {
                             setDetails({ ...details, reference: next });
                             markDetailsDirty();
@@ -640,6 +655,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         placeholder={t('kitchen:fields.categoryPlaceholder')}
                         searchable
                         required
+                        disabled={isPlatformLibrary}
                         options={categoryOptions}
                         value={details.categoryCode === '' ? null : details.categoryCode}
                         {...(categoryMissing
@@ -657,6 +673,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         label={t('kitchen:fields.unit')}
                         hint={t('kitchen:fields.unitHint')}
                         searchable
+                        disabled={isPlatformLibrary}
                         options={unitOptions}
                         value={details.measurementUnit}
                         onChange={(next) => {
@@ -673,6 +690,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         value={details.notes}
                         multiline
                         numberOfLines={3}
+                        disabled={isPlatformLibrary}
                         onChangeText={(next) => {
                             setDetails({ ...details, notes: next });
                             markDetailsDirty();
@@ -701,7 +719,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                                     testID={`kitchen-ingredient-alias-${alias}`}
                                     label={alias}
                                     onRemove={
-                                        canManage
+                                        canManage && !isPlatformLibrary
                                             ? () => {
                                                   setDetails({
                                                       ...details,
@@ -748,7 +766,7 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         </Inline>
                     )}
 
-                    {canManage ? (
+                    {canManage && !isPlatformLibrary ? (
                         <Inline space="sm" align="end" wrap>
                             <Stack space="none" grow>
                                 <TextInputField

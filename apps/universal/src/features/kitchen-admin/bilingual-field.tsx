@@ -55,6 +55,7 @@ interface HalfProps {
     readonly placeholder?: string | undefined;
     readonly error?: string | undefined;
     readonly required?: boolean | undefined;
+    readonly disabled?: boolean | undefined;
     /** Renders a paragraph field instead of a single line. See the note on `BilingualFieldProps`. */
     readonly multiline?: boolean | undefined;
 }
@@ -69,6 +70,7 @@ function BilingualHalf({
     placeholder,
     error,
     required = false,
+    disabled = false,
     multiline = false,
 }: HalfProps) {
     const [focused, setFocused] = useState(false);
@@ -80,6 +82,7 @@ function BilingualHalf({
             label={label}
             hint={hint}
             required={required}
+            disabled={disabled}
             {...(error === undefined ? {} : { error })}
         >
             {(control: FieldControlProps) => (
@@ -87,7 +90,7 @@ function BilingualHalf({
                     className={inputFrameClassName({
                         invalid: error !== undefined,
                         focused,
-                        disabled: false,
+                        disabled,
                     })}
                 >
                     <TextInput
@@ -95,6 +98,7 @@ function BilingualHalf({
                         testID={`${testID}-input`}
                         value={value}
                         onChangeText={onChangeText}
+                        editable={!disabled}
                         {...(placeholder === undefined ? {} : { placeholder })}
                         {...(multiline ? { multiline: true, numberOfLines: 3 } : {})}
                         autoCapitalize="none"
@@ -141,6 +145,8 @@ export interface BilingualFieldProps {
      * wrong on one of the two.
      */
     readonly multiline?: boolean | undefined;
+    /** Locks both halves — used for platform-library rows a kitchen may read but not rename. */
+    readonly disabled?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -151,6 +157,7 @@ export function BilingualField({
     requiredEnglish = false,
     englishError,
     multiline = false,
+    disabled = false,
     testID,
 }: BilingualFieldProps) {
     const { t } = useTranslation();
@@ -169,6 +176,7 @@ export function BilingualField({
                 direction="ltr"
                 required={requiredEnglish}
                 multiline={multiline}
+                disabled={disabled}
                 {...(englishError === undefined ? {} : { error: englishError })}
             />
 
@@ -182,6 +190,7 @@ export function BilingualField({
                 }}
                 direction="rtl"
                 multiline={multiline}
+                disabled={disabled}
             />
 
             <Inline space="sm" align="center" wrap>
@@ -193,16 +202,18 @@ export function BilingualField({
                         label={t('kitchen:bilingual.missingArabic')}
                     />
                 ) : null}
-                <Button
-                    testID={`${testID}-copy-english`}
-                    size="sm"
-                    variant="ghost"
-                    label={t('kitchen:bilingual.copyFromEnglish')}
-                    disabled={value.en.trim() === ''}
-                    onPress={() => {
-                        onChange({ ...value, ar: value.en });
-                    }}
-                />
+                {disabled ? null : (
+                    <Button
+                        testID={`${testID}-copy-english`}
+                        size="sm"
+                        variant="ghost"
+                        label={t('kitchen:bilingual.copyFromEnglish')}
+                        disabled={value.en.trim() === ''}
+                        onPress={() => {
+                            onChange({ ...value, ar: value.en });
+                        }}
+                    />
+                )}
             </Inline>
 
             {arabicMissing ? (
