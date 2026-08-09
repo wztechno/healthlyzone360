@@ -47,6 +47,7 @@ import type {
     UpdateProductRequest,
     UpdateRecipeRequest,
 } from '@healthy360/api-client/contracts';
+import { pageCount } from '@healthy360/api-client/contracts';
 import type {
     DeliveryZoneId,
     IngredientId,
@@ -59,6 +60,7 @@ import type {
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import {
+    hashKey,
     keepPreviousData,
     useInfiniteQuery,
     useMutation,
@@ -2395,6 +2397,247 @@ export function useSetBranchOperatingMutation(): UseMutationResult<
             );
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all() });
+        },
+    });
+}
+
+/* ── numbered pages ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The seven catalogue lists, one page at a time.
+ *
+ * These sit *beside* the infinite hooks above rather than replacing them, because the two have
+ * different callers. A list screen wants a page control; an editor wants the whole picker
+ * (`useRecipesQuery({ limit: 100 })` feeds a select, and a page control on a select is nonsense).
+ * Collapsing them into one hook would mean a return type that is a union of an infinite result and
+ * a plain one, and every one of the twelve editor call sites narrowing it for no gain.
+ *
+ * Only these seven exist. Offset pagination is confined to the kitchen catalogue for the reasons
+ * `docs/api/conventions.md` sets out, and a `use…PageQuery` for the order book or the marketplace
+ * would compile here and 400 in production.
+ *
+ * ## Previous data is kept across a page change and dropped across a filter change
+ *
+ * Both halves matter. Without the first, the table unmounts on every page change and the screen
+ * flashes its skeleton between page 3 and page 4. Without the second, typing into the search box
+ * leaves rows on screen that do not match what was typed — for as long as the request takes — and
+ * "no results" becomes unreadable, because the reader cannot tell a stale list from a matching one.
+ *
+ * `keepPreviousData` alone gives the first and not the second: it keeps whatever the last entry
+ * held, and the last entry is as likely to be a different filter as a different page.
+ * {@link samePageSet} is what tells them apart.
+ *
+ * `perPage` is fixed per family rather than offered as a control. A page-size select is a real
+ * feature, but an unused one costs every reader the moment it takes to decide it is not for them,
+ * and nothing in the design asks for it.
+ */
+
+/**
+ * Whether two page keys describe the same collection, differing only in which page of it.
+ *
+ * The keys are `['kitchenAdmin', <family>, 'page', <filter>, <page>]`, so everything but the last
+ * member is the collection. Hashed with TanStack's own `hashKey` rather than compared by identity or
+ * by `JSON.stringify`, because that is the function the cache itself uses to decide whether two keys
+ * are the same — anything else would be a second, subtly different answer to a question already
+ * settled elsewhere.
+ */
+function samePageSet(a: readonly unknown[] | undefined, b: readonly unknown[]): boolean {
+    if (a === undefined) return false;
+    return hashKey(a.slice(0, -1)) === hashKey(b.slice(0, -1));
+}
+
+/**
+ * `placeholderData` that survives a page change and not a filter change.
+ *
+ * Written once and passed to all seven, so the two behaviours cannot drift apart per family.
+ */
+function keepAcrossPages<T>(key: readonly unknown[]) {
+    return (previous: T | undefined, previousQuery: { queryKey: readonly unknown[] } | undefined) =>
+        samePageSet(previousQuery?.queryKey, key) ? previous : undefined;
+}
+
+/** Rows per page across the kitchen catalogue. Matches the backend's own default. */
+export const KITCHEN_PAGE_SIZE = 25;
+
+export type PagedListResult<T> = UseQueryResult<CursorPage<T>, Error>;
+
+/**
+ * Pages in a numbered result, or `null` before the first page has landed.
+ *
+ * `null` and `0` are different answers and the caller must not conflate them: `0` is "this filter
+ * matches nothing", which is an empty state; `null` is "not known yet", which is a skeleton.
+ */
+export function pagesInResult(page: CursorPage<unknown> | undefined): number | null {
+    return page === undefined ? null : pageCount(page.totalCount, KITCHEN_PAGE_SIZE);
+}
+
+/** A filter as a list screen holds it: no pagination, since the page control owns that. */
+type ListFilter<F> = Omit<F, 'cursor' | 'limit' | 'page' | 'perPage'>;
+
+export function useIngredientPageQuery(
+    filter: ListFilter<IngredientAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<IngredientAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    const key = queryKeys.kitchenAdmin.ingredientsPage(filter, page);
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepAcrossPages(key),
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listIngredients({
+                ...filter,
+                page,
+                perPage: KITCHEN_PAGE_SIZE,
+            });
+        },
+    });
+}
+
+export function useRecipePageQuery(
+    filter: ListFilter<RecipeAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<RecipeAdminSummary> {
+    const { repositories } = useRepositoryContext();
+
+    const key = queryKeys.kitchenAdmin.recipesPage(filter, page);
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepAcrossPages(key),
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listRecipes({
+                ...filter,
+                page,
+                perPage: KITCHEN_PAGE_SIZE,
+            });
+        },
+    });
+}
+
+export function useProductPageQuery(
+    filter: ListFilter<ProductAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<ProductAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    const key = queryKeys.kitchenAdmin.productsPage(filter, page);
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepAcrossPages(key),
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listProducts({
+                ...filter,
+                page,
+                perPage: KITCHEN_PAGE_SIZE,
+            });
+        },
+    });
+}
+
+export function useAdminMealPageQuery(
+    filter: ListFilter<MealAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<MealAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    const key = queryKeys.kitchenAdmin.mealsPage(filter, page);
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepAcrossPages(key),
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listMeals({
+                ...filter,
+                page,
+                perPage: KITCHEN_PAGE_SIZE,
+            });
+        },
+    });
+}
+
+export function useAdminPlanPageQuery(
+    filter: ListFilter<PlanAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<PlanAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    const key = queryKeys.kitchenAdmin.plansPage(filter, page);
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepAcrossPages(key),
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listPlans({
+                ...filter,
+                page,
+                perPage: KITCHEN_PAGE_SIZE,
+            });
+        },
+    });
+}
+
+export function usePriceListPageQuery(
+    filter: ListFilter<PriceListAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<PriceListAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    const key = queryKeys.kitchenAdmin.priceListsPage(filter, page);
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepAcrossPages(key),
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listPriceLists({
+                ...filter,
+                page,
+                perPage: KITCHEN_PAGE_SIZE,
+            });
+        },
+    });
+}
+
+export function useDeliveryZonePageQuery(
+    filter: ListFilter<DeliveryZoneAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<DeliveryZoneAdmin> {
+    const { repositories } = useRepositoryContext();
+
+    const key = queryKeys.kitchenAdmin.zonesPage(filter, page);
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepAcrossPages(key),
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listZones({
+                ...filter,
+                page,
+                perPage: KITCHEN_PAGE_SIZE,
+            });
         },
     });
 }

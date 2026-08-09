@@ -8,6 +8,7 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Pagination,
     Skeleton,
     Stack,
     Table,
@@ -23,11 +24,10 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    ingredientTotalFromPages,
-    ingredientsFromPages,
+    pagesInResult,
     useArchiveIngredientMutation,
     useIngredientCategoriesQuery,
-    useIngredientsQuery,
+    useIngredientPageQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_VIEW_PERMISSION, CATALOGUE_MANAGE_PERMISSION } from '../entity-registry.ts';
 import {
@@ -39,6 +39,7 @@ import {
     statusTone,
 } from '../format.ts';
 import { ListToolbar } from '../list-toolbar.tsx';
+import { useListPage } from '../use-list-page.ts';
 
 /**
  * `/kitchen/ingredients` — the ingredient list.
@@ -52,10 +53,16 @@ import { ListToolbar } from '../list-toolbar.tsx';
  *
  * ## Sorting is client-side, and that is a stated limitation rather than a hidden one
  *
- * `IngredientAdminFilter` publishes no sort parameter, so the table sorts the rows that have been
- * loaded. With a cursor list that means "sorted within what you have fetched", which is honest for a
- * library of sixty and wrong for one of six thousand. A real `?sort=name` on the listing endpoint
- * makes this a server concern and this comment goes away.
+ * `IngredientAdminFilter` publishes no sort parameter, so the table sorts the rows it has. With
+ * numbered pages that means *within the page* — press "Name" on page 3 and the twenty-five rows on
+ * page 3 reorder, not the catalogue.
+ *
+ * That is narrower than it sounds. The cursor list this replaced sorted "within what you have
+ * fetched", which was the same page-local answer until somebody pressed Load more forty times, and
+ * a sort that is only correct after forty presses is not a sort anybody relied on. What changed is
+ * that the limitation is now the same on every page instead of drifting with how far the reader
+ * scrolled. A real `?sort=name` on the listing endpoint makes this a server concern and this
+ * comment goes away.
  *
  * ## The name column is where the bilingual rule shows up
  *
@@ -103,16 +110,20 @@ function IngredientsList() {
         [trimmed, statuses, category],
     );
 
-    const ingredients = useIngredientsQuery(filter);
+    const [page, setPage] = useListPage(filter);
+    const ingredients = useIngredientPageQuery(filter, page);
     const categories = useIngredientCategoriesQuery();
     const archive = useArchiveIngredientMutation();
 
-    const rows = ingredientsFromPages(ingredients.data?.pages);
-    const total = ingredientTotalFromPages(ingredients.data?.pages);
+    // Left possibly-undefined rather than defaulted to `[]` here: `?? []` is a fresh array on
+    // every render, which would re-run the sort below whether or not the data changed.
+    const rows = ingredients.data?.items;
+    const total = ingredients.data?.totalCount ?? null;
+    const totalPages = pagesInResult(ingredients.data) ?? 0;
 
     const sorted = useMemo(() => {
         const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...rows].sort((left, right) => {
+        return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'status')
                 return factor * left.meta.status.localeCompare(right.meta.status);
             if (sortKey === 'updatedAt') {
@@ -370,29 +381,13 @@ function IngredientsList() {
                         }}
                     />
 
-                    {ingredients.hasNextPage ? (
-                        <Button
-                            testID="kitchen-ingredients-load-more"
-                            variant="secondary"
-                            label={
-                                ingredients.isFetchingNextPage
-                                    ? t('kitchen:list.loadingMore')
-                                    : t('kitchen:list.loadMore')
-                            }
-                            disabled={ingredients.isFetchingNextPage}
-                            onPress={() => {
-                                void ingredients.fetchNextPage();
-                            }}
-                        />
-                    ) : (
-                        <Text
-                            testID="kitchen-ingredients-all-loaded"
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {t('kitchen:list.allLoaded')}
-                        </Text>
-                    )}
+                    <Pagination
+                        testID="kitchen-ingredients-pagination"
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        disabled={ingredients.isFetching}
+                    />
                 </Stack>
             )}
 

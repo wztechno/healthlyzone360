@@ -7,6 +7,7 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Pagination,
     Skeleton,
     Stack,
     Table,
@@ -22,9 +23,8 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    priceListTotalFromPages,
-    priceListsFromPages,
-    usePriceListsQuery,
+    pagesInResult,
+    usePriceListPageQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
@@ -38,6 +38,7 @@ import {
     summarisePriceEntries,
 } from '../format.ts';
 import { ListToolbar } from '../list-toolbar.tsx';
+import { useListPage } from '../use-list-page.ts';
 
 /**
  * `/kitchen/price-lists` — what this kitchen charges, and how much of it is actually decided.
@@ -192,14 +193,18 @@ function PriceListsList() {
         [trimmed, statuses],
     );
 
-    const priceLists = usePriceListsQuery(filter);
+    const [page, setPage] = useListPage(filter);
+    const priceLists = usePriceListPageQuery(filter, page);
 
-    const rows = priceListsFromPages(priceLists.data?.pages);
-    const total = priceListTotalFromPages(priceLists.data?.pages);
+    // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on
+    // every render, which would re-run anything memoised over it whether or not it changed.
+    const rows = priceLists.data?.items;
+    const total = priceLists.data?.totalCount ?? null;
+    const totalPages = pagesInResult(priceLists.data) ?? 0;
 
     const sorted = useMemo(() => {
         const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...rows].sort((left, right) => {
+        return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'currency') return factor * left.currency.localeCompare(right.currency);
             if (sortKey === 'status') {
                 return factor * left.meta.status.localeCompare(right.meta.status);
@@ -439,29 +444,13 @@ function PriceListsList() {
                         }}
                     />
 
-                    {priceLists.hasNextPage ? (
-                        <Button
-                            testID="kitchen-price-lists-load-more"
-                            variant="secondary"
-                            label={
-                                priceLists.isFetchingNextPage
-                                    ? t('kitchen:list.loadingMore')
-                                    : t('kitchen:list.loadMore')
-                            }
-                            disabled={priceLists.isFetchingNextPage}
-                            onPress={() => {
-                                void priceLists.fetchNextPage();
-                            }}
-                        />
-                    ) : (
-                        <Text
-                            testID="kitchen-price-lists-all-loaded"
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {t('kitchen:list.allLoaded')}
-                        </Text>
-                    )}
+                    <Pagination
+                        testID="kitchen-price-lists-pagination"
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        disabled={priceLists.isFetching}
+                    />
                 </Stack>
             )}
         </Stack>

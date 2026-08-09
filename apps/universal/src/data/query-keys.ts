@@ -297,10 +297,24 @@ export const queryKeys = {
 
         ingredients: (filter?: QueryScope) =>
             ['kitchenAdmin', 'ingredients', scope(filter)] as const,
+        /**
+         * One numbered page of the same collection.
+         *
+         * A separate path segment rather than the page folded into the filter object, for a
+         * reason TanStack enforces rather than suggests: an infinite query and a plain query
+         * that share a key store incompatible shapes in one entry — `{pages: [...]}` against a
+         * bare page — and whichever mounts second reads the other's data as its own. The
+         * `['kitchenAdmin', 'ingredients']` prefix still covers both, so invalidation is
+         * unaffected. Same for the six below.
+         */
+        ingredientsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'ingredients', 'page', scope(filter), page] as const,
         ingredient: (ingredientId: IngredientId) =>
             ['kitchenAdmin', 'ingredient', ingredientId] as const,
 
         recipes: (filter?: QueryScope) => ['kitchenAdmin', 'recipes', scope(filter)] as const,
+        recipesPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'recipes', 'page', scope(filter), page] as const,
         recipe: (recipeId: RecipeId) => ['kitchenAdmin', 'recipe', recipeId] as const,
         /**
          * The line editor's roll-up preview.
@@ -316,20 +330,30 @@ export const queryKeys = {
             ['kitchenAdmin', 'recipe', 'rollup', draftHash] as const,
 
         products: (filter?: QueryScope) => ['kitchenAdmin', 'products', scope(filter)] as const,
+        productsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'products', 'page', scope(filter), page] as const,
         product: (productId: ProductId) => ['kitchenAdmin', 'product', productId] as const,
 
         priceLists: (filter?: QueryScope) =>
             ['kitchenAdmin', 'price-lists', scope(filter)] as const,
+        priceListsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'price-lists', 'page', scope(filter), page] as const,
         priceList: (priceListId: PriceListId) =>
             ['kitchenAdmin', 'price-list', priceListId] as const,
 
         meals: (filter?: QueryScope) => ['kitchenAdmin', 'meals', scope(filter)] as const,
+        mealsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'meals', 'page', scope(filter), page] as const,
         meal: (mealId: MealId) => ['kitchenAdmin', 'meal', mealId] as const,
 
         plans: (filter?: QueryScope) => ['kitchenAdmin', 'plans', scope(filter)] as const,
+        plansPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'plans', 'page', scope(filter), page] as const,
         plan: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan', planId] as const,
 
         zones: (filter?: QueryScope) => ['kitchenAdmin', 'zones', scope(filter)] as const,
+        zonesPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'zones', 'page', scope(filter), page] as const,
         zone: (zoneId: DeliveryZoneId) => ['kitchenAdmin', 'zone', zoneId] as const,
 
         branchOperating: (branchId: KitchenBranchId) =>

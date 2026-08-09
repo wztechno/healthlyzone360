@@ -8,6 +8,7 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Pagination,
     Skeleton,
     Stack,
     Table,
@@ -23,11 +24,10 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    productTotalFromPages,
-    productsFromPages,
+    pagesInResult,
     useArchiveProductMutation,
     useProductCategoriesQuery,
-    useProductsQuery,
+    useProductPageQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
@@ -43,6 +43,7 @@ import {
     unitKey,
 } from '../format.ts';
 import { ListToolbar } from '../list-toolbar.tsx';
+import { useListPage } from '../use-list-page.ts';
 
 /**
  * `/kitchen/products` — what this kitchen sells as goods rather than as a dish on a menu.
@@ -171,16 +172,20 @@ function ProductsList() {
         [trimmed, statuses, category],
     );
 
-    const products = useProductsQuery(filter);
+    const [page, setPage] = useListPage(filter);
+    const products = useProductPageQuery(filter, page);
     const categories = useProductCategoriesQuery();
     const archive = useArchiveProductMutation();
 
-    const rows = productsFromPages(products.data?.pages);
-    const total = productTotalFromPages(products.data?.pages);
+    // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on
+    // every render, which would re-run anything memoised over it whether or not it changed.
+    const rows = products.data?.items;
+    const total = products.data?.totalCount ?? null;
+    const totalPages = pagesInResult(products.data) ?? 0;
 
     const sorted = useMemo(() => {
         const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...rows].sort((left, right) => {
+        return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'status') {
                 return factor * left.meta.status.localeCompare(right.meta.status);
             }
@@ -458,29 +463,13 @@ function ProductsList() {
                         }}
                     />
 
-                    {products.hasNextPage ? (
-                        <Button
-                            testID="kitchen-products-load-more"
-                            variant="secondary"
-                            label={
-                                products.isFetchingNextPage
-                                    ? t('kitchen:list.loadingMore')
-                                    : t('kitchen:list.loadMore')
-                            }
-                            disabled={products.isFetchingNextPage}
-                            onPress={() => {
-                                void products.fetchNextPage();
-                            }}
-                        />
-                    ) : (
-                        <Text
-                            testID="kitchen-products-all-loaded"
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {t('kitchen:list.allLoaded')}
-                        </Text>
-                    )}
+                    <Pagination
+                        testID="kitchen-products-pagination"
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        disabled={products.isFetching}
+                    />
                 </Stack>
             )}
 

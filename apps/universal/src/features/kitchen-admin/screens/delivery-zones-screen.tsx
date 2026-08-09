@@ -7,6 +7,7 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Pagination,
     Skeleton,
     Stack,
     Table,
@@ -21,9 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    useAdminZonesQuery,
-    zoneTotalFromPages,
-    zonesFromPages,
+    pagesInResult,
+    useDeliveryZonePageQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { summariseWindows } from '../delivery-model.ts';
@@ -36,6 +36,7 @@ import {
     zoneRowTestId,
 } from '../format.ts';
 import { ListToolbar } from '../list-toolbar.tsx';
+import { useListPage } from '../use-list-page.ts';
 
 /**
  * `/kitchen/delivery-zones` — where this kitchen delivers, for how much, and how quickly.
@@ -213,13 +214,17 @@ function DeliveryZonesList() {
         [trimmed, statuses],
     );
 
-    const zones = useAdminZonesQuery(filter);
-    const rows = zonesFromPages(zones.data?.pages);
-    const total = zoneTotalFromPages(zones.data?.pages);
+    const [page, setPage] = useListPage(filter);
+    const zones = useDeliveryZonePageQuery(filter, page);
+    // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on
+    // every render, which would re-run anything memoised over it whether or not it changed.
+    const rows = zones.data?.items;
+    const total = zones.data?.totalCount ?? null;
+    const totalPages = pagesInResult(zones.data) ?? 0;
 
     const sorted = useMemo(() => {
         const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...rows].sort((left, right) => {
+        return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'status') {
                 return factor * left.meta.status.localeCompare(right.meta.status);
             }
@@ -431,25 +436,13 @@ function DeliveryZonesList() {
                         }}
                     />
 
-                    {zones.hasNextPage ? (
-                        <Button
-                            testID="kitchen-zones-load-more"
-                            variant="secondary"
-                            label={
-                                zones.isFetchingNextPage
-                                    ? t('kitchen:list.loadingMore')
-                                    : t('kitchen:list.loadMore')
-                            }
-                            disabled={zones.isFetchingNextPage}
-                            onPress={() => {
-                                void zones.fetchNextPage();
-                            }}
-                        />
-                    ) : (
-                        <Text testID="kitchen-zones-all-loaded" tone="secondary" variant="caption">
-                            {t('kitchen:list.allLoaded')}
-                        </Text>
-                    )}
+                    <Pagination
+                        testID="kitchen-zones-pagination"
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        disabled={zones.isFetching}
+                    />
                 </Stack>
             )}
         </Stack>

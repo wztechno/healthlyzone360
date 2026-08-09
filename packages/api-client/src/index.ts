@@ -106,7 +106,7 @@ export {
 } from './mock/scenarios.ts';
 export type { MockScenario, MockScenarioName } from './mock/scenarios.ts';
 
-export { SORT_DIRECTIONS, emptyPage } from './contracts/index.ts';
+export { SORT_DIRECTIONS, emptyPage, pageCount } from './contracts/index.ts';
 
 /**
  * The guest credential's store (plan Phase G1).

@@ -7,6 +7,7 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Pagination,
     Skeleton,
     Stack,
     Table,
@@ -21,10 +22,9 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    planTotalFromPages,
-    plansFromPages,
+    pagesInResult,
     priceListsFromPages,
-    useAdminPlansQuery,
+    useAdminPlanPageQuery,
     usePriceListsQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -40,6 +40,7 @@ import {
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
 import { ListToolbar } from '../list-toolbar.tsx';
+import { useListPage } from '../use-list-page.ts';
 
 /**
  * `/kitchen/plans` — the commercial plans this kitchen sells, and how much of each one is decided.
@@ -259,7 +260,8 @@ function PlansList() {
         [trimmed, statuses],
     );
 
-    const plans = useAdminPlansQuery(filter);
+    const [page, setPage] = useListPage(filter);
+    const plans = useAdminPlanPageQuery(filter, page);
     /*
      * The price coverage column reads the lists, because `PlanAdmin` carries no price and should
      * not: a price belongs to an effective-dated list in one currency, and a second copy on the plan
@@ -267,21 +269,26 @@ function PlansList() {
      */
     const priceLists = usePriceListsQuery({ limit: 100 });
 
-    const rows = plansFromPages(plans.data?.pages);
-    const total = planTotalFromPages(plans.data?.pages);
+    // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on
+    // every render, which would re-run anything memoised over it whether or not it changed.
+    const rows = plans.data?.items;
+    const total = plans.data?.totalCount ?? null;
+    const totalPages = pagesInResult(plans.data) ?? 0;
     const lists = priceListsFromPages(priceLists.data?.pages);
     const pricesReady = !priceLists.isPending && priceLists.error === null;
 
     const coverage = useMemo(() => {
         if (!pricesReady) return new Map<string, PlanPriceCoverage>();
         return new Map(
-            rows.map((row) => [String(row.id), summarisePlanPrices(row, lists)] as const),
+            (rows ?? []).map(
+                (row) => [String(row.id), summarisePlanPrices(row, lists)] as const,
+            ),
         );
     }, [rows, lists, pricesReady]);
 
     const sorted = useMemo(() => {
         const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...rows].sort((left, right) => {
+        return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'status') {
                 return factor * left.meta.status.localeCompare(right.meta.status);
             }
@@ -482,25 +489,13 @@ function PlansList() {
                         }}
                     />
 
-                    {plans.hasNextPage ? (
-                        <Button
-                            testID="kitchen-plans-load-more"
-                            variant="secondary"
-                            label={
-                                plans.isFetchingNextPage
-                                    ? t('kitchen:list.loadingMore')
-                                    : t('kitchen:list.loadMore')
-                            }
-                            disabled={plans.isFetchingNextPage}
-                            onPress={() => {
-                                void plans.fetchNextPage();
-                            }}
-                        />
-                    ) : (
-                        <Text testID="kitchen-plans-all-loaded" tone="secondary" variant="caption">
-                            {t('kitchen:list.allLoaded')}
-                        </Text>
-                    )}
+                    <Pagination
+                        testID="kitchen-plans-pagination"
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        disabled={plans.isFetching}
+                    />
                 </Stack>
             )}
         </Stack>

@@ -290,6 +290,66 @@ test.describe('kitchen workspace (en)', () => {
         );
     });
 
+    test('pages through the library, and every page is a different set of rows', async ({
+        page,
+    }) => {
+        await openIngredients(page);
+
+        // The seeded library is 66 rows at 25 a page, so there are three pages and the control has
+        // somewhere to go. A one-page library would render no control at all, by design.
+        const pager = page.getByTestId('kitchen-ingredients-pagination');
+        await expect(pager).toBeVisible();
+        await expect(pager.getByTestId('kitchen-ingredients-pagination-page-3')).toBeVisible();
+
+        const nameCells = page.locator(
+            '[data-testid^="kitchen-ingredient-"][data-testid$="-name"]',
+        );
+        const namesOn = async (): Promise<string[]> => nameCells.allInnerTexts();
+
+        const first = await namesOn();
+        expect(first).toHaveLength(25);
+
+        await pager.getByTestId('kitchen-ingredients-pagination-page-2').click();
+        // Waiting on the *rows*, not on the control: the control marks the new page the moment it
+        // is pressed, while the previous page stays on screen until the next one lands — which is
+        // the point of holding it, and a race for any assertion that reads the table.
+        await expect(nameCells.first()).not.toHaveText(first[0]!);
+
+        const second = await namesOn();
+        // Offset pagination's whole failure mode is repeating and skipping rows, so the assertion
+        // that matters is that the two pages share nothing.
+        expect(second.filter((name) => first.includes(name))).toEqual([]);
+
+        await pager.getByTestId('kitchen-ingredients-pagination-previous').click();
+        await expect(nameCells.first()).toHaveText(first[0]!);
+        expect(await namesOn()).toEqual(first);
+    });
+
+    test('returns to page 1 when the filter changes', async ({ page }) => {
+        await openIngredients(page);
+
+        const pager = page.getByTestId('kitchen-ingredients-pagination');
+        await pager.getByTestId('kitchen-ingredients-pagination-page-3').click();
+        await expect(pager.getByTestId('kitchen-ingredients-pagination-page-3')).toHaveAttribute(
+            'aria-current',
+            'page',
+        );
+
+        // Staying on page 3 while the filter narrows to one page asks the backend for a page that
+        // no longer exists — a 400, shown to somebody who only typed into a search box.
+        await page
+            .getByTestId('kitchen-ingredients-toolbar-search')
+            .locator('input')
+            .first()
+            .fill('chicken');
+
+        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredients-error')).toHaveCount(0);
+        // Few enough matches to fit one page, so the control removes itself rather than offering a
+        // single disabled row of buttons.
+        await expect(page.getByTestId('kitchen-ingredients-pagination')).toHaveCount(0);
+    });
+
     test('narrows the list, and says so when nothing matches', async ({ page }) => {
         await openIngredients(page);
 

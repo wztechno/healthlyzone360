@@ -81,11 +81,12 @@ export type {
     SetContextRequest,
 } from './session.ts';
 
-export { SORT_DIRECTIONS, emptyPage } from './pagination.ts';
+export { SORT_DIRECTIONS, emptyPage, pageCount } from './pagination.ts';
 export type {
     CursorPage,
     CursorPageRequest,
     NumericRangeFilter,
+    OffsetPageRequest,
     SortDirection,
 } from './pagination.ts';
 

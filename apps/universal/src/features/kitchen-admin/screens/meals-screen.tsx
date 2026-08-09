@@ -8,6 +8,7 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Pagination,
     Skeleton,
     Stack,
     Table,
@@ -25,9 +26,8 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    mealTotalFromPages,
-    mealsFromPages,
-    useAdminMealsQuery,
+    pagesInResult,
+    useAdminMealPageQuery,
     useRetireMealMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -42,6 +42,7 @@ import {
     statusTone,
 } from '../format.ts';
 import { ListToolbar } from '../list-toolbar.tsx';
+import { useListPage } from '../use-list-page.ts';
 
 /**
  * `/kitchen/meals` — the dishes this kitchen sells, and which of them a shopper can see.
@@ -129,15 +130,19 @@ function MealsList() {
         [trimmed, statuses, mealType],
     );
 
-    const meals = useAdminMealsQuery(filter);
+    const [page, setPage] = useListPage(filter);
+    const meals = useAdminMealPageQuery(filter, page);
     const retire = useRetireMealMutation();
 
-    const rows = mealsFromPages(meals.data?.pages);
-    const total = mealTotalFromPages(meals.data?.pages);
+    // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on
+    // every render, which would re-run anything memoised over it whether or not it changed.
+    const rows = meals.data?.items;
+    const total = meals.data?.totalCount ?? null;
+    const totalPages = pagesInResult(meals.data) ?? 0;
 
     const sorted = useMemo(() => {
         const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...rows].sort((left, right) => {
+        return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'status') {
                 return factor * left.meta.status.localeCompare(right.meta.status);
             }
@@ -412,25 +417,13 @@ function MealsList() {
                         }}
                     />
 
-                    {meals.hasNextPage ? (
-                        <Button
-                            testID="kitchen-meals-load-more"
-                            variant="secondary"
-                            label={
-                                meals.isFetchingNextPage
-                                    ? t('kitchen:list.loadingMore')
-                                    : t('kitchen:list.loadMore')
-                            }
-                            disabled={meals.isFetchingNextPage}
-                            onPress={() => {
-                                void meals.fetchNextPage();
-                            }}
-                        />
-                    ) : (
-                        <Text testID="kitchen-meals-all-loaded" tone="secondary" variant="caption">
-                            {t('kitchen:list.allLoaded')}
-                        </Text>
-                    )}
+                    <Pagination
+                        testID="kitchen-meals-pagination"
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        disabled={meals.isFetching}
+                    />
                 </Stack>
             )}
 
