@@ -225,8 +225,10 @@ final class KitchenOverviewQuery
 
         foreach ($rows as $row) {
             $id = (string) $row->getAttribute('organisation_id');
-            $type = (string) $row->getAttribute('item_type');
-            $status = (string) $row->getAttribute('status');
+            // Raw values, not getAttribute: the model casts item_type and status to
+            // enums, and an aggregate row hydrated through the model casts too.
+            $type = (string) $row->getRawOriginal('item_type');
+            $status = (string) $row->getRawOriginal('status');
             $total = (int) $row->getAttribute('total');
 
             $counts[$id] ??= ['meals' => 0, 'products' => 0, 'plans' => 0, 'published' => 0, 'draft' => 0];
