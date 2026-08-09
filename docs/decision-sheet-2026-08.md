@@ -18,12 +18,24 @@ Status legend: **BLOCKING** = a built feature is waiting on this to be usable fo
 | A3 | **Caesar Sauce: which formula?** Two technical sheets with different quantities were imported as two draft versions (OQ-041) | Neither version can publish until you name the current one | Both stay draft |
 | A4 | **~25 staple promotions** — the importer created ~40 kitchen-owned ingredients that look like platform-library staples (Panko, Chuck, Brisket…) | Curation only; reversible either way | They stay kitchen-owned |
 
+**ANSWERED 2026-08-07** (applied by DEC2; decisions D-087–D-092):
+
+- **A1 — ANSWERED: the approximate plan prices are confirmed as real.** No approximate or provisional marker survives anywhere in stored pricing, so the answer is recorded rather than applied; assumption A-013 and risk R-031 are retired *conditionally* — see I-001, because the plan rows the 2026-08-02 rule wrote are not present in the environment DEC2 was pointed at (D-087).
+- **A2 — ANSWERED: you will supply the missing product prices later.** No data change; the affected rows stay unorderable by design. Not blocking anything (D-088).
+- **A3 — ANSWERED in principle, NOT APPLIED.** You supplied the current formula on 2026-08-07 and it is held outside the repository as agreed. **It could not be written**: the database holds no recipes at all, so neither draft version exists to correct, publish or retire. OQ-041 stays open and the work is blocked on I-001 (D-089).
+- **A4 — ANSWERED: the imported kitchen-owned staples stay kitchen-owned.** No promotion, no curation task. Registers-only; the ~40 ingredients themselves are also absent from the environment (I-001) (D-090).
+
 ## B. Food safety (needs the kitchen's word, not yours alone)
 
 | # | Needed | Why | Default |
 |---|---|---|---|
 | B1 | **Kitchen confirmation of the flagged allergen mappings** — every derived mapping carries `requires_supplier_confirmation`; the burghul/pita gluten corrections are already applied by your decision | BLOCKING publication confidence — derived-not-confirmed is honest but weaker than confirmed | Flags stay visible in kitchen admin review queue |
 | B2 | **Which allergen regimes apply** — EU-14 is the master; US Big-9 flags exist. Which markets do you actually serve? (OQ-038) | Determines which declarations must be complete before publish | EU-14 enforced, US flags informational |
+
+**ANSWERED 2026-08-07** (applied by DEC2):
+
+- **B1 — ANSWERED: the kitchen confirms gluten on burghul and pita.** Applied. Both now carry a `contains gluten` kitchen overlay at `verified`; every other flagged mapping stays `requires_supplier_confirmation`, which is 7 rows and all of them the platform sulphite readings. Nothing else was touched (D-091). Two residues are named rather than assumed away: the platform-library rows for these two ingredients still sit at `requires_review` with an empty baseline allergen set, and clearing *that* is a platform-library write governed by OQ-047, not a kitchen confirmation.
+- **B2 — ANSWERED: Lebanon now, Middle East expansion possible; EU-14 stays the enforced master and US Big-9 stays informational.** No data change — market applicability is already platform metadata on each allergen code and `market_scope` needs nothing. This closes **OQ-037**, the per-market allergen-subset question. The row above cites OQ-038, which is a different question (importer source custody) and is untouched (D-092).
 
 ## C. Payments — the PAY1 gate (biggest blocker; needs a working session)
 
