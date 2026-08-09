@@ -242,6 +242,60 @@ export interface PurchaseLedgerFilter extends CursorPageRequest {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * Monthly cost report (INV1.4)
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * One month of one kitchen's economics, in one currency (INV1.4).
+ *
+ * A row is a `(month, currency)` pair — figures are never summed across currencies, because there is
+ * no exchange rate in this system. Every money field is a **major-unit** decimal string beside
+ * {@link currencyCode}: revenue is stored in minor units server-side and converted to major before
+ * it reaches here, so it sits at the same scale as spend and COGS and the client never mixes the two.
+ *
+ * `grossMarginAmount` is `revenueAmount − cogsAmount`; `grossMarginPercent` is that as a percentage
+ * of revenue, or `null` when there was no revenue to divide by. The `meal`/`product`/`other` revenue
+ * split reconciles to the order-line subtotal — `other` collects subscription-plan and any non-meal,
+ * non-product lines — and is drawn from the order lines, the one place the meal-versus-product
+ * distinction is recorded (a consume movement records the order, not the line's kind, so COGS is not
+ * split this way).
+ *
+ * `hasDataQualityFlag` is `true` when unresolved consumption exceptions (INV1.2) mean the month's
+ * COGS is **understated**: the figure is shown, but as incomplete rather than authoritative.
+ */
+export interface MonthlyCostReportRow {
+    /** The report month, `YYYY-MM`. */
+    readonly month: string;
+    readonly currencyCode: string;
+    /** Purchasing spend — Σ goods-receipt line totals, major-unit decimal string. */
+    readonly spendAmount: string;
+    /** Cost of goods sold — Σ consume-movement cost, cancelled orders excluded, major units. */
+    readonly cogsAmount: string;
+    /** Value of wasted stock where a cost was recorded, or `null` when no waste carried a cost. */
+    readonly wasteAmount: string | null;
+    /** Total wasted quantity this month — the honest note when waste carries no cost. */
+    readonly wasteQuantity: string | null;
+    /** Selling revenue — Σ order totals for confirmed/fulfilled orders, converted to major units. */
+    readonly revenueAmount: string;
+    /** Revenue minus COGS, major units. */
+    readonly grossMarginAmount: string;
+    /** Margin as a percentage of revenue, or `null` when revenue is zero. */
+    readonly grossMarginPercent: string | null;
+    readonly mealRevenueAmount: string;
+    readonly productRevenueAmount: string;
+    readonly otherRevenueAmount: string;
+    /** `true` when unresolved consumption exceptions mean this month's COGS is understated. */
+    readonly hasDataQualityFlag: boolean;
+    readonly exceptionCount: number;
+}
+
+/** Optional inclusive `YYYY-MM` month bounds over the monthly cost report. */
+export interface MonthlyCostReportFilter {
+    readonly from?: string | undefined;
+    readonly to?: string | undefined;
+}
+
+/* ------------------------------------------------------------------------------------------------
  * Production (O5) — no task UI
  * ---------------------------------------------------------------------------------------------- */
 
@@ -337,6 +391,12 @@ export interface KitchenOpsRepository {
     postGoodsReceipt(request: PostGoodsReceiptRequest): Promise<GoodsReceiptResult>;
     /** The purchases ledger — every receipt line, cursor-paginated. Needs `inventory.view_costs_organisation`. */
     listPurchasesLedger(filter?: PurchaseLedgerFilter): Promise<CursorPage<PurchaseLedgerLine>>;
+    /**
+     * The monthly cost report (INV1.4) — spend, COGS, waste, revenue and margin per month and
+     * currency, newest month first. Needs `inventory.view_costs_organisation`. Not paginated: a
+     * kitchen's trading months are few, so the bounded range is answered whole.
+     */
+    listCostReport(filter?: MonthlyCostReportFilter): Promise<readonly MonthlyCostReportRow[]>;
 
     /** The most recent fifty production orders, newest first. */
     listProductionOrders(): Promise<readonly ProductionOrder[]>;

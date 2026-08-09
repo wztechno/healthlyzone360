@@ -64,6 +64,10 @@ export function createKitchenOpsMockRepositories(
             await settle();
             return store.purchasesLedger(filter);
         },
+        async listCostReport(filter) {
+            await settle();
+            return store.costReport(filter);
+        },
         async listProductionOrders() {
             await settle();
             return store.productionOrders();

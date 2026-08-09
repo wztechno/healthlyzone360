@@ -3961,6 +3961,75 @@ export type PurchasesLedgerCollection = {
     meta: PaginationMeta;
 };
 
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+ */
+export type MonthlyCostReportRow = {
+    /**
+     * The report month, `YYYY-MM`.
+     */
+    month: string;
+    /**
+     * ISO 4217 currency every amount in this row is denominated in.
+     */
+    currency_code: string;
+    /**
+     * Purchasing spend — Σ goods-receipt line totals, major units.
+     */
+    spend_amount: string;
+    /**
+     * Cost of goods sold — Σ consume-movement cost, cancelled orders excluded, major units.
+     */
+    cogs_amount: string;
+    /**
+     * Value of wasted stock where a cost was recorded, major units; null when no waste carried a cost.
+     */
+    waste_amount: string | null;
+    /**
+     * Total wasted quantity this month, the honest note when waste carries no cost.
+     */
+    waste_quantity: string | null;
+    /**
+     * Selling revenue — Σ order totals for confirmed/fulfilled orders, converted from minor to major units.
+     */
+    revenue_amount: string;
+    /**
+     * Revenue minus COGS, major units.
+     */
+    gross_margin_amount: string;
+    /**
+     * Margin as a percentage of revenue; null when revenue is zero.
+     */
+    gross_margin_percent: string | null;
+    /**
+     * Revenue from meal lines, major units.
+     */
+    meal_revenue_amount: string;
+    /**
+     * Revenue from resold-product lines, major units.
+     */
+    product_revenue_amount: string;
+    /**
+     * Revenue from other lines (subscription-plan and anything not a meal or product), major units.
+     */
+    other_revenue_amount: string;
+    /**
+     * True when unresolved consumption exceptions mean this month's COGS is understated.
+     */
+    has_data_quality_flag: boolean;
+    /**
+     * Count of unresolved consumption exceptions on non-cancelled orders anchored to this month.
+     */
+    exception_count: number;
+};
+
+export type MonthlyCostReportCollection = {
+    data: {
+        report: Array<MonthlyCostReportRow>;
+    };
+    meta: Meta;
+};
+
 export type ProductionOrder = {
     id: Uuid;
     recipe_version_id: Uuid;
@@ -18788,6 +18857,76 @@ export type ListPurchasesLedgerResponses = {
 };
 
 export type ListPurchasesLedgerResponse = ListPurchasesLedgerResponses[keyof ListPurchasesLedgerResponses];
+
+export type GetMonthlyCostReportData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Inclusive lower bound on the report month, as `YYYY-MM`.
+         */
+        from?: string;
+        /**
+         * Inclusive upper bound on the report month, as `YYYY-MM`.
+         */
+        to?: string;
+    };
+    url: '/catalogue/reports/monthly-cost';
+};
+
+export type GetMonthlyCostReportErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetMonthlyCostReportError = GetMonthlyCostReportErrors[keyof GetMonthlyCostReportErrors];
+
+export type GetMonthlyCostReportResponses = {
+    /**
+     * The monthly cost report, newest month first.
+     */
+    200: MonthlyCostReportCollection;
+};
+
+export type GetMonthlyCostReportResponse = GetMonthlyCostReportResponses[keyof GetMonthlyCostReportResponses];
 
 export type ListProductionOrdersData = {
     body?: never;

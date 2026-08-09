@@ -146,6 +146,25 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'cost-report',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.costReport.name',
+        descriptionKey: 'kitchen:families.costReport.description',
+        // `☰`, three stacked rules — a ledger of monthly figures, the same reading the purchases and
+        // price-list cards give the glyph. A real icon set retires the compromise the whole
+        // workspace records.
+        icon: 'menu',
+        href: '/kitchen/cost-report',
+        // The second card gated on the cost permission (INV1.1), and for the same reason as the
+        // purchases ledger: this report exposes spend, COGS and the margin reconstructable from
+        // cost and revenue, so a person without `inventory.view_costs_organisation` never sees it.
+        // Unlike analytics — sample figures behind the plain view code — this is real money, so it
+        // takes the money code. Nothing is written from a report.
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'ingredients',
         kind: 'managed',
         group: 'catalogue',

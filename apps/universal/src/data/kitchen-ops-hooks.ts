@@ -5,6 +5,8 @@ import type {
     CreateStockItemRequest,
     GoodsReceipt,
     GoodsReceiptResult,
+    MonthlyCostReportFilter,
+    MonthlyCostReportRow,
     PostGoodsReceiptRequest,
     ProductionOrder,
     ProductionOrderResult,
@@ -238,6 +240,27 @@ export function usePurchasesLedgerQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listPurchasesLedger(filter);
+        },
+    });
+}
+
+/**
+ * The monthly cost report (INV1.4) — spend, COGS, waste, revenue and margin per month and currency.
+ * Behind `inventory.view_costs_organisation` on the server, so a caller without that code gets a
+ * failure rather than the kitchen's economics; the screen gates its card on the same permission.
+ */
+export function useCostReportQuery(
+    filter: MonthlyCostReportFilter = {},
+    enabled = true,
+): UseQueryResult<readonly MonthlyCostReportRow[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.costReport(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listCostReport(filter);
         },
     });
 }

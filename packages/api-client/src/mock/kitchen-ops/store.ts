@@ -9,6 +9,8 @@ import type {
     CreateStockItemRequest,
     GoodsReceipt,
     GoodsReceiptResult,
+    MonthlyCostReportFilter,
+    MonthlyCostReportRow,
     PostGoodsReceiptRequest,
     ProductionOrder,
     ProductionOrderResult,
@@ -180,6 +182,48 @@ export class KitchenOpsMockStore {
                     costCurrencyCode: 'USD',
                 },
             ],
+        },
+    ];
+
+    /**
+     * The monthly cost report fixture (INV1.4) — two months so the screen renders spend, COGS,
+     * revenue, margin and the meal-versus-product split without any interaction, and the earlier
+     * month carries a data-quality flag (an unresolved consumption exception understated its COGS)
+     * so the honest-incomplete state is visible in mock mode too. Every amount is a major-unit
+     * decimal string in one currency; nothing here is summed across currencies.
+     */
+    #costReport: MonthlyCostReportRow[] = [
+        {
+            month: '2026-08',
+            currencyCode: 'USD',
+            spendAmount: '1850.000000',
+            cogsAmount: '1420.000000',
+            wasteAmount: '65.000000',
+            wasteQuantity: '12.500000',
+            revenueAmount: '3120.000000',
+            grossMarginAmount: '1700.000000',
+            grossMarginPercent: '54.49',
+            mealRevenueAmount: '2340.000000',
+            productRevenueAmount: '620.000000',
+            otherRevenueAmount: '160.000000',
+            hasDataQualityFlag: false,
+            exceptionCount: 0,
+        },
+        {
+            month: '2026-07',
+            currencyCode: 'USD',
+            spendAmount: '1615.000000',
+            cogsAmount: '1180.000000',
+            wasteAmount: null,
+            wasteQuantity: '8.000000',
+            revenueAmount: '2680.000000',
+            grossMarginAmount: '1500.000000',
+            grossMarginPercent: '55.97',
+            mealRevenueAmount: '1980.000000',
+            productRevenueAmount: '540.000000',
+            otherRevenueAmount: '160.000000',
+            hasDataQualityFlag: true,
+            exceptionCount: 2,
         },
     ];
 
@@ -473,6 +517,20 @@ export class KitchenOpsMockStore {
         }
 
         return { items, nextCursor: null, hasMore: false, totalCount: items.length };
+    }
+
+    /**
+     * The monthly cost report (INV1.4), newest month first, within the optional inclusive `YYYY-MM`
+     * bounds. The fixture is small, so it filters and returns the whole set at once.
+     */
+    costReport(filter: MonthlyCostReportFilter = {}): readonly MonthlyCostReportRow[] {
+        return [...this.#costReport]
+            .filter((row) => {
+                if (filter.from !== undefined && row.month < filter.from) return false;
+                if (filter.to !== undefined && row.month > filter.to) return false;
+                return true;
+            })
+            .sort((left, right) => right.month.localeCompare(left.month));
     }
 
     productionOrders(): readonly ProductionOrder[] {

@@ -2868,6 +2868,33 @@ export const zPurchasesLedgerCollection = z.object({
     meta: zPaginationMeta
 });
 
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+ */
+export const zMonthlyCostReportRow = z.object({
+    month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+    currency_code: z.string(),
+    spend_amount: z.string(),
+    cogs_amount: z.string(),
+    waste_amount: z.string().nullable(),
+    waste_quantity: z.string().nullable(),
+    revenue_amount: z.string(),
+    gross_margin_amount: z.string(),
+    gross_margin_percent: z.string().nullable(),
+    meal_revenue_amount: z.string(),
+    product_revenue_amount: z.string(),
+    other_revenue_amount: z.string(),
+    has_data_quality_flag: z.boolean(),
+    exception_count: z.int()
+});
+
+export const zMonthlyCostReportCollection = z.object({
+    data: z.object({
+        report: z.array(zMonthlyCostReportRow)
+    }),
+    meta: zMeta
+});
+
 export const zProductionOrder = z.object({
     id: zUuid,
     recipe_version_id: zUuid,
@@ -9184,6 +9211,21 @@ export const zListPurchasesLedgerQuery = z.object({
  * A page of purchases-ledger lines, newest first.
  */
 export const zListPurchasesLedgerResponse = zPurchasesLedgerCollection;
+
+export const zGetMonthlyCostReportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMonthlyCostReportQuery = z.object({
+    from: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
+    to: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
+});
+
+/**
+ * The monthly cost report, newest month first.
+ */
+export const zGetMonthlyCostReportResponse = zMonthlyCostReportCollection;
 
 export const zListProductionOrdersHeaders = z.object({
     'X-Organisation-Id': zUuid,

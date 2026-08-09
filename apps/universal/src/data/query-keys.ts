@@ -394,6 +394,7 @@ export const queryKeys = {
         goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,
+        costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
         productionOrders: () => ['kitchenOps', 'production-orders'] as const,
         qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
     },

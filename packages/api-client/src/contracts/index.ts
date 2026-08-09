@@ -369,6 +369,8 @@ export type {
     GoodsReceiptLineInput,
     GoodsReceiptResult,
     KitchenOpsRepository,
+    MonthlyCostReportFilter,
+    MonthlyCostReportRow,
     PostGoodsReceiptRequest,
     ProductionMovementInput,
     ProductionOrder,

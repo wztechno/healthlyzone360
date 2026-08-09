@@ -19,6 +19,8 @@ import type {
     GoodsReceiptLine,
     GoodsReceiptResult,
     KitchenOpsRepository,
+    MonthlyCostReportFilter,
+    MonthlyCostReportRow,
     PostGoodsReceiptRequest,
     ProductionOrder,
     ProductionOrderResult,
@@ -38,6 +40,7 @@ import type {
 import type {
     GoodsReceipt as WireGoodsReceipt,
     GoodsReceiptLine as WireGoodsReceiptLine,
+    MonthlyCostReportRow as WireMonthlyCostReportRow,
     ProductionOrder as WireProductionOrder,
     PurchasesLedgerLine as WirePurchaseLedgerLine,
     QualityCheck as WireQualityCheck,
@@ -154,6 +157,25 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         lineTotalAmount: wire.line_total_amount,
         costCurrencyCode: wire.cost_currency_code,
         costsRedacted: wire.costs_redacted,
+    };
+}
+
+function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostReportRow {
+    return {
+        month: wire.month,
+        currencyCode: wire.currency_code,
+        spendAmount: wire.spend_amount,
+        cogsAmount: wire.cogs_amount,
+        wasteAmount: wire.waste_amount,
+        wasteQuantity: wire.waste_quantity,
+        revenueAmount: wire.revenue_amount,
+        grossMarginAmount: wire.gross_margin_amount,
+        grossMarginPercent: wire.gross_margin_percent,
+        mealRevenueAmount: wire.meal_revenue_amount,
+        productRevenueAmount: wire.product_revenue_amount,
+        otherRevenueAmount: wire.other_revenue_amount,
+        hasDataQualityFlag: wire.has_data_quality_flag,
+        exceptionCount: wire.exception_count,
     };
 }
 
@@ -350,6 +372,24 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 hasMore: meta.has_more ?? false,
                 totalCount: null,
             };
+        },
+
+        async listCostReport(
+            filter: MonthlyCostReportFilter = {},
+        ): Promise<readonly MonthlyCostReportRow[]> {
+            const params = new URLSearchParams();
+            if (filter.from !== undefined) params.set('from', filter.from);
+            if (filter.to !== undefined) params.set('to', filter.to);
+
+            const query = params.toString();
+            const envelope = await transport.requestEnvelope<{
+                readonly report: readonly WireMonthlyCostReportRow[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/reports/monthly-cost${query === '' ? '' : `?${query}`}`,
+            });
+
+            return envelope.data.report.map(mapMonthlyCostReportRow);
         },
 
         async listProductionOrders(): Promise<readonly ProductionOrder[]> {

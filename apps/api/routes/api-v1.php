@@ -207,6 +207,7 @@ use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
+use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
@@ -1384,6 +1385,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             */
             Route::middleware('permission:inventory.view_costs_organisation')->group(function (): void {
                 Route::get('/procurement/purchases-ledger', PurchasesLedgerIndexController::class)->name('catalogue.procurement.purchases-ledger.index');
+
+                /*
+                | The monthly cost report (INV1.4) sits beside the ledger on the
+                | same cost permission: it exposes spend, COGS and the margin
+                | reconstructable from cost and revenue, so it takes the code that
+                | gates money everywhere in this domain, not the plain view code.
+                */
+                Route::get('/reports/monthly-cost', MonthlyCostReportController::class)->name('catalogue.reports.monthly-cost.index');
             });
 
             Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {

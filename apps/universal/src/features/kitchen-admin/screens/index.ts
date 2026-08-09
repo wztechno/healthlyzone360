@@ -26,6 +26,7 @@
 export { AllergenClassesScreen } from './allergen-classes-screen.tsx';
 export { AnalyticsScreen } from './analytics-screen.tsx';
 export { BranchOperatingScreen } from './branch-operating-screen.tsx';
+export { CostReportScreen } from './cost-report-screen.tsx';
 export { DeliveryZoneEditScreen } from './delivery-zone-edit-screen.tsx';
 export { DeliveryZonesScreen } from './delivery-zones-screen.tsx';
 export { IngredientEditScreen } from './ingredient-edit-screen.tsx';

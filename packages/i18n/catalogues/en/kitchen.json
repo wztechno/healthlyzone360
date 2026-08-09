@@ -316,6 +316,37 @@
                 "goodsReceipt": "Goods receipt",
                 "productionOrder": "Production order"
             }
+        },
+        "costReport": {
+            "title": "Monthly cost report",
+            "subtitle": "Purchasing spend and cost of goods sold beside the month's selling — real figures, and the margin between them.",
+            "emptyTitle": "No months to report yet",
+            "emptyBody": "Once stock is received and orders confirmed, each month's spend, cost and selling appear here.",
+            "filterFrom": "From month",
+            "filterTo": "To month",
+            "currencyLabel": "Currency",
+            "dataQualityTitle": "This month's COGS may be understated",
+            "dataQualityBody_one": "One month has unresolved consumption exceptions, so its cost of goods sold is understated.",
+            "dataQualityBody_other": "{{count}} months have unresolved consumption exceptions, so their cost of goods sold is understated.",
+            "flagged": "Understated",
+            "tileSpend": "Spend · {{month}}",
+            "tileCogs": "COGS · {{month}}",
+            "tileRevenue": "Revenue · {{month}}",
+            "tileMargin": "Margin · {{month}}",
+            "chartRevenueTrend": "Revenue by month",
+            "chartCogs": "COGS by month",
+            "chartRevenueMix": "Revenue by line of business · {{month}}",
+            "mixCenter": "Revenue mix",
+            "mixMeal": "Meals",
+            "mixProduct": "Products",
+            "mixOther": "Other",
+            "caption": "Monthly cost report",
+            "columnMonth": "Month",
+            "columnSpend": "Spend",
+            "columnCogs": "COGS",
+            "columnRevenue": "Revenue",
+            "columnMargin": "Margin",
+            "columnMarginPercent": "Margin %"
         }
     },
     "kds": {
@@ -416,6 +447,10 @@
         "analytics": {
             "name": "Analytics",
             "description": "Kitchen KPIs, production trends, and channel mix — sample figures until live reporting lands."
+        },
+        "costReport": {
+            "name": "Cost report",
+            "description": "Monthly spend and cost of goods sold beside selling revenue — the margin, at a glance."
         }
     },
     "analytics": {

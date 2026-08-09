@@ -275,11 +275,24 @@ modules:
     description: Stock items, per-branch stock levels and an append-only movement ledger (adjust, waste, receipt, consume, yield), plus each ingredient's weighted moving-average cost and its cost-event ledger (INV1.1); auto-deduction on order confirm with COGS valued on the consume movement and reversal on cancel (INV1.2), branching on catalogue item type and recording an exception rather than guessing when a line's consumption cannot be resolved.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Kitchens, Recipes, Catalogues, Orders]
 
+  # INV1.4 adds the monthly cost report here rather than in Inventory, and the
+  # reason is the graph: Procurement already depends on Inventory, so hosting the
+  # report in Inventory would need an Inventory → Procurement edge — a cycle. The
+  # report owns the spend side already (goods receipt lines), reads the COGS and
+  # waste side through the Inventory edge it already has, and gains two new edges,
+  # both pointing away and both acyclic:
+  #   - **Orders** for the selling side — order totals and their lines, so revenue
+  #     sits beside COGS and splits meal-versus-product. Orders never learns
+  #     Procurement exists (its chain — Catalogues, Pricing, Delivery, Customers,
+  #     Kitchens, Cart — does not reach back), so the edge stays acyclic.
+  #   - **Catalogues** for `catalogue_items.item_type`, the one place the
+  #     meal-versus-product distinction is recorded. Catalogues does not depend on
+  #     Procurement.
   - name: Procurement
     status: foundation
     phase: 2
-    description: Suppliers, purchase orders and goods receipts that post quantity and cost into the inventory ledger, blending each priced purchase into an ingredient's weighted moving-average cost.
-    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Inventory]
+    description: Suppliers, purchase orders and goods receipts that post quantity and cost into the inventory ledger, blending each priced purchase into an ingredient's weighted moving-average cost; and the monthly cost report reconciling purchasing spend and COGS against selling revenue per month and currency (INV1.4).
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Inventory, Orders, Catalogues]
 
   - name: Production
     status: foundation

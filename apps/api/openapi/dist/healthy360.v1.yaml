@@ -8384,6 +8384,72 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/reports/monthly-cost:
+    get:
+      operationId: getMonthlyCostReport
+      tags:
+        - Kitchen inventory & production
+      summary: The monthly cost report
+      description: |
+        One kitchen's economics, month by month and currency by currency
+        (INV1.4): purchasing **spend** (Σ goods-receipt line totals),
+        **cost of goods sold** (Σ consume-movement cost, cancelled orders
+        excluded), **waste value**, **revenue** (Σ order totals for
+        confirmed/fulfilled orders), and the gross **margin** between revenue
+        and COGS — plus the meal-versus-product revenue split and a
+        data-quality flag for months whose COGS is understated by unresolved
+        consumption exceptions.
+
+        Every figure is grouped by its currency and never summed across
+        currencies (there is no exchange rate — §4.4), so a row is one
+        `(month, currency)` pair. Revenue is stored in minor units and is
+        converted to the same major-unit scale as spend and COGS for display;
+        every amount here is a major-unit decimal string beside its currency.
+
+        Computed live over the receipt, movement and order ledgers — there is
+        no period-close table — so it can never disagree with the purchases
+        ledger and stock ledger it reconciles. Behind
+        `inventory.view_costs_organisation`: it exposes costs and the margin
+        reconstructable from them, so a person without the cost permission gets
+        a 403. The report reads no recipe line, formulation quantity or
+        supplier terms; a month is the finest grain it exposes.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: ^\d{4}-(0[1-9]|1[0-2])$
+          description: Inclusive lower bound on the report month, as `YYYY-MM`.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: ^\d{4}-(0[1-9]|1[0-2])$
+          description: Inclusive upper bound on the report month, as `YYYY-MM`.
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The monthly cost report, newest month first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyCostReportCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/production/orders:
     get:
       operationId: listProductionOrders
@@ -25141,6 +25207,92 @@ components:
                 $ref: '#/components/schemas/PurchasesLedgerLine'
         meta:
           $ref: '#/components/schemas/PaginationMeta'
+    MonthlyCostReportRow:
+      type: object
+      required:
+        - month
+        - currency_code
+        - spend_amount
+        - cogs_amount
+        - waste_amount
+        - waste_quantity
+        - revenue_amount
+        - gross_margin_amount
+        - gross_margin_percent
+        - meal_revenue_amount
+        - product_revenue_amount
+        - other_revenue_amount
+        - has_data_quality_flag
+        - exception_count
+      description: One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+      properties:
+        month:
+          type: string
+          pattern: ^\d{4}-(0[1-9]|1[0-2])$
+          description: The report month, `YYYY-MM`.
+        currency_code:
+          type: string
+          description: ISO 4217 currency every amount in this row is denominated in.
+        spend_amount:
+          type: string
+          description: Purchasing spend — Σ goods-receipt line totals, major units.
+        cogs_amount:
+          type: string
+          description: Cost of goods sold — Σ consume-movement cost, cancelled orders excluded, major units.
+        waste_amount:
+          type:
+            - string
+            - 'null'
+          description: Value of wasted stock where a cost was recorded, major units; null when no waste carried a cost.
+        waste_quantity:
+          type:
+            - string
+            - 'null'
+          description: Total wasted quantity this month, the honest note when waste carries no cost.
+        revenue_amount:
+          type: string
+          description: Selling revenue — Σ order totals for confirmed/fulfilled orders, converted from minor to major units.
+        gross_margin_amount:
+          type: string
+          description: Revenue minus COGS, major units.
+        gross_margin_percent:
+          type:
+            - string
+            - 'null'
+          description: Margin as a percentage of revenue; null when revenue is zero.
+        meal_revenue_amount:
+          type: string
+          description: Revenue from meal lines, major units.
+        product_revenue_amount:
+          type: string
+          description: Revenue from resold-product lines, major units.
+        other_revenue_amount:
+          type: string
+          description: Revenue from other lines (subscription-plan and anything not a meal or product), major units.
+        has_data_quality_flag:
+          type: boolean
+          description: True when unresolved consumption exceptions mean this month's COGS is understated.
+        exception_count:
+          type: integer
+          description: Count of unresolved consumption exceptions on non-cancelled orders anchored to this month.
+      additionalProperties: false
+    MonthlyCostReportCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - report
+          properties:
+            report:
+              type: array
+              items:
+                $ref: '#/components/schemas/MonthlyCostReportRow'
+        meta:
+          $ref: '#/components/schemas/Meta'
     ProductionOrder:
       type: object
       required:

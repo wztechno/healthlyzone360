@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5142 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5172 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2387,6 +2387,8 @@ export interface NamespaceKeys {
     | 'families.analytics.name'
     | 'families.branchOperating.description'
     | 'families.branchOperating.name'
+    | 'families.costReport.description'
+    | 'families.costReport.name'
     | 'families.deliveryZones.description'
     | 'families.deliveryZones.name'
     | 'families.ingredients.description'
@@ -2571,6 +2573,34 @@ export interface NamespaceKeys {
     | 'nav.groups.workbench'
     | 'nav.overview'
     | 'nav.railTitle'
+    | 'ops.costReport.caption'
+    | 'ops.costReport.chartCogs'
+    | 'ops.costReport.chartRevenueMix'
+    | 'ops.costReport.chartRevenueTrend'
+    | 'ops.costReport.columnCogs'
+    | 'ops.costReport.columnMargin'
+    | 'ops.costReport.columnMarginPercent'
+    | 'ops.costReport.columnMonth'
+    | 'ops.costReport.columnRevenue'
+    | 'ops.costReport.columnSpend'
+    | 'ops.costReport.currencyLabel'
+    | 'ops.costReport.dataQualityBody'
+    | 'ops.costReport.dataQualityTitle'
+    | 'ops.costReport.emptyBody'
+    | 'ops.costReport.emptyTitle'
+    | 'ops.costReport.filterFrom'
+    | 'ops.costReport.filterTo'
+    | 'ops.costReport.flagged'
+    | 'ops.costReport.mixCenter'
+    | 'ops.costReport.mixMeal'
+    | 'ops.costReport.mixOther'
+    | 'ops.costReport.mixProduct'
+    | 'ops.costReport.subtitle'
+    | 'ops.costReport.tileCogs'
+    | 'ops.costReport.tileMargin'
+    | 'ops.costReport.tileRevenue'
+    | 'ops.costReport.tileSpend'
+    | 'ops.costReport.title'
     | 'ops.ledger.allSuppliers'
     | 'ops.ledger.columnDate'
     | 'ops.ledger.columnItem'
@@ -7547,6 +7577,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.analytics.name',
   'kitchen:families.branchOperating.description',
   'kitchen:families.branchOperating.name',
+  'kitchen:families.costReport.description',
+  'kitchen:families.costReport.name',
   'kitchen:families.deliveryZones.description',
   'kitchen:families.deliveryZones.name',
   'kitchen:families.ingredients.description',
@@ -7731,6 +7763,34 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.groups.workbench',
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
+  'kitchen:ops.costReport.caption',
+  'kitchen:ops.costReport.chartCogs',
+  'kitchen:ops.costReport.chartRevenueMix',
+  'kitchen:ops.costReport.chartRevenueTrend',
+  'kitchen:ops.costReport.columnCogs',
+  'kitchen:ops.costReport.columnMargin',
+  'kitchen:ops.costReport.columnMarginPercent',
+  'kitchen:ops.costReport.columnMonth',
+  'kitchen:ops.costReport.columnRevenue',
+  'kitchen:ops.costReport.columnSpend',
+  'kitchen:ops.costReport.currencyLabel',
+  'kitchen:ops.costReport.dataQualityBody',
+  'kitchen:ops.costReport.dataQualityTitle',
+  'kitchen:ops.costReport.emptyBody',
+  'kitchen:ops.costReport.emptyTitle',
+  'kitchen:ops.costReport.filterFrom',
+  'kitchen:ops.costReport.filterTo',
+  'kitchen:ops.costReport.flagged',
+  'kitchen:ops.costReport.mixCenter',
+  'kitchen:ops.costReport.mixMeal',
+  'kitchen:ops.costReport.mixOther',
+  'kitchen:ops.costReport.mixProduct',
+  'kitchen:ops.costReport.subtitle',
+  'kitchen:ops.costReport.tileCogs',
+  'kitchen:ops.costReport.tileMargin',
+  'kitchen:ops.costReport.tileRevenue',
+  'kitchen:ops.costReport.tileSpend',
+  'kitchen:ops.costReport.title',
   'kitchen:ops.ledger.allSuppliers',
   'kitchen:ops.ledger.columnDate',
   'kitchen:ops.ledger.columnItem',
