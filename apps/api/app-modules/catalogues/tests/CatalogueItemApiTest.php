@@ -321,3 +321,46 @@ it('refuses every write to a retired item', function (): void {
 
     expect(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $item->getKey())->count())->toBe(0);
 });
+
+it('serves numbered pages that count the type asked for, not the catalogue', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+    $owner = [
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ];
+
+    // One endpoint, three screens: meals, products and plans are separated by
+    // `item_type` rather than by path, so a page control on any one of them is
+    // wrong unless the count is taken after the type filter.
+    CatalogueItem::factory()->count(7)->create($owner);
+    CatalogueItem::factory()->meal()->count(3)->create($owner);
+    CatalogueItem::factory()->subscriptionPlan()->count(2)->create($owner);
+
+    $this->getJson('/api/v1/catalogue/items?item_type=meal&page=1&per_page=2', $headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('meta.total_count', 3)
+        ->assertJsonPath('meta.total_pages', 2);
+
+    $this->getJson('/api/v1/catalogue/items?item_type=product&page=1&per_page=2', $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total_count', 7)
+        ->assertJsonPath('meta.total_pages', 4);
+
+    $this->getJson('/api/v1/catalogue/items?item_type=subscription_plan&page=1&per_page=2', $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total_count', 2)
+        ->assertJsonPath('meta.total_pages', 1);
+
+    // Page 2 of the meals is the third meal and nothing else — not the eighth
+    // row of the catalogue.
+    $this->getJson('/api/v1/catalogue/items?item_type=meal&page=2&per_page=2', $headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.item_type', 'meal');
+
+    $this->getJson('/api/v1/catalogue/items?item_type=meal&page=3&per_page=2', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'page');
+});

@@ -388,3 +388,23 @@ it('leaves a zone status enum that only says three things', function (): void {
     expect(array_map(static fn (DeliveryZoneStatus $case): string => $case->value, DeliveryZoneStatus::cases()))
         ->toBe(['active', 'inactive', 'archived']);
 });
+
+it('serves the zone list as numbered pages', function (): void {
+    foreach (range(1, 5) as $index) {
+        DeliveryWorld::zone($this->a->organisation, 'zone-'.$index);
+    }
+
+    $this->getJson('/api/v1/catalogue/delivery-zones?page=1&per_page=2', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('meta.total_count', 5)
+        ->assertJsonPath('meta.total_pages', 3);
+
+    $this->getJson('/api/v1/catalogue/delivery-zones?page=3&per_page=2', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+
+    $this->getJson('/api/v1/catalogue/delivery-zones?page=0', $this->headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'page');
+});

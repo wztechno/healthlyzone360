@@ -414,3 +414,100 @@ it('never writes an audit metadata key the redactor would blank', function (): v
         expect($event->metadata)->not->toContain('[redacted]');
     }
 });
+
+/*
+|--------------------------------------------------------------------------
+| Numbered pages
+|--------------------------------------------------------------------------
+|
+| The kitchen catalogue is the one family allowed offset pagination, for the
+| reasons `docs/api/conventions.md` and `OffsetPage` both set out: it is edited
+| by one kitchen occasionally rather than written continuously, and a cook
+| hunting through nine hundred ingredients needs to jump rather than press Next
+| thirty times.
+|
+| What these pin is that the two modes are genuinely independent — asking for a
+| page must not disturb the keyset walk above, and a client that has never heard
+| of `page` must see exactly what it saw before.
+*/
+
+it('serves numbered pages that partition the collection exactly once', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    Ingredient::factory()->count(30)->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $first = $this->getJson('/api/v1/catalogue/ingredients?page=1&per_page=10', $headers)->assertOk();
+
+    $total = $first->json('meta.total_count');
+    $totalPages = $first->json('meta.total_pages');
+
+    expect($first->json('meta.page'))->toBe(1)
+        ->and($first->json('meta.per_page'))->toBe(10)
+        ->and($totalPages)->toBe((int) ceil($total / 10));
+
+    // Every page collected, then compared with the collection walked in the
+    // same order. Offset can skip and repeat — that is the whole reason it is
+    // fenced to this family — so the assertion is that it did neither here.
+    $seen = [];
+
+    for ($page = 1; $page <= $totalPages; $page++) {
+        $response = $this->getJson("/api/v1/catalogue/ingredients?page={$page}&per_page=10", $headers)->assertOk();
+
+        foreach ($response->json('data') as $item) {
+            $seen[] = $item['id'];
+        }
+    }
+
+    expect(count($seen))->toBe($total)
+        ->and(count(array_unique($seen)))->toBe($total);
+});
+
+it('leaves the cursor walk untouched when no page is asked for', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    Ingredient::factory()->count(5)->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $response = $this->getJson('/api/v1/catalogue/ingredients?limit=3', $headers)->assertOk();
+
+    // The keyset meta, and none of the numbered-page meta: the `COUNT` that
+    // `total_pages` needs is only paid for by a caller that asked for a page.
+    expect($response->json('meta.has_more'))->toBeTrue()
+        ->and($response->json('meta.next_cursor'))->not->toBeNull()
+        ->and($response->json('meta'))->not->toHaveKey('total_pages')
+        ->and($response->json('meta'))->not->toHaveKey('page');
+});
+
+it('refuses a page past the end, and a page size outside the range', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    $this->getJson('/api/v1/catalogue/ingredients?page=9999&per_page=10', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.code', 'request.invalid')
+        ->assertJsonPath('error.details.parameter', 'page');
+
+    $this->getJson('/api/v1/catalogue/ingredients?page=1&per_page=101', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'per_page');
+
+    $this->getJson('/api/v1/catalogue/ingredients?page=0', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'page');
+});
+
+it('answers page 1 of an empty collection rather than refusing it', function (): void {
+    $this->actingAs($this->a->user);
+
+    // A filter nothing matches: "you have none yet" is a legitimate answer to a
+    // legitimate request, not a 400.
+    $response = $this->getJson(
+        '/api/v1/catalogue/ingredients?page=1&query='.urlencode('zzz-no-such-ingredient'),
+        catalogueHeaders($this->a),
+    )->assertOk();
+
+    expect($response->json('data'))->toBe([])
+        ->and($response->json('meta.total_count'))->toBe(0)
+        ->and($response->json('meta.total_pages'))->toBe(0);
+});

@@ -168,6 +168,23 @@ Collection endpoints paginate by keyset over `(created_at, id)`, never by offset
 - `meta` carries `next_cursor` (null on the last page) and `has_more`, answered by reading one row beyond the page rather than by a separate count that would disagree with the page under concurrent writes.
 - A cursor the endpoint did not issue is `400 request.invalid`, never a silent restart from the beginning — that would turn a client bug into an infinite loop that looks like a working list.
 
+### The one exception: numbered pages on the kitchen catalogue
+
+Five endpoints also accept `page` and `per_page`, and answer with `meta.page`, `meta.per_page` and `meta.total_pages` alongside the cursor fields. They are the kitchen's own catalogue: **ingredients, recipes, catalogue items, price lists and delivery zones**.
+
+Five endpoints, seven screens: meals, products and subscription plans are all catalogue items, separated by a `type` filter rather than by a path.
+
+Deliberately not included is the **service-area gazetteer** (`/reference/delivery-areas`), even though it is reference data and would be safe by the argument below. It is a closed list of a few hundred rows that the client reads whole at `limit=200` and filters in memory, because the endpoint takes no text filter. Numbered pages over a locally filtered list would count pages the user cannot see — "page 1 of 3" above three matching rows — so the honest control there is no page control.
+
+This is offset pagination, and it is the thing the rule above forbids. It is allowed here and nowhere else because the reason for the rule does not hold on these collections and does hold on the others:
+
+- They are edited by the staff of **one kitchen**, occasionally and deliberately — a row is added when somebody fills in a form, not by a stream of orders arriving. A skipped or repeated row needs a write to land between two page requests by the same person, which is possible but rare, and its cost is a row seen twice in a list they are browsing.
+- What they buy is the ability to **jump**. A kitchen with nine hundred ingredients looking for one starting with "S" cannot walk there from a cursor; keyset offers next and nothing else, and "press Next thirty times" is not a usable answer to a catalogue that size.
+
+It is **not** extended to the order book (`/catalogue/orders`, `/me/orders`) or to any marketplace collection. Those are written continuously — an order arrives whenever a customer checks out — which is precisely the case where offset skips and repeats, and they are read far more often than they are jumped around in.
+
+`page` is 1-based; `page` below 1, `per_page` outside 1–100, or a `page` past the last are each `400 request.invalid` with `details.parameter`. `total_pages` is `0` for an empty collection, so "page 1 of 0" never renders. The cursor fields stay on these endpoints and keep working: a client that ignores `page` is unaffected, and nothing that already walks them has to change.
+
 ## Idempotent commands (`Idempotency-Key`)
 
 A command endpoint marked idempotent in OpenAPI accepts an `Idempotency-Key`. The middleware over the existing `idempotency_keys` table gives it exactly these semantics:

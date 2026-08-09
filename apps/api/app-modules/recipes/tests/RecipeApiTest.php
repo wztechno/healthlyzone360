@@ -370,3 +370,31 @@ it('filters the recipe index to rows whose current version derivation is stale',
     expect($ids)->toContain((string) $staleRecipe->getKey())
         ->and($ids)->not->toContain((string) $freshRecipe->getKey());
 });
+
+it('serves the recipe book as numbered pages', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    Recipe::factory()->count(12)->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $first = $this->getJson('/api/v1/catalogue/recipes?page=1&per_page=5', $headers)
+        ->assertOk()
+        ->assertJsonCount(5, 'data')
+        ->assertJsonPath('meta.page', 1)
+        ->assertJsonPath('meta.total_count', 12)
+        ->assertJsonPath('meta.total_pages', 3);
+
+    // The published-version lookup is shared with the cursor path; a page that
+    // reached it through the offset branch must still carry the field.
+    expect($first->json('data.0'))->toHaveKey('published_version_number');
+
+    $last = $this->getJson('/api/v1/catalogue/recipes?page=3&per_page=5', $headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+
+    expect(array_intersect(array_column($first->json('data'), 'id'), array_column($last->json('data'), 'id')))->toBe([]);
+
+    $this->getJson('/api/v1/catalogue/recipes?page=4&per_page=5', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'page');
+});

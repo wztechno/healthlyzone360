@@ -11,17 +11,24 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\OffsetPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
  * GET /api/v1/catalogue/ingredients — the kitchen's catalogue and the
- * platform library it inherits, in one cursor-paginated list.
+ * platform library it inherits, in one list.
  *
  * The two layers are not separate endpoints because a cook looking for
  * "chickpeas" does not care who owns the row; `is_platform` on each item is
  * what the client needs to know, and it is on the wire.
+ *
+ * Walks either way. Without `page` this is the keyset list it has always been,
+ * unchanged down to the absent `COUNT`. With `page` it answers numbered pages
+ * instead — see {@see OffsetPage} for why this collection is allowed offset
+ * when `docs/api/conventions.md` forbids it elsewhere, and why the count that
+ * makes "page 3 of 12" possible is only paid for when somebody asks for it.
  */
 final class IngredientIndexController
 {
@@ -37,6 +44,25 @@ final class IngredientIndexController
         $this->applyStatus($request, $query);
         $this->applyCategory($request, $query);
         $this->applySearch($request, $query);
+
+        $requestedPage = OffsetPage::page($request);
+
+        if ($requestedPage !== null) {
+            $perPage = OffsetPage::perPage($request);
+            // Counted before the query is constrained: a constrained builder
+            // counts the page rather than the collection.
+            $total = $query->toBase()->getCountForPagination();
+
+            OffsetPage::assertWithinRange($requestedPage, $perPage, $total);
+            OffsetPage::constrain($query, $requestedPage, $perPage);
+
+            $rows = $query->get();
+
+            return ApiResponse::data(
+                $rows->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient($ingredient))->all(),
+                OffsetPage::meta($rows, $requestedPage, $perPage, $total),
+            );
+        }
 
         $limit = CursorPage::limit($request);
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));

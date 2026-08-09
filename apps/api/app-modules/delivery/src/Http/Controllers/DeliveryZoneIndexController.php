@@ -11,6 +11,7 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\OffsetPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,25 @@ final class DeliveryZoneIndexController
         $this->applyStatus($request, $query);
         $this->applyBranch($request, $query);
         $this->applySearch($request, $query);
+
+        $requestedPage = OffsetPage::page($request);
+
+        if ($requestedPage !== null) {
+            $perPage = OffsetPage::perPage($request);
+            // Counted before the query is constrained: a constrained builder
+            // counts the page rather than the collection.
+            $total = $query->toBase()->getCountForPagination();
+
+            OffsetPage::assertWithinRange($requestedPage, $perPage, $total);
+            OffsetPage::constrain($query, $requestedPage, $perPage);
+
+            $rows = $query->get();
+
+            return ApiResponse::data(
+                $rows->map(fn (DeliveryZone $zone): array => $this->presenter->zone($zone))->all(),
+                OffsetPage::meta($rows, $requestedPage, $perPage, $total),
+            );
+        }
 
         $limit = CursorPage::limit($request);
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));

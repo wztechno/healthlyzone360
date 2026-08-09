@@ -14,7 +14,9 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\OffsetPage;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,25 +43,54 @@ final class RecipeIndexController
         $this->applySearch($request, $query);
         $this->applyStaleOnly($request, $query);
 
+        $requestedPage = OffsetPage::page($request);
+
+        if ($requestedPage !== null) {
+            $perPage = OffsetPage::perPage($request);
+            // Counted before the query is constrained: a constrained builder
+            // counts the page rather than the collection.
+            $total = $query->toBase()->getCountForPagination();
+
+            OffsetPage::assertWithinRange($requestedPage, $perPage, $total);
+            OffsetPage::constrain($query, $requestedPage, $perPage);
+
+            $rows = $query->get();
+
+            return $this->present($rows, OffsetPage::meta($rows, $requestedPage, $perPage, $total));
+        }
+
         $limit = CursorPage::limit($request);
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
         $page = CursorPage::page($query->get(), $limit);
 
-        // One query for the whole page rather than one per row: "what is live"
-        // is the first thing a list is read for, and an N+1 on the recipe book
-        // is the kind of thing that only hurts once the kitchen is busy.
+        return $this->present($page['items'], $page['meta']);
+    }
+
+    /**
+     * Present a page of recipes, whichever way it was paginated.
+     *
+     * The published-version lookup is one query for the whole page rather than
+     * one per row: "what is live" is the first thing a list is read for, and an
+     * N+1 on the recipe book is the kind of thing that only hurts once the
+     * kitchen is busy.
+     *
+     * @param  EloquentCollection<int, Recipe>  $recipes
+     * @param  array<string, mixed>  $meta
+     */
+    private function present(EloquentCollection $recipes, array $meta): JsonResponse
+    {
         $published = RecipeVersion::query()
-            ->whereIn('recipe_id', $page['items']->modelKeys())
+            ->whereIn('recipe_id', $recipes->modelKeys())
             ->where('status', RecipeVersionStatus::Published->value)
             ->pluck('version_number', 'recipe_id');
 
         return ApiResponse::data(
-            $page['items']->map(fn (Recipe $recipe): array => $this->presenter->recipe(
+            $recipes->map(fn (Recipe $recipe): array => $this->presenter->recipe(
                 $recipe,
                 $published->has((string) $recipe->getKey()) ? (int) $published[(string) $recipe->getKey()] : null,
             ))->all(),
-            $page['meta'],
+            $meta,
         );
     }
 

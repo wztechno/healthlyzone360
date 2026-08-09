@@ -488,3 +488,26 @@ it('records the customer scope change so a reclassification is never silent', fu
 
     expect($updated->metadata['changed_fields'])->toContain('customer_scope');
 });
+
+it('serves the price lists as numbered pages', function (): void {
+    foreach (range(1, 5) as $index) {
+        PricingWorld::priceList($this->a->organisation, 'tariff-'.$index);
+    }
+
+    $this->getJson('/api/v1/catalogue/price-lists?page=1&per_page=2', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('meta.total_count', 5)
+        ->assertJsonPath('meta.total_pages', 3);
+
+    $this->getJson('/api/v1/catalogue/price-lists?page=3&per_page=2', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+
+    // The filter is applied before the count, so the page total describes the
+    // filtered collection rather than the whole one.
+    $this->getJson('/api/v1/catalogue/price-lists?page=1&per_page=2&status=archived', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total_count', 0)
+        ->assertJsonPath('meta.total_pages', 0);
+});
