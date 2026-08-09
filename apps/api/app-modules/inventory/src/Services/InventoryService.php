@@ -37,6 +37,9 @@ final readonly class InventoryService
 
     /**
      * @param  string  $quantityDelta  a signed decimal string; negative removes stock. Narrowed to a numeric-string by {@see numeric()} before any arithmetic.
+     * @param  numeric-string|null  $unitCostAmount  the moving-average cost this movement is valued at, per the ingredient default unit — set only by the consume path (INV1.2), which captures COGS here because the order tables may not
+     * @param  numeric-string|null  $costAmount  this movement's COGS: unit cost × quantity consumed
+     * @param  string|null  $costCurrencyCode  required when either cost amount is given (the CHECK on the column enforces it)
      *
      * @throws InsufficientStock when a consume would drive the level below zero
      */
@@ -49,10 +52,13 @@ final readonly class InventoryService
         ?string $referenceType = null,
         ?string $referenceId = null,
         ?string $notes = null,
+        ?string $unitCostAmount = null,
+        ?string $costAmount = null,
+        ?string $costCurrencyCode = null,
     ): StockMovement {
         $delta = $this->numeric($quantityDelta);
 
-        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes): StockMovement {
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode): StockMovement {
             // Establish the row if this is the item's first movement at the
             // branch, then take a row lock for the read-modify-write itself.
             StockLevel::query()->firstOrCreate(
@@ -90,6 +96,9 @@ final readonly class InventoryService
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
                 'notes' => $notes,
+                'unit_cost_amount' => $unitCostAmount,
+                'cost_amount' => $costAmount,
+                'cost_currency_code' => $costCurrencyCode,
             ]);
         });
     }

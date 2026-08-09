@@ -8,8 +8,10 @@ use Healthy360\B2b\Contracts\SellerOpenOrders;
 use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
 use Healthy360\Orders\Contracts\OpenOrderQuery;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
+use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Services\BranchScheduleLookup;
 use Healthy360\Orders\Services\BuyerOpenOrderQuery;
+use Healthy360\Orders\Services\NullOrderStockConsumption;
 use Healthy360\Orders\Services\OrderQuery;
 use Healthy360\Orders\Services\OrderSnapshotRedaction;
 use Illuminate\Support\ServiceProvider;
@@ -48,6 +50,14 @@ use Illuminate\Support\ServiceProvider;
  * Both are `bind` rather than `bindIf`, over the neighbours' `bindIf` defaults:
  * the null answers exist for a deployment without this module, and where this
  * module is present it must win regardless of provider order.
+ *
+ * **One it declares and answers with a null default** (INV1.2):
+ * `OrderStockConsumption` → `NullOrderStockConsumption`. This is the mirror of
+ * the two edges above — a port pointing *outward*, so that confirming an order
+ * takes ingredients off the shelf without this module ever learning that an
+ * inventory module exists. The inventory module binds the real implementation
+ * over this default from its own `boot()`; where inventory is absent, an order
+ * still confirms and cancels and nothing moves.
  */
 class OrdersServiceProvider extends ServiceProvider
 {
@@ -58,6 +68,8 @@ class OrdersServiceProvider extends ServiceProvider
 
         $this->app->bind(OrderAnonymisation::class, OrderSnapshotRedaction::class);
         $this->app->bind(SellerOpenOrders::class, BuyerOpenOrderQuery::class);
+
+        $this->app->bind(OrderStockConsumption::class, NullOrderStockConsumption::class);
     }
 
     public function boot(): void {}

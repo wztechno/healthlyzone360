@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Services;
 
 use Carbon\CarbonImmutable;
+use Closure;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Exceptions\TransitionRejected;
@@ -48,14 +50,30 @@ final readonly class OrderLifecycle
     public function __construct(
         private AuditRecorder $audit,
         private TenantContext $context,
+        private OrderStockConsumption $consumption,
     ) {}
 
     /**
+     * Confirming is the kitchen committing to cook, so it is also the moment
+     * the ingredients come off the shelf (INV1.2). The deduction runs *inside*
+     * the same transaction as the status change — a confirmed order whose stock
+     * did not move, or moved stock on an order that failed to confirm, are both
+     * states nobody could reconcile — and it is idempotent, so the lost-update
+     * retry the `If-Match` guard already contemplates cannot double-deduct.
+     *
      * @throws ApiException
      */
     public function confirm(Order $order, ?int $expectedLockVersion = null): Order
     {
-        return $this->transition($order, OrderStatus::Confirmed, $expectedLockVersion, ['confirmed_at' => CarbonImmutable::now()]);
+        return $this->transition(
+            $order,
+            OrderStatus::Confirmed,
+            $expectedLockVersion,
+            ['confirmed_at' => CarbonImmutable::now()],
+            function (Order $confirmed): void {
+                $this->consumption->consume($confirmed);
+            },
+        );
     }
 
     /**
@@ -75,18 +93,27 @@ final readonly class OrderLifecycle
      */
     public function cancel(Order $order, CancellationReason $reason, ?int $expectedLockVersion = null): Order
     {
-        return $this->transition($order, OrderStatus::Cancelled, $expectedLockVersion, [
-            'cancelled_at' => CarbonImmutable::now(),
-            'cancellation_reason' => $reason,
-        ]);
+        return $this->transition(
+            $order,
+            OrderStatus::Cancelled,
+            $expectedLockVersion,
+            [
+                'cancelled_at' => CarbonImmutable::now(),
+                'cancellation_reason' => $reason,
+            ],
+            function (Order $cancelled): void {
+                $this->consumption->restore($cancelled);
+            },
+        );
     }
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  (Closure(Order): void)|null  $within  a side effect run inside the transition's own transaction, after the row has moved and been reloaded — where the stock deduction and its reversal belong, so they commit or roll back with the status change and never on their own
      *
      * @throws ApiException
      */
-    private function transition(Order $order, OrderStatus $to, ?int $expectedLockVersion, array $attributes): Order
+    private function transition(Order $order, OrderStatus $to, ?int $expectedLockVersion, array $attributes, ?Closure $within = null): Order
     {
         $from = $order->status;
 
@@ -94,7 +121,7 @@ final readonly class OrderLifecycle
             throw new TransitionRejected($from, $to);
         }
 
-        DB::transaction(function () use ($order, $to, $expectedLockVersion, $attributes): void {
+        DB::transaction(function () use ($order, $to, $expectedLockVersion, $attributes, $within): void {
             $query = Order::query()->whereKey($order->getKey())->where('status', $order->status->value);
 
             if ($expectedLockVersion !== null) {
@@ -119,6 +146,8 @@ final readonly class OrderLifecycle
             }
 
             $order->refresh();
+
+            $within?->__invoke($order);
         });
 
         $this->audit->record(

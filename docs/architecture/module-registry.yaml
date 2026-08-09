@@ -246,11 +246,34 @@ modules:
     description: Branch operating data — opening hours per weekday and order cut-offs — and the private Healthy360 kitchen workbook importer that stands a kitchen up from its own workbook. Menus, approved meal-plan receipt and kitchen instructions are still to come.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes, Catalogues, Pricing, Delivery]
 
+  # INV1.2 widens the edges. The auto-deduction path answers the orders module's
+  # `OrderStockConsumption` port, so it reads an order and its lines (Orders),
+  # explodes a meal into its published recipe version's lines (Recipes),
+  # branches on `catalogue_items.item_type` and reuses
+  # `DerivedAllergenService::publishedVersion()` (Catalogues), and converts
+  # recipe-line units into stock units (ReferenceData). Four new edges, all
+  # pointing *away* from Inventory:
+  #
+  #   - **Orders** is the load-bearing one, and it is the new direction on
+  #     purpose. Orders declares the port and binds a null default; Inventory
+  #     answers it and binds the real implementation from `boot()`. Orders gains
+  #     no edge to Inventory — it never learns inventory exists — so the seam
+  #     stays acyclic. (Verified: nothing on Orders' own dependency chain —
+  #     Catalogues, Pricing, Delivery, Customers, Kitchens, Cart — reaches back
+  #     to Inventory.)
+  #   - **Catalogues** and **Recipes** are the item→recipe resolution reused
+  #     rather than reimplemented a fourth time. Neither depends on Inventory.
+  #   - **ReferenceData** is `UnitConversionService` and `MeasurementUnit`,
+  #     which the consume path uses to cross a recipe-line unit into a stock
+  #     unit; it depends only on Support.
+  #
+  # Procurement and Production already depend on Inventory; none of the four new
+  # targets is on their far side, so the graph stays acyclic.
   - name: Inventory
     status: foundation
     phase: 2
-    description: Stock items, per-branch stock levels and an append-only movement ledger (adjust, waste, receipt, consume, yield), plus each ingredient's weighted moving-average cost and its cost-event ledger (INV1.1); COGS reads the average at consume time.
-    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Ingredients, Kitchens]
+    description: Stock items, per-branch stock levels and an append-only movement ledger (adjust, waste, receipt, consume, yield), plus each ingredient's weighted moving-average cost and its cost-event ledger (INV1.1); auto-deduction on order confirm with COGS valued on the consume movement and reversal on cancel (INV1.2), branching on catalogue item type and recording an exception rather than guessing when a line's consumption cannot be resolved.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Kitchens, Recipes, Catalogues, Orders]
 
   - name: Procurement
     status: foundation

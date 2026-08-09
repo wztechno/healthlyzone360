@@ -22,6 +22,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $reference_type
  * @property string|null $reference_id
  * @property string|null $notes
+ * @property numeric-string|null $unit_cost_amount moving-average cost at consume time, per the ingredient default unit (INV1.2)
+ * @property numeric-string|null $cost_amount COGS for this movement: unit_cost × quantity consumed (INV1.2)
+ * @property string|null $cost_currency_code
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -31,6 +34,10 @@ class StockMovement extends BaseModel implements OrganisationScoped
 
     protected function casts(): array
     {
-        return ['quantity_delta' => 'decimal:4'];
+        return [
+            'quantity_delta' => 'decimal:4',
+            'unit_cost_amount' => 'decimal:6',
+            'cost_amount' => 'decimal:6',
+        ];
     }
 }
