@@ -38,6 +38,7 @@ import {
     OfflineIndicator,
     OtpInput,
     PageTransition,
+    Pagination,
     PasswordInput,
     Popover,
     ProgressRing,
@@ -144,6 +145,7 @@ export function ShowcaseScreen() {
     const [text, setText] = useState('');
     const [otp, setOtp] = useState('');
     const [tab, setTab] = useState('overview');
+    const [showcasePage, setShowcasePage] = useState(18);
     const [segment, setSegment] = useState('overview');
     const [portion, setPortion] = useState<number | null>(2);
     const [range, setRange] = useState<RangeValue>({ min: 300, max: 700 });
@@ -458,6 +460,17 @@ export function ShowcaseScreen() {
                                 testID: 'showcase-crumb-current',
                             },
                         ]}
+                    />
+                    {/*
+                     * Thirty-six pages, so the window and both gaps are visible at once — a
+                     * five-page example would render every page and show none of the behaviour
+                     * that makes this component worth having.
+                     */}
+                    <Pagination
+                        testID="showcase-pagination"
+                        page={showcasePage}
+                        totalPages={36}
+                        onPageChange={setShowcasePage}
                     />
                     <Tabs
                         testID="showcase-tabs"

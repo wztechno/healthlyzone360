@@ -150,6 +150,8 @@ export type {
     BreadcrumbTone,
     BreadcrumbsProps,
 } from './navigation/breadcrumbs.tsx';
+export { Pagination, paginationSlots } from './navigation/pagination.tsx';
+export type { PaginationProps } from './navigation/pagination.tsx';
 
 export { Table } from './data/table.tsx';
 export type { TableColumn, TableProps, TableRowAction, TableSortDirection } from './data/table.tsx';

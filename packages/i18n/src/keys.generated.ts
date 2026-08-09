@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5098 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5104 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1780,6 +1780,10 @@ export interface NamespaceKeys {
     | 'fileUpload.uploading'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
+    | 'pagination.label'
+    | 'pagination.next'
+    | 'pagination.page'
+    | 'pagination.previous'
     | 'passwordInput.hide'
     | 'passwordInput.show'
     | 'rangeFilter.inverted'
@@ -2367,6 +2371,8 @@ export interface NamespaceKeys {
     | 'editor.neverSaved'
     | 'editor.notFoundBody'
     | 'editor.notFoundTitle'
+    | 'editor.platformLibraryBody'
+    | 'editor.platformLibraryTitle'
     | 'editor.saveError'
     | 'editor.savedToast'
     | 'editor.sectionAliases'
@@ -6900,6 +6906,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:fileUpload.uploading',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',
+  'designSystem:pagination.label',
+  'designSystem:pagination.next',
+  'designSystem:pagination.page',
+  'designSystem:pagination.previous',
   'designSystem:passwordInput.hide',
   'designSystem:passwordInput.show',
   'designSystem:rangeFilter.inverted',
@@ -7483,6 +7493,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.neverSaved',
   'kitchen:editor.notFoundBody',
   'kitchen:editor.notFoundTitle',
+  'kitchen:editor.platformLibraryBody',
+  'kitchen:editor.platformLibraryTitle',
   'kitchen:editor.saveError',
   'kitchen:editor.savedToast',
   'kitchen:editor.sectionAliases',

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { Breadcrumbs } from './breadcrumbs.tsx';
+import { Pagination, paginationSlots } from './pagination.tsx';
 import { Stepper } from './stepper.tsx';
 import { SegmentedControl, Tabs } from './tabs.tsx';
 import type { TabItem } from './tabs.tsx';
@@ -312,5 +313,155 @@ describe('Breadcrumbs', () => {
     it('uses no physical direction utility anywhere in its tree', async () => {
         await renderWithI18n(<Breadcrumbs testID="trail" items={trail} />, 'ar');
         assertSubtreeIsLogical(screen.getByTestId('trail'));
+    });
+});
+
+describe('paginationSlots', () => {
+    const shape = (page: number, total: number, siblings = 1) =>
+        paginationSlots(page, total, siblings)
+            .map((slot) => (slot.kind === 'gap' ? '…' : String(slot.page)))
+            .join(' ');
+
+    it('draws every page while they all fit', () => {
+        expect(shape(1, 1)).toBe('1');
+        expect(shape(3, 7)).toBe('1 2 3 4 5 6 7');
+    });
+
+    it('never draws a gap in place of a single page', () => {
+        // The gap would stand for page 2 alone, which is longer than the page it replaced.
+        expect(shape(4, 8)).toBe('1 2 3 4 5 … 8');
+        expect(shape(5, 8)).toBe('1 … 4 5 6 7 8');
+    });
+
+    it('stays the same width wherever the current page is', () => {
+        // A row that grows and shrinks as you page moves the buttons under the pointer: Next lands
+        // on 5, then on 4, without either being pressed.
+        const widths = new Set(
+            Array.from({ length: 36 }, (_, index) => paginationSlots(index + 1, 36).length),
+        );
+        expect([...widths]).toEqual([7]);
+
+        expect(new Set(Array.from({ length: 36 }, (_, i) => paginationSlots(i + 1, 36, 2).length)))
+            .toEqual(new Set([9]));
+    });
+
+    it('keeps both ends reachable from the middle of a long list', () => {
+        expect(shape(18, 36)).toBe('1 … 17 18 19 … 36');
+        expect(shape(1, 36)).toBe('1 2 3 4 5 … 36');
+        expect(shape(36, 36)).toBe('1 … 32 33 34 35 36');
+    });
+
+    it('widens with the sibling count', () => {
+        expect(shape(18, 36, 2)).toBe('1 … 16 17 18 19 20 … 36');
+        expect(shape(18, 36, 0)).toBe('1 … 18 … 36');
+    });
+
+    it('clamps a page outside the range rather than rendering a hole', () => {
+        // A stale deep link should land on a page, not between two.
+        expect(shape(0, 8)).toBe('1 2 3 4 5 … 8');
+        expect(shape(99, 8)).toBe('1 … 4 5 6 7 8');
+    });
+
+    it('has nothing to draw for an empty collection', () => {
+        expect(paginationSlots(1, 0)).toEqual([]);
+    });
+});
+
+describe('Pagination', () => {
+    it('renders nothing when there is only one page', async () => {
+        await renderWithI18n(
+            <Pagination testID="pager" page={1} totalPages={1} onPageChange={jest.fn()} />,
+        );
+        // A row of disabled controls under a three-row list says only that the list is short.
+        expect(screen.queryByTestId('pager')).toBeNull();
+    });
+
+    it('is its own named navigation landmark', async () => {
+        await renderWithI18n(
+            <Pagination testID="pager" page={2} totalPages={5} onPageChange={jest.fn()} />,
+        );
+
+        const node = screen.getByTestId('pager');
+        expect(node.props.role).toBe('navigation');
+        expect(node.props['aria-label']).toBe('Pagination');
+    });
+
+    it('announces the current page rather than relying on its weight', async () => {
+        await renderWithI18n(
+            <Pagination testID="pager" page={2} totalPages={5} onPageChange={jest.fn()} />,
+        );
+
+        const current = screen.getByTestId('pager-page-2');
+        expect(current.props['aria-current']).toBe('page');
+        expect(current.props.accessibilityLabel).toBe('Page 2');
+        expect(screen.getByTestId('pager-page-3').props['aria-current']).toBeUndefined();
+    });
+
+    // React Native's Pressable folds `aria-*` into `accessibilityState`, so that is the prop worth
+    // asserting — `aria-disabled` never reaches the rendered node.
+    it('disables the backward step on the first page', async () => {
+        await renderWithI18n(
+            <Pagination testID="pager" page={1} totalPages={5} onPageChange={jest.fn()} />,
+        );
+        expect(screen.getByTestId('pager-previous').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+        expect(screen.getByTestId('pager-next').props.accessibilityState).toMatchObject({
+            disabled: false,
+        });
+    });
+
+    it('disables the forward step on the last page', async () => {
+        await renderWithI18n(
+            <Pagination testID="pager" page={5} totalPages={5} onPageChange={jest.fn()} />,
+        );
+        expect(screen.getByTestId('pager-previous').props.accessibilityState).toMatchObject({
+            disabled: false,
+        });
+        expect(screen.getByTestId('pager-next').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+    });
+
+    it('steps and jumps', async () => {
+        const onPageChange = jest.fn();
+        await renderWithI18n(
+            <Pagination testID="pager" page={3} totalPages={9} onPageChange={onPageChange} />,
+        );
+
+        await fireEvent.press(screen.getByTestId('pager-next'));
+        expect(onPageChange).toHaveBeenLastCalledWith(4);
+
+        await fireEvent.press(screen.getByTestId('pager-previous'));
+        expect(onPageChange).toHaveBeenLastCalledWith(2);
+
+        await fireEvent.press(screen.getByTestId('pager-page-9'));
+        expect(onPageChange).toHaveBeenLastCalledWith(9);
+    });
+
+    it('refuses every control while disabled, without collapsing the row', async () => {
+        const onPageChange = jest.fn();
+        await renderWithI18n(
+            <Pagination
+                testID="pager"
+                page={3}
+                totalPages={9}
+                disabled
+                onPageChange={onPageChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('pager-next'));
+        await fireEvent.press(screen.getByTestId('pager-page-1'));
+        expect(onPageChange).not.toHaveBeenCalled();
+        // Still mounted: a control that vanishes mid-fetch moves the list under the pointer.
+        expect(screen.getByTestId('pager')).toBeTruthy();
+    });
+
+    it('uses direction-aware chevrons and logical utilities only', async () => {
+        await renderWithI18n(
+            <Pagination testID="pager" page={2} totalPages={5} onPageChange={jest.fn()} />,
+        );
+        assertSubtreeIsLogical(screen.getByTestId('pager'));
     });
 });

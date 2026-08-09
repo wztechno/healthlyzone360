@@ -100,6 +100,12 @@
     "breadcrumbs": {
         "label": "Breadcrumb trail"
     },
+    "pagination": {
+        "label": "Pagination",
+        "next": "Next page",
+        "page": "Page {{page}}",
+        "previous": "Previous page"
+    },
     "emptyState": {
         "prototypeBadge": "Prototype — planned for a later phase",
         "prototypeBody": "This area is part of the route registry but has no screens yet. It will be built with the module that owns it."
