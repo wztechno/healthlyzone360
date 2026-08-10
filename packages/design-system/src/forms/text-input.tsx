@@ -44,7 +44,18 @@ export function inputFrameClassName(options: {
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.
         options.focused ? 'border-stroke-focus border-focus' : null,
-        options.disabled ? 'bg-surface-sunken opacity-60' : null,
+        // Recessed fill and a lighter border — deliberately *not* an opacity.
+        //
+        // `opacity-60` here dimmed the value along with the frame, which put the text at 3.97:1
+        // against its own background: below the 4.5 floor, on a value the reader opened the record
+        // to read. A platform-library ingredient's name is the clearest case — it cannot be edited
+        // and it still has to be legible.
+        //
+        // Nor is this a rule axe is being fussy about. React Native Web renders a disabled
+        // `TextInput` as `readonly`, not `disabled`, so the contrast exemption for inactive
+        // controls does not apply to it — and that is the correct outcome, because a readonly
+        // field's content is still content.
+        options.disabled ? 'bg-surface-sunken border-stroke-subtle' : null,
     );
 }
 

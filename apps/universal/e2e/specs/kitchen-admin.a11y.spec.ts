@@ -54,6 +54,28 @@ async function openFirstIngredient(page: Page) {
     await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
 }
 
+/**
+ * Create an ingredient this kitchen owns, and stay on its editor.
+ *
+ * Every seeded ingredient belongs to the shared platform library, whose details are read-only, so
+ * the editor's *editable* state has to be reached by making a record rather than opening one. The
+ * read-only state is still covered — `openFirstIngredient` reaches it, which is what the
+ * per-row allergen refusal below needs.
+ */
+async function createOwnIngredient(page: Page, nameEn: string) {
+    await openIngredients(page);
+
+    await page.getByTestId('kitchen-ingredients-toolbar-create').click();
+    await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
+
+    await page.getByTestId('kitchen-ingredient-name-en-input').fill(nameEn);
+    await page.getByTestId('kitchen-ingredient-category-trigger').click();
+    await page.locator('[data-testid^="kitchen-ingredient-category-option-"]').first().click();
+
+    await page.getByTestId('kitchen-ingredient-editor-screen-save').click();
+    await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible();
+}
+
 async function openRecipes(page: Page) {
     await openKitchen(page);
     await page.getByTestId('kitchen-family-recipes-open').click();
@@ -195,7 +217,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
     });
 
     test('the unsaved-changes dialog', async ({ page }) => {
-        await openFirstIngredient(page);
+        await createOwnIngredient(page, 'Unsaved sample');
         await page.getByTestId('kitchen-ingredient-notes-input').fill('Half a thought.');
         await page.getByTestId('kitchen-ingredient-editor-screen-back').click();
         await expect(

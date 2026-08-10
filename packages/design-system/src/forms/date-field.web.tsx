@@ -50,7 +50,9 @@ export function DateField({
                     className={cx(
                         'flex-row items-center gap-2 rounded-lg border bg-surface-base px-3 min-h-touch',
                         error === undefined ? 'border-stroke' : 'border-danger-border',
-                        disabled ? 'bg-surface-sunken opacity-60' : null,
+                        // Not an opacity — see `inputFrameClassName`: dimming the frame dims
+                        // the date along with it, below the contrast floor.
+                        disabled ? 'bg-surface-sunken border-stroke-subtle' : null,
                     )}
                 >
                     <input

@@ -56,6 +56,55 @@ async function firstRowBase(page: Page): Promise<string> {
     return testId.slice(0, testId.length - '-open'.length);
 }
 
+/**
+ * Create an ingredient this kitchen owns, and stay on its editor.
+ *
+ * Every *seeded* ingredient belongs to the shared platform library, whose name, classification and
+ * aliases are read-only for everyone — `organisationId === null` in the store, `isPlatformLibrary`
+ * in the editor. So a test that needs an editable record has to make one, and that is also the
+ * honest shape of the journey: a kitchen edits what it created or forked, never the platform's own
+ * row.
+ *
+ * The English name only, deliberately. The record then arrives carrying the missing-Arabic warning,
+ * which is the state the bilingual test goes on to clear.
+ */
+async function createOwnIngredient(page: Page, nameEn: string) {
+    await openIngredients(page);
+
+    await page.getByTestId('kitchen-ingredients-toolbar-create').click();
+    await expect(page.getByTestId('kitchen-ingredient-editor-screen-title')).toContainText(
+        'New ingredient',
+    );
+
+    await page.getByTestId('kitchen-ingredient-name-en-input').fill(nameEn);
+    await page.getByTestId('kitchen-ingredient-category-trigger').click();
+    await page.locator('[data-testid^="kitchen-ingredient-category-option-"]').first().click();
+
+    await page.getByTestId('kitchen-ingredient-editor-screen-save').click();
+    await expect(page.getByTestId('kitchen-ingredient-created-toast')).toBeVisible();
+    // The create landed on the record's own address; the mapping section only exists there.
+    await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible();
+}
+
+/**
+ * The `kitchen-ingredient-{id}` prefix of the one row matching a search.
+ *
+ * Searching rather than reading the first row, because a freshly created ingredient sorts last by
+ * `created_at` and therefore lands on the final page. Narrowing the list to it is both shorter than
+ * paging to it and the thing a person would actually do.
+ */
+async function rowMatching(page: Page, query: string): Promise<string> {
+    await page.getByTestId('kitchen-ingredients-toolbar-search').locator('input').first().fill(query);
+
+    const control = page
+        .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-open"]')
+        .first();
+    await expect(control).toBeVisible();
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The ingredient row carries no test id.');
+    return testId.slice(0, testId.length - '-open'.length);
+}
+
 async function openRecipes(page: Page) {
     await openKitchen(page);
     await page.getByTestId('kitchen-family-recipes-open').click();
@@ -368,11 +417,7 @@ test.describe('kitchen workspace (en)', () => {
     test('rewrites both halves of a bilingual name, and the list shows the change', async ({
         page,
     }) => {
-        await openIngredients(page);
-
-        const base = await firstRowBase(page);
-        await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
+        await createOwnIngredient(page, 'Chickpeas');
 
         // The editor states what the record is before it is edited.
         await expect(page.getByTestId('kitchen-ingredient-editor-screen-status')).toBeVisible();
@@ -391,16 +436,15 @@ test.describe('kitchen workspace (en)', () => {
         // Back to the list: the row reads what was just written, which is the store agreeing.
         await page.getByTestId('kitchen-ingredient-editor-screen-back').click();
         await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+
+        const base = await rowMatching(page, 'Chickpeas, checked');
         await expect(page.getByTestId(`${base}-name`)).toContainText('Chickpeas, checked');
+        // The warning the record arrived with, now cleared — both halves are written.
         await expect(page.getByTestId(`${base}-missing-arabic`)).toHaveCount(0);
     });
 
     test('asks before throwing half-typed changes away', async ({ page }) => {
-        await openIngredients(page);
-
-        const base = await firstRowBase(page);
-        await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
+        await createOwnIngredient(page, 'Half-typed sample');
 
         await page.getByTestId('kitchen-ingredient-notes-input').fill('Half a thought.');
         await page.getByTestId('kitchen-ingredient-editor-screen-back').click();

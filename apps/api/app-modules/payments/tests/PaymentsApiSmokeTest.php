@@ -11,6 +11,7 @@ use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Payments\Enums\PaymentIntentStatus;
 use Healthy360\Payments\Models\PaymentIntent;
 use Healthy360\Payments\Services\PaymentsInvoicingSettlementLookup;
+use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
 beforeEach(function (): void {
@@ -35,11 +36,33 @@ it('creates a payment intent for an order and captures it', function (): void {
 
     $intentId = $response->json('data.payment_intent.id');
 
-    $this->postJson('/api/v1/payments/intents/'.$intentId.'/capture', [], firstPartyHeaders())
+    /*
+     * The capture is the kitchen's, not the shopper's.
+     *
+     * Opening an intent is part of checking out and a customer belongs to no
+     * organisation, so that route carries no `org.context`. Taking the money
+     * is the kitchen's decision about the kitchen's money, so capture and
+     * refund do — see the routing table's own note. Driving both halves as
+     * the customer only ever passed because the pair had neither the header
+     * nor a scope on the model, which is the hole that closed.
+     */
+    forgetResolvedGuards();
+    $this->actingAs($this->world->tenant->user);
+
+    $this->postJson(
+        '/api/v1/payments/intents/'.$intentId.'/capture',
+        [],
+        PricingWorld::headers($this->world->tenant),
+    )
         ->assertOk()
         ->assertJsonPath('data.payment_intent.status', 'captured');
 
-    expect(PaymentIntent::query()->whereKey($intentId)->value('status'))->toBe(PaymentIntentStatus::Captured);
+    // Read outside the request, so outside a tenant context: `PaymentIntent` became
+    // `OrganisationScoped` when capture and refund were fenced, and the scope fails closed
+    // rather than returning nothing. Opting out by name is the honest way to assert the row
+    // itself — the scoping is under test in the routing layer, not here.
+    expect(PaymentIntent::withoutTenancy()->whereKey($intentId)->value('status'))
+        ->toBe(PaymentIntentStatus::Captured);
 });
 
 it('answers settlement checks when payments is present', function (): void {

@@ -19,7 +19,7 @@ import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
 import { RangeFilter, isInvertedRange } from './range-filter.tsx';
 import { Select } from './select.tsx';
-import { TextInputField } from './text-input.tsx';
+import { TextInputField, inputFrameClassName } from './text-input.tsx';
 
 describe('FormField', () => {
     it('links label, hint and error to the control with one describedby chain', async () => {
@@ -148,6 +148,28 @@ describe('TextInputField', () => {
     it('is not editable when disabled', async () => {
         await renderWithI18n(<TextInputField testID="email" label="Email" disabled />);
         expect(screen.getByTestId('email-input').props.editable).toBe(false);
+    });
+
+    /*
+     * A disabled field's *value* still has to be readable.
+     *
+     * This is the one that bit: the disabled frame carried `opacity-60`, which dimmed the value
+     * along with the chrome and put the text at 3.97:1 against its own background — under the 4.5
+     * floor, on a field somebody opened the record to read. React Native Web renders a disabled
+     * `TextInput` as `readonly` rather than `disabled`, so the contrast exemption for inactive
+     * controls never applied to it either.
+     *
+     * Asserted on the class string because that is what NativeWind compiles: Metro's CSS pipeline
+     * does not run under Jest, so the utilities arrive at the node untouched and are the honest
+     * thing to check. The token pairs are covered separately in `colour.test.ts` — and passed
+     * throughout, which is exactly why a token test could not have caught this.
+     */
+    it('signals disabled with tokens rather than by dimming the value', async () => {
+        await renderWithI18n(<TextInputField testID="email" label="Email" disabled />);
+
+        const frame = inputFrameClassName({ invalid: false, focused: false, disabled: true });
+        expect(frame).toContain('bg-surface-sunken');
+        expect(frame).not.toMatch(/\bopacity-/);
     });
 
     it('renders Arabic labels without a physical utility', async () => {

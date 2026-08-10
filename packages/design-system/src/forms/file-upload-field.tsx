@@ -223,7 +223,9 @@ export function FileUploadField({
                     className={cx(
                         'flex-col gap-2 rounded-lg border border-dashed p-3',
                         control['aria-invalid'] ? 'border-danger-border' : 'border-stroke',
-                        disabled ? 'bg-surface-sunken opacity-60' : 'bg-surface-base',
+                        // Not an opacity — see `inputFrameClassName`: an attached file's name
+                        // stays readable when the control is inert.
+                        disabled ? 'bg-surface-sunken' : 'bg-surface-base',
                     )}
                 >
                     {attachment === undefined ? null : (
