@@ -84,9 +84,10 @@ export function PublicLandingScreen() {
                                 padding="md"
                                 tone="raised"
                                 testID={`landing-value-${prop.key}`}
-                                // Fills the cell so the row shares a height — Rule 1 where there
-                                // is no figure to pin, only a ragged edge to remove.
-                                className="h-full"
+                                // Stretches to the cell so the row shares a height — Rule 1 where
+                                // there is no figure to pin, only a ragged edge to remove. Prefer
+                                // `self-stretch` over `h-full` (Yoga + ScrollView flex-grow).
+                                className="self-stretch"
                             >
                                 <Stack space="xs">
                                     <Icon

@@ -61,7 +61,7 @@ export function PlanCard({ plan, onOpen, kitchenName, comparison, testID }: Plan
             testID={resolvedTestID}
             padding="none"
             tone="raised"
-            className="h-full overflow-hidden hover:shadow-elevation-2"
+            className="self-stretch overflow-hidden hover:shadow-elevation-2"
         >
             <EntityImage
                 testID={`${resolvedTestID}-image`}

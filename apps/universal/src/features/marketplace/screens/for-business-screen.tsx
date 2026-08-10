@@ -111,9 +111,10 @@ export function ForBusinessScreen() {
                                 testID={`for-business-programme-${programme.key}`}
                                 padding="md"
                                 tone="raised"
-                                // Rule 1 for a card with no price to align: fill the cell, so a
-                                // row of programmes shares one height instead of three.
-                                className="h-full"
+                                // Rule 1 for a card with no price to align: stretch to the cell,
+                                // so a row of programmes shares one height instead of three.
+                                // Prefer `self-stretch` over `h-full` (Yoga + ScrollView flex-grow).
+                                className="self-stretch"
                             >
                                 <Stack space="xs">
                                     <EntityImage

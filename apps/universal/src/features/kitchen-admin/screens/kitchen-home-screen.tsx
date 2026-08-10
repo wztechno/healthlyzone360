@@ -72,7 +72,7 @@ function FamilyCardShell({
     const router = useRouter();
 
     return (
-        <Card testID={testID} padding="md" tone="raised" className="h-full border-brand-100">
+        <Card testID={testID} padding="md" tone="raised" className="self-stretch border-brand-100">
             <Stack space="sm">
                 <Inline space="sm" align="center">
                     <Icon name={family.icon} size="md" className="text-brand-600" />

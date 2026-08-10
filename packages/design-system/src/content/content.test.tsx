@@ -74,9 +74,11 @@ describe('Card', () => {
             </Card>,
         );
 
-        // `h-full` + `flex-1` body + `mt-auto` footer is the whole mechanism behind a row of cards
-        // sharing one price baseline. Any one of the three missing and the footers go ragged.
-        expect(screen.getByTestId('footed').props.className).toMatch(/h-full/);
+        // `self-stretch` + `flex-1` body + `mt-auto` footer is the whole mechanism behind a row of
+        // cards sharing one price baseline. Prefer stretch over `h-full`: percentage height against
+        // a flex-grown ScrollView content container expands to the viewport on Yoga. Any one of the
+        // three missing and the footers go ragged.
+        expect(screen.getByTestId('footed').props.className).toMatch(/self-stretch/);
         expect(screen.getByTestId('footed-body').props.className).toMatch(/flex-1/);
         expect(screen.getByTestId('footed-footer').props.className).toMatch(/mt-auto/);
     });

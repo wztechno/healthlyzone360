@@ -58,16 +58,20 @@ export interface CardProps {
  *
  * Without it, every card is as tall as its own content, so the price — the one figure a shopper
  * compares across a row — sits at a different height in each card and the eye has to hunt for it.
- * `footer` fixes that by changing the box model rather than by appending a row: the card fills its
- * grid cell (`h-full`), the body takes the slack (`flex-1`), and the footer is pushed down by
- * `mt-auto`. Every footer in a row then lands on one baseline whatever the bodies do.
+ * `footer` fixes that by changing the box model rather than by appending a row: the card stretches
+ * to its grid cell (`self-stretch`), the body takes the slack (`flex-1`), and the footer is pushed
+ * down by `mt-auto`. Every footer in a row then lands on one baseline whatever the bodies do.
  *
- * That only works if the cell stretches. `CardGridItem` in the application is a flex child of a
- * wrapping row, which stretches by default — but react-native-web gives every `View`
- * `flex-shrink: 0`, and this repository has been caught by that twice already (see the notes in
- * `app-shell.tsx` and `marketplace-shell.tsx`). If footers ever come unpinned, that is the first
- * thing to check, and `apps/universal/e2e/specs/catalogue.ltr.spec.ts` asserts the baseline
- * directly so the failure is loud.
+ * Prefer `self-stretch` over `h-full`. Percentage height against a ScrollView whose content
+ * container uses `flex-grow` resolves to the viewport on Yoga (native), so the first footed card
+ * grows into infinite white space. Stretch only fills the flex row's cross size when siblings
+ * differ — which is the web baseline behaviour we want — without percentage-resolving the scroll
+ * content. `CardGridItem` in the application is a flex child of a wrapping row, which stretches by
+ * default — but react-native-web gives every `View` `flex-shrink: 0`, and this repository has been
+ * caught by that twice already (see the notes in `app-shell.tsx` and `marketplace-shell.tsx`). If
+ * footers ever come unpinned, that is the first thing to check, and
+ * `apps/universal/e2e/specs/catalogue.ltr.spec.ts` asserts the baseline directly so the failure is
+ * loud.
  *
  * The root gap is dropped when a footer is present: `gap-3` between siblings plus `mt-auto` on the
  * last one would add the gap *and* the free space, leaving a card whose footer is one step further
@@ -150,7 +154,7 @@ export function Card({
         // `Popover`, whose panel is an absolutely positioned sibling rather than a modal; the
         // showcase's own `Section` is a padded card containing exactly that.
         padding === 'none' ? 'overflow-hidden' : null,
-        hasFooter ? 'h-full' : 'gap-3',
+        hasFooter ? 'self-stretch' : 'gap-3',
         TONE_CLASS[tone],
         PADDING_CLASS[padding],
         interactive
