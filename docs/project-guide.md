@@ -33,7 +33,8 @@ hidden or honestly empty in the product UI — they are not silently mocked in A
 
 - **Backend**: Laravel 13.23 on PHP 8.4, structured as a modular monolith (InterNACHI Modular,
   namespace `Healthy360\`) at `apps/api`. PostgreSQL 18, Redis 8, Horizon for queues (runs in the
-  Linux container only), Garage as local S3-compatible storage, Mailpit for mail testing.
+  Linux container only), Garage as local S3-compatible storage. Outgoing mail uses the `log`
+  mailer in dev (written to `apps/api/storage/logs/laravel.log`) and Brevo for real delivery.
 - **Frontend**: one Expo SDK 57 universal app (`apps/universal`) — React Native 0.86 / React 19.2
   / TypeScript 6 — targeting web, iOS and Android from a single codebase, with NativeWind 4
   (Tailwind-style utilities) and Expo Router file-based routing.
@@ -97,8 +98,8 @@ rows even with raw SQL through the app role).
 - **Verification**: jest + React Native Testing Library for screens (against the real mock
   repositories, not stubbed hooks), Vitest for packages, Playwright for web e2e in three
   projects (LTR, RTL, axe accessibility), and a separate 7-test **acceptance suite** that runs
-  the real registration→workspace journey against the live Docker stack, fetching the
-  verification e-mail from Mailpit.
+  the real registration→workspace journey against the live Docker stack, reading the
+  verification e-mail from the API log (the dev `log` mailer).
 
 ### 2.6 Documentation and CI
 
@@ -266,7 +267,7 @@ bash scripts/setup.sh
 
 This does, in order: check Docker → create `apps/api/.env` from the example → host
 `composer install` → `docker compose up -d --build --wait` (Postgres on **55432**, Redis, api +
-nginx, queue/Horizon, Mailpit, Garage) → a second `composer install` **inside** the container
+nginx, queue/Horizon, Garage) → a second `composer install` **inside** the container
 (the container has its own vendor volume, because Windows junctions in the host vendor don't
 resolve in Linux binds) → object-storage init → app key → migrate + seed as the migrator role.
 
@@ -275,7 +276,7 @@ You now have:
 | Service | Address |
 | --- | --- |
 | API through nginx | <http://localhost:8080> (health check: `/up`) |
-| Mailpit (all outgoing mail lands here) | <http://localhost:8025> |
+| Outgoing mail (dev) | logged to `apps/api/storage/logs/laravel.log` |
 | PostgreSQL 18 | `localhost:55432`, db `healthy360` (app role: `healthy360_app`) |
 | Redis 8 | `localhost:6379` |
 | Garage S3 | <http://localhost:3900> |
@@ -347,8 +348,8 @@ cd apps/universal
 EXPO_PUBLIC_DATA_MODE=api EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo start --web --clear
 ```
 
-In api mode only the foundation is real: registration (verification e-mail appears in Mailpit at
-<http://localhost:8025>), sign-in, organisation/branch/workspace, profile, devices with step-up
+In api mode only the foundation is real: registration (verification e-mail is written to the API
+log, `apps/api/storage/logs/laravel.log`), sign-in, organisation/branch/workspace, profile, devices with step-up
 revocation, consent. Every Prompt 2 repository method answers `prototype.not_implemented` — by
 design (the contracts are proposals, not implementations).
 

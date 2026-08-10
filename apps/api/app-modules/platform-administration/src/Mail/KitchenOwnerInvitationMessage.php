@@ -26,7 +26,7 @@ use Illuminate\Mail\Mailables\Headers;
  *
  * `X-Healthy360-Invitation` is the stable marker the passcode and closure
  * messages both carry, for the same reason: an acceptance test fetching this
- * out of Mailpit needs to identify it without parsing prose. It names the
+ * out of the mail log needs to identify it without parsing prose. It names the
  * role, which is a fact about a decision — never the token, which would put
  * the credential in a header field mail infrastructure logs freely.
  */

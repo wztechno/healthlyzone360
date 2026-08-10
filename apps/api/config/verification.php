@@ -79,7 +79,7 @@ return [
 
         /**
          * A stable marker the mail carries so acceptance tests can find an OTP
-         * message in Mailpit without parsing prose.
+         * message in the mail log without parsing prose.
          */
         'message_marker' => 'X-Healthy360-Otp',
     ],

@@ -141,7 +141,7 @@ jobs:
   # ── Playwright against the exported mock build ─────────────────────────────────────────────────
   #
   # The `acceptance` project (apps/universal/playwright.acceptance.config.ts) is deliberately NOT
-  # run here: it needs the whole Docker stack — PostgreSQL, Redis, the API and Mailpit — with the
+  # run here: it needs the whole Docker stack — PostgreSQL, Redis and the API — with the
   # demo tenants seeded. Bringing compose up in CI is the follow-up recorded in the phase report.
   e2e:
     runs-on: ubuntu-latest

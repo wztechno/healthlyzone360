@@ -23,7 +23,7 @@ use Illuminate\Mail\Mailables\Headers;
  * exists.
  *
  * `X-Healthy360-Closure` is the same kind of stable marker the passcode message
- * carries: an acceptance test fetching this out of Mailpit needs to identify it
+ * carries: an acceptance test fetching this out of the mail log needs to identify it
  * without parsing prose that will be rewritten. It carries the reason code,
  * which is a fact about a decision, and nothing about a person.
  */

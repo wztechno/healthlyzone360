@@ -147,7 +147,7 @@ recorded as OQ-016 – OQ-023.
 - Foundation regression proof: `git diff --stat b70c80a..HEAD -- apps/api` is empty (no backend
   change in any Prompt 2 commit) and the **acceptance suite passes 7/7 against the live stack**
   (2026-07-31: compose services healthy, container composer install, `migrate:fresh --seed` via
-  the migrator connection, api-mode export, real registration with Mailpit-fetched verification,
+  the migrator connection, api-mode export, real registration with mail-log-fetched verification,
   device revocation through step-up, workspace context, RLS-backed organisation refusal). One
   transient: the first sequential run immediately after the fresh reseed failed the two
   device/step-up tests; they passed in isolation and on the full re-run and did not reproduce —

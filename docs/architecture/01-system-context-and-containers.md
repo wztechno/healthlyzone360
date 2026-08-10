@@ -54,7 +54,7 @@ flowchart TB
     pg[("PostgreSQL 18<br/>shared platform database,<br/>organisation isolation + incremental RLS")]
     redis[("Redis 8<br/>cache / session / queue")]
     s3[("S3-compatible object storage<br/>Garage in development")]
-    mailpit["Mailpit<br/>(development mail)"]
+    mail["Mail<br/>log in dev / Brevo in prod"]
 
     web -->|"HTTPS JSON — session cookies"| http
     native -->|"HTTPS JSON — personal access tokens"| http
@@ -63,7 +63,7 @@ flowchart TB
     horizon --> redis
     horizon --> pg
     http -->|"Laravel filesystem abstraction only"| s3
-    http -->|"SMTP (development)"| mailpit
+    http -->|"log driver (dev) / Brevo API (prod)"| mail
 ```
 
 ### Container summary
@@ -76,7 +76,7 @@ flowchart TB
 | Database | PostgreSQL 18 | Shared platform database; application-level scoping first, then representative Row-Level Security | Planned — Phase 2 |
 | Cache/queue | Redis 8 | Cache, sessions and queues | Planned — Phase 2 |
 | Object storage | Garage (dev) or approved S3-compatible service | File storage behind Laravel filesystem abstractions — no Garage-specific API dependencies | Planned — Phase 2 |
-| Dev mail | Mailpit | Local email capture (verification, password reset) | Planned — Phase 2 |
+| Mail | `log` mailer in dev (writes to `storage/logs/laravel.log`); Brevo (symfony/brevo-mailer) for real delivery | Local email capture (verification, password reset) | Adopted |
 
 ### Universal app build families
 

@@ -62,7 +62,7 @@ test('registers a new account, verifies it by mail, and reaches the verified sta
 
     const token = await readSessionToken(page);
 
-    const link = await fetchVerificationLink(page.request, email);
+    const link = await fetchVerificationLink(email);
     expect(link).toContain('/api/v1/auth/verify-email/');
     expect(link).toContain('signature=');
 

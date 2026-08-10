@@ -13,7 +13,7 @@ flowchart LR
         FPM --> PG[(PostgreSQL 18)]
         FPM --> REDIS[(Redis 8)]
         FPM --> GARAGE[(Garage<br/>S3-compatible)]
-        FPM --> MAIL[Mailpit]
+        FPM --> MAIL[Mail: log in dev / Brevo in prod]
         HORIZON[Horizon worker] --> REDIS
         HORIZON --> PG
     end
@@ -26,7 +26,7 @@ flowchart LR
 | PostgreSQL 18 | Platform database | Yes | Yes |
 | Redis 8 | Cache, sessions, queues (Horizon) | Yes | Yes |
 | Garage | S3-compatible object storage for development | Yes | Yes |
-| Mailpit | Local mail capture (verification/reset emails) | Yes | — |
+| Mail | Dev: `log` mailer to `storage/logs/laravel.log`; prod: Brevo (symfony/brevo-mailer). No local mail container. | — | — |
 
 ### 1.1 Provisioning duties (execution Phase 2)
 

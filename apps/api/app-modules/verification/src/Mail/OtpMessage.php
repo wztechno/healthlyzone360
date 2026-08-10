@@ -21,7 +21,7 @@ use Illuminate\Mail\Mailables\Headers;
  * second answer.
  *
  * **`X-Healthy360-Otp-Purpose` is a stable marker for acceptance tests**
- * (appendix E): a Playwright run fetching the code out of Mailpit needs to
+ * (appendix E): a Playwright run fetching the code out of the mail log needs to
  * identify the right message without parsing prose that will be rewritten. The
  * header carries the purpose and the challenge id — never the code, which
  * would put it in a header field that mail infrastructure logs freely.

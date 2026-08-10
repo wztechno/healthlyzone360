@@ -3,7 +3,9 @@ name: healthy360
 # Local development stack (plan §22).
 # The Laravel app can run either fully containerised (api + nginx on
 # http://localhost:8080) or on the host against these services
-# (postgres/redis/garage/mailpit are all published on localhost).
+# (postgres/redis/garage are all published on localhost).
+# Outgoing mail is written to the log (storage/logs/laravel.log) in dev; set
+# MAIL_MAILER=brevo with a BREVO_API_KEY to deliver for real.
 # All credentials here are local-development-only values.
 
 services:
@@ -22,8 +24,7 @@ services:
             DB_HOST: postgres
             DB_PORT: '5432'
             REDIS_HOST: redis
-            MAIL_HOST: mailpit
-            MAIL_PORT: '1025'
+            MAIL_MAILER: log
             AWS_ENDPOINT: http://garage:3900
         depends_on:
             postgres:
@@ -60,8 +61,7 @@ services:
             DB_HOST: postgres
             DB_PORT: '5432'
             REDIS_HOST: redis
-            MAIL_HOST: mailpit
-            MAIL_PORT: '1025'
+            MAIL_MAILER: log
             AWS_ENDPOINT: http://garage:3900
         depends_on:
             postgres:
@@ -115,17 +115,6 @@ services:
             timeout: 5s
             retries: 10
             start_period: 20s
-
-    mailpit:
-        image: axllent/mailpit:v1.30
-        ports:
-            - '8025:8025'
-            - '1025:1025'
-        healthcheck:
-            test: ['CMD', 'wget', '-q', '-O-', 'http://127.0.0.1:8025/livez']
-            interval: 10s
-            timeout: 5s
-            retries: 5
 
 volumes:
     pgdata:

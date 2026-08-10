@@ -20,7 +20,7 @@ The single authoritative compatibility document (plan §3). Versions below were 
 | spatie/laravel-query-builder | ^7.3 | 7.3.x | Laravel ^12\|^13 |
 | PostgreSQL | 18.x | 18.x | RLS is load-bearing (ADR-0007); UUIDv7 native support available but app-generated IDs preferred (plan §8) |
 | Redis | 8.x | 8.x | Cache, queues, permission-version counters |
-| Mailpit | 1.30.x | 1.30.x | Dev mail capture only |
+| symfony/brevo-mailer | ^8.1 | 8.1.x | Real mail delivery (Brevo API transport). Dev uses the `log` mailer; no local mail container |
 | Garage (dxflrs/garage) | v2 | v2 | Dev S3-compatible store; chosen because MinIO community edition is archived and no longer publishes images (ADR-0010). Application uses Laravel filesystem abstraction only |
 | @redocly/cli | ^2.41 | 2.41.x | OpenAPI 3.1 lint + bundle |
 

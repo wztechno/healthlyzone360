@@ -8,7 +8,7 @@ honestly below.
 
 The foundation proves the mandated vertical slice **against the real Laravel API**:
 
-> registration → email verification (link retrieved from Mailpit) → login → organisation
+> registration → email verification (link retrieved from the mail log) → login → organisation
 > selection → server-applied branch → permission hydration → authenticated workspace,
 
 exercised by an automated acceptance suite (7 scenarios) driving the exported Expo web build

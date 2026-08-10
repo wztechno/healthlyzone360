@@ -1,3 +1,6 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -13,7 +16,9 @@ import { defineConfig, devices } from '@playwright/test';
  * Prerequisites, checked by the specs themselves rather than assumed:
  *
  * - the Docker stack is up (`docker compose up -d --wait`), API on `http://localhost:8080`;
- * - Mailpit on `http://localhost:8025`, used to read the verification link;
+ * - dev mail is written to the API log (`MAIL_MAILER=log`), from which the verification link is
+ *   read — there is no separate mail server; the containerised API's log is bind-mounted to the
+ *   host at `apps/api/storage/logs/laravel.log`;
  * - the demo tenants are seeded;
  * - `dist-api` exists. It is **not** the same artefact as `dist`, and the environment matters:
  *
@@ -32,7 +37,15 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export const ACCEPTANCE_BASE_URL = process.env['ACCEPTANCE_BASE_URL'] ?? 'http://localhost:4174';
 export const ACCEPTANCE_API_URL = process.env['EXPO_PUBLIC_API_URL'] ?? 'http://localhost:8080';
-export const ACCEPTANCE_MAILPIT_URL = process.env['MAILPIT_URL'] ?? 'http://localhost:8025';
+
+/**
+ * The Laravel log the dev `log` mailer writes to. Verification mail is read from here now that there
+ * is no separate mail server. The default resolves to the API's log file, which the containerised
+ * API bind-mounts to the host; override with `MAIL_LOG_PATH` for an unusual layout.
+ */
+export const ACCEPTANCE_MAIL_LOG =
+    process.env['MAIL_LOG_PATH'] ??
+    resolve(dirname(fileURLToPath(import.meta.url)), '../api/storage/logs/laravel.log');
 
 export default defineConfig({
     testDir: './e2e/acceptance',

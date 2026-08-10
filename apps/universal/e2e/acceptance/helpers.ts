@@ -1,7 +1,9 @@
+import { readFile } from 'node:fs/promises';
+
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-import { ACCEPTANCE_API_URL, ACCEPTANCE_MAILPIT_URL } from '../../playwright.acceptance.config.ts';
+import { ACCEPTANCE_API_URL, ACCEPTANCE_MAIL_LOG } from '../../playwright.acceptance.config.ts';
 
 /** Seeded demo accounts (`DatabaseSeeder`). One password for all of them, locally. */
 export const DEMO_PASSWORD = 'password';
@@ -12,7 +14,7 @@ const SESSION_TOKEN_KEY = 'h360.session-token';
 
 export interface StackStatus {
     readonly api: boolean;
-    readonly mailpit: boolean;
+    readonly mailLog: boolean;
     readonly reason: string;
 }
 
@@ -25,26 +27,38 @@ async function reachable(url: string): Promise<boolean> {
     }
 }
 
+async function fileReadable(path: string): Promise<boolean> {
+    try {
+        await readFile(path);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Probes the stack once per file.
  *
  * A missing stack is not a failing test — it is a missing prerequisite — so the specs skip with an
- * instruction instead of timing out five times over.
+ * instruction instead of timing out five times over. Mail is read from the API's log (`MAIL_MAILER=log`)
+ * rather than a mail server, so the "inbox" prerequisite is simply that the log file is readable.
  */
 export async function probeStack(): Promise<StackStatus> {
-    const [api, mailpit] = await Promise.all([
+    const [api, mailLog] = await Promise.all([
         reachable(`${ACCEPTANCE_API_URL}/up`),
-        reachable(`${ACCEPTANCE_MAILPIT_URL}/api/v1/messages?limit=1`),
+        fileReadable(ACCEPTANCE_MAIL_LOG),
     ]);
 
     const missing = [
         api ? null : `the API at ${ACCEPTANCE_API_URL}`,
-        mailpit ? null : `Mailpit at ${ACCEPTANCE_MAILPIT_URL}`,
+        mailLog
+            ? null
+            : `a readable mail log at ${ACCEPTANCE_MAIL_LOG} (the API must have run at least once)`,
     ].filter((entry): entry is string => entry !== null);
 
     return {
         api,
-        mailpit,
+        mailLog,
         reason:
             missing.length === 0
                 ? ''
@@ -52,8 +66,8 @@ export async function probeStack(): Promise<StackStatus> {
     };
 }
 
-export function skipUnlessStackIsUp(status: StackStatus, mailpitRequired = false): void {
-    test.skip(!status.api || (mailpitRequired && !status.mailpit), status.reason);
+export function skipUnlessStackIsUp(status: StackStatus, mailLogRequired = false): void {
+    test.skip(!status.api || (mailLogRequired && !status.mailLog), status.reason);
 }
 
 /** The bearer token the running application is holding, read from its own storage. */
@@ -130,43 +144,46 @@ export async function issueToken(
 }
 
 /**
- * The newest verification link Mailpit holds for an address.
+ * The newest verification link the API has mailed to an address.
  *
- * Mailpit is polled rather than awaited on a hook: the mail is queued, and the queue worker is a
- * separate container.
+ * With `MAIL_MAILER=log` there is no mail server: the rendered message is appended to the Laravel
+ * log, so this reads that file instead of polling an inbox. It is polled rather than awaited on a
+ * hook because the mail is queued and the queue worker is a separate process. Each `log` mailer
+ * entry is the full MIME message, quoted-printable encoded; entries are correlated to the address by
+ * the `To:` header and the newest matching link is returned.
  */
-export async function fetchVerificationLink(
-    request: APIRequestContext,
-    email: string,
-    attempts = 20,
-): Promise<string> {
+export async function fetchVerificationLink(email: string, attempts = 20): Promise<string> {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
-        const search = await request.get(
-            `${ACCEPTANCE_MAILPIT_URL}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}&limit=5`,
-        );
+        let raw: string;
+        try {
+            raw = await readFile(ACCEPTANCE_MAIL_LOG, 'utf8');
+        } catch {
+            raw = '';
+        }
 
-        if (search.ok()) {
-            const results = (await search.json()) as {
-                messages?: { ID: string; Created: string }[];
-            };
-            const newest = [...(results.messages ?? [])].sort((a, b) =>
-                b.Created.localeCompare(a.Created),
-            )[0];
-
-            if (newest !== undefined) {
-                const message = await request.get(
-                    `${ACCEPTANCE_MAILPIT_URL}/api/v1/message/${newest.ID}`,
-                );
-                const body = (await message.json()) as { Text?: string; HTML?: string };
-                const link = extractVerificationLink(`${body.Text ?? ''}\n${body.HTML ?? ''}`);
-                if (link !== null) return link;
-            }
+        // Laravel log entries begin with a `[timestamp]` prefix; split so each block is one message.
+        const entries = raw.split(/(?=^\[\d{4}-\d\d-\d\d[ T])/m);
+        for (let index = entries.length - 1; index >= 0; index -= 1) {
+            const decoded = decodeQuotedPrintable(entries[index] ?? '');
+            if (!decoded.includes(email)) continue;
+            const link = extractVerificationLink(decoded);
+            if (link !== null) return link;
         }
 
         await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    throw new Error(`No verification mail arrived for ${email} within ${attempts * 500}ms.`);
+    throw new Error(`No verification mail was logged for ${email} within ${attempts * 500}ms.`);
+}
+
+/**
+ * Undo the quoted-printable encoding the `log` mailer writes: soft line breaks (`=` at end of line)
+ * are removed and `=XX` escapes decoded, so a signed URL split across lines becomes whole again.
+ */
+function decodeQuotedPrintable(body: string): string {
+    return body
+        .replace(/=\r?\n/g, '')
+        .replace(/=([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 /**

@@ -45,7 +45,7 @@ local S3 bucket, and migrates and seeds the database.
 | --- | --- |
 | API through nginx (containerised) | <http://localhost:8080> (health: `/up`) |
 | API on the host | `cd apps/api && php artisan serve` → <http://localhost:8000> |
-| Mailpit (mail testing UI) | <http://localhost:8025> |
+| Outgoing mail | written to `apps/api/storage/logs/laravel.log` (dev `log` mailer) |
 | PostgreSQL 18 | `localhost:55432`, database `healthy360` |
 | Redis 8 | `localhost:6379` |
 | Garage (S3-compatible storage) | <http://localhost:3900> |
