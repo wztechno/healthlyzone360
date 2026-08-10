@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
@@ -101,7 +102,7 @@ it('lists published products beside meals and filters by item type', function ()
 });
 
 it('surfaces seeded Verdant products on the wholesale B2B catalogue at B2B amounts', function (): void {
-    $buyer = \App\Models\User::query()->where('email', 'buyer@acme-wellness.test')->sole();
+    $buyer = User::query()->where('email', 'buyer@acme-wellness.test')->sole();
     $org = Organisation::query()->where('slug', 'acme-wellness')->sole();
 
     $response = $this->actingAs($buyer)

@@ -241,14 +241,14 @@ final readonly class MarketplaceMeals
      */
     private function listingPackVariantIds(CatalogueItem $item): array
     {
-        $ids = CatalogueItemVariant::withoutTenancy()
+        $ids = array_values(CatalogueItemVariant::withoutTenancy()
             ->where('catalogue_item_id', $item->getKey())
             ->where('status', VariantStatus::Active->value)
             ->orderByDesc('is_default')
             ->orderBy('created_at')
             ->pluck('id')
             ->map(static fn (mixed $id): string => (string) $id)
-            ->all();
+            ->all());
 
         // Item-level rows are rare for products but remain a valid last resort.
         $ids[] = null;

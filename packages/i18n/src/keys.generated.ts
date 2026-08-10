@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5211 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5221 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2739,14 +2739,24 @@ export interface NamespaceKeys {
     | 'ops.procurement.costsRedacted'
     | 'ops.procurement.emptyBody'
     | 'ops.procurement.emptyTitle'
+    | 'ops.procurement.fieldCurrency'
     | 'ops.procurement.fieldDocumentRef'
     | 'ops.procurement.fieldLineItem'
     | 'ops.procurement.fieldLineQuantity'
+    | 'ops.procurement.fieldLineUnit'
     | 'ops.procurement.fieldLineUnitPrice'
     | 'ops.procurement.fieldSupplier'
+    | 'ops.procurement.fieldSupplierCode'
+    | 'ops.procurement.fieldSupplierCurrency'
+    | 'ops.procurement.fieldSupplierEmail'
+    | 'ops.procurement.fieldSupplierName'
+    | 'ops.procurement.fieldSupplierPhone'
     | 'ops.procurement.metrics.lines'
     | 'ops.procurement.metrics.receipts'
     | 'ops.procurement.metrics.suppliers'
+    | 'ops.procurement.newSupplier'
+    | 'ops.procurement.newSupplierFailed'
+    | 'ops.procurement.newSupplierTitle'
     | 'ops.procurement.noSupplier'
     | 'ops.procurement.noSuppliers'
     | 'ops.procurement.notYetReceived'
@@ -2754,10 +2764,10 @@ export interface NamespaceKeys {
     | 'ops.procurement.postReceipt'
     | 'ops.procurement.postTitle'
     | 'ops.procurement.postedToast'
-    | 'ops.procurement.priceNeedsSupplierCurrency'
     | 'ops.procurement.receiptsTitle'
     | 'ops.procurement.removeLine'
     | 'ops.procurement.subtitle'
+    | 'ops.procurement.supplierCreatedToast'
     | 'ops.procurement.suppliersTitle'
     | 'ops.procurement.title'
     | 'ops.production.columnActions'
@@ -7968,14 +7978,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.costsRedacted',
   'kitchen:ops.procurement.emptyBody',
   'kitchen:ops.procurement.emptyTitle',
+  'kitchen:ops.procurement.fieldCurrency',
   'kitchen:ops.procurement.fieldDocumentRef',
   'kitchen:ops.procurement.fieldLineItem',
   'kitchen:ops.procurement.fieldLineQuantity',
+  'kitchen:ops.procurement.fieldLineUnit',
   'kitchen:ops.procurement.fieldLineUnitPrice',
   'kitchen:ops.procurement.fieldSupplier',
+  'kitchen:ops.procurement.fieldSupplierCode',
+  'kitchen:ops.procurement.fieldSupplierCurrency',
+  'kitchen:ops.procurement.fieldSupplierEmail',
+  'kitchen:ops.procurement.fieldSupplierName',
+  'kitchen:ops.procurement.fieldSupplierPhone',
   'kitchen:ops.procurement.metrics.lines',
   'kitchen:ops.procurement.metrics.receipts',
   'kitchen:ops.procurement.metrics.suppliers',
+  'kitchen:ops.procurement.newSupplier',
+  'kitchen:ops.procurement.newSupplierFailed',
+  'kitchen:ops.procurement.newSupplierTitle',
   'kitchen:ops.procurement.noSupplier',
   'kitchen:ops.procurement.noSuppliers',
   'kitchen:ops.procurement.notYetReceived',
@@ -7983,10 +8003,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.postReceipt',
   'kitchen:ops.procurement.postTitle',
   'kitchen:ops.procurement.postedToast',
-  'kitchen:ops.procurement.priceNeedsSupplierCurrency',
   'kitchen:ops.procurement.receiptsTitle',
   'kitchen:ops.procurement.removeLine',
   'kitchen:ops.procurement.subtitle',
+  'kitchen:ops.procurement.supplierCreatedToast',
   'kitchen:ops.procurement.suppliersTitle',
   'kitchen:ops.procurement.title',
   'kitchen:ops.production.columnActions',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\User;
+use Closure;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
@@ -65,6 +66,7 @@ use Healthy360\Pricing\Models\PriceListItem;
 use Healthy360\ReferenceData\Models\DeliveryArea;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -143,11 +145,20 @@ class DemoTenantSeeder extends Seeder
         $webShop = $this->salesChannel($verdant, 'web-shop', 'b2c_web', 'Web shop', 'المتجر الإلكتروني', 'web', $verdantOwner);
         $this->salesChannel($verdant, 'wholesale', 'b2b', 'Wholesale', 'البيع بالجملة', null, $verdantOwner);
 
-        $this->seedVerdantTariff($verdant, $webShop, $verdantOwner);
-        $this->seedVerdantPlan($verdant, $verdantOwner);
-        $this->seedMarketplacePlan($verdant, $webShop, $verdantOwner);
-        $this->seedVerdantDelivery($verdant, $alQuoz, $verdantOwner);
-        $this->seedVerdantMenu($verdant, $webShop, $verdantOwner);
+        // These sections both write RLS-scoped rows (price list items, meal
+        // publications) and read them straight back through the readiness
+        // services, which see nothing on the RLS-subject application connection
+        // unless Verdant is declared to the database session. One declaration
+        // around the whole block covers both directions; on the schema-owning
+        // connection it is a harmless no-op.
+        $this->forOrganisation((string) $verdant->getKey(), function () use ($verdant, $webShop, $alQuoz, $verdantOwner): void {
+            $this->seedVerdantTariff($verdant, $webShop, $verdantOwner);
+            $this->seedVerdantPlan($verdant, $verdantOwner);
+            $this->seedMarketplacePlan($verdant, $webShop, $verdantOwner);
+            $this->seedVerdantDelivery($verdant, $alQuoz, $verdantOwner);
+            $this->seedVerdantMenu($verdant, $webShop, $verdantOwner);
+        });
+
         $this->call(VerdantProductCatalogueSeeder::class);
 
         $this->seedPlatformOperator();
@@ -1293,7 +1304,7 @@ class DemoTenantSeeder extends Seeder
         PriceStatus $status,
         User $creator,
     ): void {
-        PriceListItem::withoutTenancy()->updateOrCreate(
+        $this->forOrganisation((string) $priceList->organisation_id, fn () => PriceListItem::withoutTenancy()->updateOrCreate(
             [
                 'price_list_id' => $priceList->getKey(),
                 'catalogue_item_id' => $catalogueItemId,
@@ -1308,7 +1319,7 @@ class DemoTenantSeeder extends Seeder
                 'effective_from' => now()->toDateString(),
                 'created_by' => $creator->getKey(),
             ],
-        );
+        ));
     }
 
     /**
@@ -1327,7 +1338,7 @@ class DemoTenantSeeder extends Seeder
         // Template roles are built from organisationPermissions() alone, so no
         // template can ever carry a platform code; this is what "granted
         // deliberately, one organisation at a time" looks like in practice.
-        $role = Role::withoutTenancy()->updateOrCreate(
+        $role = $this->forOrganisation((string) $platform->getKey(), fn (): Role => Role::withoutTenancy()->updateOrCreate(
             ['organisation_id' => $platform->getKey(), 'code' => 'reference_editor'],
             [
                 'name_en' => 'Reference editor',
@@ -1335,7 +1346,7 @@ class DemoTenantSeeder extends Seeder
                 'is_system' => false,
                 'created_by' => $ops->getKey(),
             ],
-        );
+        ));
 
         foreach (array_keys(PermissionRegistry::platformPermissions()) as $code) {
             $permission = Permission::query()->where('code', $code)->firstOrFail();
@@ -1366,15 +1377,17 @@ class DemoTenantSeeder extends Seeder
             );
         }
 
-        $membership = OrganisationMembership::withoutTenancy()
-            ->where('organisation_id', $platform->getKey())
-            ->where('user_id', $ops->getKey())
-            ->firstOrFail();
+        $this->forOrganisation((string) $platform->getKey(), function () use ($platform, $ops, $role): void {
+            $membership = OrganisationMembership::withoutTenancy()
+                ->where('organisation_id', $platform->getKey())
+                ->where('user_id', $ops->getKey())
+                ->firstOrFail();
 
-        MembershipRole::withoutTenancy()->updateOrCreate(
-            ['membership_id' => $membership->getKey(), 'role_id' => $role->getKey()],
-            ['organisation_id' => $platform->getKey(), 'created_by' => $ops->getKey()],
-        );
+            MembershipRole::withoutTenancy()->updateOrCreate(
+                ['membership_id' => $membership->getKey(), 'role_id' => $role->getKey()],
+                ['organisation_id' => $platform->getKey(), 'created_by' => $ops->getKey()],
+            );
+        });
     }
 
     /**
@@ -1382,20 +1395,22 @@ class DemoTenantSeeder extends Seeder
      */
     private function addRole(Organisation $organisation, User $user, string $templateRoleCode, User $creator): void
     {
-        $membership = OrganisationMembership::withoutTenancy()
-            ->where('organisation_id', $organisation->getKey())
-            ->where('user_id', $user->getKey())
-            ->firstOrFail();
+        $this->forOrganisation((string) $organisation->getKey(), function () use ($organisation, $user, $templateRoleCode, $creator): void {
+            $membership = OrganisationMembership::withoutTenancy()
+                ->where('organisation_id', $organisation->getKey())
+                ->where('user_id', $user->getKey())
+                ->firstOrFail();
 
-        $role = Role::withoutTenancy()
-            ->whereNull('organisation_id')
-            ->where('code', $templateRoleCode)
-            ->firstOrFail();
+            $role = Role::withoutTenancy()
+                ->whereNull('organisation_id')
+                ->where('code', $templateRoleCode)
+                ->firstOrFail();
 
-        MembershipRole::withoutTenancy()->updateOrCreate(
-            ['membership_id' => $membership->getKey(), 'role_id' => $role->getKey()],
-            ['organisation_id' => $organisation->getKey(), 'created_by' => $creator->getKey()],
-        );
+            MembershipRole::withoutTenancy()->updateOrCreate(
+                ['membership_id' => $membership->getKey(), 'role_id' => $role->getKey()],
+                ['organisation_id' => $organisation->getKey(), 'created_by' => $creator->getKey()],
+            );
+        });
     }
 
     private function user(string $email, string $givenName, string $familyName, string $languageCode, string $countryCode): User
@@ -1446,9 +1461,30 @@ class DemoTenantSeeder extends Seeder
         );
     }
 
+    /**
+     * Publish an organisation to the database session for one write, so
+     * row-level security admits it on the RLS-subject application connection —
+     * the local default (`healthy360_app`). This is the database-session half
+     * of the `withoutTenancy()` these writes already carry at the Eloquent
+     * layer: seeding is an explicit, auditable cross-tenant path, and each
+     * organisation_id is declared from the row being created rather than an
+     * ambient request context. On the schema-owning connection the test suite
+     * and `--database=pgsql_migrations` use, the write bypasses RLS by
+     * ownership regardless, so the declaration is simply harmless there.
+     *
+     * @template TReturn
+     *
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    private function forOrganisation(string $organisationId, Closure $callback): mixed
+    {
+        return app(DatabaseTenantContext::class)->during(null, $organisationId, null, $callback);
+    }
+
     private function branch(Organisation $organisation, string $name, string $city, string $timezone, User $creator): OrganisationBranch
     {
-        return OrganisationBranch::withoutTenancy()->updateOrCreate(
+        return $this->forOrganisation((string) $organisation->getKey(), fn (): OrganisationBranch => OrganisationBranch::withoutTenancy()->updateOrCreate(
             ['organisation_id' => $organisation->getKey(), 'name' => $name],
             [
                 'country_code' => $organisation->country_code,
@@ -1457,7 +1493,7 @@ class DemoTenantSeeder extends Seeder
                 'status' => BranchStatus::Active,
                 'created_by' => $creator->getKey(),
             ],
-        );
+        ));
     }
 
     /**
@@ -1505,7 +1541,7 @@ class DemoTenantSeeder extends Seeder
         string $templateRoleCode,
         User $creator,
     ): OrganisationMembership {
-        $membership = OrganisationMembership::withoutTenancy()->updateOrCreate(
+        $membership = $this->forOrganisation((string) $organisation->getKey(), fn (): OrganisationMembership => OrganisationMembership::withoutTenancy()->updateOrCreate(
             ['organisation_id' => $organisation->getKey(), 'user_id' => $user->getKey()],
             [
                 'branch_id' => $branch?->getKey(),
@@ -1513,7 +1549,7 @@ class DemoTenantSeeder extends Seeder
                 'joined_at' => now(),
                 'created_by' => $creator->getKey(),
             ],
-        );
+        ));
 
         $role = Role::withoutTenancy()
             ->whereNull('organisation_id')

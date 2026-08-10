@@ -195,7 +195,7 @@ export function MealsScreen() {
             // This is the customer-facing meals catalogue, not a kitchen's mixed menu. Keep
             // sauces and other sellable products out of its count and pagination so every card
             // here represents a prepared meal.
-            itemTypes: ['meal'],
+            itemTypes: ['meal'] as const,
         }),
         [searchTerm, selected, rangeValues, sort],
     );

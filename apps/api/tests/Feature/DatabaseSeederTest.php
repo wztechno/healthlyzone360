@@ -567,7 +567,7 @@ it('seeds the demonstration tariff with a tier and an honest placeholder', funct
         );
 });
 
-it('seeds Verdant sellable products alongside the three demonstration meals', function (): void {
+it('seeds Verdant sellable products alongside its published preview meals', function (): void {
     $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
 
     $published = CatalogueItem::withoutTenancy()
@@ -575,7 +575,10 @@ it('seeds Verdant sellable products alongside the three demonstration meals', fu
         ->where('status', CatalogueItemStatus::Published->value)
         ->get();
 
-    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(3)
+    // The three seeded demonstration meals plus the 37 photographed prototype
+    // meals the API-mode marketplace preview shows — forty in all, the same
+    // count MarketplaceReadTest pins from the public endpoint.
+    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(40)
         ->and($published->where('item_type', CatalogueItemType::Product)->count())->toBeGreaterThan(3)
         ->and(PriceList::withoutTenancy()
             ->where('organisation_id', $verdant->getKey())
