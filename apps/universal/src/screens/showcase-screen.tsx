@@ -314,10 +314,10 @@ export function ShowcaseScreen() {
                         />
                     </Inline>
                     {/*
-                      * The emphasis order the shells now use, shown as a row so it can be judged as
-                      * one. The thing to check is that the eye lands on Basket and not on Sign out
-                      * — the inversion is the point, and it is only visible in company.
-                      */}
+                     * The emphasis order the shells now use, shown as a row so it can be judged as
+                     * one. The thing to check is that the eye lands on Basket and not on Sign out
+                     * — the inversion is the point, and it is only visible in company.
+                     */}
                     <Inline space="xs" align="center">
                         <Button
                             testID="showcase-emphasis-locale"
@@ -340,7 +340,9 @@ export function ShowcaseScreen() {
                             label="Basket"
                             iconEnd={
                                 <View className="rounded-full bg-surface-raised px-2 py-0.5">
-                                    <RNText className="text-xs font-bold text-surface-brand">3</RNText>
+                                    <RNText className="text-xs font-bold text-surface-brand">
+                                        3
+                                    </RNText>
                                 </View>
                             }
                             onPress={() => undefined}
@@ -498,10 +500,10 @@ export function ShowcaseScreen() {
 
                 <Section id="filters" title={t('designSystem:showcase.sections.filters')}>
                     {/*
-                      * The one-row toolbar. What to check: every control shares a baseline, the
-                      * count states a total rather than just a shown-count, and each active chip
-                      * removes the filter it names without opening the panel.
-                      */}
+                     * The one-row toolbar. What to check: every control shares a baseline, the
+                     * count states a total rather than just a shown-count, and each active chip
+                     * removes the filter it names without opening the panel.
+                     */}
                     <ToolbarRow
                         testID="showcase-toolbar"
                         filtersLabel="Filters (2)"
@@ -541,10 +543,10 @@ export function ShowcaseScreen() {
                         }
                     />
                     {/*
-                      * A real panel, not just a toggle. `aria-controls` has to name an element that
-                      * exists — axe reports a dangling reference as critical — and a disclosure
-                      * demo that discloses nothing is not demonstrating the disclosure anyway.
-                      */}
+                     * A real panel, not just a toggle. `aria-controls` has to name an element that
+                     * exists — axe reports a dangling reference as critical — and a disclosure
+                     * demo that discloses nothing is not demonstrating the disclosure anyway.
+                     */}
                     <Collapse
                         open={filterOn}
                         nativeID="showcase-toolbar-panel"
@@ -651,11 +653,11 @@ export function ShowcaseScreen() {
 
                 <Section id="hero" title="Page hero">
                     {/*
-                      * The canopy band, with the scrim that makes it legible. What to check: the
-                      * title and subtitle stay readable all the way across, including over the
-                      * bright end of the sweep on the trailing side, where the bare 0.62 alpha
-                      * floor does not hold on its own.
-                      */}
+                     * The canopy band, with the scrim that makes it legible. What to check: the
+                     * title and subtitle stay readable all the way across, including over the
+                     * bright end of the sweep on the trailing side, where the bare 0.62 alpha
+                     * floor does not hold on its own.
+                     */}
                     <PageHero
                         testID="showcase-page-hero"
                         breadcrumbs={[
@@ -683,12 +685,12 @@ export function ShowcaseScreen() {
 
                 <Section id="ai" title="AI surfaces">
                     {/*
-                      * The only two places violet means something. What to check: both say "AI
-                      * dietitian" in words as well as in colour — origin is never carried by
-                      * colour alone — and white stays legible across both sweeps without the
-                      * scrim the canopy band needs, because violet is the lightest stop either
-                      * gradient passes through.
-                      */}
+                     * The only two places violet means something. What to check: both say "AI
+                     * dietitian" in words as well as in colour — origin is never carried by
+                     * colour alone — and white stays legible across both sweeps without the
+                     * scrim the canopy band needs, because violet is the lightest stop either
+                     * gradient passes through.
+                     */}
                     <AiBand
                         testID="showcase-ai-band"
                         title="Ask the AI dietitian"
@@ -721,11 +723,11 @@ export function ShowcaseScreen() {
                         ))}
                     </Inline>
                     {/*
-                      * The pinned footer, shown the only way it can be judged: a row of cards whose
-                      * bodies are deliberately different lengths. The three prices must sit on one
-                      * line. If they go ragged, the card is not filling its cell — the classes on
-                      * the cells below mirror `CardGridItem` so this behaves as the real grid does.
-                      */}
+                     * The pinned footer, shown the only way it can be judged: a row of cards whose
+                     * bodies are deliberately different lengths. The three prices must sit on one
+                     * line. If they go ragged, the card is not filling its cell — the classes on
+                     * the cells below mirror `CardGridItem` so this behaves as the real grid does.
+                     */}
                     <View className="flex-row flex-wrap gap-4">
                         {[
                             {
@@ -747,7 +749,10 @@ export function ShowcaseScreen() {
                                 price: '$3',
                             },
                         ].map((item) => (
-                            <View key={item.key} className="min-w-[200px] flex-1 grow basis-[220px]">
+                            <View
+                                key={item.key}
+                                className="min-w-[200px] flex-1 grow basis-[220px]"
+                            >
                                 <Card
                                     testID={`showcase-card-baseline-${item.key}`}
                                     padding="none"
@@ -838,11 +843,11 @@ export function ShowcaseScreen() {
                         />
                     ))}
                     {/*
-                      * Every glyph in the vocabulary, iterated from the exported constant so a new
-                      * one cannot be added without appearing here. Names are shown beside the marks
-                      * because the point of review is whether the glyph reads as its name — a
-                      * basket that reads as a bin is a defect this page is supposed to catch.
-                      */}
+                     * Every glyph in the vocabulary, iterated from the exported constant so a new
+                     * one cannot be added without appearing here. Names are shown beside the marks
+                     * because the point of review is whether the glyph reads as its name — a
+                     * basket that reads as a bin is a defect this page is supposed to catch.
+                     */}
                     <Inline space="sm" wrap testID="showcase-icons">
                         {Object.keys(ICON_GLYPHS).map((name) => (
                             <View

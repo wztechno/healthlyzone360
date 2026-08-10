@@ -341,8 +341,9 @@ describe('paginationSlots', () => {
         );
         expect([...widths]).toEqual([7]);
 
-        expect(new Set(Array.from({ length: 36 }, (_, i) => paginationSlots(i + 1, 36, 2).length)))
-            .toEqual(new Set([9]));
+        expect(
+            new Set(Array.from({ length: 36 }, (_, i) => paginationSlots(i + 1, 36, 2).length)),
+        ).toEqual(new Set([9]));
     });
 
     it('keeps both ends reachable from the middle of a long list', () => {

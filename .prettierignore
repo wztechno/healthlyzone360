@@ -18,6 +18,7 @@ docs/
 .github/
 README.md
 LICENSE
+packages/design-tokens/
 # Generated artefacts — reformatting them would fight their own drift checks.
 packages/i18n/catalogues/en-XA/
 packages/i18n/src/keys.generated.ts
@@ -25,3 +26,7 @@ packages/design-tokens/generated/
 packages/api-client/src/generated/
 apps/universal/expo-env.d.ts
 apps/universal/src/media/image-manifest.generated.ts
+design_handoff_wellness_green/
+# Local / untracked config — not part of the shared source tree.
+.claude/settings.local.json
+/tsconfig.json

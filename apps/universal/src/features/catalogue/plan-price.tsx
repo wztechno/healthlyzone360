@@ -42,11 +42,11 @@ export function PlanPrice({ plan, testID }: PlanPriceProps) {
             </Text>
             <Inline space="xs" align="baseline" wrap>
                 {/*
-                  * RNText, not the design system's `Text`. `Text` applies its variant's own
-                  * `text-base` and a caller's `text-2xl` cannot reliably outrank it — the same
-                  * trap that first rendered the page hero's 48px title at 16px. The price is the
-                  * figure this card is compared on, so it states its own size.
-                  */}
+                 * RNText, not the design system's `Text`. `Text` applies its variant's own
+                 * `text-base` and a caller's `text-2xl` cannot reliably outrank it — the same
+                 * trap that first rendered the page hero's 48px title at 16px. The price is the
+                 * figure this card is compared on, so it states its own size.
+                 */}
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-amount`}
                     className="font-display text-2xl leading-tight text-surface-brand text-start"

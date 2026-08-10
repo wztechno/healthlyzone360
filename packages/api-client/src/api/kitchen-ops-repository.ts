@@ -395,8 +395,13 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     branch_id: String(request.branchId),
                     ...(request.supplierId === undefined
                         ? {}
-                        : { supplier_id: request.supplierId === null ? null : String(request.supplierId) }),
-                    ...(request.documentRef === undefined ? {} : { document_ref: request.documentRef }),
+                        : {
+                              supplier_id:
+                                  request.supplierId === null ? null : String(request.supplierId),
+                          }),
+                    ...(request.documentRef === undefined
+                        ? {}
+                        : { document_ref: request.documentRef }),
                     ...(request.purchaseOrderId === undefined
                         ? {}
                         : { purchase_order_id: request.purchaseOrderId }),
@@ -424,7 +429,8 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             const params = new URLSearchParams();
             if (filter.from !== undefined) params.set('from', filter.from);
             if (filter.to !== undefined) params.set('to', filter.to);
-            if (filter.supplierId !== undefined) params.set('supplier_id', String(filter.supplierId));
+            if (filter.supplierId !== undefined)
+                params.set('supplier_id', String(filter.supplierId));
             if (filter.ingredientId !== undefined) {
                 params.set('ingredient_id', String(filter.ingredientId));
             }

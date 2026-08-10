@@ -96,86 +96,86 @@ export function ListToolbar({
             className="rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-1 md:p-4"
         >
             <Stack space="sm">
-            <TextInputField
-                testID={`${testID}-search`}
-                id={`${testID}-search`}
-                label={t('kitchen:toolbar.searchLabel')}
-                placeholder={t('kitchen:toolbar.searchPlaceholder')}
-                value={query}
-                onChangeText={onQueryChange}
-                autoCapitalize="none"
-                autoCorrect={false}
-                inputMode="search"
-                returnKeyType="search"
-                trailing={<Icon name="search" />}
-            />
-
-            <Stack space="xs">
-                <Text variant="label" testID={`${testID}-status-label`}>
-                    {t('kitchen:toolbar.statusLabel')}
-                </Text>
-                <Inline space="xs" wrap testID={`${testID}-status`}>
-                    {statusOptions.map((status) => (
-                        <FilterChip
-                            key={status}
-                            testID={`${testID}-status-${status}`}
-                            label={t(statusKey(status))}
-                            selected={statuses.includes(status)}
-                            onChange={(selected) => {
-                                toggle(status, selected);
-                            }}
-                        />
-                    ))}
-                </Inline>
-            </Stack>
-
-            {categoryOptions === undefined || onCategoryChange === undefined ? null : (
-                <Select
-                    testID={`${testID}-category`}
-                    id={`${testID}-category`}
-                    label={categoryLabel ?? t('kitchen:toolbar.categoryLabel')}
-                    searchable
-                    value={category ?? ANY_CATEGORY}
-                    onChange={(next) => {
-                        onCategoryChange(next === ANY_CATEGORY ? null : next);
-                    }}
-                    options={[
-                        {
-                            value: ANY_CATEGORY,
-                            label: categoryAllLabel ?? t('kitchen:toolbar.categoryAll'),
-                        },
-                        ...categoryOptions,
-                    ]}
+                <TextInputField
+                    testID={`${testID}-search`}
+                    id={`${testID}-search`}
+                    label={t('kitchen:toolbar.searchLabel')}
+                    placeholder={t('kitchen:toolbar.searchPlaceholder')}
+                    value={query}
+                    onChangeText={onQueryChange}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    inputMode="search"
+                    returnKeyType="search"
+                    trailing={<Icon name="search" />}
                 />
-            )}
 
-            {/*
-              * One row, sharing a baseline: the count sits with the controls rather than in a
-              * paragraph of its own below them, and the create button is the trailing primary —
-              * this area's core-loop action (§4, Rule 4). It is the same shape as the marketplace
-              * `ToolbarRow`, expressed against this component's own props.
-              */}
-            <Inline space="sm" align="center" wrap>
-                {resultSummary === undefined ? null : (
-                    <Text
-                        testID={`${testID}-result-summary`}
-                        role="status"
-                        aria-live="polite"
-                        className="font-display text-sm text-content-primary"
-                    >
-                        {resultSummary}
+                <Stack space="xs">
+                    <Text variant="label" testID={`${testID}-status-label`}>
+                        {t('kitchen:toolbar.statusLabel')}
                     </Text>
-                )}
-                <View className="grow" />
-                {onCreate === undefined ? null : (
-                    <Button
-                        testID={`${testID}-create`}
-                        label={createLabel}
-                        iconStart={<Icon name="plus" />}
-                        onPress={onCreate}
+                    <Inline space="xs" wrap testID={`${testID}-status`}>
+                        {statusOptions.map((status) => (
+                            <FilterChip
+                                key={status}
+                                testID={`${testID}-status-${status}`}
+                                label={t(statusKey(status))}
+                                selected={statuses.includes(status)}
+                                onChange={(selected) => {
+                                    toggle(status, selected);
+                                }}
+                            />
+                        ))}
+                    </Inline>
+                </Stack>
+
+                {categoryOptions === undefined || onCategoryChange === undefined ? null : (
+                    <Select
+                        testID={`${testID}-category`}
+                        id={`${testID}-category`}
+                        label={categoryLabel ?? t('kitchen:toolbar.categoryLabel')}
+                        searchable
+                        value={category ?? ANY_CATEGORY}
+                        onChange={(next) => {
+                            onCategoryChange(next === ANY_CATEGORY ? null : next);
+                        }}
+                        options={[
+                            {
+                                value: ANY_CATEGORY,
+                                label: categoryAllLabel ?? t('kitchen:toolbar.categoryAll'),
+                            },
+                            ...categoryOptions,
+                        ]}
                     />
                 )}
-            </Inline>
+
+                {/*
+                 * One row, sharing a baseline: the count sits with the controls rather than in a
+                 * paragraph of its own below them, and the create button is the trailing primary —
+                 * this area's core-loop action (§4, Rule 4). It is the same shape as the marketplace
+                 * `ToolbarRow`, expressed against this component's own props.
+                 */}
+                <Inline space="sm" align="center" wrap>
+                    {resultSummary === undefined ? null : (
+                        <Text
+                            testID={`${testID}-result-summary`}
+                            role="status"
+                            aria-live="polite"
+                            className="font-display text-sm text-content-primary"
+                        >
+                            {resultSummary}
+                        </Text>
+                    )}
+                    <View className="grow" />
+                    {onCreate === undefined ? null : (
+                        <Button
+                            testID={`${testID}-create`}
+                            label={createLabel}
+                            iconStart={<Icon name="plus" />}
+                            onPress={onCreate}
+                        />
+                    )}
+                </Inline>
             </Stack>
         </View>
     );

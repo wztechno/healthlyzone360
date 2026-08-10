@@ -93,10 +93,7 @@ function CostReport() {
 
     // Figures are never summed across currencies, so the screen shows one at a time. Default to the
     // currency of the newest row; a second currency (rare — GreenLife is USD) offers a selector.
-    const currencies = useMemo(
-        () => [...new Set(rows.map((row) => row.currencyCode))],
-        [rows],
-    );
+    const currencies = useMemo(() => [...new Set(rows.map((row) => row.currencyCode))], [rows]);
     const [currency, setCurrency] = useState<string | null>(null);
     const activeCurrency = currency ?? currencies[0] ?? null;
 
@@ -248,9 +245,7 @@ function CostReport() {
             key: 'marginPercent',
             header: t('kitchen:ops.costReport.columnMarginPercent'),
             numeric: true,
-            render: (row) => (
-                <Text tone="secondary">{percent(row.grossMarginPercent)}</Text>
-            ),
+            render: (row) => <Text tone="secondary">{percent(row.grossMarginPercent)}</Text>,
         },
     ];
 
@@ -259,7 +254,10 @@ function CostReport() {
     return (
         <Stack space="lg" testID="kitchen-cost-report-screen">
             <Stack space="xs">
-                <Text className="font-display text-[28px] font-bold text-content-primary" testID="kitchen-cost-report-title">
+                <Text
+                    className="font-display text-[28px] font-bold text-content-primary"
+                    testID="kitchen-cost-report-title"
+                >
                     {t('kitchen:ops.costReport.title')}
                 </Text>
                 <Text tone="secondary" testID="kitchen-cost-report-subtitle">
@@ -331,38 +329,55 @@ function CostReport() {
                             testID="kitchen-cost-report-data-quality"
                             className="flex-row items-start gap-3 rounded-panel border border-warning/40 bg-warning/10 p-4"
                         >
-                            <Badge tone="warning" icon="warning" label={t('kitchen:ops.costReport.flagged')} />
+                            <Badge
+                                tone="warning"
+                                icon="warning"
+                                label={t('kitchen:ops.costReport.flagged')}
+                            />
                             <Stack space="none" className="min-w-0 flex-1">
                                 <Text variant="bodyStrong">
                                     {t('kitchen:ops.costReport.dataQualityTitle')}
                                 </Text>
                                 <Text tone="secondary" variant="caption">
-                                    {t('kitchen:ops.costReport.dataQualityBody', { count: flaggedCount })}
+                                    {t('kitchen:ops.costReport.dataQualityBody', {
+                                        count: flaggedCount,
+                                    })}
                                 </Text>
                             </Stack>
                         </View>
                     ) : null}
 
                     {latest !== null ? (
-                        <View testID="kitchen-cost-report-tiles" className="flex-row flex-wrap gap-3">
+                        <View
+                            testID="kitchen-cost-report-tiles"
+                            className="flex-row flex-wrap gap-3"
+                        >
                             <StatTile
                                 testID="kitchen-cost-report-tile-spend"
-                                label={t('kitchen:ops.costReport.tileSpend', { month: latest.month })}
+                                label={t('kitchen:ops.costReport.tileSpend', {
+                                    month: latest.month,
+                                })}
                                 value={money(latest.spendAmount)}
                             />
                             <StatTile
                                 testID="kitchen-cost-report-tile-cogs"
-                                label={t('kitchen:ops.costReport.tileCogs', { month: latest.month })}
+                                label={t('kitchen:ops.costReport.tileCogs', {
+                                    month: latest.month,
+                                })}
                                 value={money(latest.cogsAmount)}
                             />
                             <StatTile
                                 testID="kitchen-cost-report-tile-revenue"
-                                label={t('kitchen:ops.costReport.tileRevenue', { month: latest.month })}
+                                label={t('kitchen:ops.costReport.tileRevenue', {
+                                    month: latest.month,
+                                })}
                                 value={money(latest.revenueAmount)}
                             />
                             <StatTile
                                 testID="kitchen-cost-report-tile-margin"
-                                label={t('kitchen:ops.costReport.tileMargin', { month: latest.month })}
+                                label={t('kitchen:ops.costReport.tileMargin', {
+                                    month: latest.month,
+                                })}
                                 value={money(latest.grossMarginAmount)}
                             />
                         </View>

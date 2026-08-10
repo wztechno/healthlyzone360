@@ -83,8 +83,7 @@ interface PrototypeSurface {
      * is on screen, so the expected total is still derived from a written-down rule.
      */
     readonly conditionalControls?:
-        | readonly { readonly whenVisible: string; readonly controls: number }[]
-        | undefined;
+        readonly { readonly whenVisible: string; readonly controls: number }[] | undefined;
     /**
      * Controls that call `usePrototypeAction()` **without** carrying the shared test id, named one
      * by one.

@@ -112,7 +112,9 @@ function PurchasesLedger() {
             header: t('kitchen:ops.ledger.columnSupplier'),
             render: (row) => (
                 <Text variant="caption" tone="secondary">
-                    {row.supplier === null ? t('kitchen:ops.ledger.noSupplier') : row.supplier.nameEn}
+                    {row.supplier === null
+                        ? t('kitchen:ops.ledger.noSupplier')
+                        : row.supplier.nameEn}
                 </Text>
             ),
         },

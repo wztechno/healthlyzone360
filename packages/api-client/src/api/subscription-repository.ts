@@ -46,7 +46,12 @@ import type {
     SubscriptionSkipReason,
     PriceLine,
 } from '../contracts/commerce.ts';
-import { ApiError, apiFailure, isSubscriptionRefusalFailure, validationFailure } from '../contracts/failure.ts';
+import {
+    ApiError,
+    apiFailure,
+    isSubscriptionRefusalFailure,
+    validationFailure,
+} from '../contracts/failure.ts';
 import type { ApiFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
@@ -405,7 +410,10 @@ export interface ApiSubscriptionReads {
     ): Promise<readonly SubscriptionMealChoice[]>;
     listSubscriptions(filter?: SubscriptionFilter): Promise<CursorPage<Subscription>>;
     getSubscription(subscriptionId: SubscriptionId): Promise<Subscription>;
-    pause(subscriptionId: SubscriptionId, request?: PauseSubscriptionRequest): Promise<Subscription>;
+    pause(
+        subscriptionId: SubscriptionId,
+        request?: PauseSubscriptionRequest,
+    ): Promise<Subscription>;
     resume(subscriptionId: SubscriptionId): Promise<Subscription>;
     skipDay(subscriptionId: SubscriptionId, request: SkipDayRequest): Promise<Subscription>;
     changeAddress(
@@ -473,7 +481,10 @@ function deliveryDates(configuration: SubscriptionConfiguration): readonly strin
     return dates;
 }
 
-function mapQuote(request: SubscriptionQuoteRequest, wire: QuoteWireData['quote']): SubscriptionQuote {
+function mapQuote(
+    request: SubscriptionQuoteRequest,
+    wire: QuoteWireData['quote'],
+): SubscriptionQuote {
     return {
         planId: request.planId,
         variantId: request.variantId,
@@ -507,7 +518,11 @@ function previewFromQuote(
                 currency: quote.perDayPrice.currency,
             },
         },
-        { code: 'gross', label: `${String(weeks)} weeks`, amount: money(gross, quote.total.currency) },
+        {
+            code: 'gross',
+            label: `${String(weeks)} weeks`,
+            amount: money(gross, quote.total.currency),
+        },
     ];
     if (quote.discountPercent > 0) {
         lines.push({
@@ -525,9 +540,7 @@ function previewFromQuote(
         warnings.push('subscription.no_delivery_days');
     }
     if (
-        configuration.deliveryWeekdays.some(
-            (weekday) => !quote.availableWeekdays.includes(weekday),
-        )
+        configuration.deliveryWeekdays.some((weekday) => !quote.availableWeekdays.includes(weekday))
     ) {
         warnings.push('subscription.delivery_day_unavailable');
     }
@@ -765,8 +778,7 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
                 method: 'PUT',
                 path: subscriptionPath(subscriptionId, '/window'),
                 body: {
-                    delivery_window_code:
-                        request.slotCode === '' ? null : request.slotCode,
+                    delivery_window_code: request.slotCode === '' ? null : request.slotCode,
                 },
             });
 
@@ -801,8 +813,7 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
                     weekdays: [...configuration.deliveryWeekdays],
                     delivery_window_code:
                         configuration.slotCode === '' ? null : configuration.slotCode,
-                    start_from:
-                        configuration.startDate === '' ? null : configuration.startDate,
+                    start_from: configuration.startDate === '' ? null : configuration.startDate,
                 },
             });
 

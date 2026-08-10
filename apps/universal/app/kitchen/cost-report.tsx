@@ -8,7 +8,8 @@ import { lazyScreen } from '../../src/shell/lazy-screen.tsx';
  */
 const CostReportScreen = lazyScreen(
     'kitchen-cost-report-loading',
-    async () => (await import('../../src/features/kitchen-admin/screens/index.ts')).CostReportScreen,
+    async () =>
+        (await import('../../src/features/kitchen-admin/screens/index.ts')).CostReportScreen,
 );
 
 export default function KitchenCostReport() {

@@ -224,8 +224,20 @@ describe('AppShell — rail', () => {
 describe('AppShell — sidebar navigation', () => {
     const grouped = [
         { key: 'home', label: 'Home', onPress: () => {}, testID: 'nav-home', active: true },
-        { key: 'meals', label: 'Meals', group: 'Catalogue', onPress: () => {}, testID: 'nav-meals' },
-        { key: 'plans', label: 'Plans', group: 'Catalogue', onPress: () => {}, testID: 'nav-plans' },
+        {
+            key: 'meals',
+            label: 'Meals',
+            group: 'Catalogue',
+            onPress: () => {},
+            testID: 'nav-meals',
+        },
+        {
+            key: 'plans',
+            label: 'Plans',
+            group: 'Catalogue',
+            onPress: () => {},
+            testID: 'nav-plans',
+        },
         { key: 'orders', label: 'Orders', group: 'Operations', onPress: () => {}, testID: 'nav-o' },
     ];
 

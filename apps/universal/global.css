@@ -30,7 +30,9 @@
        frame (green focus ring) is the only chrome. Without this, focused fields show a
        black inner rectangle inside the rounded frame. Leave checkboxes, radios, files,
        and range controls alone — they are not framed the same way. */
-    input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):not([type='color']),
+    input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not(
+            [type='button']
+        ):not([type='submit']):not([type='reset']):not([type='image']):not([type='color']),
     textarea {
         border: 0;
         outline: none;

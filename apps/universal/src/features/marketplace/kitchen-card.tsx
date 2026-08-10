@@ -133,7 +133,6 @@ export function KitchenCard({ kitchen, onPress, testID }: KitchenCardProps) {
                         <Chip key={cuisine} label={cuisine} tone="neutral" />
                     ))}
                 </Inline>
-
             </Stack>
         </Card>
     );

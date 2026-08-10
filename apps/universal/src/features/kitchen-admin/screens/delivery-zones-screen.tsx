@@ -21,10 +21,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import {
-    pagesInResult,
-    useDeliveryZonePageQuery,
-} from '../../../data/kitchen-admin-hooks.ts';
+import { pagesInResult, useDeliveryZonePageQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { summariseWindows } from '../delivery-model.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';

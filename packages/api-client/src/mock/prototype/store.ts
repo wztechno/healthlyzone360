@@ -65,7 +65,12 @@ import type {
     SubscriptionQuoteRefusal,
     SubscriptionQuoteRequest,
 } from '../../contracts/commerce.ts';
-import { apiFailure, conflictFailure, throwFailure, validationFailure } from '../../contracts/failure.ts';
+import {
+    apiFailure,
+    conflictFailure,
+    throwFailure,
+    validationFailure,
+} from '../../contracts/failure.ts';
 import type { Food, GroceryList, Pantry, Recipe } from '../../contracts/foods.ts';
 import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '../../contracts/marketplace.ts';
 import type {

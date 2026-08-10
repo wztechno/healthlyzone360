@@ -126,7 +126,6 @@ export function DietitianCard({ dietitian, onPress, testID }: DietitianCardProps
                         <Chip key={specialism} label={specialism} tone="brand" />
                     ))}
                 </Inline>
-
             </Stack>
         </Card>
     );

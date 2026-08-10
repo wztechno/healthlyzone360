@@ -40,9 +40,7 @@ describe('resolveLandingRoute', () => {
 
     it('sends all-dev consumers with no memberships straight to the customer home', () => {
         expect(
-            resolveLandingRoute(
-                makeAccessState({ mode: 'all-dev', hasActiveMembership: false }),
-            ),
+            resolveLandingRoute(makeAccessState({ mode: 'all-dev', hasActiveMembership: false })),
         ).toEqual({
             href: ROUTE_PATHS.customerHome,
             reason: 'workspace',

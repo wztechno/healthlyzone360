@@ -287,10 +287,7 @@ export interface MediaChipProps {
  */
 export function MediaChip({ label, testID }: MediaChipProps) {
     return (
-        <View
-            testID={testID}
-            className="rounded-full bg-surface-canopy/80 px-3 py-1"
-        >
+        <View testID={testID} className="rounded-full bg-surface-canopy/80 px-3 py-1">
             <RNText className="text-xs font-bold text-content-on-canopy">{label}</RNText>
         </View>
     );

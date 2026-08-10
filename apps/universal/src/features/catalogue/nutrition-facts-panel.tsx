@@ -164,11 +164,7 @@ export function NutritionFactsPanel({
                     {/* `UNKNOWN_ISO_DATE_TIME` is `''` when the API has no timestamp — never
                         hand that to `formatDate`, which throws on an unparseable value. */}
                     {isRenderableTimestamp(active.calculation.calculatedAt) ? (
-                        <Text
-                            testID={`${testID}-calculated-at`}
-                            tone="secondary"
-                            variant="caption"
-                        >
+                        <Text testID={`${testID}-calculated-at`} tone="secondary" variant="caption">
                             {t('catalogue:facts.calculatedAt', {
                                 timestamp: formatter.formatDate(active.calculation.calculatedAt, {
                                     dateStyle: 'medium',

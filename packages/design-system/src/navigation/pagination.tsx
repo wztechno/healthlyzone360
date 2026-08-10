@@ -188,7 +188,9 @@ export function Pagination({
                 ) : (
                     <Pressable
                         key={`page-${String(slot.page)}`}
-                        testID={testID === undefined ? undefined : `${testID}-page-${String(slot.page)}`}
+                        testID={
+                            testID === undefined ? undefined : `${testID}-page-${String(slot.page)}`
+                        }
                         role="button"
                         accessibilityRole="button"
                         // The number alone reads as "3" with no clue what it selects, and the

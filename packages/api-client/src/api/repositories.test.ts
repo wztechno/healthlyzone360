@@ -1844,7 +1844,10 @@ describe('subscriptions (S1)', () => {
 
         const { repositories, calls } = harness(
             [
-                { status: 201, body: { data: { line: wireCart.lines[0], cart: wireCart }, meta: {} } },
+                {
+                    status: 201,
+                    body: { data: { line: wireCart.lines[0], cart: wireCart }, meta: {} },
+                },
                 { status: 200, body: { data: wireMeal, meta: {} } },
             ],
             createMemoryTokenStore('token'),
@@ -2301,7 +2304,12 @@ describe('numbered pages on the kitchen catalogue (docs/api/conventions.md)', ()
                 status: 200,
                 body: {
                     data: [ingredientRow('a')],
-                    meta: { correlation_id: 'c-cursor', count: 1, next_cursor: 'abc', has_more: true },
+                    meta: {
+                        correlation_id: 'c-cursor',
+                        count: 1,
+                        next_cursor: 'abc',
+                        has_more: true,
+                    },
                 },
             },
         ]);

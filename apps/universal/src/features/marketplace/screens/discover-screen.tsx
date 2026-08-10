@@ -1,11 +1,4 @@
-import {
-    Button,
-    Card,
-    Icon,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Button, Card, Icon, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';

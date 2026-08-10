@@ -211,7 +211,9 @@ export function paginate<T>(
     );
 
     const numbered = request?.page !== undefined;
-    const offset = numbered ? (Math.max(1, request.page ?? 1) - 1) * limit : cursorOffset(request?.cursor);
+    const offset = numbered
+        ? (Math.max(1, request.page ?? 1) - 1) * limit
+        : cursorOffset(request?.cursor);
 
     const page = items.slice(offset, offset + limit);
     const nextOffset = offset + page.length;

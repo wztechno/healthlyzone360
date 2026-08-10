@@ -1,9 +1,6 @@
 import type { AccessState } from '@healthy360/permissions';
 
-import {
-    ENTITY_GROUPS,
-    permittedFamilies,
-} from './entity-registry.ts';
+import { ENTITY_GROUPS, permittedFamilies } from './entity-registry.ts';
 import type { EntityFamily, EntityGroup } from './entity-registry.ts';
 
 /**
@@ -43,14 +40,12 @@ export function kitchenNavSections(state: AccessState): readonly KitchenNavSecti
     for (const group of ENTITY_GROUPS) {
         const items = families
             .filter((family) => family.group === group)
-            .map(
-                (family): KitchenNavItem => ({
-                    key: family.key,
-                    nameKey: family.nameKey,
-                    icon: family.icon,
-                    href: family.href,
-                }),
-            );
+            .map((family): KitchenNavItem => ({
+                key: family.key,
+                nameKey: family.nameKey,
+                icon: family.icon,
+                href: family.href,
+            }));
         if (items.length === 0) continue;
         sections.push({
             group,

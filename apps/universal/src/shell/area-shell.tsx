@@ -108,12 +108,12 @@ export function AreaShell({
                     }}
                 />
                 {/*
-                  * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
-                  * that a staff area with no single core-loop action gets no top-bar primary at
-                  * all: promoting navigation into the slot, or letting a destructive action sit
-                  * there, is worse than leaving it alone. The areas that do have one — the kitchen
-                  * workbench, the editors — carry it on the screen that owns it.
-                  */}
+                 * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
+                 * that a staff area with no single core-loop action gets no top-bar primary at
+                 * all: promoting navigation into the slot, or letting a destructive action sit
+                 * there, is worse than leaving it alone. The areas that do have one — the kitchen
+                 * workbench, the editors — carry it on the screen that owns it.
+                 */}
                 <Button
                     testID="sign-out"
                     size="sm"

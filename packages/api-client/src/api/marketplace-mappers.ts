@@ -230,15 +230,17 @@ export function mapKitchenBranch(wire: WireBranch): KitchenBranch {
 }
 
 export function mapKitchen(wire: WireKitchen): Kitchen {
-    const windows = (wire as WireKitchen & {
-        readonly delivery_windows?: readonly {
-            readonly code: string;
-            readonly label: string;
-            readonly starts_at: string;
-            readonly ends_at: string;
-            readonly weekdays: readonly number[];
-        }[];
-    }).delivery_windows;
+    const windows = (
+        wire as WireKitchen & {
+            readonly delivery_windows?: readonly {
+                readonly code: string;
+                readonly label: string;
+                readonly starts_at: string;
+                readonly ends_at: string;
+                readonly weekdays: readonly number[];
+            }[];
+        }
+    ).delivery_windows;
 
     return {
         id: KitchenId.unsafe(wire.id),

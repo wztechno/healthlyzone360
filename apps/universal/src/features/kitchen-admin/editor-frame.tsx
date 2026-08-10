@@ -215,7 +215,11 @@ export function EditorFrame({
                     }
                 >
                     {concurrency.conflict === null ? null : (
-                        <Text testID={`${testID}-conflict-detail`} tone="secondary" variant="caption">
+                        <Text
+                            testID={`${testID}-conflict-detail`}
+                            tone="secondary"
+                            variant="caption"
+                        >
                             {concurrency.conflict.failure.message}
                         </Text>
                     )}

@@ -712,7 +712,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                     setShowAddressErrors(true);
                                     return;
                                 }
-                                const selected = addressList.find((entry) => entry.id === addressId);
+                                const selected = addressList.find(
+                                    (entry) => entry.id === addressId,
+                                );
                                 changeAddress.mutate(
                                     {
                                         subscriptionId: subscription.id,

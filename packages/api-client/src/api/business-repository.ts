@@ -137,9 +137,7 @@ function mapCatalogueItem(
         minimumOrderQuantity: 1,
         volumeTiers: [],
         contractPrice:
-            wire.price === null
-                ? null
-                : money(wire.price.amount_minor, wire.price.currency_code),
+            wire.price === null ? null : money(wire.price.amount_minor, wire.price.currency_code),
         leadTimeDays: 0,
         deliveryWeekdays: [],
         channels: ['b2b'],
@@ -182,10 +180,8 @@ function mapQuotationState(status: string): QuotationState {
 }
 
 function mapQuotationLine(wire: WireQuotationLine, currency: string): QuotationLine {
-    const unit =
-        wire.unit_amount_minor === null ? null : money(wire.unit_amount_minor, currency);
-    const total =
-        wire.line_total_minor === null ? null : money(wire.line_total_minor, currency);
+    const unit = wire.unit_amount_minor === null ? null : money(wire.unit_amount_minor, currency);
+    const total = wire.line_total_minor === null ? null : money(wire.line_total_minor, currency);
 
     return {
         catalogueItemId: wire.catalogue_item_id,
@@ -201,11 +197,17 @@ function mapQuotation(wire: WireQuotation): Quotation {
     const priced = lines.every((line) => line.quotedTotal !== null);
     const requestedTotal =
         priced && lines.length > 0
-            ? lines.reduce<Money | null>((sum, line) => {
-                  if (sum === null || line.quotedTotal === null) return sum;
-                  if (sum.currency !== line.quotedTotal.currency) return null;
-                  return { amount: sum.amount + line.quotedTotal.amount, currency: sum.currency };
-              }, { amount: 0, currency: wire.currency_code as Money['currency'] })
+            ? lines.reduce<Money | null>(
+                  (sum, line) => {
+                      if (sum === null || line.quotedTotal === null) return sum;
+                      if (sum.currency !== line.quotedTotal.currency) return null;
+                      return {
+                          amount: sum.amount + line.quotedTotal.amount,
+                          currency: sum.currency,
+                      };
+                  },
+                  { amount: 0, currency: wire.currency_code as Money['currency'] },
+              )
             : null;
 
     return {
@@ -223,8 +225,7 @@ function mapQuotation(wire: WireQuotation): Quotation {
             wire.quoted_at === null && wire.decided_at === null
                 ? null
                 : ((wire.quoted_at ?? wire.decided_at ?? '') as Quotation['respondedAt']),
-        expiresAt:
-            wire.expires_at === null ? null : (wire.expires_at as Quotation['expiresAt']),
+        expiresAt: wire.expires_at === null ? null : (wire.expires_at as Quotation['expiresAt']),
     };
 }
 
@@ -318,7 +319,9 @@ export function createApiBusinessRepository(transport: Transport): ApiBusinessRe
             return programmes.map(mapProgramme);
         },
 
-        async getCorporateProgramme(programmeId: CorporateProgrammeId): Promise<CorporateProgramme> {
+        async getCorporateProgramme(
+            programmeId: CorporateProgrammeId,
+        ): Promise<CorporateProgramme> {
             const payload = await transport.request<{ readonly programme: WireProgramme }>({
                 method: 'GET',
                 path: `/b2b/programmes/${pathSegment(String(programmeId))}`,
@@ -447,10 +450,9 @@ export function createApiBusinessRepository(transport: Transport): ApiBusinessRe
 }
 
 /** @deprecated Prefer {@link createApiBusinessRepository}. */
-export function createApiBusinessReads(transport: Transport): Pick<
-    BusinessRepository,
-    'listCatalogue' | 'getCatalogueItem'
-> {
+export function createApiBusinessReads(
+    transport: Transport,
+): Pick<BusinessRepository, 'listCatalogue' | 'getCatalogueItem'> {
     const full = createApiBusinessRepository(transport);
     return {
         listCatalogue: full.listCatalogue.bind(full),

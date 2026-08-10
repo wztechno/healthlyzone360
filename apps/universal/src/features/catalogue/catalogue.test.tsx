@@ -418,9 +418,7 @@ describe('NutritionFactsPanel', () => {
             },
         };
 
-        await renderScreen(
-            <NutritionFactsPanel facts={unrecorded} testID="meal-detail-facts" />,
-        );
+        await renderScreen(<NutritionFactsPanel facts={unrecorded} testID="meal-detail-facts" />);
 
         expect(screen.getByTestId('meal-detail-facts')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-facts-synthetic')).toBeTruthy();

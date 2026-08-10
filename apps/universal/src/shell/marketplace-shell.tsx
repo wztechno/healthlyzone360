@@ -169,11 +169,11 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
             className="min-h-touch flex-row items-center gap-2 pe-2"
         >
             {/*
-              * The violet-to-green tile is the one place the two brand colours meet as a mark
-              * rather than as meaning — everywhere else violet is reserved for machine-generated
-              * content (Rule 5). It is a graphic carrying a single large letter, so the gradient
-              * needs no scrim: the "H" is 15px bold white over #6D28D9 at the leading edge.
-              */}
+             * The violet-to-green tile is the one place the two brand colours meet as a mark
+             * rather than as meaning — everywhere else violet is reserved for machine-generated
+             * content (Rule 5). It is a graphic carrying a single large letter, so the gradient
+             * needs no scrim: the "H" is 15px bold white over #6D28D9 at the leading edge.
+             */}
             <LinearGradient
                 colors={['#6d28d9', '#16a34a']}
                 start={{ x: 0, y: 0 }}
@@ -304,7 +304,11 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     ];
 
     const footer = (
-        <Stack space="sm" testID="marketplace-footer" className="bg-surface-canopy p-8 md:px-10 lg:px-11">
+        <Stack
+            space="sm"
+            testID="marketplace-footer"
+            className="bg-surface-canopy p-8 md:px-10 lg:px-11"
+        >
             <RNText className="font-display text-base text-content-on-canopy">
                 {t('marketplace:brand.name')}
             </RNText>

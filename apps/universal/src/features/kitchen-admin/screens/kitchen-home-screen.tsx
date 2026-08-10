@@ -44,11 +44,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
-import {
-    ENTITY_GROUPS,
-    WORKSPACE_PERMISSIONS,
-    permittedFamilies,
-} from '../entity-registry.ts';
+import { ENTITY_GROUPS, WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
 import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 
@@ -355,7 +351,11 @@ function ConsumptionExceptionsCard({ family }: { readonly family: EntityFamily }
     return (
         <FamilyCardShell family={family} testID={testID}>
             {count.isPending ? (
-                <Skeleton testID={`${testID}-loading`} heightClassName="h-6" widthClassName="w-1/2" />
+                <Skeleton
+                    testID={`${testID}-loading`}
+                    heightClassName="h-6"
+                    widthClassName="w-1/2"
+                />
             ) : (
                 <Inline space="xs" wrap testID={`${testID}-counts`}>
                     <Badge
@@ -486,7 +486,11 @@ function KpiTile({
             className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
         >
             {pending ? (
-                <Skeleton testID={`${testID}-loading`} heightClassName="h-8" widthClassName="w-1/2" />
+                <Skeleton
+                    testID={`${testID}-loading`}
+                    heightClassName="h-8"
+                    widthClassName="w-1/2"
+                />
             ) : (
                 <Text
                     testID={`${testID}-value`}
@@ -585,9 +589,7 @@ export function KitchenHomeScreen() {
             ? null
             : knownDrafts.reduce((sum, part) => sum + part, 0);
 
-    const publishedMeals = mealSummary.isPending
-        ? null
-        : (mealSummary.data?.published ?? null);
+    const publishedMeals = mealSummary.isPending ? null : (mealSummary.data?.published ?? null);
     const zoneTotal = zoneSummary.isPending ? null : (zoneSummary.data?.total ?? null);
     // Low-stock count for the KPI strip (INV1.3): an operational fact computed from
     // records people created — quantities and the reorder points a manager set — so it
@@ -704,11 +706,11 @@ export function KitchenHomeScreen() {
                             </FadeIn>
 
                             {/*
-                              * The review band carries the green sweep, not the violet one. It
-                              * counts what is waiting in the review queue — operational fact,
-                              * computed from records a person created. Rule 5 keeps violet for
-                              * machine-generated content, and a queue length is not that.
-                              */}
+                             * The review band carries the green sweep, not the violet one. It
+                             * counts what is waiting in the review queue — operational fact,
+                             * computed from records a person created. Rule 5 keeps violet for
+                             * machine-generated content, and a queue length is not that.
+                             */}
                             <FadeIn delayMs={stagger(2)} testID="kitchen-home-review-band">
                                 {reviewQueue !== null && reviewQueue.total > 0 ? (
                                     <BrandGradient

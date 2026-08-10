@@ -77,9 +77,9 @@ describe('kitchen analytics', () => {
         fireEvent.press(screen.getByTestId('kitchen-analytics-range-7d'));
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-analytics-kpi-produced-value').props.children).not.toEqual(
-                producedBefore,
-            );
+            expect(
+                screen.getByTestId('kitchen-analytics-kpi-produced-value').props.children,
+            ).not.toEqual(producedBefore);
         });
     });
 });

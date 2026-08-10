@@ -77,10 +77,7 @@ export { toFailure } from './hooks.ts';
 /* ── cart ────────────────────────────────────────────────────────────────────────────────────── */
 
 /** The current basket. `getCart()` creates one lazily, so there is no "create basket" step. */
-export function useCartQuery(
-    enabled = true,
-    channelCode?: string,
-): UseQueryResult<Cart> {
+export function useCartQuery(enabled = true, channelCode?: string): UseQueryResult<Cart> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
@@ -88,9 +85,7 @@ export function useCartQuery(
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            return repositories.commerce.getCart(
-                channelCode === undefined ? {} : { channelCode },
-            );
+            return repositories.commerce.getCart(channelCode === undefined ? {} : { channelCode });
         },
     });
 }

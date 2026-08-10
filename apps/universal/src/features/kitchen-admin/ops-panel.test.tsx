@@ -54,9 +54,13 @@ describe('ops panels', () => {
         // The fixture world (`KitchenOpsMockStore`) seeds four stock items, three levels and no
         // out-of-stock rows — these are live counts of what the screen fetched, not fabricated KPIs.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-stock-panel-metric-items-value')).toHaveTextContent('4');
+            expect(screen.getByTestId('kitchen-stock-panel-metric-items-value')).toHaveTextContent(
+                '4',
+            );
         });
-        expect(screen.getByTestId('kitchen-stock-panel-metric-levels-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('kitchen-stock-panel-metric-levels-value')).toHaveTextContent(
+            '3',
+        );
         expect(screen.getByTestId('kitchen-stock-panel-metric-outOfStock-value')).toHaveTextContent(
             '0',
         );

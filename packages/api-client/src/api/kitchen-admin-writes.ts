@@ -139,9 +139,7 @@ function slugifyCode(label: string): string {
 }
 
 function isUuid(value: string): boolean {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        value,
-    );
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 /**
@@ -404,7 +402,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             const categoryId = lookup.codeToId.get(request.categoryCode);
             const unitId = await units.resolve(transport, request.measurementUnit);
 
-            const envelope = await transport.requestEnvelope<{ readonly ingredient: AdminIngredient }>({
+            const envelope = await transport.requestEnvelope<{
+                readonly ingredient: AdminIngredient;
+            }>({
                 method: 'POST',
                 path: '/catalogue/ingredients',
                 body: {
@@ -565,12 +565,14 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
 
             const versionBody: Record<string, unknown> = {};
-            if (request.yieldQuantity !== undefined) versionBody.yield_quantity = request.yieldQuantity;
+            if (request.yieldQuantity !== undefined)
+                versionBody.yield_quantity = request.yieldQuantity;
             if (request.yieldUnit !== undefined) {
                 const unitId = await units.resolve(transport, request.yieldUnit);
                 if (unitId !== null) versionBody.yield_unit_id = unitId;
             }
-            if (request.yieldPieces !== undefined) versionBody.yield_piece_count = request.yieldPieces;
+            if (request.yieldPieces !== undefined)
+                versionBody.yield_piece_count = request.yieldPieces;
             if (request.wastePercent !== undefined) {
                 versionBody.waste_coefficient_percent = request.wastePercent;
             }
@@ -588,7 +590,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getRecipe(recipeId);
         },
 
-        async setRecipeLines(recipeId: RecipeId, request: SetRecipeLinesRequest): Promise<RecipeAdmin> {
+        async setRecipeLines(
+            recipeId: RecipeId,
+            request: SetRecipeLinesRequest,
+        ): Promise<RecipeAdmin> {
             const id = String(recipeId);
             const ctx = await versionContext(id);
 
@@ -616,7 +621,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getRecipe(recipeId);
         },
 
-        async setRecipeSteps(recipeId: RecipeId, request: SetRecipeStepsRequest): Promise<RecipeAdmin> {
+        async setRecipeSteps(
+            recipeId: RecipeId,
+            request: SetRecipeStepsRequest,
+        ): Promise<RecipeAdmin> {
             const id = String(recipeId);
             const ctx = await versionContext(id);
 
@@ -689,26 +697,30 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         },
 
         async createProduct(request: CreateProductRequest): Promise<ProductAdmin> {
-            const envelope = await transport.requestEnvelope<{ readonly item: AdminCatalogueItem }>({
-                method: 'POST',
-                path: '/catalogue/items',
-                body: {
-                    item_type: 'product',
-                    name_en: request.name.en,
-                    ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
-                    ...descriptionWire(request.description),
-                    ...(isUuid(request.categoryCode)
-                        ? { product_category_id: request.categoryCode }
-                        : {}),
-                    ...(request.recipeId === undefined
-                        ? {}
-                        : { recipe_id: String(request.recipeId) }),
-                    ...(request.isMarketPriced === undefined
-                        ? {}
-                        : { is_market_priced: request.isMarketPriced }),
-                    ...(request.isAssorted === undefined ? {} : { is_assorted: request.isAssorted }),
+            const envelope = await transport.requestEnvelope<{ readonly item: AdminCatalogueItem }>(
+                {
+                    method: 'POST',
+                    path: '/catalogue/items',
+                    body: {
+                        item_type: 'product',
+                        name_en: request.name.en,
+                        ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
+                        ...descriptionWire(request.description),
+                        ...(isUuid(request.categoryCode)
+                            ? { product_category_id: request.categoryCode }
+                            : {}),
+                        ...(request.recipeId === undefined
+                            ? {}
+                            : { recipe_id: String(request.recipeId) }),
+                        ...(request.isMarketPriced === undefined
+                            ? {}
+                            : { is_market_priced: request.isMarketPriced }),
+                        ...(request.isAssorted === undefined
+                            ? {}
+                            : { is_assorted: request.isAssorted }),
+                    },
                 },
-            });
+            );
 
             const itemId = envelope.data.item.id;
             let lockVersion = envelope.data.item.lock_version;
@@ -719,14 +731,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 lockVersion += 1;
             }
 
-            if (request.dietClassifications !== undefined && request.dietClassifications.length > 0) {
+            if (
+                request.dietClassifications !== undefined &&
+                request.dietClassifications.length > 0
+            ) {
                 await replaceDietClassifications(itemId, lockVersion, request.dietClassifications);
             }
 
             return reads.getProduct(ProductId.unsafe(itemId));
         },
 
-        async updateProduct(productId: ProductId, request: UpdateProductRequest): Promise<ProductAdmin> {
+        async updateProduct(
+            productId: ProductId,
+            request: UpdateProductRequest,
+        ): Promise<ProductAdmin> {
             const id = String(productId);
             const body: Record<string, unknown> = {};
 
@@ -734,14 +752,16 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.name_en = request.name.en;
                 body.name_ar = request.name.ar;
             }
-            if (request.description !== undefined) Object.assign(body, descriptionWire(request.description));
+            if (request.description !== undefined)
+                Object.assign(body, descriptionWire(request.description));
             if (request.categoryCode !== undefined && isUuid(request.categoryCode)) {
                 body.product_category_id = request.categoryCode;
             }
             if (request.recipeId !== undefined) {
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
-            if (request.isMarketPriced !== undefined) body.is_market_priced = request.isMarketPriced;
+            if (request.isMarketPriced !== undefined)
+                body.is_market_priced = request.isMarketPriced;
             if (request.isAssorted !== undefined) body.is_assorted = request.isAssorted;
 
             if (Object.keys(body).length > 0) {
@@ -754,7 +774,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
 
             if (request.dietClassifications !== undefined) {
-                await replaceDietClassifications(id, request.lockVersion, request.dietClassifications);
+                await replaceDietClassifications(
+                    id,
+                    request.lockVersion,
+                    request.dietClassifications,
+                );
             }
 
             return reads.getProduct(productId);
@@ -796,7 +820,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             priceListId: PriceListId,
             request: SetPriceListEntriesRequest,
         ): Promise<PriceListAdmin> {
-            const entries = await Promise.all(request.entries.map((entry) => wirePriceListEntry(entry)));
+            const entries = await Promise.all(
+                request.entries.map((entry) => wirePriceListEntry(entry)),
+            );
 
             await transport.request({
                 method: 'PUT',
@@ -808,7 +834,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getPriceList(priceListId);
         },
 
-        async publishPriceList(priceListId: PriceListId, request: LockedRequest): Promise<PriceListAdmin> {
+        async publishPriceList(
+            priceListId: PriceListId,
+            request: LockedRequest,
+        ): Promise<PriceListAdmin> {
             await transport.request({
                 method: 'POST',
                 path: `/catalogue/price-lists/${encodeURIComponent(String(priceListId))}/publish`,
@@ -818,24 +847,29 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         },
 
         async createMeal(request: CreateMealRequest): Promise<MealAdmin> {
-            const envelope = await transport.requestEnvelope<{ readonly item: AdminCatalogueItem }>({
-                method: 'POST',
-                path: '/catalogue/items',
-                body: {
-                    item_type: 'meal',
-                    name_en: request.name.en,
-                    ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
-                    ...descriptionWire(request.description),
-                    ...(request.recipeId === undefined
-                        ? {}
-                        : { recipe_id: String(request.recipeId) }),
+            const envelope = await transport.requestEnvelope<{ readonly item: AdminCatalogueItem }>(
+                {
+                    method: 'POST',
+                    path: '/catalogue/items',
+                    body: {
+                        item_type: 'meal',
+                        name_en: request.name.en,
+                        ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
+                        ...descriptionWire(request.description),
+                        ...(request.recipeId === undefined
+                            ? {}
+                            : { recipe_id: String(request.recipeId) }),
+                    },
                 },
-            });
+            );
 
             const itemId = envelope.data.item.id;
             const lockVersion = envelope.data.item.lock_version;
 
-            if (request.dietClassifications !== undefined && request.dietClassifications.length > 0) {
+            if (
+                request.dietClassifications !== undefined &&
+                request.dietClassifications.length > 0
+            ) {
                 await replaceDietClassifications(itemId, lockVersion, request.dietClassifications);
             }
 
@@ -850,7 +884,8 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.name_en = request.name.en;
                 body.name_ar = request.name.ar;
             }
-            if (request.description !== undefined) Object.assign(body, descriptionWire(request.description));
+            if (request.description !== undefined)
+                Object.assign(body, descriptionWire(request.description));
             if (request.recipeId !== undefined) {
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
@@ -860,7 +895,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
 
             if (request.dietClassifications !== undefined) {
-                await replaceDietClassifications(id, request.lockVersion, request.dietClassifications);
+                await replaceDietClassifications(
+                    id,
+                    request.lockVersion,
+                    request.dietClassifications,
+                );
             }
 
             return reads.getMeal(mealId);
@@ -885,19 +924,21 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         },
 
         async createPlan(request: CreatePlanRequest): Promise<PlanAdmin> {
-            const envelope = await transport.requestEnvelope<{ readonly item: AdminCatalogueItem }>({
-                method: 'POST',
-                path: '/catalogue/items',
-                body: {
-                    item_type: 'subscription_plan',
-                    name_en: request.name.en,
-                    ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
-                    description_en: request.description.en,
-                    ...(request.description.ar === undefined
-                        ? {}
-                        : { description_ar: request.description.ar }),
+            const envelope = await transport.requestEnvelope<{ readonly item: AdminCatalogueItem }>(
+                {
+                    method: 'POST',
+                    path: '/catalogue/items',
+                    body: {
+                        item_type: 'subscription_plan',
+                        name_en: request.name.en,
+                        ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
+                        description_en: request.description.en,
+                        ...(request.description.ar === undefined
+                            ? {}
+                            : { description_ar: request.description.ar }),
+                    },
                 },
-            });
+            );
 
             const itemId = envelope.data.item.id;
             const lockVersion = envelope.data.item.lock_version;
@@ -915,14 +956,24 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 },
             });
 
-            if (request.dietClassifications !== undefined && request.dietClassifications.length > 0) {
-                await replaceDietClassifications(itemId, lockVersion + 1, request.dietClassifications);
+            if (
+                request.dietClassifications !== undefined &&
+                request.dietClassifications.length > 0
+            ) {
+                await replaceDietClassifications(
+                    itemId,
+                    lockVersion + 1,
+                    request.dietClassifications,
+                );
             }
 
             return reads.getPlan(SubscriptionPlanId.unsafe(itemId));
         },
 
-        async updatePlan(planId: SubscriptionPlanId, request: UpdatePlanRequest): Promise<PlanAdmin> {
+        async updatePlan(
+            planId: SubscriptionPlanId,
+            request: UpdatePlanRequest,
+        ): Promise<PlanAdmin> {
             const id = String(planId);
             const body: Record<string, unknown> = {};
 
@@ -930,7 +981,8 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.name_en = request.name.en;
                 body.name_ar = request.name.ar;
             }
-            if (request.description !== undefined) Object.assign(body, descriptionWire(request.description));
+            if (request.description !== undefined)
+                Object.assign(body, descriptionWire(request.description));
 
             if (Object.keys(body).length > 0) {
                 await patchCatalogueItem(id, request.lockVersion, body);
@@ -955,7 +1007,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
 
             if (request.dietClassifications !== undefined) {
-                await replaceDietClassifications(id, request.lockVersion, request.dietClassifications);
+                await replaceDietClassifications(
+                    id,
+                    request.lockVersion,
+                    request.dietClassifications,
+                );
             }
 
             return reads.getPlan(planId);
@@ -1043,12 +1099,13 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             for (const duration of request.durations) {
                 const existing = durations.find(
                     (row) =>
-                        row.duration_kind === duration.kind &&
-                        row.duration_days === duration.days,
+                        row.duration_kind === duration.kind && row.duration_days === duration.days,
                 );
                 if (existing !== undefined) continue;
 
-                const created = await transport.requestEnvelope<{ readonly duration: PlanDurationOption }>({
+                const created = await transport.requestEnvelope<{
+                    readonly duration: PlanDurationOption;
+                }>({
                     method: 'POST',
                     path: '/catalogue/plan-vocabulary/durations',
                     body: {
@@ -1057,8 +1114,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ),
                         duration_kind: duration.kind,
                         duration_days: duration.days,
-                        name_en:
-                            duration.kind === 'one_off' ? 'One-off' : `${duration.days} days`,
+                        name_en: duration.kind === 'one_off' ? 'One-off' : `${duration.days} days`,
                     },
                 });
                 durations = [...durations, created.data.duration];
@@ -1235,7 +1291,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getZone(zoneId);
         },
 
-        async archiveZone(zoneId: DeliveryZoneId, request: LockedRequest): Promise<DeliveryZoneAdmin> {
+        async archiveZone(
+            zoneId: DeliveryZoneId,
+            request: LockedRequest,
+        ): Promise<DeliveryZoneAdmin> {
             await transport.request({
                 method: 'POST',
                 path: `/catalogue/delivery-zones/${encodeURIComponent(String(zoneId))}/archive`,
@@ -1372,7 +1431,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     readonly containment: string;
                     readonly ingredient_ids: readonly string[];
                 }>;
-                readonly estimated_cost: { readonly amount: string; readonly currency: string } | null;
+                readonly estimated_cost: {
+                    readonly amount: string;
+                    readonly currency: string;
+                } | null;
                 readonly warnings: ReadonlyArray<{
                     readonly code: string;
                     readonly message: string;
@@ -1384,7 +1446,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body: {
                     recipe_id: draft.recipeId === null ? null : String(draft.recipeId),
                     servings: draft.servings,
-                    ...(draft.wastePercent === undefined ? {} : { waste_percent: draft.wastePercent }),
+                    ...(draft.wastePercent === undefined
+                        ? {}
+                        : { waste_percent: draft.wastePercent }),
                     lines,
                 },
             });

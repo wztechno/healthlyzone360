@@ -94,7 +94,11 @@ async function createOwnIngredient(page: Page, nameEn: string) {
  * paging to it and the thing a person would actually do.
  */
 async function rowMatching(page: Page, query: string): Promise<string> {
-    await page.getByTestId('kitchen-ingredients-toolbar-search').locator('input').first().fill(query);
+    await page
+        .getByTestId('kitchen-ingredients-toolbar-search')
+        .locator('input')
+        .first()
+        .fill(query);
 
     const control = page
         .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-open"]')

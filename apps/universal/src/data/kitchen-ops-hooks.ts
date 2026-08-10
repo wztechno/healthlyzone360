@@ -161,7 +161,8 @@ export function useRecordStockWasteMutation(): UseMutationResult<
     const onWritten = useKitchenOpsWriteEffects();
 
     return useMutation({
-        mutationFn: (request: StockWasteRequest) => repositories.kitchenOps.recordStockWaste(request),
+        mutationFn: (request: StockWasteRequest) =>
+            repositories.kitchenOps.recordStockWaste(request),
         onSuccess: onWritten,
     });
 }
@@ -203,9 +204,7 @@ export function useSuppliersQuery(enabled = true): UseQueryResult<readonly Suppl
  * organisation's default currency, and the measurement units a line can be quoted in. Behind
  * `inventory.view_organisation`, the same code as the rest of the ops read surface.
  */
-export function useProcurementReferenceQuery(
-    enabled = true,
-): UseQueryResult<ProcurementReference> {
+export function useProcurementReferenceQuery(enabled = true): UseQueryResult<ProcurementReference> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
@@ -388,7 +387,9 @@ export function useRetryConsumptionExceptionMutation(): UseMutationResult<
 /* ── production (O5) — no task UI ────────────────────────────────────────────────────────────── */
 
 /** The most recent fifty production orders, newest first. */
-export function useProductionOrdersQuery(enabled = true): UseQueryResult<readonly ProductionOrder[]> {
+export function useProductionOrdersQuery(
+    enabled = true,
+): UseQueryResult<readonly ProductionOrder[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({

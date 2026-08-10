@@ -63,10 +63,8 @@ export function ConsumerHomeScreen() {
     const hasTarget = targets.data != null;
     // Nutrition/planner are deferred on the API: a `prototype.not_implemented` answer must not
     // open the onboarding CTA (that CTA still names an unimplemented endpoint).
-    const targetsUnavailable =
-        toFailure(targets.error)?.code === 'prototype.not_implemented';
-    const onboardingPending =
-        !targetsUnavailable && targets.data === null && !targets.isPending;
+    const targetsUnavailable = toFailure(targets.error)?.code === 'prototype.not_implemented';
+    const onboardingPending = !targetsUnavailable && targets.data === null && !targets.isPending;
 
     const summary = day.data?.day.summary;
     const dayTargets = day.data?.day.targets ?? [];

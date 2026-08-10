@@ -161,11 +161,7 @@ async function mapCartLine(
     };
 }
 
-async function mapCart(
-    transport: Transport,
-    wire: WireCart,
-    channelCode: string,
-): Promise<Cart> {
+async function mapCart(transport: Transport, wire: WireCart, channelCode: string): Promise<Cart> {
     const items: CartItem[] = [];
     for (const line of wire.lines) {
         items.push(await mapCartLine(transport, line, channelCode));
@@ -198,10 +194,14 @@ function mapPreviewWarning(code: string): string {
     return code === WIRE_CART_EMPTY ? 'checkout.empty_cart' : `checkout.${code}`;
 }
 
-function mapCheckoutPreview(wire: WireCheckoutPreview, request: PreviewCheckoutRequest): CheckoutPreview {
+function mapCheckoutPreview(
+    wire: WireCheckoutPreview,
+    request: PreviewCheckoutRequest,
+): CheckoutPreview {
     const currency = isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD';
     const subtotal = money(wire.subtotal_minor, currency);
-    const deliveryFee = wire.delivery_fee_minor === null ? null : money(wire.delivery_fee_minor, currency);
+    const deliveryFee =
+        wire.delivery_fee_minor === null ? null : money(wire.delivery_fee_minor, currency);
 
     const lines: PriceLine[] = [{ code: 'subtotal', label: 'Subtotal', amount: subtotal }];
     if (deliveryFee !== null) {

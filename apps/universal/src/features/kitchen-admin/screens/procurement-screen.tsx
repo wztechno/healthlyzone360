@@ -231,7 +231,11 @@ function Procurement() {
     ];
 
     const stockItemOptions = useMemo(
-        () => (stockItems.data ?? []).map((item) => ({ value: String(item.id), label: stockItemLabel(item) })),
+        () =>
+            (stockItems.data ?? []).map((item) => ({
+                value: String(item.id),
+                label: stockItemLabel(item),
+            })),
         [stockItems.data],
     );
 
@@ -344,10 +348,7 @@ function Procurement() {
             flex: 2,
             render: (row) => (
                 <Stack space="none">
-                    <Text
-                        variant="bodyStrong"
-                        testID={`${supplierRowTestId(String(row.id))}-name`}
-                    >
+                    <Text variant="bodyStrong" testID={`${supplierRowTestId(String(row.id))}-name`}>
                         {row.nameEn}
                     </Text>
                     <Text variant="caption" tone="secondary">
@@ -383,7 +384,9 @@ function Procurement() {
                     tone="secondary"
                     testID={`${goodsReceiptRowTestId(String(row.id))}-supplier`}
                 >
-                    {row.supplier === null ? t('kitchen:ops.procurement.noSupplier') : row.supplier.nameEn}
+                    {row.supplier === null
+                        ? t('kitchen:ops.procurement.noSupplier')
+                        : row.supplier.nameEn}
                 </Text>
             ),
         },

@@ -293,7 +293,8 @@ export class KitchenOpsMockStore {
             resolved: true,
             resolvedAt: '2026-08-07T14:00:00.000Z',
             resolvedBy: UserId.unsafe('01935f6d-1000-7000-8000-0000000000d1'),
-            resolutionNote: 'Cost backfilled from the supplier invoice; accepting the gap on this order.',
+            resolutionNote:
+                'Cost backfilled from the supplier invoice; accepting the gap on this order.',
             createdAt: '2026-08-06T16:30:00.000Z',
         },
     ];
@@ -525,7 +526,12 @@ export class KitchenOpsMockStore {
             measurementUnits: [
                 { id: measurementUnitIdAt(1), code: 'g', dimension: 'mass', nameEn: 'Gram' },
                 { id: measurementUnitIdAt(2), code: 'kg', dimension: 'mass', nameEn: 'Kilogram' },
-                { id: measurementUnitIdAt(3), code: 'ml', dimension: 'volume', nameEn: 'Millilitre' },
+                {
+                    id: measurementUnitIdAt(3),
+                    code: 'ml',
+                    dimension: 'volume',
+                    nameEn: 'Millilitre',
+                },
                 { id: measurementUnitIdAt(4), code: 'l', dimension: 'volume', nameEn: 'Litre' },
                 { id: measurementUnitIdAt(5), code: 'pcs', dimension: 'count', nameEn: 'Pieces' },
             ],
@@ -548,8 +554,7 @@ export class KitchenOpsMockStore {
         }
 
         const lines = request.lines.map((line) => {
-            const priced =
-                line.unitPriceAmount !== undefined && line.unitPriceAmount !== null;
+            const priced = line.unitPriceAmount !== undefined && line.unitPriceAmount !== null;
             const lineTotal = priced ? line.quantity * (line.unitPriceAmount ?? 0) : null;
             return {
                 stockItemId: line.stockItemId,
@@ -578,7 +583,8 @@ export class KitchenOpsMockStore {
         const supplier =
             request.supplierId === undefined || request.supplierId === null
                 ? null
-                : (this.#suppliers.find((candidate) => candidate.id === request.supplierId) ?? null);
+                : (this.#suppliers.find((candidate) => candidate.id === request.supplierId) ??
+                  null);
 
         const receipt: GoodsReceipt = {
             id: goodsReceiptIdAt(this.#goodsReceiptOrdinal++),
@@ -675,13 +681,16 @@ export class KitchenOpsMockStore {
      * and date filters. A single-page mock: the fixture set is small, so it answers the whole
      * filtered list at once with no cursor, which is a legal {@link CursorPage}.
      */
-    consumptionExceptions(filter: ConsumptionExceptionFilter = {}): CursorPage<ConsumptionException> {
+    consumptionExceptions(
+        filter: ConsumptionExceptionFilter = {},
+    ): CursorPage<ConsumptionException> {
         const items = [...this.#consumptionExceptions]
             .filter((exception) => {
                 if (filter.resolved !== undefined && exception.resolved !== filter.resolved) {
                     return false;
                 }
-                if (filter.from !== undefined && (exception.createdAt ?? '') < filter.from) return false;
+                if (filter.from !== undefined && (exception.createdAt ?? '') < filter.from)
+                    return false;
                 if (
                     filter.to !== undefined &&
                     (exception.createdAt ?? '') > `${filter.to}T23:59:59Z`

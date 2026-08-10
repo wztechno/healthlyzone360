@@ -1,11 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import {
-    DEMO_PASSWORD,
-    probeStack,
-    signIn,
-    skipUnlessStackIsUp,
-} from './helpers.ts';
+import { DEMO_PASSWORD, probeStack, signIn, skipUnlessStackIsUp } from './helpers.ts';
 import type { StackStatus } from './helpers.ts';
 
 /**
@@ -33,9 +28,7 @@ test.beforeEach(() => {
     skipUnlessStackIsUp(stack);
 });
 
-test('browse a published meal, add to basket, preview, and place a COD order', async ({
-    page,
-}) => {
+test('browse a published meal, add to basket, preview, and place a COD order', async ({ page }) => {
     await signIn(page, CONSUMER_EMAIL, DEMO_PASSWORD);
 
     // Consumer accounts skip the organisation picker; land in the customer area.
@@ -50,7 +43,9 @@ test('browse a published meal, add to basket, preview, and place a COD order', a
         const remove = page.locator('[data-testid$="-remove"]').first();
         if ((await remove.count()) === 0) break;
         await remove.click();
-        await expect(page.getByTestId('cart-lines').or(page.getByTestId('cart-empty'))).toBeVisible();
+        await expect(
+            page.getByTestId('cart-lines').or(page.getByTestId('cart-empty')),
+        ).toBeVisible();
     }
 
     await page.getByTestId('cart-browse').click();
@@ -136,7 +131,9 @@ test('configure and create a subscription on a published plan', async ({ page })
     // delivery — use the saved Al Quoz address from DemoCustomerSeeder
     await expect(page.getByTestId('configurator-step-delivery')).toBeVisible();
     await page.getByTestId('configurator-address-picker-trigger').click();
-    const addressOption = page.locator('[data-testid^="configurator-address-picker-option-"]').first();
+    const addressOption = page
+        .locator('[data-testid^="configurator-address-picker-option-"]')
+        .first();
     await expect(addressOption).toBeVisible();
     await addressOption.click();
 

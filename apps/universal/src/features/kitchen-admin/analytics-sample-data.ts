@@ -8,13 +8,7 @@
 export const ANALYTICS_DATE_RANGES = ['7d', '30d', '90d', 'ytd'] as const;
 export type AnalyticsDateRange = (typeof ANALYTICS_DATE_RANGES)[number];
 
-export const ANALYTICS_SEGMENTS = [
-    'all',
-    'meals',
-    'recipes',
-    'delivery',
-    'stock',
-] as const;
+export const ANALYTICS_SEGMENTS = ['all', 'meals', 'recipes', 'delivery', 'stock'] as const;
 export type AnalyticsSegment = (typeof ANALYTICS_SEGMENTS)[number];
 
 export interface AnalyticsKpi {
@@ -269,7 +263,11 @@ export function buildKitchenAnalytics(
             status,
             volume: Math.round(avgPerBucket * (0.4 + rand()) + rand() * 20),
             completionPercent: Math.round(
-                status === 'blocked' ? 35 + rand() * 25 : status === 'watch' ? 55 + rand() * 25 : 78 + rand() * 20,
+                status === 'blocked'
+                    ? 35 + rand() * 25
+                    : status === 'watch'
+                      ? 55 + rand() * 25
+                      : 78 + rand() * 20,
             ),
             avgMinutes: Math.round(18 + rand() * 36),
             updatedLabel: hoursAgo < 1 ? 'Just now' : `${hoursAgo}h ago`,

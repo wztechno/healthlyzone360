@@ -2452,8 +2452,10 @@ function samePageSet(a: readonly unknown[] | undefined, b: readonly unknown[]): 
  * Written once and passed to all seven, so the two behaviours cannot drift apart per family.
  */
 function keepAcrossPages<T>(key: readonly unknown[]) {
-    return (previous: T | undefined, previousQuery: { queryKey: readonly unknown[] } | undefined) =>
-        samePageSet(previousQuery?.queryKey, key) ? previous : undefined;
+    return (
+        previous: T | undefined,
+        previousQuery: { queryKey: readonly unknown[] } | undefined,
+    ) => (samePageSet(previousQuery?.queryKey, key) ? previous : undefined);
 }
 
 /** Rows per page across the kitchen catalogue. Matches the backend's own default. */

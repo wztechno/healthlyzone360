@@ -38,7 +38,12 @@ import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entit
 import { displayName, parseQuantity } from '../format.ts';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
-import { isOutOfStock, stockItemLabel, stockItemRowTestId, stockLevelRowTestId } from '../ops-format.ts';
+import {
+    isOutOfStock,
+    stockItemLabel,
+    stockItemRowTestId,
+    stockLevelRowTestId,
+} from '../ops-format.ts';
 
 /**
  * `/kitchen/stock` — the inventory ledger (O1).
@@ -223,7 +228,12 @@ function Stock() {
     const movementValid = movementMagnitude !== null && movementMagnitude > 0;
 
     function submitMovement() {
-        if (movement === null || branchId === null || movementMagnitude === null || !movementValid) {
+        if (
+            movement === null ||
+            branchId === null ||
+            movementMagnitude === null ||
+            !movementValid
+        ) {
             return;
         }
         const onSuccess = () => {
@@ -441,7 +451,10 @@ function Stock() {
                                                               variant="secondary"
                                                               label={t('kitchen:ops.stock.adjust')}
                                                               onPress={() => {
-                                                                  setMovement({ item: row, mode: 'adjust' });
+                                                                  setMovement({
+                                                                      item: row,
+                                                                      mode: 'adjust',
+                                                                  });
                                                               }}
                                                           />
                                                           <Button
@@ -450,14 +463,19 @@ function Stock() {
                                                               variant="ghost"
                                                               label={t('kitchen:ops.stock.waste')}
                                                               onPress={() => {
-                                                                  setMovement({ item: row, mode: 'waste' });
+                                                                  setMovement({
+                                                                      item: row,
+                                                                      mode: 'waste',
+                                                                  });
                                                               }}
                                                           />
                                                           <Button
                                                               testID={`${stockItemRowTestId(String(row.id))}-threshold`}
                                                               size="sm"
                                                               variant="ghost"
-                                                              label={t('kitchen:ops.stock.threshold')}
+                                                              label={t(
+                                                                  'kitchen:ops.stock.threshold',
+                                                              )}
                                                               onPress={() => {
                                                                   openThreshold(row);
                                                               }}
@@ -524,7 +542,8 @@ function Stock() {
                 <Stack space="md">
                     {createItem.error === null ? null : (
                         <Text testID="kitchen-stock-create-error" tone="danger">
-                            {toFailure(createItem.error)?.message ?? t('kitchen:ops.stock.saveFailed')}
+                            {toFailure(createItem.error)?.message ??
+                                t('kitchen:ops.stock.saveFailed')}
                         </Text>
                     )}
                     <TextInputField
@@ -605,8 +624,14 @@ function Stock() {
                             value={movementDirection}
                             onChange={setMovementDirection}
                             items={[
-                                { value: 'increase', label: t('kitchen:ops.stock.directionIncrease') },
-                                { value: 'decrease', label: t('kitchen:ops.stock.directionDecrease') },
+                                {
+                                    value: 'increase',
+                                    label: t('kitchen:ops.stock.directionIncrease'),
+                                },
+                                {
+                                    value: 'decrease',
+                                    label: t('kitchen:ops.stock.directionDecrease'),
+                                },
                             ]}
                         />
                     ) : null}

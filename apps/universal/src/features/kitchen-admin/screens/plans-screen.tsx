@@ -280,9 +280,7 @@ function PlansList() {
     const coverage = useMemo(() => {
         if (!pricesReady) return new Map<string, PlanPriceCoverage>();
         return new Map(
-            (rows ?? []).map(
-                (row) => [String(row.id), summarisePlanPrices(row, lists)] as const,
-            ),
+            (rows ?? []).map((row) => [String(row.id), summarisePlanPrices(row, lists)] as const),
         );
     }, [rows, lists, pricesReady]);
 

@@ -304,7 +304,9 @@ export interface SalesChannelLookup {
     readonly idToChannel: ReadonlyMap<string, AdminSalesChannel>;
 }
 
-export function buildSalesChannelLookup(channels: readonly AdminSalesChannel[]): SalesChannelLookup {
+export function buildSalesChannelLookup(
+    channels: readonly AdminSalesChannel[],
+): SalesChannelLookup {
     const idToChannel = new Map<string, AdminSalesChannel>();
     for (const channel of channels) {
         idToChannel.set(channel.id, channel);
@@ -342,10 +344,7 @@ export function mapProductPackVariants(
             const pack = variant.pack!;
             return {
                 code: variant.code,
-                label: localised(
-                    variant.name_en ?? variant.code,
-                    variant.name_ar,
-                ),
+                label: localised(variant.name_en ?? variant.code, variant.name_ar),
                 netQuantity: parseDecimal(pack.pack_quantity),
                 netUnit: mapMeasureUnit(null),
                 unitsPerPack: pack.pack_piece_count ?? 1,
@@ -353,9 +352,7 @@ export function mapProductPackVariants(
         });
 }
 
-function mapCatalogueItemMeta(
-    wire: AdminCatalogueItem,
-): IngredientAdmin['meta'] {
+function mapCatalogueItemMeta(wire: AdminCatalogueItem): IngredientAdmin['meta'] {
     return {
         lockVersion: wire.lock_version,
         status: mapCataloguePublishableStatus(wire.status),
@@ -512,7 +509,8 @@ export function mapRecipeRollupPreview(wire: {
     return {
         perRecipe: unavailableNutritionFacts('per_recipe', calculatedAt),
         perServing: unavailableNutritionFacts('per_serving', calculatedAt),
-        per100g: wire.per_100g === null ? null : unavailableNutritionFacts('per_100g', calculatedAt),
+        per100g:
+            wire.per_100g === null ? null : unavailableNutritionFacts('per_100g', calculatedAt),
         allergenSources: wire.allergen_sources.flatMap((source) => {
             if (!ALLERGEN_CONTAINMENTS.includes(source.containment as AllergenContainment)) {
                 return [];
@@ -569,10 +567,7 @@ export function mapRecipeAdminSummary(
         id: RecipeId.unsafe(wire.id),
         meta: {
             lockVersion: wire.lock_version,
-            status: mapRecipeIdentityPublishableStatus(
-                wire.status,
-                wire.published_version_number,
-            ),
+            status: mapRecipeIdentityPublishableStatus(wire.status, wire.published_version_number),
             updatedAt: wire.updated_at ?? UNKNOWN_ISO_DATE_TIME,
             updatedByName: null,
         },
@@ -827,10 +822,7 @@ export function mapDeliveryZoneAdmin(
             wire.branch_id === null
                 ? mapKitchenId(wire.organisation_id)
                 : KitchenId.unsafe(wire.branch_id),
-        branchIds:
-            wire.branch_id === null
-                ? []
-                : [KitchenBranchId.unsafe(wire.branch_id)],
+        branchIds: wire.branch_id === null ? [] : [KitchenBranchId.unsafe(wire.branch_id)],
         areas: options?.areas ?? [],
         deliveryFeeMinor: wire.delivery_fee_minor,
         minimumOrderMinor: wire.minimum_order_minor,
@@ -883,9 +875,7 @@ export function mapPlanVariantsFromCells(
                 lead.name_en ?? band?.name_en ?? lead.code,
                 lead.name_ar ?? band?.name_ar,
             ),
-            energyBand: band
-                ? { min: band.min_kcal, max: band.max_kcal }
-                : { min: 0, max: 0 },
+            energyBand: band ? { min: band.min_kcal, max: band.max_kcal } : { min: 0, max: 0 },
             mealsPerDay: lead.meals_per_day,
             snacksPerDay: lead.snacks_per_day,
             isActive: lead.status === 'active',

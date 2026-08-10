@@ -398,8 +398,7 @@ export const queryKeys = {
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,
-        consumptionExceptionCount: () =>
-            ['kitchenOps', 'consumption-exception-count'] as const,
+        consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
         productionOrders: () => ['kitchenOps', 'production-orders'] as const,
         qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
     },

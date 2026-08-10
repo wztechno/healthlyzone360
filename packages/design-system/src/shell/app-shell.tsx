@@ -362,9 +362,7 @@ export function AppShell({
                               >
                                   {group}
                               </RNText>
-                              {navigation
-                                  .filter((item) => item.group === group)
-                                  .map(renderItem)}
+                              {navigation.filter((item) => item.group === group).map(renderItem)}
                           </View>
                       ))}
             </View>
@@ -434,11 +432,11 @@ export function AppShell({
                     </RNText>
 
                     {/*
-                      * `self-stretch` on the wrapper, not just on the row inside it. The top bar
-                      * centres its children, so without this the wrapper is only as tall as its
-                      * own content (28px) and every stretch below it inherits that ceiling — the
-                      * active underline then floats mid-bar instead of sitting on its edge.
-                      */}
+                     * `self-stretch` on the wrapper, not just on the row inside it. The top bar
+                     * centres its children, so without this the wrapper is only as tall as its
+                     * own content (28px) and every stretch below it inherits that ceiling — the
+                     * active underline then floats mid-bar instead of sitting on its edge.
+                     */}
                     <View className="flex-1 flex-row items-stretch self-stretch">
                         {showTopNav ? (
                             <View
@@ -498,12 +496,12 @@ export function AppShell({
                                             {item.label}
                                         </RNText>
                                         {/*
-                                          * A bar rather than a filled pill. A pill in a top bar
-                                          * reads as a button among links; an underline on the bar's
-                                          * edge reads as "you are here", which is what it means.
-                                          * brand-500 is legal here because it carries no text — it
-                                          * is a graphic, and §1.3 keeps brand-500 for exactly this.
-                                          */}
+                                         * A bar rather than a filled pill. A pill in a top bar
+                                         * reads as a button among links; an underline on the bar's
+                                         * edge reads as "you are here", which is what it means.
+                                         * brand-500 is legal here because it carries no text — it
+                                         * is a graphic, and §1.3 keeps brand-500 for exactly this.
+                                         */}
                                         {item.active === true ? (
                                             <View
                                                 // Named off the *shell*, not off the item. The
@@ -546,12 +544,12 @@ export function AppShell({
                     )}
                 >
                     {/*
-                      * `self-stretch` then capped, not `self-center`. `align-self: center` makes
-                      * the box shrink to its own content in the cross axis, which collapsed the
-                      * whole catalogue column to 237px and stacked a forty-card grid one card
-                      * wide. Stretch fills the container, `max-w` caps it, and the auto inline
-                      * margins centre what is left over.
-                      */}
+                     * `self-stretch` then capped, not `self-center`. `align-self: center` makes
+                     * the box shrink to its own content in the cross axis, which collapsed the
+                     * whole catalogue column to 237px and stacked a forty-card grid one card
+                     * wide. Stretch fills the container, `max-w` caps it, and the auto inline
+                     * margins centre what is left over.
+                     */}
                     <View className="mx-auto max-w-[1152px] flex-col gap-4 self-stretch">
                         {children}
                     </View>

@@ -119,11 +119,11 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
                 }}
             />
             {/*
-              * The basket, which this shell did not have. Rule 4 gives the customer area's primary
-              * slot to the revenue action, and until now the only way to the basket from a customer
-              * screen was the navigation list — which is under the thumb on a phone but a long way
-              * from the eye on a desktop, where the sidebar is a column of eight.
-              */}
+             * The basket, which this shell did not have. Rule 4 gives the customer area's primary
+             * slot to the revenue action, and until now the only way to the basket from a customer
+             * screen was the navigation list — which is under the thumb on a phone but a long way
+             * from the eye on a desktop, where the sidebar is a column of eight.
+             */}
             <Button
                 testID="consumer-basket"
                 size="sm"

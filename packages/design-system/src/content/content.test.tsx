@@ -593,9 +593,7 @@ describe('ImagePlaceholder', () => {
     });
 
     it('drops its own radius when flush, so media meets a clipped card corner cleanly', async () => {
-        await renderWithI18n(
-            <ImagePlaceholder testID="flush" seed="meal-01" label="Meal" flush />,
-        );
+        await renderWithI18n(<ImagePlaceholder testID="flush" seed="meal-01" label="Meal" flush />);
         expect(screen.getByTestId('flush').props.className).not.toMatch(/rounded-lg/);
 
         await renderWithI18n(<ImagePlaceholder testID="round" seed="meal-01" label="Meal" />);

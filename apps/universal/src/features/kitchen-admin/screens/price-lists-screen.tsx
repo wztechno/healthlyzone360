@@ -22,10 +22,7 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import {
-    pagesInResult,
-    usePriceListPageQuery,
-} from '../../../data/kitchen-admin-hooks.ts';
+import { pagesInResult, usePriceListPageQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     PRICE_LIST_STATUS_FILTERS,

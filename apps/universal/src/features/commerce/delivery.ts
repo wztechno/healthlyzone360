@@ -1,4 +1,8 @@
-import type { DeliverySlot, Kitchen, KitchenDeliveryWindow } from '@healthy360/api-client/contracts';
+import type {
+    DeliverySlot,
+    Kitchen,
+    KitchenDeliveryWindow,
+} from '@healthy360/api-client/contracts';
 
 /**
  * Delivery slots and the delivery-area check.
@@ -72,10 +76,7 @@ export function defaultSlotCodeForKitchen(kitchen: Kitchen | undefined | null): 
     return slots[0]?.code ?? DEFAULT_SLOT_CODE;
 }
 
-export function isDeliverySlotCode(
-    code: string,
-    kitchen?: Kitchen | null | undefined,
-): boolean {
+export function isDeliverySlotCode(code: string, kitchen?: Kitchen | null | undefined): boolean {
     return deliverySlotsForKitchen(kitchen).some((slot) => slot.code === code);
 }
 

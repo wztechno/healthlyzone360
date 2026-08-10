@@ -89,7 +89,10 @@ export function StockItemLineEditor({
     }
 
     function addLine() {
-        onChange([...lines, emptyStockItemLine(`${testID}-line-${String(lines.length + 1)}-${String(Date.now())}`)]);
+        onChange([
+            ...lines,
+            emptyStockItemLine(`${testID}-line-${String(lines.length + 1)}-${String(Date.now())}`),
+        ]);
     }
 
     const money = formatMoney ?? ((amount: number) => amount.toFixed(2));
@@ -98,7 +101,13 @@ export function StockItemLineEditor({
     return (
         <Stack space="sm" testID={testID}>
             {lines.map((line, index) => (
-                <Inline key={line.key} space="sm" align="start" wrap testID={`${testID}-row-${String(index)}`}>
+                <Inline
+                    key={line.key}
+                    space="sm"
+                    align="start"
+                    wrap
+                    testID={`${testID}-row-${String(index)}`}
+                >
                     <Select
                         testID={`${testID}-row-${String(index)}-item`}
                         label={itemLabel}
@@ -132,7 +141,8 @@ export function StockItemLineEditor({
                               testID: `${testID}-row-${String(index)}-unit`,
                               label: unitLabel ?? '',
                               stockItemId: line.stockItemId,
-                              unitId: line.unitId ?? defaultUnitIdForItem?.(line.stockItemId) ?? null,
+                              unitId:
+                                  line.unitId ?? defaultUnitIdForItem?.(line.stockItemId) ?? null,
                               options: unitOptionsForItem?.(line.stockItemId) ?? [],
                               onChange: (value) => {
                                   updateLine(line.key, { unitId: value });
@@ -179,7 +189,13 @@ export function StockItemLineEditor({
                     </Text>
                 </Inline>
             ) : null}
-            <Button testID={`${testID}-add`} variant="secondary" size="sm" label={addLabel} onPress={addLine} />
+            <Button
+                testID={`${testID}-add`}
+                variant="secondary"
+                size="sm"
+                label={addLabel}
+                onPress={addLine}
+            />
         </Stack>
     );
 }
@@ -200,7 +216,15 @@ interface RenderUnitArgs {
  * shown as a static label beside the quantity — so a quantity is never a bare number, exactly as the
  * receipt form promises, whether or not there was ever a choice to make.
  */
-function renderUnit({ testID, label, stockItemId, unitId, options, onChange, labelFor }: RenderUnitArgs) {
+function renderUnit({
+    testID,
+    label,
+    stockItemId,
+    unitId,
+    options,
+    onChange,
+    labelFor,
+}: RenderUnitArgs) {
     if (options.length > 1) {
         return (
             <Select
@@ -254,7 +278,10 @@ export function stockItemLinesToInputs(
 ): readonly { stockItemId: string; quantity: number }[] {
     return lines
         .filter((line) => line.stockItemId !== null && line.quantity.trim() !== '')
-        .map((line) => ({ stockItemId: line.stockItemId as string, quantity: Number(line.quantity) }));
+        .map((line) => ({
+            stockItemId: line.stockItemId as string,
+            quantity: Number(line.quantity),
+        }));
 }
 
 /**
