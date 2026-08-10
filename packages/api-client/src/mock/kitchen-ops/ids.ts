@@ -7,6 +7,11 @@ import {
 } from '@healthy360/domain-types';
 
 /**
+ * Measurement-unit identifiers are plain strings (the contract's `MeasurementUnitOption.id` is not
+ * a branded domain type), so no `unsafe` wrap is needed — the deterministic UUID is returned as-is.
+ */
+
+/**
  * Deterministic identifiers for the kitchen ops mock world (O1–O4).
  *
  * Same discipline as `../prototype/ids.ts`: a fixed UUIDv7 prefix and a two-hex-digit band per
@@ -22,6 +27,7 @@ export const KITCHEN_OPS_ID_BANDS = {
     goodsReceipt: 'c0',
     productionOrder: 'd0',
     qualityCheck: 'e0',
+    measurementUnit: 'f0',
 } as const;
 
 export type KitchenOpsIdBand = keyof typeof KITCHEN_OPS_ID_BANDS;
@@ -48,6 +54,8 @@ export const productionOrderIdAt = (ordinal: number): ProductionOrderId =>
     ProductionOrderId.unsafe(kitchenOpsId('productionOrder', ordinal));
 export const qualityCheckIdAt = (ordinal: number): QualityCheckId =>
     QualityCheckId.unsafe(kitchenOpsId('qualityCheck', ordinal));
+export const measurementUnitIdAt = (ordinal: number): string =>
+    kitchenOpsId('measurementUnit', ordinal);
 
 /**
  * Where the store starts minting identifiers for rows a *person* creates in the running session.

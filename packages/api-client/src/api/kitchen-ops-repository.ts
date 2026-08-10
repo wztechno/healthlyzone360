@@ -20,6 +20,7 @@ import type {
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
+    CreateSupplierRequest,
     GoodsReceipt,
     GoodsReceiptLine,
     GoodsReceiptResult,
@@ -27,6 +28,7 @@ import type {
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
     PostGoodsReceiptRequest,
+    ProcurementReference,
     ProductionOrder,
     ProductionOrderResult,
     PurchaseLedgerFilter,
@@ -48,6 +50,7 @@ import type {
     GoodsReceipt as WireGoodsReceipt,
     GoodsReceiptLine as WireGoodsReceiptLine,
     MonthlyCostReportRow as WireMonthlyCostReportRow,
+    ProcurementReference as WireProcurementReference,
     ProductionOrder as WireProductionOrder,
     PurchasesLedgerLine as WirePurchaseLedgerLine,
     QualityCheck as WireQualityCheck,
@@ -112,6 +115,22 @@ function mapSupplier(wire: WireSupplier): Supplier {
         currencyCode: wire.currency_code,
         contactEmail: wire.contact_email,
         contactPhone: wire.contact_phone,
+    };
+}
+
+function mapProcurementReference(wire: WireProcurementReference): ProcurementReference {
+    return {
+        currencies: wire.currencies.map((currency) => ({
+            code: currency.code,
+            nameEn: currency.name_en,
+        })),
+        defaultCurrencyCode: wire.default_currency_code,
+        measurementUnits: wire.measurement_units.map((unit) => ({
+            id: unit.id,
+            code: unit.code,
+            dimension: unit.dimension,
+            nameEn: unit.name_en,
+        })),
     };
 }
 
@@ -326,6 +345,37 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 readonly suppliers: readonly WireSupplier[];
             }>({ method: 'GET', path: '/catalogue/procurement/suppliers' });
             return envelope.data.suppliers.map(mapSupplier);
+        },
+
+        async createSupplier(request: CreateSupplierRequest): Promise<Supplier> {
+            const envelope = await transport.requestEnvelope<{
+                readonly supplier: WireSupplier;
+            }>({
+                method: 'POST',
+                path: '/catalogue/procurement/suppliers',
+                body: {
+                    name_en: request.nameEn,
+                    ...(request.code === undefined ? {} : { code: request.code }),
+                    ...(request.currencyCode === undefined
+                        ? {}
+                        : { currency_code: request.currencyCode }),
+                    ...(request.contactEmail === undefined
+                        ? {}
+                        : { contact_email: request.contactEmail }),
+                    ...(request.contactPhone === undefined
+                        ? {}
+                        : { contact_phone: request.contactPhone }),
+                },
+            });
+            return mapSupplier(envelope.data.supplier);
+        },
+
+        async getProcurementReference(): Promise<ProcurementReference> {
+            const envelope = await transport.requestEnvelope<WireProcurementReference>({
+                method: 'GET',
+                path: '/catalogue/procurement/reference',
+            });
+            return mapProcurementReference(envelope.data);
         },
 
         async listGoodsReceipts(): Promise<readonly GoodsReceipt[]> {

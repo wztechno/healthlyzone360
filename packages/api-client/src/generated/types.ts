@@ -3862,6 +3862,66 @@ export type SupplierCollection = {
 };
 
 /**
+ * `code` is optional — omit it and the server mints a unique
+ * per-organisation code from the name. `currency_code` is a hint the
+ * receipt form pre-selects and is never required.
+ *
+ */
+export type CreateSupplierRequest = {
+    name_en: string;
+    code?: string | null;
+    currency_code?: string | null;
+    contact_email?: string | null;
+    contact_phone?: string | null;
+};
+
+export type SupplierEnvelope = {
+    data: {
+        supplier: Supplier;
+    };
+    meta: Meta;
+};
+
+/**
+ * One active currency a receipt price can be booked in.
+ */
+export type CurrencyOption = {
+    code: string;
+    name_en: string;
+};
+
+/**
+ * One active measurement unit a purchase line can be quoted in.
+ * `dimension` (e.g. `mass`, `volume`, `count`) is what makes conversion
+ * safe — the line editor offers only units in the stock item's own
+ * dimension, because the conversion service refuses across dimensions.
+ *
+ */
+export type MeasurementUnitOption = {
+    id: Uuid;
+    code: string;
+    dimension: string;
+    name_en: string;
+};
+
+/**
+ * The reference sets the goods-receipt form needs (INV1.1). `default_currency_code`
+ * is the organisation's own currency and the honest default for a receipt;
+ * it is `null` only when the organisation has none on file.
+ *
+ */
+export type ProcurementReference = {
+    currencies: Array<CurrencyOption>;
+    default_currency_code: string | null;
+    measurement_units: Array<MeasurementUnitOption>;
+};
+
+export type ProcurementReferenceEnvelope = {
+    data: ProcurementReference;
+    meta: Meta;
+};
+
+/**
  * The money fields (INV1.1) are served as `null` when the reader lacks
  * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
  * `quantity` and `unit_id` are warehouse facts and are never redacted.
@@ -18794,6 +18854,112 @@ export type ListSuppliersResponses = {
 };
 
 export type ListSuppliersResponse = ListSuppliersResponses[keyof ListSuppliersResponses];
+
+export type CreateSupplierData = {
+    body: CreateSupplierRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/suppliers';
+};
+
+export type CreateSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateSupplierError = CreateSupplierErrors[keyof CreateSupplierErrors];
+
+export type CreateSupplierResponses = {
+    /**
+     * The supplier was created.
+     */
+    201: SupplierEnvelope;
+};
+
+export type CreateSupplierResponse = CreateSupplierResponses[keyof CreateSupplierResponses];
+
+export type GetProcurementReferenceData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/reference';
+};
+
+export type GetProcurementReferenceErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetProcurementReferenceError = GetProcurementReferenceErrors[keyof GetProcurementReferenceErrors];
+
+export type GetProcurementReferenceResponses = {
+    /**
+     * Currencies, the organisation default, and measurement units.
+     */
+    200: ProcurementReferenceEnvelope;
+};
+
+export type GetProcurementReferenceResponse = GetProcurementReferenceResponses[keyof GetProcurementReferenceResponses];
 
 export type ListGoodsReceiptsData = {
     body?: never;

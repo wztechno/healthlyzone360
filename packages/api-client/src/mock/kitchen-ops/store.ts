@@ -9,11 +9,13 @@ import type {
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
+    CreateSupplierRequest,
     GoodsReceipt,
     GoodsReceiptResult,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
     PostGoodsReceiptRequest,
+    ProcurementReference,
     ProductionOrder,
     ProductionOrderResult,
     PurchaseLedgerFilter,
@@ -34,6 +36,7 @@ import type { CursorPage } from '../../contracts/pagination.ts';
 import {
     KITCHEN_OPS_RUNTIME_ORDINAL_START,
     goodsReceiptIdAt,
+    measurementUnitIdAt,
     productionOrderIdAt,
     qualityCheckIdAt,
     stockItemIdAt,
@@ -299,6 +302,7 @@ export class KitchenOpsMockStore {
     #qualityChecks: QualityCheck[] = [];
 
     #stockItemOrdinal = KITCHEN_OPS_RUNTIME_ORDINAL_START;
+    #supplierOrdinal = KITCHEN_OPS_RUNTIME_ORDINAL_START;
     #goodsReceiptOrdinal = KITCHEN_OPS_RUNTIME_ORDINAL_START;
     #productionOrderOrdinal = KITCHEN_OPS_RUNTIME_ORDINAL_START;
     #qualityCheckOrdinal = KITCHEN_OPS_RUNTIME_ORDINAL_START;
@@ -461,6 +465,71 @@ export class KitchenOpsMockStore {
 
     suppliers(): readonly Supplier[] {
         return [...this.#suppliers];
+    }
+
+    createSupplier(request: CreateSupplierRequest): Supplier {
+        const code =
+            request.code !== undefined && request.code !== null && request.code.trim() !== ''
+                ? request.code.trim()
+                : this.#mintSupplierCode(request.nameEn);
+
+        if (this.#suppliers.some((supplier) => supplier.code === code)) {
+            throwFailure(validationFailure({ code: ['This code is already in use.'] }));
+        }
+
+        const supplier: Supplier = {
+            id: supplierIdAt(this.#supplierOrdinal++),
+            code,
+            nameEn: request.nameEn,
+            currencyCode: request.currencyCode ?? null,
+            contactEmail: request.contactEmail ?? null,
+            contactPhone: request.contactPhone ?? null,
+        };
+        this.#suppliers.push(supplier);
+        return supplier;
+    }
+
+    /** A unique per-store supplier code minted from the name, mirroring the backend's own. */
+    #mintSupplierCode(name: string): string {
+        const base =
+            name
+                .toUpperCase()
+                .replace(/[^A-Z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .slice(0, 56) || 'SUPPLIER';
+
+        let code = base;
+        let suffix = 2;
+        while (this.#suppliers.some((supplier) => supplier.code === code)) {
+            code = `${base}-${String(suffix)}`;
+            suffix++;
+        }
+        return code;
+    }
+
+    /**
+     * The goods-receipt form's reference data (INV1.1). A self-contained fixture — a handful of
+     * active currencies with the mock organisation's default, and the measurement units the seed
+     * stock items are quoted in, each with its dimension so the line editor can filter by it.
+     */
+    procurementReference(): ProcurementReference {
+        return {
+            currencies: [
+                { code: 'USD', nameEn: 'US Dollar' },
+                { code: 'EUR', nameEn: 'Euro' },
+                { code: 'GBP', nameEn: 'Pound Sterling' },
+                { code: 'AED', nameEn: 'UAE Dirham' },
+                { code: 'SAR', nameEn: 'Saudi Riyal' },
+            ],
+            defaultCurrencyCode: 'USD',
+            measurementUnits: [
+                { id: measurementUnitIdAt(1), code: 'g', dimension: 'mass', nameEn: 'Gram' },
+                { id: measurementUnitIdAt(2), code: 'kg', dimension: 'mass', nameEn: 'Kilogram' },
+                { id: measurementUnitIdAt(3), code: 'ml', dimension: 'volume', nameEn: 'Millilitre' },
+                { id: measurementUnitIdAt(4), code: 'l', dimension: 'volume', nameEn: 'Litre' },
+                { id: measurementUnitIdAt(5), code: 'pcs', dimension: 'count', nameEn: 'Pieces' },
+            ],
+        };
     }
 
     goodsReceipts(): readonly GoodsReceipt[] {

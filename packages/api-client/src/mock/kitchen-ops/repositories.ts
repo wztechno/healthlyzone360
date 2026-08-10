@@ -52,6 +52,14 @@ export function createKitchenOpsMockRepositories(
             await settle();
             return store.suppliers();
         },
+        async createSupplier(request) {
+            await settle();
+            return store.createSupplier(request);
+        },
+        async getProcurementReference() {
+            await settle();
+            return store.procurementReference();
+        },
         async listGoodsReceipts() {
             await settle();
             return store.goodsReceipts();

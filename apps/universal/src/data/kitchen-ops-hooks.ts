@@ -5,11 +5,13 @@ import type {
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
+    CreateSupplierRequest,
     GoodsReceipt,
     GoodsReceiptResult,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
     PostGoodsReceiptRequest,
+    ProcurementReference,
     ProductionOrder,
     ProductionOrderResult,
     PurchaseLedgerFilter,
@@ -193,6 +195,42 @@ export function useSuppliersQuery(enabled = true): UseQueryResult<readonly Suppl
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listSuppliers();
         },
+    });
+}
+
+/**
+ * The goods-receipt form's reference data (INV1.1) — the currencies a price can be booked in, the
+ * organisation's default currency, and the measurement units a line can be quoted in. Behind
+ * `inventory.view_organisation`, the same code as the rest of the ops read surface.
+ */
+export function useProcurementReferenceQuery(
+    enabled = true,
+): UseQueryResult<ProcurementReference> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.procurementReference(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getProcurementReference();
+        },
+    });
+}
+
+/** Adds a supplier to the book, then re-reads the ops lists so the new row appears and can be picked. */
+export function useCreateSupplierMutation(): UseMutationResult<
+    Supplier,
+    unknown,
+    CreateSupplierRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreateSupplierRequest) =>
+            repositories.kitchenOps.createSupplier(request),
+        onSuccess: onWritten,
     });
 }
 

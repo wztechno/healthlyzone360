@@ -391,6 +391,7 @@ export const queryKeys = {
         stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
         lowStockCount: () => ['kitchenOps', 'low-stock-count'] as const,
         suppliers: () => ['kitchenOps', 'suppliers'] as const,
+        procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
         goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,

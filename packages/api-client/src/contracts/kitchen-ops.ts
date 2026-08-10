@@ -151,6 +151,50 @@ export interface SupplierRef {
     readonly nameEn: string;
 }
 
+/**
+ * Adds a supplier to the organisation's book (INV1.1). `code` is optional — omit it and the server
+ * mints a unique per-organisation code from the name, so a kitchen with an empty supplier book can
+ * add one by name and immediately post a receipt against it. `currencyCode` is a hint the receipt
+ * form pre-selects; it is never required and books nothing on its own.
+ */
+export interface CreateSupplierRequest {
+    readonly nameEn: string;
+    readonly code?: string | null | undefined;
+    readonly currencyCode?: string | null | undefined;
+    readonly contactEmail?: string | null | undefined;
+    readonly contactPhone?: string | null | undefined;
+}
+
+/** One active currency a receipt price can be booked in (INV1.1). */
+export interface CurrencyOption {
+    readonly code: string;
+    readonly nameEn: string;
+}
+
+/**
+ * One active measurement unit a purchase line can be quoted in (INV1.1). `dimension` (e.g. `mass`,
+ * `volume`, `count`) is what makes conversion safe: the receipt line editor offers only the units
+ * in the stock item's own dimension, because the server's conversion refuses across dimensions.
+ */
+export interface MeasurementUnitOption {
+    readonly id: string;
+    readonly code: string;
+    readonly dimension: string;
+    readonly nameEn: string;
+}
+
+/**
+ * The reference sets the goods-receipt form needs, answered in one read (INV1.1): the currencies a
+ * price can be booked in, the organisation's own default currency (the kitchen's currency and the
+ * honest default for a receipt), and the measurement units a line can be quoted in. `defaultCurrencyCode`
+ * is `null` only when the organisation has none on file.
+ */
+export interface ProcurementReference {
+    readonly currencies: readonly CurrencyOption[];
+    readonly defaultCurrencyCode: string | null;
+    readonly measurementUnits: readonly MeasurementUnitOption[];
+}
+
 export interface GoodsReceiptLine {
     readonly stockItemId: StockItemId;
     readonly quantity: string;
@@ -466,6 +510,14 @@ export interface KitchenOpsRepository {
     countLowStockLevels(): Promise<number>;
 
     listSuppliers(): Promise<readonly Supplier[]>;
+    /** Adds a supplier to the book, returning the created row. Needs `inventory.manage_organisation`. */
+    createSupplier(request: CreateSupplierRequest): Promise<Supplier>;
+    /**
+     * The goods-receipt form's reference data (INV1.1) — the currencies a price can be booked in, the
+     * organisation's default currency, and the measurement units a line can be quoted in. Needs
+     * `inventory.view_organisation`.
+     */
+    getProcurementReference(): Promise<ProcurementReference>;
     /** The most recent fifty receipts, newest first. Costs redacted without the cost permission. */
     listGoodsReceipts(): Promise<readonly GoodsReceipt[]>;
     postGoodsReceipt(request: PostGoodsReceiptRequest): Promise<GoodsReceiptResult>;

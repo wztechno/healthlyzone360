@@ -212,8 +212,10 @@ use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
+use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
+use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
@@ -1362,6 +1364,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
                 Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
+                Route::get('/procurement/reference', ProcurementReferenceController::class)->name('catalogue.procurement.reference.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
@@ -1375,6 +1378,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::patch('/inventory/threshold', StockThresholdController::class)->name('catalogue.inventory.threshold.update');
                 Route::post('/inventory/consumption-exceptions/{exception}/resolve', ConsumptionExceptionResolveController::class)->name('catalogue.inventory.consumption-exceptions.resolve');
                 Route::post('/inventory/consumption-exceptions/{exception}/retry', ConsumptionExceptionRetryController::class)->name('catalogue.inventory.consumption-exceptions.retry');
+                Route::post('/procurement/suppliers', SupplierStoreController::class)->name('catalogue.procurement.suppliers.store');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
                 Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
                 Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');

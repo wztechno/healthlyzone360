@@ -2842,6 +2842,66 @@ export const zSupplierCollection = z.object({
 });
 
 /**
+ * `code` is optional — omit it and the server mints a unique
+ * per-organisation code from the name. `currency_code` is a hint the
+ * receipt form pre-selects and is never required.
+ *
+ */
+export const zCreateSupplierRequest = z.object({
+    name_en: z.string().min(1).max(160),
+    code: z.string().max(64).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    contact_email: z.string().max(160).nullish(),
+    contact_phone: z.string().max(40).nullish()
+});
+
+export const zSupplierEnvelope = z.object({
+    data: z.object({
+        supplier: zSupplier
+    }),
+    meta: zMeta
+});
+
+/**
+ * One active currency a receipt price can be booked in.
+ */
+export const zCurrencyOption = z.object({
+    code: z.string().length(3),
+    name_en: z.string()
+});
+
+/**
+ * One active measurement unit a purchase line can be quoted in.
+ * `dimension` (e.g. `mass`, `volume`, `count`) is what makes conversion
+ * safe — the line editor offers only units in the stock item's own
+ * dimension, because the conversion service refuses across dimensions.
+ *
+ */
+export const zMeasurementUnitOption = z.object({
+    id: zUuid,
+    code: z.string(),
+    dimension: z.string(),
+    name_en: z.string()
+});
+
+/**
+ * The reference sets the goods-receipt form needs (INV1.1). `default_currency_code`
+ * is the organisation's own currency and the honest default for a receipt;
+ * it is `null` only when the organisation has none on file.
+ *
+ */
+export const zProcurementReference = z.object({
+    currencies: z.array(zCurrencyOption),
+    default_currency_code: z.string().length(3).nullable(),
+    measurement_units: z.array(zMeasurementUnitOption)
+});
+
+export const zProcurementReferenceEnvelope = z.object({
+    data: zProcurementReference,
+    meta: zMeta
+});
+
+/**
  * The money fields (INV1.1) are served as `null` when the reader lacks
  * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
  * `quantity` and `unit_id` are warehouse facts and are never redacted.
@@ -9335,6 +9395,28 @@ export const zListSuppliersHeaders = z.object({
  * Every supplier, ordered by code.
  */
 export const zListSuppliersResponse = zSupplierCollection;
+
+export const zCreateSupplierBody = zCreateSupplierRequest;
+
+export const zCreateSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The supplier was created.
+ */
+export const zCreateSupplierResponse = zSupplierEnvelope;
+
+export const zGetProcurementReferenceHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Currencies, the organisation default, and measurement units.
+ */
+export const zGetProcurementReferenceResponse = zProcurementReferenceEnvelope;
 
 export const zListGoodsReceiptsHeaders = z.object({
     'X-Organisation-Id': zUuid,

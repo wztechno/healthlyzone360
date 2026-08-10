@@ -8014,6 +8014,78 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createSupplier
+      tags: [Kitchen inventory & production]
+      summary: Add a supplier
+      description: |
+        Adds a supplier to the organisation's book so a goods receipt can be
+        posted against it. `code` is optional — omit it and the server mints a
+        unique per-organisation code from the name. `currency_code` is a hint the
+        receipt form pre-selects; it is not required and books nothing.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSupplierRequest'
+      responses:
+        '201':
+          description: The supplier was created.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/reference:
+    get:
+      operationId: getProcurementReference
+      tags: [Kitchen inventory & production]
+      summary: Goods-receipt form reference data
+      description: |
+        The small reference sets the goods-receipt form needs, answered in one
+        read: the active currencies a price can be booked in, the organisation's
+        own default currency (the kitchen's currency, and the honest default for
+        a receipt), and the measurement units a purchase line can be quoted in —
+        each with its `dimension`, so the line editor offers only the units in
+        the stock item's own dimension (conversion refuses across dimensions).
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Currencies, the organisation default, and measurement units.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementReferenceEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /catalogue/procurement/goods-receipts:
     get:
@@ -23648,6 +23720,109 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Supplier'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    CreateSupplierRequest:
+      type: object
+      required: [name_en]
+      description: |
+        `code` is optional — omit it and the server mints a unique
+        per-organisation code from the name. `currency_code` is a hint the
+        receipt form pre-selects and is never required.
+      properties:
+        name_en:
+          type: string
+          minLength: 1
+          maxLength: 160
+        code:
+          type: ['string', 'null']
+          maxLength: 64
+        currency_code:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+        contact_email:
+          type: ['string', 'null']
+          maxLength: 160
+        contact_phone:
+          type: ['string', 'null']
+          maxLength: 40
+      additionalProperties: false
+
+    SupplierEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [supplier]
+          properties:
+            supplier:
+              $ref: '#/components/schemas/Supplier'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    CurrencyOption:
+      type: object
+      required: [code, name_en]
+      description: One active currency a receipt price can be booked in.
+      properties:
+        code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        name_en:
+          type: string
+      additionalProperties: false
+
+    MeasurementUnitOption:
+      type: object
+      required: [id, code, dimension, name_en]
+      description: |
+        One active measurement unit a purchase line can be quoted in.
+        `dimension` (e.g. `mass`, `volume`, `count`) is what makes conversion
+        safe — the line editor offers only units in the stock item's own
+        dimension, because the conversion service refuses across dimensions.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        dimension:
+          type: string
+        name_en:
+          type: string
+      additionalProperties: false
+
+    ProcurementReference:
+      type: object
+      required: [currencies, default_currency_code, measurement_units]
+      description: |
+        The reference sets the goods-receipt form needs (INV1.1). `default_currency_code`
+        is the organisation's own currency and the honest default for a receipt;
+        it is `null` only when the organisation has none on file.
+      properties:
+        currencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrencyOption'
+        default_currency_code:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+        measurement_units:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeasurementUnitOption'
+      additionalProperties: false
+
+    ProcurementReferenceEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/ProcurementReference'
         meta:
           $ref: '#/components/schemas/Meta'
 

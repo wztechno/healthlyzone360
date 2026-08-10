@@ -14,7 +14,12 @@ export interface StockItemLineDraft {
     readonly key: string;
     readonly stockItemId: string | null;
     readonly quantity: string;
-    /** Major-unit price per the item's own unit; only the receipt form fills it (INV1.1). */
+    /**
+     * The measurement unit the quantity (and price) is quoted in (INV1.1); only the receipt form
+     * sets it, defaulting to the stock item's own unit. `null` until an item is picked.
+     */
+    readonly unitId?: string | null;
+    /** Major-unit price per {@link unitId}; only the receipt form fills it (INV1.1). */
     readonly unitPrice?: string;
 }
 
@@ -31,6 +36,19 @@ export interface StockItemLineEditorProps {
     readonly quantityLabel: string;
     readonly addLabel: string;
     readonly removeLabel: string;
+    /**
+     * When set, each row captures a purchase unit (INV1.1). The picker offers only the units in the
+     * stock item's own dimension, defaulting to its own unit; when a single unit is available the
+     * label is still shown beside the quantity, so a quantity is never a bare number.
+     */
+    readonly withUnit?: boolean;
+    readonly unitLabel?: string;
+    /** The units offered for a given stock item — same dimension only. Required when `withUnit`. */
+    readonly unitOptionsForItem?: (stockItemId: string | null) => readonly SelectOption<string>[];
+    /** The stock item's own unit id, the default a fresh line takes. Required when `withUnit`. */
+    readonly defaultUnitIdForItem?: (stockItemId: string | null) => string | null;
+    /** A human label for the resolved unit, shown when there is no picker (single/zero options). */
+    readonly unitLabelFor?: (stockItemId: string | null, unitId: string | null) => string;
     /** When set, each row also captures a unit price and shows a running line total (INV1.1). */
     readonly withCost?: boolean;
     readonly unitPriceLabel?: string;
@@ -53,6 +71,11 @@ export function StockItemLineEditor({
     quantityLabel,
     addLabel,
     removeLabel,
+    withUnit = false,
+    unitLabel,
+    unitOptionsForItem,
+    defaultUnitIdForItem,
+    unitLabelFor,
     withCost = false,
     unitPriceLabel,
     formatMoney,
@@ -82,7 +105,14 @@ export function StockItemLineEditor({
                         options={stockItemOptions}
                         value={line.stockItemId}
                         onChange={(value) => {
-                            updateLine(line.key, { stockItemId: value });
+                            updateLine(line.key, {
+                                stockItemId: value,
+                                // Default the purchase unit to the newly chosen item's own unit; the
+                                // picker (when there are alternatives) can still change it.
+                                ...(withUnit
+                                    ? { unitId: defaultUnitIdForItem?.(value) ?? null }
+                                    : {}),
+                            });
                         }}
                         searchable
                         className="min-w-[220px] flex-1"
@@ -97,6 +127,19 @@ export function StockItemLineEditor({
                         keyboardType="decimal-pad"
                         className="w-28"
                     />
+                    {withUnit
+                        ? renderUnit({
+                              testID: `${testID}-row-${String(index)}-unit`,
+                              label: unitLabel ?? '',
+                              stockItemId: line.stockItemId,
+                              unitId: line.unitId ?? defaultUnitIdForItem?.(line.stockItemId) ?? null,
+                              options: unitOptionsForItem?.(line.stockItemId) ?? [],
+                              onChange: (value) => {
+                                  updateLine(line.key, { unitId: value });
+                              },
+                              labelFor: unitLabelFor,
+                          })
+                        : null}
                     {withCost ? (
                         <TextInputField
                             testID={`${testID}-row-${String(index)}-unit-price`}
@@ -141,6 +184,45 @@ export function StockItemLineEditor({
     );
 }
 
+interface RenderUnitArgs {
+    readonly testID: string;
+    readonly label: string;
+    readonly stockItemId: string | null;
+    readonly unitId: string | null;
+    readonly options: readonly SelectOption<string>[];
+    readonly onChange: (value: string | null) => void;
+    readonly labelFor?: ((stockItemId: string | null, unitId: string | null) => string) | undefined;
+}
+
+/**
+ * The per-line unit control. When the stock item's dimension offers more than one unit it is a
+ * picker; when it offers one (or none, e.g. a `count` item that cannot cross-convert), the unit is
+ * shown as a static label beside the quantity — so a quantity is never a bare number, exactly as the
+ * receipt form promises, whether or not there was ever a choice to make.
+ */
+function renderUnit({ testID, label, stockItemId, unitId, options, onChange, labelFor }: RenderUnitArgs) {
+    if (options.length > 1) {
+        return (
+            <Select
+                testID={testID}
+                label={label}
+                options={options}
+                value={unitId}
+                onChange={onChange}
+                className="w-28"
+            />
+        );
+    }
+
+    const text = labelFor?.(stockItemId, unitId) ?? '';
+
+    return (
+        <Text testID={`${testID}-label`} variant="body" tone="secondary">
+            {text === '' ? '—' : text}
+        </Text>
+    );
+}
+
 /** quantity × unit price for one row, or `0` when either is missing or non-positive. */
 function lineTotal(line: StockItemLineDraft): number {
     const quantity = Number(line.quantity);
@@ -176,10 +258,16 @@ export function stockItemLinesToInputs(
 }
 
 /**
- * Maps drafts to `GoodsReceiptLineInput`s (INV1.1): the shared `stockItemId`/`quantity`, plus an
- * optional `unitPriceAmount` (per the item's own unit) and its `costCurrencyCode`. A blank or
- * non-positive price is dropped rather than sent as zero — an unpriced line is a legal receipt
- * line that moves stock without touching cost.
+ * Maps drafts to `GoodsReceiptLineInput`s (INV1.1): the shared `stockItemId`/`quantity`, the
+ * purchase `unitId` whenever the line resolved one, plus an optional `unitPriceAmount` and its
+ * `costCurrencyCode`.
+ *
+ * The `unitId` is sent whenever it is known — the picker's value or the item's own default — so a
+ * quantity is booked against the unit it was entered in rather than silently assumed to be the
+ * stock unit. The price is sent whenever the line carries a positive one **and** a currency is
+ * available; with a receipt-level currency that is now always resolvable for a cost-permitted user,
+ * so a typed price is no longer silently dropped. A blank price is still omitted rather than sent as
+ * zero — an unpriced line is a legal receipt line that moves stock without touching cost.
  */
 export function stockItemLinesToReceiptInputs(
     lines: readonly StockItemLineDraft[],
@@ -187,6 +275,7 @@ export function stockItemLinesToReceiptInputs(
 ): readonly {
     stockItemId: string;
     quantity: number;
+    unitId?: string;
     unitPriceAmount?: number;
     costCurrencyCode?: string;
 }[] {
@@ -201,9 +290,12 @@ export function stockItemLinesToReceiptInputs(
                 price >= 0 &&
                 currencyCode !== null;
 
+            const unitId = line.unitId ?? null;
+
             return {
                 stockItemId: line.stockItemId as string,
                 quantity: Number(line.quantity),
+                ...(unitId === null ? {} : { unitId }),
                 ...(priced ? { unitPriceAmount: price, costCurrencyCode: currencyCode } : {}),
             };
         });
