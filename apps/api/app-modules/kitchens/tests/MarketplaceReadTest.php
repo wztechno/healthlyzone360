@@ -73,7 +73,6 @@ it('lists published products beside meals and filters by item type', function ()
     $all = collect($this->getJson('/api/v1/marketplace/meals')->assertOk()->json('data'));
 
     expect($all->pluck('slug')->all())->toContain('grilled-chicken-freekeh', 'mezze-plate', 'red-lentil-soup')
-        ->and($all->where('item_type', 'product')->count())->toBeGreaterThan(0)
         ->and($all->count())->toBeGreaterThan(3);
 
     $products = collect($this->getJson('/api/v1/marketplace/meals?item_types=product')->assertOk()->json('data'));
@@ -129,19 +128,22 @@ it('surfaces seeded Verdant products on the wholesale B2B catalogue at B2B amoun
         ->and($wholesale['price']['amount_minor'])->toBe(500);
 });
 
-it('lists the published menu with prices and derived allergens', function (): void {
-    $response = $this->getJson('/api/v1/marketplace/meals')->assertOk();
+it('lists the published menu with prices, derived allergens and preview nutrition', function (): void {
+    $response = $this->getJson('/api/v1/marketplace/meals?item_types=meal&limit=50')->assertOk();
 
     $meals = collect($response->json('data'));
     $slugs = $meals->pluck('slug')->all();
 
     expect($slugs)->toContain('grilled-chicken-freekeh', 'mezze-plate', 'red-lentil-soup')
+        ->and($meals)->toHaveCount(40)
 
         // The control: a draft meal with only a placeholder price, seeded to
         // prove the two exclusions rather than only to be excluded.
         ->and($slugs)->not->toContain('chicken-freekeh-bowl');
 
     $freekeh = $meals->firstWhere('slug', 'grilled-chicken-freekeh');
+    $energy = collect($freekeh['nutrition']['amounts'])->firstWhere('nutrient_id', 'energy');
+    $serving = $freekeh['serving'];
 
     expect($freekeh['price'])->toBe(['amount' => 4200, 'currency' => 'USD'])
         ->and($freekeh['kitchen_name'])->toBe('Verdant Kitchen')
@@ -150,8 +152,25 @@ it('lists the published menu with prices and derived allergens', function (): vo
 
         // Fourteen days of calendar, derived from the branch's operating week.
         ->and($freekeh['availability'])->toHaveCount(14)
-        ->and($freekeh['nutrition'])->toBeNull()
-        ->and($freekeh['serving'])->toBeNull();
+        ->and($freekeh['nutrition']['basis'])->toBe('per_serving')
+        ->and($freekeh['nutrition']['source']['kind'])->toBe('synthetic_prototype');
+
+    expect($energy)
+        ->toBeArray()
+        ->and($energy['nutrient_id'])->toBe('energy')
+        ->and($energy['unit'])->toBe('kcal')
+        ->and($energy['value'])->toBe(500)
+        ->and($energy['kind'])->toBe('planned')
+        ->and($energy['tolerance'])->toBeNull();
+
+    expect($serving)
+        ->toBeArray()
+        ->and($serving['label'])->toBe('1 bowl')
+        ->and($serving['quantity'])->toBe(1)
+        ->and($serving['unit'])->toBe('portion')
+        ->and($serving['grams'])->toBe(340)
+        ->and($serving['millilitres'])->toBeNull()
+        ->and($serving['household_measure'])->toBeNull();
 });
 
 it('reads one meal and localises its name', function (): void {

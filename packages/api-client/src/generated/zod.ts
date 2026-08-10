@@ -2075,6 +2075,102 @@ export const zMarketplaceAvailability = z.object({
     order_cut_off_at: z.iso.datetime({ offset: true }).nullable()
 });
 
+/**
+ * The named portion to which the meal facts apply.
+ */
+export const zMarketplaceServing = z.object({
+    label: z.string(),
+    quantity: z.number(),
+    unit: z.enum([
+        'g',
+        'kg',
+        'ml',
+        'l',
+        'piece',
+        'slice',
+        'portion',
+        'cup',
+        'tbsp',
+        'tsp'
+    ]),
+    grams: z.number().nullable(),
+    millilitres: z.number().nullable(),
+    household_measure: z.string().nullable()
+});
+
+export const zMarketplaceNutrientAmount = z.object({
+    nutrient_id: z.string(),
+    unit: z.enum([
+        'kcal',
+        'kJ',
+        'g',
+        'mg',
+        'ug',
+        'ml',
+        'IU'
+    ]),
+    value: z.number(),
+    kind: z.enum([
+        'planned',
+        'actual',
+        'target'
+    ]),
+    tolerance: z.null()
+});
+
+export const zMarketplaceNutritionSource = z.object({
+    kind: z.enum([
+        'synthetic_prototype',
+        'ingredient_derived',
+        'laboratory',
+        'manufacturer',
+        'professional_entry'
+    ]),
+    label: z.string(),
+    version: z.string(),
+    calculated_at: z.iso.datetime({ offset: true })
+});
+
+export const zMarketplaceNutritionCalculation = z.object({
+    method: z.string(),
+    basis: z.enum([
+        'per_serving',
+        'per_100g',
+        'per_recipe',
+        'per_meal',
+        'per_day',
+        'per_week'
+    ]),
+    calculated_at: z.iso.datetime({ offset: true }),
+    prototype: z.boolean(),
+    rounding: z.string(),
+    notes: z.array(z.string())
+});
+
+/**
+ * Per-serving nutrition facts with their source and calculation method.
+ */
+export const zMarketplaceNutritionFacts = z.object({
+    basis: z.enum([
+        'per_serving',
+        'per_100g',
+        'per_recipe',
+        'per_meal',
+        'per_day',
+        'per_week'
+    ]),
+    kind: z.enum([
+        'planned',
+        'actual',
+        'target'
+    ]),
+    serving: zMarketplaceServing.nullable(),
+    total_grams: z.number().nullable(),
+    amounts: z.array(zMarketplaceNutrientAmount),
+    source: zMarketplaceNutritionSource,
+    calculation: zMarketplaceNutritionCalculation
+});
+
 export const zMarketplaceMeal = z.object({
     id: zUuid,
     kitchen_id: zUuid,
@@ -2087,8 +2183,8 @@ export const zMarketplaceMeal = z.object({
     diet_classifications: z.array(z.string()),
     cuisines: z.array(z.string()),
     allergens: z.array(zAllergenCode),
-    serving: z.null(),
-    nutrition: z.null(),
+    serving: zMarketplaceServing.nullable(),
+    nutrition: zMarketplaceNutritionFacts.nullable(),
     price: zMarketplaceMoney,
     preparation_minutes: z.int().nullable(),
     image_placeholder_id: z.string(),

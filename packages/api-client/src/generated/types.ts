@@ -2813,6 +2813,55 @@ export type MarketplaceAvailability = {
     order_cut_off_at: string | null;
 };
 
+/**
+ * The named portion to which the meal facts apply.
+ */
+export type MarketplaceServing = {
+    label: string;
+    quantity: number;
+    unit: 'g' | 'kg' | 'ml' | 'l' | 'piece' | 'slice' | 'portion' | 'cup' | 'tbsp' | 'tsp';
+    grams: number | null;
+    millilitres: number | null;
+    household_measure: string | null;
+};
+
+export type MarketplaceNutrientAmount = {
+    nutrient_id: string;
+    unit: 'kcal' | 'kJ' | 'g' | 'mg' | 'ug' | 'ml' | 'IU';
+    value: number;
+    kind: 'planned' | 'actual' | 'target';
+    tolerance: null;
+};
+
+export type MarketplaceNutritionSource = {
+    kind: 'synthetic_prototype' | 'ingredient_derived' | 'laboratory' | 'manufacturer' | 'professional_entry';
+    label: string;
+    version: string;
+    calculated_at: string;
+};
+
+export type MarketplaceNutritionCalculation = {
+    method: string;
+    basis: 'per_serving' | 'per_100g' | 'per_recipe' | 'per_meal' | 'per_day' | 'per_week';
+    calculated_at: string;
+    prototype: boolean;
+    rounding: string;
+    notes: Array<string>;
+};
+
+/**
+ * Per-serving nutrition facts with their source and calculation method.
+ */
+export type MarketplaceNutritionFacts = {
+    basis: 'per_serving' | 'per_100g' | 'per_recipe' | 'per_meal' | 'per_day' | 'per_week';
+    kind: 'planned' | 'actual' | 'target';
+    serving: MarketplaceServing | null;
+    total_grams: number | null;
+    amounts: Array<MarketplaceNutrientAmount>;
+    source: MarketplaceNutritionSource;
+    calculation: MarketplaceNutritionCalculation;
+};
+
 export type MarketplaceMeal = {
     id: Uuid;
     kitchen_id: Uuid;
@@ -2848,21 +2897,19 @@ export type MarketplaceMeal = {
      */
     allergens: Array<AllergenCode>;
     /**
-     * Always null. See `nutrition` — the platform records no serving size
-     * because it records no per-serving figures to attach one to.
+     * The serving declared alongside recorded nutrition, or null when the
+     * kitchen has not recorded any facts for this meal.
      *
      */
-    serving: null;
+    serving: MarketplaceServing | null;
     /**
-     * **Always null, and a deliberate deviation from the proposed draft**,
-     * which typed this as a required facts object. The platform has no
-     * authoritative nutrition source. Emitting plausible figures would put
-     * invented numbers in front of somebody choosing food for a medical
-     * reason, and zeroes would be worse — a zero is a claim. Phase N1 owns
-     * nutrition and is gated on a real source arriving.
+     * Nutrition facts with their source and calculation notes, or null when
+     * no facts are recorded. A `synthetic_prototype` source is a visibly
+     * labelled demonstration estimate, not a kitchen declaration or a
+     * laboratory analysis.
      *
      */
-    nutrition: null;
+    nutrition: MarketplaceNutritionFacts | null;
     price: MarketplaceMoney;
     /**
      * Always null; no column records how long a dish takes to make.

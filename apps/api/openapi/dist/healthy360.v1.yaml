@@ -7178,12 +7178,11 @@ paths:
         rule an allergen out of is excluded along with the ones that certainly
         contain it.
 
-        **`nutrition` and `serving` are `null` on every listing, and that is a
-        deliberate deviation from the proposed draft.** The platform has no
-        authoritative nutrition source; inventing per-serving figures for
-        somebody choosing food for a medical reason is the one thing this
-        programme will not do. Phase N1 owns nutrition and is gated on a real
-        source arriving.
+        `nutrition` and `serving` are nullable: a kitchen that has recorded
+        source-labelled facts returns them, and a listing without a recorded
+        source returns null. The demonstration menu uses `synthetic_prototype`
+        facts that the client visibly labels as estimates; they are not a kitchen
+        declaration or laboratory analysis.
 
         `meal_types`, `cuisines`, `preparation_minutes` and the ratings have no
         column behind them and carry honest empties.
@@ -23281,6 +23280,188 @@ components:
             - 'null'
           format: date-time
       additionalProperties: false
+    MarketplaceServing:
+      type: object
+      description: The named portion to which the meal facts apply.
+      required:
+        - label
+        - quantity
+        - unit
+        - grams
+        - millilitres
+        - household_measure
+      properties:
+        label:
+          type: string
+          examples:
+            - 1 bowl
+        quantity:
+          type: number
+        unit:
+          type: string
+          enum:
+            - g
+            - kg
+            - ml
+            - l
+            - piece
+            - slice
+            - portion
+            - cup
+            - tbsp
+            - tsp
+        grams:
+          type:
+            - number
+            - 'null'
+        millilitres:
+          type:
+            - number
+            - 'null'
+        household_measure:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    MarketplaceNutrientAmount:
+      type: object
+      required:
+        - nutrient_id
+        - unit
+        - value
+        - kind
+        - tolerance
+      properties:
+        nutrient_id:
+          type: string
+          examples:
+            - energy
+            - protein
+            - carbohydrate
+            - fat
+            - fibre
+        unit:
+          type: string
+          enum:
+            - kcal
+            - kJ
+            - g
+            - mg
+            - ug
+            - ml
+            - IU
+        value:
+          type: number
+        kind:
+          type: string
+          enum:
+            - planned
+            - actual
+            - target
+        tolerance:
+          type: 'null'
+      additionalProperties: false
+    MarketplaceNutritionSource:
+      type: object
+      required:
+        - kind
+        - label
+        - version
+        - calculated_at
+      properties:
+        kind:
+          type: string
+          enum:
+            - synthetic_prototype
+            - ingredient_derived
+            - laboratory
+            - manufacturer
+            - professional_entry
+        label:
+          type: string
+        version:
+          type: string
+        calculated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    MarketplaceNutritionCalculation:
+      type: object
+      required:
+        - method
+        - basis
+        - calculated_at
+        - prototype
+        - rounding
+        - notes
+      properties:
+        method:
+          type: string
+        basis:
+          type: string
+          enum:
+            - per_serving
+            - per_100g
+            - per_recipe
+            - per_meal
+            - per_day
+            - per_week
+        calculated_at:
+          type: string
+          format: date-time
+        prototype:
+          type: boolean
+        rounding:
+          type: string
+        notes:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    MarketplaceNutritionFacts:
+      type: object
+      description: Per-serving nutrition facts with their source and calculation method.
+      required:
+        - basis
+        - kind
+        - serving
+        - total_grams
+        - amounts
+        - source
+        - calculation
+      properties:
+        basis:
+          type: string
+          enum:
+            - per_serving
+            - per_100g
+            - per_recipe
+            - per_meal
+            - per_day
+            - per_week
+        kind:
+          type: string
+          enum:
+            - planned
+            - actual
+            - target
+        serving:
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceServing'
+            - type: 'null'
+        total_grams:
+          type:
+            - number
+            - 'null'
+        amounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceNutrientAmount'
+        source:
+          $ref: '#/components/schemas/MarketplaceNutritionSource'
+        calculation:
+          $ref: '#/components/schemas/MarketplaceNutritionCalculation'
+      additionalProperties: false
     MarketplaceMeal:
       type: object
       required:
@@ -23353,19 +23534,21 @@ components:
           items:
             $ref: '#/components/schemas/AllergenCode'
         serving:
-          type: 'null'
           description: |
-            Always null. See `nutrition` — the platform records no serving size
-            because it records no per-serving figures to attach one to.
+            The serving declared alongside recorded nutrition, or null when the
+            kitchen has not recorded any facts for this meal.
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceServing'
+            - type: 'null'
         nutrition:
-          type: 'null'
           description: |
-            **Always null, and a deliberate deviation from the proposed draft**,
-            which typed this as a required facts object. The platform has no
-            authoritative nutrition source. Emitting plausible figures would put
-            invented numbers in front of somebody choosing food for a medical
-            reason, and zeroes would be worse — a zero is a claim. Phase N1 owns
-            nutrition and is gated on a real source arriving.
+            Nutrition facts with their source and calculation notes, or null when
+            no facts are recorded. A `synthetic_prototype` source is a visibly
+            labelled demonstration estimate, not a kitchen declaration or a
+            laboratory analysis.
+          oneOf:
+            - $ref: '#/components/schemas/MarketplaceNutritionFacts'
+            - type: 'null'
         price:
           $ref: '#/components/schemas/MarketplaceMoney'
         preparation_minutes:

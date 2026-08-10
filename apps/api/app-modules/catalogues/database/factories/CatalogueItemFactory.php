@@ -49,6 +49,7 @@ class CatalogueItemFactory extends Factory
             'status' => CatalogueItemStatus::Draft,
             'review_reason' => null,
             'image_placeholder_id' => null,
+            'nutrition_facts' => null,
             'data_quality_flags' => null,
             'lock_version' => 0,
         ];

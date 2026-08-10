@@ -60,6 +60,12 @@ const AVATAR_SIZE_CLASS: Readonly<Record<AvatarSize, string>> = {
  * values are the dish photo base name (the recipe key).
  */
 const DISH_FOR_MEAL: Readonly<Record<string, string>> = {
+    // The API demonstration menu is separate from the 40-meal prototype world
+    // below.  These use the same locally bundled, credited Unsplash assets at
+    // the card/detail dimensions, so API mode remains fully offline.
+    'grilled-chicken-freekeh': 'herbed-chicken-freekeh',
+    'mezze-plate': 'charred-aubergine-chickpea',
+    'red-lentil-soup': 'spiced-lentil-pumpkin-stew',
     'verdant-herb-garden-bowl': 'herbed-chicken-freekeh',
     'riverstone-training-freekeh': 'herbed-chicken-freekeh',
     'saffron-tahini-salmon-tray': 'lemon-tahini-salmon',

@@ -57,6 +57,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CatalogueItemStatus $status
  * @property string|null $review_reason
  * @property string|null $image_placeholder_id
+ * @property array<string, mixed>|null $nutrition_facts
  * @property list<string>|null $data_quality_flags
  * @property string|null $source_system
  * @property string|null $source_ref
@@ -68,6 +69,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $updated_at
  */
 #[Classified(DataClassification::Public, 'slug', 'name_en', 'name_ar', 'description_en', 'description_ar')]
+#[Classified(DataClassification::Public, 'nutrition_facts')]
 #[Classified(DataClassification::Internal, 'review_reason', 'data_quality_flags', 'source_system', 'source_ref')]
 class CatalogueItem extends BaseModel implements OrganisationScoped
 {
@@ -87,6 +89,7 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
             'status' => CatalogueItemStatus::class,
             'is_market_priced' => 'boolean',
             'is_assorted' => 'boolean',
+            'nutrition_facts' => 'array',
             'data_quality_flags' => 'array',
             'seeded_at' => 'immutable_datetime',
             'lock_version' => 'integer',

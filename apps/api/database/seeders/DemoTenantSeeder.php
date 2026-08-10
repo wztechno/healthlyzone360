@@ -875,6 +875,16 @@ class DemoTenantSeeder extends Seeder
         $chicken = $this->demoIngredient($verdant, 'chicken-breast', 'Chicken breast', 'صدر دجاج', $gram, null, $creator);
         $lentils = $this->demoIngredient($verdant, 'red-lentils', 'Red lentils', 'عدس أحمر', $gram, null, $creator);
 
+        $previewComposition = $this->demoIngredient(
+            $verdant,
+            'preview-meal-composition',
+            'Preview meal composition',
+            'مكونات وجبة تجريبية',
+            $gram,
+            null,
+            $creator,
+        );
+
         $menu = PriceList::withoutTenancy()->updateOrCreate(
             ['organisation_id' => $verdant->getKey(), 'code' => 'verdant-menu-usd'],
             [
@@ -903,6 +913,23 @@ class DemoTenantSeeder extends Seeder
                 'ingredients' => [$chicken, $freekeh],
                 'amount_minor' => 4200,
                 'diets' => ['high_protein'],
+                'nutrition_facts' => $this->previewNutritionFacts(
+                    servingLabel: '1 bowl',
+                    grams: 340,
+                    amounts: [
+                        ['nutrient_id' => 'energy', 'unit' => 'kcal', 'value' => 500],
+                        ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 50.0],
+                        ['nutrient_id' => 'carbohydrate', 'unit' => 'g', 'value' => 32.0],
+                        ['nutrient_id' => 'fat', 'unit' => 'g', 'value' => 17.0],
+                        ['nutrient_id' => 'fibre', 'unit' => 'g', 'value' => 6.0],
+                        ['nutrient_id' => 'saturated_fat', 'unit' => 'g', 'value' => 2.8],
+                        ['nutrient_id' => 'sodium', 'unit' => 'mg', 'value' => 110],
+                    ],
+                    notes: [
+                        'Preview estimate for 140 g cooked chicken breast, 50 g dry freekeh before cooking, lemon dressing and vegetables.',
+                        'Component references: USDA FoodData Central 171477 (roasted chicken breast) and 2476063 (freekeh).',
+                    ],
+                ),
             ],
             [
                 'slug' => 'mezze-plate',
@@ -913,6 +940,23 @@ class DemoTenantSeeder extends Seeder
                 'ingredients' => [$tahini],
                 'amount_minor' => 3800,
                 'diets' => ['vegetarian'],
+                'nutrition_facts' => $this->previewNutritionFacts(
+                    servingLabel: '1 mezze plate',
+                    grams: 300,
+                    amounts: [
+                        ['nutrient_id' => 'energy', 'unit' => 'kcal', 'value' => 480],
+                        ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 14.0],
+                        ['nutrient_id' => 'carbohydrate', 'unit' => 'g', 'value' => 44.0],
+                        ['nutrient_id' => 'fat', 'unit' => 'g', 'value' => 29.0],
+                        ['nutrient_id' => 'fibre', 'unit' => 'g', 'value' => 6.5],
+                        ['nutrient_id' => 'saturated_fat', 'unit' => 'g', 'value' => 5.0],
+                        ['nutrient_id' => 'sodium', 'unit' => 'mg', 'value' => 500],
+                    ],
+                    notes: [
+                        'Preview estimate for hummus, muhammara, tahini dressing, warm pita and raw vegetables.',
+                        'Component references: USDA FoodData Central 321358 (commercial hummus), 2707587 (tahini) and 2707616 (pita bread).',
+                    ],
+                ),
             ],
             [
                 'slug' => 'red-lentil-soup',
@@ -923,8 +967,49 @@ class DemoTenantSeeder extends Seeder
                 'ingredients' => [$lentils],
                 'amount_minor' => 2600,
                 'diets' => ['vegan', 'vegetarian'],
+                'nutrition_facts' => $this->previewNutritionFacts(
+                    servingLabel: '1 bowl',
+                    grams: 350,
+                    amounts: [
+                        ['nutrient_id' => 'energy', 'unit' => 'kcal', 'value' => 310],
+                        ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 17.0],
+                        ['nutrient_id' => 'carbohydrate', 'unit' => 'g', 'value' => 47.0],
+                        ['nutrient_id' => 'fat', 'unit' => 'g', 'value' => 7.5],
+                        ['nutrient_id' => 'fibre', 'unit' => 'g', 'value' => 14.0],
+                        ['nutrient_id' => 'saturated_fat', 'unit' => 'g', 'value' => 1.0],
+                        ['nutrient_id' => 'sodium', 'unit' => 'mg', 'value' => 620],
+                    ],
+                    notes: [
+                        'Preview estimate for a 350 g red-lentil, vegetable, cumin and lemon soup with olive oil.',
+                        'Cross-checked against USDA FoodData Central 171549 (ready-to-serve lentil soup); recipe composition and seasoning remain provisional.',
+                    ],
+                ),
             ],
         ];
+
+        /** @var list<array{slug: string, name: string, description: string, diets: list<string>, amount_minor: int, serving_label: string, grams: int|float|null, amounts: array<string, int|float>, note: string}> $prototypeMeals */
+        $prototypeMeals = require database_path('seeders/fixtures/prototype_marketplace_meals.php');
+
+        foreach ($prototypeMeals as $prototypeMeal) {
+            $menuItems[] = [
+                'slug' => $prototypeMeal['slug'],
+                'name_en' => $prototypeMeal['name'],
+                // The prototype supplied English display copy only. A non-empty
+                // marker keeps the menu publishable while making remaining
+                // localisation work obvious in Arabic preview mode.
+                'name_ar' => 'وجبة تجريبية: '.$prototypeMeal['name'],
+                'description_en' => $prototypeMeal['description'],
+                'description_ar' => 'وصف تجريبي — تحتاج هذه الوجبة إلى وصف عربي مراجع.',
+                // The full recipes live only in the customer mock. This neutral
+                // fixture row gives the API demo menu the required allergen basis
+                // without claiming a temporary preview is an ingredient-level
+                // recipe declaration.
+                'ingredients' => [$previewComposition],
+                'amount_minor' => $prototypeMeal['amount_minor'],
+                'diets' => $prototypeMeal['diets'],
+                'nutrition_facts' => $this->mockPreviewNutritionFacts($prototypeMeal),
+            ];
+        }
 
         $readiness = App::make(CatalogueItemReadiness::class);
 
@@ -943,6 +1028,7 @@ class DemoTenantSeeder extends Seeder
                 'description_en' => $definition['description_en'],
                 'description_ar' => $definition['description_ar'],
                 'image_placeholder_id' => 'meal-'.$definition['slug'],
+                'nutrition_facts' => $definition['nutrition_facts'],
             ])->save();
 
             foreach ($definition['ingredients'] as $order => $ingredient) {
@@ -1002,6 +1088,117 @@ class DemoTenantSeeder extends Seeder
 
             $meal->forceFill(['status' => CatalogueItemStatus::Published])->save();
         }
+    }
+
+    /**
+     * Preview-only per-serving facts for the small API demonstration menu.
+     *
+     * These are explicitly synthetic estimates, not a kitchen declaration or
+     * laboratory analysis.  The complete payload lives with the menu item so
+     * it can later be replaced atomically by a verified source.
+     *
+     * @param  list<array{nutrient_id: string, unit: string, value: float|int}>  $amounts
+     * @param  list<string>  $notes
+     * @return array<string, mixed>
+     */
+    private function previewNutritionFacts(string $servingLabel, int $grams, array $amounts, array $notes): array
+    {
+        $withKind = array_map(
+            static fn (array $amount): array => [...$amount, 'kind' => 'planned', 'tolerance' => null],
+            $amounts,
+        );
+
+        return [
+            'basis' => 'per_serving',
+            'kind' => 'planned',
+            'serving' => [
+                'label' => $servingLabel,
+                'quantity' => 1,
+                'unit' => 'portion',
+                'grams' => $grams,
+                'millilitres' => null,
+                'household_measure' => null,
+            ],
+            'total_grams' => $grams,
+            'amounts' => $withKind,
+            'source' => [
+                'kind' => 'synthetic_prototype',
+                'label' => 'USDA FoodData Central component estimate — preview only',
+                'version' => 'USDA FDC, accessed 2026-08-10',
+                'calculated_at' => '2026-08-10T00:00:00+00:00',
+            ],
+            'calculation' => [
+                'method' => 'seed.preview_component_estimate',
+                'basis' => 'per_serving',
+                'calculated_at' => '2026-08-10T00:00:00+00:00',
+                'prototype' => true,
+                'rounding' => 'Energy rounded to the nearest 10 kcal; grams to one decimal place; sodium to the nearest 10 mg.',
+                'notes' => $notes,
+            ],
+        ];
+    }
+
+    /**
+     * Converts the existing customer mock's per-serving facts into the API
+     * record shape. The mock is deliberately marked synthetic; it is present
+     * solely so API-mode previews match the 40 photographed customer meals.
+     *
+     * @param  array{serving_label: string, grams: int|float|null, amounts: array<string, int|float>, note: string}  $meal
+     * @return array<string, mixed>
+     */
+    private function mockPreviewNutritionFacts(array $meal): array
+    {
+        $units = [
+            'energy' => 'kcal',
+            'protein' => 'g',
+            'carbohydrate' => 'g',
+            'fat' => 'g',
+            'fibre' => 'g',
+            'sugars' => 'g',
+            'saturated_fat' => 'g',
+            'sodium' => 'mg',
+        ];
+
+        $amounts = [];
+
+        foreach ($meal['amounts'] as $nutrientId => $value) {
+            $amounts[] = [
+                'nutrient_id' => $nutrientId,
+                'unit' => $units[$nutrientId],
+                'value' => $value,
+                'kind' => 'planned',
+                'tolerance' => null,
+            ];
+        }
+
+        return [
+            'basis' => 'per_serving',
+            'kind' => 'planned',
+            'serving' => [
+                'label' => $meal['serving_label'],
+                'quantity' => 1,
+                'unit' => 'portion',
+                'grams' => $meal['grams'],
+                'millilitres' => null,
+                'household_measure' => null,
+            ],
+            'total_grams' => $meal['grams'],
+            'amounts' => $amounts,
+            'source' => [
+                'kind' => 'synthetic_prototype',
+                'label' => 'Healthy360 customer prototype fixture — preview only',
+                'version' => '2026.07',
+                'calculated_at' => '2026-07-30T09:00:00+00:00',
+            ],
+            'calculation' => [
+                'method' => 'fixture.meal_from_recipe_serving',
+                'basis' => 'per_serving',
+                'calculated_at' => '2026-07-30T09:00:00+00:00',
+                'prototype' => true,
+                'rounding' => 'Imported from the customer prototype after applying its display precision.',
+                'notes' => [$meal['note']],
+            ],
+        ];
     }
 
     /**

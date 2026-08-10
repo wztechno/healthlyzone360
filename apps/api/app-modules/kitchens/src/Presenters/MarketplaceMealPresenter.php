@@ -29,21 +29,12 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  * question written for a kitchen, and a quarantined item cannot be published in
  * the first place.
  *
- * ## Nutrition: the one field that says nothing
+ * ## Nutrition: source-labelled when the kitchen has recorded it
  *
- * The consumer contract types `nutrition` as a required `NutritionFacts`. **The
- * platform has no authoritative nutrition source and this programme will not
- * fabricate one** — that is what phase N1 exists for, and it is gated on a real
- * source arriving. So the wire schema here deviates from the proposed draft in
- * exactly one place: `nutrition` and `serving` are **nullable**, and both are
- * null on every meal the platform can serve today.
- *
- * Null is the only honest option. Emitting a `NutritionFacts` with plausible
- * numbers would put invented figures in front of somebody choosing food for a
- * medical reason. Emitting one with zeroes would be worse — a zero is a claim.
- * The client turns the null into the contract's required shape with an empty
- * amount list and a provenance line that says so, and the facts panel renders
- * the absence rather than a table of nothing.
+ * A facts payload is emitted only when it is recorded on the catalogue item;
+ * otherwise both fields stay null.  That payload includes its source and
+ * calculation notes, which lets the client mark a demo estimate as such rather
+ * than treating it as a laboratory result.
  */
 final class MarketplaceMealPresenter
 {
@@ -66,6 +57,8 @@ final class MarketplaceMealPresenter
         array $channels,
         array $availability,
     ): array {
+        $nutrition = $meal->nutrition_facts;
+
         return [
             'id' => (string) $meal->getKey(),
             'kitchen_id' => $meal->organisation_id,
@@ -83,8 +76,8 @@ final class MarketplaceMealPresenter
             'diet_classifications' => $dietClassifications,
             'cuisines' => [],
             'allergens' => $allergens,
-            'serving' => null,
-            'nutrition' => null,
+            'serving' => $nutrition['serving'] ?? null,
+            'nutrition' => $nutrition,
             'price' => ['amount' => $price->amountMinor, 'currency' => $price->currencyCode],
 
             // No column records how long a dish takes to make, and the

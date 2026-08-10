@@ -43,17 +43,14 @@ import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
  * The two are close but not identical, and every place they differ is recorded here rather than
  * papered over. Three of the differences are worth reading before the code.
  *
- * ## 1. Nutrition is absent, and the contract has no shape for absence
+ * ## 1. Nutrition may be absent, and preview facts are explicitly labelled
  *
  * `MarketplaceMeal.nutrition` is a required `NutritionFacts` and `serving` a required `Serving`,
- * because the contract was written against a fixture world that had both. The platform has
- * **neither**: there is no authoritative nutrition source, phase N1 owns getting one, and inventing
- * per-serving figures for somebody choosing food for a medical reason is the one thing this
- * programme will not do. The server therefore sends `null` for both — a documented deviation from
- * the proposed draft — and this file turns the null into the required shape *without numbers*:
- * {@link NO_NUTRITION_FACTS} carries an **empty amount list**, so the facts panel renders no figures
- * at all, and its calculation notes carry the explanation, which the meal screen prints verbatim.
- * A person is told the platform has nothing rather than shown something invented.
+ * while the API permits both to be `null` until a kitchen records a source. The API demo menu has
+ * source-labelled component estimates, so this mapper carries them through unchanged in meaning;
+ * their `synthetic_prototype` kind makes the preview status visible in the facts panel. When a
+ * record has no facts, {@link NO_NUTRITION_FACTS} remains the honest fallback: an empty amount list
+ * with an explicit explanation rather than invented values.
  *
  * ## 2. `LocalisedText` versus one server-chosen name
  *
@@ -123,6 +120,53 @@ export const UNSTATED_SERVING: Serving = {
     millilitres: null,
     householdMeasure: null,
 };
+
+/** Wire serving → the nutrition package's camel-case representation. */
+function mapServing(wire: NonNullable<WireMeal['serving']>): Serving {
+    return {
+        label: wire.label,
+        quantity: wire.quantity,
+        unit: wire.unit,
+        grams: wire.grams,
+        millilitres: wire.millilitres,
+        householdMeasure: wire.household_measure,
+    };
+}
+
+/**
+ * The API's facts schema intentionally mirrors `@healthy360/nutrition`; this
+ * function only converts transport casing and preserves source/prototype
+ * metadata so the UI can distinguish an estimate from a verified analysis.
+ */
+function mapNutritionFacts(wire: NonNullable<WireMeal['nutrition']>): NutritionFacts {
+    return {
+        basis: wire.basis,
+        kind: wire.kind,
+        serving: wire.serving === null ? null : mapServing(wire.serving),
+        totalGrams: wire.total_grams,
+        amounts: wire.amounts.map((amount) => ({
+            nutrientId: amount.nutrient_id,
+            unit: amount.unit,
+            value: amount.value,
+            kind: amount.kind,
+            tolerance: null,
+        })),
+        source: {
+            kind: wire.source.kind,
+            label: wire.source.label,
+            version: wire.source.version,
+            calculatedAt: wire.source.calculated_at,
+        },
+        calculation: {
+            method: wire.calculation.method,
+            basis: wire.calculation.basis,
+            calculatedAt: wire.calculation.calculated_at,
+            prototype: wire.calculation.prototype,
+            rounding: wire.calculation.rounding,
+            notes: wire.calculation.notes,
+        },
+    };
+}
 
 /**
  * Wire money → `Money`.
@@ -247,6 +291,10 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
     const price = mapMoney(wire.price);
     if (price === null) return null;
 
+    const nutrition =
+        wire.nutrition === null ? NO_NUTRITION_FACTS : mapNutritionFacts(wire.nutrition);
+    const serving = wire.serving === null ? UNSTATED_SERVING : mapServing(wire.serving);
+
     return {
         id: MealId.unsafe(wire.id),
         kitchenId: KitchenId.unsafe(wire.kitchen_id),
@@ -265,8 +313,8 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         allergens: wire.allergens
             .map((code) => AllergenCode.safeParse(code))
             .filter((code): code is AllergenCode => code !== null),
-        serving: UNSTATED_SERVING,
-        nutrition: NO_NUTRITION_FACTS,
+        serving,
+        nutrition,
         price,
         preparationMinutes: wire.preparation_minutes,
         imagePlaceholderId: wire.image_placeholder_id,

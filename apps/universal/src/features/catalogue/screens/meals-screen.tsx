@@ -180,8 +180,8 @@ export function MealsScreen() {
     const [showFilters, setShowFilters] = useState(activeCount > 0);
 
     const filter = useMemo(
-        () =>
-            toMealFilter({
+        () => ({
+            ...toMealFilter({
                 query: searchTerm,
                 kitchenIds: (selected['kitchen'] ?? []) as readonly KitchenId[],
                 mealTypes: (selected['mealType'] ?? []) as readonly MealType[],
@@ -192,6 +192,11 @@ export function MealsScreen() {
                 currency: PRICE_CURRENCY,
                 limit: PAGE_SIZE,
             }),
+            // This is the customer-facing meals catalogue, not a kitchen's mixed menu. Keep
+            // sauces and other sellable products out of its count and pagination so every card
+            // here represents a prepared meal.
+            itemTypes: ['meal'],
+        }),
         [searchTerm, selected, rangeValues, sort],
     );
 
