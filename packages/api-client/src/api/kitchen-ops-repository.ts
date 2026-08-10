@@ -2,16 +2,21 @@ import {
     BranchId,
     GoodsReceiptId,
     IngredientId,
+    OrderId,
     ProductionOrderId,
     QualityCheckId,
     RecipeVersionId,
     StockItemId,
     SupplierId,
+    UserId,
 } from '@healthy360/domain-types';
 
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     CompleteProductionOrderRequest,
+    ConsumptionException,
+    ConsumptionExceptionFilter,
+    ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
@@ -28,6 +33,7 @@ import type {
     PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
+    ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,
@@ -38,6 +44,7 @@ import type {
     SupplierRef,
 } from '../contracts/kitchen-ops.ts';
 import type {
+    ConsumptionException as WireConsumptionException,
     GoodsReceipt as WireGoodsReceipt,
     GoodsReceiptLine as WireGoodsReceiptLine,
     MonthlyCostReportRow as WireMonthlyCostReportRow,
@@ -174,8 +181,31 @@ function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostRep
         mealRevenueAmount: wire.meal_revenue_amount,
         productRevenueAmount: wire.product_revenue_amount,
         otherRevenueAmount: wire.other_revenue_amount,
+        mealCogsAmount: wire.meal_cogs_amount,
+        productCogsAmount: wire.product_cogs_amount,
+        otherCogsAmount: wire.other_cogs_amount,
         hasDataQualityFlag: wire.has_data_quality_flag,
         exceptionCount: wire.exception_count,
+    };
+}
+
+function mapConsumptionException(wire: WireConsumptionException): ConsumptionException {
+    return {
+        id: wire.id,
+        orderId: wire.order_id === null ? null : OrderId.unsafe(wire.order_id),
+        orderNumber: wire.order_number,
+        orderLineId: wire.order_line_id,
+        catalogueItemId: wire.catalogue_item_id,
+        itemNameEn: wire.item_name_en,
+        branchId: wire.branch_id === null ? null : BranchId.unsafe(wire.branch_id),
+        branchName: wire.branch_name,
+        reasonCode: wire.reason_code as ConsumptionExceptionReasonCode,
+        detail: wire.detail,
+        resolved: wire.resolved,
+        resolvedAt: wire.resolved_at,
+        resolvedBy: wire.resolved_by === null ? null : UserId.unsafe(wire.resolved_by),
+        resolutionNote: wire.resolution_note,
+        createdAt: wire.created_at,
     };
 }
 
@@ -390,6 +420,73 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             });
 
             return envelope.data.report.map(mapMonthlyCostReportRow);
+        },
+
+        async listConsumptionExceptions(
+            filter: ConsumptionExceptionFilter = {},
+        ): Promise<CursorPage<ConsumptionException>> {
+            const params = new URLSearchParams();
+            if (filter.resolved !== undefined) params.set('resolved', String(filter.resolved));
+            if (filter.from !== undefined) params.set('from', filter.from);
+            if (filter.to !== undefined) params.set('to', filter.to);
+            if (filter.cursor !== undefined) params.set('cursor', filter.cursor);
+            if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+
+            const query = params.toString();
+            const envelope = await transport.requestEnvelope<{
+                readonly exceptions: readonly WireConsumptionException[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/inventory/consumption-exceptions${query === '' ? '' : `?${query}`}`,
+            });
+
+            const meta = (envelope.meta ?? {}) as {
+                readonly next_cursor?: string | null;
+                readonly has_more?: boolean;
+            };
+
+            return {
+                items: envelope.data.exceptions.map(mapConsumptionException),
+                nextCursor: meta.next_cursor ?? null,
+                hasMore: meta.has_more ?? false,
+                totalCount: null,
+            };
+        },
+
+        async countUnresolvedConsumptionExceptions(): Promise<number> {
+            const envelope = await transport.requestEnvelope<{
+                readonly count: number;
+            }>({
+                method: 'GET',
+                path: '/catalogue/inventory/consumption-exceptions/unresolved-count',
+            });
+            return envelope.data.count;
+        },
+
+        async resolveConsumptionException(
+            exceptionId: string,
+            request: ResolveConsumptionExceptionRequest = {},
+        ): Promise<ConsumptionException> {
+            const envelope = await transport.requestEnvelope<{
+                readonly exception: WireConsumptionException;
+            }>({
+                method: 'POST',
+                path: `/catalogue/inventory/consumption-exceptions/${encodeURIComponent(exceptionId)}/resolve`,
+                body: {
+                    ...(request.note === undefined ? {} : { note: request.note }),
+                },
+            });
+            return mapConsumptionException(envelope.data.exception);
+        },
+
+        async retryConsumptionException(exceptionId: string): Promise<ConsumptionException> {
+            const envelope = await transport.requestEnvelope<{
+                readonly exception: WireConsumptionException;
+            }>({
+                method: 'POST',
+                path: `/catalogue/inventory/consumption-exceptions/${encodeURIComponent(exceptionId)}/retry`,
+            });
+            return mapConsumptionException(envelope.data.exception);
         },
 
         async listProductionOrders(): Promise<readonly ProductionOrder[]> {

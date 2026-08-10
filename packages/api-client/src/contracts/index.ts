@@ -354,6 +354,7 @@ export type {
 } from './kitchen-admin.ts';
 
 export {
+    CONSUMPTION_EXCEPTION_REASON_CODES,
     PRODUCTION_ORDER_STATUSES,
     QUALITY_CHECK_STATUSES,
     QUALITY_CHECK_SUBJECT_TYPES,
@@ -361,6 +362,9 @@ export {
 } from './kitchen-ops.ts';
 export type {
     CompleteProductionOrderRequest,
+    ConsumptionException,
+    ConsumptionExceptionFilter,
+    ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
@@ -382,6 +386,7 @@ export type {
     QualityCheckResult,
     QualityCheckStatus,
     QualityCheckSubjectType,
+    ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,

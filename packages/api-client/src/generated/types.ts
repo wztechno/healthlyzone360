@@ -4014,6 +4014,18 @@ export type MonthlyCostReportRow = {
      */
     other_revenue_amount: string;
     /**
+     * Cost of goods sold on meal lines — Σ exploded-recipe consume cost, major units (INV1.5).
+     */
+    meal_cogs_amount: string;
+    /**
+     * Cost of goods sold on resold-product lines — Σ own moving-average consume cost, major units (INV1.5).
+     */
+    product_cogs_amount: string;
+    /**
+     * Cost of goods sold not attributed to a meal or product line (e.g. a consume predating INV1.5), major units. The three COGS splits reconcile to cogs_amount.
+     */
+    other_cogs_amount: string;
+    /**
      * True when unresolved consumption exceptions mean this month's COGS is understated.
      */
     has_data_quality_flag: boolean;
@@ -4028,6 +4040,69 @@ export type MonthlyCostReportCollection = {
         report: Array<MonthlyCostReportRow>;
     };
     meta: Meta;
+};
+
+/**
+ * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the consumption service raises; a client renders it as a human label rather than branching on it.
+ */
+export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock';
+
+/**
+ * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
+ */
+export type ConsumptionException = {
+    id: Uuid;
+    order_id: Uuid | null;
+    order_number: string | null;
+    order_line_id: Uuid | null;
+    catalogue_item_id: Uuid | null;
+    item_name_en: string | null;
+    branch_id: Uuid | null;
+    branch_name: string | null;
+    reason_code: ConsumptionExceptionReasonCode;
+    detail: string | null;
+    /**
+     * True when the exception has been settled — the same as resolved_at being non-null.
+     */
+    resolved: boolean;
+    resolved_at: string | null;
+    resolved_by: Uuid | null;
+    resolution_note: string | null;
+    created_at: string | null;
+};
+
+export type ConsumptionExceptionCollection = {
+    data: {
+        exceptions: Array<ConsumptionException>;
+    };
+    meta: PaginationMeta;
+};
+
+export type ConsumptionExceptionEnvelope = {
+    data: {
+        exception: ConsumptionException;
+    };
+    meta: Meta;
+};
+
+export type ConsumptionExceptionCountEnvelope = {
+    data: {
+        /**
+         * How many consumption exceptions are unresolved in scope.
+         */
+        count: number;
+    };
+    meta: Meta;
+};
+
+/**
+ * Optionally records why an exception is being marked handled.
+ */
+export type ResolveConsumptionExceptionRequest = {
+    /**
+     * A free-text reason the reviewer typed, or null.
+     */
+    note?: string | null;
 };
 
 export type ProductionOrder = {
@@ -18927,6 +19002,268 @@ export type GetMonthlyCostReportResponses = {
 };
 
 export type GetMonthlyCostReportResponse = GetMonthlyCostReportResponses[keyof GetMonthlyCostReportResponses];
+
+export type ListConsumptionExceptionsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Filter to resolved (`true`) or still-open (`false`) exceptions; omit for both.
+         */
+        resolved?: boolean;
+        /**
+         * Only exceptions raised on or after this date.
+         */
+        from?: string;
+        /**
+         * Only exceptions raised on or before this date.
+         */
+        to?: string;
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/catalogue/inventory/consumption-exceptions';
+};
+
+export type ListConsumptionExceptionsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListConsumptionExceptionsError = ListConsumptionExceptionsErrors[keyof ListConsumptionExceptionsErrors];
+
+export type ListConsumptionExceptionsResponses = {
+    /**
+     * A page of consumption exceptions, newest first.
+     */
+    200: ConsumptionExceptionCollection;
+};
+
+export type ListConsumptionExceptionsResponse = ListConsumptionExceptionsResponses[keyof ListConsumptionExceptionsResponses];
+
+export type CountUnresolvedConsumptionExceptionsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         */
+        'X-Branch-Id'?: Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/consumption-exceptions/unresolved-count';
+};
+
+export type CountUnresolvedConsumptionExceptionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CountUnresolvedConsumptionExceptionsError = CountUnresolvedConsumptionExceptionsErrors[keyof CountUnresolvedConsumptionExceptionsErrors];
+
+export type CountUnresolvedConsumptionExceptionsResponses = {
+    /**
+     * The count of unresolved consumption exceptions in scope.
+     */
+    200: ConsumptionExceptionCountEnvelope;
+};
+
+export type CountUnresolvedConsumptionExceptionsResponse = CountUnresolvedConsumptionExceptionsResponses[keyof CountUnresolvedConsumptionExceptionsResponses];
+
+export type ResolveConsumptionExceptionData = {
+    body?: ResolveConsumptionExceptionRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The consumption-exception identifier.
+         */
+        exception: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/inventory/consumption-exceptions/{exception}/resolve';
+};
+
+export type ResolveConsumptionExceptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ResolveConsumptionExceptionError = ResolveConsumptionExceptionErrors[keyof ResolveConsumptionExceptionErrors];
+
+export type ResolveConsumptionExceptionResponses = {
+    /**
+     * The exception, now resolved.
+     */
+    200: ConsumptionExceptionEnvelope;
+};
+
+export type ResolveConsumptionExceptionResponse = ResolveConsumptionExceptionResponses[keyof ResolveConsumptionExceptionResponses];
+
+export type RetryConsumptionExceptionData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The consumption-exception identifier.
+         */
+        exception: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/inventory/consumption-exceptions/{exception}/retry';
+};
+
+export type RetryConsumptionExceptionErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RetryConsumptionExceptionError = RetryConsumptionExceptionErrors[keyof RetryConsumptionExceptionErrors];
+
+export type RetryConsumptionExceptionResponses = {
+    /**
+     * The exception after the retry — resolved, or still open with a refreshed detail.
+     */
+    200: ConsumptionExceptionEnvelope;
+};
+
+export type RetryConsumptionExceptionResponse = RetryConsumptionExceptionResponses[keyof RetryConsumptionExceptionResponses];
 
 export type ListProductionOrdersData = {
     body?: never;

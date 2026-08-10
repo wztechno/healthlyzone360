@@ -68,6 +68,22 @@ export function createKitchenOpsMockRepositories(
             await settle();
             return store.costReport(filter);
         },
+        async listConsumptionExceptions(filter) {
+            await settle();
+            return store.consumptionExceptions(filter);
+        },
+        async countUnresolvedConsumptionExceptions() {
+            await settle();
+            return store.unresolvedConsumptionExceptionCount();
+        },
+        async resolveConsumptionException(exceptionId, request) {
+            await settle();
+            return store.resolveConsumptionException(exceptionId, request);
+        },
+        async retryConsumptionException(exceptionId) {
+            await settle();
+            return store.retryConsumptionException(exceptionId);
+        },
         async listProductionOrders() {
             await settle();
             return store.productionOrders();

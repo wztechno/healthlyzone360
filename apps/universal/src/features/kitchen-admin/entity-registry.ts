@@ -68,6 +68,15 @@ export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 export const INVENTORY_VIEW_COSTS_PERMISSION = 'inventory.view_costs_organisation';
 
 /**
+ * The plain inventory read/write pair (INV1.0). The consumption-exception review surface (INV1.5)
+ * gates on these — reading the queue is `inventory.view_organisation`, and settling or retrying an
+ * item is `inventory.manage_organisation` — rather than the cost code, because an exception names a
+ * sale and a stock gap, not a valuation. No money passes through the review surface.
+ */
+export const INVENTORY_VIEW_PERMISSION = 'inventory.view_organisation';
+export const INVENTORY_MANAGE_PERMISSION = 'inventory.manage_organisation';
+
+/**
  * How a family's card reports how much is in it.
  *
  * `managed` families are counted from their own listing and can carry a draft badge; `reference`
@@ -163,6 +172,23 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // takes the money code. Nothing is written from a report.
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
         managePermission: null,
+    },
+    {
+        key: 'consumption-exceptions',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.consumptionExceptions.name',
+        descriptionKey: 'kitchen:families.consumptionExceptions.description',
+        // `⚠`, the warning sign — these are the deductions that could not be made honestly, a work
+        // queue of stock gaps. It is the allergen card's glyph too, but the two never share a group
+        // and the label beside the card carries the meaning; a real icon set retires the compromise.
+        icon: 'warning',
+        href: '/kitchen/consumption-exceptions',
+        // The review surface reads on `inventory.view_organisation` (the queue) and writes on
+        // `inventory.manage_organisation` (resolve/retry). Not the cost code — no money is shown here,
+        // only which sale on which line could not be deducted and why.
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
     },
     {
         key: 'ingredients',

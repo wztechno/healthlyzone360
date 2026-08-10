@@ -156,6 +156,10 @@ use Healthy360\Ingredients\Http\Controllers\IngredientIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
+use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
+use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
+use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
+use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
 use Healthy360\Inventory\Http\Controllers\StockItemStoreController;
@@ -1355,6 +1359,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
                 Route::get('/inventory/levels', StockLevelIndexController::class)->name('catalogue.inventory.levels.index');
                 Route::get('/inventory/low-stock-count', StockLowStockCountController::class)->name('catalogue.inventory.low-stock-count');
+                Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
+                Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
@@ -1367,6 +1373,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
                 Route::patch('/inventory/threshold', StockThresholdController::class)->name('catalogue.inventory.threshold.update');
+                Route::post('/inventory/consumption-exceptions/{exception}/resolve', ConsumptionExceptionResolveController::class)->name('catalogue.inventory.consumption-exceptions.resolve');
+                Route::post('/inventory/consumption-exceptions/{exception}/retry', ConsumptionExceptionRetryController::class)->name('catalogue.inventory.consumption-exceptions.retry');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
                 Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
                 Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');

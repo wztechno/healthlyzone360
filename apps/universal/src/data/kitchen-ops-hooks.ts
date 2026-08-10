@@ -1,5 +1,7 @@
 import type {
     CompleteProductionOrderRequest,
+    ConsumptionException,
+    ConsumptionExceptionFilter,
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
@@ -14,6 +16,7 @@ import type {
     PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
+    ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,
@@ -262,6 +265,85 @@ export function useCostReportQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listCostReport(filter);
         },
+    });
+}
+
+/* ── consumption exceptions (INV1.5) ─────────────────────────────────────────────────────────── */
+
+/**
+ * The consumption-exception review list (INV1.5) — what confirmed orders could not deduct honestly,
+ * filtered by resolution state and date, cursor-paginated. Behind `inventory.view_organisation` on
+ * the server; the screen gates its card on the same code.
+ */
+export function useConsumptionExceptionsQuery(
+    filter: ConsumptionExceptionFilter = {},
+    enabled = true,
+): UseQueryResult<CursorPage<ConsumptionException>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.consumptionExceptions(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listConsumptionExceptions(filter);
+        },
+    });
+}
+
+/**
+ * How many consumption exceptions are unresolved right now (INV1.5), for the hub badge and the
+ * review KPI — scoped to the active branch context by the backend, or org-wide when none is set. A
+ * dedicated count read so the hub never fetches the whole list to show one number, matching the
+ * low-stock count beside it. `enabled` gates it on the permission the hub confirms before firing.
+ */
+export function useConsumptionExceptionCountQuery(enabled = true): UseQueryResult<number> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.consumptionExceptionCount(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.countUnresolvedConsumptionExceptions();
+        },
+    });
+}
+
+export interface ResolveConsumptionExceptionVariables {
+    readonly exceptionId: string;
+    readonly request?: ResolveConsumptionExceptionRequest | undefined;
+}
+
+/** Marks one exception handled, then re-reads the ops lists (the list and the count). */
+export function useResolveConsumptionExceptionMutation(): UseMutationResult<
+    ConsumptionException,
+    unknown,
+    ResolveConsumptionExceptionVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ exceptionId, request }: ResolveConsumptionExceptionVariables) =>
+            repositories.kitchenOps.resolveConsumptionException(exceptionId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Retries a blocked consumption, then re-reads the ops lists. */
+export function useRetryConsumptionExceptionMutation(): UseMutationResult<
+    ConsumptionException,
+    unknown,
+    string
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (exceptionId: string) =>
+            repositories.kitchenOps.retryConsumptionException(exceptionId),
+        onSuccess: onWritten,
     });
 }
 

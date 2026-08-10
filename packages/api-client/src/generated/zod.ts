@@ -2884,6 +2884,9 @@ export const zMonthlyCostReportRow = z.object({
     meal_revenue_amount: z.string(),
     product_revenue_amount: z.string(),
     other_revenue_amount: z.string(),
+    meal_cogs_amount: z.string(),
+    product_cogs_amount: z.string(),
+    other_cogs_amount: z.string(),
     has_data_quality_flag: z.boolean(),
     exception_count: z.int()
 });
@@ -2893,6 +2896,72 @@ export const zMonthlyCostReportCollection = z.object({
         report: z.array(zMonthlyCostReportRow)
     }),
     meta: zMeta
+});
+
+/**
+ * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the consumption service raises; a client renders it as a human label rather than branching on it.
+ */
+export const zConsumptionExceptionReasonCode = z.enum([
+    'no_branch',
+    'no_catalogue_item',
+    'no_recipe_version',
+    'no_yield_piece_count',
+    'unquantified_recipe_line',
+    'no_ingredient_link',
+    'no_stock_item',
+    'no_stock_unit',
+    'unit_conversion_unsupported',
+    'no_ingredient_cost',
+    'insufficient_stock'
+]);
+
+/**
+ * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
+ */
+export const zConsumptionException = z.object({
+    id: zUuid,
+    order_id: zUuid.nullable(),
+    order_number: z.string().nullable(),
+    order_line_id: zUuid.nullable(),
+    catalogue_item_id: zUuid.nullable(),
+    item_name_en: z.string().nullable(),
+    branch_id: zUuid.nullable(),
+    branch_name: z.string().nullable(),
+    reason_code: zConsumptionExceptionReasonCode,
+    detail: z.string().nullable(),
+    resolved: z.boolean(),
+    resolved_at: z.iso.datetime({ offset: true }).nullable(),
+    resolved_by: zUuid.nullable(),
+    resolution_note: z.string().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zConsumptionExceptionCollection = z.object({
+    data: z.object({
+        exceptions: z.array(zConsumptionException)
+    }),
+    meta: zPaginationMeta
+});
+
+export const zConsumptionExceptionEnvelope = z.object({
+    data: z.object({
+        exception: zConsumptionException
+    }),
+    meta: zMeta
+});
+
+export const zConsumptionExceptionCountEnvelope = z.object({
+    data: z.object({
+        count: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
+ * Optionally records why an exception is being marked handled.
+ */
+export const zResolveConsumptionExceptionRequest = z.object({
+    note: z.string().max(500).nullish()
 });
 
 export const zProductionOrder = z.object({
@@ -9226,6 +9295,65 @@ export const zGetMonthlyCostReportQuery = z.object({
  * The monthly cost report, newest month first.
  */
 export const zGetMonthlyCostReportResponse = zMonthlyCostReportCollection;
+
+export const zListConsumptionExceptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListConsumptionExceptionsQuery = z.object({
+    resolved: z.boolean().optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of consumption exceptions, newest first.
+ */
+export const zListConsumptionExceptionsResponse = zConsumptionExceptionCollection;
+
+export const zCountUnresolvedConsumptionExceptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The count of unresolved consumption exceptions in scope.
+ */
+export const zCountUnresolvedConsumptionExceptionsResponse = zConsumptionExceptionCountEnvelope;
+
+export const zResolveConsumptionExceptionBody = zResolveConsumptionExceptionRequest;
+
+export const zResolveConsumptionExceptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResolveConsumptionExceptionPath = z.object({
+    exception: zUuid
+});
+
+/**
+ * The exception, now resolved.
+ */
+export const zResolveConsumptionExceptionResponse = zConsumptionExceptionEnvelope;
+
+export const zRetryConsumptionExceptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRetryConsumptionExceptionPath = z.object({
+    exception: zUuid
+});
+
+/**
+ * The exception after the retry — resolved, or still open with a refreshed detail.
+ */
+export const zRetryConsumptionExceptionResponse = zConsumptionExceptionEnvelope;
 
 export const zListProductionOrdersHeaders = z.object({
     'X-Organisation-Id': zUuid,

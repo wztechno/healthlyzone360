@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5172 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5211 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2387,6 +2387,8 @@ export interface NamespaceKeys {
     | 'families.analytics.name'
     | 'families.branchOperating.description'
     | 'families.branchOperating.name'
+    | 'families.consumptionExceptions.description'
+    | 'families.consumptionExceptions.name'
     | 'families.costReport.description'
     | 'families.costReport.name'
     | 'families.deliveryZones.description'
@@ -2434,6 +2436,7 @@ export interface NamespaceKeys {
     | 'hub.errorTitle'
     | 'hub.insightTag'
     | 'hub.itemCount'
+    | 'hub.kpi.consumptionExceptions'
     | 'hub.kpi.deliveryZones'
     | 'hub.kpi.drafts'
     | 'hub.kpi.lowStock'
@@ -2575,8 +2578,10 @@ export interface NamespaceKeys {
     | 'nav.railTitle'
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
+    | 'ops.costReport.chartCogsMix'
     | 'ops.costReport.chartRevenueMix'
     | 'ops.costReport.chartRevenueTrend'
+    | 'ops.costReport.cogsMixCenter'
     | 'ops.costReport.columnCogs'
     | 'ops.costReport.columnMargin'
     | 'ops.costReport.columnMarginPercent'
@@ -2601,6 +2606,40 @@ export interface NamespaceKeys {
     | 'ops.costReport.tileRevenue'
     | 'ops.costReport.tileSpend'
     | 'ops.costReport.title'
+    | 'ops.exceptions.clearBadge'
+    | 'ops.exceptions.columnBranch'
+    | 'ops.exceptions.columnOrder'
+    | 'ops.exceptions.columnRaised'
+    | 'ops.exceptions.columnReason'
+    | 'ops.exceptions.columnStatus'
+    | 'ops.exceptions.emptyBody'
+    | 'ops.exceptions.emptyTitle'
+    | 'ops.exceptions.filterAll'
+    | 'ops.exceptions.filterFrom'
+    | 'ops.exceptions.filterResolved'
+    | 'ops.exceptions.filterStatus'
+    | 'ops.exceptions.filterUnresolved'
+    | 'ops.exceptions.nextPage'
+    | 'ops.exceptions.openBadge'
+    | 'ops.exceptions.reasons.insufficient_stock'
+    | 'ops.exceptions.reasons.no_branch'
+    | 'ops.exceptions.reasons.no_catalogue_item'
+    | 'ops.exceptions.reasons.no_ingredient_cost'
+    | 'ops.exceptions.reasons.no_ingredient_link'
+    | 'ops.exceptions.reasons.no_recipe_version'
+    | 'ops.exceptions.reasons.no_stock_item'
+    | 'ops.exceptions.reasons.no_stock_unit'
+    | 'ops.exceptions.reasons.no_yield_piece_count'
+    | 'ops.exceptions.reasons.unit_conversion_unsupported'
+    | 'ops.exceptions.reasons.unquantified_recipe_line'
+    | 'ops.exceptions.resolve'
+    | 'ops.exceptions.resolvedBadge'
+    | 'ops.exceptions.retry'
+    | 'ops.exceptions.subtitle'
+    | 'ops.exceptions.title'
+    | 'ops.exceptions.unknownItem'
+    | 'ops.exceptions.unknownOrder'
+    | 'ops.exceptions.unresolvedCount'
     | 'ops.ledger.allSuppliers'
     | 'ops.ledger.columnDate'
     | 'ops.ledger.columnItem'
@@ -7577,6 +7616,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.analytics.name',
   'kitchen:families.branchOperating.description',
   'kitchen:families.branchOperating.name',
+  'kitchen:families.consumptionExceptions.description',
+  'kitchen:families.consumptionExceptions.name',
   'kitchen:families.costReport.description',
   'kitchen:families.costReport.name',
   'kitchen:families.deliveryZones.description',
@@ -7624,6 +7665,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.errorTitle',
   'kitchen:hub.insightTag',
   'kitchen:hub.itemCount',
+  'kitchen:hub.kpi.consumptionExceptions',
   'kitchen:hub.kpi.deliveryZones',
   'kitchen:hub.kpi.drafts',
   'kitchen:hub.kpi.lowStock',
@@ -7765,8 +7807,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.railTitle',
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
+  'kitchen:ops.costReport.chartCogsMix',
   'kitchen:ops.costReport.chartRevenueMix',
   'kitchen:ops.costReport.chartRevenueTrend',
+  'kitchen:ops.costReport.cogsMixCenter',
   'kitchen:ops.costReport.columnCogs',
   'kitchen:ops.costReport.columnMargin',
   'kitchen:ops.costReport.columnMarginPercent',
@@ -7791,6 +7835,40 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.tileRevenue',
   'kitchen:ops.costReport.tileSpend',
   'kitchen:ops.costReport.title',
+  'kitchen:ops.exceptions.clearBadge',
+  'kitchen:ops.exceptions.columnBranch',
+  'kitchen:ops.exceptions.columnOrder',
+  'kitchen:ops.exceptions.columnRaised',
+  'kitchen:ops.exceptions.columnReason',
+  'kitchen:ops.exceptions.columnStatus',
+  'kitchen:ops.exceptions.emptyBody',
+  'kitchen:ops.exceptions.emptyTitle',
+  'kitchen:ops.exceptions.filterAll',
+  'kitchen:ops.exceptions.filterFrom',
+  'kitchen:ops.exceptions.filterResolved',
+  'kitchen:ops.exceptions.filterStatus',
+  'kitchen:ops.exceptions.filterUnresolved',
+  'kitchen:ops.exceptions.nextPage',
+  'kitchen:ops.exceptions.openBadge',
+  'kitchen:ops.exceptions.reasons.insufficient_stock',
+  'kitchen:ops.exceptions.reasons.no_branch',
+  'kitchen:ops.exceptions.reasons.no_catalogue_item',
+  'kitchen:ops.exceptions.reasons.no_ingredient_cost',
+  'kitchen:ops.exceptions.reasons.no_ingredient_link',
+  'kitchen:ops.exceptions.reasons.no_recipe_version',
+  'kitchen:ops.exceptions.reasons.no_stock_item',
+  'kitchen:ops.exceptions.reasons.no_stock_unit',
+  'kitchen:ops.exceptions.reasons.no_yield_piece_count',
+  'kitchen:ops.exceptions.reasons.unit_conversion_unsupported',
+  'kitchen:ops.exceptions.reasons.unquantified_recipe_line',
+  'kitchen:ops.exceptions.resolve',
+  'kitchen:ops.exceptions.resolvedBadge',
+  'kitchen:ops.exceptions.retry',
+  'kitchen:ops.exceptions.subtitle',
+  'kitchen:ops.exceptions.title',
+  'kitchen:ops.exceptions.unknownItem',
+  'kitchen:ops.exceptions.unknownOrder',
+  'kitchen:ops.exceptions.unresolvedCount',
   'kitchen:ops.ledger.allSuppliers',
   'kitchen:ops.ledger.columnDate',
   'kitchen:ops.ledger.columnItem',

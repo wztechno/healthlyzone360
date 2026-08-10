@@ -40,6 +40,8 @@ final readonly class InventoryService
      * @param  numeric-string|null  $unitCostAmount  the moving-average cost this movement is valued at, per the ingredient default unit — set only by the consume path (INV1.2), which captures COGS here because the order tables may not
      * @param  numeric-string|null  $costAmount  this movement's COGS: unit cost × quantity consumed
      * @param  string|null  $costCurrencyCode  required when either cost amount is given (the CHECK on the column enforces it)
+     * @param  string|null  $orderLineId  the order line a consume served, so COGS attributes per line and kind (INV1.5); null on every non-consume movement
+     * @param  string|null  $soldItemType  `meal` or `product`, denormalised from the sold catalogue item so the report splits COGS by line of business without a join (INV1.5)
      *
      * @throws InsufficientStock when a consume would drive the level below zero
      */
@@ -55,10 +57,12 @@ final readonly class InventoryService
         ?string $unitCostAmount = null,
         ?string $costAmount = null,
         ?string $costCurrencyCode = null,
+        ?string $orderLineId = null,
+        ?string $soldItemType = null,
     ): StockMovement {
         $delta = $this->numeric($quantityDelta);
 
-        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode): StockMovement {
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType): StockMovement {
             // Establish the row if this is the item's first movement at the
             // branch, then take a row lock for the read-modify-write itself.
             StockLevel::query()->firstOrCreate(
@@ -95,6 +99,8 @@ final readonly class InventoryService
                 'reason' => $reason,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
+                'order_line_id' => $orderLineId,
+                'sold_item_type' => $soldItemType,
                 'notes' => $notes,
                 'unit_cost_amount' => $unitCostAmount,
                 'cost_amount' => $costAmount,

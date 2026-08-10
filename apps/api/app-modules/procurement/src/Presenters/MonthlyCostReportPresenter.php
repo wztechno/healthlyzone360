@@ -8,9 +8,10 @@ namespace Healthy360\Procurement\Presenters;
  * The wire shape of one monthly cost-report row (INV1.4).
  *
  * A row is one `(month, currency)` pair: spend, COGS, waste, revenue and the
- * margin between revenue and COGS, plus the meal-versus-product revenue split and
- * the data-quality flag. Every money field is a major-unit decimal string beside
- * its `currency_code`, never a float and never summed across currencies.
+ * margin between revenue and COGS, plus the meal-versus-product revenue **and**
+ * COGS splits (INV1.5) and the data-quality flag. Every money field is a
+ * major-unit decimal string beside its `currency_code`, never a float and never
+ * summed across currencies.
  *
  * **Nothing confidential passes through here.** The report is an aggregate of
  * money already visible on the purchases ledger and the order book to a reader
@@ -34,6 +35,9 @@ final class MonthlyCostReportPresenter
      *     meal_revenue_amount: string,
      *     product_revenue_amount: string,
      *     other_revenue_amount: string,
+     *     meal_cogs_amount: string,
+     *     product_cogs_amount: string,
+     *     other_cogs_amount: string,
      *     has_data_quality_flag: bool,
      *     exception_count: int
      * }  $row
@@ -54,6 +58,9 @@ final class MonthlyCostReportPresenter
             'meal_revenue_amount' => $row['meal_revenue_amount'],
             'product_revenue_amount' => $row['product_revenue_amount'],
             'other_revenue_amount' => $row['other_revenue_amount'],
+            'meal_cogs_amount' => $row['meal_cogs_amount'],
+            'product_cogs_amount' => $row['product_cogs_amount'],
+            'other_cogs_amount' => $row['other_cogs_amount'],
             'has_data_quality_flag' => $row['has_data_quality_flag'],
             'exception_count' => $row['exception_count'],
         ];

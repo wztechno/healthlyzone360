@@ -1,9 +1,11 @@
-import { BranchId } from '@healthy360/domain-types';
+import { BranchId, OrderId, UserId } from '@healthy360/domain-types';
 import type { ProductionOrderId, QualityCheckId, StockItemId } from '@healthy360/domain-types';
 
 import { apiFailure, throwFailure, validationFailure } from '../../contracts/failure.ts';
 import type {
     CompleteProductionOrderRequest,
+    ConsumptionException,
+    ConsumptionExceptionFilter,
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateStockItemRequest,
@@ -18,6 +20,7 @@ import type {
     PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
+    ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
     StockAdjustmentRequest,
     StockItem,
@@ -206,6 +209,9 @@ export class KitchenOpsMockStore {
             mealRevenueAmount: '2340.000000',
             productRevenueAmount: '620.000000',
             otherRevenueAmount: '160.000000',
+            mealCogsAmount: '1100.000000',
+            productCogsAmount: '260.000000',
+            otherCogsAmount: '60.000000',
             hasDataQualityFlag: false,
             exceptionCount: 0,
         },
@@ -222,8 +228,70 @@ export class KitchenOpsMockStore {
             mealRevenueAmount: '1980.000000',
             productRevenueAmount: '540.000000',
             otherRevenueAmount: '160.000000',
+            mealCogsAmount: '900.000000',
+            productCogsAmount: '220.000000',
+            otherCogsAmount: '60.000000',
             hasDataQualityFlag: true,
             exceptionCount: 2,
+        },
+    ];
+
+    /**
+     * The consumption-exception fixture (INV1.5) — two still-open and one already resolved, so the
+     * review screen renders the open queue, the resolved-filter view and the badge count without any
+     * interaction. Soft references carry human-readable names the way the real presenter joins them.
+     */
+    #consumptionExceptions: ConsumptionException[] = [
+        {
+            id: 'exc-1',
+            orderId: OrderId.unsafe('01935f6d-1000-7000-8000-0000000000a1'),
+            orderNumber: 'ORD-2043',
+            orderLineId: '01935f6d-1000-7000-8000-0000000000b1',
+            catalogueItemId: '01935f6d-1000-7000-8000-0000000000c1',
+            itemNameEn: 'Grilled chicken bowl',
+            branchId: SEED_BRANCH_ID,
+            branchName: 'Downtown kitchen',
+            reasonCode: 'no_stock_item',
+            detail: 'Ingredient 01935f6d-…-e1 has no stock item at the branch to deduct from.',
+            resolved: false,
+            resolvedAt: null,
+            resolvedBy: null,
+            resolutionNote: null,
+            createdAt: '2026-08-08T11:20:00.000Z',
+        },
+        {
+            id: 'exc-2',
+            orderId: OrderId.unsafe('01935f6d-1000-7000-8000-0000000000a2'),
+            orderNumber: 'ORD-2051',
+            orderLineId: '01935f6d-1000-7000-8000-0000000000b2',
+            catalogueItemId: '01935f6d-1000-7000-8000-0000000000c2',
+            itemNameEn: 'Cold-pressed orange juice',
+            branchId: SEED_BRANCH_ID,
+            branchName: 'Downtown kitchen',
+            reasonCode: 'insufficient_stock',
+            detail: 'Ingredient 01935f6d-…-e2: not enough stock to deduct 6.000000.',
+            resolved: false,
+            resolvedAt: null,
+            resolvedBy: null,
+            resolutionNote: null,
+            createdAt: '2026-08-09T09:05:00.000Z',
+        },
+        {
+            id: 'exc-3',
+            orderId: OrderId.unsafe('01935f6d-1000-7000-8000-0000000000a3'),
+            orderNumber: 'ORD-2038',
+            orderLineId: '01935f6d-1000-7000-8000-0000000000b3',
+            catalogueItemId: '01935f6d-1000-7000-8000-0000000000c3',
+            itemNameEn: 'Quinoa salad',
+            branchId: SEED_BRANCH_ID,
+            branchName: 'Downtown kitchen',
+            reasonCode: 'no_ingredient_cost',
+            detail: 'Stock deducted, but no moving-average cost exists for the ingredient, so COGS is unvalued.',
+            resolved: true,
+            resolvedAt: '2026-08-07T14:00:00.000Z',
+            resolvedBy: UserId.unsafe('01935f6d-1000-7000-8000-0000000000d1'),
+            resolutionNote: 'Cost backfilled from the supplier invoice; accepting the gap on this order.',
+            createdAt: '2026-08-06T16:30:00.000Z',
         },
     ];
 
@@ -531,6 +599,91 @@ export class KitchenOpsMockStore {
                 return true;
             })
             .sort((left, right) => right.month.localeCompare(left.month));
+    }
+
+    /**
+     * The consumption-exception review list (INV1.5), newest first, within the optional resolution
+     * and date filters. A single-page mock: the fixture set is small, so it answers the whole
+     * filtered list at once with no cursor, which is a legal {@link CursorPage}.
+     */
+    consumptionExceptions(filter: ConsumptionExceptionFilter = {}): CursorPage<ConsumptionException> {
+        const items = [...this.#consumptionExceptions]
+            .filter((exception) => {
+                if (filter.resolved !== undefined && exception.resolved !== filter.resolved) {
+                    return false;
+                }
+                if (filter.from !== undefined && (exception.createdAt ?? '') < filter.from) return false;
+                if (
+                    filter.to !== undefined &&
+                    (exception.createdAt ?? '') > `${filter.to}T23:59:59Z`
+                ) {
+                    return false;
+                }
+                return true;
+            })
+            .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''));
+
+        return { items, nextCursor: null, hasMore: false, totalCount: items.length };
+    }
+
+    /** How many exceptions are unresolved right now — the count the hub badge reads. */
+    unresolvedConsumptionExceptionCount(): number {
+        return this.#consumptionExceptions.filter((exception) => !exception.resolved).length;
+    }
+
+    resolveConsumptionException(
+        exceptionId: string,
+        request: ResolveConsumptionExceptionRequest = {},
+    ): ConsumptionException {
+        const exception = this.#consumptionExceptions.find(
+            (candidate) => candidate.id === exceptionId,
+        );
+        if (exception === undefined) throwFailure(apiFailure('resource.not_found'));
+
+        // Idempotent — resolving an already-resolved exception leaves it as it stands.
+        const updated: ConsumptionException = exception.resolved
+            ? exception
+            : {
+                  ...exception,
+                  resolved: true,
+                  resolvedAt: new Date().toISOString(),
+                  resolvedBy: UserId.unsafe('01935f6d-1000-7000-8000-0000000000d1'),
+                  resolutionNote: request.note ?? null,
+              };
+
+        this.#consumptionExceptions = this.#consumptionExceptions.map((candidate) =>
+            candidate.id === exceptionId ? updated : candidate,
+        );
+        return updated;
+    }
+
+    /**
+     * Re-runs the consumption an exception blocks (INV1.5). The mock has no real deduction engine, so
+     * it models the happy path a manager who has just fixed the cause expects: the line now consumes
+     * cleanly and the exception auto-resolves. An already-resolved one is a no-op. (Simplification
+     * stated once here rather than discovered as a surprise: the real backend re-runs the deduction
+     * and may leave the exception open if it still cannot resolve.)
+     */
+    retryConsumptionException(exceptionId: string): ConsumptionException {
+        const exception = this.#consumptionExceptions.find(
+            (candidate) => candidate.id === exceptionId,
+        );
+        if (exception === undefined) throwFailure(apiFailure('resource.not_found'));
+
+        const updated: ConsumptionException = exception.resolved
+            ? exception
+            : {
+                  ...exception,
+                  resolved: true,
+                  resolvedAt: new Date().toISOString(),
+                  resolvedBy: UserId.unsafe('01935f6d-1000-7000-8000-0000000000d1'),
+                  resolutionNote: 'Auto-resolved on retry: this line now consumes cleanly.',
+              };
+
+        this.#consumptionExceptions = this.#consumptionExceptions.map((candidate) =>
+            candidate.id === exceptionId ? updated : candidate,
+        );
+        return updated;
     }
 
     productionOrders(): readonly ProductionOrder[] {

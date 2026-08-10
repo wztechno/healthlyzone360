@@ -229,7 +229,10 @@ it('explodes a meal recipe — summing duplicate lines, dividing by yield, apply
     expect((string) $movement->quantity_delta)->toBe('-0.1100')
         ->and((string) $movement->unit_cost_amount)->toBe('2.000000')
         ->and((string) $movement->cost_amount)->toBe('0.220000')
-        ->and($movement->cost_currency_code)->toBe('USD');
+        ->and($movement->cost_currency_code)->toBe('USD')
+        // INV1.5: the consume attributes to the order line and the kind sold.
+        ->and($movement->order_line_id)->toBe((string) $order->lines()->sole()->getKey())
+        ->and($movement->sold_item_type)->toBe('meal');
 
     // The basis quantity dropped by the consumed amount; the average is untouched.
     $cost = IngredientStockCost::withoutTenancy()->where('ingredient_id', $flour->ingredient_id)->sole();
@@ -260,7 +263,10 @@ it('deducts a resold product one shelf unit per unit sold, valued at its own mov
     $movement = consumeMovements($order)->sole();
     expect((string) $movement->quantity_delta)->toBe('-3.0000')
         ->and((string) $movement->cost_amount)->toBe('4.500000')
-        ->and($movement->cost_currency_code)->toBe('USD');
+        ->and($movement->cost_currency_code)->toBe('USD')
+        // INV1.5: a resold product line attributes as `product`.
+        ->and($movement->order_line_id)->toBe((string) $order->lines()->sole()->getKey())
+        ->and($movement->sold_item_type)->toBe('product');
 
     expect((string) IngredientStockCost::withoutTenancy()->where('ingredient_id', $product->ingredient_id)->sole()->quantity_on_hand)->toBe('17.000000');
 });
@@ -439,6 +445,91 @@ it('records an exception instead of hard-failing when there is not enough stock'
         ->and(levelOf($flour))->toBe('0.0100')
         ->and(consumeMovements($order)->count())->toBe(0)
         ->and(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('insufficient_stock');
+});
+
+it('retries a blocked line once the stock item exists, deducting and auto-resolving, and is idempotent', function (): void {
+    // A meal whose one ingredient has no stock item at confirm: an exception is
+    // recorded and nothing is deducted (the honest fallback INV1.2 guarantees).
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'default_unit_id' => (string) $this->kg->getKey(),
+    ]);
+
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->organisation->getKey()]);
+    $version = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'yield_piece_count' => 5,
+        'waste_coefficient_percent' => '0.00',
+    ]);
+    RecipeVersionLine::factory()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'ingredient_id' => $ingredient->getKey(),
+        'quantity' => '250',
+        'unit_id' => (string) $this->g->getKey(),
+    ]);
+
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $this->organisation->getKey()]);
+    $meal = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $catalogue->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'recipe_id' => $recipe->getKey(),
+        'status' => CatalogueItemStatus::Published,
+    ]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order, 0);
+
+    $exception = OrderConsumptionException::withoutTenancy()->sole();
+    expect($exception->reason_code)->toBe('no_stock_item')
+        ->and(consumeMovements($order)->count())->toBe(0);
+
+    // The kitchen fixes what was missing: a stock item for the ingredient, a
+    // moving-average cost, and stock on the shelf.
+    $stockItem = StockItem::query()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'code' => 'sku-retry',
+        'name_en' => 'Retry flour',
+        'unit_code' => $this->kg->code,
+        'unit_id' => (string) $this->kg->getKey(),
+        'ingredient_id' => (string) $ingredient->getKey(),
+    ]);
+    IngredientStockCost::query()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'unit_id' => (string) $this->kg->getKey(),
+        'quantity_on_hand' => '100',
+        'moving_average_cost_amount' => '2.000000',
+        'last_purchase_cost_amount' => '2.000000',
+        'currency_code' => 'USD',
+    ]);
+    $this->inventory->recordMovement(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        (string) $stockItem->getKey(),
+        'receipt',
+        '100',
+    );
+
+    // Retry re-runs the line: now it consumes cleanly, so the stock drops
+    // (250 g ÷ 5 = 50 g = 0.05 kg) and the exception auto-resolves.
+    $service = app(OrderConsumptionService::class);
+    $result = $service->retry($exception, (string) $this->tenant->user->getKey());
+
+    expect($result->resolved_at)->not->toBeNull()
+        ->and($result->resolved_by)->toBe((string) $this->tenant->user->getKey())
+        ->and(levelOf($stockItem))->toBe('99.9500');
+
+    $movement = consumeMovements($order)->sole();
+    expect((string) $movement->cost_amount)->toBe('0.100000')
+        ->and($movement->order_line_id)->toBe((string) $order->lines()->sole()->getKey())
+        ->and($movement->sold_item_type)->toBe('meal');
+
+    // Retrying an already-resolved exception is a no-op — no second deduction.
+    $service->retry($result->refresh(), (string) $this->tenant->user->getKey());
+    expect(consumeMovements($order)->count())->toBe(1)
+        ->and(levelOf($stockItem))->toBe('99.9500');
 });
 
 it('records an order-level exception when the order has no branch to deduct from', function (): void {

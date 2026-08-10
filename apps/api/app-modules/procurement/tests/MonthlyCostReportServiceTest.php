@@ -106,8 +106,12 @@ function reportLine(Order $order, CatalogueItem $item, int $lineTotalMinor): voi
     ]);
 }
 
-/** A consume movement valued at COGS, referencing an order, stamped in a given month. */
-function reportConsume(object $test, Order $order, ?string $cost, string $createdAt, ?string $currency = 'USD'): void
+/**
+ * A consume movement valued at COGS, referencing an order, stamped in a given
+ * month. `soldItemType` attributes it to a line of business for the COGS split
+ * (INV1.5); left null it stands for a consume predating that attribution.
+ */
+function reportConsume(object $test, Order $order, ?string $cost, string $createdAt, ?string $currency = 'USD', ?string $soldItemType = null): void
 {
     StockMovement::withoutTimestamps(fn () => StockMovement::query()->create([
         'organisation_id' => $test->orgId,
@@ -117,6 +121,7 @@ function reportConsume(object $test, Order $order, ?string $cost, string $create
         'reason' => 'consume',
         'reference_type' => 'order',
         'reference_id' => (string) $order->getKey(),
+        'sold_item_type' => $soldItemType,
         'unit_cost_amount' => $cost,
         'cost_amount' => $cost,
         'cost_currency_code' => $cost === null ? null : $currency,
@@ -246,6 +251,43 @@ it('never sums figures across currencies', function (): void {
         ->and($eur)->not->toBeNull();
     expect($usd['spend_amount'])->toBe('150.000000')
         ->and($eur['spend_amount'])->toBe('200.000000');
+});
+
+it('splits COGS into meal, product and other from the consume movements', function (): void {
+    // One confirmed August order whose consumes attribute per line of business:
+    // a meal's exploded recipe cost, a product's own moving-average cost, and one
+    // legacy consume with no attribution that must fall into `other` so the three
+    // still reconcile to the month's total COGS.
+    $order = reportOrder($this, OrderStatus::Confirmed, 50000, '2026-08-10 12:00:00');
+    reportConsume($this, $order, '40.000000', '2026-08-10 12:05:00', soldItemType: 'meal');
+    reportConsume($this, $order, '15.000000', '2026-08-10 12:05:00', soldItemType: 'product');
+    reportConsume($this, $order, '5.000000', '2026-08-10 12:05:00', soldItemType: null);
+
+    $rows = $this->service->forOrganisation($this->orgId);
+    $row = rowFor($rows, '2026-08', 'USD');
+
+    expect($row)->not->toBeNull();
+    expect($row['meal_cogs_amount'])->toBe('40.000000')
+        ->and($row['product_cogs_amount'])->toBe('15.000000')
+        ->and($row['other_cogs_amount'])->toBe('5.000000')
+        // The three buckets reconcile to the unsplit total.
+        ->and($row['cogs_amount'])->toBe('60.000000');
+});
+
+it('excludes a cancelled order from the COGS split, as from the total', function (): void {
+    $live = reportOrder($this, OrderStatus::Confirmed, 30000, '2026-08-10 12:00:00');
+    $cancelled = reportOrder($this, OrderStatus::Cancelled, 99999, '2026-08-10 12:00:00');
+
+    reportConsume($this, $live, '20.000000', '2026-08-10 12:05:00', soldItemType: 'meal');
+    reportConsume($this, $cancelled, '999.000000', '2026-08-10 12:05:00', soldItemType: 'meal');
+
+    $rows = $this->service->forOrganisation($this->orgId);
+    $row = rowFor($rows, '2026-08', 'USD');
+
+    expect($row)->not->toBeNull();
+    // Only the live order's meal COGS, never the cancelled 999.
+    expect($row['meal_cogs_amount'])->toBe('20.000000')
+        ->and($row['cogs_amount'])->toBe('20.000000');
 });
 
 it('splits revenue into meal and product from the order lines', function (): void {

@@ -160,6 +160,41 @@ function CostReport() {
         ].filter((slice) => slice.value > 0);
     }, [latest]);
 
+    // The COGS mix (INV1.5), the mirror of the revenue mix — meal-versus-product cost of goods sold,
+    // shown beside it so a manager reads where the month's cost fell as well as where its revenue did.
+    const cogsMixSlices = useMemo(() => {
+        if (latest === null) return [];
+        const meal = Number(latest.mealCogsAmount);
+        const product = Number(latest.productCogsAmount);
+        const other = Number(latest.otherCogsAmount);
+        const total = meal + product + other;
+        if (total <= 0) return [];
+        const pct = (value: number) => Math.round((value / total) * 100);
+        return [
+            {
+                key: 'meal',
+                labelKey: 'kitchen:ops.costReport.mixMeal',
+                value: pct(meal),
+                colorClass: 'bg-brand-500',
+                colorToken: '#16a34a',
+            },
+            {
+                key: 'product',
+                labelKey: 'kitchen:ops.costReport.mixProduct',
+                value: pct(product),
+                colorClass: 'bg-info',
+                colorToken: '#0ea5e9',
+            },
+            {
+                key: 'other',
+                labelKey: 'kitchen:ops.costReport.mixOther',
+                value: pct(other),
+                colorClass: 'bg-warning',
+                colorToken: '#f59e0b',
+            },
+        ].filter((slice) => slice.value > 0);
+    }, [latest]);
+
     const columns: readonly TableColumn<MonthlyCostReportRow>[] = [
         {
             key: 'month',
@@ -360,20 +395,39 @@ function CostReport() {
                         </ChartFrame>
                     </View>
 
-                    {mixSlices.length > 0 ? (
-                        <ChartFrame
-                            testID="kitchen-cost-report-chart-mix"
-                            title={t('kitchen:ops.costReport.chartRevenueMix', {
-                                month: latest?.month ?? '',
-                            })}
-                        >
-                            <DonutChart
-                                testID="kitchen-cost-report-mix-donut"
-                                slices={mixSlices}
-                                centerLabel={t('kitchen:ops.costReport.mixCenter')}
-                                sliceLabel={(slice) => t(slice.labelKey)}
-                            />
-                        </ChartFrame>
+                    {mixSlices.length > 0 || cogsMixSlices.length > 0 ? (
+                        <View className="flex-col gap-3 lg:flex-row">
+                            {mixSlices.length > 0 ? (
+                                <ChartFrame
+                                    testID="kitchen-cost-report-chart-mix"
+                                    title={t('kitchen:ops.costReport.chartRevenueMix', {
+                                        month: latest?.month ?? '',
+                                    })}
+                                >
+                                    <DonutChart
+                                        testID="kitchen-cost-report-mix-donut"
+                                        slices={mixSlices}
+                                        centerLabel={t('kitchen:ops.costReport.mixCenter')}
+                                        sliceLabel={(slice) => t(slice.labelKey)}
+                                    />
+                                </ChartFrame>
+                            ) : null}
+                            {cogsMixSlices.length > 0 ? (
+                                <ChartFrame
+                                    testID="kitchen-cost-report-chart-cogs-mix"
+                                    title={t('kitchen:ops.costReport.chartCogsMix', {
+                                        month: latest?.month ?? '',
+                                    })}
+                                >
+                                    <DonutChart
+                                        testID="kitchen-cost-report-cogs-mix-donut"
+                                        slices={cogsMixSlices}
+                                        centerLabel={t('kitchen:ops.costReport.cogsMixCenter')}
+                                        sliceLabel={(slice) => t(slice.labelKey)}
+                                    />
+                                </ChartFrame>
+                            ) : null}
+                        </View>
                     ) : null}
 
                     <View

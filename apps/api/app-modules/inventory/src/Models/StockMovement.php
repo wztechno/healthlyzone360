@@ -21,6 +21,8 @@ use Illuminate\Support\Carbon;
  * @property string $reason adjust | waste | receipt | consume | yield
  * @property string|null $reference_type
  * @property string|null $reference_id
+ * @property string|null $order_line_id the order line a consume served, so COGS attributes per line/kind (INV1.5)
+ * @property string|null $sold_item_type meal | product, denormalised from the sold catalogue item (INV1.5)
  * @property string|null $notes
  * @property numeric-string|null $unit_cost_amount moving-average cost at consume time, per the ingredient default unit (INV1.2)
  * @property numeric-string|null $cost_amount COGS for this movement: unit_cost × quantity consumed (INV1.2)

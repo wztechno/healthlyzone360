@@ -38,7 +38,8 @@
             "drafts": "Catalogue drafts",
             "publishedMeals": "Published meals",
             "deliveryZones": "Delivery zones",
-            "lowStock": "Low stock"
+            "lowStock": "Low stock",
+            "consumptionExceptions": "Consumption exceptions"
         }
     },
     "nav": {
@@ -336,7 +337,9 @@
             "chartRevenueTrend": "Revenue by month",
             "chartCogs": "COGS by month",
             "chartRevenueMix": "Revenue by line of business · {{month}}",
+            "chartCogsMix": "COGS by line of business · {{month}}",
             "mixCenter": "Revenue mix",
+            "cogsMixCenter": "COGS mix",
             "mixMeal": "Meals",
             "mixProduct": "Products",
             "mixOther": "Other",
@@ -347,6 +350,45 @@
             "columnRevenue": "Revenue",
             "columnMargin": "Margin",
             "columnMarginPercent": "Margin %"
+        },
+        "exceptions": {
+            "title": "Consumption exceptions",
+            "subtitle": "Sales a confirmed order could not deduct from stock honestly. Fix the cause and retry, or resolve one you have accepted.",
+            "emptyTitle": "Nothing to review",
+            "emptyBody": "When a confirmed order cannot deduct a line — no recipe, no stock item, not enough stock — it appears here instead of guessing a quantity.",
+            "filterStatus": "Status",
+            "filterUnresolved": "Unresolved",
+            "filterResolved": "Resolved",
+            "filterAll": "All",
+            "filterFrom": "Raised from",
+            "columnOrder": "Order",
+            "columnBranch": "Branch",
+            "columnReason": "Reason",
+            "columnRaised": "Raised",
+            "columnStatus": "Status",
+            "unknownOrder": "Order gone",
+            "unknownItem": "Item gone",
+            "resolvedBadge": "Resolved",
+            "openBadge": "Open",
+            "clearBadge": "All clear",
+            "retry": "Retry",
+            "resolve": "Resolve",
+            "nextPage": "Next page",
+            "unresolvedCount_one": "{{count}} unresolved",
+            "unresolvedCount_other": "{{count}} unresolved",
+            "reasons": {
+                "no_branch": "Order has no branch",
+                "no_catalogue_item": "Catalogue item missing",
+                "no_recipe_version": "No published recipe version",
+                "no_yield_piece_count": "Recipe has no yield count",
+                "unquantified_recipe_line": "Recipe line has no quantity",
+                "no_ingredient_link": "Product links no ingredient",
+                "no_stock_item": "No stock item at the branch",
+                "no_stock_unit": "Stock item has no unit",
+                "unit_conversion_unsupported": "Units cannot be converted",
+                "no_ingredient_cost": "No cost to value COGS",
+                "insufficient_stock": "Not enough stock"
+            }
         }
     },
     "kds": {
@@ -451,6 +493,10 @@
         "costReport": {
             "name": "Cost report",
             "description": "Monthly spend and cost of goods sold beside selling revenue — the margin, at a glance."
+        },
+        "consumptionExceptions": {
+            "name": "Consumption exceptions",
+            "description": "Sales a confirmed order could not deduct from stock honestly — review, retry, or resolve each one."
         }
     },
     "analytics": {

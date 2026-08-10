@@ -8450,6 +8450,201 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/consumption-exceptions:
+    get:
+      operationId: listConsumptionExceptions
+      tags:
+        - Kitchen inventory & production
+      summary: Review consumption exceptions
+      description: |
+        Every thing a confirmed order could not deduct honestly (INV1.2),
+        newest first, flattened with the order number, sold item and branch it
+        belongs to (INV1.5). Filterable by resolution state and by the date the
+        exception was raised, so a kitchen can walk what is still open or audit
+        what was settled.
+
+        Behind `inventory.view_organisation`: reading the queue is a plain ops
+        read; settling or retrying an item is the gated write. Cursor-paginated,
+        newest first. The presenter reads no recipe line, formulation quantity
+        or ingredient cost — only which sale on which line could not be deducted
+        and why.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: resolved
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter to resolved (`true`) or still-open (`false`) exceptions; omit for both.
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Only exceptions raised on or after this date.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Only exceptions raised on or before this date.
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of consumption exceptions, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumptionExceptionCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/consumption-exceptions/unresolved-count:
+    get:
+      operationId: countUnresolvedConsumptionExceptions
+      tags:
+        - Kitchen inventory & production
+      summary: Unresolved consumption-exception count
+      description: |
+        How many consumption exceptions are still open right now (INV1.5) —
+        `resolved_at IS NULL`, the count the hub badge and the review KPI read
+        without pulling the whole list. `X-Branch-Id` narrows it to the
+        exceptions whose order sits at one branch; absent, the whole
+        organisation is counted.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The count of unresolved consumption exceptions in scope.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumptionExceptionCountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/consumption-exceptions/{exception}/resolve:
+    post:
+      operationId: resolveConsumptionException
+      tags:
+        - Kitchen inventory & production
+      summary: Resolve a consumption exception
+      description: |
+        Marks one exception handled (INV1.5) — the kitchen has looked at it and
+        accepted the gap, or fixed it elsewhere and is closing the record.
+        Stamps `resolved_at`, who did it and an optional note.
+
+        Idempotent: resolving an already-resolved exception changes nothing and
+        returns the row as it stands. An exception from another organisation is
+        indistinguishable from one that does not exist — both are
+        `resource.not_found`.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: exception
+          in: path
+          required: true
+          description: The consumption-exception identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveConsumptionExceptionRequest'
+      responses:
+        '200':
+          description: The exception, now resolved.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumptionExceptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/consumption-exceptions/{exception}/retry:
+    post:
+      operationId: retryConsumptionException
+      tags:
+        - Kitchen inventory & production
+      summary: Retry a blocked consumption
+      description: |
+        Re-runs the consumption an exception blocks (INV1.5). The kitchen fixed
+        what was missing — published the recipe, created the stock item,
+        received stock — and asks the deduction to run again for that order line.
+
+        The deduction path a confirm uses is reused exactly and guarded per
+        (order line, stock item), so an ingredient a confirm already deducted is
+        never deducted twice. When the line now consumes cleanly the exception
+        auto-resolves; when it still cannot, its detail is refreshed and it stays
+        open. Either way the (possibly settled) row is returned.
+
+        Idempotent: retrying an already-resolved exception is a no-op. An
+        exception from another organisation is `resource.not_found`.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: exception
+          in: path
+          required: true
+          description: The consumption-exception identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The exception after the retry — resolved, or still open with a refreshed detail.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumptionExceptionEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/production/orders:
     get:
       operationId: listProductionOrders
@@ -25222,6 +25417,9 @@ components:
         - meal_revenue_amount
         - product_revenue_amount
         - other_revenue_amount
+        - meal_cogs_amount
+        - product_cogs_amount
+        - other_cogs_amount
         - has_data_quality_flag
         - exception_count
       description: One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
@@ -25269,6 +25467,15 @@ components:
         other_revenue_amount:
           type: string
           description: Revenue from other lines (subscription-plan and anything not a meal or product), major units.
+        meal_cogs_amount:
+          type: string
+          description: Cost of goods sold on meal lines — Σ exploded-recipe consume cost, major units (INV1.5).
+        product_cogs_amount:
+          type: string
+          description: Cost of goods sold on resold-product lines — Σ own moving-average consume cost, major units (INV1.5).
+        other_cogs_amount:
+          type: string
+          description: Cost of goods sold not attributed to a meal or product line (e.g. a consume predating INV1.5), major units. The three COGS splits reconcile to cogs_amount.
         has_data_quality_flag:
           type: boolean
           description: True when unresolved consumption exceptions mean this month's COGS is understated.
@@ -25293,6 +25500,159 @@ components:
                 $ref: '#/components/schemas/MonthlyCostReportRow'
         meta:
           $ref: '#/components/schemas/Meta'
+    ConsumptionExceptionReasonCode:
+      type: string
+      description: Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the consumption service raises; a client renders it as a human label rather than branching on it.
+      enum:
+        - no_branch
+        - no_catalogue_item
+        - no_recipe_version
+        - no_yield_piece_count
+        - unquantified_recipe_line
+        - no_ingredient_link
+        - no_stock_item
+        - no_stock_unit
+        - unit_conversion_unsupported
+        - no_ingredient_cost
+        - insufficient_stock
+    ConsumptionException:
+      type: object
+      required:
+        - id
+        - order_id
+        - order_number
+        - order_line_id
+        - catalogue_item_id
+        - item_name_en
+        - branch_id
+        - branch_name
+        - reason_code
+        - detail
+        - resolved
+        - resolved_at
+        - resolved_by
+        - resolution_note
+        - created_at
+      description: One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        order_number:
+          type:
+            - string
+            - 'null'
+        order_line_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        catalogue_item_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        item_name_en:
+          type:
+            - string
+            - 'null'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        branch_name:
+          type:
+            - string
+            - 'null'
+        reason_code:
+          $ref: '#/components/schemas/ConsumptionExceptionReasonCode'
+        detail:
+          type:
+            - string
+            - 'null'
+        resolved:
+          type: boolean
+          description: True when the exception has been settled — the same as resolved_at being non-null.
+        resolved_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        resolved_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        resolution_note:
+          type:
+            - string
+            - 'null'
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    ConsumptionExceptionCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - exceptions
+          properties:
+            exceptions:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConsumptionException'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+    ConsumptionExceptionEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - exception
+          properties:
+            exception:
+              $ref: '#/components/schemas/ConsumptionException'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ConsumptionExceptionCountEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - count
+          properties:
+            count:
+              type: integer
+              minimum: 0
+              description: How many consumption exceptions are unresolved in scope.
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ResolveConsumptionExceptionRequest:
+      type: object
+      description: Optionally records why an exception is being marked handled.
+      properties:
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+          description: A free-text reason the reviewer typed, or null.
+      additionalProperties: false
     ProductionOrder:
       type: object
       required:

@@ -54,7 +54,8 @@
             "drafts": "مسودات الكتالوج",
             "publishedMeals": "وجبات منشورة",
             "deliveryZones": "مناطق التوصيل",
-            "lowStock": "مخزون منخفض"
+            "lowStock": "مخزون منخفض",
+            "consumptionExceptions": "استثناءات الاستهلاك"
         }
     },
     "nav": {
@@ -360,7 +361,9 @@
             "chartRevenueTrend": "الإيراد حسب الشهر",
             "chartCogs": "تكلفة البضاعة حسب الشهر",
             "chartRevenueMix": "الإيراد حسب خط الأعمال · {{month}}",
+            "chartCogsMix": "تكلفة البضاعة حسب خط الأعمال · {{month}}",
             "mixCenter": "توزيع الإيراد",
+            "cogsMixCenter": "توزيع التكلفة",
             "mixMeal": "الوجبات",
             "mixProduct": "المنتجات",
             "mixOther": "أخرى",
@@ -371,6 +374,49 @@
             "columnRevenue": "الإيراد",
             "columnMargin": "الهامش",
             "columnMarginPercent": "نسبة الهامش"
+        },
+        "exceptions": {
+            "title": "استثناءات الاستهلاك",
+            "subtitle": "مبيعات لم يتمكّن طلب مؤكَّد من خصمها من المخزون بأمانة. عالِج السبب وأعد المحاولة، أو احسم ما قبِلته منها.",
+            "emptyTitle": "لا شيء للمراجعة",
+            "emptyBody": "عندما يتعذّر على طلب مؤكَّد خصم بند — لا وصفة، لا صنف مخزون، لا مخزون كافٍ — يظهر هنا بدلاً من تخمين كمية.",
+            "filterStatus": "الحالة",
+            "filterUnresolved": "غير محلولة",
+            "filterResolved": "محلولة",
+            "filterAll": "الكل",
+            "filterFrom": "أُثيرت من",
+            "columnOrder": "الطلب",
+            "columnBranch": "الفرع",
+            "columnReason": "السبب",
+            "columnRaised": "أُثيرت",
+            "columnStatus": "الحالة",
+            "unknownOrder": "الطلب غير موجود",
+            "unknownItem": "الصنف غير موجود",
+            "resolvedBadge": "محلولة",
+            "openBadge": "مفتوحة",
+            "clearBadge": "لا شيء معلّق",
+            "retry": "إعادة المحاولة",
+            "resolve": "حسم",
+            "nextPage": "الصفحة التالية",
+            "unresolvedCount_zero": "لا استثناءات غير محلولة",
+            "unresolvedCount_one": "استثناء واحد غير محلول",
+            "unresolvedCount_two": "استثناءان غير محلولين",
+            "unresolvedCount_few": "{{count}} استثناءات غير محلولة",
+            "unresolvedCount_many": "{{count}} استثناءً غير محلول",
+            "unresolvedCount_other": "{{count}} استثناء غير محلول",
+            "reasons": {
+                "no_branch": "الطلب بلا فرع",
+                "no_catalogue_item": "صنف الكتالوج غير موجود",
+                "no_recipe_version": "لا نسخة وصفة منشورة",
+                "no_yield_piece_count": "الوصفة بلا عدد حصص",
+                "unquantified_recipe_line": "بند الوصفة بلا كمية",
+                "no_ingredient_link": "المنتج لا يرتبط بمكوّن",
+                "no_stock_item": "لا صنف مخزون في الفرع",
+                "no_stock_unit": "صنف المخزون بلا وحدة",
+                "unit_conversion_unsupported": "تعذّر تحويل الوحدات",
+                "no_ingredient_cost": "لا تكلفة لتقييم البضاعة المُباعة",
+                "insufficient_stock": "مخزون غير كافٍ"
+            }
         }
     },
     "kds": {
@@ -475,6 +521,10 @@
         "costReport": {
             "name": "تقرير التكاليف",
             "description": "الإنفاق الشهري وتكلفة البضاعة المُباعة إلى جانب إيراد المبيعات — الهامش بلمحة واحدة."
+        },
+        "consumptionExceptions": {
+            "name": "استثناءات الاستهلاك",
+            "description": "مبيعات لم يتمكّن طلب مؤكَّد من خصمها من المخزون بأمانة — راجِع كلّاً منها وأعد المحاولة أو احسمها."
         }
     },
     "analytics": {

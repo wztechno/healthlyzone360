@@ -3,11 +3,13 @@ import type {
     GoodsReceiptId,
     IngredientId,
     IsoDateTime,
+    OrderId,
     ProductionOrderId,
     QualityCheckId,
     RecipeVersionId,
     StockItemId,
     SupplierId,
+    UserId,
 } from '@healthy360/domain-types';
 
 import type { CursorPage, CursorPageRequest } from './pagination.ts';
@@ -284,6 +286,16 @@ export interface MonthlyCostReportRow {
     readonly mealRevenueAmount: string;
     readonly productRevenueAmount: string;
     readonly otherRevenueAmount: string;
+    /**
+     * The COGS split by line of business (INV1.5), the mirror of the revenue split. Unlike revenue,
+     * COGS *is* attributable per line — a consume movement now records which order line and which kind
+     * of thing it served — so a product line's COGS is its own moving-average cost and a meal line's
+     * is its exploded recipe cost. `other` collects any consume not attributed to a meal or product
+     * line (e.g. one predating INV1.5); the three reconcile to {@link cogsAmount}.
+     */
+    readonly mealCogsAmount: string;
+    readonly productCogsAmount: string;
+    readonly otherCogsAmount: string;
     /** `true` when unresolved consumption exceptions mean this month's COGS is understated. */
     readonly hasDataQualityFlag: boolean;
     readonly exceptionCount: number;
@@ -293,6 +305,74 @@ export interface MonthlyCostReportRow {
 export interface MonthlyCostReportFilter {
     readonly from?: string | undefined;
     readonly to?: string | undefined;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Consumption exceptions (INV1.5)
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the backend
+ * raises; the client renders it as a human label (i18n) rather than branching on it.
+ */
+export const CONSUMPTION_EXCEPTION_REASON_CODES = [
+    'no_branch',
+    'no_catalogue_item',
+    'no_recipe_version',
+    'no_yield_piece_count',
+    'unquantified_recipe_line',
+    'no_ingredient_link',
+    'no_stock_item',
+    'no_stock_unit',
+    'unit_conversion_unsupported',
+    'no_ingredient_cost',
+    'insufficient_stock',
+] as const;
+export type ConsumptionExceptionReasonCode = (typeof CONSUMPTION_EXCEPTION_REASON_CODES)[number];
+
+/**
+ * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state
+ * (INV1.5), joined to the human-readable names of the order, sold item and branch it points at.
+ *
+ * The references are soft — the record outlives whatever happens to the rows it names — so
+ * `orderNumber`, `itemNameEn` and `branchName` may be `null` if the thing they name has since gone.
+ * `resolved` is exactly `resolvedAt !== null`, carried as its own field so a screen need not
+ * reconstruct it. Nothing confidential passes through: no recipe line, formulation quantity,
+ * ingredient cost or supplier term — only which sale on which line could not be deducted and why.
+ */
+export interface ConsumptionException {
+    readonly id: string;
+    readonly orderId: OrderId | null;
+    readonly orderNumber: string | null;
+    /** The order line the exception belongs to, or `null` for an order-level problem (e.g. no branch). */
+    readonly orderLineId: string | null;
+    readonly catalogueItemId: string | null;
+    readonly itemNameEn: string | null;
+    readonly branchId: BranchId | null;
+    readonly branchName: string | null;
+    readonly reasonCode: ConsumptionExceptionReasonCode;
+    readonly detail: string | null;
+    /** `true` once settled — the same as {@link resolvedAt} being non-null. */
+    readonly resolved: boolean;
+    readonly resolvedAt: IsoDateTime | null;
+    readonly resolvedBy: UserId | null;
+    readonly resolutionNote: string | null;
+    readonly createdAt: IsoDateTime | null;
+}
+
+/** Resolution-state and date filters over the consumption-exception list, plus the cursor. */
+export interface ConsumptionExceptionFilter extends CursorPageRequest {
+    /** `true` for resolved only, `false` for still-open only; omit for both. */
+    readonly resolved?: boolean | undefined;
+    /** Inclusive lower bound on when the exception was raised, as `YYYY-MM-DD`. */
+    readonly from?: string | undefined;
+    /** Inclusive upper bound on when the exception was raised, as `YYYY-MM-DD`. */
+    readonly to?: string | undefined;
+}
+
+/** Optionally records why an exception is being marked handled. */
+export interface ResolveConsumptionExceptionRequest {
+    readonly note?: string | null | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -397,6 +477,30 @@ export interface KitchenOpsRepository {
      * kitchen's trading months are few, so the bounded range is answered whole.
      */
     listCostReport(filter?: MonthlyCostReportFilter): Promise<readonly MonthlyCostReportRow[]>;
+
+    /**
+     * The consumption-exception review list (INV1.5) — every thing a confirmed order could not deduct
+     * honestly, filtered by resolution state and date, cursor-paginated. Needs `inventory.view_organisation`.
+     */
+    listConsumptionExceptions(
+        filter?: ConsumptionExceptionFilter,
+    ): Promise<CursorPage<ConsumptionException>>;
+    /**
+     * How many exceptions are unresolved right now, scoped to the active branch context (`X-Branch-Id`)
+     * or the whole organisation when none is set — the count the hub badge and review KPI read.
+     */
+    countUnresolvedConsumptionExceptions(): Promise<number>;
+    /** Marks one exception handled, returning the settled row. Idempotent. Needs `inventory.manage_organisation`. */
+    resolveConsumptionException(
+        exceptionId: string,
+        request?: ResolveConsumptionExceptionRequest,
+    ): Promise<ConsumptionException>;
+    /**
+     * Re-runs the consumption an exception blocks, returning the row after — resolved if the line now
+     * consumes cleanly, still open with a refreshed detail otherwise. Idempotent; never double-deducts.
+     * Needs `inventory.manage_organisation`.
+     */
+    retryConsumptionException(exceptionId: string): Promise<ConsumptionException>;
 
     /** The most recent fifty production orders, newest first. */
     listProductionOrders(): Promise<readonly ProductionOrder[]>;

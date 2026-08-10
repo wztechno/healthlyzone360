@@ -109,6 +109,9 @@ final readonly class MonthlyCostReportService
      *     meal_revenue_amount: numeric-string,
      *     product_revenue_amount: numeric-string,
      *     other_revenue_amount: numeric-string,
+     *     meal_cogs_amount: numeric-string,
+     *     product_cogs_amount: numeric-string,
+     *     other_cogs_amount: numeric-string,
      *     has_data_quality_flag: bool,
      *     exception_count: int
      * }>
@@ -119,6 +122,7 @@ final readonly class MonthlyCostReportService
 
         $spend = $this->spendByMonthCurrency($organisationId, $from, $to);
         $cogs = $this->cogsByMonthCurrency($organisationId, $from, $to);
+        $cogsSplit = $this->cogsSplitByMonthCurrency($organisationId, $from, $to);
         $waste = $this->wasteByMonthCurrency($organisationId, $from, $to);
         $wasteQuantity = $this->wasteQuantityByMonth($organisationId, $from, $to);
         $revenue = $this->revenueByMonthCurrency($organisationId, $from, $to);
@@ -151,6 +155,15 @@ final readonly class MonthlyCostReportService
             $productRevenue = $this->minorToMajor($split['product'] ?? '0', $currency, $minorUnits);
             $otherRevenue = $this->minorToMajor($split['other'] ?? '0', $currency, $minorUnits);
 
+            // COGS split by line of business, from the consume movements' own
+            // `sold_item_type` (INV1.5) — already major-unit decimals, so no
+            // minor-to-major scaling. The three buckets sum to `cogs_amount`; a
+            // pre-INV1.5 movement with no attribution falls into `other`.
+            $cogsBuckets = $cogsSplit[$month][$currency] ?? [];
+            $mealCogs = $cogsBuckets['meal'] ?? '0';
+            $productCogs = $cogsBuckets['product'] ?? '0';
+            $otherCogs = $cogsBuckets['other'] ?? '0';
+
             $margin = bcsub($revenueAmount, $cogsAmount, self::SCALE);
             $marginPercent = bccomp($revenueAmount, '0', self::SCALE) > 0
                 ? bcmul(bcdiv($margin, $revenueAmount, self::SCALE + self::PERCENT_SCALE), '100', self::PERCENT_SCALE)
@@ -171,6 +184,9 @@ final readonly class MonthlyCostReportService
                 'meal_revenue_amount' => $mealRevenue,
                 'product_revenue_amount' => $productRevenue,
                 'other_revenue_amount' => $otherRevenue,
+                'meal_cogs_amount' => $mealCogs,
+                'product_cogs_amount' => $productCogs,
+                'other_cogs_amount' => $otherCogs,
                 'has_data_quality_flag' => $exceptionCount > 0,
                 'exception_count' => $exceptionCount,
             ];
@@ -237,6 +253,60 @@ final readonly class MonthlyCostReportService
         $this->boundMonths($query, "to_char(stock_movements.created_at, 'YYYY-MM')", $from, $to);
 
         return $this->pivot($query->get());
+    }
+
+    /**
+     * COGS split by line of business (meal / product / other) per month and
+     * currency (INV1.5): Σ consume-movement cost grouped by the movement's own
+     * `sold_item_type`, cancelled orders excluded by the same join to the order.
+     *
+     * This is the split INV1.4 could not do. A consume movement now records which
+     * order line — and which kind of thing — it served (`sold_item_type`,
+     * denormalised at consume time), so COGS attributes to a line of business
+     * exactly, with no join to `catalogue_items` and no guess at shared
+     * ingredients: a product line's COGS is its own moving-average cost, a meal
+     * line's is its exploded recipe cost, and the two never blur. A consume
+     * predating INV1.5 (or otherwise unattributed) buckets to `other`, so the
+     * three always reconcile to `cogsByMonthCurrency`'s total. Major units, bcmath.
+     *
+     * @return array<string, array<string, array{meal?: numeric-string, product?: numeric-string, other?: numeric-string}>>
+     */
+    private function cogsSplitByMonthCurrency(string $organisationId, ?string $from, ?string $to): array
+    {
+        $query = StockMovement::query()
+            ->where('stock_movements.organisation_id', $organisationId)
+            ->where('stock_movements.reason', 'consume')
+            ->where('stock_movements.reference_type', 'order')
+            ->whereNotNull('stock_movements.cost_amount')
+            ->whereNotNull('stock_movements.cost_currency_code')
+            ->join('orders', 'orders.id', '=', DB::raw('stock_movements.reference_id::uuid'))
+            ->where('orders.organisation_id', $organisationId)
+            ->where('orders.status', '!=', 'cancelled')
+            ->selectRaw("to_char(stock_movements.created_at, 'YYYY-MM') as month")
+            ->selectRaw('stock_movements.cost_currency_code as currency')
+            ->selectRaw('stock_movements.sold_item_type as sold_item_type')
+            ->selectRaw('SUM(stock_movements.cost_amount) as total')
+            ->groupBy('month', 'currency', 'sold_item_type');
+
+        $this->boundMonths($query, "to_char(stock_movements.created_at, 'YYYY-MM')", $from, $to);
+
+        $out = [];
+        foreach ($query->get() as $row) {
+            $month = (string) $row->getAttribute('month');
+            $currency = (string) $row->getAttribute('currency');
+            $bucket = match ((string) $row->getAttribute('sold_item_type')) {
+                'meal' => 'meal',
+                'product' => 'product',
+                default => 'other',
+            };
+            $out[$month][$currency][$bucket] = bcadd(
+                $out[$month][$currency][$bucket] ?? '0',
+                $this->numeric((string) $row->getAttribute('total')),
+                self::SCALE,
+            );
+        }
+
+        return $out;
     }
 
     /**

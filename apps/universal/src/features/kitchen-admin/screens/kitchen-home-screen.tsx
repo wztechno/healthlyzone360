@@ -37,7 +37,10 @@ import {
     useZoneSummaryQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { PublishedFamilySummary } from '../../../data/kitchen-admin-hooks.ts';
-import { useLowStockCountQuery } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    useConsumptionExceptionCountQuery,
+    useLowStockCountQuery,
+} from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
@@ -343,6 +346,36 @@ function AnalyticsCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
+function ConsumptionExceptionsCard({ family }: { readonly family: EntityFamily }) {
+    const { t } = useTranslation();
+    const count = useConsumptionExceptionCountQuery();
+    const testID = `kitchen-family-${family.key}`;
+    const value = count.data ?? null;
+
+    return (
+        <FamilyCardShell family={family} testID={testID}>
+            {count.isPending ? (
+                <Skeleton testID={`${testID}-loading`} heightClassName="h-6" widthClassName="w-1/2" />
+            ) : (
+                <Inline space="xs" wrap testID={`${testID}-counts`}>
+                    <Badge
+                        testID={`${testID}-total`}
+                        tone={value === null || value === 0 ? 'success' : 'warning'}
+                        icon={value === null || value === 0 ? 'check' : 'warning'}
+                        label={
+                            value === null
+                                ? t('kitchen:hub.countUnavailable')
+                                : value === 0
+                                  ? t('kitchen:ops.exceptions.clearBadge')
+                                  : t('kitchen:ops.exceptions.unresolvedCount', { count: value })
+                        }
+                    />
+                </Inline>
+            )}
+        </FamilyCardShell>
+    );
+}
+
 function AllergenClassesCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const classes = useAllergenClassesQuery();
@@ -391,6 +424,9 @@ function renderFamilyCard(
     },
 ): ReactNode {
     if (family.key === 'review') return <ReviewCard key={family.key} family={family} />;
+    if (family.key === 'consumption-exceptions') {
+        return <ConsumptionExceptionsCard key={family.key} family={family} />;
+    }
     if (family.key === 'analytics') {
         return <AnalyticsCard key={family.key} family={family} />;
     }
@@ -503,6 +539,9 @@ export function KitchenHomeScreen() {
     const ingredientSummary = useIngredientSummaryQuery(permitted.has('ingredients'));
     const reviewSources = useReviewQueueQuery(permitted.has('review'));
     const lowStock = useLowStockCountQuery(permitted.has('stock'));
+    const exceptionsCount = useConsumptionExceptionCountQuery(
+        permitted.has('consumption-exceptions'),
+    );
 
     const reviewQueue = useMemo(() => {
         const data = reviewSources.data;
@@ -562,6 +601,17 @@ export function KitchenHomeScreen() {
         ? lowStock.isPending
             ? null
             : (lowStock.data ?? null)
+        : null;
+
+    // Unresolved consumption-exception count for the KPI strip (INV1.5): an
+    // operational fact — how many confirmed sales left the stock figures
+    // incomplete — computed from records people created, so it carries the green
+    // operational tone the low-stock tile does. Only shown when the manager can
+    // see the review surface at all.
+    const exceptionCount = permitted.has('consumption-exceptions')
+        ? exceptionsCount.isPending
+            ? null
+            : (exceptionsCount.data ?? null)
         : null;
 
     return (
@@ -630,6 +680,21 @@ export function KitchenHomeScreen() {
                                                 lowStockCount !== null && lowStockCount > 0
                                                     ? t('kitchen:ops.stock.lowStockCount', {
                                                           count: lowStockCount,
+                                                      })
+                                                    : undefined
+                                            }
+                                        />
+                                    ) : null}
+                                    {permitted.has('consumption-exceptions') ? (
+                                        <KpiTile
+                                            testID="kitchen-kpi-consumption-exceptions"
+                                            label={t('kitchen:hub.kpi.consumptionExceptions')}
+                                            value={exceptionCount}
+                                            pending={exceptionsCount.isPending}
+                                            hint={
+                                                exceptionCount !== null && exceptionCount > 0
+                                                    ? t('kitchen:ops.exceptions.unresolvedCount', {
+                                                          count: exceptionCount,
                                                       })
                                                     : undefined
                                             }
