@@ -15,6 +15,7 @@ use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Services\InventoryService;
+use Healthy360\Inventory\Services\OrderConsumptionService;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Models\Order;
