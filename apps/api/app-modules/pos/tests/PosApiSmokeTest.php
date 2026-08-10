@@ -30,6 +30,13 @@ it('records an online pos sale', function (): void {
     ]);
 
     $shift = PosShift::query()->create([
+        // Taken from the register rather than from the world, because that is where the column's
+        // value comes from: a shift exists at a register and a register belongs to exactly one
+        // organisation. `pos_shifts` gained `organisation_id` after this test was written — it was
+        // the one POS table without it, which let a sale resolve a shift from another tenant — and
+        // `BelongsToOrganisation` will not auto-fill it here, since a fixture writing directly
+        // through the model has no request to carry a tenant context.
+        'organisation_id' => $register->organisation_id,
         'pos_register_id' => $register->getKey(),
         'opened_by' => $this->world->tenant->user->getKey(),
         'opened_at' => now(),

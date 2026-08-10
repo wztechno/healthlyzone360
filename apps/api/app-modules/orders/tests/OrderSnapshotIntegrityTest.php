@@ -103,7 +103,19 @@ it('refuses a day the branch has already closed ordering for', function (): void
     // the cut-off on the requested day closes ordering for *that* day. Kept as
     // a smoke because the rule is a decision rather than a restatement, and
     // because it is the only exercise of the scheduling port.
-    $this->travelTo(CarbonImmutable::parse('2026-08-05T13:00:00Z')); // 16:00 in Beirut
+    /*
+     * Today at 16:00 in Beirut, not a date written into the source.
+     *
+     * An absolute day made this test depend on the wall clock: `CheckoutWorld`
+     * builds its price `effective_from` today, so travelling to a fixed date
+     * put the whole world in the future the moment real time passed it, and
+     * the basket was refused `unpriced` long before the cut-off could be
+     * reached. Anchoring on `now()` keeps the one relationship the test is
+     * about — the clock is past the cut-off, the requested day is today — and
+     * drops the one it never wanted.
+     */
+    $today = CarbonImmutable::now()->setTimezone('Asia/Beirut')->startOfDay();
+    $this->travelTo($today->setTime(16, 0));
 
     CheckoutWorld::cutOff($this->world->branch, '15:00:00');
 
@@ -119,7 +131,7 @@ it('refuses a day the branch has already closed ordering for', function (): void
         $this->placement->place(
             $cart->refresh(),
             $this->world->customer->address,
-            requestedDate: CarbonImmutable::parse('2026-08-05'),
+            requestedDate: $today,
         );
 
         $this->fail('The placement should have been refused.');
@@ -132,13 +144,15 @@ it('refuses a day the branch has already closed ordering for', function (): void
     }
 
     // Tomorrow has not reached its cut-off, whatever the clock says now.
+    $tomorrow = $today->addDay();
+
     $order = $this->placement->place(
         $cart->refresh(),
         $this->world->customer->address,
-        requestedDate: CarbonImmutable::parse('2026-08-06'),
+        requestedDate: $tomorrow,
     )->order;
 
-    expect($order->requested_delivery_date->toDateString())->toBe('2026-08-06');
+    expect($order->requested_delivery_date->toDateString())->toBe($tomorrow->toDateString());
 });
 
 it('answers a repeated idempotency key with the original order rather than a second one', function (): void {
