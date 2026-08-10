@@ -21,7 +21,12 @@ use Illuminate\Support\Facades\Cache;
 beforeEach(function (): void {
     $this->seed();
 
-    $this->withHeaders([...firstPartyHeaders(), 'X-Client-Platform' => 'ios']);
+    // First-party session headers, and *only* those. `X-Client-Platform` marks
+    // the bearer path — its presence makes `EnsureStatefulRequest` refuse a
+    // session login with 400 — so the session cases below must not carry it.
+    // The one native case sets it on its own `/auth/token` request, where it
+    // belongs and where its capture is asserted.
+    $this->withHeaders(firstPartyHeaders());
 
     $this->owner = User::query()->where('email', 'owner@cedar.test')->sole();
 });
@@ -43,7 +48,10 @@ it('records a successful sign-in with its correlation identifier', function (): 
 
     expect($log->actor_user_id)->toBe((string) $this->owner->getKey())
         ->and($log->correlation_id)->toBe($response->headers->get('X-Correlation-Id'))
-        ->and($log->metadata)->toMatchArray(['guard' => 'web', 'client_platform' => 'ios'])
+        // A session login is the first-party web guard, and it carries no
+        // `X-Client-Platform` — that header is the bearer path's — so the
+        // recorded platform is null. The native path asserts its own 'ios' below.
+        ->and($log->metadata)->toMatchArray(['guard' => 'web', 'client_platform' => null])
         ->and($log->metadata)->not->toHaveKey('password');
 });
 
@@ -75,15 +83,19 @@ it('records a lockout, and a native sign-in once the lockout has passed', functi
     Cache::flush();
     AuditLog::query()->delete();
 
+    // The native client identifies its platform with the `X-Client-Platform`
+    // header — the very header the session path forbids — and the audit records
+    // it. This is the two-path design in one assertion: `sanctum` guard, 'ios'
+    // platform.
     $this->postJson('/api/v1/auth/token', [
         'email' => 'owner@cedar.test',
         'password' => 'password',
         'device_name' => 'Nadia iPhone',
         'platform' => 'ios',
-    ])->assertCreated();
+    ], ['X-Client-Platform' => 'ios'])->assertCreated();
 
     expect(AuditLog::query()->where('action', 'auth.login_succeeded')->value('metadata'))
-        ->toMatchArray(['guard' => 'sanctum']);
+        ->toMatchArray(['guard' => 'sanctum', 'client_platform' => 'ios']);
 });
 
 it('redacts anything secret a caller manages to pass into audit metadata', function (): void {

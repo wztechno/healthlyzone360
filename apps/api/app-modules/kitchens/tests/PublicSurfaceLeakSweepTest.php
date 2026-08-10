@@ -147,11 +147,23 @@ function anonymousGetPaths(): array
 }
 
 /**
- * Every object key in a decoded body, at every depth.
+ * Every object key in a decoded body, at every depth — except the subtrees
+ * named in `$exemptSubtrees`, whose keys are walked *past* rather than *into*.
  *
+ * The one exemption this sweep grants is the marketplace meal's public
+ * nutrition shape. Meal composition/nutrition — the `nutrition` object and the
+ * `serving` summary mirrored from it — is INTENTIONALLY public on the meal
+ * endpoint by owner decision (2026-08-10): a consumer surface states a dish's
+ * serving size and per-serving amounts, and that shape legitimately carries
+ * `quantity` (serving quantity) and `notes` (calculation notes). The allowance
+ * is scoped to those two subtrees on that surface alone; `quantity` and `notes`
+ * stay denylisted at every other depth and on every other surface, so a recipe
+ * line's quantity, a supplier note, or a data-quality note is still caught.
+ *
+ * @param  list<string>  $exemptSubtrees
  * @return list<string>
  */
-function keysWithin(mixed $body): array
+function keysWithin(mixed $body, array $exemptSubtrees = []): array
 {
     if (! is_array($body)) {
         return [];
@@ -162,12 +174,29 @@ function keysWithin(mixed $body): array
     foreach ($body as $key => $value) {
         if (is_string($key)) {
             $keys[] = $key;
+
+            // The key of an exempt subtree is itself recorded (it is innocuous),
+            // but its descendants are not walked: the carve-out is the subtree,
+            // not a global pardon for the keys inside it.
+            if (in_array($key, $exemptSubtrees, true)) {
+                continue;
+            }
         }
 
-        $keys = [...$keys, ...keysWithin($value)];
+        $keys = [...$keys, ...keysWithin($value, $exemptSubtrees)];
     }
 
     return $keys;
+}
+
+/**
+ * The subtrees a marketplace meal is permitted to carry public nutrition under.
+ *
+ * @return list<string>
+ */
+function mealNutritionSubtrees(): array
+{
+    return ['nutrition', 'serving'];
 }
 
 /**
@@ -192,7 +221,13 @@ function sweptResponse(object $test, string $path): array
     // refusal envelope is swept like every other body here — the `details` of a
     // refusal being a perfectly good place to leak a row somebody loaded before
     // deciding to refuse.
-    expect($response->getStatusCode())->toBeIn([200, 401, 404], "{$path} answered an unexpected status.");
+    //
+    // 403 joins it for the same reason from the signature-gated reads. The
+    // anonymous `GET /auth/verify-email/{id}/{hash}` is protected by `signed`
+    // (ValidateSignature), so probing it with an unsigned id/hash rightly
+    // answers 403 and leaks nothing — the refusal is correct and its envelope is
+    // swept like every other body here.
+    expect($response->getStatusCode())->toBeIn([200, 401, 403, 404], "{$path} answered an unexpected status.");
 
     return ['content' => $response->content(), 'json' => $response->json()];
 }
@@ -271,7 +306,7 @@ it('never carries a denylisted key on any anonymous endpoint', function (): void
     $denylist = publicKeyDenylist();
 
     foreach (anonymousGetPaths() as $path) {
-        $keys = keysWithin(sweptResponse($this, $path)['json']);
+        $keys = keysWithin(sweptResponse($this, $path)['json'], mealNutritionSubtrees());
         $offending = array_values(array_intersect($keys, $denylist));
 
         expect($offending)->toBe([], "{$path} carried denylisted keys: ".implode(', ', $offending));
@@ -286,7 +321,7 @@ it('sweeps the single-resource endpoints as well as the collections', function (
 
         expect($swept['content'])->not->toContain(LEAK_LITERAL)
             ->and($swept['content'])->not->toContain((string) LEAK_COST_MINOR)
-            ->and(array_values(array_intersect(keysWithin($swept['json']), $denylist)))->toBe([]);
+            ->and(array_values(array_intersect(keysWithin($swept['json'], mealNutritionSubtrees()), $denylist)))->toBe([]);
     }
 });
 

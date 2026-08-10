@@ -103,11 +103,19 @@ it('walks a company out: notice, checks, waiver, sign-off, revocation and archiv
 
     $outcomes = collect($checked->json('data.offboarding.settlement.checks'))->keyBy('check');
 
-    // The honesty the whole registry exists for reaches the wire: a check that
-    // could not run says so, with a reason, rather than showing a green tick.
+    // The honesty the whole registry exists for reaches the wire in both
+    // directions. A check that a module now answers says what it found: the
+    // payments module binds a real invoicing lookup, so `outstanding_invoices`
+    // runs and — nothing being uncaptured for this company — says `clear`, with
+    // an explanatory `detail` rather than the `reason` a gap carries.
     expect($outcomes)->toHaveCount(4)
-        ->and($outcomes['outstanding_invoices']['outcome'])->toBe('not_applicable')
-        ->and($outcomes['outstanding_invoices']['reason'])->toBeString()
+        ->and($outcomes['outstanding_invoices']['outcome'])->toBe('clear')
+        ->and($outcomes['outstanding_invoices']['detail'])->toBeString()
+        // And a check no module answers yet still says so, with a machine reason
+        // rather than showing a green tick: `credit_balance` is `not_applicable`
+        // because payments tracks intents, not drawn credit against limits.
+        ->and($outcomes['credit_balance']['outcome'])->toBe('not_applicable')
+        ->and($outcomes['credit_balance']['reason'])->toBeString()
         // And the one the integration wave made real answers for itself.
         ->and($outcomes['open_orders']['outcome'])->toBe('clear');
 

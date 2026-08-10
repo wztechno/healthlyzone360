@@ -175,6 +175,12 @@ D-036 to D-053 are the §4 decisions of the Order-Kitchen master plan v2, frozen
 | D-085 | 2026-08-05 | Default runtime is **API mode** (`EXPO_PUBLIC_DATA_MODE=api`); mock remains test-only. Checkout uses saved addresses + server preview + kitchen delivery windows; COD placement is live | Real kitchen commerce plan Phases A–C; supersedes the D-084 "screen keeps prototype path" interim once the saved-address picker landed |
 | D-086 | 2026-08-05 | Corporate programmes are a real entity under a signed `B2bAgreement`; quotations follow `draft → submitted → quoted → accepted\|declined\|expired` (7-day). Partner commitments and quotation PDF stay deferred (B8/B9) | Closes OQ-022/OQ-023; locked B2B defaults B1–B12 |
 
+## Redesign hardening — owner decisions, 2026-08-10
+
+| ID | Date | Decision | Detail / reference |
+|---|---|---|---|
+| D-093 | 2026-08-10 | **Meal composition/nutrition is public by owner decision.** The marketplace meal endpoint's own `nutrition` object — serving size and per-serving amounts, e.g. "140g chicken, 50g freekeh" — is intentionally public, including the `quantity` and `notes` keys it carries | Refines the §4.8 public-surface denylist (D-043). `MarketplaceMealPresenter` is correct and unchanged; the anonymous-surface leak sweep (`PublicSurfaceLeakSweepTest`) is carved out to permit `quantity`/`notes` **only** within the meal's `nutrition`/`serving` subtrees, while the denylist stays strict everywhere else — recipe-line quantities, unit/line costs, waste, supplier identities and internal recipe ids remain forbidden on every surface. No production/contract change |
+
 ## Pending — decisions awaiting the seam they describe
 
 | ID | Date | Decision | Detail / reference |

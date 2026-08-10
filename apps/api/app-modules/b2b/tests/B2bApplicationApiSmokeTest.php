@@ -327,6 +327,16 @@ it('walks an application from a blank draft to a provisioned tenant, and answers
 
     // 7. Provision — 200 rather than 201, because several records were created
     //    and no one of them is *the* thing this endpoint made.
+    //
+    // The demo seed already stands up a corporate customer of its own, so "no
+    // second tenant" is a claim about the delta this flow produces, not about
+    // the table's absolute count. Baseline it here — approval created nothing
+    // (asserted above) — and the whole provision/replay/reuse sequence must move
+    // it by exactly one.
+    $corporateCustomersBefore = Organisation::query()
+        ->where('organisation_type_id', $this->corporateCustomer->getKey())
+        ->count();
+
     $key = 'provision-'.Str::uuid()->toString();
 
     $provisioned = b2bSmokeEnvelope(
@@ -379,7 +389,7 @@ it('walks an application from a blank draft to a provisioned tenant, and answers
         ->and($replay->json('data.customer_account.id'))->toBe($accountId);
 
     // The claim the whole mechanism exists to make: no second tenant.
-    expect(Organisation::query()->where('organisation_type_id', $this->corporateCustomer->getKey())->count())->toBe(1)
+    expect(Organisation::query()->where('organisation_type_id', $this->corporateCustomer->getKey())->count())->toBe($corporateCustomersBefore + 1)
         ->and(CustomerAccount::query()->where('organisation_id', $organisationId)->count())->toBe(1);
 
     // 9. The same key against a *different* application. `fingerprint()` hashes
@@ -397,8 +407,8 @@ it('walks an application from a blank draft to a provisioned tenant, and answers
 
     b2bSmokeError($reused, 'request.idempotency_key_reused');
 
-    // Refused before the controller ran: still one corporate customer.
-    expect(Organisation::query()->where('organisation_type_id', $this->corporateCustomer->getKey())->count())->toBe(1)
+    // Refused before the controller ran: still just the one this flow made.
+    expect(Organisation::query()->where('organisation_type_id', $this->corporateCustomer->getKey())->count())->toBe($corporateCustomersBefore + 1)
         ->and($other->fresh()?->getAttribute('provisioned_organisation_id'))->toBeNull();
 });
 
@@ -431,6 +441,12 @@ it('refuses to provision without an idempotency key, because a tenant cannot be 
 
     $this->actingAs($this->reviewer);
 
+    // The demo seed stands up a corporate customer of its own, so "no tenant was
+    // made" is that this count does not move, not that it is zero.
+    $corporateCustomersBefore = Organisation::query()
+        ->where('organisation_type_id', $this->corporateCustomer->getKey())
+        ->count();
+
     // The `idempotency` middleware only enforces semantics when a key is
     // present, so an endpoint that must never run twice by accident has to
     // demand one itself. This is the assertion that the controller does.
@@ -443,7 +459,7 @@ it('refuses to provision without an idempotency key, because a tenant cannot be 
     b2bSmokeError($response, 'request.invalid');
 
     expect($response->json('error.details.header'))->toBe('Idempotency-Key')
-        ->and(Organisation::query()->where('organisation_type_id', $this->corporateCustomer->getKey())->exists())->toBeFalse()
+        ->and(Organisation::query()->where('organisation_type_id', $this->corporateCustomer->getKey())->count())->toBe($corporateCustomersBefore)
         ->and($application->fresh()?->getAttribute('provisioned_organisation_id'))->toBeNull();
 });
 
