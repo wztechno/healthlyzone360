@@ -17,6 +17,7 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Services\RecipeVersionReadiness;
 use Healthy360\Recipes\Services\RecipeVersionService;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 use Throwable;
 
 /**
@@ -124,11 +125,30 @@ final class PublishReadyCatalogueCommand extends Command
     }
 
     /**
-     * Every current draft version of every recipe in the kitchen.
+     * The one unambiguous ready draft of every recipe in the kitchen.
      *
-     * "Current draft" is the highest-numbered draft of each recipe. A recipe
-     * with two drafts is a formulation somebody is still working on, and
-     * publishing the older one would promote work that has been superseded.
+     * The command's job is to publish things that are *ready*, not to resurrect
+     * stale duplicates — and a draft alone does not say which it is (R-033).
+     * Two situations are ambiguous and this command must not guess at either:
+     *
+     * - **A recipe that already has a published version but still carries a
+     *   draft.** The draft may be a genuine pending revision, or it may be a
+     *   leftover duplicate that has already been superseded — the exact trap
+     *   that bit the Caesar Sauce, whose leftover v1 draft was auto-published
+     *   over the correct v2 and made the live product under-declare sulphites.
+     *   Auto-publishing it would risk demoting the correct incumbent, so it is
+     *   skipped and reported as `has_published_version_and_pending_draft`.
+     * - **A never-published recipe with more than one draft.** Picking the
+     *   highest-numbered one is a guess, and guessing is what caused R-033, so
+     *   it is skipped and reported as `ambiguous_multiple_drafts`.
+     *
+     * Auto-publish proceeds only for a recipe with no currently-published
+     * version and exactly one draft reaching readiness — an unambiguous, never
+     * -published recipe going live for the first time. Both skips are surfaced
+     * in the refusals table for an operator to resolve deliberately (retire the
+     * duplicate, or promote the revision), and the run stays idempotent: once
+     * the correct version is published and no draft remains, later runs have
+     * nothing to pick.
      */
     private function publishRecipeVersions(
         string $organisationId,
@@ -144,15 +164,35 @@ final class PublishReadyCatalogueCommand extends Command
         $this->section(sprintf('Recipe versions (%d recipe(s))', $recipes->count()));
 
         foreach ($recipes as $recipe) {
-            $version = RecipeVersion::withoutTenancy()
+            $drafts = RecipeVersion::withoutTenancy()
                 ->where('recipe_id', $recipe->getKey())
                 ->where('status', RecipeVersionStatus::Draft->value)
                 ->orderByDesc('version_number')
-                ->first();
+                ->get();
 
-            if (! $version instanceof RecipeVersion) {
+            if ($drafts->isEmpty()) {
                 continue;
             }
+
+            $hasPublishedVersion = RecipeVersion::withoutTenancy()
+                ->where('recipe_id', $recipe->getKey())
+                ->where('status', RecipeVersionStatus::Published->value)
+                ->exists();
+
+            if ($hasPublishedVersion) {
+                $this->refuseAmbiguousRecipe($recipe, $drafts, 'has_published_version_and_pending_draft');
+
+                continue;
+            }
+
+            if ($drafts->count() > 1) {
+                $this->refuseAmbiguousRecipe($recipe, $drafts, 'ambiguous_multiple_drafts');
+
+                continue;
+            }
+
+            /** @var RecipeVersion $version */
+            $version = $drafts->first();
 
             $reasons = $readiness->reasons($version);
 
@@ -185,6 +225,27 @@ final class PublishReadyCatalogueCommand extends Command
         }
 
         $this->line(sprintf('  %d ready · %d refused', $this->published['recipe_version'], count($this->refusals)));
+    }
+
+    /**
+     * Record a recipe whose draft(s) this command refuses to auto-publish
+     * because it cannot tell a stale duplicate from a genuine revision (R-033).
+     * Surfaced in the same refusals table as a readiness refusal, so it is one
+     * an operator resolves by hand rather than a silent skip.
+     *
+     * @param  Collection<int, RecipeVersion>  $drafts
+     */
+    private function refuseAmbiguousRecipe(Recipe $recipe, Collection $drafts, string $reason): void
+    {
+        $draftLabels = $drafts
+            ->map(static fn (RecipeVersion $draft): string => 'v'.$draft->version_number)
+            ->implode(', ');
+
+        $this->refusals[] = [
+            'type' => 'recipe_version',
+            'name' => sprintf('%s (drafts: %s)', $recipe->name_en, $draftLabels),
+            'reasons' => $reason,
+        ];
     }
 
     /**
