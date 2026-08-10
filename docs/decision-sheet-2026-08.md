@@ -9,12 +9,11 @@ Status legend: **BLOCKING** = a built feature is waiting on this to be usable fo
 **GATE** = a whole phase cannot start without it · **CONFIRM** = a default is live; say
 "confirmed" or change it.
 
-> **One pending owner action (2026-08-07).** The workbook re-import is done and the
-> marketplace serves the kitchen again — but the imported organisation has no members
-> (I-002), which blocks the last two applied answers (A3 publish, B1's kitchen-verified
-> flip for this org). To unblock: sign in as the platform operator → `/platform-admin` →
-> Healthy360 Kitchen → invite an owner (any email you control) → accept via the mailed
-> link. Everything else in sections A and B is done.
+> **Sections A and B are complete (2026-08-10).** The workbook re-import is done, the
+> marketplace serves the kitchen, an operator membership was provisioned (I-002 resolved),
+> and the last two writes landed: the Caesar Sauce publishes your 2026-08-07 formula, and
+> burghul + pita carry the kitchen-verified gluten confirmation. Nothing in A or B is
+> outstanding.
 
 ## A. Commercial data (kitchen can supply, no meetings needed)
 
@@ -29,7 +28,7 @@ Status legend: **BLOCKING** = a built feature is waiting on this to be usable fo
 
 - **A1 — ANSWERED: the approximate plan prices are confirmed as real.** No approximate or provisional marker survives anywhere in stored pricing, so the answer is recorded rather than applied; assumption A-013 and risk R-031 are retired *conditionally* — see I-001, because the plan rows the 2026-08-02 rule wrote are not present in the environment DEC2 was pointed at (D-087).
 - **A2 — ANSWERED: you will supply the missing product prices later.** No data change; the affected rows stay unorderable by design. Not blocking anything (D-088).
-- **A3 — ANSWERED; the version is identified; the write is still blocked.** You supplied the current formula on 2026-08-07 and it is held outside the repository as agreed. After the re-import, **version 2 of the Caesar Sauce recipe is your current sheet** — all 8 ingredients and all 8 unit prices match it exactly, and version 1 is a different formulation. Three quantity cells and the yield drifted in the source, and in each case the sheet's own line total already agrees with your figure, which is what makes the identification certain. **What stops the correction is not the recipe** — it is that the imported kitchen has no members, so nobody holds the see-costs permission the line editor requires (I-002). OQ-041 stays open on that alone (D-089).
+- **A3 — APPLIED (2026-08-10): your 2026-08-07 Caesar formula is live.** You supplied the current formula, held outside the repository as agreed. Version 2 was identified as your sheet (all 8 ingredients and unit prices matched; three quantity cells and the yield had drifted in the source), corrected to your figures and published. A subsequent bulk-publish run then re-published the leftover duplicate draft and demoted the correct version — so the recovery published your formula as a fresh version (v3, `019feb0e-f6ef`, cloned from the corrected one), and the two superseded drafts are retired with **no draft remaining**. The published Caesar product now declares egg, milk, mustard and **sulphites** — the correct set (the wrong duplicate had been under-declaring sulphites). OQ-041 closed (D-089; the bulk-publish hazard that bit here is recorded as a new risk).
 - **A4 — ANSWERED: the imported kitchen-owned staples stay kitchen-owned.** No promotion, no curation task. Registers-only; the 58 imported ingredients are now present and untouched (D-090).
 
 ## B. Food safety (needs the kitchen's word, not yours alone)
@@ -41,7 +40,7 @@ Status legend: **BLOCKING** = a built feature is waiting on this to be usable fo
 
 **ANSWERED 2026-08-07** (applied by DEC2):
 
-- **B1 — ANSWERED: the kitchen confirms gluten on burghul and pita.** Applied in the Verdant demo world, where both carry a `contains gluten` kitchen overlay at `verified`. In the re-imported GreenLife kitchen, the determinations command put gluten on both at the **platform baseline** and moved them out of quarantine, but raising them to a kitchen-*confirmed* `verified` needs that kitchen's own overlay and is **not done** — same blocker as A3 (I-002). Every other flagged mapping stays `requires_supplier_confirmation` (D-091).
+- **B1 — APPLIED (2026-08-10): the kitchen confirms gluten on burghul and pita.** Both now carry a `contains gluten` kitchen overlay at `verified` in the GreenLife kitchen (and the same stands in the Verdant demo world from the earlier pass). The platform baseline for these two is unchanged at `requires_supplier_confirmation` — correct, because the kitchen overlay *is* the confirmation for this kitchen. Every other flagged mapping stays `requires_supplier_confirmation` (D-091).
 - **B2 — ANSWERED: Lebanon now, Middle East expansion possible; EU-14 stays the enforced master and US Big-9 stays informational.** No data change — market applicability is already platform metadata on each allergen code and `market_scope` needs nothing. This closes **OQ-037**, the per-market allergen-subset question. The row above cites OQ-038, which is a different question (importer source custody) and is untouched (D-092).
 
 ## C. Payments — the PAY1 gate (biggest blocker; needs a working session)
