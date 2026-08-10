@@ -57,7 +57,7 @@ class PreviewRecipeRollupRequest extends FormRequest
             'recipe_id' => isset($validated['recipe_id']) ? (string) $validated['recipe_id'] : null,
             'servings' => $validated['servings'],
             'waste_percent' => $validated['waste_percent'] ?? null,
-            'lines' => $validated['lines'] ?? [],
+            'lines' => $validated['lines'],
         ];
     }
 }

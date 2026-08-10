@@ -93,6 +93,7 @@ final readonly class StorefrontQuoting
      * @return array{
      *     quote: PlanQuote|null,
      *     reasons: list<array<string, mixed>>,
+     *     sales_channel_id: string|null,
      *     duration: PlanDuration|null,
      *     available_weekdays: list<int>,
      *     allows_free_selection: bool,

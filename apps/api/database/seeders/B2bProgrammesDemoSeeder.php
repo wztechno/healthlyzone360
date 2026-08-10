@@ -258,7 +258,7 @@ class B2bProgrammesDemoSeeder extends Seeder
 
         if ($existingAgreement === null) {
             $contact = ContactPoint::query()->where('user_id', $signatory->getKey())->firstOrFail();
-            $challenge = OtpChallengeFactory::new()->forContact($contact)->create([
+            $challenge = OtpChallengeFactory::new()->forContact($contact)->createOne([
                 'purpose' => OtpPurpose::B2bSignatory,
                 'status' => OtpChallengeStatus::Verified,
                 'verified_at' => now()->subMonths(6),

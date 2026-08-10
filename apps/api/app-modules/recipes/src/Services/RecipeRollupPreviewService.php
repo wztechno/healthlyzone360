@@ -68,7 +68,7 @@ final class RecipeRollupPreviewService
                 continue;
             }
 
-            if (isset($line['unit_id']) && is_string($line['unit_id']) && trim($line['unit_id']) !== '') {
+            if (isset($line['unit_id']) && trim($line['unit_id']) !== '') {
                 $this->assertUnitExists(trim($line['unit_id']), "lines.{$index}.unit_id");
             }
 
@@ -165,7 +165,11 @@ final class RecipeRollupPreviewService
             $unitCost = $line['unit_cost_amount'] ?? null;
             $currency = isset($line['cost_currency_code']) ? mb_strtoupper(trim((string) $line['cost_currency_code'])) : null;
 
-            if ($quantity === null || $unitCost === null || $currency === null) {
+            if (
+                $quantity === null || ! is_numeric($quantity)
+                || $unitCost === null || ! is_numeric($unitCost)
+                || $currency === null
+            ) {
                 if ($unitCost !== null || $currency !== null) {
                     $hasUncostedLine = true;
                 }
