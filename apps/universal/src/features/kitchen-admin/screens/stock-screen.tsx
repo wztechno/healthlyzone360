@@ -34,7 +34,7 @@ import {
     useStockLevelsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity } from '../format.ts';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
@@ -64,7 +64,7 @@ export function StockScreen() {
     return (
         <Gate
             area="kitchen"
-            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
+            requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-stock"
         >
             <Stock />
@@ -82,7 +82,7 @@ function Stock() {
     const formatter = useFormatter();
     const toast = useToast();
     const access = useAccessState();
-    const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const branchId = access.branch?.id ?? null;
 
     const items = useStockItemsQuery();

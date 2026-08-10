@@ -348,8 +348,12 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         descriptionKey: 'kitchen:families.stock.description',
         icon: 'menu',
         href: '/kitchen/stock',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        // INV1.0 gave the ops surface its own domain, but the stock, procurement, production and QC
+        // families kept the `catalogue.*` piggyback the routes shed. Re-pointed here so the hub tile
+        // and nav gate match the screen's own `<Gate>` and the backend route: an operator counts and
+        // moves stock under `inventory.*`, not because they may edit the menu.
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
     },
     {
         key: 'procurement',
@@ -359,8 +363,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         descriptionKey: 'kitchen:families.procurement.description',
         icon: 'branch',
         href: '/kitchen/procurement',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
     },
     {
         key: 'purchases',
@@ -388,8 +392,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         descriptionKey: 'kitchen:families.production.description',
         icon: 'calendar',
         href: '/kitchen/production',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
     },
     {
         key: 'qc',
@@ -399,8 +403,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         descriptionKey: 'kitchen:families.qc.description',
         icon: 'search',
         href: '/kitchen/qc',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
     },
 ];
 

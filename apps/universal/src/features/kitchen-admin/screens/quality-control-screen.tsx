@@ -28,7 +28,7 @@ import {
     useQualityChecksQuery,
     useReleaseQualityCheckMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     qualityCheckRowTestId,
     qualityCheckStatusKey,
@@ -49,7 +49,7 @@ export function QualityControlScreen() {
     return (
         <Gate
             area="kitchen"
-            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
+            requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-qc"
         >
             <QualityControl />
@@ -60,7 +60,7 @@ export function QualityControlScreen() {
 function QualityControl() {
     const { t } = useTranslation();
     const toast = useToast();
-    const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
 
     const checks = useQualityChecksQuery();
     const checksFailure = toFailure(checks.error);
