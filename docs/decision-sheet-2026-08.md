@@ -66,7 +66,7 @@ Status legend: **BLOCKING** = a built feature is waiting on this to be usable fo
 
 | # | Decision | Why |
 |---|---|---|
-| E1 | **Authoritative nutrient source**: USDA FoodData Central, McCance, a commercial DB, lab analysis — and who maintains the per-ingredient mapping | GATE for everything nutrition: facts are honestly null today; planner/nutrition/virtual-dietitian screens stay mock until this exists. The platform will not fabricate numbers |
+| E1 | **Authoritative nutrient source**: USDA FoodData Central, McCance, a commercial DB, lab analysis — and who maintains the per-ingredient mapping | GATE for everything nutrition: facts are honestly null today. *Updated by D-087 (2026-08-11): the mock is deleted, so the planner/nutrition/virtual-dietitian screens are now **hidden** (`availability.ts`) rather than mock-backed until this exists.* The platform will not fabricate numbers |
 
 ## F. Clinical — the CL1 gate
 
@@ -101,7 +101,7 @@ Status legend: **BLOCKING** = a built feature is waiting on this to be usable fo
 | I1 | Social login (Google/Apple) — build or keep deferred? | Deferred; schema reserved |
 | I2 | French locale? | en + ar only |
 | I3 | Public retail-product browsing (beyond meals/plans)? | Not built; products visible to kitchen + B2B only |
-| I4 | Dietitian directory — fund a real backend or remove the surface? | Stays mock with honest labelling |
+| I4 | Dietitian directory — fund a real backend or remove the surface? | *Updated by D-087 (2026-08-11): the mock is deleted, so the surface is **hidden** (`availability.ts`) until a real backend is funded. The 5 portraits and 13 diet heroes stay bundled for that day* |
 | I5 | **HARD1 timing** — the shelved full test/verification pass (all deferred suites, e2e, acceptance, visual). Strongly recommended before anything public | Shelved until you say run it |
 
 ---
