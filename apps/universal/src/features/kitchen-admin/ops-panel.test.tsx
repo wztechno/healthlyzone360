@@ -1,13 +1,11 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
-import { createMockRepositories } from '@healthy360/api-client/mock';
-import { MOCK_SCENARIOS } from '@healthy360/api-client/mock';
-import { render, screen, waitFor } from '@testing-library/react-native';
+import type { StockItem, StockLevel } from '@healthy360/api-client';
+import { screen, waitFor } from '@testing-library/react-native';
 
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { page } from '../../testing/stub-repositories.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { TEST_BRANCH_ID } from '../../testing/session-fixtures.ts';
 import { StockScreen } from './screens/stock-screen.tsx';
-
-const KITCHEN_MANAGER = MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail;
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -18,41 +16,52 @@ jest.mock('expo-router', () => ({
     Link: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-describe('ops panels', () => {
-    it('renders the stock board with live counts from the fixture world', async () => {
-        const tokenStore = createMemoryTokenStore();
-        const repositories = createMockRepositories({
-            scenario: 'multi-org-dietitian',
-            latencyMs: 1,
-            tokenStore,
-        });
-        await repositories.auth.login({ email: KITCHEN_MANAGER, password: 'password' });
-        const me = await repositories.session.me();
-        const membership = me.memberships.find(
-            (candidate) =>
-                candidate.organisation.slug === 'verdant-kitchen' && candidate.status === 'active',
-        );
-        if (membership === undefined) throw new Error('missing membership');
-        await repositories.context.setContext({ organisationId: membership.organisation.id });
+function stockItem(ordinal: number, overrides: Partial<StockItem> = {}): StockItem {
+    return {
+        id: `stock-item-${String(ordinal)}` as StockItem['id'],
+        code: `ITEM-${String(ordinal)}`,
+        nameEn: `Stock item ${String(ordinal)}`,
+        unitCode: 'kg',
+        ingredientId: null,
+        ...overrides,
+    };
+}
 
-        await render(
-            <AppProviders
-                initialMetrics={TEST_METRICS}
-                repositories={repositories}
-                tokenStore={tokenStore}
-                queryClient={createTestQueryClient()}
-                initialOnline
-            >
-                <StockScreen />
-            </AppProviders>,
-        );
+function stockLevel(ordinal: number, overrides: Partial<StockLevel> = {}): StockLevel {
+    return {
+        id: `stock-level-${String(ordinal)}`,
+        branchId: TEST_BRANCH_ID,
+        stockItemId: `stock-item-${String(ordinal)}` as StockLevel['stockItemId'],
+        quantity: '12.000',
+        reorderThreshold: null,
+        parLevel: null,
+        isLow: false,
+        itemCode: `ITEM-${String(ordinal)}`,
+        itemNameEn: `Stock item ${String(ordinal)}`,
+        ingredientId: null,
+        ...overrides,
+    };
+}
+
+describe('ops panels', () => {
+    it('renders the stock board with live counts from the declared world', async () => {
+        await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [1, 2, 3, 4].map((n) => stockItem(n)),
+                    listStockLevels: async () => [1, 2, 3].map((n) => stockLevel(n)),
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-stock-panel')).toBeTruthy();
         });
 
-        // The fixture world (`KitchenOpsMockStore`) seeds four stock items, three levels and no
-        // out-of-stock rows — these are live counts of what the screen fetched, not fabricated KPIs.
+        // Live counts of what the screen fetched, not fabricated KPIs: four items, three levels,
+        // and no level at zero quantity.
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-stock-panel-metric-items-value')).toHaveTextContent(
                 '4',
@@ -69,38 +78,17 @@ describe('ops panels', () => {
         expect(screen.getByTestId('kitchen-stock-levels-table')).toBeTruthy();
     });
 
-    it('shows an honest empty state when a filter or fixture leaves no stock items', async () => {
-        const tokenStore = createMemoryTokenStore();
-        const repositories = createMockRepositories({
-            scenario: 'multi-org-dietitian',
-            latencyMs: 1,
-            tokenStore,
+    it('shows an honest empty state when the world has no stock items', async () => {
+        await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [],
+                    listStockLevels: async () => [],
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
         });
-        await repositories.auth.login({ email: KITCHEN_MANAGER, password: 'password' });
-        const me = await repositories.session.me();
-        const membership = me.memberships.find(
-            (candidate) =>
-                candidate.organisation.slug === 'verdant-kitchen' && candidate.status === 'active',
-        );
-        if (membership === undefined) throw new Error('missing membership');
-        await repositories.context.setContext({ organisationId: membership.organisation.id });
-
-        // Empties the fixture world's stock items without going through the repository, exactly as
-        // `prototypeStore` is used elsewhere: a test may reach into the mutable store to assert a
-        // screen's *empty* rendering, which no repository call can otherwise produce on demand.
-        repositories.kitchenOpsStore.stockItems = () => [];
-
-        await render(
-            <AppProviders
-                initialMetrics={TEST_METRICS}
-                repositories={repositories}
-                tokenStore={tokenStore}
-                queryClient={createTestQueryClient()}
-                initialOnline
-            >
-                <StockScreen />
-            </AppProviders>,
-        );
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-stock-items-empty')).toBeTruthy();
