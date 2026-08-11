@@ -1,28 +1,39 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
 import { apiFailure, throwFailure } from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
+    AllergenClass,
+    BranchOperating,
     IngredientAdmin,
     MealAdmin,
     PriceListAdmin,
     ProductAdmin,
+    RecipeAdminFilter,
     RecipeAdminSummary,
 } from '@healthy360/api-client/contracts';
-import { MOCK_SCENARIOS, createMockRepositories } from '@healthy360/api-client/mock';
-import type { MockRepositories } from '@healthy360/api-client/mock';
 import {
     AllergenCode,
     IngredientId,
+    KitchenBranchId,
     MealId,
     PriceListId,
     ProductId,
     RecipeId,
 } from '@healthy360/domain-types';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import {
+    ORGANISATION_OWNER_PERMISSIONS,
+    TEST_BRANCH_ID,
+    kitchenManagerSession,
+    testActiveContext,
+    testMeResponse,
+    testMembership,
+    testOrganisation,
+} from '../../testing/session-fixtures.ts';
+import { page } from '../../testing/stub-repositories.ts';
+import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { ENTITY_FAMILIES } from './entity-registry.ts';
 import {
     REVIEWABLE_FAMILY_KEYS,
@@ -41,16 +52,20 @@ import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 import { ReviewScreen } from './screens/review-screen.tsx';
 
 /**
- * The publication review queue (K1.8), against the real mock repositories.
+ * The publication review queue (K1.8), against a world this file declares.
  *
- * Nothing here stubs a hook. Five things this file exists to prove, in rough order of how badly it
- * would matter if they were wrong:
+ * Nothing here stubs a hook: the screens run through `Repositories`, and every record the queue is
+ * built from is authored below. That matters more on this screen than on most — the queue's whole
+ * job is to *count* and *classify*, so a fixture world would have made every count assertion a
+ * statement about somebody else's seed rather than about the code under test.
+ *
+ * Five things this file exists to prove, in rough order of how badly it would matter if they were
+ * wrong:
  *
  * 1. **A quarantined record is visible without anybody having to go looking for it.** The whole
  *    slice exists because a food-safety quarantine that only shows up if you happen to open the
- *    right family is a quarantine that gets published around. The seeded contradiction sample — the
- *    synthetic stand-in for the source data's burghul/pita rows — has to appear on this screen from
- *    a cold start, with the reason stated.
+ *    right family is a quarantine that gets published around. A `review_required` ingredient has to
+ *    appear on this screen from a cold start, with the reason stated.
  * 2. **The queue aggregates rather than picking a family.** Six families answer at once, and a row
  *    that carries two reasons carries both rather than the first one found. The recipe half is the
  *    sharp case: `statuses` and `staleOnly` are separate server filters with no union, so the same
@@ -63,9 +78,6 @@ import { ReviewScreen } from './screens/review-screen.tsx';
  * 5. **The permission boundary holds**, and the hub card and the screen agree — they read one cache
  *    entry precisely so they cannot disagree.
  */
-
-const KITCHEN_MANAGER = MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail;
-const CLINIC_OWNER = MOCK_SCENARIOS['single-org-owner'].primaryEmail;
 
 jest.mock('expo-router', () => {
     const push = jest.fn();
@@ -92,55 +104,6 @@ beforeEach(() => {
     routerMock.__replace.mockClear();
 });
 
-interface Harness {
-    readonly repositories: MockRepositories;
-}
-
-/** Signs in, applies the organisation context, lets a test arrange the world, then renders. */
-async function renderKitchen(
-    node: ReactNode,
-    options: {
-        readonly email?: string;
-        readonly organisationSlug?: string;
-        readonly latencyMs?: number;
-        readonly prepare?: (repositories: MockRepositories) => Promise<void> | void;
-    } = {},
-): Promise<Harness> {
-    const email = options.email ?? KITCHEN_MANAGER;
-    const slug = options.organisationSlug ?? 'verdant-kitchen';
-
-    const tokenStore = createMemoryTokenStore();
-    const repositories = createMockRepositories({
-        scenario: email === CLINIC_OWNER ? 'single-org-owner' : 'multi-org-dietitian',
-        latencyMs: options.latencyMs ?? 1,
-        tokenStore,
-    });
-    await repositories.auth.login({ email, password: 'password' });
-
-    const me = await repositories.session.me();
-    const membership = me.memberships.find(
-        (candidate) => candidate.organisation.slug === slug && candidate.status === 'active',
-    );
-    if (membership === undefined) throw new Error(`No active membership in "${slug}".`);
-    await repositories.context.setContext({ organisationId: membership.organisation.id });
-
-    await options.prepare?.(repositories);
-
-    await render(
-        <AppProviders
-            initialMetrics={TEST_METRICS}
-            repositories={repositories}
-            tokenStore={tokenStore}
-            queryClient={createTestQueryClient()}
-            initialOnline
-        >
-            {node}
-        </AppProviders>,
-    );
-
-    return { repositories };
-}
-
 /** Waits for an element, with the same contention headroom the other kitchen suites document. */
 function untilVisible(testID: string) {
     return waitFor(
@@ -150,23 +113,6 @@ function untilVisible(testID: string) {
         { timeout: 20_000 },
     );
 }
-
-const scratch = createMockRepositories({ scenario: 'multi-org-dietitian', latencyMs: 0 });
-
-/** The seeded contradiction sample this whole slice exists to surface. */
-let quarantinedIngredient: IngredientAdmin;
-
-beforeAll(async () => {
-    const page = await scratch.kitchenAdmin.listIngredients({
-        limit: 100,
-        statuses: ['review_required'],
-    });
-    const first = page.items[0];
-    if (first === undefined) {
-        throw new Error('The seed carries no quarantined ingredient for the review queue.');
-    }
-    quarantinedIngredient = first;
-});
 
 /* ------------------------------------------------------------------------------------------------
  * Pure builders
@@ -454,29 +400,169 @@ describe('the review model', () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
+ * The world the screens read
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The one record this slice exists to surface: quarantined, and last touched by the import rather
+ * than by a person — which is what the row's provenance line has to say.
+ */
+const QUARANTINED_INGREDIENT = ingredient({
+    id: IngredientId.unsafe('01935f6d-0000-7000-8000-00000000a0c1'),
+    name: { en: 'Burghul', ar: 'برغل' },
+    meta: meta({ status: 'review_required', updatedByName: null }),
+});
+
+/**
+ * What a test authors into the six families. Anything omitted is a family with nothing to report.
+ *
+ * Plans have no member here because no case in this file turns on one — the plan listing always
+ * answers empty, which is a family with nothing to report and is stated as such below.
+ */
+interface AuthoredWorld {
+    readonly ingredients?: readonly IngredientAdmin[];
+    readonly quarantinedRecipes?: readonly RecipeAdminSummary[];
+    readonly staleRecipes?: readonly RecipeAdminSummary[];
+    readonly products?: readonly ProductAdmin[];
+    readonly meals?: readonly MealAdmin[];
+    readonly priceLists?: readonly PriceListAdmin[];
+}
+
+/**
+ * The seven listings `useReviewQueueQuery` folds into one request.
+ *
+ * `listRecipes` is the one that has to read its filter: the hook asks it twice — once for
+ * `statuses: ['review_required']` and once for `staleOnly` — and answering both with the same rows
+ * would manufacture the very double-counting the merge in `review-queue.ts` exists to prevent.
+ */
+function reviewListings(world: AuthoredWorld) {
+    return {
+        listIngredients: async () => page(world.ingredients ?? []),
+        listRecipes: async (filter?: RecipeAdminFilter) =>
+            page(
+                filter?.staleOnly === true
+                    ? (world.staleRecipes ?? [])
+                    : (world.quarantinedRecipes ?? []),
+            ),
+        listProducts: async () => page(world.products ?? []),
+        listMeals: async () => page(world.meals ?? []),
+        listPlans: async () => page([]),
+        listPriceLists: async () => page(world.priceLists ?? []),
+    };
+}
+
+function reviewRepositories(world: AuthoredWorld = {}): RepositoryOverrides {
+    return { kitchenAdmin: reviewListings(world) };
+}
+
+const ALLERGEN_CLASSES: readonly AllergenClass[] = ['gluten', 'milk', 'peanuts'].map((code) => ({
+    code: AllergenCode.parse(code),
+    name: { en: code, ar: `${code} بالعربية` },
+    description: { en: `The ${code} class.`, ar: `فئة ${code}.` },
+    markets: ['EU'],
+    declarationThreshold: null,
+    regulatoryReference: 'EU 1169/2011 Annex II',
+    severeByDefault: false,
+    isActive: true,
+}));
+
+function branchOperating(): BranchOperating {
+    return {
+        branchId: KitchenBranchId.unsafe(String(TEST_BRANCH_ID)),
+        meta: {
+            lockVersion: 1,
+            updatedAt: '2026-08-01T09:00:00.000Z',
+            updatedByName: 'Rana Haddad',
+        },
+        timeZone: 'Asia/Dubai',
+        days: [1, 2, 3, 4, 5, 6, 7].map((weekday) =>
+            weekday <= 5
+                ? { weekday, opensAt: '08:00', closesAt: '20:00', orderCutOffAt: '16:00' }
+                : { weekday, opensAt: null, closesAt: null, orderCutOffAt: null },
+        ),
+    };
+}
+
+/**
+ * The hub reads the same review query the screen does *plus* one summary per family, because the
+ * kitchen manager holds every workspace permission and so sees every card. Declaring all of them is
+ * the point: a listing this file forgot would reject with `StubNotConfiguredError` naming it rather
+ * than quietly rendering "Count unavailable" over the hole.
+ */
+function hubRepositories(world: AuthoredWorld = {}): RepositoryOverrides {
+    const ingredients = world.ingredients ?? [];
+
+    return {
+        kitchenAdmin: {
+            ...reviewListings(world),
+            // The hub's ingredient card counts one status at a time, so this listing — unlike the
+            // review query's — has to honour the filter it is sent.
+            listIngredients: async (filter) => {
+                const statuses = filter?.statuses;
+                return page(
+                    statuses === undefined
+                        ? ingredients
+                        : ingredients.filter((row) => statuses.includes(row.meta.status)),
+                );
+            },
+            listZones: async () => page([]),
+            listAllergenClasses: async () => ALLERGEN_CLASSES,
+            getBranchOperating: async () => branchOperating(),
+        },
+        kitchenOps: {
+            countLowStockLevels: async () => 0,
+            countUnresolvedConsumptionExceptions: async () => 0,
+        },
+    };
+}
+
+/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
+function organisationOwnerSession() {
+    return testMeResponse({
+        memberships: [
+            testMembership({
+                organisation: testOrganisation({
+                    name: 'Cedar Clinic',
+                    slug: 'cedar-clinic',
+                    type: 'clinic',
+                }),
+                roles: [{ id: 'test-0000-role-0002', key: 'organisation_owner', name: 'Owner' }],
+            }),
+        ],
+        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+    });
+}
+
+/* ------------------------------------------------------------------------------------------------
  * The screen
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the review queue screen', () => {
-    it('shows the seeded quarantine from a cold start, with the reason stated', async () => {
-        await renderKitchen(<ReviewScreen />);
+    it('shows a quarantined record from a cold start, with the reason stated', async () => {
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
 
         await untilVisible('kitchen-review-screen');
         await untilVisible('kitchen-review-section-ingredients');
 
-        const row = reviewRowTestId('ingredients', String(quarantinedIngredient.id));
+        const row = reviewRowTestId('ingredients', String(QUARANTINED_INGREDIENT.id));
         await untilVisible(row);
 
         expect(screen.getByTestId(`${row}-reason-quarantined`)).toBeTruthy();
         expect(screen.getByTestId(`${row}-status`)).toHaveTextContent(/Awaiting review/);
-        expect(screen.getByTestId(`${row}-name`)).toHaveTextContent(quarantinedIngredient.name.en);
+        expect(screen.getByTestId(`${row}-name`)).toHaveTextContent(QUARANTINED_INGREDIENT.name.en);
         // Provenance: this row came out of the import, and the queue says so rather than
         // attributing it to whoever last signed in.
         expect(screen.getByTestId(`${row}-updated`)).toHaveTextContent(/import/);
     });
 
     it('leads with a summary that counts what is blocked separately from what is unfinished', async () => {
-        await renderKitchen(<ReviewScreen />);
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
 
         await untilVisible('kitchen-review-summary');
         expect(screen.getByTestId('kitchen-review-summary')).toHaveTextContent(/needs? review/i);
@@ -486,7 +572,10 @@ describe('the review queue screen', () => {
     });
 
     it('states what it checked and what it did not, so the scope is never inferred', async () => {
-        await renderKitchen(<ReviewScreen />);
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
 
         await untilVisible('kitchen-review-scope');
         expect(screen.getByTestId('kitchen-review-scope')).toHaveTextContent(
@@ -500,9 +589,12 @@ describe('the review queue screen', () => {
     });
 
     it('opens the record’s own editor at the record’s own address', async () => {
-        await renderKitchen(<ReviewScreen />);
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
 
-        const row = reviewRowTestId('ingredients', String(quarantinedIngredient.id));
+        const row = reviewRowTestId('ingredients', String(QUARANTINED_INGREDIENT.id));
         await untilVisible(`${row}-open`);
 
         await act(async () => {
@@ -510,52 +602,44 @@ describe('the review queue screen', () => {
         });
 
         expect(routerMock.__push).toHaveBeenCalledWith(
-            `/kitchen/ingredients/${String(quarantinedIngredient.id)}`,
+            `/kitchen/ingredients/${String(QUARANTINED_INGREDIENT.id)}`,
         );
     });
 
     /**
-     * Aggregation across families, arranged rather than assumed: the seed quarantines an ingredient,
-     * and this test additionally quarantines a *recipe* by dropping a determination a published
-     * version derives from — the store's one real safety event. Both sections must then render.
+     * Aggregation across families, authored rather than assumed: two quarantined ingredients and a
+     * quarantined recipe, so both sections must render and the ingredient heading must count two.
      */
     it('aggregates several families at once, each under its own heading', async () => {
-        await renderKitchen(<ReviewScreen />, {
-            prepare: async (repositories) => {
-                const page = await repositories.kitchenAdmin.listIngredients({ limit: 100 });
-                const mapped = page.items.find((row) => row.allergens.length > 0);
-                if (mapped === undefined) throw new Error('No mapped ingredient in the seed.');
-                await repositories.kitchenAdmin.setIngredientAllergens(mapped.id, {
-                    lockVersion: mapped.meta.lockVersion,
-                    mappings: [],
-                });
-            },
+        const second = ingredient({
+            id: IngredientId.unsafe('01935f6d-0000-7000-8000-00000000a0c2'),
+            name: { en: 'Pita', ar: 'خبز' },
+            meta: meta({ status: 'review_required' }),
+        });
+
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({
+                ingredients: [QUARANTINED_INGREDIENT, second],
+                quarantinedRecipes: [recipe({ meta: meta({ status: 'review_required' }) })],
+            }),
         });
 
         await untilVisible('kitchen-review-section-ingredients');
         await untilVisible('kitchen-review-section-recipes');
 
-        // The ingredient the arrangement quarantined joins the seeded one under one heading.
+        // Both authored ingredients land under one heading, and the heading says how many.
         expect(screen.getByTestId('kitchen-review-section-ingredients-count')).toHaveTextContent(
-            /\d+ records?/,
+            /2 records/,
         );
     });
 
     it('celebrates an all-clear queue only alongside what it measured', async () => {
-        await renderKitchen(<ReviewScreen />, {
-            prepare: async (repositories) => {
-                // Archive the one seeded quarantine, which is the only thing in this world's queue
-                // to start with. Retired is not `review_required`, so the queue empties.
-                const page = await repositories.kitchenAdmin.listIngredients({
-                    limit: 100,
-                    statuses: ['review_required'],
-                });
-                for (const row of page.items) {
-                    await repositories.kitchenAdmin.archiveIngredient(row.id, {
-                        lockVersion: row.meta.lockVersion,
-                    });
-                }
-            },
+        // Nothing authored anywhere: every family answers with an empty page, which is the only
+        // honest way to reach this state.
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories(),
         });
 
         await untilVisible('kitchen-review-clear');
@@ -566,37 +650,43 @@ describe('the review queue screen', () => {
         expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
     });
 
-    it('renders skeletons before the answer, and an error state with a retry after a failure', async () => {
-        await renderKitchen(<ReviewScreen />, { latencyMs: 40 });
+    it('renders skeletons before the answer', async () => {
+        // A visible latency, so the pending frame is deterministically observable rather than a
+        // race against a stub that resolves on a microtask.
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            latencyMs: 40,
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
+
         await untilVisible('kitchen-review-loading');
         await untilVisible('kitchen-review-screen');
+        await untilVisible('kitchen-review-section-ingredients');
     });
 
     it('offers a retry rather than a dead end when the queue cannot be read', async () => {
-        await renderKitchen(<ReviewScreen />, {
-            prepare: (repositories) => {
-                // The real bundle with one method replaced: the mock world has no way to *make* a
-                // listing fail, and a screen that never renders `ErrorState` is a screen whose
-                // error path is a guess.
-                const failing = repositories.kitchenAdmin as unknown as {
-                    listIngredients: () => Promise<never>;
-                };
-                failing.listIngredients = () =>
-                    Promise.reject(
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...reviewListings({}),
+                    // One of the seven fails, and the folded query fails with it — which is the
+                    // behaviour under test: a queue that could not read a family must not render
+                    // the all-clear state over the gap.
+                    listIngredients: async () =>
                         throwFailure(apiFailure('server', { message: 'The catalogue is down.' })),
-                    );
+                },
             },
         });
 
         await untilVisible('kitchen-review-error');
         expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
     });
 
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
-        await renderKitchen(<ReviewScreen />, {
-            email: CLINIC_OWNER,
-            organisationSlug: 'cedar-clinic',
-        });
+        // No repository overrides at all: the gate refuses before the queue can ask for anything.
+        await renderStubScreen(<ReviewScreen />, { session: organisationOwnerSession() });
 
         await untilVisible('kitchen-review-forbidden');
         expect(screen.queryByTestId('kitchen-review-screen')).toBeNull();
@@ -610,13 +700,16 @@ describe('the review queue screen', () => {
 
 describe('the hub’s needs-review card', () => {
     it('counts the same queue the screen renders, and links to it', async () => {
-        await renderKitchen(<KitchenHomeScreen />);
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: hubRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
 
         await untilVisible('kitchen-family-review');
         await untilVisible('kitchen-family-review-total');
 
-        // The seed carries exactly one quarantine, and a quarantine is blocking, so both badges
-        // are present and both say one.
+        // One quarantine is authored, and a quarantine is blocking, so both badges are present and
+        // both say one.
         expect(screen.getByTestId('kitchen-family-review-total')).toHaveTextContent(
             /1 needs? review/i,
         );
@@ -630,18 +723,9 @@ describe('the hub’s needs-review card', () => {
     });
 
     it('says all clear rather than “0 blocked” when there is nothing to do', async () => {
-        await renderKitchen(<KitchenHomeScreen />, {
-            prepare: async (repositories) => {
-                const page = await repositories.kitchenAdmin.listIngredients({
-                    limit: 100,
-                    statuses: ['review_required'],
-                });
-                for (const row of page.items) {
-                    await repositories.kitchenAdmin.archiveIngredient(row.id, {
-                        lockVersion: row.meta.lockVersion,
-                    });
-                }
-            },
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: hubRepositories(),
         });
 
         await waitFor(

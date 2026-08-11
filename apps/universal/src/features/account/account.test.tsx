@@ -1,11 +1,23 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
-import { MOCK_OTP_CODE, createMockRepositories } from '@healthy360/api-client/mock';
-import type { MockRepositories } from '@healthy360/api-client/mock';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type {
+    AccountChecklistItem,
+    AccountOverview,
+    AccountServiceArea,
+    AccountSetupChecklist,
+    ConsentState,
+    ContactPoint,
+    CustomerAccount,
+    CustomerAddress,
+    DietaryProfile,
+    OtpChallenge,
+    OtpVerificationResult,
+} from '@healthy360/api-client/contracts';
+import { ApiError, conflictFailure } from '@healthy360/api-client/contracts';
+import type { ServiceAreaId } from '@healthy360/domain-types';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import { testMeResponse } from '../../testing/session-fixtures.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { consentStatus } from './consents.ts';
 import { initialAllergyAnswer } from './dietary.ts';
 import { toE164, validatePhone } from './phone.ts';
@@ -16,18 +28,23 @@ import { ConsentsScreen } from './screens/consents-screen.tsx';
 import { PhoneScreen } from './screens/phone-screen.tsx';
 
 /**
- * The J1 account area, against the real mock world.
+ * The J1 account area, against the stub harness.
  *
- * Speed-mode coverage: the five journeys the screens exist for, plus the two pure decisions that a
- * rendered tree would only obscure. Screens are rendered over `createMockRepositories`, which now
- * carries the account and verification repositories as extra fields — so this suite exercises the
- * same resolution path the application uses, including the shim's runtime probe.
+ * Every fact these screens draw is now *authored by the test* and handed over as a repository
+ * answer, rather than fished out of a seeded fixture world. That is the whole point of the
+ * migration: a checklist assertion used to depend on what `consumer-account-setup` happened to
+ * contain, so "two steps outstanding" was a fact about a fixture. Here the checklist is written a
+ * few lines above the assertion and the count is derived from it — if the two disagree, the test is
+ * wrong rather than the world having moved.
  *
- * The OTP path uses `MOCK_OTP_CODE` and nothing else about the code is faked: the expiry, the
- * attempt budget, the cooldown and the supersession rule are the store's real mechanics.
+ * Where a case previously reached into a mock store to *observe* a write (`listConsents()` after a
+ * toggle), the equivalent here is a closure variable the override reads: the screen's own
+ * invalidation refetches it, so the assertion is still "the screen shows what the server now says"
+ * rather than "the mutation function was called". Both are asserted where both are meaningful.
  *
- * The wider matrix — lockout, resend supersession, re-consent, validation, RTL, axe — is itemised
- * as deferred in the wave report.
+ * What no longer belongs to this suite: the OTP expiry, the attempt budget, the cooldown and the
+ * supersession rule were the mock store's mechanics. They are backend behaviour, and a screen test
+ * can only assert what the screen does with the answers — which is what the phone cases below do.
  */
 
 jest.mock('expo-router', () => {
@@ -53,57 +70,141 @@ beforeEach(() => {
     globalThis.localStorage?.clear();
 });
 
-interface Harness {
-    readonly repositories: MockRepositories;
+/* ══ authored entities ═════════════════════════════════════════════════════════════════════════ */
+
+const NOW = '2026-08-11T09:00:00.000Z';
+
+function customerAccount(overrides: Partial<CustomerAccount> = {}): CustomerAccount {
+    return {
+        id: 'account-0001',
+        lifecycle: 'provisional',
+        displayName: 'Test Person',
+        loginEmail: 'test.person@example.test',
+        locale: 'en',
+        createdAt: '2026-07-01T09:00:00.000Z',
+        activatedAt: null,
+        ...overrides,
+    };
 }
 
-/**
- * A render whose world can be seeded **before** the first frame.
- *
- * The account screens are about a sequence of states, and "what does the checklist look like once
- * everything is done?" is a question about a world that has to exist before the query fires.
- * Invalidating afterwards would test the refetch path instead of the first paint.
- */
-async function renderAccount(
-    node: ReactNode,
-    seed?: (repositories: MockRepositories) => Promise<void>,
-): Promise<Harness> {
-    const tokenStore = createMemoryTokenStore();
-    const repositories = createMockRepositories({
-        scenario: 'consumer-account-setup',
-        latencyMs: 0,
-        tokenStore,
-    });
-    if (seed !== undefined) await seed(repositories);
+function step(
+    name: AccountChecklistItem['step'],
+    complete: boolean,
+    required: boolean,
+    blockedReason: string | null = null,
+): AccountChecklistItem {
+    return { step: name, complete, required, blockedReason };
+}
 
-    await render(
-        <AppProviders
-            initialMetrics={TEST_METRICS}
-            repositories={repositories}
-            tokenStore={tokenStore}
-            queryClient={createTestQueryClient()}
-            initialOnline
-        >
-            {node}
-        </AppProviders>,
+function checklist(
+    items: readonly AccountChecklistItem[],
+    overrides: Partial<AccountSetupChecklist> = {},
+): AccountSetupChecklist {
+    return { lifecycle: 'provisional', items, canActivate: false, ...overrides };
+}
+
+function overview(
+    setup: AccountSetupChecklist,
+    contacts: readonly ContactPoint[] = [],
+): AccountOverview {
+    return {
+        account: customerAccount({ lifecycle: setup.lifecycle }),
+        contacts,
+        checklist: setup,
+    };
+}
+
+interface ConsentOverrides {
+    readonly required?: boolean;
+    readonly granted?: boolean;
+    readonly grantedAt?: string | null;
+    readonly withdrawnAt?: string | null;
+    readonly title?: string;
+    readonly text?: string;
+}
+
+function consent(key: string, overrides: ConsentOverrides = {}): ConsentState {
+    const granted = overrides.granted ?? false;
+    return {
+        definition: {
+            key,
+            version: '2026-01',
+            title: overrides.title ?? `Consent ${key}`,
+            text: overrides.text ?? `The full authored text of ${key}.`,
+            required: overrides.required ?? false,
+        },
+        granted,
+        grantedAt: overrides.grantedAt ?? (granted ? NOW : null),
+        withdrawnAt: overrides.withdrawnAt ?? null,
+    };
+}
+
+/** Flip one consent, the way a server would: agreeing stamps a date, withdrawing stamps the other. */
+function applyConsent(
+    consents: readonly ConsentState[],
+    key: string,
+    granted: boolean,
+): readonly ConsentState[] {
+    return consents.map((entry) =>
+        entry.definition.key === key
+            ? {
+                  ...entry,
+                  granted,
+                  grantedAt: granted ? NOW : entry.grantedAt,
+                  withdrawnAt: granted ? null : NOW,
+              }
+            : entry,
     );
-
-    return { repositories };
 }
 
-/** Everything the seeded world needs for `canActivate` to be true. */
-async function completeSetup(repositories: MockRepositories): Promise<void> {
-    const areas = await repositories.account.listServiceAreas();
-    await repositories.account.addAddress({
-        label: 'Home',
-        areaId: areas[0]!.id as never,
-        line1: '12 Sunset Street',
-    });
-    for (const consent of await repositories.account.listConsents()) {
-        if (consent.definition.required) {
-            await repositories.account.setConsent({ key: consent.definition.key, granted: true });
-        }
-    }
+function serviceArea(ordinal: number, name: string): AccountServiceArea {
+    return { id: `area-${String(ordinal)}` as ServiceAreaId, name };
+}
+
+function phoneContact(overrides: Partial<ContactPoint> = {}): ContactPoint {
+    return {
+        id: 'contact-phone-1',
+        kind: 'phone',
+        value: '+971501234567',
+        maskedValue: '+971 50 *** 4567',
+        verified: false,
+        verifiedAt: null,
+        isPrimary: true,
+        isLoginEmail: false,
+        createdAt: '2026-07-01T09:00:00.000Z',
+        ...overrides,
+    };
+}
+
+function otpChallenge(overrides: Partial<OtpChallenge> = {}): OtpChallenge {
+    return {
+        id: 'challenge-1',
+        purpose: 'contact_verification',
+        channel: 'sms',
+        maskedDestination: '+971 50 *** 4567',
+        codeLength: 6,
+        // A live challenge, in real time: the panel closes entry once the expiry has run out, so a
+        // fixed past timestamp would silently disable the submit button.
+        expiresAt: new Date(Date.now() + 300_000).toISOString(),
+        resendCooldownSeconds: 0,
+        attemptsRemaining: 3,
+        resendsRemaining: 2,
+        availableChannels: ['sms'],
+        simulatedChannels: [],
+        ...overrides,
+    };
+}
+
+const TEST_CODE = '424242';
+
+function dietaryProfile(overrides: Partial<DietaryProfile> = {}): DietaryProfile {
+    return {
+        dietCategoryCodes: [],
+        allergens: [],
+        excludedIngredientIds: [],
+        updatedAt: null,
+        ...overrides,
+    };
 }
 
 /* ══ pure decisions ════════════════════════════════════════════════════════════════════════════ */
@@ -171,21 +272,43 @@ describe('the four consent states', () => {
 
 describe('AccountScreen', () => {
     it('draws the server’s outstanding steps without recomputing them', async () => {
-        await renderAccount(<AccountScreen />);
+        // Two required steps outstanding — and the screen's count is asserted against that number
+        // rather than against whatever a fixture happened to seed.
+        const setup = checklist([
+            step('verify_email', true, true),
+            // The server says phone verification does not block activation in this environment.
+            step('verify_phone', false, false),
+            step('add_address', false, true),
+            step('dietary_profile', false, false),
+            step('consents', false, true),
+        ]);
+
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(setup),
+                    listConsents: async () => [],
+                },
+            },
+        });
 
         expect(await screen.findByTestId('account-checklist-list')).toBeTruthy();
         expect(screen.getByTestId('account-lifecycle')).toHaveTextContent(/Setup unfinished/);
         expect(screen.getByTestId('account-activation')).toHaveTextContent(
             /required steps are still outstanding/,
         );
+        // Derived from the two required-and-incomplete steps authored above.
+        expect(screen.getByTestId('account-activation')).toHaveTextContent(
+            /2 required steps to go/,
+        );
 
-        // Complete because the seed world confirmed the sign-in address.
         expect(screen.getByTestId('account-step-verify_email-state')).toHaveTextContent(/Done/);
         expect(screen.getByTestId('account-step-add_address-state')).toHaveTextContent(
             /Not done yet/,
         );
-        // The server says phone verification does not block activation in this environment; the
-        // screen reports that rather than assuming every step is mandatory.
+        // The screen reports the server's per-step `required` rather than assuming every step is
+        // mandatory — the one field that stops the client owning the activation rules.
         expect(screen.getByTestId('account-step-verify_phone-requirement')).toHaveTextContent(
             /Optional/,
         );
@@ -195,7 +318,26 @@ describe('AccountScreen', () => {
     });
 
     it('reports activation from the evaluator once every required step is done', async () => {
-        await renderAccount(<AccountScreen />, completeSetup);
+        const setup = checklist(
+            [
+                step('verify_email', true, true),
+                step('verify_phone', false, false),
+                step('add_address', true, true),
+                step('dietary_profile', true, false),
+                step('consents', true, true),
+            ],
+            { lifecycle: 'active', canActivate: true },
+        );
+
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(setup),
+                    listConsents: async () => [],
+                },
+            },
+        });
 
         expect(await screen.findByTestId('account-activation')).toHaveTextContent(
             /Everything needed is in place/,
@@ -205,15 +347,45 @@ describe('AccountScreen', () => {
     });
 
     it('offers the marketing consents as switches and writes them straight through', async () => {
-        const { repositories } = await renderAccount(<AccountScreen />);
+        let consents: readonly ConsentState[] = [
+            consent('terms_of_service', { required: true, granted: true }),
+            consent('marketing_email', { required: false, granted: false }),
+            consent('marketing_sms', { required: false, granted: false }),
+        ];
 
-        const toggle = await screen.findByTestId('account-marketing-marketing_email-control');
-        await fireEvent.press(toggle);
+        const { repositories } = await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(checklist([step('consents', true, true)])),
+                    listConsents: async () => consents,
+                    setConsent: async ({ key, granted }) => {
+                        consents = applyConsent(consents, key, granted);
+                        const written = consents.find((entry) => entry.definition.key === key);
+                        if (written === undefined) throw new Error(`No consent ${key}.`);
+                        return written;
+                    },
+                },
+            },
+        });
 
-        await waitFor(async () => {
-            const consents = await repositories.account.listConsents();
+        // Only the optional `marketing_*` consents belong here; the required one stays on the
+        // compliance screen.
+        expect(await screen.findByTestId('account-marketing-marketing_email')).toBeTruthy();
+        expect(screen.queryByTestId('account-marketing-terms_of_service')).toBeNull();
+
+        await fireEvent.press(screen.getByTestId('account-marketing-marketing_email-control'));
+
+        expect(repositories.account.setConsent).toHaveBeenCalledWith({
+            key: 'marketing_email',
+            granted: true,
+        });
+
+        // And the screen shows what the server now says, having refetched on its own invalidation.
+        await waitFor(() => {
             expect(
-                consents.find((entry) => entry.definition.key === 'marketing_email')?.granted,
+                screen.getByTestId('account-marketing-marketing_email-control').props
+                    .accessibilityState.checked,
             ).toBe(true);
         });
     });
@@ -223,39 +395,64 @@ describe('AccountScreen', () => {
 
 describe('PhoneScreen', () => {
     it('sends a code to the number already on file and confirms it', async () => {
-        const { repositories } = await renderAccount(<PhoneScreen />);
+        const challenge = otpChallenge();
+        const contact = phoneContact();
 
-        // The seeded world has an unconfirmed number, so the screen offers it rather than a form.
+        const { repositories } = await renderStubScreen(<PhoneScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                verification: {
+                    listContactPoints: async () => [contact],
+                    issueChallenge: async () => challenge,
+                    getChallenge: async () => challenge,
+                    verifyChallenge: async ({ challengeId }): Promise<OtpVerificationResult> => ({
+                        challengeId,
+                        purpose: 'contact_verification',
+                        verifiedAt: NOW,
+                        contactPointId: contact.id,
+                        stepUpUntil: null,
+                    }),
+                },
+            },
+        });
+
+        // An unconfirmed number is already on file, so the screen offers it rather than a form.
         await fireEvent.press(await screen.findByTestId('phone-screen-send'));
 
         const input = await screen.findByTestId('phone-screen-challenge-code-input');
-        // Server-authored mask, never reconstructed here.
+        // Server-authored mask, never reconstructed by the panel.
         expect(screen.getByTestId('phone-screen-challenge-destination')).toHaveTextContent(/4567/);
+        expect(repositories.verification.issueChallenge).toHaveBeenCalledWith({
+            purpose: 'contact_verification',
+            contactPointId: contact.id,
+        });
 
-        await fireEvent.changeText(input, MOCK_OTP_CODE);
+        await fireEvent.changeText(input, TEST_CODE);
         await fireEvent.press(screen.getByTestId('phone-screen-challenge-submit'));
 
         expect(await screen.findByTestId('phone-screen-verified')).toBeTruthy();
-        await waitFor(async () => {
-            const contacts = await repositories.verification.listContactPoints();
-            expect(contacts.find((contact) => contact.kind === 'phone')?.verified).toBe(true);
+        // The code is verified against the challenge the screen is driving, not against a contact.
+        expect(repositories.verification.verifyChallenge).toHaveBeenCalledWith({
+            challengeId: challenge.id,
+            code: TEST_CODE,
         });
     });
 
     it('says a number is already on the account rather than showing a stale-write conflict', async () => {
-        await renderAccount(<PhoneScreen />, async (repositories) => {
-            // Remove nothing; simply confirm the seeded number so the form is what renders.
-            const contacts = await repositories.verification.listContactPoints();
-            const phone = contacts.find((contact) => contact.kind === 'phone');
-            if (phone === undefined) throw new Error('The seed world has no phone contact.');
-            const challenge = await repositories.verification.issueChallenge({
-                purpose: 'contact_verification',
-                contactPointId: phone.id,
-            });
-            await repositories.verification.verifyChallenge({
-                challengeId: challenge.id,
-                code: MOCK_OTP_CODE,
-            });
+        await renderStubScreen(<PhoneScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                verification: {
+                    // A confirmed number, so the form is what renders.
+                    listContactPoints: async () => [
+                        phoneContact({ verified: true, verifiedAt: NOW }),
+                    ],
+                    // Adding a number already on the account is refused with `resource.conflict`.
+                    addContactPoint: async () => {
+                        throw new ApiError(conflictFailure());
+                    },
+                },
+            },
         });
 
         await fireEvent.changeText(
@@ -264,9 +461,11 @@ describe('PhoneScreen', () => {
         );
         await fireEvent.press(screen.getByTestId('phone-screen-submit'));
 
+        // The generic conflict copy would be wrong here — nobody changed anything.
         expect(await screen.findByTestId('phone-screen-duplicate')).toHaveTextContent(
             /already on your account/,
         );
+        expect(screen.queryByTestId('phone-screen-add-error')).toBeNull();
     });
 });
 
@@ -274,9 +473,35 @@ describe('PhoneScreen', () => {
 
 describe('AddressEditorScreen', () => {
     it('saves an address against a chosen service area, never free text', async () => {
-        const { repositories } = await renderAccount(<AddressEditorScreen addressId="new" />);
-        const areas = await repositories.account.listServiceAreas();
+        const areas = [
+            serviceArea(1, 'Jumeirah'),
+            serviceArea(2, 'Dubai Marina'),
+            serviceArea(3, 'Al Barsha'),
+        ];
         const area = areas[2]!;
+
+        const { repositories } = await renderStubScreen(<AddressEditorScreen addressId="new" />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    listServiceAreas: async () => areas,
+                    addAddress: async (request): Promise<CustomerAddress> => ({
+                        id: 'address-1',
+                        label: request.label,
+                        areaId: request.areaId,
+                        areaName: area.name,
+                        line1: request.line1,
+                        line2: null,
+                        building: null,
+                        floor: null,
+                        notes: null,
+                        // The server decides the first address is the default — the screen sent
+                        // `makeDefault: false`, which is asserted below.
+                        isDefault: true,
+                    }),
+                },
+            },
+        });
 
         await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Home');
         await fireEvent.press(screen.getByTestId('address-editor-area-trigger'));
@@ -290,13 +515,18 @@ describe('AddressEditorScreen', () => {
         await fireEvent.changeText(screen.getByTestId('address-editor-line1'), '12 Sunset Street');
         await fireEvent.press(screen.getByTestId('address-editor-save'));
 
-        await waitFor(async () => {
-            const saved = await repositories.account.listAddresses();
-            expect(saved).toHaveLength(1);
-            expect(saved[0]?.areaId).toBe(area.id);
-            expect(saved[0]?.areaName).toBe(area.name);
-            // First address is the default, decided by the server rather than by the checkbox.
-            expect(saved[0]?.isDefault).toBe(true);
+        await waitFor(() => {
+            expect(repositories.account.addAddress).toHaveBeenCalledWith({
+                label: 'Home',
+                // The area travels as the identifier the list published, never as its name.
+                areaId: area.id,
+                line1: '12 Sunset Street',
+                makeDefault: false,
+            });
+        });
+        // A saved address returns to the list rather than sitting on a filled-in form.
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses');
         });
     });
 });
@@ -305,7 +535,20 @@ describe('AddressEditorScreen', () => {
 
 describe('AllergiesScreen', () => {
     it('branches on the Yes/No answer and records “none” as a real answer', async () => {
-        const { repositories } = await renderAccount(<AllergiesScreen />);
+        let profile = dietaryProfile();
+
+        const { repositories } = await renderStubScreen(<AllergiesScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getDietaryProfile: async () => profile,
+                    saveDietaryProfile: async (request) => {
+                        profile = { ...request, updatedAt: NOW };
+                        return profile;
+                    },
+                },
+            },
+        });
 
         expect(await screen.findByTestId('allergies-screen-unanswered')).toBeTruthy();
         expect(screen.queryByTestId('allergies-screen-allergens')).toBeNull();
@@ -320,25 +563,58 @@ describe('AllergiesScreen', () => {
         expect(screen.queryByTestId('allergies-screen-allergens')).toBeNull();
 
         await fireEvent.press(screen.getByTestId('allergies-screen-save'));
-        await waitFor(async () => {
-            const profile = await repositories.account.getDietaryProfile();
-            expect(profile.updatedAt).not.toBeNull();
-            expect(profile.allergens).toHaveLength(0);
+
+        await waitFor(() => {
+            expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
+                dietCategoryCodes: [],
+                allergens: [],
+                excludedIngredientIds: [],
+            });
         });
+
+        // "None" is a real answer, not silence: the saved profile carries a timestamp, so the
+        // re-seeded screen reads "no" rather than falling back to the unanswered state.
+        expect(await screen.findByTestId('allergies-screen-saved')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId('allergies-screen-none')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('allergies-screen-unanswered')).toBeNull();
     });
 
     it('declares a ticked allergen at the strictest severity', async () => {
-        const { repositories } = await renderAccount(<AllergiesScreen />);
+        let profile = dietaryProfile();
+
+        const { repositories } = await renderStubScreen(<AllergiesScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getDietaryProfile: async () => profile,
+                    saveDietaryProfile: async (request) => {
+                        profile = { ...request, updatedAt: NOW };
+                        return profile;
+                    },
+                },
+            },
+        });
 
         await fireEvent.press(await screen.findByTestId('allergies-screen-answer-yes'));
         await fireEvent.press(await screen.findByTestId('allergies-screen-allergens-peanut'));
         await fireEvent.press(screen.getByTestId('allergies-screen-save'));
 
-        await waitFor(async () => {
-            const profile = await repositories.account.getDietaryProfile();
-            expect(profile.allergens).toEqual([
-                { allergenCode: 'peanut', severity: 'allergy', note: null },
-            ]);
+        await waitFor(() => {
+            expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
+                dietCategoryCodes: [],
+                // A tick declares the strictest reading; softening it is a separate decision.
+                allergens: [{ allergenCode: 'peanut', severity: 'allergy', note: null }],
+                excludedIngredientIds: [],
+            });
+        });
+
+        // The saved profile becomes the seed again, so the declaration survives the refetch the
+        // save triggers rather than reverting to the unanswered state.
+        expect(await screen.findByTestId('allergies-screen-saved')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId('allergies-screen-allergens-row-peanut')).toBeTruthy();
         });
     });
 });
@@ -347,7 +623,31 @@ describe('AllergiesScreen', () => {
 
 describe('ConsentsScreen', () => {
     it('blocks every required agreement until the age is confirmed, then accepts one', async () => {
-        const { repositories } = await renderAccount(<ConsentsScreen />);
+        const privacyText = 'What Healthy360 records about you, and for how long.';
+        let consents: readonly ConsentState[] = [
+            consent('age_confirmation', { required: true, title: 'Your age' }),
+            consent('terms_of_service', { required: true, title: 'Terms of service' }),
+            consent('privacy_notice', {
+                required: true,
+                title: 'Privacy notice',
+                text: privacyText,
+            }),
+        ];
+
+        const { repositories } = await renderStubScreen(<ConsentsScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    listConsents: async () => consents,
+                    setConsent: async ({ key, granted }) => {
+                        consents = applyConsent(consents, key, granted);
+                        const written = consents.find((entry) => entry.definition.key === key);
+                        if (written === undefined) throw new Error(`No consent ${key}.`);
+                        return written;
+                    },
+                },
+            },
+        });
 
         expect(await screen.findByTestId('consents-screen-age-blocking')).toBeTruthy();
         const grant = screen.getByTestId('consent-terms_of_service-grant');
@@ -360,18 +660,25 @@ describe('ConsentsScreen', () => {
                     .disabled,
             ).toBe(false);
         });
+        expect(repositories.account.setConsent).toHaveBeenCalledWith({
+            key: 'age_confirmation',
+            granted: true,
+        });
 
         await fireEvent.press(screen.getByTestId('consent-terms_of_service-grant'));
-        await waitFor(async () => {
-            const consents = await repositories.account.listConsents();
-            expect(
-                consents.find((entry) => entry.definition.key === 'terms_of_service')?.granted,
-            ).toBe(true);
+        expect(repositories.account.setConsent).toHaveBeenCalledWith({
+            key: 'terms_of_service',
+            granted: true,
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('consent-terms_of_service-status')).toHaveTextContent(
+                /Agreed/,
+            );
         });
 
         // The full text is on the page rather than behind a link — it is what was agreed to.
         expect(screen.getByTestId('consent-privacy_notice-text')).toHaveTextContent(
-            /What Healthy360 records about you/,
+            new RegExp('What Healthy360 records about you'),
         );
     });
 });

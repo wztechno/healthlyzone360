@@ -1,14 +1,9 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
-import { createMockRepositories } from '@healthy360/api-client/mock';
-import { MOCK_SCENARIOS } from '@healthy360/api-client/mock';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { buildKitchenAnalytics } from './analytics-sample-data.ts';
 import { AnalyticsScreen } from './screens/analytics-screen.tsx';
-
-const KITCHEN_MANAGER = MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail;
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -19,6 +14,12 @@ jest.mock('expo-router', () => ({
     Link: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+/**
+ * The analytics dashboard reads no repository at all — every number on it comes from
+ * `buildKitchenAnalytics`, which is a pure function of the two filters. So the only thing the
+ * session has to supply is the gate's answer: `kitchen` demands an organisation, a branch and
+ * `catalogue.view_organisation`, all of which the kitchen-manager fixture carries.
+ */
 describe('kitchen analytics', () => {
     it('builds deterministic sample bundles per filter pair', () => {
         const a = buildKitchenAnalytics('30d', 'meals');
@@ -33,32 +34,7 @@ describe('kitchen analytics', () => {
     });
 
     it('renders KPIs, charts, and updates when the date range changes', async () => {
-        const tokenStore = createMemoryTokenStore();
-        const repositories = createMockRepositories({
-            scenario: 'multi-org-dietitian',
-            latencyMs: 1,
-            tokenStore,
-        });
-        await repositories.auth.login({ email: KITCHEN_MANAGER, password: 'password' });
-        const me = await repositories.session.me();
-        const membership = me.memberships.find(
-            (candidate) =>
-                candidate.organisation.slug === 'verdant-kitchen' && candidate.status === 'active',
-        );
-        if (membership === undefined) throw new Error('missing membership');
-        await repositories.context.setContext({ organisationId: membership.organisation.id });
-
-        await render(
-            <AppProviders
-                initialMetrics={TEST_METRICS}
-                repositories={repositories}
-                tokenStore={tokenStore}
-                queryClient={createTestQueryClient()}
-                initialOnline
-            >
-                <AnalyticsScreen />
-            </AppProviders>,
-        );
+        await renderStubScreen(<AnalyticsScreen />, { session: kitchenManagerSession() });
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-analytics-panel')).toBeTruthy();

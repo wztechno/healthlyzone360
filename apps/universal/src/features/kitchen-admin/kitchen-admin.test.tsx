@@ -1,14 +1,31 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
-import { MOCK_SCENARIOS, createMockRepositories } from '@healthy360/api-client/mock';
-import type { MockRepositories } from '@healthy360/api-client/mock';
-import { apiFailure, throwFailure } from '@healthy360/api-client/contracts';
-import type { IngredientAdmin } from '@healthy360/api-client/contracts';
+import { apiFailure, conflictFailure, throwFailure } from '@healthy360/api-client/contracts';
+import type {
+    AdminEntityMeta,
+    AllergenClass,
+    BranchOperating,
+    CursorPage,
+    IngredientAdmin,
+    IngredientAdminFilter,
+    IngredientAllergenMapping,
+} from '@healthy360/api-client/contracts';
+import { AllergenCode, IngredientId, KitchenBranchId } from '@healthy360/domain-types';
 import type { AccessState } from '@healthy360/permissions';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import {
+    ORGANISATION_OWNER_PERMISSIONS,
+    TEST_BRANCH_ID,
+    TEST_ORGANISATION_ID,
+    kitchenManagerSession,
+    testActiveContext,
+    testMeResponse,
+    testMembership,
+    testOrganisation,
+} from '../../testing/session-fixtures.ts';
+import { page } from '../../testing/stub-repositories.ts';
+import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { displayName, isTranslationIncomplete, statusTone, unitDimension } from './format.ts';
 import { ENTITY_FAMILIES, WORKSPACE_PERMISSIONS, permittedFamilies } from './entity-registry.ts';
 import { AllergenClassesScreen } from './screens/allergen-classes-screen.tsx';
@@ -17,18 +34,23 @@ import { IngredientsScreen } from './screens/ingredients-screen.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 
 /**
- * The kitchen workspace, against the real mock repositories.
+ * The kitchen workspace, against a world this file declares.
  *
- * Nothing here stubs a hook. Four things this file exists to prove, in rough order of how badly it
- * would matter if they were wrong:
+ * Nothing here stubs a hook: the screens still run through `Repositories`, the same interface
+ * production speaks. What changed is where the data comes from — every record, every count and every
+ * rejection below is authored in this file and handed to `renderStubScreen`, so a count assertion is
+ * a statement about what the test wrote rather than about somebody else's fixture world.
  *
- * 1. **The permission boundary is real on both sides.** The kitchen manager sees the workspace; a
- *    clinic owner with an organisation, a branch and no catalogue permission gets the forbidden page
- *    rather than an empty grid. A test that only checked the positive half would pass just as
+ * Four things this file exists to prove, in rough order of how badly it would matter if they were
+ * wrong:
+ *
+ * 1. **The permission boundary is real on both sides.** The kitchen manager sees the workspace; an
+ *    organisation owner with an organisation, a branch and no catalogue permission gets the forbidden
+ *    page rather than an empty grid. A test that only checked the positive half would pass just as
  *    happily if the gate had been left off.
- * 2. **A write really writes.** Creating, renaming, archiving and re-mapping all go through the
- *    contract into the mutable store, and the assertions read the store back rather than trusting
- *    the screen's own optimism.
+ * 2. **A write really writes, and carries the version it was based on.** Creating, renaming,
+ *    archiving and re-mapping all go through the contract, and the assertions read the *call* —
+ *    identifier, lock version, payload — rather than trusting the screen's own optimism.
  * 3. **The two safety mechanisms fire.** A stale `lockVersion` produces the conflict dialog rather
  *    than a silent overwrite, and weakening a platform baseline allergen determination is refused
  *    per row before anything is sent.
@@ -36,9 +58,6 @@ import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
  *    `writingDirection` to the language it holds, in either interface direction — which is the
  *    whole reason it exists.
  */
-
-const KITCHEN_MANAGER = MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail;
-const CLINIC_OWNER = MOCK_SCENARIOS['single-org-owner'].primaryEmail;
 
 jest.mock('expo-router', () => {
     const push = jest.fn();
@@ -71,73 +90,6 @@ beforeEach(() => {
     routerMock.__replace.mockClear();
 });
 
-interface Harness {
-    readonly repositories: MockRepositories;
-    readonly tokenStore: ReturnType<typeof createMemoryTokenStore>;
-}
-
-/**
- * Signs in and applies an organisation context.
- *
- * The kitchen area requires an organisation *and* a branch (`ROUTE_REQUIREMENTS.kitchen`), so a
- * screen rendered without one would answer with the picker redirect rather than with itself. The
- * mock server applies the only branch automatically when a membership has exactly one, which is the
- * same behaviour the branch picker relies on.
- */
-async function bootKitchen(
-    options: {
-        readonly email?: string;
-        readonly organisationSlug?: string;
-        readonly latencyMs?: number;
-    } = {},
-): Promise<Harness> {
-    const email = options.email ?? KITCHEN_MANAGER;
-    const slug = options.organisationSlug ?? 'verdant-kitchen';
-
-    const tokenStore = createMemoryTokenStore();
-    const repositories = createMockRepositories({
-        scenario: email === CLINIC_OWNER ? 'single-org-owner' : 'multi-org-dietitian',
-        latencyMs: options.latencyMs ?? 1,
-        tokenStore,
-    });
-    await repositories.auth.login({ email, password: 'password' });
-
-    const me = await repositories.session.me();
-    const membership = me.memberships.find(
-        (candidate) => candidate.organisation.slug === slug && candidate.status === 'active',
-    );
-    if (membership === undefined) throw new Error(`No active membership in "${slug}".`);
-    await repositories.context.setContext({ organisationId: membership.organisation.id });
-
-    return { repositories, tokenStore };
-}
-
-async function renderKitchen(
-    node: ReactNode,
-    options: {
-        readonly email?: string;
-        readonly organisationSlug?: string;
-        readonly latencyMs?: number;
-        readonly boot?: Harness;
-    } = {},
-): Promise<Harness> {
-    const harness = options.boot ?? (await bootKitchen(options));
-
-    await render(
-        <AppProviders
-            initialMetrics={TEST_METRICS}
-            repositories={harness.repositories}
-            tokenStore={harness.tokenStore}
-            queryClient={createTestQueryClient()}
-            initialOnline
-        >
-            {node}
-        </AppProviders>,
-    );
-
-    return harness;
-}
-
 /**
  * Waits for an element, with headroom.
  *
@@ -155,45 +107,211 @@ function untilVisible(testID: string) {
     );
 }
 
-/**
- * A kitchen-owned draft the editor may rename and alias — seeded rows are platform-library
- * and those fields are read-only there.
- */
-async function createOwnedIngredient(
-    repositories: MockRepositories,
-    nameEn = 'Owned kitchen ingredient',
-): Promise<IngredientAdmin> {
-    return repositories.kitchenAdmin.createIngredient({
-        name: { en: nameEn, ar: '' },
-        categoryCode: seededIngredients[0]!.categoryCode,
+/* ------------------------------------------------------------------------------------------------
+ * The world this file authors
+ *
+ * Every builder is typed against its contract shape, so a contract that grows a required field
+ * fails the typecheck here rather than producing a record the screen cannot render.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** UUIDv7-shaped, because `IngredientEditScreen` parses the route parameter with `IngredientId`. */
+function ingredientId(ordinal: number): IngredientId {
+    return IngredientId.unsafe(`01935f6d-0000-7000-8000-0000000a000${String(ordinal)}`);
+}
+
+function meta(overrides: Partial<AdminEntityMeta> = {}): AdminEntityMeta {
+    return {
+        lockVersion: 1,
+        status: 'draft',
+        updatedAt: '2026-08-01T09:00:00.000Z',
+        updatedByName: 'Rana Haddad',
+        ...overrides,
+    };
+}
+
+function mapping(
+    code: string,
+    overrides: Partial<IngredientAllergenMapping> = {},
+): IngredientAllergenMapping {
+    return {
+        allergenCode: AllergenCode.parse(code),
+        containment: 'contains',
+        marketScope: [],
+        verification: 'supplier_declared',
+        sourceNote: null,
+        ...overrides,
+    };
+}
+
+/** A kitchen-owned row: the editor may rename, alias and archive it. */
+function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
+    return {
+        id: ingredientId(ordinal),
+        meta: meta(),
+        name: { en: `Ingredient ${String(ordinal)}`, ar: `مكوّن ${String(ordinal)}` },
+        reference: `IG-00${String(ordinal)}`,
+        categoryCode: 'store-cupboard',
         measurementUnit: 'g',
-    });
+        costPer100g: null,
+        per100g: null,
+        allergens: [],
+        dietClassifications: [],
+        aliases: [],
+        organisationId: TEST_ORGANISATION_ID,
+        notes: null,
+        ...overrides,
+    };
 }
 
 /**
- * Fixture facts come from a throwaway bundle rather than by rendering a tree and scraping it:
- * rendering a second tree inside a test leaves `screen` pointing at one the test then unmounts.
+ * A shared-library row: `organisationId === null` is what makes the editor read-only and its
+ * allergen determination a platform baseline (plan §4.6).
  */
-const scratch = createMockRepositories({ scenario: 'multi-org-dietitian', latencyMs: 0 });
+function platformIngredient(
+    ordinal: number,
+    overrides: Partial<IngredientAdmin> = {},
+): IngredientAdmin {
+    return ingredient(ordinal, { organisationId: null, reference: null, ...overrides });
+}
 
-let seededIngredients: readonly IngredientAdmin[];
-/** A seeded platform-library row that already carries an allergen determination. */
-let mappedIngredient: IngredientAdmin;
-/** A seeded row with no allergens at all, so an added mapping is unambiguous. */
-let unmappedIngredient: IngredientAdmin;
+const ALLERGEN_CLASS_CODES: readonly string[] = [
+    'gluten',
+    'crustaceans',
+    'eggs',
+    'fish',
+    'peanuts',
+    'soybeans',
+    'milk',
+    'tree_nuts',
+    'celery',
+    'mustard',
+    'sesame',
+    'sulphites',
+    'lupin',
+    'molluscs',
+];
 
-beforeAll(async () => {
-    const page = await scratch.kitchenAdmin.listIngredients({ limit: 100 });
-    seededIngredients = page.items;
+function allergenClass(code: string, overrides: Partial<AllergenClass> = {}): AllergenClass {
+    return {
+        code: AllergenCode.parse(code),
+        name: { en: code.replace(/_/g, ' '), ar: `${code} بالعربية` },
+        description: { en: `The ${code} class.`, ar: `فئة ${code}.` },
+        markets: ['EU', 'GCC'],
+        declarationThreshold: null,
+        regulatoryReference: 'EU 1169/2011 Annex II',
+        severeByDefault: false,
+        isActive: true,
+        ...overrides,
+    };
+}
 
-    const mapped = page.items.find((row) => row.allergens.length > 0);
-    const unmapped = page.items.find((row) => row.allergens.length === 0);
-    if (mapped === undefined || unmapped === undefined) {
-        throw new Error('The seeded library carries neither a mapped nor an unmapped ingredient.');
-    }
-    mappedIngredient = mapped;
-    unmappedIngredient = unmapped;
-});
+/** The fourteen regulatory classes, with sulphites carrying the one stated threshold. */
+const ALLERGEN_CLASSES: readonly AllergenClass[] = ALLERGEN_CLASS_CODES.map((code) =>
+    code === 'sulphites'
+        ? allergenClass(code, { declarationThreshold: { value: 10, unit: 'mg/kg' } })
+        : code === 'peanuts'
+          ? allergenClass(code, { severeByDefault: true })
+          : allergenClass(code),
+);
+
+function branchOperating(): BranchOperating {
+    return {
+        branchId: KitchenBranchId.unsafe(String(TEST_BRANCH_ID)),
+        meta: {
+            lockVersion: 1,
+            updatedAt: '2026-08-01T09:00:00.000Z',
+            updatedByName: 'Rana Haddad',
+        },
+        timeZone: 'Asia/Dubai',
+        days: [1, 2, 3, 4, 5, 6, 7].map((weekday) =>
+            weekday <= 5
+                ? { weekday, opensAt: '08:00', closesAt: '20:00', orderCutOffAt: '16:00' }
+                : { weekday, opensAt: null, closesAt: null, orderCutOffAt: null },
+        ),
+    };
+}
+
+/**
+ * The ingredient listing, answering the filters the screens actually send.
+ *
+ * `statuses` and `query` are real server filters (`IngredientAdminFilter`), and three call sites
+ * depend on them behaving: the hub's summary counts one status at a time, the list screen's search
+ * box narrows by name, and the review queue asks for `review_required` alone. Reading a getter
+ * rather than a captured array is what lets a test mutate the world mid-flight and assert the
+ * refetch.
+ */
+function ingredientListing(
+    read: () => readonly IngredientAdmin[],
+): (filter?: IngredientAdminFilter) => Promise<CursorPage<IngredientAdmin>> {
+    return async (filter) => {
+        const statuses = filter?.statuses;
+        const needle = filter?.query?.trim().toLocaleLowerCase() ?? '';
+
+        return page(
+            read().filter(
+                (row) =>
+                    (statuses === undefined || statuses.includes(row.meta.status)) &&
+                    (needle === '' ||
+                        row.name.en.toLocaleLowerCase().includes(needle) ||
+                        row.name.ar.includes(needle) ||
+                        (row.reference ?? '').toLocaleLowerCase().includes(needle)),
+            ),
+        );
+    };
+}
+
+/**
+ * Everything the hub reads.
+ *
+ * The kitchen manager holds every workspace permission, so the grid renders every family and each
+ * card fetches its own summary. Declaring all of them is the point of the harness: a card whose
+ * listing this file forgot would reject with `StubNotConfiguredError` naming it, rather than
+ * quietly rendering "Count unavailable" over a hole in the test.
+ */
+function hubRepositories(ingredients: readonly IngredientAdmin[]): RepositoryOverrides {
+    return {
+        kitchenAdmin: {
+            listIngredients: ingredientListing(() => ingredients),
+            listRecipes: async () => page([]),
+            listProducts: async () => page([]),
+            listMeals: async () => page([]),
+            listPlans: async () => page([]),
+            listPriceLists: async () => page([]),
+            listZones: async () => page([]),
+            listAllergenClasses: async () => ALLERGEN_CLASSES,
+            getBranchOperating: async () => branchOperating(),
+        },
+        kitchenOps: {
+            countLowStockLevels: async () => 0,
+            countUnresolvedConsumptionExceptions: async () => 0,
+        },
+    };
+}
+
+/** The two reads every editor render needs: the class vocabulary and the category derivation. */
+function editorReads(library: () => readonly IngredientAdmin[]) {
+    return {
+        listAllergenClasses: async () => ALLERGEN_CLASSES,
+        listIngredients: ingredientListing(library),
+    };
+}
+
+/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
+function organisationOwnerSession() {
+    return testMeResponse({
+        memberships: [
+            testMembership({
+                organisation: testOrganisation({
+                    name: 'Cedar Clinic',
+                    slug: 'cedar-clinic',
+                    type: 'clinic',
+                }),
+                roles: [{ id: 'test-0000-role-0002', key: 'organisation_owner', name: 'Owner' }],
+            }),
+        ],
+        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+    });
+}
 
 /* ------------------------------------------------------------------------------------------------
  * Pure helpers
@@ -260,8 +378,20 @@ describe('entity registry', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the kitchen hub', () => {
-    it('shows the families the kitchen manager may open, with real counts', async () => {
-        await renderKitchen(<KitchenHomeScreen />);
+    it('shows the families the kitchen manager may open, with counts read from the listing', async () => {
+        // Four rows: two published, one draft, one quarantined. Every badge below is that
+        // arithmetic and nothing else.
+        const library = [
+            ingredient(1, { meta: meta({ status: 'published' }) }),
+            ingredient(2, { meta: meta({ status: 'published' }) }),
+            ingredient(3),
+            ingredient(4, { meta: meta({ status: 'review_required' }) }),
+        ];
+
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: hubRepositories(library),
+        });
 
         await untilVisible('kitchen-home-screen');
 
@@ -271,20 +401,21 @@ describe('the kitchen hub', () => {
         expect(screen.getByTestId('kitchen-home-kpis')).toBeTruthy();
 
         await untilVisible('kitchen-family-ingredients-total');
-        // The badge counts the library the repository actually answers with.
+        // The badge counts the library the repository actually answered with.
         expect(screen.getByTestId('kitchen-family-ingredients-total')).toHaveTextContent(
-            new RegExp(String(seededIngredients.length)),
+            new RegExp(String(library.length)),
         );
+        expect(screen.getByTestId('kitchen-family-ingredients-drafts')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-family-ingredients-quarantined')).toHaveTextContent(/1/);
         // A reference family says it is reference rather than inventing a draft count.
         expect(screen.getByTestId('kitchen-family-allergen-classes-reference')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-family-allergen-classes-drafts')).toBeNull();
     });
 
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
-        await renderKitchen(<KitchenHomeScreen />, {
-            email: CLINIC_OWNER,
-            organisationSlug: 'cedar-clinic',
-        });
+        // No repository overrides at all: the gate refuses before the grid can ask for anything, so
+        // a screen that fetched here would fail loudly with StubNotConfiguredError.
+        await renderStubScreen(<KitchenHomeScreen />, { session: organisationOwnerSession() });
 
         await untilVisible('kitchen-home-forbidden');
         expect(screen.queryByTestId('kitchen-home-grid')).toBeNull();
@@ -296,27 +427,47 @@ describe('the kitchen hub', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the ingredient list', () => {
-    it('renders skeletons, then the seeded rows with their allergens and status', async () => {
+    it('renders skeletons, then the authored rows with their allergens and status', async () => {
+        const mapped = ingredient(1, {
+            meta: meta({ status: 'published' }),
+            allergens: [mapping('gluten')],
+        });
+        const unmapped = ingredient(2);
+
         // A visible latency, so the pending frame is deterministically observable rather than a
-        // race against a mock that resolves on a microtask.
-        await renderKitchen(<IngredientsScreen />, { latencyMs: 40 });
+        // race against a stub that resolves on a microtask.
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            latencyMs: 40,
+            repositories: {
+                kitchenAdmin: { listIngredients: ingredientListing(() => [mapped, unmapped]) },
+            },
+        });
 
         await untilVisible('kitchen-ingredients-loading');
         await untilVisible('kitchen-ingredients-table');
 
-        const row = mappedIngredient;
-        expect(screen.getByTestId(`kitchen-ingredient-${row.id}-name`)).toBeTruthy();
-        expect(screen.getByTestId(`kitchen-ingredient-${row.id}-allergens`)).toBeTruthy();
-        expect(screen.getByTestId(`kitchen-ingredient-${row.id}-status`)).toHaveTextContent(
-            /Published/,
-        );
+        expect(screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-name`)).toBeTruthy();
         expect(
-            screen.getByTestId(`kitchen-ingredient-${unmappedIngredient.id}-allergens-none`),
+            screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-allergens`),
+        ).toBeTruthy();
+        expect(
+            screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-status`),
+        ).toHaveTextContent(/Published/);
+        expect(
+            screen.getByTestId(`kitchen-ingredient-${String(unmapped.id)}-allergens-none`),
         ).toBeTruthy();
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {
-        await renderKitchen(<IngredientsScreen />);
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => [ingredient(1), ingredient(2)]),
+                },
+            },
+        });
         await untilVisible('kitchen-ingredients-table');
 
         await act(async () => {
@@ -327,58 +478,52 @@ describe('the ingredient list', () => {
         });
 
         await untilVisible('kitchen-ingredients-empty');
-        // The *unfiltered* empty state is unreachable in this world — the seed always carries the
-        // library — so the copy is asserted through the filtered branch, which is the one a person
-        // actually reaches.
+        // The filtered branch is the one a person actually reaches, and it is the one that offers a
+        // way back out of the filter.
         expect(screen.getByTestId('kitchen-ingredients-clear')).toBeTruthy();
     });
 
     it('renders the error state when the listing fails', async () => {
-        const tokenStore = createMemoryTokenStore();
-        const repositories = createMockRepositories({
-            scenario: 'multi-org-dietitian',
-            latencyMs: 1,
-            tokenStore,
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: async () =>
+                        throwFailure(apiFailure('server', { message: 'Boom.' })),
+                },
+            },
         });
-        await repositories.auth.login({ email: KITCHEN_MANAGER, password: 'password' });
-        const me = await repositories.session.me();
-        const membership = me.memberships.find(
-            (candidate) =>
-                candidate.organisation.slug === 'verdant-kitchen' && candidate.status === 'active',
-        );
-        await repositories.context.setContext({ organisationId: membership!.organisation.id });
-
-        // The real bundle with one method replaced: the mock world has no way to *make* a listing
-        // fail, and a screen that never renders `ErrorState` is a screen whose error path is a
-        // guess. Everything else on this bundle stays the real repository.
-        const failing = repositories.kitchenAdmin as unknown as {
-            listIngredients: () => Promise<never>;
-        };
-        failing.listIngredients = () =>
-            Promise.reject(throwFailure(apiFailure('server', { message: 'Boom.' })));
-
-        await render(
-            <AppProviders
-                initialMetrics={TEST_METRICS}
-                repositories={repositories}
-                tokenStore={tokenStore}
-                queryClient={createTestQueryClient()}
-                initialOnline
-            >
-                <IngredientsScreen />
-            </AppProviders>,
-        );
 
         await untilVisible('kitchen-ingredients-error');
     });
 
-    it('archives a row behind a confirmation, and the store agrees', async () => {
-        const { repositories } = await renderKitchen(<IngredientsScreen />);
+    it('archives a row behind a confirmation, carrying the version it was based on', async () => {
+        const target = ingredient(2, { meta: meta({ status: 'published', lockVersion: 3 }) });
+        let library: readonly IngredientAdmin[] = [ingredient(1), target];
+
+        const { repositories } = await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => library),
+                    archiveIngredient: async (id, request) => {
+                        const archived: IngredientAdmin = {
+                            ...target,
+                            meta: meta({
+                                status: 'retired',
+                                lockVersion: request.lockVersion + 1,
+                            }),
+                        };
+                        library = library.map((row) => (row.id === id ? archived : row));
+                        return archived;
+                    },
+                },
+            },
+        });
         await untilVisible('kitchen-ingredients-table');
 
-        const target = unmappedIngredient;
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-ingredient-${target.id}-archive`));
+            fireEvent.press(screen.getByTestId(`kitchen-ingredient-${String(target.id)}-archive`));
         });
 
         await untilVisible('kitchen-ingredients-archive-dialog');
@@ -387,16 +532,18 @@ describe('the ingredient list', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredients-archive-confirm'));
         });
 
-        await waitFor(async () => {
-            const after = await repositories.kitchenAdmin.getIngredient(target.id);
-            expect(after.meta.status).toBe('retired');
+        // The write is the assertion: this row, at the version the list was showing.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.archiveIngredient).toHaveBeenCalledWith(target.id, {
+                lockVersion: 3,
+            });
         });
 
-        // The list refreshes rather than keeping the row at its old status.
+        // …and the list refreshes rather than keeping the row at its old status.
         await waitFor(() => {
-            expect(screen.getByTestId(`kitchen-ingredient-${target.id}-status`)).toHaveTextContent(
-                /Archived/,
-            );
+            expect(
+                screen.getByTestId(`kitchen-ingredient-${String(target.id)}-status`),
+            ).toHaveTextContent(/Archived/);
         });
     });
 });
@@ -407,7 +554,10 @@ describe('the ingredient list', () => {
 
 describe('the ingredient editor', () => {
     it('writes each language in its own direction, whatever the interface does', async () => {
-        await renderKitchen(<IngredientEditScreen ingredient="new" />);
+        await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
 
         await untilVisible('kitchen-ingredient-name-en-input');
 
@@ -423,7 +573,21 @@ describe('the ingredient editor', () => {
     });
 
     it('creates a draft and moves to its own address', async () => {
-        const { repositories } = await renderKitchen(<IngredientEditScreen ingredient="new" />);
+        const created = ingredient(9, {
+            name: { en: 'Toasted burghul', ar: '' },
+            reference: null,
+            meta: meta({ status: 'draft' }),
+        });
+
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [ingredient(1)]),
+                    createIngredient: async () => created,
+                },
+            },
+        });
 
         await untilVisible('kitchen-ingredient-name-en-input');
 
@@ -434,14 +598,16 @@ describe('the ingredient editor', () => {
             );
         });
 
-        // The category is required, and the Select is the only way to answer it.
+        // The category is required, and the Select is the only way to answer it. Its vocabulary is
+        // derived from the codes in use, so this option exists because the library above carries it.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
         });
         await untilVisible('kitchen-ingredient-category-list');
-        const category = seededIngredients[0]!.categoryCode;
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-ingredient-category-option-${category}`));
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'),
+            );
         });
 
         await act(async () => {
@@ -449,21 +615,37 @@ describe('the ingredient editor', () => {
         });
 
         await waitFor(() => {
-            expect(routerMock.__replace).toHaveBeenCalled();
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/kitchen/ingredients/${String(created.id)}`,
+            );
         });
 
-        const page = await repositories.kitchenAdmin.listIngredients({
-            limit: 100,
-            query: 'Toasted burghul',
+        // Exactly this request and nothing else. `CreateIngredientRequest` carries no status field
+        // at all, and the equality above is what proves the screen invents none: a catalogue that
+        // published a row the moment it was typed would be the opposite of the publication safety
+        // this phase exists to build.
+        expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith({
+            name: { en: 'Toasted burghul', ar: '' },
+            categoryCode: 'store-cupboard',
+            measurementUnit: 'g',
         });
-        expect(page.items).toHaveLength(1);
-        // Created as a draft: a catalogue that published a row the moment it was typed would be the
-        // opposite of the publication safety this phase exists to build.
-        expect(page.items[0]!.meta.status).toBe('draft');
     });
 
     it('keeps platform-library details read-only and leaves allergen mapping as the writable path', async () => {
-        await renderKitchen(<IngredientEditScreen ingredient={String(mappedIngredient.id)} />);
+        const record = platformIngredient(5, {
+            meta: meta({ status: 'published' }),
+            allergens: [mapping('gluten')],
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                },
+            },
+        });
 
         await untilVisible('kitchen-ingredient-platform-library');
         expect(screen.queryByTestId('kitchen-ingredient-editor-screen-save')).toBeNull();
@@ -474,11 +656,36 @@ describe('the ingredient editor', () => {
     });
 
     it('saves a rename and rebases onto the version the write produced', async () => {
-        const boot = await bootKitchen();
-        const target = await createOwnedIngredient(boot.repositories, 'Rename me');
-        const { repositories } = await renderKitchen(
-            <IngredientEditScreen ingredient={String(target.id)} />,
-            { boot },
+        const id = ingredientId(3);
+        let stored = ingredient(3, {
+            name: { en: 'Rename me', ar: '' },
+            meta: meta({ lockVersion: 4 }),
+        });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [stored]),
+                        getIngredient: async () => stored,
+                        updateIngredient: async (_id, request) => {
+                            // The server's rule, stated once: an accepted write answers with the
+                            // record at its *next* version.
+                            stored = {
+                                ...stored,
+                                ...(request.name === undefined ? {} : { name: request.name }),
+                                meta: {
+                                    ...stored.meta,
+                                    lockVersion: request.lockVersion + 1,
+                                },
+                            };
+                            return stored;
+                        },
+                    },
+                },
+            },
         );
 
         await untilVisible('kitchen-ingredient-name-ar-input');
@@ -495,22 +702,51 @@ describe('the ingredient editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        await waitFor(async () => {
-            const after = await repositories.kitchenAdmin.getIngredient(target.id);
-            expect(after.name.ar).toBe('اسم عربي جديد');
-            expect(after.meta.lockVersion).toBe(target.meta.lockVersion + 1);
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalledWith(
+                id,
+                expect.objectContaining({
+                    lockVersion: 4,
+                    name: { en: 'Rename me', ar: 'اسم عربي جديد' },
+                }),
+            );
         });
 
         // Saved is clean: the unsaved badge goes, so navigating away asks nothing.
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-ingredient-editor-screen-dirty')).toBeNull();
         });
+
+        // …and the editor rebased: the *next* save carries the version the first write produced,
+        // not the one it opened with.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-ar-input'), 'اسم آخر');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenNthCalledWith(
+                2,
+                id,
+                expect.objectContaining({ lockVersion: 5 }),
+            );
+        });
     });
 
     it('asks before discarding unsaved changes, and leaves when told to', async () => {
-        const boot = await bootKitchen();
-        const target = await createOwnedIngredient(boot.repositories, 'Discard me');
-        await renderKitchen(<IngredientEditScreen ingredient={String(target.id)} />, { boot });
+        const record = ingredient(3, { name: { en: 'Discard me', ar: 'اتركني' } });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                },
+            },
+        });
 
         await untilVisible('kitchen-ingredient-name-en-input');
 
@@ -538,11 +774,24 @@ describe('the ingredient editor', () => {
     });
 
     it('adds and removes an alias, and can take the removal back', async () => {
-        const boot = await bootKitchen();
-        const target = await createOwnedIngredient(boot.repositories, 'Alias me');
-        const { repositories } = await renderKitchen(
-            <IngredientEditScreen ingredient={String(target.id)} />,
-            { boot },
+        const record = ingredient(3, { name: { en: 'Alias me', ar: 'سمّني' } });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        updateIngredient: async (_id, request) => ({
+                            ...record,
+                            aliases: request.aliases ?? record.aliases,
+                            meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
+                        }),
+                    },
+                },
+            },
         );
 
         await untilVisible('kitchen-ingredient-alias-input-input');
@@ -574,9 +823,12 @@ describe('the ingredient editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        await waitFor(async () => {
-            const after = await repositories.kitchenAdmin.getIngredient(target.id);
-            expect(after.aliases).toContain('Chuck');
+        // Aliases are a *field*, not a sub-resource: the whole list travels with the next save.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalledWith(
+                record.id,
+                expect.objectContaining({ aliases: ['Chuck'] }),
+            );
         });
     });
 });
@@ -587,18 +839,27 @@ describe('the ingredient editor', () => {
 
 describe('the allergen mapping editor', () => {
     it('marks a platform baseline row and refuses to weaken it', async () => {
-        await renderKitchen(<IngredientEditScreen ingredient={String(mappedIngredient.id)} />);
-
-        const baselineKey = `kitchen-ingredient-mapping-baseline-${String(
-            mappedIngredient.allergens[0]!.allergenCode,
-        )}`;
-
-        await waitFor(() => {
-            expect(screen.getByTestId(baselineKey)).toBeTruthy();
+        const record = platformIngredient(5, {
+            meta: meta({ status: 'published' }),
+            allergens: [mapping('gluten', { containment: 'contains' })],
         });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                },
+            },
+        });
+
+        const baselineKey = 'kitchen-ingredient-mapping-baseline-gluten';
+
+        await untilVisible(baselineKey);
         expect(screen.getByTestId(`${baselineKey}-baseline`)).toBeTruthy();
 
-        // The seeded determination is `contains`; asking for `may_contain` is a downgrade.
+        // The authored determination is `contains`; asking for `may_contain` is a downgrade.
         await act(async () => {
             fireEvent.press(screen.getByTestId(`${baselineKey}-containment-may_contain`));
         });
@@ -621,9 +882,24 @@ describe('the allergen mapping editor', () => {
     });
 
     it('adds a mapping and saves the whole set', async () => {
-        const target = unmappedIngredient;
-        const { repositories } = await renderKitchen(
-            <IngredientEditScreen ingredient={String(target.id)} />,
+        const record = ingredient(6, { allergens: [] });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        setIngredientAllergens: async (_id, request) => ({
+                            ...record,
+                            allergens: request.mappings,
+                            meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
+                        }),
+                    },
+                },
+            },
         );
 
         await untilVisible('kitchen-ingredient-allergen-empty');
@@ -633,21 +909,14 @@ describe('the allergen mapping editor', () => {
         });
 
         const rowId = 'kitchen-ingredient-mapping-overlay-1';
-        await waitFor(() => {
-            expect(screen.getByTestId(rowId)).toBeTruthy();
-        });
-
-        const classes = await repositories.kitchenAdmin.listAllergenClasses();
-        const chosen = classes[0]!;
+        await untilVisible(rowId);
 
         await act(async () => {
             fireEvent.press(screen.getByTestId(`${rowId}-class-trigger`));
         });
-        await waitFor(() => {
-            expect(screen.getByTestId(`${rowId}-class-list`)).toBeTruthy();
-        });
+        await untilVisible(`${rowId}-class-list`);
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`${rowId}-class-option-${String(chosen.code)}`));
+            fireEvent.press(screen.getByTestId(`${rowId}-class-option-gluten`));
         });
 
         await act(async () => {
@@ -661,43 +930,58 @@ describe('the allergen mapping editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));
         });
 
-        await waitFor(async () => {
-            const after = await repositories.kitchenAdmin.getIngredient(target.id);
-            expect(after.allergens).toHaveLength(1);
-            expect(after.allergens[0]!.allergenCode).toBe(chosen.code);
-            expect(after.allergens[0]!.sourceNote).toBe('Supplier sheet 4.');
+        // Wholesale, at the version the editor opened with: an allergen determination is judged as
+        // a set, and applying half of one would leave a label nobody meant to publish.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
+                record.id,
+                {
+                    lockVersion: record.meta.lockVersion,
+                    mappings: [
+                        {
+                            allergenCode: 'gluten',
+                            containment: 'contains',
+                            marketScope: [],
+                            verification: 'unverified',
+                            sourceNote: 'Supplier sheet 4.',
+                        },
+                    ],
+                },
+            );
         });
     });
 
-    it('renders the quarantine when dropping a determination a published recipe relies on', async () => {
+    it('renders the quarantine the server answers with when a determination is dropped', async () => {
         // The store quarantines an ingredient whose dropped allergen a *published* recipe derives
-        // from it — the burghul/pita contradiction the master plan calls out. Find such a row
-        // rather than assuming one, so the assertion still means something if the seed changes.
-        const recipes = await scratch.kitchenAdmin.listRecipes({ limit: 100 });
-        let victim: IngredientAdmin | null = null;
-        for (const summary of recipes.items) {
-            const recipe = await scratch.kitchenAdmin.getRecipe(summary.id);
-            if (recipe.currentVersion.status !== 'published') continue;
-            const declaration = recipe.currentVersion.allergens.find(
-                (entry) => entry.sourceIngredientIds.length > 0,
-            );
-            if (declaration === undefined) continue;
-            const ingredientId = declaration.sourceIngredientIds[0]!;
-            victim = await scratch.kitchenAdmin.getIngredient(ingredientId);
-            break;
-        }
-        if (victim === null) {
-            throw new Error('No published recipe derives an allergen from an ingredient.');
-        }
-
-        await renderKitchen(<IngredientEditScreen ingredient={String(victim.id)} />);
-
-        const rowId = `kitchen-ingredient-mapping-baseline-${String(
-            victim.allergens[0]!.allergenCode,
-        )}`;
-        await waitFor(() => {
-            expect(screen.getByTestId(rowId)).toBeTruthy();
+        // from it — the burghul/pita contradiction the master plan calls out. That derivation is a
+        // server decision, so the honest thing for a test to assert is the half the screen owns:
+        // the quarantine comes back inside a *successful* write, and the editor renders it rather
+        // than swallowing it.
+        const record = ingredient(7, {
+            meta: meta({ status: 'published' }),
+            allergens: [mapping('gluten')],
         });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                    setIngredientAllergens: async (_id, request) => ({
+                        ...record,
+                        allergens: request.mappings,
+                        meta: meta({
+                            status: 'review_required',
+                            lockVersion: request.lockVersion + 1,
+                        }),
+                    }),
+                },
+            },
+        });
+
+        const rowId = 'kitchen-ingredient-mapping-baseline-gluten';
+        await untilVisible(rowId);
 
         await act(async () => {
             fireEvent.press(screen.getByTestId(`${rowId}-remove`));
@@ -719,21 +1003,54 @@ describe('the allergen mapping editor', () => {
 
 describe('optimistic concurrency', () => {
     it('offers reload-or-keep when somebody else has moved the record on', async () => {
-        const boot = await bootKitchen();
-        const target = await createOwnedIngredient(boot.repositories, 'Conflict me');
-        const { repositories } = await renderKitchen(
-            <IngredientEditScreen ingredient={String(target.id)} />,
-            { boot },
+        const id = ingredientId(8);
+        // The record as the server holds it. The test moves this on mid-flight, exactly as another
+        // tab would, and the write rule below is the server's own: a stale `lockVersion` is refused.
+        let stored = ingredient(8, {
+            name: { en: 'Conflict me', ar: 'تعارض' },
+            meta: meta({ lockVersion: 1 }),
+        });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [stored]),
+                        getIngredient: async () => stored,
+                        updateIngredient: async (_id, request) => {
+                            if (request.lockVersion !== stored.meta.lockVersion) {
+                                throwFailure(
+                                    conflictFailure({
+                                        currentLockVersion: stored.meta.lockVersion,
+                                    }),
+                                );
+                            }
+                            stored = {
+                                ...stored,
+                                ...(request.name === undefined ? {} : { name: request.name }),
+                                meta: {
+                                    ...stored.meta,
+                                    lockVersion: request.lockVersion + 1,
+                                },
+                            };
+                            return stored;
+                        },
+                    },
+                },
+            },
         );
 
         await untilVisible('kitchen-ingredient-name-en-input');
 
         // Somebody else saves the same row. The editor is now holding a version the server has
         // already superseded — which is exactly the state `If-Match` exists to detect.
-        repositories.prototypeStore.kitchenCatalogue.updateIngredient(target.id, {
-            lockVersion: target.meta.lockVersion,
+        stored = {
+            ...stored,
             notes: 'Changed by the other tab.',
-        });
+            meta: { ...stored.meta, lockVersion: 2 },
+        };
 
         await act(async () => {
             fireEvent.changeText(
@@ -745,15 +1062,12 @@ describe('optimistic concurrency', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        await waitFor(() => {
-            expect(
-                screen.getByTestId('kitchen-ingredient-editor-screen-conflict-dialog'),
-            ).toBeTruthy();
-        });
-        // The record was not overwritten.
-        const untouched = await repositories.kitchenAdmin.getIngredient(target.id);
-        expect(untouched.name.en).toBe(target.name.en);
-        expect(untouched.notes).toBe('Changed by the other tab.');
+        await untilVisible('kitchen-ingredient-editor-screen-conflict-dialog');
+
+        // The record was not overwritten: one attempt, refused, and the other tab's write stands.
+        expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalledTimes(1);
+        expect(stored.name.en).toBe('Conflict me');
+        expect(stored.notes).toBe('Changed by the other tab.');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-conflict-reload'));
@@ -767,7 +1081,7 @@ describe('optimistic concurrency', () => {
         // Reloading takes the other version, local edits and all.
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe(
-                target.name.en,
+                'Conflict me',
             );
         });
     });
@@ -779,25 +1093,28 @@ describe('optimistic concurrency', () => {
 
 describe('the allergen class reference', () => {
     it('lists the fourteen classes and offers no way to change one', async () => {
-        await renderKitchen(<AllergenClassesScreen />);
+        await renderStubScreen(<AllergenClassesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { listAllergenClasses: async () => ALLERGEN_CLASSES },
+            },
+        });
 
         await untilVisible('kitchen-allergen-classes-list');
 
-        const classes = await scratch.kitchenAdmin.listAllergenClasses();
-        expect(classes).toHaveLength(14);
+        expect(ALLERGEN_CLASSES).toHaveLength(14);
         expect(screen.getByTestId('kitchen-allergen-classes-count')).toHaveTextContent(/14/);
         expect(screen.getByTestId('kitchen-allergen-classes-governance')).toBeTruthy();
 
-        for (const entry of classes) {
+        for (const entry of ALLERGEN_CLASSES) {
             expect(screen.getByTestId(`kitchen-allergen-class-${String(entry.code)}`)).toBeTruthy();
         }
 
         // Sulphites carry a stated threshold; most classes carry none, and that is printed.
-        const sulphites = classes.find((entry) => entry.declarationThreshold !== null);
-        if (sulphites !== undefined) {
-            expect(
-                screen.getByTestId(`kitchen-allergen-class-${String(sulphites.code)}-threshold`),
-            ).toHaveTextContent(new RegExp(String(sulphites.declarationThreshold!.value)));
-        }
+        const sulphites = ALLERGEN_CLASSES.find((entry) => entry.declarationThreshold !== null);
+        expect(sulphites).toBeDefined();
+        expect(
+            screen.getByTestId(`kitchen-allergen-class-${String(sulphites?.code)}-threshold`),
+        ).toHaveTextContent(new RegExp(String(sulphites?.declarationThreshold?.value)));
     });
 });

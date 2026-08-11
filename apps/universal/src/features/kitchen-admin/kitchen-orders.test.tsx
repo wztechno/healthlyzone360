@@ -1,14 +1,19 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
-import { createMockRepositories } from '@healthy360/api-client/mock';
-import { MOCK_SCENARIOS } from '@healthy360/api-client/mock';
-import type { MockRepositories } from '@healthy360/api-client/mock';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { ApiError, conflictFailure } from '@healthy360/api-client';
+import type {
+    CancelKitchenOrderRequest,
+    KitchenOrder,
+    KitchenOrderFilters,
+    KitchenOrderLine,
+    KitchenOrderPage,
+    KitchenOrderStatus,
+    KitchenOrderTransitionRequest,
+} from '@healthy360/api-client/contracts';
+import type { OrderId } from '@healthy360/domain-types';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { OrdersScreen } from './screens/orders-screen.tsx';
-
-const KITCHEN_MANAGER = MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail;
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -20,53 +25,316 @@ jest.mock('expo-router', () => ({
 }));
 
 /**
- * Signs the kitchen manager into Verdant Kitchen — the organisation the order fixture world seeds
- * its five orders against. Identical boilerplate to `ops-panel.test.tsx`, deliberately: the screen
- * under test is gated on an organisation-scoped permission, so a test that skipped the context
- * would be asserting against the forbidden page.
+ * The order book, against an order book this file writes.
+ *
+ * Everything the screen reads is authored below, and the three lifecycle writes go through
+ * {@link createOrderBook} — a closure that enforces the contract's own machine
+ * (`contracts/kitchen-orders.ts`: `placed → confirmed → fulfilled`, cancel from the two open
+ * statuses, `If-Match` on the lock version) and hands back the fresh record. That is deliberate
+ * rather than a stub returning a canned answer: the panel's "Confirm then Fulfil without a refetch"
+ * behaviour only means anything if the version it sends the second time came from the first write.
  */
-async function signIn(): Promise<{
-    readonly repositories: MockRepositories;
-    readonly tokenStore: ReturnType<typeof createMemoryTokenStore>;
-}> {
-    const tokenStore = createMemoryTokenStore();
-    const repositories = createMockRepositories({
-        scenario: 'multi-org-dietitian',
-        latencyMs: 1,
-        tokenStore,
-    });
-    await repositories.auth.login({ email: KITCHEN_MANAGER, password: 'password' });
-    const me = await repositories.session.me();
-    const membership = me.memberships.find(
-        (candidate) =>
-            candidate.organisation.slug === 'verdant-kitchen' && candidate.status === 'active',
-    );
-    if (membership === undefined) throw new Error('missing membership');
-    await repositories.context.setContext({ organisationId: membership.organisation.id });
-    return { repositories, tokenStore };
+
+const OTHER_BRANCH_ID = 'test-0000-branch-0002' as KitchenOrder['branchId'];
+
+function orderIdAt(ordinal: number): OrderId {
+    return `test-0000-order-000${String(ordinal)}` as OrderId;
 }
 
-function renderOrders(
-    repositories: MockRepositories,
-    tokenStore: ReturnType<typeof createMemoryTokenStore>,
-) {
-    return render(
-        <AppProviders
-            initialMetrics={TEST_METRICS}
-            repositories={repositories}
-            tokenStore={tokenStore}
-            queryClient={createTestQueryClient()}
-            initialOnline
-        >
-            <OrdersScreen />
-        </AppProviders>,
-    );
+function line(ordinal: number, overrides: Partial<KitchenOrderLine> = {}): KitchenOrderLine {
+    return {
+        id: `test-order-line-${String(ordinal)}`,
+        catalogueItemId: `test-catalogue-item-${String(ordinal)}`,
+        catalogueItemVariantId: null,
+        nameEn: `Dish ${String(ordinal)}`,
+        nameAr: `طبق ${String(ordinal)}`,
+        variantLabel: null,
+        quantity: '1.000',
+        unitPriceMinor: 5_000,
+        lineTotalMinor: 5_000,
+        currencyCode: 'AED',
+        allergens: [],
+        packSummary: null,
+        priceListId: null,
+        priceListItemId: null,
+        ...overrides,
+    };
+}
+
+const DELIVERY: KitchenOrder['delivery'] = {
+    label: 'Home',
+    lineOne: 'Villa 12, Street 8b',
+    lineTwo: null,
+    city: null,
+    areaNameEn: 'Al Quoz 1',
+    areaNameAr: 'القوز ١',
+    areaId: null,
+    windowCode: 'morning',
+    requestedDate: '2026-08-08',
+    zoneId: null,
+};
+
+function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
+    const lines = overrides.lines ?? [line(1)];
+    return {
+        id: orderIdAt(1),
+        orderNumber: 'VK-2026-0100',
+        branchId: TEST_BRANCH_ID,
+        status: 'placed',
+        currencyCode: 'AED',
+        subtotalMinor: 5_000,
+        deliveryFeeMinor: null,
+        totalMinor: 5_000,
+        paymentMethod: 'cash_on_delivery',
+        delivery: DELIVERY,
+        placedAt: '2026-08-06T07:12:00Z',
+        confirmedAt: null,
+        fulfilledAt: null,
+        cancelledAt: null,
+        cancellationReason: null,
+        lockVersion: 1,
+        lineCount: lines.length,
+        lines,
+        ...overrides,
+        // Derived after the spread so an override cannot claim a count its own lines contradict.
+        ...(overrides.lines === undefined ? {} : { lineCount: overrides.lines.length }),
+    };
+}
+
+/**
+ * Five orders, newest first — the order the endpoint answers in. Two `placed`, one `confirmed`, one
+ * `fulfilled`, one `cancelled`, which is what makes every metric and every filter assertion below a
+ * count of something this file authored rather than of something it hopes exists.
+ *
+ * The newest carries the money the detail assertions read: 14 500 + 1 500 delivery = 16 000 minor
+ * units, which the currency's own exponent turns into AED 145.00 and AED 160.00 exactly once.
+ */
+function seedOrders(): KitchenOrder[] {
+    return [
+        kitchenOrder({
+            id: orderIdAt(1),
+            orderNumber: 'VK-2026-0148',
+            // Verdant's *other* kitchen: in this manager's book, and never on Al Quoz's wall.
+            branchId: OTHER_BRANCH_ID,
+            status: 'placed',
+            subtotalMinor: 14_500,
+            deliveryFeeMinor: 1_500,
+            totalMinor: 16_000,
+            placedAt: '2026-08-06T07:12:00Z',
+            lines: [
+                line(1, {
+                    nameEn: 'Grilled chicken bowl',
+                    nameAr: 'وعاء الدجاج المشوي',
+                    quantity: '2.000',
+                    unitPriceMinor: 4_500,
+                    lineTotalMinor: 9_000,
+                }),
+                line(2, {
+                    nameEn: 'Green harvest salad',
+                    nameAr: 'سلطة الحصاد الأخضر',
+                    unitPriceMinor: 5_500,
+                    lineTotalMinor: 5_500,
+                }),
+            ],
+        }),
+        kitchenOrder({
+            id: orderIdAt(2),
+            orderNumber: 'VK-2026-0147',
+            // Delivered through an organisation-wide zone, so no kitchen was ever named.
+            branchId: null,
+            status: 'placed',
+            subtotalMinor: 7_200,
+            deliveryFeeMinor: null,
+            totalMinor: 7_200,
+            placedAt: '2026-08-06T06:40:00Z',
+            lines: [
+                line(3, {
+                    nameEn: 'Lentil soup, 1 litre',
+                    nameAr: 'شوربة العدس، لتر',
+                    quantity: '1.500',
+                    unitPriceMinor: 4_800,
+                    lineTotalMinor: 7_200,
+                }),
+            ],
+        }),
+        kitchenOrder({
+            id: orderIdAt(3),
+            orderNumber: 'VK-2026-0146',
+            status: 'confirmed',
+            subtotalMinor: 23_400,
+            deliveryFeeMinor: 1_500,
+            totalMinor: 24_900,
+            placedAt: '2026-08-05T15:02:00Z',
+            confirmedAt: '2026-08-05T15:48:00Z',
+            lockVersion: 2,
+            lines: [
+                line(4, {
+                    nameEn: 'Family mezze platter',
+                    nameAr: 'طبق المزة العائلي',
+                    unitPriceMinor: 15_000,
+                    lineTotalMinor: 15_000,
+                }),
+                line(5, {
+                    nameEn: 'Herb flatbread, 6 pieces',
+                    nameAr: 'خبز الأعشاب، ٦ قطع',
+                    quantity: '3.000',
+                    unitPriceMinor: 2_800,
+                    lineTotalMinor: 8_400,
+                }),
+            ],
+        }),
+        kitchenOrder({
+            id: orderIdAt(4),
+            orderNumber: 'VK-2026-0145',
+            status: 'fulfilled',
+            subtotalMinor: 9_000,
+            deliveryFeeMinor: 1_500,
+            totalMinor: 10_500,
+            placedAt: '2026-08-04T09:20:00Z',
+            confirmedAt: '2026-08-04T09:55:00Z',
+            fulfilledAt: '2026-08-05T17:31:00Z',
+            lockVersion: 3,
+            lines: [
+                line(6, {
+                    nameEn: 'Grilled chicken bowl',
+                    nameAr: 'وعاء الدجاج المشوي',
+                    quantity: '2.000',
+                    unitPriceMinor: 4_500,
+                    lineTotalMinor: 9_000,
+                }),
+            ],
+        }),
+        kitchenOrder({
+            id: orderIdAt(5),
+            orderNumber: 'VK-2026-0144',
+            status: 'cancelled',
+            subtotalMinor: 5_500,
+            deliveryFeeMinor: 1_500,
+            totalMinor: 7_000,
+            placedAt: '2026-08-03T11:05:00Z',
+            cancelledAt: '2026-08-03T12:10:00Z',
+            cancellationReason: 'address_unreachable',
+            lockVersion: 2,
+            lines: [
+                line(7, {
+                    nameEn: 'Green harvest salad',
+                    nameAr: 'سلطة الحصاد الأخضر',
+                    unitPriceMinor: 5_500,
+                    lineTotalMinor: 5_500,
+                }),
+            ],
+        }),
+    ];
+}
+
+/** Which statuses each action may be taken from — the contract's machine, in one table. */
+const ALLOWED_FROM: Readonly<
+    Record<'confirm' | 'fulfil' | 'cancel', readonly KitchenOrderStatus[]>
+> = {
+    confirm: ['placed'],
+    fulfil: ['confirmed'],
+    cancel: ['placed', 'confirmed'],
+};
+
+interface OrderBook {
+    /** The live records, so a test can assert the transition itself and not merely the call. */
+    readonly orders: () => readonly KitchenOrder[];
+    readonly find: (id: OrderId) => KitchenOrder | undefined;
+    readonly listOrders: (filters?: KitchenOrderFilters) => KitchenOrderPage;
+    readonly getOrder: (id: OrderId) => KitchenOrder;
+    readonly confirmOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
+    readonly fulfilOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
+    readonly cancelOrder: (request: CancelKitchenOrderRequest) => KitchenOrder;
+}
+
+/**
+ * A mutable order book the repository overrides read and write.
+ *
+ * The mutation is the point: `confirmOrder` moves the record and bumps its `lockVersion`, and the
+ * screen's own invalidation is what brings the change back — which is the same round trip the
+ * deleted fixture world exercised, now written where the assertions can see it.
+ */
+function createOrderBook(seed: KitchenOrder[] = seedOrders()): OrderBook {
+    let records = seed;
+
+    function find(id: OrderId): KitchenOrder | undefined {
+        return records.find((order) => order.id === id);
+    }
+
+    function requireOrder(id: OrderId): KitchenOrder {
+        const found = find(id);
+        if (found === undefined) throw new Error(`no order ${String(id)} in this test's book`);
+        return found;
+    }
+
+    function write(next: KitchenOrder): KitchenOrder {
+        records = records.map((order) => (order.id === next.id ? next : order));
+        return next;
+    }
+
+    function transition(
+        action: 'confirm' | 'fulfil' | 'cancel',
+        request: KitchenOrderTransitionRequest,
+        patch: Partial<KitchenOrder>,
+    ): KitchenOrder {
+        const current = requireOrder(request.id);
+        if (
+            !ALLOWED_FROM[action].includes(current.status) ||
+            current.lockVersion !== request.lockVersion
+        ) {
+            throw new ApiError(conflictFailure({ currentLockVersion: current.lockVersion }));
+        }
+        return write({ ...current, ...patch, lockVersion: current.lockVersion + 1 });
+    }
+
+    return {
+        orders: () => records,
+        find,
+        listOrders: (filters) => {
+            const items = records.filter((order) =>
+                filters?.status === undefined ? true : order.status === filters.status,
+            );
+            return { items, nextCursor: null, hasMore: false };
+        },
+        getOrder: requireOrder,
+        confirmOrder: (request) =>
+            transition('confirm', request, {
+                status: 'confirmed',
+                confirmedAt: '2026-08-06T08:00:00Z',
+            }),
+        fulfilOrder: (request) =>
+            transition('fulfil', request, {
+                status: 'fulfilled',
+                fulfilledAt: '2026-08-06T09:00:00Z',
+            }),
+        cancelOrder: (request) =>
+            transition('cancel', request, {
+                status: 'cancelled',
+                cancelledAt: '2026-08-06T08:30:00Z',
+                cancellationReason: request.reason,
+            }),
+    };
+}
+
+async function renderOrders(book: OrderBook) {
+    return renderStubScreen(<OrdersScreen />, {
+        session: kitchenManagerSession(),
+        repositories: {
+            kitchenOrders: {
+                listOrders: async (filters) => book.listOrders(filters),
+                getOrder: async (id) => book.getOrder(id),
+                confirmOrder: async (request) => book.confirmOrder(request),
+                fulfilOrder: async (request) => book.fulfilOrder(request),
+                cancelOrder: async (request) => book.cancelOrder(request),
+            },
+        },
+    });
 }
 
 describe('kitchen orders', () => {
-    it('renders the seeded order book with a status for every row', async () => {
-        const { repositories, tokenStore } = await signIn();
-        await renderOrders(repositories, tokenStore);
+    it('renders the authored order book with a status for every row', async () => {
+        const book = createOrderBook();
+        await renderOrders(book);
 
         // Cold module load under parallel jest workers can exceed the 1 s waitFor default; the
         // wait covers the suite's first render, not anything slow in the screen itself.
@@ -77,7 +345,7 @@ describe('kitchen orders', () => {
             { timeout: 5000 },
         );
 
-        // The fixture world seeds five Verdant orders across all four statuses.
+        // Five orders authored above, across all four statuses: two placed, one confirmed.
         expect(screen.getByTestId('kitchen-orders-panel-metric-loaded-value')).toHaveTextContent(
             '5',
         );
@@ -88,9 +356,8 @@ describe('kitchen orders', () => {
             '1',
         );
 
-        const orders = repositories.kitchenOrdersStore.orders();
-        const newest = orders[0];
-        if (newest === undefined) throw new Error('the fixture world seeded no orders');
+        const newest = book.orders()[0];
+        if (newest === undefined) throw new Error('this test authored no orders');
         expect(screen.getByTestId(`kitchen-order-${String(newest.id)}-number`)).toHaveTextContent(
             'VK-2026-0148',
         );
@@ -98,8 +365,8 @@ describe('kitchen orders', () => {
     });
 
     it('narrows the list to one status when the filter is used', async () => {
-        const { repositories, tokenStore } = await signIn();
-        await renderOrders(repositories, tokenStore);
+        const book = createOrderBook();
+        const { repositories } = await renderOrders(book);
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
@@ -107,18 +374,21 @@ describe('kitchen orders', () => {
 
         fireEvent.press(screen.getByTestId('kitchen-orders-status-fulfilled'));
 
-        // One fulfilled order in the seed, so the loaded count is the filter's own answer.
+        // One fulfilled order in the authored book, so the loaded count is the filter's own answer.
         await waitFor(() => {
             expect(
                 screen.getByTestId('kitchen-orders-panel-metric-loaded-value'),
             ).toHaveTextContent('1');
         });
-        const fulfilled = repositories.kitchenOrdersStore
-            .orders()
-            .filter((order) => order.status === 'fulfilled');
+        // The narrowing is the endpoint's, not a client-side sieve over the whole page.
+        expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
+            status: 'fulfilled',
+        });
+
+        const fulfilled = book.orders().filter((order) => order.status === 'fulfilled');
         expect(fulfilled).toHaveLength(1);
         const only = fulfilled[0];
-        if (only === undefined) throw new Error('no fulfilled order in the fixture world');
+        if (only === undefined) throw new Error('this test authored no fulfilled order');
         expect(screen.getByTestId(`kitchen-order-${String(only.id)}-number`)).toBeTruthy();
         expect(screen.getByTestId('kitchen-orders-panel-metric-awaiting-value')).toHaveTextContent(
             '0',
@@ -126,17 +396,15 @@ describe('kitchen orders', () => {
     });
 
     it('opens the slide-in with the order lines and its totals breakdown', async () => {
-        const { repositories, tokenStore } = await signIn();
-        await renderOrders(repositories, tokenStore);
+        const book = createOrderBook();
+        await renderOrders(book);
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
         });
 
-        const placed = repositories.kitchenOrdersStore
-            .orders()
-            .find((order) => order.status === 'placed');
-        if (placed === undefined) throw new Error('no placed order in the fixture world');
+        const placed = book.orders().find((order) => order.status === 'placed');
+        if (placed === undefined) throw new Error('this test authored no placed order');
 
         fireEvent.press(screen.getByTestId(`kitchen-order-${String(placed.id)}-open`));
 
@@ -153,17 +421,15 @@ describe('kitchen orders', () => {
     });
 
     it('confirms a placed order and leaves the panel on the fresh record', async () => {
-        const { repositories, tokenStore } = await signIn();
-        await renderOrders(repositories, tokenStore);
+        const book = createOrderBook();
+        const { repositories } = await renderOrders(book);
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
         });
 
-        const placed = repositories.kitchenOrdersStore
-            .orders()
-            .find((order) => order.status === 'placed');
-        if (placed === undefined) throw new Error('no placed order in the fixture world');
+        const placed = book.orders().find((order) => order.status === 'placed');
+        if (placed === undefined) throw new Error('this test authored no placed order');
 
         fireEvent.press(screen.getByTestId(`kitchen-order-${String(placed.id)}-open`));
         await waitFor(() => {
@@ -172,12 +438,16 @@ describe('kitchen orders', () => {
 
         fireEvent.press(screen.getByTestId('kitchen-orders-confirm'));
 
-        // The mock store enforces the real machine, so this is the transition itself, not a stub:
-        // `placed → confirmed`, with the lock version incremented.
+        // The version the panel sends is the one it read, and the book enforces the real machine —
+        // so this is the transition itself, `placed → confirmed` with the lock version incremented.
         await waitFor(() => {
-            const after = repositories.kitchenOrdersStore
-                .orders()
-                .find((order) => order.id === placed.id);
+            expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledWith({
+                id: placed.id,
+                lockVersion: placed.lockVersion,
+            });
+        });
+        await waitFor(() => {
+            const after = book.find(placed.id);
             expect(after?.status).toBe('confirmed');
             expect(after?.lockVersion).toBe(placed.lockVersion + 1);
         });
@@ -191,17 +461,15 @@ describe('kitchen orders', () => {
     });
 
     it('requires a reason before the cancel dialog will submit', async () => {
-        const { repositories, tokenStore } = await signIn();
-        await renderOrders(repositories, tokenStore);
+        const book = createOrderBook();
+        const { repositories } = await renderOrders(book);
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
         });
 
-        const placed = repositories.kitchenOrdersStore
-            .orders()
-            .find((order) => order.status === 'placed');
-        if (placed === undefined) throw new Error('no placed order in the fixture world');
+        const placed = book.orders().find((order) => order.status === 'placed');
+        if (placed === undefined) throw new Error('this test authored no placed order');
 
         fireEvent.press(screen.getByTestId(`kitchen-order-${String(placed.id)}-open`));
         await waitFor(() => {
@@ -215,6 +483,7 @@ describe('kitchen orders', () => {
 
         const submit = screen.getByTestId('kitchen-orders-cancel-confirm');
         expect(submit).toBeDisabled();
+        expect(repositories.kitchenOrders.cancelOrder).not.toHaveBeenCalled();
 
         fireEvent.press(screen.getByTestId('kitchen-orders-cancel-reason-delivery_unavailable'));
         await waitFor(() => {
@@ -223,9 +492,14 @@ describe('kitchen orders', () => {
         fireEvent.press(screen.getByTestId('kitchen-orders-cancel-confirm'));
 
         await waitFor(() => {
-            const after = repositories.kitchenOrdersStore
-                .orders()
-                .find((order) => order.id === placed.id);
+            expect(repositories.kitchenOrders.cancelOrder).toHaveBeenCalledWith({
+                id: placed.id,
+                lockVersion: placed.lockVersion,
+                reason: 'delivery_unavailable',
+            });
+        });
+        await waitFor(() => {
+            const after = book.find(placed.id);
             expect(after?.status).toBe('cancelled');
             expect(after?.cancellationReason).toBe('delivery_unavailable');
         });

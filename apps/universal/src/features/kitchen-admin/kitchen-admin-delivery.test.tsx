@@ -1,19 +1,36 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
+import { apiFailure, conflictFailure, throwFailure } from '@healthy360/api-client/contracts';
 import type {
+    AdminEntityMeta,
+    AdminRecordMeta,
     BranchOperating,
+    CursorPage,
+    DeliveryWindow,
     DeliveryZoneAdmin,
+    DeliveryZoneAdminFilter,
     ServiceArea,
+    SetDeliveryWindowsRequest,
 } from '@healthy360/api-client/contracts';
-import { MOCK_SCENARIOS, createMockRepositories } from '@healthy360/api-client/mock';
-import type { MockRepositories } from '@healthy360/api-client/mock';
-import { KitchenBranchId, ServiceAreaId } from '@healthy360/domain-types';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+    DeliveryWindowId,
+    DeliveryZoneId,
+    KitchenBranchId,
+    KitchenId,
+    ServiceAreaId,
+} from '@healthy360/domain-types';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import KitchenZonesRoute from '../../../app/kitchen/delivery-zones/index.tsx';
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import {
+    TEST_BRANCH_ID,
+    kitchenManagerSession,
+    testBranch,
+    testMembership,
+} from '../../testing/session-fixtures.ts';
+import { page } from '../../testing/stub-repositories.ts';
+import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import {
     areaMatches,
     copyDayToOpenDays,
@@ -40,27 +57,32 @@ import { DeliveryZonesScreen } from './screens/delivery-zones-screen.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 
 /**
- * The delivery half of the kitchen workspace, against the real mock repositories (K1.7).
+ * The delivery half of the kitchen workspace, against a world this file declares (K1.7).
  *
- * Nothing here stubs a hook. Six things this file exists to prove, in rough order of how badly it
- * would matter if they were wrong:
+ * Nothing here stubs a hook, and nothing here signs into somebody else's fixture world: every zone,
+ * every gazetteer row and every trading week below is authored in this file and handed to
+ * `renderStubScreen`. A repository method a screen reaches for and this file did not declare
+ * rejects loudly with `StubNotConfiguredError` naming it, rather than rendering an empty state over
+ * a hole in the test.
+ *
+ * Six things this file exists to prove, in rough order of how badly it would matter if they were
+ * wrong:
  *
  * 1. **A closed day is a row, and closing one removes its fields.** The contract encodes closed as
- *    three nulls and the store refuses a week that is not seven rows; the editor has to produce
- *    exactly that, and a disabled-but-populated field would send a time nobody meant to keep.
+ *    three nulls and refuses a week that is not seven rows; the editor has to produce exactly that,
+ *    and a disabled-but-populated field would send a time nobody meant to keep.
  * 2. **`null` and `0` survive the round trip, separately.** "No fee recorded" and "delivery is
  *    free" are different promises to a customer. The caption says which is held, the request
- *    carries `null` for the first and `0` for the second, and the repository reads back the
- *    difference.
+ *    carries `null` for the first and `0` for the second, and the record reads back the difference.
  * 3. **The two time rules are enforced before a save, per row.** Closing before opening, and a
  *    same-day cut-off after closing time, are refused with the offending day named. A cut-off
  *    *before* opening is deliberately allowed — a meal-prep kitchen takes tomorrow's orders at 06:00
  *    and opens at 08:00 — and the test says so, because a rule nobody wrote is as expensive as a
  *    rule that is missing.
- * 4. **The area picker works at gazetteer scale.** The seeded world has eleven areas and the plan's
- *    production gazetteer has around 125, so the picker is asserted against a synthesised 125 as
- *    well as against the real eleven: search narrows, the cap holds, the hidden count is honest, and
- *    a chip removes what the list selected.
+ * 4. **The area picker works at gazetteer scale.** The authored world carries four areas and the
+ *    plan's production gazetteer has around 125, so the picker is asserted against a synthesised 125
+ *    as well: search narrows, the cap holds, the hidden count is honest, and a chip removes what the
+ *    list selected.
  * 5. **A window added here gets the server's identifier.** The set is replaced wholesale, so an
  *    editor that failed to rebase on the echo would mint a duplicate on the second save — the same
  *    defect the plan editor's variant save documents.
@@ -68,14 +90,18 @@ import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
  *    rather than overwriting, and leaving a dirty editor asks first.
  */
 
-const KITCHEN_MANAGER = MOCK_SCENARIOS['multi-org-dietitian'].primaryEmail;
-
 jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
+        useRouter: () => ({
+            push,
+            replace,
+            setParams: jest.fn(),
+            back: jest.fn(),
+            prefetch: jest.fn(),
+        }),
         usePathname: () => '/kitchen/delivery-zones',
         useLocalSearchParams: () => ({}),
         Redirect: () => null,
@@ -95,51 +121,6 @@ beforeEach(() => {
     routerMock.__replace.mockClear();
 });
 
-interface Harness {
-    readonly repositories: MockRepositories;
-}
-
-/** Signs in, applies the organisation context, lets a test arrange the world, then renders. */
-async function renderKitchen(
-    node: ReactNode,
-    options: {
-        readonly latencyMs?: number | undefined;
-        readonly prepare?: (repositories: MockRepositories) => void;
-    } = {},
-): Promise<Harness> {
-    const tokenStore = createMemoryTokenStore();
-    const repositories = createMockRepositories({
-        scenario: 'multi-org-dietitian',
-        latencyMs: options.latencyMs ?? 1,
-        tokenStore,
-    });
-    await repositories.auth.login({ email: KITCHEN_MANAGER, password: 'password' });
-
-    const me = await repositories.session.me();
-    const membership = me.memberships.find(
-        (candidate) =>
-            candidate.organisation.slug === 'verdant-kitchen' && candidate.status === 'active',
-    );
-    if (membership === undefined) throw new Error('No active membership in "verdant-kitchen".');
-    await repositories.context.setContext({ organisationId: membership.organisation.id });
-
-    options.prepare?.(repositories);
-
-    await render(
-        <AppProviders
-            initialMetrics={TEST_METRICS}
-            repositories={repositories}
-            tokenStore={tokenStore}
-            queryClient={createTestQueryClient()}
-            initialOnline
-        >
-            {node}
-        </AppProviders>,
-    );
-
-    return { repositories };
-}
-
 /** Waits for an element, with the same contention headroom the other kitchen suites document. */
 function untilVisible(testID: string) {
     return waitFor(
@@ -150,41 +131,263 @@ function untilVisible(testID: string) {
     );
 }
 
-const scratch = createMockRepositories({ scenario: 'multi-org-dietitian', latencyMs: 0 });
+/* ------------------------------------------------------------------------------------------------
+ * The world this file authors
+ *
+ * Every builder is typed against its contract shape, so a contract that grows a required field
+ * fails the typecheck here rather than producing a record the screen cannot render.
+ * ---------------------------------------------------------------------------------------------- */
 
-/** A seeded zone with areas and windows on it — the shape every list assertion reads. */
-let seededZone: DeliveryZoneAdmin;
-/** The gazetteer this world publishes. */
-let seededAreas: readonly ServiceArea[];
-/** The branch a kitchen manager signs into, and its trading week. */
-let seededOperating: BranchOperating;
+const KITCHEN_ID = KitchenId.unsafe('01935f6d-0000-7000-8000-00000000a001');
+/** The kitchen branch the session's active branch resolves to — see `branch-operating-screen.tsx`. */
+const BRANCH_ID = KitchenBranchId.unsafe(String(TEST_BRANCH_ID));
 
-beforeAll(async () => {
-    const zones = await scratch.kitchenAdmin.listZones({ limit: 100 });
-    const first = zones.items[0];
-    if (first === undefined) throw new Error('The seed carries no delivery zones.');
-    seededZone = first;
+/** UUID-shaped, because `DeliveryZoneEditScreen` parses the route parameter with `DeliveryZoneId`. */
+function zoneId(ordinal: number): DeliveryZoneId {
+    return DeliveryZoneId.unsafe(`01935f6d-0000-7000-8000-00000000e00${String(ordinal)}`);
+}
 
-    const areas = await scratch.kitchenAdmin.listServiceAreas({ limit: 100 });
-    seededAreas = areas.items;
+function meta(overrides: Partial<AdminEntityMeta> = {}): AdminEntityMeta {
+    return {
+        lockVersion: 1,
+        status: 'draft',
+        updatedAt: '2026-08-01T09:00:00.000Z',
+        updatedByName: 'Rana Haddad',
+        ...overrides,
+    };
+}
 
-    const me = await (async () => {
-        await scratch.auth.login({ email: KITCHEN_MANAGER, password: 'password' });
-        const response = await scratch.session.me();
-        const membership = response.memberships.find(
-            (candidate) => candidate.organisation.slug === 'verdant-kitchen',
-        );
-        if (membership === undefined) throw new Error('No kitchen membership in the seed.');
-        await scratch.context.setContext({ organisationId: membership.organisation.id });
-        return scratch.session.me();
-    })();
+function recordMeta(overrides: Partial<AdminRecordMeta> = {}): AdminRecordMeta {
+    return {
+        lockVersion: 1,
+        updatedAt: '2026-08-01T09:00:00.000Z',
+        updatedByName: 'Rana Haddad',
+        ...overrides,
+    };
+}
 
-    const branchId = me.activeContext?.branchId;
-    if (branchId == null) throw new Error('The kitchen context carries no branch.');
-    seededOperating = await scratch.kitchenAdmin.getBranchOperating(
-        KitchenBranchId.unsafe(branchId),
-    );
+function serviceArea(ordinal: number, overrides: Partial<ServiceArea> = {}): ServiceArea {
+    return {
+        id: ServiceAreaId.unsafe(`01935f6d-0000-7000-8000-00000000f00${String(ordinal)}`),
+        name: { en: `District ${String(ordinal)}`, ar: `حي ${String(ordinal)}` },
+        countryCode: 'AE',
+        parentName: { en: 'Dubai', ar: 'دبي' },
+        isActive: true,
+        ...overrides,
+    };
+}
+
+/** The gazetteer this world publishes. Four rows: two on the zone, two it may still reach for. */
+const GAZETTEER: readonly ServiceArea[] = [
+    serviceArea(1),
+    serviceArea(2),
+    serviceArea(3, { parentName: { en: 'Sharjah', ar: 'الشارقة' } }),
+    serviceArea(4, { parentName: { en: 'Sharjah', ar: 'الشارقة' }, isActive: false }),
+];
+
+function deliveryWindow(ordinal: number, overrides: Partial<DeliveryWindow> = {}): DeliveryWindow {
+    return {
+        id: DeliveryWindowId.unsafe(
+            `01935f6d-0000-7000-8000-000000010${String(ordinal).padStart(3, '0')}`,
+        ),
+        label: { en: `Window ${String(ordinal)}`, ar: `نافذة ${String(ordinal)}` },
+        weekdays: [1, 2, 3, 4, 5, 6, 7],
+        startsAt: '08:00',
+        endsAt: '11:00',
+        capacity: null,
+        isActive: true,
+        ...overrides,
+    };
+}
+
+function zone(ordinal: number, overrides: Partial<DeliveryZoneAdmin> = {}): DeliveryZoneAdmin {
+    return {
+        id: zoneId(ordinal),
+        meta: meta(),
+        name: { en: `Ring ${String(ordinal)}`, ar: `حلقة ${String(ordinal)}` },
+        kitchenId: KITCHEN_ID,
+        branchIds: [BRANCH_ID],
+        areas: [],
+        deliveryFeeMinor: null,
+        minimumOrderMinor: null,
+        currency: 'USD',
+        estimatedMinutes: null,
+        deliveryWindows: [],
+        ...overrides,
+    };
+}
+
+/**
+ * The zone every editor assertion is written against: two areas, two windows, a fee and a minimum.
+ *
+ * The first window covers the whole week on purpose — the weekday test toggles Sunday off it, and a
+ * window that never reached Sunday would make the toggle indistinguishable from a broken control.
+ */
+const SEEDED_ZONE: DeliveryZoneAdmin = zone(1, {
+    meta: meta({ status: 'published', lockVersion: 2 }),
+    name: { en: 'Marina ring', ar: 'حلقة المارينا' },
+    areas: [GAZETTEER[0]!, GAZETTEER[1]!],
+    deliveryFeeMinor: 1500,
+    minimumOrderMinor: 5000,
+    estimatedMinutes: 45,
+    deliveryWindows: [
+        deliveryWindow(1),
+        deliveryWindow(2, {
+            label: { en: 'Evening', ar: 'مساء' },
+            weekdays: [1, 2, 3],
+            startsAt: '17:00',
+            endsAt: '20:00',
+        }),
+    ],
 });
+
+/** A zone nobody has decided a fee for: `null`, which is not zero and must not read as one. */
+const UNDECIDED_ZONE: DeliveryZoneAdmin = zone(2, {
+    name: { en: 'Undecided ring', ar: 'حلقة غير محسومة' },
+});
+
+/** A zone whose fee is a decided zero: free delivery, and somebody chose it. */
+const FREE_ZONE: DeliveryZoneAdmin = zone(3, {
+    name: { en: 'Free ring', ar: 'حلقة مجانية' },
+    deliveryFeeMinor: 0,
+    minimumOrderMinor: 0,
+});
+
+/** The branch's trading week: open Monday to Friday, shut at the weekend. */
+const BRANCH_OPERATING: BranchOperating = {
+    branchId: BRANCH_ID,
+    meta: recordMeta(),
+    timeZone: 'Asia/Dubai',
+    days: [1, 2, 3, 4, 5, 6, 7].map((weekday) =>
+        weekday <= 5
+            ? { weekday, opensAt: '08:00', closesAt: '22:00', orderCutOffAt: '18:00' }
+            : { weekday, opensAt: null, closesAt: null, orderCutOffAt: null },
+    ),
+};
+
+/**
+ * The zone listing, answering the filters the screens actually send.
+ *
+ * `query` and `statuses` are real server filters (`DeliveryZoneAdminFilter`), and three call sites
+ * depend on them behaving: the list screen's search box, the hub card's per-status counts, and the
+ * editor's currency derivation. Reading a getter rather than a captured array is what lets a test
+ * move the world on mid-flight and assert the refetch.
+ */
+function zoneListing(
+    read: () => readonly DeliveryZoneAdmin[],
+): (filter?: DeliveryZoneAdminFilter) => Promise<CursorPage<DeliveryZoneAdmin>> {
+    return async (filter) => {
+        const statuses = filter?.statuses;
+        const needle = filter?.query?.trim().toLocaleLowerCase() ?? '';
+
+        return page(
+            read().filter(
+                (row) =>
+                    (statuses === undefined || statuses.includes(row.meta.status)) &&
+                    (needle === '' ||
+                        row.name.en.toLocaleLowerCase().includes(needle) ||
+                        row.name.ar.includes(needle)),
+            ),
+        );
+    };
+}
+
+/**
+ * Everything the zone editor reads before it can render anything.
+ *
+ * All four fire on every render of the editor, including the create form and the not-found state —
+ * the queries start before the route parameter is judged — so they are declared together rather
+ * than per test.
+ */
+function zoneEditorReads(
+    read: () => DeliveryZoneAdmin,
+    zones: () => readonly DeliveryZoneAdmin[] = () => [read()],
+) {
+    return {
+        getZone: async () => read(),
+        listZones: zoneListing(zones),
+        listPriceLists: async () => page([]),
+        listServiceAreas: async () => page(GAZETTEER),
+    };
+}
+
+/** The same four, for the create form and the not-found state, where there is no record to read. */
+function zonelessEditorReads() {
+    return {
+        listZones: zoneListing(() => [SEEDED_ZONE]),
+        listPriceLists: async () => page([]),
+        listServiceAreas: async () => page(GAZETTEER),
+    };
+}
+
+/** The server's rule for a wholesale window write: a `null` identifier comes back with one. */
+function mintWindows(
+    record: DeliveryZoneAdmin,
+    request: SetDeliveryWindowsRequest,
+): DeliveryZoneAdmin {
+    let minted = 0;
+    return {
+        ...record,
+        deliveryWindows: request.windows.map((input) => {
+            minted += 1;
+            return {
+                id:
+                    input.id ??
+                    DeliveryWindowId.unsafe(
+                        `01935f6d-0000-7000-8000-0000000209${String(minted).padStart(2, '0')}`,
+                    ),
+                label: input.label,
+                weekdays: input.weekdays,
+                startsAt: input.startsAt,
+                endsAt: input.endsAt,
+                capacity: input.capacity ?? null,
+                isActive: input.isActive ?? true,
+            };
+        }),
+        meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
+    };
+}
+
+/**
+ * Everything the hub reads.
+ *
+ * The kitchen manager holds every workspace permission, so the grid renders every family and each
+ * card fetches its own summary. Declaring all of them is the point of the harness: a card whose
+ * listing this file forgot would reject with `StubNotConfiguredError` naming it, rather than
+ * quietly rendering "Count unavailable" over a hole in the test.
+ */
+function hubRepositories(zones: readonly DeliveryZoneAdmin[]): RepositoryOverrides {
+    return {
+        kitchenAdmin: {
+            listIngredients: async () => page([]),
+            listRecipes: async () => page([]),
+            listProducts: async () => page([]),
+            listMeals: async () => page([]),
+            listPlans: async () => page([]),
+            listPriceLists: async () => page([]),
+            listZones: zoneListing(() => zones),
+            listAllergenClasses: async () => [],
+            getBranchOperating: async () => BRANCH_OPERATING,
+        },
+        kitchenOps: {
+            countLowStockLevels: async () => 0,
+            countUnresolvedConsumptionExceptions: async () => 0,
+        },
+    };
+}
+
+/**
+ * A kitchen manager whose membership names the branch in context.
+ *
+ * `BranchOperatingScreen` reads the branch's *name* off `me()` rather than fetching it, so a
+ * membership with no branches would render the honest "unknown branch" badge instead of the one a
+ * person actually sees.
+ */
+function kitchenSession() {
+    return kitchenManagerSession({
+        memberships: [testMembership({ branches: [testBranch()] })],
+    });
+}
 
 /* ------------------------------------------------------------------------------------------------
  * Pure helpers
@@ -486,36 +689,38 @@ describe('the delivery model', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the delivery-zone list', () => {
-    it('renders skeletons, then the seeded zones with their areas, windows and charges', async () => {
+    it('renders skeletons, then the authored zones with their areas, windows and charges', async () => {
         // A visible latency, so the pending frame is deterministically observable rather than a
-        // race against a mock that resolves on a microtask.
-        await renderKitchen(<DeliveryZonesScreen />, { latencyMs: 40 });
+        // race against a stub that resolves on a microtask.
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            latencyMs: 40,
+            repositories: {
+                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
+            },
+        });
 
         await untilVisible('kitchen-zones-loading');
         await untilVisible('kitchen-zones-table');
 
-        const row = zoneRowTestId(String(seededZone.id));
+        const row = zoneRowTestId(String(SEEDED_ZONE.id));
         expect(screen.getByTestId(`${row}-name`)).toBeTruthy();
-        expect(screen.getByTestId(`${row}-area-count`)).toBeTruthy();
-        expect(screen.getByTestId(`${row}-window-count`)).toBeTruthy();
+        // Two areas and two windows, which is what this file authored onto the zone.
+        expect(screen.getByTestId(`${row}-area-count`)).toHaveTextContent(/2/);
+        expect(screen.getByTestId(`${row}-window-count`)).toHaveTextContent(/2/);
         expect(screen.getByTestId(`${row}-status`)).toBeTruthy();
     });
 
     it('states an unrecorded fee as an absence rather than as a zero', async () => {
-        let created: DeliveryZoneAdmin | null = null;
-
-        await renderKitchen(<DeliveryZonesScreen />, {
-            prepare: (repositories) => {
-                created = repositories.prototypeStore.kitchenCatalogue.createZone({
-                    name: { en: 'Undecided ring', ar: 'حلقة غير محسومة' },
-                    currency: 'USD',
-                });
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
             },
         });
-
         await untilVisible('kitchen-zones-table');
-        if (created === null) throw new Error('The zone was not created.');
-        const row = zoneRowTestId(String((created as DeliveryZoneAdmin).id));
+
+        const row = zoneRowTestId(String(UNDECIDED_ZONE.id));
 
         // `null` is "nothing recorded". The word "free" must not appear for it, because a free
         // delivery is a decision somebody made and this is the absence of one.
@@ -526,29 +731,27 @@ describe('the delivery-zone list', () => {
     });
 
     it('states a decided zero fee as free', async () => {
-        let created: DeliveryZoneAdmin | null = null;
-
-        await renderKitchen(<DeliveryZonesScreen />, {
-            prepare: (repositories) => {
-                created = repositories.prototypeStore.kitchenCatalogue.createZone({
-                    name: { en: 'Free ring', ar: 'حلقة مجانية' },
-                    currency: 'USD',
-                    deliveryFeeMinor: 0,
-                    minimumOrderMinor: 0,
-                });
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, FREE_ZONE]) },
             },
         });
-
         await untilVisible('kitchen-zones-table');
-        if (created === null) throw new Error('The zone was not created.');
-        const row = zoneRowTestId(String((created as DeliveryZoneAdmin).id));
+
+        const row = zoneRowTestId(String(FREE_ZONE.id));
 
         expect(screen.getByTestId(`${row}-fee`)).toHaveTextContent(/free/i);
         expect(screen.getByTestId(`${row}-fee`)).not.toHaveTextContent(/no fee recorded/i);
     });
 
     it('separates a filtered empty result from an empty kitchen', async () => {
-        await renderKitchen(<DeliveryZonesScreen />);
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
+            },
+        });
         await untilVisible('kitchen-zones-table');
 
         await act(async () => {
@@ -562,8 +765,26 @@ describe('the delivery-zone list', () => {
         expect(screen.getByTestId('kitchen-zones-empty')).toHaveTextContent(/filters/i);
     });
 
+    it('renders the error state when the listing fails', async () => {
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listZones: async () => throwFailure(apiFailure('server', { message: 'Boom.' })),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-zones-error');
+    });
+
     it('renders through the code-split route as well as directly', async () => {
-        await renderKitchen(<KitchenZonesRoute />);
+        await renderStubScreen(<KitchenZonesRoute />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE]) },
+            },
+        });
         await untilVisible('kitchen-zones-screen');
     });
 });
@@ -574,7 +795,10 @@ describe('the delivery-zone list', () => {
 
 describe('the delivery-zone editor', () => {
     it('says which of the three money states each field is holding', async () => {
-        await renderKitchen(<DeliveryZoneEditScreen zone={String(seededZone.id)} />);
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
+        });
         await untilVisible('kitchen-zone-editor-screen');
 
         await act(async () => {
@@ -604,8 +828,32 @@ describe('the delivery-zone editor', () => {
     });
 
     it('writes an emptied fee back as null rather than as zero', async () => {
-        const { repositories } = await renderKitchen(
-            <DeliveryZoneEditScreen zone={String(seededZone.id)} />,
+        let stored: DeliveryZoneAdmin = SEEDED_ZONE;
+
+        const { repositories } = await renderStubScreen(
+            <DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />,
+            {
+                session: kitchenSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...zoneEditorReads(
+                            () => stored,
+                            () => [stored],
+                        ),
+                        updateZone: async (_id, request) => {
+                            stored = {
+                                ...stored,
+                                ...(request.name === undefined ? {} : { name: request.name }),
+                                deliveryFeeMinor: request.deliveryFeeMinor ?? null,
+                                minimumOrderMinor: request.minimumOrderMinor ?? null,
+                                estimatedMinutes: request.estimatedMinutes ?? null,
+                                meta: { ...stored.meta, lockVersion: request.lockVersion + 1 },
+                            };
+                            return stored;
+                        },
+                    },
+                },
+            },
         );
         await untilVisible('kitchen-zone-editor-screen');
 
@@ -616,9 +864,18 @@ describe('the delivery-zone editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-save'));
         });
 
-        await waitFor(async () => {
-            const saved = await repositories.kitchenAdmin.getZone(seededZone.id);
-            expect(saved.deliveryFeeMinor).toBeNull();
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateZone).toHaveBeenNthCalledWith(
+                1,
+                SEEDED_ZONE.id,
+                expect.objectContaining({
+                    lockVersion: SEEDED_ZONE.meta.lockVersion,
+                    deliveryFeeMinor: null,
+                }),
+            );
+        });
+        await waitFor(() => {
+            expect(stored.deliveryFeeMinor).toBeNull();
         });
 
         // And a typed zero is a zero, not another absence.
@@ -629,22 +886,45 @@ describe('the delivery-zone editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-save'));
         });
 
-        await waitFor(async () => {
-            const saved = await repositories.kitchenAdmin.getZone(seededZone.id);
-            expect(saved.deliveryFeeMinor).toBe(0);
+        await waitFor(() => {
+            expect(stored.deliveryFeeMinor).toBe(0);
         });
+        expect(repositories.kitchenAdmin.updateZone).toHaveBeenNthCalledWith(
+            2,
+            SEEDED_ZONE.id,
+            expect.objectContaining({ deliveryFeeMinor: 0 }),
+        );
     });
 
     it('adds and removes gazetteer areas, and saves the set', async () => {
-        const { repositories } = await renderKitchen(
-            <DeliveryZoneEditScreen zone={String(seededZone.id)} />,
-        );
+        let stored: DeliveryZoneAdmin = SEEDED_ZONE;
+
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...zoneEditorReads(
+                        () => stored,
+                        () => [stored],
+                    ),
+                    setZoneAreas: async (_id, request) => {
+                        stored = {
+                            ...stored,
+                            areas: request.serviceAreaIds.flatMap((areaId) =>
+                                GAZETTEER.filter((area) => area.id === areaId),
+                            ),
+                            meta: { ...stored.meta, lockVersion: request.lockVersion + 1 },
+                        };
+                        return stored;
+                    },
+                },
+            },
+        });
         await untilVisible('kitchen-zone-area-picker-search');
 
-        const chosen = seededAreas.filter(
-            (area) => !seededZone.areas.some((existing) => existing.id === area.id),
+        const target = GAZETTEER.find(
+            (area) => !SEEDED_ZONE.areas.some((existing) => existing.id === area.id),
         );
-        const target = chosen[0];
         if (target === undefined) throw new Error('Every gazetteer row is already on the zone.');
 
         await act(async () => {
@@ -656,9 +936,8 @@ describe('the delivery-zone editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-zone-areas-save'));
         });
 
-        await waitFor(async () => {
-            const saved = await repositories.kitchenAdmin.getZone(seededZone.id);
-            expect(saved.areas.map((area) => String(area.id))).toContain(String(target.id));
+        await waitFor(() => {
+            expect(stored.areas.map((area) => String(area.id))).toContain(String(target.id));
         });
 
         // The chip is the other way out, and it removes what the checkbox added.
@@ -671,21 +950,32 @@ describe('the delivery-zone editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-zone-areas-save'));
         });
 
-        await waitFor(async () => {
-            const saved = await repositories.kitchenAdmin.getZone(seededZone.id);
-            expect(saved.areas.map((area) => String(area.id))).not.toContain(String(target.id));
+        await waitFor(() => {
+            expect(stored.areas.map((area) => String(area.id))).not.toContain(String(target.id));
         });
     });
 
     it('toggles a window weekday and saves the set, minting an identifier for a new row', async () => {
-        const { repositories } = await renderKitchen(
-            <DeliveryZoneEditScreen zone={String(seededZone.id)} />,
-        );
+        let stored: DeliveryZoneAdmin = SEEDED_ZONE;
+
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...zoneEditorReads(
+                        () => stored,
+                        () => [stored],
+                    ),
+                    setDeliveryWindows: async (_id, request) => {
+                        stored = mintWindows(stored, request);
+                        return stored;
+                    },
+                },
+            },
+        });
         await untilVisible('kitchen-zone-window-rows');
 
-        const before = await repositories.kitchenAdmin.getZone(seededZone.id);
-        const firstWindow = before.deliveryWindows[0];
-        if (firstWindow === undefined) throw new Error('The seeded zone carries no windows.');
+        const firstWindow = SEEDED_ZONE.deliveryWindows[0]!;
         const rowId = `kitchen-zone-window-rows-row-seed-window-0-${String(firstWindow.id)}`;
 
         // Sunday off, in ISO terms: weekday 7.
@@ -722,26 +1012,26 @@ describe('the delivery-zone editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-zone-windows-save'));
         });
 
-        await waitFor(async () => {
-            const saved = await repositories.kitchenAdmin.getZone(seededZone.id);
-            expect(saved.deliveryWindows).toHaveLength(before.deliveryWindows.length + 1);
-            const added = saved.deliveryWindows.find((row) => row.label.en === 'Late evening');
+        await waitFor(() => {
+            expect(stored.deliveryWindows).toHaveLength(SEEDED_ZONE.deliveryWindows.length + 1);
+            const added = stored.deliveryWindows.find((row) => row.label.en === 'Late evening');
             expect(added?.startsAt).toBe('19:00');
             expect(String(added?.id ?? '')).not.toBe('');
             expect(
-                saved.deliveryWindows.find((row) => String(row.id) === String(firstWindow.id))
+                stored.deliveryWindows.find((row) => String(row.id) === String(firstWindow.id))
                     ?.weekdays,
             ).not.toContain(7);
         });
     });
 
     it('blocks the window save while a row is backwards, and names the row', async () => {
-        await renderKitchen(<DeliveryZoneEditScreen zone={String(seededZone.id)} />);
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
+        });
         await untilVisible('kitchen-zone-window-rows');
 
-        const zone = await scratch.kitchenAdmin.getZone(seededZone.id);
-        const firstWindow = zone.deliveryWindows[0];
-        if (firstWindow === undefined) throw new Error('The seeded zone carries no windows.');
+        const firstWindow = SEEDED_ZONE.deliveryWindows[0]!;
         const rowId = `kitchen-zone-window-rows-row-seed-window-0-${String(firstWindow.id)}`;
 
         await act(async () => {
@@ -758,18 +1048,48 @@ describe('the delivery-zone editor', () => {
     });
 
     it('offers reload-or-keep when somebody else has moved the zone on', async () => {
-        const { repositories } = await renderKitchen(
-            <DeliveryZoneEditScreen zone={String(seededZone.id)} />,
+        let stored: DeliveryZoneAdmin = SEEDED_ZONE;
+
+        const { repositories } = await renderStubScreen(
+            <DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />,
+            {
+                session: kitchenSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...zoneEditorReads(
+                            () => stored,
+                            () => [stored],
+                        ),
+                        updateZone: async (_id, request) => {
+                            // The server's rule: a stale `lockVersion` is refused rather than
+                            // applied over whatever landed in between.
+                            if (request.lockVersion !== stored.meta.lockVersion) {
+                                throwFailure(
+                                    conflictFailure({
+                                        currentLockVersion: stored.meta.lockVersion,
+                                    }),
+                                );
+                            }
+                            stored = {
+                                ...stored,
+                                ...(request.name === undefined ? {} : { name: request.name }),
+                                meta: { ...stored.meta, lockVersion: request.lockVersion + 1 },
+                            };
+                            return stored;
+                        },
+                    },
+                },
+            },
         );
         await untilVisible('kitchen-zone-editor-screen');
 
-        const target = await repositories.kitchenAdmin.getZone(seededZone.id);
         // Somebody else saves the same row: the editor now holds a superseded version, which is
         // exactly the state `If-Match` exists to detect.
-        repositories.prototypeStore.kitchenCatalogue.updateZone(target.id, {
-            lockVersion: target.meta.lockVersion,
+        stored = {
+            ...stored,
             estimatedMinutes: 99,
-        });
+            meta: { ...stored.meta, lockVersion: stored.meta.lockVersion + 1 },
+        };
 
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-name-en-input'), 'My version');
@@ -780,13 +1100,17 @@ describe('the delivery-zone editor', () => {
 
         await untilVisible('kitchen-zone-editor-screen-conflict-dialog');
 
-        const untouched = await repositories.kitchenAdmin.getZone(target.id);
-        expect(untouched.name.en).toBe(target.name.en);
-        expect(untouched.estimatedMinutes).toBe(99);
+        // One attempt, refused: the other tab's write stands and nothing was overwritten.
+        expect(repositories.kitchenAdmin.updateZone).toHaveBeenCalledTimes(1);
+        expect(stored.name.en).toBe(SEEDED_ZONE.name.en);
+        expect(stored.estimatedMinutes).toBe(99);
     });
 
     it('asks before leaving with unsaved changes', async () => {
-        await renderKitchen(<DeliveryZoneEditScreen zone={String(seededZone.id)} />);
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
+        });
         await untilVisible('kitchen-zone-editor-screen');
 
         await act(async () => {
@@ -808,7 +1132,10 @@ describe('the delivery-zone editor', () => {
     });
 
     it('states what archiving costs, counted from the record', async () => {
-        await renderKitchen(<DeliveryZoneEditScreen zone={String(seededZone.id)} />);
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
+        });
         await untilVisible('kitchen-zone-editor-screen');
 
         await act(async () => {
@@ -816,13 +1143,17 @@ describe('the delivery-zone editor', () => {
         });
 
         await untilVisible('kitchen-zone-archive-dialog');
-        expect(screen.getByTestId('kitchen-zone-archive-branches')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-zone-archive-areas')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-zone-archive-windows')).toBeTruthy();
+        // Counted from what this file authored: one branch, two areas, two windows.
+        expect(screen.getByTestId('kitchen-zone-archive-branches')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-zone-archive-areas')).toHaveTextContent(/2/);
+        expect(screen.getByTestId('kitchen-zone-archive-windows')).toHaveTextContent(/2/);
     });
 
     it('offers no area or window editor before the zone exists', async () => {
-        await renderKitchen(<DeliveryZoneEditScreen zone="new" />);
+        await renderStubScreen(<DeliveryZoneEditScreen zone="new" />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: zonelessEditorReads() },
+        });
         await untilVisible('kitchen-zone-editor-screen');
 
         expect(screen.getByTestId('kitchen-zone-areas-unavailable')).toBeTruthy();
@@ -832,7 +1163,10 @@ describe('the delivery-zone editor', () => {
     });
 
     it('renders the designed not-found state for a hand-typed identifier', async () => {
-        await renderKitchen(<DeliveryZoneEditScreen zone="not-a-uuid" />);
+        await renderStubScreen(<DeliveryZoneEditScreen zone="not-a-uuid" />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: zonelessEditorReads() },
+        });
         await untilVisible('kitchen-zone-not-found');
     });
 });
@@ -859,7 +1193,11 @@ function PickerHarness({ gazetteer }: { readonly gazetteer: readonly ServiceArea
 describe('the service-area picker at gazetteer scale', () => {
     it('caps the list, says how many are hidden, and narrows on search', async () => {
         const gazetteer = largeGazetteer();
-        await renderKitchen(<PickerHarness gazetteer={gazetteer} />);
+        // No repository overrides: the picker is handed its gazetteer as a prop, so a version that
+        // started fetching would fail here with StubNotConfiguredError.
+        await renderStubScreen(<PickerHarness gazetteer={gazetteer} />, {
+            session: kitchenSession(),
+        });
         await untilVisible('picker-search');
 
         // 125 rows, 40 drawn: the count is honest about both halves.
@@ -878,7 +1216,9 @@ describe('the service-area picker at gazetteer scale', () => {
 
     it('keeps a chosen area reachable after the search moves past it', async () => {
         const gazetteer = largeGazetteer();
-        await renderKitchen(<PickerHarness gazetteer={gazetteer} />);
+        await renderStubScreen(<PickerHarness gazetteer={gazetteer} />, {
+            session: kitchenSession(),
+        });
         await untilVisible('picker-search');
 
         await act(async () => {
@@ -903,7 +1243,9 @@ describe('the service-area picker at gazetteer scale', () => {
     });
 
     it('says so when nothing matches, rather than drawing an empty group', async () => {
-        await renderKitchen(<PickerHarness gazetteer={largeGazetteer()} />);
+        await renderStubScreen(<PickerHarness gazetteer={largeGazetteer()} />, {
+            session: kitchenSession(),
+        });
         await untilVisible('picker-search');
 
         await act(async () => {
@@ -919,7 +1261,10 @@ describe('the service-area picker at gazetteer scale', () => {
 
 describe('the branch operating week', () => {
     it('renders all seven days for the branch already in context', async () => {
-        await renderKitchen(<BranchOperatingScreen />);
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
         await untilVisible('kitchen-branch-hours-screen');
 
         for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
@@ -930,16 +1275,19 @@ describe('the branch operating week', () => {
         // The branch and its time zone are stated: a cut-off is meaningless without the zone it is
         // read in.
         expect(screen.getByTestId('kitchen-branch-hours-timezone')).toHaveTextContent(
-            new RegExp(seededOperating.timeZone.replace('/', '\\/')),
+            new RegExp(BRANCH_OPERATING.timeZone.replace('/', '\\/')),
         );
     });
 
     it('removes the time fields when a day is closed, and restores them empty', async () => {
-        await renderKitchen(<BranchOperatingScreen />);
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
         await untilVisible('kitchen-branch-hours-screen');
 
-        const open = seededOperating.days.find((day) => day.opensAt !== null);
-        if (open === undefined) throw new Error('The seeded branch is closed all week.');
+        const open = BRANCH_OPERATING.days.find((day) => day.opensAt !== null);
+        if (open === undefined) throw new Error('The authored branch is closed all week.');
         const row = `kitchen-branch-hours-rows-day-${String(open.weekday)}`;
 
         expect(screen.getByTestId(`${row}-opens-input`)).toBeTruthy();
@@ -961,11 +1309,14 @@ describe('the branch operating week', () => {
     });
 
     it('marks the offending day when a rule is broken, and blocks the save', async () => {
-        await renderKitchen(<BranchOperatingScreen />);
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
         await untilVisible('kitchen-branch-hours-screen');
 
-        const open = seededOperating.days.find((day) => day.opensAt !== null);
-        if (open === undefined) throw new Error('The seeded branch is closed all week.');
+        const open = BRANCH_OPERATING.days.find((day) => day.opensAt !== null);
+        if (open === undefined) throw new Error('The authored branch is closed all week.');
         const row = `kitchen-branch-hours-rows-day-${String(open.weekday)}`;
 
         await act(async () => {
@@ -994,12 +1345,32 @@ describe('the branch operating week', () => {
     });
 
     it('copies one day onto every open day, announces it, and saves the week', async () => {
-        const { repositories } = await renderKitchen(<BranchOperatingScreen />);
+        let stored: BranchOperating = BRANCH_OPERATING;
+
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getBranchOperating: async () => stored,
+                    setBranchOperating: async (_branchId, request) => {
+                        stored = {
+                            ...stored,
+                            ...(request.timeZone === undefined
+                                ? {}
+                                : { timeZone: request.timeZone }),
+                            days: request.days,
+                            meta: { ...stored.meta, lockVersion: request.lockVersion + 1 },
+                        };
+                        return stored;
+                    },
+                },
+            },
+        });
         await untilVisible('kitchen-branch-hours-screen');
 
-        const open = seededOperating.days.find((day) => day.opensAt !== null);
-        const closed = seededOperating.days.find((day) => day.opensAt === null);
-        if (open === undefined) throw new Error('The seeded branch is closed all week.');
+        const open = BRANCH_OPERATING.days.find((day) => day.opensAt !== null);
+        const closed = BRANCH_OPERATING.days.find((day) => day.opensAt === null);
+        if (open === undefined) throw new Error('The authored branch is closed all week.');
         const row = `kitchen-branch-hours-rows-day-${String(open.weekday)}`;
 
         await act(async () => {
@@ -1015,7 +1386,7 @@ describe('the branch operating week', () => {
             fireEvent.press(screen.getByTestId(`${row}-copy`));
         });
 
-        // A copy that changes six rows below the fold is invisible without an announcement.
+        // A copy that changes four rows below the fold is invisible without an announcement.
         expect(screen.getByTestId('kitchen-branch-hours-rows-announcer')).toHaveTextContent(
             /copied/i,
         );
@@ -1024,11 +1395,16 @@ describe('the branch operating week', () => {
             fireEvent.press(screen.getByTestId('kitchen-branch-hours-screen-save'));
         });
 
-        const branchId = KitchenBranchId.unsafe(String(seededOperating.branchId));
-        await waitFor(async () => {
-            const saved = await repositories.kitchenAdmin.getBranchOperating(branchId);
-            expect(saved.days).toHaveLength(7);
-            const openDays = saved.days.filter((day) => day.opensAt !== null);
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setBranchOperating).toHaveBeenCalledWith(
+                BRANCH_ID,
+                expect.objectContaining({ lockVersion: BRANCH_OPERATING.meta.lockVersion }),
+            );
+        });
+
+        await waitFor(() => {
+            expect(stored.days).toHaveLength(7);
+            const openDays = stored.days.filter((day) => day.opensAt !== null);
             expect(openDays.length).toBeGreaterThan(1);
             for (const day of openDays) {
                 expect(day.opensAt).toBe('09:15');
@@ -1038,9 +1414,7 @@ describe('the branch operating week', () => {
 
         // A day that was closed stays closed, carrying three nulls rather than disappearing.
         if (closed !== undefined) {
-            const saved = await repositories.kitchenAdmin.getBranchOperating(branchId);
-            const stillClosed = saved.days.find((day) => day.weekday === closed.weekday);
-            expect(stillClosed).toEqual({
+            expect(stored.days.find((day) => day.weekday === closed.weekday)).toEqual({
                 weekday: closed.weekday,
                 opensAt: null,
                 closesAt: null,
@@ -1050,7 +1424,10 @@ describe('the branch operating week', () => {
     });
 
     it('warns rather than silently accepting a branch that never trades', async () => {
-        await renderKitchen(<BranchOperatingScreen />);
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
         await untilVisible('kitchen-branch-hours-screen');
 
         for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
@@ -1080,21 +1457,25 @@ describe('the branch operating week', () => {
 
 describe('the delivery cards on the hub', () => {
     it('offers both families with counts read from the repository', async () => {
-        await renderKitchen(<KitchenHomeScreen />);
+        const zones = [SEEDED_ZONE, UNDECIDED_ZONE];
+
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenSession(),
+            repositories: hubRepositories(zones),
+        });
         await untilVisible('kitchen-home-screen');
 
         expect(screen.getByTestId('kitchen-family-delivery-zones')).toBeTruthy();
         expect(screen.getByTestId('kitchen-family-branch-operating')).toBeTruthy();
 
         await untilVisible('kitchen-family-delivery-zones-total');
-        const zones = await scratch.kitchenAdmin.listZones({ limit: 1 });
         expect(screen.getByTestId('kitchen-family-delivery-zones-total')).toHaveTextContent(
-            new RegExp(String(zones.totalCount ?? 0)),
+            new RegExp(String(zones.length)),
         );
 
         // The branch card counts trading days rather than records: a week has no publication state.
         await untilVisible('kitchen-family-branch-operating-total');
-        const openDays = seededOperating.days.filter((day) => day.opensAt !== null).length;
+        const openDays = BRANCH_OPERATING.days.filter((day) => day.opensAt !== null).length;
         expect(screen.getByTestId('kitchen-family-branch-operating-total')).toHaveTextContent(
             new RegExp(String(openDays)),
         );

@@ -1,42 +1,52 @@
-import { createMemoryTokenStore } from '@healthy360/api-client';
-import type { B2BApplication, B2BApplicationState } from '@healthy360/api-client/contracts';
-import { B2B_FIXTURES, B2bMockStore, createMockRepositories } from '@healthy360/api-client/mock';
-import type { MockRepositories } from '@healthy360/api-client/mock';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type {
+    B2BAgreement,
+    B2BApplication,
+    B2BApplicationSection,
+    B2BApplicationSectionState,
+    B2BApplicationSections,
+    B2BApplicationState,
+    B2BDocumentKind,
+    KycDocument,
+    ReviewerRequest,
+} from '@healthy360/api-client/contracts';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { I18nextProvider } from 'react-i18next';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-import { i18n } from '../../i18n.ts';
-import { AppProviders } from '../../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from '../../testing/render-screen.tsx';
+import { testMeResponse } from '../../testing/session-fixtures.ts';
+import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { AgreementPanel } from './agreement-panel.tsx';
 import { firstIncompleteStep, validateSection } from './sections.ts';
 import { ApplyStepScreen } from './screens/apply-step-screen.tsx';
 import { StatusPanel } from './status-panel.tsx';
 
 /**
- * The B1 applicant journey, against the real mock world.
+ * The B1 applicant journey, against a world this file authors.
  *
- * Speed-mode coverage: the five things this wave exists to get right — per-section validation, the
- * deep link landing on the first *incomplete* step, document upload and removal against a store that
- * genuinely supersedes, all eleven status states rendering distinctly, and a signature that cannot be
- * produced without both the authority confirmation and a step-up token.
+ * Coverage: the five things this wave exists to get right — per-section validation, the deep link
+ * landing on the first *incomplete* step, document upload and removal against a vault that
+ * supersedes, all eleven status states rendering distinctly, and a signature that cannot be produced
+ * without both the authority confirmation and a step-up token.
  *
- * Screens run over `createMockRepositories`, which satisfies the same `Repositories` bundle the
- * application resolves at runtime, so this suite exercises the real path into `b2bApplication`
- * rather than a stand-in for it.
+ * Screens run over `renderStubScreen`: the session is declared, and every repository answer the
+ * screen is allowed to rely on is declared beside it. Anything the screen reaches for that this file
+ * did not stub rejects by name rather than rendering an empty state over the hole.
  *
- * ## Two conventions this file follows, and why
+ * ## Where the "server" is in these tests
  *
- * **Screen tests come first and use `findBy*`; component tests come after and use `getBy*`.** Each
- * `AppProviders` mount opens an async `act` scope, and from roughly the third mount in a file the
- * `waitFor` behind `findBy*` stops settling — the tree is genuinely there (a synchronous
- * `queryAllByTestId` returns it) but the retry loop times out. The screens have to wait for a query
- * to land; the panels take their data as props and their trees are complete the moment `render`
- * returns, so they ask synchronously and the problem does not arise. Worth stating rather than
- * leaving as an inexplicable mixture of query styles.
+ * The upload case is the one to read carefully. Supersede-on-replacement is the *server's* rule, and
+ * this file no longer has a server — so what is asserted here is the client's half of it: that the
+ * screen sends `replacesDocumentId` naming the row it is replacing, and that it draws the answer the
+ * server gives back (a superseded attempt kept beside the file that replaced it) rather than a list
+ * it maintains for itself. The authored answers stand in for the server; the assertions are all
+ * about what the screen asked for and what it did with the reply.
+ *
+ * ## One convention, and why
+ *
+ * **Every `fireEvent` is awaited.** RNTL wraps each one in an `act` scope, and an unawaited scope
+ * overlaps the next — at which point `IS_REACT_ACT_ENVIRONMENT` is left off and *no further state
+ * update in the file commits*. It presents as "the tree stopped settling after the third mount",
+ * which is not what it is: a typed field silently keeps its old value and a button stays disabled
+ * forever. Awaiting is the whole fix.
  *
  * The wider matrix — lock-version conflicts on every write, the `info_requested` narrowing across
  * all four sections, withdrawal, download links, RTL and axe — is itemised as deferred in the wave
@@ -74,6 +84,18 @@ jest.mock('expo-router', () => {
     };
 });
 
+/**
+ * The file picker, stubbed.
+ *
+ * The vault's upload control is `expo-document-picker`, which has no native module under Node. The
+ * stub is what lets the *screen* be driven — press the slot's control, and the file the person chose
+ * arrives the way it would on the web.
+ */
+jest.mock('expo-document-picker', () => ({
+    __esModule: true,
+    getDocumentAsync: jest.fn(),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const routerMock = require('expo-router') as {
     __push: jest.Mock;
@@ -81,72 +103,191 @@ const routerMock = require('expo-router') as {
     __redirected: jest.Mock;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pickerMock = require('expo-document-picker') as { getDocumentAsync: jest.Mock };
+
 beforeEach(() => {
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
     routerMock.__redirected.mockClear();
+    pickerMock.getDocumentAsync.mockReset();
     globalThis.localStorage?.clear();
 });
 
-interface Harness {
-    readonly repositories: MockRepositories;
+/* ══ the authored application ══════════════════════════════════════════════════════════════════ */
+
+const APPLICATION_ID = 'test-0000-application-0001';
+
+/**
+ * The applicant: a registered person with **no** organisation.
+ *
+ * That is the whole premise of B1 — the corporate organisation is created by approval, not before
+ * it — so the consumer session from the shared fixtures is the right one, and a membership here
+ * would be describing a company that does not exist yet.
+ */
+const APPLICANT = testMeResponse();
+
+/** The server's list, never a client constant. Two kinds, and the screen must ask for both. */
+const REQUIRED_KINDS: readonly B2BDocumentKind[] = [
+    'commercial_registration',
+    'signatory_identification',
+];
+
+const SECTIONS: readonly B2BApplicationSection[] = [
+    'company',
+    'signatory',
+    'trade_terms',
+    'logistics',
+];
+
+/** Field names the server would report missing, per section. Names, never messages. */
+const MISSING_FIELDS: Readonly<Record<B2BApplicationSection, readonly string[]>> = {
+    company: ['legalName', 'countryCode', 'commercialRegistrationNumber'],
+    signatory: ['signatoryName', 'signatoryTitle', 'signatoryEmail'],
+    trade_terms: ['requestedPaymentTerms'],
+    logistics: [],
+};
+
+/**
+ * The server's per-section verdict.
+ *
+ * `complete` is the *server's* readiness answer and the wizard reads nothing else, so a test that
+ * wants a half-finished application says so here rather than by leaving fields blank and hoping the
+ * client agrees.
+ */
+function sectionStatesFor(
+    complete: readonly B2BApplicationSection[],
+    editable = true,
+): readonly B2BApplicationSectionState[] {
+    return SECTIONS.map((section) => ({
+        section,
+        complete: complete.includes(section),
+        completedByApplicant: complete.includes(section),
+        missingFields: complete.includes(section) ? [] : MISSING_FIELDS[section],
+        editable,
+    }));
+}
+
+function northwindSections(): B2BApplicationSections {
+    return {
+        company: {
+            legalName: 'Northwind Catering Services LLC',
+            legalNameAr: null,
+            tradingName: 'Northwind Kitchens',
+            businessType: 'catering',
+            countryCode: 'AE',
+            commercialRegistrationNumber: 'CR-1000-2201',
+            taxRegistrationNumber: null,
+            incorporatedOn: '2019-04-11',
+            website: null,
+        },
+        signatory: {
+            signatoryName: 'Layla Haddad',
+            signatoryTitle: 'Managing Director',
+            signatoryEmail: 'layla.haddad@northwind-catering.example',
+            signatoryPhone: '+971500000101',
+        },
+        trade_terms: {
+            requestedPaymentTerms: null,
+            requestedCreditLimitMinor: null,
+            currencyCode: null,
+            expectedVolumeBand: null,
+            expectedOrderFrequency: null,
+            productCategories: [],
+        },
+        logistics: {
+            preferredDeliveryWindow: null,
+            leadTimeDays: null,
+            requiresInvoicePerLocation: false,
+            deliveryNotes: null,
+        },
+    };
+}
+
+function testDocument(
+    ordinal: number,
+    kind: B2BDocumentKind,
+    overrides: Partial<KycDocument> = {},
+): KycDocument {
+    return {
+        id: `test-0000-document-000${String(ordinal)}`,
+        kind,
+        fileName: 'northwind-cr-2026.pdf',
+        mimeType: 'application/pdf',
+        byteSize: 248_310,
+        sha256: String(ordinal).padStart(2, '0').repeat(32).slice(0, 64),
+        uploadedAt: '2026-08-01T09:00:00.000Z',
+        reviewStatus: 'pending',
+        rejectionReason: null,
+        expiresOn: null,
+        purgeAfter: null,
+        // No malware scanning exists (INT-008). The authored world says so rather than showing a
+        // tick the platform has not earned.
+        scanStatus: 'not_scanned',
+        ...overrides,
+    };
+}
+
+/** Company and signatory answered, trade terms and logistics not: what a person comes back to. */
+function testApplication(overrides: Partial<B2BApplication> = {}): B2BApplication {
+    return {
+        id: APPLICATION_ID,
+        reference: 'APP-2026-0001',
+        state: 'draft',
+        sections: northwindSections(),
+        sectionStates: sectionStatesFor(['company', 'signatory']),
+        requiredDocumentKinds: REQUIRED_KINDS,
+        documents: [],
+        reviewerRequests: [],
+        applicantMessage: null,
+        agreement: null,
+        provisioning: null,
+        createdAt: '2026-07-01T09:00:00.000Z',
+        submittedAt: null,
+        decidedAt: null,
+        lockVersion: 0,
+        ...overrides,
+    };
 }
 
 /**
- * Everything renders inside `AppProviders`, including the components that take their data as props.
+ * The wording a signatory accepts, verbatim.
  *
- * Not because they need a repository — they do not — but because they need the i18n provider, and a
- * component rendered without one draws nothing at all rather than drawing untranslated keys.
+ * The honesty sentence is the second one and it is not decoration: click-wrap evidence is what this
+ * is, and a person is told so before they type their name rather than in a footnote afterwards.
  */
-async function renderApply(
-    node: ReactNode,
-    seed?: (store: B2bMockStore) => void,
-): Promise<Harness> {
-    const tokenStore = createMemoryTokenStore();
-    const repositories = createMockRepositories({
-        scenario: 'consumer-account-setup',
-        latencyMs: 0,
-        tokenStore,
-    });
-    // Seeded before the first frame: these screens are about a sequence of states, and seeding
-    // afterwards would test the refetch path instead of the first paint.
-    seed?.(repositories.b2bApplicationStore);
+const CONSENT_STATEMENT =
+    'By typing my name below I confirm that I am authorised to enter into this agreement on behalf ' +
+    'of the company named above, and that I accept its terms. I understand this is a record of my ' +
+    'acceptance — it is not a qualified or certified electronic signature.';
 
-    await render(
-        <AppProviders
-            initialMetrics={TEST_METRICS}
-            repositories={repositories}
-            tokenStore={tokenStore}
-            queryClient={createTestQueryClient()}
-            initialOnline
-        >
-            {node}
-        </AppProviders>,
-    );
-
-    return { repositories };
-}
-
-/**
- * A copy-only tree: i18n and layout metrics, and nothing else.
- *
- * The panels take their data as props and touch no repository, so mounting the full provider stack
- * for them buys nothing and costs the suite an `AppProviders` mount — and mounts accumulate (see the
- * file header). This is the smallest tree in which design-system components render honestly.
- */
-async function renderPanel(node: ReactNode): Promise<void> {
-    await render(
-        <I18nextProvider i18n={i18n}>
-            <SafeAreaProvider initialMetrics={TEST_METRICS}>{node}</SafeAreaProvider>
-        </I18nextProvider>,
-    );
-}
-
-/** A whole application in a chosen state, for the components that take one directly. */
-function fixtureApplication(state: B2BApplicationState): B2BApplication {
-    const store = new B2bMockStore({ fixture: 'draft-half-complete' });
-    store.forceState(state);
-    return store.application() as unknown as B2BApplication;
+function testAgreement(overrides: Partial<B2BAgreement> = {}): B2BAgreement {
+    return {
+        id: 'test-0000-agreement-0001',
+        applicationId: APPLICATION_ID,
+        version: 1,
+        status: 'pending_signature',
+        title: 'Master Supply Agreement — Northwind Catering Services LLC',
+        documentText: 'SPECIMEN AGREEMENT — NOT A REAL CONTRACT.',
+        documentSha256: 'a1'.repeat(32),
+        terms: {
+            paymentTerms: 'net_30',
+            creditLimitMinor: 3_000_000,
+            minimumOrderMinor: 50_000,
+            currencyCode: 'USD',
+            deliveryLeadTimeDays: 2,
+            noticePeriodDays: 30,
+            startsOn: '2026-09-01',
+            endsOn: null,
+            autoRenews: true,
+        },
+        termsSummary: null,
+        consentStatement: CONSENT_STATEMENT,
+        signature: null,
+        supersedesAgreementId: null,
+        lockVersion: 0,
+        ...overrides,
+    };
 }
 
 /* ══ pure decisions ════════════════════════════════════════════════════════════════════════════ */
@@ -211,10 +352,13 @@ describe('section validation', () => {
     });
 
     it('lands a deep link on the first incomplete step, not on the first step', () => {
-        const store = new B2bMockStore({ fixture: 'draft-half-complete' });
-        const application = store.application() as unknown as B2BApplication;
+        // Company and signatory are answered; trade terms is not. A person who filled those in
+        // yesterday should arrive at what is left rather than at step one.
+        const application = testApplication({
+            sectionStates: sectionStatesFor(['company', 'signatory']),
+            documents: [testDocument(1, 'commercial_registration')],
+        });
 
-        // Company and signatory are answered; trade terms is not.
         expect(firstIncompleteStep(application)).toBe('trade-terms');
     });
 });
@@ -223,52 +367,139 @@ describe('section validation', () => {
 
 describe('the wizard', () => {
     it('redirects a step to the status panel once the application has left the applicant', async () => {
-        await renderApply(<ApplyStepScreen step="company" />, (store) => {
-            store.forceState('in_review');
+        await renderStubScreen(<ApplyStepScreen step="company" />, {
+            session: APPLICANT,
+            repositories: {
+                b2bApplication: {
+                    getApplication: async () =>
+                        testApplication({
+                            state: 'in_review',
+                            // Nothing is editable once a reviewer has it, and the server says so.
+                            sectionStates: sectionStatesFor([...SECTIONS], false),
+                            submittedAt: '2026-07-28T08:00:00.000Z',
+                            lockVersion: 3,
+                        }),
+                },
+            },
         });
 
-        // The destination is assertable rather than merely "something navigated": an approved
-        // application opened at a wizard step must not show an editable form nobody will read.
+        // The destination is assertable rather than merely "something navigated": an application
+        // that has left the applicant must not show an editable form nobody will read.
         await waitFor(() => {
             expect(routerMock.__redirected).toHaveBeenCalledWith('/apply/status');
         });
     });
 
-    it('uploads against a document slot, supersedes on replacement, and removes', async () => {
-        // No render: this is the vault's mechanics, and the store is the thing under test. Each
-        // `render` in this file costs the next one its ability to settle (see the header), so the
-        // mounts are spent on the surfaces that can only be checked by drawing them.
-        const repositories = createMockRepositories({ latencyMs: 0 });
-        const before = repositories.b2bApplicationStore.application();
-
-        await repositories.b2bApplication.uploadDocument({
-            applicationId: before?.id ?? '',
-            kind: 'commercial_registration',
+    it('uploads against a document slot, asks for a supersede, and removes', async () => {
+        const held = testDocument(1, 'commercial_registration');
+        const replacement = testDocument(2, 'commercial_registration', {
             fileName: 'clearer-scan.pdf',
-            mimeType: 'application/pdf',
-            byteSize: 2048,
-            content: 'AAAA',
-            replacesDocumentId: before?.documents[0]?.id,
+        });
+        const superseded: KycDocument = { ...held, reviewStatus: 'superseded' };
+
+        /*
+         * The server's three answers, authored. A replacement keeps the replaced row and marks it
+         * `superseded` — a reviewer's decision trail has to survive a re-upload — and a removal
+         * takes away only the live one. `requiredDocumentKinds` never moves, because it is a policy
+         * rather than a consequence of what has been sent.
+         */
+        const draft = testApplication({
+            sectionStates: sectionStatesFor([...SECTIONS]),
+            documents: [held],
+        });
+        const replaced: B2BApplication = {
+            ...draft,
+            documents: [superseded, replacement],
+            lockVersion: 1,
+        };
+        const removed: B2BApplication = { ...draft, documents: [superseded], lockVersion: 2 };
+
+        let current = draft;
+        pickerMock.getDocumentAsync.mockResolvedValue({
+            canceled: false,
+            assets: [
+                {
+                    name: 'clearer-scan.pdf',
+                    mimeType: 'application/pdf',
+                    size: 2048,
+                    uri: 'file:///clearer-scan.pdf',
+                    base64: 'AAAA',
+                },
+            ],
         });
 
-        const replaced = repositories.b2bApplicationStore.application();
-        // Kept and marked, not overwritten: a reviewer's decision trail has to survive a re-upload.
-        expect(replaced?.documents).toHaveLength(2);
-        expect(replaced?.documents[0]?.reviewStatus).toBe('superseded');
-        expect(replaced?.documents[1]?.fileName).toBe('clearer-scan.pdf');
-
-        await repositories.b2bApplication.removeDocument({
-            applicationId: replaced?.id ?? '',
-            documentId: replaced?.documents[1]?.id ?? '',
+        const { repositories } = await renderStubScreen(<ApplyStepScreen step="documents" />, {
+            session: APPLICANT,
+            repositories: {
+                b2bApplication: {
+                    getApplication: async () => current,
+                    uploadDocument: async () => {
+                        current = replaced;
+                        return replaced;
+                    },
+                    removeDocument: async () => {
+                        current = removed;
+                        return removed;
+                    },
+                },
+            },
         });
 
-        const after = repositories.b2bApplicationStore.application();
-        expect(after?.documents.map((held) => held.reviewStatus)).toEqual(['superseded']);
-        // The requirement is the server's list, and it does not move when a file does.
-        expect(after?.requiredDocumentKinds).toEqual([
-            'commercial_registration',
-            'signatory_identification',
-        ]);
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-documents-commercial_registration')).toBeTruthy();
+        });
+        // One of the two required kinds is supplied, so one is outstanding.
+        expect(screen.getByTestId('b2b-apply-step-documents-outstanding')).toHaveTextContent(
+            /1 required document still to upload/u,
+        );
+
+        await fireEvent.press(
+            screen.getByTestId('b2b-documents-commercial_registration-upload-choose'),
+        );
+
+        await waitFor(() => {
+            expect(repositories.b2bApplication.uploadDocument).toHaveBeenCalledWith({
+                applicationId: APPLICATION_ID,
+                kind: 'commercial_registration',
+                fileName: 'clearer-scan.pdf',
+                mimeType: 'application/pdf',
+                byteSize: 2048,
+                content: 'AAAA',
+                // Replace the row in this slot rather than adding beside it. Naming it is the
+                // client's whole part in supersede-on-replacement.
+                replacesDocumentId: held.id,
+            });
+        });
+
+        // The replaced attempt is kept and shown beside the file that replaced it, not overwritten.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`b2b-documents-commercial_registration-history-${held.id}`),
+            ).toHaveTextContent(/Replaced/u);
+        });
+        expect(
+            screen.getByTestId('b2b-documents-commercial_registration-upload-attachment-name'),
+        ).toHaveTextContent(/clearer-scan\.pdf/u);
+
+        await fireEvent.press(
+            screen.getByTestId('b2b-documents-commercial_registration-upload-remove'),
+        );
+
+        await waitFor(() => {
+            expect(repositories.b2bApplication.removeDocument).toHaveBeenCalledWith({
+                applicationId: APPLICATION_ID,
+                documentId: replacement.id,
+            });
+        });
+
+        // The requirement is the server's list, and it does not move when a file does: both slots
+        // are still drawn, and both kinds are outstanding again.
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-step-documents-outstanding')).toHaveTextContent(
+                /2 required documents still to upload/u,
+            );
+        });
+        expect(screen.getByTestId('b2b-documents-signatory_identification')).toBeTruthy();
     });
 });
 
@@ -288,67 +519,19 @@ const STATES: readonly B2BApplicationState[] = [
     'withdrawn',
 ];
 
-/**
- * Both panels, one tree, one test.
- *
- * Not a stylistic choice. Only the first couple of `render` calls in this file produce a tree that
- * the queries can see — the third mount and beyond come back empty whether the wrapper is the full
- * provider stack or two providers, and whether the query is synchronous or retried. Rather than
- * leave a third of the coverage failing, the panel assertions share the one mount they need, and
- * the reason is written here instead of being rediscovered.
- *
- * The assertions are still separable by eye: the eleven states, the request links, and the two
- * signing states.
- */
 describe('the applicant panels', () => {
-    const agreement = B2B_FIXTURES['agreement-pending'].agreement as NonNullable<
-        (typeof B2B_FIXTURES)['agreement-pending']['agreement']
-    >;
-
-    it('draws every state distinctly, links each request, and opens signing only after a step-up', async () => {
-        const requested = new B2bMockStore({ fixture: 'information-requested' });
-        const withRequests = requested.application() as unknown as B2BApplication;
-        const opened: string[] = [];
-        const withoutToken = jest.fn();
-        const withToken = jest.fn();
-
-        await renderPanel(
+    it('draws every state distinctly', async () => {
+        await renderStubScreen(
             <>
                 {STATES.map((state) => (
                     <StatusPanel
                         key={state}
                         testID={`state-${state}`}
-                        application={fixtureApplication(state)}
+                        application={testApplication({ state })}
                     />
                 ))}
-                <StatusPanel
-                    testID="requests"
-                    application={withRequests}
-                    onOpenStep={(slug) => {
-                        opened.push(slug);
-                    }}
-                />
-                <AgreementPanel
-                    testID="open"
-                    agreement={agreement as never}
-                    onRequestCode={jest.fn()}
-                    onVerifyCode={jest.fn()}
-                    onResendCode={jest.fn()}
-                    onSign={withoutToken}
-                />
-                <AgreementPanel
-                    testID="stepped"
-                    agreement={agreement as never}
-                    verificationToken="verified-challenge-id"
-                    onRequestCode={jest.fn()}
-                    onVerifyCode={jest.fn()}
-                    onResendCode={jest.fn()}
-                    onSign={withToken}
-                />
             </>,
         );
-
-        /* ── the eleven states ─────────────────────────────────────────────────────────────── */
 
         const bodies = new Set<string>();
         for (const state of STATES) {
@@ -358,22 +541,89 @@ describe('the applicant panels', () => {
         // Eleven distinct bodies: `approved` must not read as `agreement_pending`, and `declined`
         // must not read as `withdrawn`. A shared string here would be the panel's worst lie.
         expect(bodies.size).toBe(STATES.length);
+    });
 
-        /* ── reviewer requests link at what they are about ─────────────────────────────────── */
+    it('links each reviewer request at the thing it is about', async () => {
+        const aboutTerms: ReviewerRequest = {
+            id: 'test-0000-request-0001',
+            requestedAt: '2026-07-30T11:15:00.000Z',
+            message:
+                'The credit limit you asked for is higher than we normally open with at this ' +
+                'volume. Could you confirm the expected monthly volume?',
+            sections: ['trade_terms'],
+            documentKinds: [],
+            resolvedAt: null,
+        };
+        const aboutIdentity: ReviewerRequest = {
+            id: 'test-0000-request-0002',
+            requestedAt: '2026-07-30T11:18:00.000Z',
+            message: 'The identity document did not open cleanly on our side.',
+            sections: [],
+            documentKinds: ['signatory_identification'],
+            resolvedAt: null,
+        };
 
-        const requests = withRequests.reviewerRequests;
-        fireEvent.press(
-            screen.getByTestId(`requests-request-${requests[0]?.id ?? ''}-section-trade_terms`),
+        const opened: string[] = [];
+        await renderStubScreen(
+            <StatusPanel
+                testID="requests"
+                application={testApplication({
+                    state: 'info_requested',
+                    sectionStates: sectionStatesFor([...SECTIONS]),
+                    reviewerRequests: [aboutTerms, aboutIdentity],
+                    documents: [
+                        testDocument(1, 'commercial_registration', { reviewStatus: 'accepted' }),
+                        testDocument(2, 'signatory_identification', {
+                            fileName: 'passport-scan.pdf',
+                            reviewStatus: 'rejected',
+                            rejectionReason: 'unreadable',
+                        }),
+                    ],
+                })}
+                onOpenStep={(slug) => {
+                    opened.push(slug);
+                }}
+            />,
         );
-        fireEvent.press(
+
+        await fireEvent.press(
+            screen.getByTestId(`requests-request-${aboutTerms.id}-section-trade_terms`),
+        );
+        await fireEvent.press(
             screen.getByTestId(
-                `requests-request-${requests[1]?.id ?? ''}-document-signatory_identification`,
+                `requests-request-${aboutIdentity.id}-document-signatory_identification`,
             ),
         );
+
         // One names a section and one names a document kind; each links at its own thing.
         expect(opened).toEqual(['trade-terms', 'documents']);
+    });
 
-        /* ── signing, before and after the step-up ─────────────────────────────────────────── */
+    it('opens signing only after a step-up, and then carries all three claims', async () => {
+        const withoutToken = jest.fn();
+        const withToken = jest.fn();
+
+        await renderStubScreen(
+            <>
+                <AgreementPanel
+                    testID="open"
+                    agreement={testAgreement()}
+                    onRequestCode={jest.fn()}
+                    onVerifyCode={jest.fn()}
+                    onResendCode={jest.fn()}
+                    onSign={withoutToken}
+                />
+                <AgreementPanel
+                    testID="stepped"
+                    agreement={testAgreement()}
+                    verificationToken="verified-challenge-id"
+                    onRequestCode={jest.fn()}
+                    onVerifyCode={jest.fn()}
+                    onResendCode={jest.fn()}
+                    onSign={withToken}
+                />
+            </>,
+        );
 
         // The honesty block sits above the controls, not as a footnote under them.
         expect(screen.getByTestId('open-honesty')).toHaveTextContent(
@@ -385,32 +635,29 @@ describe('the applicant panels', () => {
         expect(screen.getByTestId('open-verify-first')).toBeTruthy();
 
         // Everything typed and the authority ticked, but no code verified: still refused.
-        fireEvent.changeText(screen.getByTestId('open-typed-name-input'), 'Layla Haddad');
-        fireEvent.changeText(screen.getByTestId('open-signatory-title-input'), 'Managing Director');
-        fireEvent.press(screen.getByTestId('open-authority-control'));
-        fireEvent.press(screen.getByTestId('open-submit'));
-        await waitFor(() => {
-            expect(withoutToken).not.toHaveBeenCalled();
-        });
+        await fireEvent.changeText(screen.getByTestId('open-typed-name-input'), 'Layla Haddad');
+        await fireEvent.changeText(
+            screen.getByTestId('open-signatory-title-input'),
+            'Managing Director',
+        );
+        await fireEvent.press(screen.getByTestId('open-authority-control'));
+        await fireEvent.press(screen.getByTestId('open-submit'));
+        expect(withoutToken).not.toHaveBeenCalled();
 
         // The same three answers, with a verified code behind them.
-        fireEvent.changeText(screen.getByTestId('stepped-typed-name-input'), 'Layla Haddad');
-        fireEvent.changeText(
+        await fireEvent.changeText(screen.getByTestId('stepped-typed-name-input'), 'Layla Haddad');
+        await fireEvent.changeText(
             screen.getByTestId('stepped-signatory-title-input'),
             'Managing Director',
         );
-        fireEvent.press(screen.getByTestId('stepped-authority-control'));
+        await fireEvent.press(screen.getByTestId('stepped-authority-control'));
+        await fireEvent.press(screen.getByTestId('stepped-submit'));
 
-        // Retried: the control opens on the commit that lands the third answer, and pressing it on
-        // the frame before that is pressing a disabled button.
-        await waitFor(() => {
-            fireEvent.press(screen.getByTestId('stepped-submit'));
-            // Three separate claims, and the acceptance carries all three.
-            expect(withToken).toHaveBeenCalledWith({
-                typedName: 'Layla Haddad',
-                signatoryTitle: 'Managing Director',
-                authorityConfirmed: true,
-            });
+        // Three separate claims, and the acceptance carries all three.
+        expect(withToken).toHaveBeenCalledWith({
+            typedName: 'Layla Haddad',
+            signatoryTitle: 'Managing Director',
+            authorityConfirmed: true,
         });
     });
 });
