@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { asApiFailure } from '../contracts/failure.ts';
 import { createMemoryTokenStore } from '../contracts/session.ts';
 import type { MarketplaceRepository } from '../contracts/marketplace.ts';
-import { describeRepositoryContract } from '../mock/prototype/repository-contract.ts';
+import { describeRepositoryContract } from './repository-contract-harness.ts';
 import {
     API_PROTOTYPE_REPOSITORIES,
     PROTOTYPE_ENDPOINTS,

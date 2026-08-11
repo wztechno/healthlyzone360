@@ -107,6 +107,12 @@ export {
 export type { MockScenario, MockScenarioName } from './mock/scenarios.ts';
 
 export { SORT_DIRECTIONS, emptyPage, pageCount } from './contracts/index.ts';
+export {
+    REPOSITORY_SURFACE,
+    REPOSITORY_SURFACE_KEYS,
+    REPOSITORY_SURFACE_METHOD_COUNT,
+} from './contracts/repository-surface.ts';
+export type { RepositorySurfaceKey } from './contracts/repository-surface.ts';
 
 /**
  * The guest credential's store (plan Phase G1).

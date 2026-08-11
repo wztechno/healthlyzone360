@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { asApiFailure } from '../../contracts/failure.ts';
-import type { PrototypeRepositoryBundle } from './repositories.ts';
+import {
+    describeApiRejections,
+    describeContractSurface,
+} from '../../api/repository-contract-harness.ts';
+import type { RepositoryContractOptions } from '../../api/repository-contract-harness.ts';
 import { PROTOTYPE_TODAY, PROTOTYPE_WEEK_START, addDays } from './constants.ts';
 import {
     PROTOTYPE_CUSTOMER_ID,
@@ -16,283 +20,26 @@ import {
 } from './fixtures/index.ts';
 
 /**
- * `describeRepositoryContract()` — one behavioural specification, run against both bundles.
+ * `describeRepositoryContract()` â€” the mock-world behavioural half of the shared contract.
  *
- * The mock and the API repositories satisfy the same nine interfaces, and the only reason that is
- * worth anything is if something checks it. This factory is that something. It is run twice:
- *
- * - against **the mock bundle**, where it asserts real behaviour — the pagination shape, that the
- *   filters filter, that regeneration is deterministic, that the subscription state machine refuses
- *   illegal transitions and that the Virtual Dietitian walks its states;
- * - against **the API bundle**, where it asserts that every method on every repository rejects with
- *   `prototype.not_implemented`, because none of those endpoints exists yet.
- *
- * The surface half runs in both modes and is the part that catches drift: a method added to a
- * contract and implemented in only one bundle fails here rather than in a screen.
+ * The method tables and the surface/rejection halves live in
+ * `src/api/repository-contract-harness.ts`, rehomed there so the api-side guarantees survive the
+ * mock tree's deletion. This wrapper layers the fixture-world behaviour on top â€” the pagination
+ * shape, that the filters filter, planner determinism, the subscription state machine and the
+ * Virtual Dietitian walk â€” and is run by `repositories.test.ts` in mock mode only.
  */
-
-/**
- * The nine keys this table covers — and why `platformAdmin` (PA1) is not among them.
- *
- * Membership of this list means "the API implementation is a stub that must reject with
- * `prototype.not_implemented`", which is what the api-mode half below asserts for every method.
- * `platformAdmin` was born real: its seven routes shipped in the same phase as its contract, it has
- * no `PROTOTYPE_ENDPOINTS` entry, and its API repository issues genuine requests. Listing it here
- * would assert that it fails, which is the opposite of true.
- *
- * That is the same reason `guest`, `account`, `verification`, `b2bApplication` and `kitchenOps` are
- * absent. Their drift protection is the `Repositories` bundle in `../../contracts/index.ts`: the
- * fields are **required**, so a method added to any of those contracts fails the typecheck in
- * exactly two places — the mock and the API implementation — which is where it should fail.
- *
- * `invitations` is absent on the same born-real terms as `platformAdmin`, and one step further out:
- * its two routes not only exist, one of them is **anonymous**, so its API implementation is the
- * only one in this package that a visitor holding no credential at all can reach. A table entry
- * asserting it rejects would be wrong twice over.
- */
-export const REPOSITORY_KEYS = [
-    'marketplace',
-    'nutrition',
-    'planner',
-    'foods',
-    'virtualDietitian',
-    'commerce',
-    'business',
-    'professional',
-    'kitchenAdmin',
-] as const;
-
-export type RepositoryKey = (typeof REPOSITORY_KEYS)[number];
-
-/**
- * Every method each contract declares.
- *
- * Restated here on purpose. The compiler already forces both bundles to implement the interfaces;
- * what it cannot do is notice that a *contract* grew a method nobody thought about. This table is
- * the human-maintained side of that, and it fails loudly when the two disagree.
- */
-export const CONTRACT_METHODS: Readonly<Record<RepositoryKey, readonly string[]>> = {
-    marketplace: [
-        'listKitchens',
-        'getKitchen',
-        'listMeals',
-        'getMeal',
-        'listPlans',
-        'getPlan',
-        'listDietitians',
-        'getDietitian',
-        'listDietCategories',
-    ],
-    nutrition: ['calculateTargets', 'getCurrentTargets', 'updateCurrentTargets', 'requestReview'],
-    planner: [
-        'listPlans',
-        'getCurrentPlan',
-        'getWeek',
-        'getDay',
-        'generate',
-        'regenerateWeek',
-        'regenerateDay',
-        'regenerateEntry',
-        'lockEntry',
-        'unlockEntry',
-        'replaceEntry',
-        'adjustPortion',
-        'addEntry',
-        'removeEntry',
-        'repeatMeal',
-        'getNotes',
-        'setNotes',
-        'history',
-        'saveAsTemplate',
-        'duplicate',
-    ],
-    foods: ['searchFoods', 'listRecipes', 'getRecipe', 'getGroceryList', 'getPantry'],
-    virtualDietitian: [
-        'createSession',
-        'getSession',
-        'listSessions',
-        'sendMessage',
-        'generateDraft',
-        'requestReview',
-        'acceptProposal',
-        'overrideProposal',
-    ],
-    commerce: [
-        'getCart',
-        'addCartItem',
-        'removeCartItem',
-        'previewCheckout',
-        // The one command on this surface, and the only one that could be added to a contract whose
-        // header refuses a payment method: a one-off order is cash on delivery.
-        'placeOrder',
-        'previewSubscription',
-        'createSubscription',
-        'getSubscription',
-        'listSubscriptions',
-        'pause',
-        'resume',
-        'skipDay',
-        'changeAddress',
-        'changeSlot',
-        // S1: the balance, the ledger, the refund, and the read that replaced the seven-probe hack.
-        'getSubscriptionQuote',
-        'getSubscriptionBalance',
-        'listSubscriptionDeliveries',
-        'cancelSubscription',
-        'setSubscriptionWeekdays',
-        'setSubscriptionMealChoices',
-    ],
-    business: [
-        'listCorporateProgrammes',
-        'getCorporateProgramme',
-        'listCatalogue',
-        'getCatalogueItem',
-        'requestQuotation',
-        'listQuotations',
-        'acceptQuotation',
-        'declineQuotation',
-    ],
-    professional: [
-        'listReviewQueue',
-        'getReview',
-        'approve',
-        'requestChanges',
-        'getClientPlan',
-        'setDietitianNote',
-        'setOverride',
-    ],
-    kitchenAdmin: [
-        'listAllergenClasses',
-        'listServiceAreas',
-        'listIngredients',
-        'getIngredient',
-        'createIngredient',
-        'updateIngredient',
-        'archiveIngredient',
-        'setIngredientAllergens',
-        'listRecipes',
-        'getRecipe',
-        'createRecipe',
-        'updateRecipe',
-        'setRecipeLines',
-        'setRecipeSteps',
-        'setRecipeOutputs',
-        'previewRecipeRollup',
-        'publishRecipe',
-        'retireRecipe',
-        'listProducts',
-        'getProduct',
-        'createProduct',
-        'updateProduct',
-        'archiveProduct',
-        'setProductChannelAvailability',
-        'listPriceLists',
-        'getPriceList',
-        'setPriceListEntries',
-        'publishPriceList',
-        'listMeals',
-        'getMeal',
-        'createMeal',
-        'updateMeal',
-        'publishMeal',
-        'retireMeal',
-        'setMealAvailability',
-        'listPlans',
-        'getPlan',
-        'createPlan',
-        'updatePlan',
-        'publishPlan',
-        'retirePlan',
-        'setPlanVariants',
-        'setPlanDurations',
-        'setPlanCombinations',
-        'listZones',
-        'getZone',
-        'createZone',
-        'updateZone',
-        'archiveZone',
-        'setZoneAreas',
-        'setDeliveryWindows',
-        'getBranchOperating',
-        'setBranchOperating',
-    ],
-};
-
-export const CONTRACT_METHOD_COUNT = REPOSITORY_KEYS.reduce(
-    (total, key) => total + CONTRACT_METHODS[key].length,
-    0,
-);
-
-export type RepositoryContractMode = 'mock' | 'api';
-
-export interface RepositoryContractOptions {
-    /** Appears in the test names, e.g. `mock bundle` or `api bundle`. */
-    readonly name: string;
-    readonly mode: RepositoryContractMode;
-    /** A fresh bundle. Called per test, so no test can be affected by another's mutations. */
-    readonly create: () => PrototypeRepositoryBundle;
-}
-
-function methodsOf(repository: object): readonly [string, (...args: never[]) => unknown][] {
-    return Object.entries(repository).filter(
-        (entry): entry is [string, (...args: never[]) => unknown] => typeof entry[1] === 'function',
-    );
-}
-
 export function describeRepositoryContract(options: RepositoryContractOptions): void {
     const { name, mode, create } = options;
 
-    describe(`${name} — contract surface`, () => {
-        it.each(REPOSITORY_KEYS)('%s declares exactly the methods the contract promises', (key) => {
-            const repository = create()[key];
-            const names = methodsOf(repository)
-                .map(([method]) => method)
-                .sort();
-            expect(names).toEqual([...CONTRACT_METHODS[key]].sort());
-        });
-
-        it('covers every repository in the bundle', () => {
-            const bundle = create();
-            for (const key of REPOSITORY_KEYS) expect(bundle[key]).toBeDefined();
-        });
-    });
+    describeContractSurface(options);
 
     if (mode === 'api') {
-        describe(`${name} — every method rejects prototype.not_implemented`, () => {
-            for (const key of REPOSITORY_KEYS) {
-                const methods = CONTRACT_METHODS[key];
-                it.each(methods)(`${key}.%s`, async (method) => {
-                    const repository = create()[key] as unknown as Record<
-                        string,
-                        (...args: never[]) => unknown
-                    >;
-                    const call = repository[method];
-                    expect(typeof call).toBe('function');
-
-                    // Called with no arguments on purpose: a stub that reached for one would be
-                    // doing something, and these are meant to do nothing but reject.
-                    const outcome = await Promise.resolve(call?.call(repository)).then(
-                        () => null,
-                        (error: unknown) => asApiFailure(error),
-                    );
-
-                    expect(
-                        outcome,
-                        `${key}.${method} resolved instead of rejecting`,
-                    ).not.toBeNull();
-                    expect(outcome?.code).toBe('prototype.not_implemented');
-                    expect(outcome?.retryable).toBe(false);
-                    expect(outcome?.message).toContain('/api/v1/');
-                });
-            }
-        });
-
+        describeApiRejections(options);
         return;
     }
+    /* â”€â”€ behaviour, mock bundle only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-    /* ── behaviour, mock bundle only ───────────────────────────────────────────────────────── */
-
-    describe(`${name} — cursor pagination`, () => {
+    describe(`${name} â€” cursor pagination`, () => {
         it('returns a first page, a cursor, and a last page that ends the sequence', async () => {
             const { marketplace } = create();
 
@@ -325,7 +72,7 @@ export function describeRepositoryContract(options: RepositoryContractOptions): 
         });
     });
 
-    describe(`${name} — filters actually filter`, () => {
+    describe(`${name} â€” filters actually filter`, () => {
         it('excludes an allergen everywhere it is asked to', async () => {
             const { marketplace, foods } = create();
             const treeNut = allergenCode('tree_nut');
@@ -390,7 +137,7 @@ export function describeRepositoryContract(options: RepositoryContractOptions): 
         });
     });
 
-    describe(`${name} — the planner mutates and stays consistent`, () => {
+    describe(`${name} â€” the planner mutates and stays consistent`, () => {
         it('locks an entry and the lock survives a week regeneration', async () => {
             const { planner } = create();
             const target = weekEntryAt(0);
@@ -511,7 +258,7 @@ export function describeRepositoryContract(options: RepositoryContractOptions): 
         });
     });
 
-    describe(`${name} — commerce`, () => {
+    describe(`${name} â€” commerce`, () => {
         it('adds to a cart and prices a checkout without taking a payment', async () => {
             const { commerce } = create();
             const cart = await commerce.getCart();
@@ -598,7 +345,7 @@ export function describeRepositoryContract(options: RepositoryContractOptions): 
         });
     });
 
-    describe(`${name} — the Virtual Dietitian progresses and escalates`, () => {
+    describe(`${name} â€” the Virtual Dietitian progresses and escalates`, () => {
         it('walks the interview one state per turn', async () => {
             const { virtualDietitian } = create();
             const session = await virtualDietitian.createSession();
@@ -688,7 +435,7 @@ export function describeRepositoryContract(options: RepositoryContractOptions): 
         });
     });
 
-    describe(`${name} — the professional queue closes the loop`, () => {
+    describe(`${name} â€” the professional queue closes the loop`, () => {
         it('approves a review and marks the target professionally approved', async () => {
             const { professional, nutrition } = create();
             const item = reviewQueueItemAt(0);
@@ -734,7 +481,7 @@ export function describeRepositoryContract(options: RepositoryContractOptions): 
         });
     });
 
-    describe(`${name} — business quotations`, () => {
+    describe(`${name} â€” business quotations`, () => {
         it('submits a quotation with no price attached to it', async () => {
             const { business } = create();
             const programme = programmeByKey('corporate_employee_package');
