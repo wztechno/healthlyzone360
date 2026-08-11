@@ -20,7 +20,8 @@ import { DevBanner } from '../dev/dev-banner.tsx';
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { useCartQuery } from '../data/marketplace-hooks.ts';
-import { MARKETPLACE_NAVIGATION } from '../navigation/consumer-items.ts';
+import { isPathAvailable } from '../features/availability.ts';
+import { marketplaceNavigation } from '../navigation/consumer-items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useSession } from '../session/session-provider.tsx';
 
@@ -122,11 +123,11 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
               })
             : cartLabel;
 
-    // Available destinations only — deferred stubs (e.g. dietitians) stay documented in the
-    // table but are not rendered (real-kitchen-commerce plan Phase A).
+    // Available destinations only — the table keeps every destination the product will have, and
+    // `../features/availability.ts` decides which of them has a backend to reach today.
     const navigation = useMemo<readonly NavigationItem[]>(
         () =>
-            MARKETPLACE_NAVIGATION.filter((item) => item.status === 'available').map((item) => ({
+            marketplaceNavigation().map((item) => ({
                 key: item.key,
                 label: t(item.labelKey),
                 icon: item.icon,
@@ -288,6 +289,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         </Inline>
     );
 
+    // Filtered by the same availability table the navigation uses: the footer is the one place a
+    // dead link survives a redesign, because nobody looks at it.
     const footerLinks: readonly {
         readonly key: string;
         readonly labelKey: string;
@@ -301,7 +304,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         signedIn
             ? { key: 'my-home', labelKey: 'marketplace:nav.myHome', href: '/customer' }
             : { key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' },
-    ];
+    ].filter((link) => isPathAvailable(link.href));
 
     const footer = (
         <Stack

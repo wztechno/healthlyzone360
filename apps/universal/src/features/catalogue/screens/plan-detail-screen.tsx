@@ -2,7 +2,6 @@ import {
     Badge,
     Breadcrumbs,
     Button,
-    Callout,
     Card,
     Chip,
     EmptyState,
@@ -214,15 +213,13 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                         size="sm"
                                     />
                                 )}
+                                {/* Labels, not links — `/diets/{diet}` has no backend yet. */}
                                 <Inline space="xs" wrap>
                                     {item.dietClassifications.map((diet) => (
                                         <Chip
                                             key={diet}
                                             tone="brand"
                                             label={t(`marketplace:diets.${diet}`)}
-                                            onPress={() => {
-                                                router.push(`/diets/${diet}` as never);
-                                            }}
                                         />
                                     ))}
                                 </Inline>
@@ -384,26 +381,6 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                     {t('catalogue:plan.deliveryUnpublished')}
                                 </Text>
                             </Stack>
-
-                            <Callout
-                                testID="plan-detail-dietitian"
-                                role="note"
-                                tone="info"
-                                icon="user"
-                                title={t('catalogue:plan.dietitianTitle')}
-                                body={t('catalogue:plan.dietitianBody')}
-                                actions={
-                                    <Button
-                                        testID="plan-detail-find-dietitian"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('catalogue:plan.dietitianFind')}
-                                        onPress={() => {
-                                            router.push('/dietitians');
-                                        }}
-                                    />
-                                }
-                            />
 
                             <Card testID="plan-detail-commerce" padding="md" tone="sunken">
                                 <Stack space="md">

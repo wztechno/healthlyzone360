@@ -1,5 +1,4 @@
-import { resolveLandingRoute } from '@healthy360/permissions';
-
+import { resolveAppLandingRoute } from '../../../navigation/landing.ts';
 import { LandingScreen } from '../../../screens/landing-screen.tsx';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { MarketplaceShell } from '../../../shell/marketplace-shell.tsx';
@@ -35,7 +34,7 @@ export function HomeRouter() {
 
     if (repositoryError !== null) return <LandingScreen />;
 
-    const landing = resolveLandingRoute(accessState);
+    const landing = resolveAppLandingRoute(accessState);
 
     if (landing.reason === 'unauthenticated') {
         return (

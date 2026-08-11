@@ -6,7 +6,7 @@ import { signIn } from './helpers.ts';
  * The catalogue journey, in English, against the exported static build.
  *
  * Every navigation below is the real router doing real work — including the shell fallback that
- * makes `/meals/{id}`, `/plans/{id}` and `/diets/{slug}` resolve without a pre-rendered page.
+ * makes `/meals/{id}` and `/plans/{id}` resolve without a pre-rendered page.
  *
  * The one thing these tests deliberately do *not* do is assert exact figures. The fixture world is
  * synthetic and its numbers are derived, so pinning "638 kcal" here would make an unrelated
@@ -157,27 +157,20 @@ test.describe('meal detail (en)', () => {
         await expect(page.getByTestId('basket-added')).toBeVisible();
     });
 
-    test('replacement explains itself and offers a destination that resolves', async ({ page }) => {
+    test('the meal record offers only the actions that work', async ({ page }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
         await page.locator('[data-testid^="meal-card-"]').first().click();
+        await expect(page.getByTestId('meal-detail-actions')).toBeVisible();
 
-        await page.getByTestId('meal-detail-replace').click();
-        await expect(page.getByTestId('meal-detail-replace-dialog')).toBeVisible();
-        await page.getByTestId('meal-detail-replace-browse').click();
-        await expect(page.getByTestId('meals-screen')).toBeVisible();
-    });
+        // The planner and the quotation document have no endpoints, so the three controls that
+        // needed them are absent rather than explaining themselves on press.
+        await expect(page.getByTestId('meal-detail-add-to-plan')).toHaveCount(0);
+        await expect(page.getByTestId('meal-detail-replace')).toHaveCount(0);
+        await expect(page.getByTestId('meal-detail-quotation')).toHaveCount(0);
 
-    test('a diet tag leads to its category page', async ({ page }) => {
-        await page.goto('/meals');
-        await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        // The diet classification is still shown; it is simply no longer a link.
         await expect(page.getByTestId('meal-detail-diets')).toBeVisible();
-
-        await page.locator('[data-testid^="meal-detail-diet-"]').first().click();
-        await expect(page.getByTestId('diet-category-screen')).toBeVisible();
-        await expect(page.getByTestId('diet-category-suitability')).toBeVisible();
-        await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
     });
 });
 
@@ -208,15 +201,6 @@ test.describe('subscription plans (en)', () => {
         await expect(page.getByTestId('plan-detail-name')).toContainText('Balanced Week');
     });
 
-    test('a category tab narrows the catalogue', async ({ page }) => {
-        await page.goto('/plans');
-        await expect(page.getByTestId('plans-grid')).toBeVisible();
-
-        await page.getByTestId('plans-category-high-protein').click();
-        await expect(page.getByTestId('plan-card-strength-build')).toBeVisible();
-        await expect(page.getByTestId('plan-card-plant-forward')).toHaveCount(0);
-    });
-
     test('the comparison screen says so when nothing was selected', async ({ page }) => {
         await page.goto('/plans/compare');
         await expect(page.getByTestId('plan-comparison-empty')).toBeVisible();
@@ -236,7 +220,6 @@ test.describe('plan detail (en)', () => {
         await expect(page.getByTestId('plan-detail-macro-protein')).toBeVisible();
         await expect(page.getByTestId('plan-detail-duration-12w')).toBeVisible();
         await expect(page.getByTestId('plan-detail-delivery')).toBeVisible();
-        await expect(page.getByTestId('plan-detail-dietitian')).toBeVisible();
         await expect(page.getByTestId('plan-detail-sample-grid')).toBeVisible();
         await expect(page.getByTestId('plan-detail-price')).toBeVisible();
         await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
@@ -259,61 +242,6 @@ test.describe('plan detail (en)', () => {
 
         await page.getByTestId('plan-detail-configure').click();
         await expect(page.getByTestId('sign-in-screen')).toBeVisible();
-    });
-});
-
-test.describe('the public calculators (en)', () => {
-    test('the calorie calculator asks, answers and shows its working', async ({ page }) => {
-        await page.goto('/tools/calorie-calculator');
-        await expect(page.getByTestId('calorie-calculator-screen')).toBeVisible();
-
-        // Nothing is claimed before the measurements exist.
-        await expect(page.getByTestId('calorie-calculator-incomplete')).toBeVisible();
-
-        await page.getByTestId('calorie-calculator-age-input').fill('34');
-        await page.getByTestId('calorie-calculator-height-input').fill('170');
-        await page.getByTestId('calorie-calculator-weight-input').fill('68');
-
-        await expect(page.getByTestId('calorie-calculator-target')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-maintenance-value')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-target-value')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-tolerance')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-prototype')).toBeVisible();
-        await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
-
-        // The working and the citations are reachable, not merely claimed.
-        await page.getByTestId('calorie-calculator-target-citations-header').click();
-        await expect(
-            page.getByTestId('calorie-calculator-target-working-citations-panel'),
-        ).toBeVisible();
-
-        // A unit switch keeps the measurement rather than clearing it.
-        await page.getByTestId('calorie-calculator-units-imperial').click();
-        await expect(page.getByTestId('calorie-calculator-height-feet-input')).toHaveValue('5');
-        await expect(page.getByTestId('calorie-calculator-height-inches-input')).toHaveValue('7');
-
-        await page.getByTestId('calorie-calculator-macro').click();
-        await expect(page.getByTestId('macro-calculator-screen')).toBeVisible();
-    });
-
-    test('the macro calculator splits the same estimate into grams first', async ({ page }) => {
-        await page.goto('/tools/macro-calculator');
-        await expect(page.getByTestId('macro-calculator-screen')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-incomplete')).toBeVisible();
-
-        await page.getByTestId('macro-calculator-age-input').fill('29');
-        await page.getByTestId('macro-calculator-height-input').fill('182');
-        await page.getByTestId('macro-calculator-weight-input').fill('80');
-
-        await expect(page.getByTestId('macro-calculator-macros')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-table')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-ring-protein')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-grams-protein')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-nutrients')).toBeVisible();
-        await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
-
-        await page.getByTestId('macro-calculator-meals').click();
-        await expect(page.getByTestId('meals-screen')).toBeVisible();
     });
 });
 

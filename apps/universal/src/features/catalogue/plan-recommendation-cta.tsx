@@ -15,11 +15,12 @@ import { BrandGradient } from '../../ui/brand-gradient.tsx';
  *
  * Its two actions go only where the model actually helps that person: a dietitian, and the
  * explanation of how plans work. There is no "find my plan" here on purpose — it would point back up
- * the same page. Both destinations are routes that exist in this build (`/dietitians`,
- * `/how-it-works`), so neither button is a promise the app cannot keep.
+ * the same page. Neither button is a promise the app cannot keep: `onHowItWorks` always resolves,
+ * and `onSpeakToDietitian` is optional so that its button is absent — not dead — while the directory
+ * has no backend (`src/features/availability.ts`).
  */
 export interface PlanRecommendationCtaProps {
-    readonly onSpeakToDietitian: () => void;
+    readonly onSpeakToDietitian?: (() => void) | undefined;
     readonly onHowItWorks: () => void;
 }
 
@@ -39,12 +40,14 @@ export function PlanRecommendationCta({
                     {t('catalogue:plans.ctaBody')}
                 </Text>
                 <Inline space="sm" wrap>
-                    <Button
-                        testID="plans-cta-dietitian"
-                        variant="secondary"
-                        label={t('catalogue:plans.ctaPrimary')}
-                        onPress={onSpeakToDietitian}
-                    />
+                    {onSpeakToDietitian === undefined ? null : (
+                        <Button
+                            testID="plans-cta-dietitian"
+                            variant="secondary"
+                            label={t('catalogue:plans.ctaPrimary')}
+                            onPress={onSpeakToDietitian}
+                        />
+                    )}
                     <Button
                         testID="plans-cta-how"
                         variant="secondary"

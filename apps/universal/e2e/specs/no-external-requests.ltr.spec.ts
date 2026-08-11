@@ -35,9 +35,6 @@ import { signIn } from './helpers.ts';
 /** The static server the export is served from. */
 const ORIGIN = 'http://localhost:4173';
 
-/** Monday of the fixture planner week. Pinned in `mock/prototype/constants.ts`. */
-const FIXTURE_WEEK = '2026-07-27';
-
 /**
  * Hosts that must never be contacted, named for the record.
  *
@@ -140,17 +137,12 @@ const PUBLIC_WALK: readonly (readonly [string, string])[] = [
     ['/kitchens', 'kitchens-grid'],
     ['/meals', 'meals-grid'],
     ['/plans', 'plans-screen'],
-    ['/dietitians', 'dietitians-grid'],
     ['/how-it-works', 'how-it-works-screen'],
     ['/for-business', 'for-business-screen'],
 ];
 
 const CUSTOMER_WALK: readonly (readonly [string, string])[] = [
     ['/customer', 'consumer-home-screen'],
-    ['/customer/nutrition', 'nutrition-target-screen'],
-    ['/customer/virtual-dietitian', 'virtual-dietitian-screen'],
-    [`/customer/planner/week/${FIXTURE_WEEK}`, 'planner-week-screen'],
-    [`/customer/grocery/${FIXTURE_WEEK}`, 'grocery-screen'],
     ['/customer/cart', 'cart-screen'],
     ['/customer/subscriptions', 'subscriptions-screen'],
 ];
@@ -164,7 +156,7 @@ test.describe('the exported build contacts nothing but the static server', () =>
         assertNoExternal(external, 'public marketplace walk');
     });
 
-    test('the customer, planner and commerce areas', async ({ page }) => {
+    test('the customer and commerce areas', async ({ page }) => {
         const external = await collectRequests(page);
 
         await signIn(page);

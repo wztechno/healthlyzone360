@@ -2,7 +2,7 @@ import { MOCK_SCENARIOS, createMockRepositories } from '@healthy360/api-client/m
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { queryKeys } from '../../data/query-keys.ts';
-import { CONSUMER_NAVIGATION, MARKETPLACE_NAVIGATION } from '../../navigation/consumer-items.ts';
+import { consumerNavigation, marketplaceNavigation } from '../../navigation/consumer-items.ts';
 import { ConsumerShell } from '../../shell/consumer-shell.tsx';
 import { renderScreen } from '../../testing/render-screen.tsx';
 import { clearResumeIntent, getResumeIntent, recordResumeIntent } from './resume-intent.ts';
@@ -359,45 +359,22 @@ describe('DiscoverScreen', () => {
 /* ── consumer home ───────────────────────────────────────────────────────────────────────────── */
 
 describe('ConsumerHomeScreen', () => {
-    it('shows the next meals, the nutrition snapshot and the running subscription', async () => {
+    it('shows the running subscription and opens the screen that manages it', async () => {
         await renderScreen(<ConsumerHomeScreen />, {
             scenario: 'consumer-prototype',
             signInAs: CONSUMER,
         });
 
-        // Each card resolves through its own query, so each settles independently under real
-        // mock latency - await them all rather than assuming one settles for the rest.
         await waitFor(() => {
             expect(screen.getByTestId('subscription-card-content')).toBeTruthy();
         });
-        await waitFor(() => {
-            expect(screen.getByTestId('nutrition-snapshot-content')).toBeTruthy();
-        });
-        expect(screen.getByTestId('nutrition-meter-energy')).toBeTruthy();
-        // The fixture week is anchored on a fixed Monday, so the resolved day either carries the
-        // generated entries or falls back to the designed empty state. Both are correct answers;
-        // silently rendering neither is not.
-        await waitFor(() => {
-            expect(
-                screen.queryByTestId('today-card-entries') ??
-                    screen.queryByTestId('today-card-empty'),
-            ).toBeTruthy();
-        });
         expect(screen.getByTestId('consumer-greeting')).toBeTruthy();
         expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
-    });
 
-    it('invites a person who has no target to finish setting up', async () => {
-        await renderScreen(<ConsumerHomeScreen />, {
-            scenario: 'consumer-onboarding',
-            signInAs: CONSUMER,
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('consumer-onboarding-cta')).toBeTruthy();
-        });
-        expect(screen.getByTestId('nutrition-snapshot-empty')).toBeTruthy();
-        expect(screen.getByTestId('today-card-empty')).toBeTruthy();
+        await fireEvent.press(screen.getByTestId('consumer-subscription-manage'));
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            expect.stringMatching(/^\/customer\/subscriptions\//),
+        );
     });
 
     it('offers to resume a marketplace page recorded before sign-in', async () => {
@@ -418,20 +395,15 @@ describe('ConsumerHomeScreen', () => {
 /* ── navigation and shells ───────────────────────────────────────────────────────────────────── */
 
 describe('navigation descriptors', () => {
-    it('only marks a destination available when its route exists in this build', () => {
-        const available = [...CONSUMER_NAVIGATION, ...MARKETPLACE_NAVIGATION]
-            .filter((item) => item.status === 'available')
+    it('offers only the destinations whose feature has a backend today', () => {
+        const offered = [...consumerNavigation(), ...marketplaceNavigation()]
             .map((item) => item.href)
             .sort();
 
-        expect([...new Set(available)]).toEqual([
+        expect([...new Set(offered)]).toEqual([
             '/customer',
             '/customer/cart',
-            '/customer/nutrition',
-            '/customer/planner',
             '/customer/subscriptions',
-            '/customer/virtual-dietitian',
-            '/dietitians',
             '/discover',
             '/for-business',
             '/how-it-works',
@@ -441,21 +413,10 @@ describe('navigation descriptors', () => {
             '/profile',
         ]);
     });
-
-    it('gives every planned destination the contract it is waiting on', () => {
-        for (const item of [...CONSUMER_NAVIGATION, ...MARKETPLACE_NAVIGATION]) {
-            if (item.status === 'planned') expect(item.contract).toBeDefined();
-        }
-    });
 });
 
 describe('ConsumerShell', () => {
-    it('navigates every destination for real now that all consumer routes exist', async () => {
-        // Wave 4 completed the consumer surface: no planned destinations remain, so a press
-        // must navigate rather than explain. (The honest-press behaviour for planned entries
-        // is still covered by the descriptor contract test above should one ever return.)
-        expect(CONSUMER_NAVIGATION.every((item) => item.status === 'available')).toBe(true);
-
+    it('renders only reachable destinations and navigates them for real', async () => {
         await renderScreen(
             <ConsumerShell unguarded>
                 <></>
@@ -464,9 +425,12 @@ describe('ConsumerShell', () => {
         );
 
         expect(screen.getByTestId('consumer-nav-home')).toBeTruthy();
+        expect(screen.queryByTestId('consumer-nav-planner')).toBeNull();
+        expect(screen.queryByTestId('consumer-nav-nutrition')).toBeNull();
+        expect(screen.queryByTestId('consumer-nav-virtual-dietitian')).toBeNull();
 
-        await fireEvent.press(screen.getByTestId('consumer-nav-planner'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/planner');
+        await fireEvent.press(screen.getByTestId('consumer-nav-subscriptions'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/subscriptions');
         expect(screen.queryByTestId('prototype-notice')).toBeNull();
     });
 });

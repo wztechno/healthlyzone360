@@ -3,7 +3,6 @@ import {
     Button,
     Callout,
     Card,
-    EmptyState,
     FilterChip,
     Heading,
     Inline,
@@ -19,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import { useSupplyCommitmentsQuery } from '../../../data/business-hooks.ts';
 import type { SupplyCommitment } from '../../../data/business-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
-import { useRepositories } from '../../../data/repository-provider.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { catalogueKindKey, quotationStateKey } from '../format.ts';
@@ -37,17 +35,18 @@ import { catalogueKindKey, quotationStateKey } from '../format.ts';
  * list of exceptions. The screen says so in its own copy, so the omission reads as a decision rather
  * than as missing data.
  *
- * ## Commitments are deferred on the API (B9)
+ * ## Unreachable while `partnerSupply` is unavailable
  *
- * There is no `GET /api/v1/partner/commitments`. Mock mode still derives commitments from
- * quotations for prototype review; API mode shows an honest deferred empty state.
+ * There is no `GET /api/v1/partner/commitments`, so `src/features/availability.ts` hides the whole
+ * `partner` area and `AreaShell` redirects out of it. The deferred empty state this screen used to
+ * render for API builds had no audience left, and the `repositories.kind !== 'mock'` test behind it
+ * would be an always-false comparison once the mock repositories go.
  */
 
 export function PartnerCommitmentsScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
-    const repositories = useRepositories();
 
     const [kitchenId, setKitchenId] = useState<KitchenId | null>(null);
 
@@ -57,26 +56,6 @@ export function PartnerCommitmentsScreen() {
     const commitments: readonly SupplyCommitment[] = (query.data ?? []).filter(
         (commitment) => kitchenId === null || commitment.item.kitchenId === kitchenId,
     );
-
-    // Gate on the repository kind, not `appConfig.isMockData`: Jest injects mock
-    // repositories while the default build config is already `api`.
-    if (repositories.kind !== 'mock') {
-        return (
-            <Stack space="lg" testID="partner-commitments-screen">
-                <Stack space="xs">
-                    <Heading level={1} testID="partner-commitments-title">
-                        {t('business:partner.title')}
-                    </Heading>
-                    <Text tone="secondary">{t('business:partner.body')}</Text>
-                </Stack>
-                <EmptyState
-                    testID="partner-commitments-deferred"
-                    title={t('business:partner.deferredTitle')}
-                    body={t('business:partner.deferredBody')}
-                />
-            </Stack>
-        );
-    }
 
     return (
         <Stack space="lg" testID="partner-commitments-screen">

@@ -121,41 +121,9 @@ test.describe('corporate workspace (ar, RTL)', () => {
 
         await expect(page.getByTestId('quotation-builder-screen')).toBeVisible();
         await expect(page.getByTestId('quotation-builder-scope')).toContainText(ARABIC_SCRIPT);
-        await expect(page.getByTestId('quotation-builder-draft-note')).toContainText(ARABIC_SCRIPT);
-
         await page.getByTestId('quotation-builder-submit').click();
         await expect(page.getByTestId('quotation-builder-lines-error')).toContainText(
             ARABIC_SCRIPT,
         );
-    });
-});
-
-test.describe('partner workspace (ar, RTL)', () => {
-    test('translates the commitments and keeps the price boundary', async ({ page }) => {
-        await signIn(page);
-        await selectCedarHamraContext(page);
-        await page.goto('/partner');
-
-        await expect(page.getByTestId('partner-commitments-screen')).toBeVisible();
-        await expect(page.getByTestId('partner-commitments-title')).toContainText(ARABIC_SCRIPT);
-        await expect(page.getByTestId('partner-price-privacy')).toContainText(ARABIC_SCRIPT);
-        await expect(page.locator('[data-testid^="contract-price-"]')).toHaveCount(0);
-    });
-
-    test('collapses the schedule to a narrow viewport without a sideways document', async ({
-        page,
-    }) => {
-        await page.setViewportSize({ width: 360, height: 800 });
-        await signIn(page);
-        await selectCedarHamraContext(page);
-        await page.goto('/partner/schedule');
-
-        await expect(page.getByTestId('partner-schedule-screen')).toBeVisible();
-        await expect(page.getByTestId('partner-schedule-title')).toContainText(ARABIC_SCRIPT);
-
-        const overflow = await page.evaluate(
-            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        );
-        expect(overflow).toBeLessThanOrEqual(1);
     });
 });

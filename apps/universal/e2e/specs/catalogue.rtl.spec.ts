@@ -67,40 +67,6 @@ test.describe('catalogue (ar, RTL)', () => {
         );
     });
 
-    test('the calorie calculator answers in Arabic and mirrors its layout', async ({ page }) => {
-        await page.goto('/tools/calorie-calculator');
-        await expect(page.getByTestId('calorie-calculator-screen')).toBeVisible();
-
-        await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-        await expect(page.getByTestId('calorie-calculator-title')).toContainText(ARABIC_SCRIPT);
-        await expect(page.getByTestId('calorie-calculator-incomplete')).toContainText(
-            ARABIC_SCRIPT,
-        );
-        // The contextual help on the two fields that confuse people is translated too.
-        await expect(page.getByTestId('calorie-calculator-sex-help')).toContainText(ARABIC_SCRIPT);
-        await expect(page.getByTestId('calorie-calculator-body-fat-help')).toContainText(
-            ARABIC_SCRIPT,
-        );
-
-        await page.getByTestId('calorie-calculator-age-input').fill('34');
-        await page.getByTestId('calorie-calculator-height-input').fill('170');
-        await page.getByTestId('calorie-calculator-weight-input').fill('68');
-
-        await expect(page.getByTestId('calorie-calculator-target')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-maintenance')).toContainText(
-            ARABIC_SCRIPT,
-        );
-
-        const maintenance = await page
-            .getByTestId('calorie-calculator-target-maintenance-value')
-            .innerText();
-        expect(maintenance).toMatch(/\d/);
-        expect(maintenance).not.toMatch(ARABIC_INDIC_DIGITS);
-
-        // The standing disclaimer is never dropped in translation.
-        await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
-    });
-
     test('the plan comparison table lays out from the right', async ({ page }) => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();

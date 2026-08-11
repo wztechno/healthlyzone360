@@ -27,16 +27,13 @@ import { signIn } from './helpers.ts';
  * 3. **Interactive targets stay at least 44 CSS pixels.** The design system's `MIN_TOUCH_TARGET`
  *    token, checked against real boxes rather than against the class name that is supposed to
  *    produce them.
- * 4. **The planner week changes representation.** Calendar grid where there is room for seven
- *    columns, agenda where there is not — the difference between a dense weekly planner and seven
- *    unreadable slivers.
  *
  * ## Why these pages
  *
- * Four public surfaces and four signed-in ones, all of them already built and already stable: a
- * marketing page, two directories, a filtered catalogue, the consumer home, the planner, the
- * nutrition targets and the cart. Between them they cover every layout primitive the product has —
- * hero, card grid, filter rail, calendar, meter stack and line list.
+ * Four public surfaces and two signed-in ones, all of them already built, already stable and — since
+ * the feature-availability pass — still reachable: a marketing page, a directory, a filtered
+ * catalogue, the consumer home and the cart. Between them they cover the layout primitives the
+ * visible product has: hero, card grid, filter rail and line list.
  *
  * ## Two invariants this application cannot satisfy today
  *
@@ -75,9 +72,6 @@ const MIN_TOUCH_TARGET = 44;
  */
 const MD = 768;
 const LG = 1024;
-
-/** Monday of the fixture planner week. Pinned in `mock/prototype/constants.ts`. */
-const FIXTURE_WEEK = '2026-07-27';
 
 /* ── invariants ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -167,16 +161,13 @@ async function expectTouchSafe(locator: Locator, where: string) {
  *
  * Measured differently from every other control, and for a reason worth stating rather than hiding
  * behind a lower number. A tab bar divides the window between *n* destinations; each tab is
- * therefore `window ÷ n` wide, and no amount of layout work changes that. At 320 px with eight
- * destinations the arithmetic gives 40 px, which is 4 px under the token — and the only two ways to
- * reach 44 are to remove a destination (`src/navigation/consumer-items.ts`) or to stop making the
- * tabs equal (`packages/design-system/src/shell/app-shell.tsx`). Both are product decisions, and
- * both are outside this wave.
+ * therefore `window ÷ n` wide, and no amount of layout work changes that. The only two ways to widen
+ * a tab are to remove a destination (`src/navigation/consumer-items.ts`) or to stop making the tabs
+ * equal (`packages/design-system/src/shell/app-shell.tsx`), and both are product decisions.
  *
  * So the assertion is: the row spans the whole window (no width is being wasted), every tab is at
  * least 44 px *tall*, and every tab is as wide as the arithmetic allows. Where the arithmetic allows
- * 44 px or more, the full token is required — so the check does not weaken at 390 px and above,
- * where seven of the eight tabs would otherwise sail through at 40 px.
+ * 44 px or more, the full token is required — so the check does not weaken as the window grows.
  */
 async function expectNavigationTouchSafe(row: Locator, items: Locator, where: string) {
     const count = await items.count();
@@ -281,8 +272,6 @@ test.describe('responsive structure — public marketplace', () => {
 
 const CUSTOMER_PAGES: readonly (readonly [path: string, marker: string])[] = [
     ['/customer', 'consumer-home-screen'],
-    [`/customer/planner/week/${FIXTURE_WEEK}`, 'planner-week-screen'],
-    ['/customer/nutrition', 'nutrition-target-screen'],
     ['/customer/cart', 'cart-screen'],
 ];
 
@@ -320,31 +309,6 @@ test.describe('responsive structure — consumer area', () => {
                     `consumer tab bar at ${viewport.name}`,
                 );
             }
-
-            /* the planner's two representations */
-            await page.goto(`/customer/planner/week/${FIXTURE_WEEK}`);
-            await expect(page.getByTestId('planner-week-screen')).toBeVisible();
-
-            const grid = page.getByTestId('planner-week-grid');
-            const agenda = page.getByTestId('planner-week-agenda');
-
-            if (viewport.width >= LG) {
-                await expect(grid).toBeVisible();
-                await expect(agenda).toHaveCount(0);
-            } else {
-                await expect(agenda).toBeVisible();
-                await expect(grid).toHaveCount(0);
-            }
-
-            /* and one planner card's controls, which are the densest in the product */
-            const lockButtons = page.locator(
-                '[data-testid^="planner-entry-"][data-testid$="-lock"]',
-            );
-            await expect(lockButtons.first()).toBeVisible();
-            await expectTouchSafe(
-                lockButtons.first(),
-                `planner entry keep control at ${viewport.name}`,
-            );
         });
     }
 });

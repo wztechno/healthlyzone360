@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDietCategoriesQuery, usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { isFeatureAvailable } from '../../availability.ts';
 import { FilterBar, useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
 import type { FilterGroup } from '../../marketplace/filter-bar.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -107,7 +108,9 @@ export function PlansScreen() {
     // must survive a filter that hides some kitchens) and the tray (you compare across the whole
     // catalogue, including plans the current filters have hidden).
     const allPlans = usePlansQuery({});
-    const categories = useDietCategoriesQuery();
+    // The diet-category tabs are the diet-category feature wearing a different shape: without those
+    // endpoints there are no categories to tab through, so the request is not made at all.
+    const categories = useDietCategoriesQuery(isFeatureAvailable('dietCategories'));
     const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
 
     const items = useMemo(() => sortPlans(plans.data?.items ?? [], sort), [plans.data, sort]);
@@ -198,32 +201,43 @@ export function PlansScreen() {
                 onHowItWorks={() => {
                     router.push('/how-it-works');
                 }}
-                onSpeakToDietitian={() => {
-                    router.push('/dietitians');
-                }}
+                {...(isFeatureAvailable('dietitianDirectory')
+                    ? {
+                          onSpeakToDietitian: () => {
+                              router.push('/dietitians');
+                          },
+                      }
+                    : {})}
             />
 
             <Stack space="md" testID="plans-toolbar">
-                <Tabs
-                    testID="plans-categories"
-                    label={t('catalogue:plans.categoryLabel')}
-                    value={category}
-                    onChange={(next) => {
-                        filters.select('category', next === 'all' ? null : next);
-                    }}
-                    items={[
-                        {
-                            value: 'all',
-                            label: t('catalogue:plans.categoryAll'),
-                            testID: 'plans-category-all',
-                        },
-                        ...categoryTabs.map((entry) => ({
-                            value: entry.slug,
-                            label: entry.name,
-                            testID: `plans-category-${entry.slug}`,
-                        })),
-                    ]}
-                />
+                {/*
+                 * "All" plus nothing is not a choice. The strip renders only when a real category
+                 * exists to switch to; without the diet-category endpoints there are none, and a
+                 * one-tab tab bar is a control whose only state is the one it is already in.
+                 */}
+                {categoryTabs.length === 0 ? null : (
+                    <Tabs
+                        testID="plans-categories"
+                        label={t('catalogue:plans.categoryLabel')}
+                        value={category}
+                        onChange={(next) => {
+                            filters.select('category', next === 'all' ? null : next);
+                        }}
+                        items={[
+                            {
+                                value: 'all',
+                                label: t('catalogue:plans.categoryAll'),
+                                testID: 'plans-category-all',
+                            },
+                            ...categoryTabs.map((entry) => ({
+                                value: entry.slug,
+                                label: entry.name,
+                                testID: `plans-category-${entry.slug}`,
+                            })),
+                        ]}
+                    />
+                )}
 
                 <FilterBar
                     testID="plans-filter"
@@ -317,9 +331,13 @@ export function PlansScreen() {
             <NutritionMethodologyNotice />
 
             <PlanRecommendationCta
-                onSpeakToDietitian={() => {
-                    router.push('/dietitians');
-                }}
+                {...(isFeatureAvailable('dietitianDirectory')
+                    ? {
+                          onSpeakToDietitian: () => {
+                              router.push('/dietitians');
+                          },
+                      }
+                    : {})}
                 onHowItWorks={() => {
                     router.push('/how-it-works');
                 }}

@@ -24,13 +24,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import {
-    useAddCartItemMutation,
-    useAddPlanEntryMutation,
-    useCurrentPlanQuery,
-    useMealQuery,
-} from '../../../data/catalogue-hooks.ts';
-import { PrototypeDialog } from '../../../prototype/index.ts';
+import { useAddCartItemMutation, useMealQuery } from '../../../data/catalogue-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -49,19 +43,17 @@ import { NutritionFactsPanel } from '../nutrition-facts-panel.tsx';
  * ten requirements with no precedent). So it is designed from first principles and every figure
  * carries where it came from.
  *
- * ## Four actions, and why exactly one of them is a prototype notice
+ * ## One action, and it is real
  *
- * * **Add to basket** is a real mutation. `CommerceRepository.addCartItem` exists, the mock world
- *   holds a real basket, and the shell's badge moves. An anonymous visitor gets a real navigation to
- *   sign-in instead, with the page recorded so they come back here.
- * * **Add to my meal plan** is a real mutation *when there is a plan to add to*. When there is not,
- *   the honest answer is a dialog that says so and offers two real destinations — not a silent
- *   failure and not a fake success.
- * * **Replace a meal in my plan** genuinely cannot be built here: replacement compares nutrition,
- *   cost and allergens against the entry being replaced (doc 17, PLN-15), which needs the planner.
- *   It gets a `PrototypeDialog` naming the contract and linking onward.
- * * **Request a bulk quotation** appears only when the kitchen is configured for business supply,
- *   and routes to the business programmes exactly as Wave 2's quotation control does.
+ * **Add to basket** is a real mutation. `CommerceRepository.addCartItem` exists, the shell's badge
+ * moves, and an anonymous visitor is offered the guest route or sign-in rather than a wall.
+ *
+ * Three others used to sit beside it — add to my meal plan, replace a meal in my plan, request a
+ * bulk quotation. All three needed a contract the API does not implement (the planner, and the
+ * quotation document endpoint), so all three ended in a dialog explaining that nothing happened.
+ * `src/features/availability.ts` says as much in one place now, and the buttons are gone until it
+ * says otherwise. The diet chips below stay visible because the classification is real information
+ * about the meal; they are no longer pressable because `/diets/{diet}` is not reachable.
  *
  * ## What is deliberately absent
  *
@@ -84,13 +76,9 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
     const parsed = mealId === undefined ? null : MealId.safeParse(mealId);
     const meal = useMealQuery(parsed);
 
-    const currentPlan = useCurrentPlanQuery(signedIn);
     const addToBasket = useAddCartItemMutation();
-    const addToPlan = useAddPlanEntryMutation();
 
-    const [dialog, setDialog] = useState<
-        'no-plan' | 'replace' | 'quotation' | 'guest-entry' | null
-    >(null);
+    const [dialog, setDialog] = useState<'guest-entry' | null>(null);
 
     const here = parsed === null ? '/meals' : `/meals/${String(parsed)}`;
     const goSignIn = () => {
@@ -126,53 +114,6 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                         testID: 'basket-added',
                         tone: 'success',
                         message: t('catalogue:meal.addedToBasket', { items: cart.itemCount }),
-                    });
-                },
-            },
-        );
-    };
-
-    const onAddToPlan = (item: MarketplaceMeal) => {
-        if (!signedIn) {
-            goSignIn();
-            return;
-        }
-        // Loading is not the same answer as "no plan": until the query settles the button is
-        // disabled below, so this branch only ever sees a settled null.
-        if (currentPlan.isPending) {
-            return;
-        }
-        const plan = currentPlan.data;
-        if (plan === null || plan === undefined) {
-            setDialog('no-plan');
-            return;
-        }
-        // The plan's own week start and the meal's primary meal type: the only two facts this page
-        // holds. Choosing a different day is a planner decision, and the toast says which day it
-        // landed on rather than leaving the person to guess.
-        const mealType = item.mealTypes[0] ?? 'lunch';
-        addToPlan.mutate(
-            {
-                planId: plan.planId,
-                request: {
-                    date: plan.weekStart,
-                    mealType,
-                    kind: 'kitchen_meal',
-                    mealId: item.id,
-                    label: item.name,
-                },
-            },
-            {
-                onSuccess: () => {
-                    toast.show({
-                        testID: 'plan-added',
-                        tone: 'success',
-                        message: t('catalogue:meal.addedToPlan', {
-                            date: formatter.formatDate(`${plan.weekStart}T12:00:00.000Z`, {
-                                dateStyle: 'medium',
-                            }),
-                            mealType: t(`marketplace:mealTypes.${mealType}`),
-                        }),
                     });
                 },
             },
@@ -373,6 +314,11 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
 
                             <Stack space="xs" testID="meal-detail-diets">
                                 <Text variant="label">{t('catalogue:meal.dietTagsTitle')}</Text>
+                                {/*
+                                 * Labels, not links. The classification is real information about
+                                 * the meal and stays on the page; `/diets/{diet}` has no backend,
+                                 * so a press would land on a redirect.
+                                 */}
                                 <Inline space="xs" wrap>
                                     {item.dietClassifications.map((diet) => (
                                         <Chip
@@ -380,9 +326,6 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                             testID={`meal-detail-diet-${diet}`}
                                             tone="brand"
                                             label={t(`marketplace:diets.${diet}`)}
-                                            onPress={() => {
-                                                router.push(`/diets/${diet}` as never);
-                                            }}
                                         />
                                     ))}
                                 </Inline>
@@ -516,45 +459,9 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                                     onAddToBasket(item);
                                                 }}
                                             />
-                                            <Button
-                                                testID="meal-detail-add-to-plan"
-                                                variant="secondary"
-                                                label={
-                                                    !signedIn
-                                                        ? t('catalogue:meal.planSignIn')
-                                                        : addToPlan.isPending
-                                                          ? t('catalogue:meal.addingToPlan')
-                                                          : t('catalogue:meal.addToPlan')
-                                                }
-                                                disabled={
-                                                    addToPlan.isPending ||
-                                                    (signedIn && currentPlan.isPending)
-                                                }
-                                                onPress={() => {
-                                                    onAddToPlan(item);
-                                                }}
-                                            />
-                                            <Button
-                                                testID="meal-detail-replace"
-                                                variant="ghost"
-                                                label={t('catalogue:meal.replaceMeal')}
-                                                onPress={() => {
-                                                    setDialog('replace');
-                                                }}
-                                            />
-                                            {item.channels.b2b ? (
-                                                <Button
-                                                    testID="meal-detail-quotation"
-                                                    variant="ghost"
-                                                    label={t('catalogue:meal.requestQuotation')}
-                                                    onPress={() => {
-                                                        setDialog('quotation');
-                                                    }}
-                                                />
-                                            ) : null}
                                         </Inline>
 
-                                        {addToBasket.isError || addToPlan.isError ? (
+                                        {addToBasket.isError ? (
                                             <Callout
                                                 testID="meal-detail-action-error"
                                                 role="alert"
@@ -616,102 +523,6 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                         },
                                     },
                                 );
-                            }}
-                        />
-                    </>
-                }
-            />
-
-            <PrototypeDialog
-                testID="meal-detail-no-plan-dialog"
-                open={dialog === 'no-plan'}
-                onClose={() => {
-                    setDialog(null);
-                }}
-                title={t('catalogue:meal.noPlanTitle')}
-                description={t('catalogue:meal.noPlanBody')}
-                contract="POST /api/v1/meal-plans/generate"
-                actions={
-                    <>
-                        <Button
-                            testID="meal-detail-no-plan-browse"
-                            variant="secondary"
-                            label={t('catalogue:meal.noPlanBrowse')}
-                            onPress={() => {
-                                setDialog(null);
-                                router.push('/plans');
-                            }}
-                        />
-                        <Button
-                            testID="meal-detail-no-plan-home"
-                            label={t('catalogue:meal.noPlanHome')}
-                            onPress={() => {
-                                setDialog(null);
-                                router.push('/customer');
-                            }}
-                        />
-                    </>
-                }
-            />
-
-            <PrototypeDialog
-                testID="meal-detail-replace-dialog"
-                open={dialog === 'replace'}
-                onClose={() => {
-                    setDialog(null);
-                }}
-                title={t('catalogue:meal.replaceTitle')}
-                description={t('catalogue:meal.replaceBody')}
-                contract="POST /api/v1/meal-plans/{plan}/entries/{entry}/replace"
-                actions={
-                    <>
-                        <Button
-                            testID="meal-detail-replace-browse"
-                            variant="secondary"
-                            label={t('catalogue:meal.browseAll')}
-                            onPress={() => {
-                                setDialog(null);
-                                router.push('/meals');
-                            }}
-                        />
-                        <Button
-                            testID="meal-detail-replace-home"
-                            label={t('catalogue:meal.noPlanHome')}
-                            onPress={() => {
-                                setDialog(null);
-                                router.push('/customer');
-                            }}
-                        />
-                    </>
-                }
-            />
-
-            <PrototypeDialog
-                testID="meal-detail-quotation-dialog"
-                open={dialog === 'quotation'}
-                onClose={() => {
-                    setDialog(null);
-                }}
-                title={t('catalogue:meal.quotationTitle')}
-                description={t('catalogue:meal.quotationBody')}
-                contract="POST /api/v1/business/quotations"
-                actions={
-                    <>
-                        <Button
-                            testID="meal-detail-quotation-business"
-                            variant="secondary"
-                            label={t('catalogue:meal.quotationBusiness')}
-                            onPress={() => {
-                                setDialog(null);
-                                router.push('/for-business');
-                            }}
-                        />
-                        <Button
-                            testID="meal-detail-quotation-sign-in"
-                            label={t('catalogue:meal.quotationSignIn')}
-                            onPress={() => {
-                                setDialog(null);
-                                router.push('/sign-in');
                             }}
                         />
                     </>

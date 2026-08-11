@@ -5,23 +5,21 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { useDietitiansQuery, useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { isPathAvailable } from '../../availability.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
 import { PageHero } from '../../../ui/page-hero.tsx';
-import { DietitianCard } from '../dietitian-card.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
 import { QueryStates } from '../query-states.tsx';
 
 /**
- * Catalogue families the catalogue wave owns.
+ * Catalogue families, each a real route.
  *
- * They are presented rather than hidden, and pressing one explains what it will be and which
- * endpoint it is waiting on — the visible-but-locked pattern doc 17 (MKT-04) recommends. The
- * alternative, showing a discovery page with a third of the product missing and no acknowledgement,
- * is worse for a reviewer and worse for a person.
+ * The table lists every family the marketplace has; `isPathAvailable` decides which of them has a
+ * backend today. `diets` and `tools` do not, so they are absent rather than shown as tiles that
+ * would bounce a person straight back to this page.
  */
-// Every family became a real route at the catalogue wave, so these are links, not notices.
 const CATALOGUE_FAMILIES: readonly {
     readonly key: string;
     readonly icon: IconName;
@@ -32,6 +30,8 @@ const CATALOGUE_FAMILIES: readonly {
     { key: 'diets', icon: 'filter', href: '/diets/high-protein' },
     { key: 'tools', icon: 'info', href: '/tools/calorie-calculator' },
 ];
+
+const AVAILABLE_FAMILIES = CATALOGUE_FAMILIES.filter((family) => isPathAvailable(family.href));
 
 /**
  * Discover — the marketplace's front door.
@@ -47,10 +47,8 @@ export function DiscoverScreen() {
     const [term, setTerm] = useState('');
 
     const kitchens = useKitchensQuery({ limit: 4, channels: ['b2c', 'marketplace'] });
-    const dietitians = useDietitiansQuery({ limit: 3, acceptingClients: true });
 
     const kitchenItems = kitchens.data?.items ?? [];
-    const dietitianItems = dietitians.data?.items ?? [];
 
     const search = () => {
         const trimmed = term.trim();
@@ -130,84 +128,57 @@ export function DiscoverScreen() {
                 </QueryStates>
             </Stack>
 
-            <Stack space="sm" testID="discover-dietitians">
-                <SectionHeader
-                    title={t('marketplace:discover.dietitiansTitle')}
-                    description={t('marketplace:discover.dietitiansBody')}
-                    action={{
-                        label: t('marketplace:dietitians.seeAll'),
-                        onPress: () => {
-                            router.push('/dietitians');
-                        },
-                    }}
-                    testID="discover-dietitians-header"
-                />
-                <QueryStates
-                    query={dietitians}
-                    isEmpty={dietitianItems.length === 0}
-                    emptyTitle={t('marketplace:dietitians.emptyTitle')}
-                    emptyBody={t('marketplace:dietitians.emptyBody')}
-                    testID="discover-dietitians-list"
-                >
+            {/*
+             * The families that resolve, with no section header above them.
+             *
+             * `discover.comingTitle` read "Also on the way" and its body said these parts of the
+             * catalogue were being built — true when every family below was a prototype notice,
+             * and a lie now that the two remaining ones are real routes to real screens. Removing
+             * the header is the whole fix; each tile already names itself and says what it holds.
+             */}
+            {AVAILABLE_FAMILIES.length === 0 ? null : (
+                <Stack space="sm" testID="discover-planned">
                     <CardGrid>
-                        {dietitianItems.map((dietitian) => (
-                            <CardGridItem key={dietitian.id}>
-                                <DietitianCard
-                                    dietitian={dietitian}
+                        {AVAILABLE_FAMILIES.map((family) => (
+                            <CardGridItem key={family.key}>
+                                <Card
+                                    testID={`discover-family-${family.key}`}
+                                    padding="md"
                                     onPress={() => {
-                                        router.push(`/dietitians/${String(dietitian.id)}` as never);
+                                        router.push(family.href as never);
                                     }}
-                                />
+                                    accessibilityLabel={t(
+                                        `marketplace:discover.family.${family.key}`,
+                                    )}
+                                >
+                                    <Stack space="xs">
+                                        <EntityImage
+                                            source={resolveMarketingImage(
+                                                `discover/${family.key}.tile`,
+                                            )}
+                                            decorative
+                                            seed={`discover-${family.key}`}
+                                            label={t(`marketplace:discover.family.${family.key}`)}
+                                            aspect="wide"
+                                        />
+                                        <Icon
+                                            name={family.icon}
+                                            size="lg"
+                                            className="text-content-secondary"
+                                        />
+                                        <Text variant="bodyStrong">
+                                            {t(`marketplace:discover.family.${family.key}`)}
+                                        </Text>
+                                        <Text tone="secondary" variant="caption">
+                                            {t(`marketplace:discover.familyBody.${family.key}`)}
+                                        </Text>
+                                    </Stack>
+                                </Card>
                             </CardGridItem>
                         ))}
                     </CardGrid>
-                </QueryStates>
-            </Stack>
-
-            <Stack space="sm" testID="discover-planned">
-                <SectionHeader
-                    title={t('marketplace:discover.comingTitle')}
-                    description={t('marketplace:discover.comingBody')}
-                    testID="discover-planned-header"
-                />
-                <CardGrid>
-                    {CATALOGUE_FAMILIES.map((family) => (
-                        <CardGridItem key={family.key}>
-                            <Card
-                                testID={`discover-family-${family.key}`}
-                                padding="md"
-                                onPress={() => {
-                                    router.push(family.href as never);
-                                }}
-                                accessibilityLabel={t(`marketplace:discover.family.${family.key}`)}
-                            >
-                                <Stack space="xs">
-                                    <EntityImage
-                                        source={resolveMarketingImage(
-                                            `discover/${family.key}.tile`,
-                                        )}
-                                        decorative
-                                        seed={`discover-${family.key}`}
-                                        label={t(`marketplace:discover.family.${family.key}`)}
-                                        aspect="wide"
-                                    />
-                                    <Icon
-                                        name={family.icon}
-                                        size="lg"
-                                        className="text-content-secondary"
-                                    />
-                                    <Text variant="bodyStrong">
-                                        {t(`marketplace:discover.family.${family.key}`)}
-                                    </Text>
-                                    <Text tone="secondary" variant="caption">
-                                        {t(`marketplace:discover.familyBody.${family.key}`)}
-                                    </Text>
-                                </Stack>
-                            </Card>
-                        </CardGridItem>
-                    ))}
-                </CardGrid>
-            </Stack>
+                </Stack>
+            )}
         </Stack>
     );
 }

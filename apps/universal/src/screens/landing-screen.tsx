@@ -1,9 +1,9 @@
 import { Card, ErrorState, Heading, Spinner, Stack, Text } from '@healthy360/design-system';
 import { apiFailure } from '@healthy360/api-client';
-import { resolveLandingRoute } from '@healthy360/permissions';
 import { Redirect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { resolveAppLandingRoute } from '../navigation/landing.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 
 /**
@@ -11,7 +11,9 @@ import { useAccessState, useSession } from '../session/session-provider.tsx';
  *
  * Where a launching application should land is decided by `resolveLandingRoute` in
  * `@healthy360/permissions` — the same ordering the gates use, so the splash and the guards can
- * never disagree about, say, whether an unverified user should see the organisation picker.
+ * never disagree about, say, whether an unverified user should see the organisation picker. It is
+ * read through `../navigation/landing.ts`, which substitutes the workspace for a destination whose
+ * area has no backend yet; see that file for why the substitution is not in the kernel.
  *
  * A repository *construction* failure is rendered here rather than swallowed. In practice that
  * means the mock-in-production guard (plan §18 gate #2), and a build that trips it must say so
@@ -34,7 +36,7 @@ export function LandingScreen() {
         );
     }
 
-    const landing = resolveLandingRoute(accessState);
+    const landing = resolveAppLandingRoute(accessState);
 
     if (landing.reason === 'session_restoring') {
         return (

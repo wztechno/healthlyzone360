@@ -217,52 +217,27 @@ test.describe('corporate workspace (en)', () => {
         ).toBeVisible();
     });
 
-    test('answers accepting and exporting a quotation honestly rather than with a dead control', async ({
-        page,
-    }) => {
+    test('offers no export control while the document endpoint is missing', async ({ page }) => {
         await openCorporate(page);
         await page.getByTestId('corporate-open-quotations').click();
         await expect(page.getByTestId('quotations-list')).toBeVisible();
 
-        await page.getByTestId('prototype-action').first().click();
-        await expect(page.getByTestId('prototype-notice')).toBeVisible();
+        await expect(page.getByTestId('prototype-action')).toHaveCount(0);
     });
 });
 
 test.describe('partner workspace (en)', () => {
-    test('shows what has to be made, and never the buyer negotiated rate', async ({ page }) => {
+    /**
+     * The supplier area has no endpoints, so it is hidden rather than emptied: `AreaShell`
+     * redirects out of it before any chrome renders. What used to be two journeys through the
+     * commitments and the supply calendar is now one assertion that the area is unreachable.
+     */
+    test('is not reachable while it has no backend', async ({ page }) => {
         await signIn(page);
         await selectCedarHamraContext(page);
         await page.goto('/partner');
 
-        await expect(page.getByTestId('partner-commitments-screen')).toBeVisible();
-        await expect(page.getByTestId('partner-price-privacy')).toContainText(
-            'No buyer prices are shown here',
-        );
-        await expect(page.getByTestId('partner-commitment-list')).toBeVisible();
-
-        await expect(
-            page.locator('[data-testid^="partner-commitment-"][data-testid$="-quantity"]').first(),
-        ).toBeVisible();
-        await expect(
-            page.locator('[data-testid^="partner-commitment-"][data-testid$="-lead-time"]').first(),
-        ).toBeVisible();
-
-        // The supplier side is inside the price-privacy boundary too.
-        await expect(page.locator('[data-testid^="contract-price-"]')).toHaveCount(0);
-    });
-
-    test('projects the commitments onto a supply calendar', async ({ page }) => {
-        await signIn(page);
-        await selectCedarHamraContext(page);
-        await page.goto('/partner');
-        await expect(page.getByTestId('partner-commitments-screen')).toBeVisible();
-
-        await page.getByTestId('partner-open-schedule').click();
-        await expect(page.getByTestId('partner-schedule-screen')).toBeVisible();
-        await expect(page.getByTestId('partner-schedule-derivation')).toContainText('lead time');
-        await expect(page.getByTestId('partner-schedule-days')).toBeVisible();
-        await expect(page.locator('[data-testid^="partner-schedule-day-"]').first()).toBeVisible();
-        await expect(page.locator('[data-testid^="contract-price-"]')).toHaveCount(0);
+        await expect(page.getByTestId('partner-commitments-screen')).toHaveCount(0);
+        await expect(page.getByTestId('partner-shell')).toHaveCount(0);
     });
 });

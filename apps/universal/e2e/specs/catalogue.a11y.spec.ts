@@ -47,11 +47,6 @@ test.describe('catalogue accessibility (axe)', () => {
 
         await page.getByTestId('meal-detail-ingredients-header').click();
         await expectNoSeriousViolations(page, 'meal-detail-composition');
-
-        // The dialogs are the one place a name or a focus trap can go missing unnoticed.
-        await page.getByTestId('meal-detail-replace').click();
-        await expect(page.getByTestId('meal-detail-replace-dialog')).toBeVisible();
-        await expectNoSeriousViolations(page, 'meal-detail-replace-dialog');
     });
 
     test('plan catalogue', async ({ page }) => {
@@ -80,39 +75,5 @@ test.describe('catalogue accessibility (axe)', () => {
         await page.getByTestId('plan-card-balanced-week-open').click();
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'plan-detail');
-    });
-
-    test('diet category', async ({ page }) => {
-        await page.goto('/diets/high-protein');
-        await expect(page.getByTestId('diet-category-screen')).toBeVisible();
-        await expect(page.getByTestId('diet-category-suitability')).toBeVisible();
-        await expectNoSeriousViolations(page, 'diet-category');
-    });
-
-    test('calorie calculator, before and after the answer', async ({ page }) => {
-        await page.goto('/tools/calorie-calculator');
-        await expect(page.getByTestId('calorie-calculator-incomplete')).toBeVisible();
-        await expectNoSeriousViolations(page, 'calorie-calculator-empty');
-
-        await page.getByTestId('calorie-calculator-age-input').fill('34');
-        await page.getByTestId('calorie-calculator-height-input').fill('170');
-        await page.getByTestId('calorie-calculator-weight-input').fill('68');
-        await expect(page.getByTestId('calorie-calculator-target')).toBeVisible();
-        await expectNoSeriousViolations(page, 'calorie-calculator-result');
-
-        await page.getByTestId('calorie-calculator-target-steps-header').click();
-        await expectNoSeriousViolations(page, 'calorie-calculator-working');
-    });
-
-    test('macro calculator', async ({ page }) => {
-        await page.goto('/tools/macro-calculator');
-        await expect(page.getByTestId('macro-calculator-incomplete')).toBeVisible();
-        await expectNoSeriousViolations(page, 'macro-calculator-empty');
-
-        await page.getByTestId('macro-calculator-age-input').fill('29');
-        await page.getByTestId('macro-calculator-height-input').fill('182');
-        await page.getByTestId('macro-calculator-weight-input').fill('80');
-        await expect(page.getByTestId('macro-calculator-macros-table')).toBeVisible();
-        await expectNoSeriousViolations(page, 'macro-calculator-result');
     });
 });

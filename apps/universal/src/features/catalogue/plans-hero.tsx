@@ -16,10 +16,14 @@ import { BrandGradient } from '../../ui/brand-gradient.tsx';
  * action are the light button so they read against the colour rather than dissolving into it. The
  * three trust lines are things the data backs — a dietitian consultation on every plan, verified
  * kitchens, durations from a single week — not slogans.
+ *
+ * `onSpeakToDietitian` is optional, and its button disappears with it. The directory it opens has no
+ * backend yet (`src/features/availability.ts`), and a hero whose second call to action bounces
+ * straight back to the page it was pressed on is worse than a hero with one.
  */
 export interface PlansHeroProps {
     readonly onHowItWorks: () => void;
-    readonly onSpeakToDietitian: () => void;
+    readonly onSpeakToDietitian?: (() => void) | undefined;
 }
 
 const TRUST: readonly { readonly key: string; readonly icon: IconName }[] = [
@@ -51,12 +55,14 @@ export function PlansHero({ onHowItWorks, onSpeakToDietitian }: PlansHeroProps) 
                         label={t('catalogue:plans.heroHowItWorks')}
                         onPress={onHowItWorks}
                     />
-                    <Button
-                        testID="plans-hero-dietitian"
-                        variant="secondary"
-                        label={t('catalogue:plans.heroSpeakToDietitian')}
-                        onPress={onSpeakToDietitian}
-                    />
+                    {onSpeakToDietitian === undefined ? null : (
+                        <Button
+                            testID="plans-hero-dietitian"
+                            variant="secondary"
+                            label={t('catalogue:plans.heroSpeakToDietitian')}
+                            onPress={onSpeakToDietitian}
+                        />
+                    )}
                 </Inline>
 
                 <Inline space="md" wrap testID="plans-hero-trust">

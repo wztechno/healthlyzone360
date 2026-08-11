@@ -36,9 +36,6 @@ import { signIn } from './helpers.ts';
 
 test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
-/** Monday of the fixture planner week. Pinned in `mock/prototype/constants.ts`. */
-const FIXTURE_WEEK = '2026-07-27';
-
 /** Below this an element is not "faded slightly", it is being animated or hidden. */
 const SETTLED_OPACITY = 0.99;
 
@@ -161,76 +158,28 @@ test.describe('reduced motion renders final states', () => {
         await expectSettled(page.getByTestId('landing-screen'), 'landing');
     });
 
-    test('the planner week settles, staggered entrance and all', async ({ page }) => {
+    test('a signed-in list settles with nothing parked mid-entrance', async ({ page }) => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
-        await page.goto(`/customer/planner/week/${FIXTURE_WEEK}`);
-        await expect(page.getByTestId('planner-week-screen')).toBeVisible();
-        await expect(page.getByTestId('planner-week-summary')).toBeVisible();
-        // The grid, not the `planner-week` query wrapper: that test id belongs to the loading,
-        // error and empty states and is absent once the data arrives.
-        await expect(page.getByTestId('planner-week-grid')).toBeVisible();
+        await page.goto('/customer/subscriptions');
+        await expect(page.getByTestId('subscriptions-screen')).toBeVisible();
 
-        // Every entry card is wrapped in a `FadeIn` with a staggered delay computed from its
-        // position — the densest concentration of entrance animation in the product, and the place
-        // a suppressed animation would blank the most content.
-        await expectSettled(page.getByTestId('planner-week-grid'), 'planner week grid');
-    });
-
-    test('the replacement drawer is fully visible the moment it opens', async ({ page }) => {
-        await signIn(page);
-        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
-        await page.goto(`/customer/planner/week/${FIXTURE_WEEK}`);
-        await expect(page.getByTestId('planner-week-screen')).toBeVisible();
-
-        await page.getByTestId(`planner-week-open-day-${FIXTURE_WEEK}`).first().click();
-        await expect(page.getByTestId('planner-day-screen')).toBeVisible();
-
-        const menu = page.locator('[data-testid^="planner-entry-"][data-testid$="-menu"]').first();
-        await expect(menu).toBeVisible();
-        const menuTestId = await menu.getAttribute('data-testid');
-        expect(menuTestId).not.toBeNull();
-        const base = (menuTestId ?? '').slice(0, -'-menu'.length);
-
-        await menu.click();
-        await page.getByTestId(`${base}-replace`).click();
-        await expect(page.getByTestId('planner-replace-body')).toBeVisible();
-
-        // Read immediately, with no settling wait: under reduced motion there is nothing to settle,
-        // and if there were, this is the instant it would still be moving.
-        expectWrapperSettled(await wrapperStyle(page, 'planner-replace'), 'replacement drawer');
-
-        // The panel is also *where it belongs* rather than parked off the leading edge, which is
-        // the failure a `SlideIn` with a suppressed animation produces.
-        const box = await page.getByTestId('planner-replace').boundingBox();
-        expect(box, 'the replacement drawer has no box.').not.toBeNull();
-        if (box !== null) {
-            expect(box.x, 'the replacement drawer is parked off-screen.').toBeGreaterThanOrEqual(
-                -1,
-            );
-            expect(box.width).toBeGreaterThan(0);
-        }
-
-        await expectSettled(page.getByTestId('planner-replace'), 'replacement drawer contents');
+        // Every card is wrapped in a `FadeIn` with a staggered delay computed from its position,
+        // which is where a suppressed animation would blank the most content.
+        await expectSettled(page.getByTestId('subscriptions-screen'), 'subscriptions list');
     });
 
     test('a dialog is fully visible the moment it opens', async ({ page }) => {
-        await signIn(page);
-        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
-        await page.goto(`/customer/planner/week/${FIXTURE_WEEK}`);
-        await expect(page.getByTestId('planner-week-screen')).toBeVisible();
+        await page.goto('/for-business');
+        await expect(page.getByTestId('for-business-screen')).toBeVisible();
 
-        await page.getByTestId('planner-week-regenerate').click();
-        await expect(page.getByTestId('planner-week-regenerate-locks')).toBeVisible();
+        await page.getByTestId('for-business-request-quotation').click();
+        await expect(page.getByTestId('for-business-enquiry')).toBeVisible();
 
-        expectWrapperSettled(
-            await wrapperStyle(page, 'planner-week-regenerate-dialog'),
-            'regeneration dialog',
-        );
+        // Read immediately, with no settling wait: under reduced motion there is nothing to settle,
+        // and if there were, this is the instant it would still be moving.
+        expectWrapperSettled(await wrapperStyle(page, 'for-business-enquiry'), 'enquiry dialog');
 
-        await expectSettled(
-            page.getByTestId('planner-week-regenerate-dialog'),
-            'regeneration dialog contents',
-        );
+        await expectSettled(page.getByTestId('for-business-enquiry'), 'enquiry dialog contents');
     });
 });

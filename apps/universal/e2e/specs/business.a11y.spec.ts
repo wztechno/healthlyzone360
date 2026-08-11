@@ -110,19 +110,6 @@ test.describe('B2B accessibility (axe)', () => {
         await expectNoSeriousViolations(page, 'quotations');
     });
 
-    test('the partner commitments and the supply schedule', async ({ page }) => {
-        await signIn(page);
-        await selectCedarHamraContext(page);
-        await page.goto('/partner');
-
-        await expect(page.getByTestId('partner-commitment-list')).toBeVisible();
-        await expectNoSeriousViolations(page, 'partner-commitments');
-
-        await page.getByTestId('partner-open-schedule').click();
-        await expect(page.getByTestId('partner-schedule-days')).toBeVisible();
-        await expectNoSeriousViolations(page, 'partner-schedule');
-    });
-
     test('the designed not-found states, which are screens in their own right', async ({
         page,
     }) => {

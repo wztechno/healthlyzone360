@@ -25,9 +25,6 @@ import {
     sortPlans,
     toPlanFilter,
 } from './plan-catalogue.ts';
-import { CalorieCalculatorScreen } from './screens/calorie-calculator-screen.tsx';
-import { DietCategoryScreen } from './screens/diet-category-screen.tsx';
-import { MacroCalculatorScreen } from './screens/macro-calculator-screen.tsx';
 import { MealDetailScreen } from './screens/meal-detail-screen.tsx';
 import { MealsScreen } from './screens/meals-screen.tsx';
 import { PlanComparisonScreen } from './screens/plan-comparison-screen.tsx';
@@ -510,49 +507,6 @@ describe('MealDetailScreen', () => {
         });
     });
 
-    it('adds to a real meal plan when the person has one', async () => {
-        const id = await firstMealId();
-        const { repositories } = await renderScreen(<MealDetailScreen mealId={id} />, {
-            scenario: 'consumer-prototype',
-            signInAs: CONSUMER,
-        });
-
-        const plan = await repositories.planner.getCurrentPlan();
-        expect(plan).not.toBeNull();
-        const before = (await repositories.planner.getWeek(plan!.planId, plan!.weekStart)).days
-            .flatMap((day) => day.entries)
-            .filter((entry) => entry.date === plan!.weekStart).length;
-
-        // The button stays disabled until the current-plan query settles (loading is not the
-        // same answer as "no plan"), so wait for enablement before pressing.
-        await waitFor(() => {
-            const button = screen.getByTestId('meal-detail-add-to-plan');
-            expect(button.props.accessibilityState?.disabled).not.toBe(true);
-        });
-        await fireEvent.press(screen.getByTestId('meal-detail-add-to-plan'));
-
-        await waitFor(async () => {
-            const after = (await repositories.planner.getWeek(plan!.planId, plan!.weekStart)).days
-                .flatMap((day) => day.entries)
-                .filter((entry) => entry.date === plan!.weekStart).length;
-            expect(after).toBe(before + 1);
-        });
-    });
-
-    it('explains replacement instead of pretending to do it, and offers real destinations', async () => {
-        const id = await firstMealId();
-        await renderScreen(<MealDetailScreen mealId={id} />, { scenario: 'consumer-prototype' });
-
-        await waitFor(() => screen.getByTestId('meal-detail-replace'));
-        await fireEvent.press(screen.getByTestId('meal-detail-replace'));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('meal-detail-replace-dialog')).toBeTruthy();
-        });
-        await fireEvent.press(screen.getByTestId('meal-detail-replace-home'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer');
-    });
-
     it('reports a failure rather than an empty page when the meal is unknown', async () => {
         await renderPending(<MealDetailScreen mealId="01935f6d-f000-7000-8000-0000000000ff" />);
 
@@ -654,7 +608,6 @@ describe('PlanDetailScreen', () => {
         expect(screen.getByTestId('plan-detail-snacks')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-duration-12w')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-delivery')).toBeTruthy();
-        expect(screen.getByTestId('plan-detail-dietitian')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-price')).toBeTruthy();
         expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
 
@@ -724,133 +677,5 @@ describe('PlanDetailScreen', () => {
 
         expect(screen.getByTestId('plan-detail-empty')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-browse')).toBeTruthy();
-    });
-});
-
-/* ── /diets/{diet} ───────────────────────────────────────────────────────────────────────────── */
-
-describe('DietCategoryScreen', () => {
-    it('leads with the suitability note and the disclaimer, then the meals and plans', async () => {
-        await renderScreen(<DietCategoryScreen slug="high-protein" />, {
-            scenario: 'consumer-prototype',
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('diet-category-name')).toBeTruthy();
-        });
-
-        expect(screen.getByTestId('diet-category-suitability')).toBeTruthy();
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
-
-        await waitFor(() => {
-            expect(screen.getByTestId('diet-category-meals-grid')).toBeTruthy();
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId('diet-category-plans-grid')).toBeTruthy();
-        });
-    });
-
-    it('says a commercial grouping has no dish-level classification instead of showing nothing', async () => {
-        await renderScreen(<DietCategoryScreen slug="office" />, {
-            scenario: 'consumer-prototype',
-        });
-
-        await waitFor(() => screen.getByTestId('diet-category-name'));
-        await waitFor(() => {
-            expect(screen.getByTestId('diet-category-meals-list-empty')).toBeTruthy();
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId('diet-category-plans-grid')).toBeTruthy();
-        });
-    });
-
-    it('answers an unknown slug with the not-found state', async () => {
-        await renderScreen(<DietCategoryScreen slug="not-a-real-diet" />, {
-            scenario: 'consumer-prototype',
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('diet-category-empty')).toBeTruthy();
-        });
-        expect(screen.getByTestId('diet-category-browse')).toBeTruthy();
-    });
-});
-
-/* ── the public calculators ──────────────────────────────────────────────────────────────────── */
-
-describe('CalorieCalculatorScreen', () => {
-    it('asks for the missing measurements before it shows any figure', async () => {
-        await renderScreen(<CalorieCalculatorScreen />, { scenario: 'consumer-prototype' });
-
-        expect(screen.getByTestId('calorie-calculator-incomplete')).toBeTruthy();
-        expect(screen.queryByTestId('calorie-calculator-target')).toBeNull();
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
-    });
-
-    it('separates maintenance from target, names the method and shows the band', async () => {
-        await renderScreen(<CalorieCalculatorScreen />, { scenario: 'consumer-prototype' });
-
-        await fireEvent.changeText(screen.getByTestId('calorie-calculator-age-input'), '34');
-        await fireEvent.changeText(screen.getByTestId('calorie-calculator-height-input'), '170');
-        await fireEvent.changeText(screen.getByTestId('calorie-calculator-weight-input'), '68');
-
-        await waitFor(() => {
-            expect(screen.getByTestId('calorie-calculator-target')).toBeTruthy();
-        });
-
-        expect(screen.getByTestId('calorie-calculator-target-maintenance-value')).toBeTruthy();
-        expect(screen.getByTestId('calorie-calculator-target-target-value')).toBeTruthy();
-        expect(screen.getByTestId('calorie-calculator-target-tolerance')).toBeTruthy();
-        expect(screen.getByTestId('calorie-calculator-target-method')).toBeTruthy();
-        expect(screen.getByTestId('calorie-calculator-target-prototype')).toBeTruthy();
-        expect(screen.getByTestId('calorie-calculator-target-disclaimer')).toBeTruthy();
-    });
-
-    it('keeps the measurement when the unit system changes', async () => {
-        await renderScreen(<CalorieCalculatorScreen />, { scenario: 'consumer-prototype' });
-
-        await fireEvent.changeText(screen.getByTestId('calorie-calculator-height-input'), '175');
-        await fireEvent.press(screen.getByTestId('calorie-calculator-units-imperial'));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('calorie-calculator-height-feet-input').props.value).toBe(
-                '5',
-            );
-        });
-        expect(screen.getByTestId('calorie-calculator-height-inches-input').props.value).toBe('9');
-    });
-
-    it('attaches help to exactly the two fields that confuse people', async () => {
-        await renderScreen(<CalorieCalculatorScreen />, { scenario: 'consumer-prototype' });
-
-        expect(screen.getByTestId('calorie-calculator-sex-help')).toBeTruthy();
-        expect(screen.getByTestId('calorie-calculator-body-fat-help')).toBeTruthy();
-    });
-});
-
-describe('MacroCalculatorScreen', () => {
-    it('renders grams, percentages and calories once the form is complete', async () => {
-        await renderScreen(<MacroCalculatorScreen />, { scenario: 'consumer-prototype' });
-
-        expect(screen.getByTestId('macro-calculator-incomplete')).toBeTruthy();
-
-        await fireEvent.changeText(screen.getByTestId('macro-calculator-age-input'), '29');
-        await fireEvent.changeText(screen.getByTestId('macro-calculator-height-input'), '182');
-        await fireEvent.changeText(screen.getByTestId('macro-calculator-weight-input'), '80');
-
-        await waitFor(() => {
-            expect(screen.getByTestId('macro-calculator-macros')).toBeTruthy();
-        });
-
-        expect(screen.getByTestId('macro-calculator-macros-table')).toBeTruthy();
-        expect(screen.getByTestId('macro-calculator-macros-ring-protein')).toBeTruthy();
-        expect(screen.getByTestId('macro-calculator-macros-grams-protein')).toBeTruthy();
-        expect(screen.getByTestId('macro-calculator-macros-nutrients')).toBeTruthy();
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
-    });
-
-    it('offers the diet-preference split selector the calorie calculator does not', async () => {
-        await renderScreen(<MacroCalculatorScreen />, { scenario: 'consumer-prototype' });
-        expect(screen.getByTestId('macro-calculator-diet')).toBeTruthy();
     });
 });

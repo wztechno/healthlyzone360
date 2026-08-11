@@ -46,9 +46,6 @@ const CONTRACT_PRICE_SELECTOR = '[data-testid^="contract-price-"]';
 /** The one catalogue line priced in SAR. A readable code, exactly as a purchase order would quote. */
 const SAR_LINE_CODE = 'catalogue-wholesale-prepared-pallet';
 
-/** Monday of the fixture week. Pinned in `mock/prototype/constants.ts`. */
-const FIXTURE_WEEK = '2026-07-27';
-
 interface Surface {
     readonly route: string;
     /** What has to be on screen before the page is worth reading. */
@@ -63,27 +60,19 @@ const PUBLIC_SURFACES: readonly Surface[] = [
     { route: '/meals', anchor: 'meals-screen' },
     { route: '/plans', anchor: 'plans-screen' },
     { route: '/plans/compare', anchor: 'plan-comparison-screen' },
-    { route: '/dietitians', anchor: 'dietitians-screen' },
     { route: '/how-it-works', anchor: 'how-it-works-screen' },
     // The corporate *sales* page: it presents B2B programmes to the public, which makes it the
     // single most likely place for a negotiated rate to be quoted by accident.
     { route: '/for-business', anchor: 'for-business-screen' },
-    { route: '/tools/calorie-calculator', anchor: 'calorie-calculator-screen' },
-    { route: '/tools/macro-calculator', anchor: 'macro-calculator-screen' },
 ];
 
 /** Customer surfaces. Reachable once any verified person has signed in. */
 const CUSTOMER_SURFACES: readonly Surface[] = [
     { route: '/customer', anchor: 'consumer-home-screen' },
-    { route: '/customer/nutrition', anchor: 'nutrition-target-screen' },
-    { route: `/customer/planner/week/${FIXTURE_WEEK}`, anchor: 'planner-week-screen' },
-    { route: `/customer/planner/day/${FIXTURE_WEEK}`, anchor: 'planner-day-screen' },
-    { route: `/customer/grocery/${FIXTURE_WEEK}`, anchor: 'grocery-screen' },
     { route: '/customer/subscriptions', anchor: 'subscriptions-screen' },
     { route: '/customer/subscriptions/new', anchor: 'configurator-screen' },
     { route: '/customer/cart', anchor: 'cart-screen' },
     { route: '/customer/checkout', anchor: 'checkout-screen' },
-    { route: '/customer/virtual-dietitian', anchor: 'virtual-dietitian-screen' },
 ];
 
 /**
@@ -143,9 +132,7 @@ test.describe('B2B price privacy', () => {
         });
     }
 
-    test('no negotiated price reaches a kitchen, its menu, a meal, a plan or a dietitian', async ({
-        page,
-    }) => {
+    test('no negotiated price reaches a kitchen, its menu, a meal or a plan', async ({ page }) => {
         // Addressed by identifier, so reached by navigation rather than by a hard-coded URL — a
         // fixture identifier in a spec is a fixture leak wearing a constant's clothing.
         await page.goto('/kitchens');
@@ -166,11 +153,6 @@ test.describe('B2B price privacy', () => {
         await page.locator('[data-testid^="plan-card-"][data-testid$="-open"]').first().click();
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
         await expectNoContractPricing(page, 'plan detail');
-
-        await page.goto('/dietitians');
-        await page.locator('[data-testid^="dietitian-card-"]').first().click();
-        await expect(page.getByTestId('dietitian-profile-screen')).toBeVisible();
-        await expectNoContractPricing(page, 'dietitian profile');
     });
 
     for (const surface of CUSTOMER_SURFACES) {
@@ -185,9 +167,7 @@ test.describe('B2B price privacy', () => {
         });
     }
 
-    test('no negotiated price reaches a subscription record or a recipe record', async ({
-        page,
-    }) => {
+    test('no negotiated price reaches a subscription record', async ({ page }) => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
 
@@ -199,25 +179,5 @@ test.describe('B2B price privacy', () => {
             .click();
         await expect(page.getByTestId('subscription-detail-screen')).toBeVisible();
         await expectNoContractPricing(page, 'subscription detail');
-
-        await page.goto(`/customer/planner/day/${FIXTURE_WEEK}`);
-        await expect(page.getByTestId('planner-day-screen')).toBeVisible();
-        await expectNoContractPricing(page, 'planner day');
-    });
-
-    test('the partner workspace is inside the boundary as well', async ({ page }) => {
-        // A supplier plans against quantities and dates. The negotiated rate belongs to the buyer,
-        // so the partner screens carry no marker either — which is what keeps the marker's owner
-        // singular and this whole sweep meaningful.
-        await signIn(page);
-        await selectCedarHamraContext(page);
-
-        await page.goto('/partner');
-        await expect(page.getByTestId('partner-commitments-screen')).toBeVisible();
-        await expect(page.locator(CONTRACT_PRICE_SELECTOR)).toHaveCount(0);
-
-        await page.goto('/partner/schedule');
-        await expect(page.getByTestId('partner-schedule-screen')).toBeVisible();
-        await expect(page.locator(CONTRACT_PRICE_SELECTOR)).toHaveCount(0);
     });
 });

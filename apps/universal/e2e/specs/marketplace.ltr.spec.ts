@@ -74,19 +74,14 @@ test.describe('public marketplace (en)', () => {
         await expect(page.getByTestId('kitchen-card-verdant-kitchen')).toBeVisible();
     });
 
-    test('a dietitian profile marks its invented registration and answers honestly', async ({
-        page,
-    }) => {
+    test('the dietitian directory is not offered and its route redirects', async ({ page }) => {
+        await page.goto('/discover');
+        await expect(page.getByTestId('discover-screen')).toBeVisible();
+        await expect(page.getByTestId('marketplace-nav-dietitians')).toHaveCount(0);
+        await expect(page.getByTestId('footer-dietitians')).toHaveCount(0);
+
         await page.goto('/dietitians');
-        await expect(page.getByTestId('dietitians-grid')).toBeVisible();
-
-        await page.locator('[data-testid^="dietitian-card-"]').first().click();
-        await expect(page.getByTestId('dietitian-profile-screen')).toBeVisible();
-        await expect(page.getByTestId('dietitian-synthetic-note')).toBeVisible();
-
-        await page.getByTestId('prototype-action').first().click();
-        await expect(page.getByTestId('prototype-notice')).toBeVisible();
-        await expect(page.getByTestId('prototype-notice')).toContainText('Not built yet');
+        await expect(page.getByTestId('discover-screen')).toBeVisible();
     });
 
     test('the business page carries no price of any kind', async ({ page }) => {
@@ -150,9 +145,7 @@ test.describe('public marketplace (en)', () => {
 });
 
 test.describe('consumer home (en)', () => {
-    test('shows the next meals, the nutrition snapshot and the running subscription', async ({
-        page,
-    }) => {
+    test('shows the running subscription and nothing that has no backend', async ({ page }) => {
         await signIn(page);
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
         // The customer area needs an authenticated, verified person and no organisation context,
@@ -163,22 +156,17 @@ test.describe('consumer home (en)', () => {
         await expect(page.getByTestId('consumer-greeting')).toBeVisible();
         await expect(page.getByTestId('consumer-shell')).toBeVisible();
 
-        await expect(page.getByTestId('nutrition-snapshot-content')).toBeVisible();
-        await expect(page.getByTestId('nutrition-meter-energy')).toBeVisible();
         await expect(page.getByTestId('subscription-card-content')).toBeVisible();
-
-        // The fixture week is anchored on a fixed Monday; either the entries or the designed empty
-        // state is correct, and rendering neither is not.
-        await expect(
-            page.getByTestId('today-card-entries').or(page.getByTestId('today-card-empty')).first(),
-        ).toBeVisible();
-
         await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
+
+        // The planner, nutrition and virtual-dietitian surfaces have no endpoints; nothing on
+        // this page offers them.
+        await expect(page.getByTestId('consumer-ai-band')).toHaveCount(0);
+        await expect(page.getByTestId('consumer-today')).toHaveCount(0);
+        await expect(page.getByTestId('consumer-nutrition')).toHaveCount(0);
     });
 
-    test('the consumer navigation reaches the planner now that every destination is built', async ({
-        page,
-    }) => {
+    test('the consumer navigation offers only the destinations that resolve', async ({ page }) => {
         await signIn(page);
         // Wait for the login to land before reloading: `signIn` submits the form and returns, and
         // a `goto` that races the mutation navigates before the session token has been written.
@@ -186,10 +174,22 @@ test.describe('consumer home (en)', () => {
         await page.goto('/customer');
         await expect(page.getByTestId('consumer-home-screen')).toBeVisible();
 
-        // Wave 4 completed the consumer surface: a press navigates rather than explains.
         await expect(page.getByTestId('consumer-nav-home')).toBeVisible();
-        await page.getByTestId('consumer-nav-planner').click();
-        await expect(page.getByTestId('planner-week-screen')).toBeVisible();
+        await expect(page.getByTestId('consumer-nav-planner')).toHaveCount(0);
+        await expect(page.getByTestId('consumer-nav-nutrition')).toHaveCount(0);
+        await expect(page.getByTestId('consumer-nav-virtual-dietitian')).toHaveCount(0);
+
+        await page.getByTestId('consumer-nav-subscriptions').click();
+        await expect(page.getByTestId('subscriptions-screen')).toBeVisible();
         await expect(page.getByTestId('prototype-notice')).not.toBeVisible();
+    });
+
+    /** A direct hit on a hidden route lands somewhere real rather than on a dead screen. */
+    test('a hidden customer route redirects to the customer home', async ({ page }) => {
+        await signIn(page);
+        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
+
+        await page.goto('/customer/planner');
+        await expect(page.getByTestId('consumer-home-screen')).toBeVisible();
     });
 });

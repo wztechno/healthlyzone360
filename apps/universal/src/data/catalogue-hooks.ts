@@ -170,12 +170,12 @@ export function usePlanComparisonQuery(
 
 /* ── diet categories ─────────────────────────────────────────────────────────────────────────── */
 
-export function useDietCategoriesQuery(): UseQueryResult<readonly DietCategory[]> {
+export function useDietCategoriesQuery(enabled = true): UseQueryResult<readonly DietCategory[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.catalogue.dietCategories(),
-        enabled: repositories !== null,
+        enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.marketplace.listDietCategories();

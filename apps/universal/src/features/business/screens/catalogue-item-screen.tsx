@@ -21,7 +21,6 @@ import {
     useB2bAddCatalogueItemMutation,
     B2B_CART_CHANNEL_CODE,
 } from '../../../data/business-hooks.ts';
-import { PrototypeButton } from '../../../prototype/index.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { catalogueKindKey, contractPriceTestId, salesChannelKey } from '../format.ts';
@@ -43,9 +42,9 @@ import { catalogueKindKey, contractPriceTestId, salesChannelKey } from '../forma
  *
  * `CatalogueItem.supportsRecurringOrder` says a line *may* be ordered on a standing schedule, and
  * `BusinessRepository` publishes nothing that would set one up — no recurring-order resource, no
- * schedule request. So that control is a `PrototypeButton` naming the endpoint it is waiting on,
- * which is what `usePrototypeAction` is actually for. Requesting a quotation, by contrast, is a real
- * mutation and is not routed through it.
+ * schedule request. `catalogueScheduleRequest` in `src/features/availability.ts` records that gap and
+ * no control offers it; the badge on the line still tells a buyer the line supports recurring
+ * supply. Requesting a quotation, by contrast, is a real mutation and is offered.
  */
 
 export interface CatalogueItemScreenProps {
@@ -270,12 +269,6 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
                                     );
                                 }}
                             />
-                            {item.supportsRecurringOrder ? (
-                                <PrototypeButton
-                                    label={t('business:item.recurringOrder')}
-                                    contract="POST /api/v1/business/recurring-orders"
-                                />
-                            ) : null}
                         </Inline>
                     </Stack>
                 )}

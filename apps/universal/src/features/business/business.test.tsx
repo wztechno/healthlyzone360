@@ -371,18 +371,6 @@ describe('catalogue line detail', () => {
         }
     });
 
-    it('answers the standing-order control honestly rather than with a dead button', async () => {
-        await renderBusiness(<CatalogueItemScreen itemId={usdItem.id} />);
-
-        await waitFor(() => {
-            expect(screen.getByTestId('prototype-action')).toBeTruthy();
-        });
-        fireEvent.press(screen.getByTestId('prototype-action'));
-        await waitFor(() => {
-            expect(screen.getByTestId('prototype-notice')).toBeTruthy();
-        });
-    });
-
     it('answers an unknown line with an error state rather than a blank screen', async () => {
         await renderBusiness(<CatalogueItemScreen itemId="catalogue-does-not-exist" />);
         await waitFor(() => {
@@ -470,14 +458,11 @@ describe('quotation builder', () => {
         expect(repositories.prototypeStore.quotations()).toHaveLength(before + 1);
     });
 
-    it('says out loud that a half-composed draft cannot be stored', async () => {
+    it('offers neither a draft control nor a note apologising for its absence', async () => {
         await renderBusiness(<QuotationBuilderScreen programmeId={String(usdItem.programmeId)} />);
 
-        expect(screen.getByTestId('quotation-builder-draft-note')).toBeTruthy();
-        fireEvent.press(screen.getByTestId('prototype-action'));
-        await waitFor(() => {
-            expect(screen.getByTestId('prototype-notice')).toBeTruthy();
-        });
+        expect(screen.queryByTestId('quotation-builder-draft-note')).toBeNull();
+        expect(screen.queryAllByTestId('prototype-action')).toEqual([]);
     });
 
     it('answers a malformed programme address with a not-found', async () => {
@@ -541,7 +526,7 @@ describe('quotation list', () => {
         });
     });
 
-    it('accepts a quoted quotation for real and keeps export as a prototype control', async () => {
+    it('accepts a quoted quotation for real, and offers no export control', async () => {
         await renderBusiness(<QuotationsScreen />);
 
         await waitFor(() => {
@@ -554,12 +539,8 @@ describe('quotation list', () => {
             expect(screen.queryByTestId('quotation-H360-Q-2026-0039-accept')).toBeNull();
         });
 
-        const actions = screen.getAllByTestId('prototype-action');
-        expect(actions.length).toBeGreaterThanOrEqual(1);
-        fireEvent.press(actions[0]!);
-        await waitFor(() => {
-            expect(screen.getByTestId('prototype-notice')).toBeTruthy();
-        });
+        // `quotationExport` is unavailable, so there is no document control to press.
+        expect(screen.queryAllByTestId('prototype-action')).toEqual([]);
     });
 });
 

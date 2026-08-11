@@ -19,7 +19,6 @@ import {
     useDeclineQuotationMutation,
     useQuotationsQuery,
 } from '../../../data/business-hooks.ts';
-import { PrototypeButton } from '../../../prototype/index.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { contractPriceTestId, quotationStateKey } from '../format.ts';
@@ -34,10 +33,12 @@ import { contractPriceTestId, quotationStateKey } from '../format.ts';
  * line, and a `quoted` one renders the figures. That distinction is the whole state machine made
  * visible: the prototype never invents a total for something nobody has priced.
  *
- * ## Accept and decline are real; PDF export is not
+ * ## Accept and decline are real; PDF export is not offered
  *
- * `acceptQuotation` / `declineQuotation` hit `POST /b2b/quotations/{id}/accept|decline`. Document
- * download stays a `PrototypeButton` — quotation PDF is deferred (B8).
+ * `acceptQuotation` / `declineQuotation` hit `POST /b2b/quotations/{id}/accept|decline`. There is no
+ * document endpoint, so `quotationExport` is unavailable (`src/features/availability.ts`) and the
+ * download control is absent — a button that could only ever explain its own absence is worse than
+ * no button.
  */
 
 const FILTERS = ['all', 'open', 'quoted', 'closed'] as const;
@@ -274,11 +275,6 @@ export function QuotationsScreen() {
                                                 />
                                             </>
                                         ) : null}
-                                        <PrototypeButton
-                                            label={t('business:quotations.export')}
-                                            contract={`GET /api/v1/b2b/quotations/${quotation.reference}/document`}
-                                            showBadge={false}
-                                        />
                                     </Inline>
                                 </Stack>
                             </Card>

@@ -6,7 +6,6 @@ import { DevicesScreen } from './devices-screen.tsx';
 import { ForbiddenScreen } from './forbidden-screen.tsx';
 import { OrganisationPickerScreen } from './organisation-picker-screen.tsx';
 import { ProfileScreen } from './profile-screen.tsx';
-import { PrototypeScreen } from './prototype-screen.tsx';
 import { SignInScreen } from './sign-in-screen.tsx';
 import { WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
 
@@ -326,15 +325,5 @@ describe('ForbiddenScreen', () => {
 
         expect(screen.getByTestId('forbidden-workspace')).toBeTruthy();
         expect(screen.getByTestId('forbidden-switch-organisation')).toBeTruthy();
-    });
-});
-
-describe('PrototypeScreen', () => {
-    it('renders the translated area name with the prototype badge and no actions', async () => {
-        await renderScreen(<PrototypeScreen area="kitchen" testID="prototype-kitchen" />);
-
-        expect(screen.getByTestId('prototype-kitchen-title')).toHaveTextContent(/Kitchen/);
-        expect(screen.getByTestId('prototype-kitchen-prototype-badge')).toBeTruthy();
-        expect(screen.getByTestId('prototype-kitchen-prototype-body')).toBeTruthy();
     });
 });

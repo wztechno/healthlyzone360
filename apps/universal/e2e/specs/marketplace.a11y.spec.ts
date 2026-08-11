@@ -60,12 +60,6 @@ test.describe('marketplace accessibility (axe)', () => {
         await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
     });
 
-    test('dietitians', async ({ page }) => {
-        await page.goto('/dietitians');
-        await expect(page.getByTestId('dietitians-grid')).toBeVisible();
-        await expectNoSeriousViolations(page, 'dietitians');
-    });
-
     test('for business', async ({ page }) => {
         await page.goto('/for-business');
         await expect(page.getByTestId('for-business-screen')).toBeVisible();
@@ -85,7 +79,7 @@ test.describe('marketplace accessibility (axe)', () => {
         await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
         await page.goto('/customer');
         await expect(page.getByTestId('consumer-home-screen')).toBeVisible();
-        await expect(page.getByTestId('nutrition-snapshot-content')).toBeVisible();
+        await expect(page.getByTestId('subscription-card-content')).toBeVisible();
         await expectNoSeriousViolations(page, 'consumer-home');
     });
 });
