@@ -538,6 +538,49 @@ describe('ProgressRing', () => {
         });
     });
 
+    /*
+     * The defect this pins: four lines of prose were centred inside the ring, in a box the width of
+     * the ring's *square* rather than its *hole*, so "Outside the published range" laid out across
+     * the ticks on both sides and the panel read as one thing printed over another.
+     *
+     * Two separate guarantees, because either alone would let it back:
+     *  - the circle holds the figure and nothing else, so nothing prose-length is in there at all;
+     *  - the figure is bounded by the clear space inside the ring, so even it cannot reach a tick.
+     */
+    it('keeps prose out of the circle and bounds the figure to its clear space', async () => {
+        await renderWithI18n(
+            <ProgressRing
+                testID="energy"
+                label="Energy"
+                value={1000}
+                target={2100}
+                level="moderate"
+                caption="of your energy target"
+                levelLabel="Outside the published range"
+            />,
+        );
+
+        const circle = screen.getByTestId('energy-sector-0').parent;
+        const inside = (id: string) => {
+            let node = screen.getByTestId(id).parent;
+            while (node !== null) {
+                if (node === circle) return true;
+                node = node.parent;
+            }
+            return false;
+        };
+
+        expect(inside('energy-value')).toBe(true);
+        expect(inside('energy-caption')).toBe(false);
+        expect(inside('energy-level')).toBe(false);
+        expect(inside('energy-pattern')).toBe(false);
+
+        // `md` is 96 across with an 8 tick at each edge, so the hole is 80 — and the figure is
+        // given less than that rather than the full square it used to spread across.
+        const width = screen.getByTestId('energy-value').props.style.maxWidth as number;
+        expect(width).toBeLessThan(96 - 8 * 2);
+    });
+
     it('carries the nutrition pattern as well as the tone', async () => {
         await renderWithI18n(
             <ProgressRing
