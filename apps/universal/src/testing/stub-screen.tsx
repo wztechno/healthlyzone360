@@ -1,6 +1,6 @@
 import { createMemoryTokenStore } from '@healthy360/api-client';
 import type { MeResponse, Repositories } from '@healthy360/api-client';
-import { QueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
 import type { RenderResult } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
