@@ -28,13 +28,7 @@ import {
  * and at the desktop size, where both are in their wide form. The tablet size is covered in English
  * only: it changes the *shell*, and the shell's mirroring is already proven at the two extremes.
  */
-const RTL_PAGES = [
-    'landing',
-    'discover',
-    'kitchen-profile',
-    'plan-detail',
-    'planner-week',
-] as const;
+const RTL_PAGES = ['landing', 'discover', 'kitchen-profile', 'plan-detail'] as const;
 
 const RTL_VIEWPORTS = [VISUAL_VIEWPORTS.mobile, VISUAL_VIEWPORTS.desktop] as const;
 

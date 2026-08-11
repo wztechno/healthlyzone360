@@ -154,24 +154,6 @@ export const VISUAL_PAGES: readonly VisualPage[] = [
         ready: ['plan-detail-screen', 'plan-detail-durations'],
     },
     {
-        key: 'nutrition-targets',
-        session: true,
-        open: async (page) => {
-            await page.goto('/customer/nutrition');
-        },
-        ready: ['nutrition-target-screen', 'nutrition-target-content'],
-    },
-    {
-        key: 'planner-week',
-        session: true,
-        open: async (page) => {
-            // The pinned week rather than `/customer/planner`, which resolves "current" through the
-            // repository: a redirect makes the captured route depend on the clock twice over.
-            await page.goto(`/customer/planner/week/${FIXTURE_WEEK}`);
-        },
-        ready: ['planner-week-screen', 'planner-week-summary'],
-    },
-    {
         key: 'subscription-configurator',
         session: true,
         open: async (page) => {

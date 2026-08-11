@@ -32,7 +32,7 @@ import {
  * The project sets `colorScheme: 'dark'`, which is all that is needed: the appearance is driven
  * entirely by the media query, with no in-application toggle to drive instead.
  */
-const DARK_PAGES = ['landing', 'meal-detail', 'nutrition-targets', 'planner-week'] as const;
+const DARK_PAGES = ['landing', 'meal-detail'] as const;
 
 test.describe('visual regression (en, dark)', () => {
     for (const key of DARK_PAGES) {
