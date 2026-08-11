@@ -1,12 +1,11 @@
 import { createMemoryTokenStore } from '@healthy360/api-client';
 import type { MeResponse, Repositories } from '@healthy360/api-client';
-import type { QueryClient } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
 import type { RenderResult } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { AppProviders } from '../providers.tsx';
-import { TEST_METRICS, createTestQueryClient } from './render-screen.tsx';
 import { createStubRepositories } from './stub-repositories.ts';
 import type { RepositoryOverrides } from './stub-repositories.ts';
 
@@ -23,6 +22,20 @@ import type { RepositoryOverrides } from './stub-repositories.ts';
  * microtask and whether a loading skeleton is still mounted after `await render(...)` becomes a
  * race. 25 ms keeps the pending frame deterministically observable.
  */
+
+export const TEST_METRICS = {
+    frame: { x: 0, y: 0, width: 1280, height: 900 },
+    insets: { top: 0, left: 0, right: 0, bottom: 0 },
+};
+
+export function createTestQueryClient(): QueryClient {
+    return new QueryClient({
+        defaultOptions: {
+            queries: { retry: false, gcTime: 0, staleTime: 0 },
+            mutations: { retry: false },
+        },
+    });
+}
 
 export interface StubScreenOptions {
     /** Per-repository, per-method answers. Everything else rejects with StubNotConfiguredError. */

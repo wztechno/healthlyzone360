@@ -1,4 +1,4 @@
-import type { StockItem, StockLevel } from '@healthy360/api-client';
+import type { StockItem, StockLevel } from '@healthy360/api-client/contracts';
 import { screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';

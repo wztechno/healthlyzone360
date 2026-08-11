@@ -1,4 +1,5 @@
 import type { MeResponse, PendingConsent } from '@healthy360/api-client';
+import { RoleId } from '@healthy360/domain-types';
 import type {
     ActiveContext,
     Branch,
@@ -134,7 +135,13 @@ export function testMembership(overrides: Partial<Membership> = {}): Membership 
         userId: TEST_USER_ID,
         organisation: testOrganisation(),
         status: 'active',
-        roles: [{ id: 'test-0000-role-0001', key: 'kitchen_manager', name: 'Kitchen manager' }],
+        roles: [
+            {
+                id: RoleId.unsafe('test-0000-role-0001'),
+                key: 'kitchen_manager',
+                name: 'Kitchen manager',
+            },
+        ],
         branches: [],
         startsAt: null,
         expiresAt: null,

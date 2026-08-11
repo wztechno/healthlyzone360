@@ -14,7 +14,7 @@ import type {
     PriceListAdminFilter,
     PriceListEntry,
 } from '@healthy360/api-client/contracts';
-import { KitchenId, MealId, PriceListId } from '@healthy360/domain-types';
+import { KitchenId, MealId, PriceListId, RoleId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
@@ -274,7 +274,13 @@ function organisationOwnerSession() {
                     slug: 'cedar-clinic',
                     type: 'clinic',
                 }),
-                roles: [{ id: 'test-0000-role-0002', key: 'organisation_owner', name: 'Owner' }],
+                roles: [
+                    {
+                        id: RoleId.unsafe('test-0000-role-0002'),
+                        key: 'organisation_owner',
+                        name: 'Owner',
+                    },
+                ],
             }),
         ],
         activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),

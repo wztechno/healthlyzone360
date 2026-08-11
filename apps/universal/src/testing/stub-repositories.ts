@@ -36,7 +36,7 @@ export type RepositoryOverrides = {
 export interface CreateStubRepositoriesOptions {
     /**
      * Round-trip applied to every *stubbed* method, in ms. Defaults to 0 here; the screen harness
-     * passes 25 so loading frames stay deterministically observable (see `render-screen.tsx`).
+     * passes 25 so loading frames stay deterministically observable (see `stub-screen.tsx`).
      * Unstubbed methods always reject immediately — a hole in a test should fail fast.
      */
     readonly latencyMs?: number | undefined;

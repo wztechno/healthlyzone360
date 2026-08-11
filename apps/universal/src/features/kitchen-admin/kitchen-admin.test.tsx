@@ -8,7 +8,7 @@ import type {
     IngredientAdminFilter,
     IngredientAllergenMapping,
 } from '@healthy360/api-client/contracts';
-import { AllergenCode, IngredientId, KitchenBranchId } from '@healthy360/domain-types';
+import { AllergenCode, IngredientId, KitchenBranchId, RoleId } from '@healthy360/domain-types';
 import type { AccessState } from '@healthy360/permissions';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
@@ -306,7 +306,13 @@ function organisationOwnerSession() {
                     slug: 'cedar-clinic',
                     type: 'clinic',
                 }),
-                roles: [{ id: 'test-0000-role-0002', key: 'organisation_owner', name: 'Owner' }],
+                roles: [
+                    {
+                        id: RoleId.unsafe('test-0000-role-0002'),
+                        key: 'organisation_owner',
+                        name: 'Owner',
+                    },
+                ],
             }),
         ],
         activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
@@ -962,20 +968,27 @@ describe('the allergen mapping editor', () => {
             allergens: [mapping('gluten')],
         });
 
+        // Stateful on purpose: the save invalidates the editor's reads, and a refetch that still
+        // answered with the pre-save record would race the assertion back to `published`.
+        let current = record;
+
         await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
-                    ...editorReads(() => [record]),
-                    getIngredient: async () => record,
-                    setIngredientAllergens: async (_id, request) => ({
-                        ...record,
-                        allergens: request.mappings,
-                        meta: meta({
-                            status: 'review_required',
-                            lockVersion: request.lockVersion + 1,
-                        }),
-                    }),
+                    ...editorReads(() => [current]),
+                    getIngredient: async () => current,
+                    setIngredientAllergens: async (_id, request) => {
+                        current = {
+                            ...record,
+                            allergens: request.mappings,
+                            meta: meta({
+                                status: 'review_required',
+                                lockVersion: request.lockVersion + 1,
+                            }),
+                        };
+                        return current;
+                    },
                 },
             },
         });
