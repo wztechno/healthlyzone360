@@ -8,6 +8,18 @@
             "port": 8081
         },
         {
+            "name": "universal-static-api",
+            "runtimeExecutable": "node",
+            "runtimeArgs": [
+                "apps/universal/e2e/static-server.mjs",
+                "--root",
+                "apps/universal/dist-api",
+                "--port",
+                "4174"
+            ],
+            "port": 4174
+        },
+        {
             "name": "universal-web-mock",
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8085"],

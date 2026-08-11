@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -29,8 +32,21 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export const BASE_URL = process.env['E2E_BASE_URL'] ?? 'http://localhost:4173';
 
+/**
+ * The API-backed artefact and its server, for the `web-write` project.
+ *
+ * `dist-api` is a different export (`EXPO_PUBLIC_DATA_MODE=api`), so the project and its static
+ * server only register when that artefact exists — a machine that never built it keeps exactly the
+ * six static projects and starts exactly one server. CI builds `dist-api` before invoking the
+ * project; locally, `pnpm run build:web:api` does.
+ */
+export const API_BUILD_BASE_URL = process.env['ACCEPTANCE_BASE_URL'] ?? 'http://localhost:4174';
+const API_BUILD_DIR = resolve(__dirname, 'dist-api');
+const API_BUILD_PRESENT = existsSync(API_BUILD_DIR);
+
 export default defineConfig({
     testDir: './e2e/specs',
+    globalSetup: './e2e/global-setup.ts',
     // A shared static server means the projects cannot run in parallel *files* safely only if they
     // shared state; they do not — each test seeds its own cookie and storage.
     fullyParallel: true,
@@ -135,14 +151,60 @@ export default defineConfig({
                 contextOptions: { reducedMotion: 'reduce' },
             },
         },
+
+        /*
+         * The API-backed project: `dist-api` against the real Laravel stack. It mutates a shared
+         * database, so it must run one worker at a time — Playwright has no per-project worker
+         * count, so the invocation carries it: `pnpm run e2e:write` (which is
+         * `--project=web-write --workers=1`). Registered only when `dist-api` exists; see
+         * `API_BUILD_PRESENT` above.
+         */
+        ...(API_BUILD_PRESENT
+            ? [
+                  {
+                      name: 'web-write',
+                      testDir: './e2e/acceptance',
+                      testMatch: /.*\.(acceptance|write)\.spec\.ts/,
+                      // Generous on purpose: the Windows Docker stack answers ~5-6s per API round
+                      // trip (php-fpm over a bind mount), and a step in these flows is several
+                      // round trips. CI's artisan-serve stack answers in tens of milliseconds, so
+                      // the margin costs nothing where it matters.
+                      timeout: 150_000,
+                      // A real round trip is allowed to be slow once; it is not allowed to be
+                      // flaky, so no retries — a failure here is a finding. A retry against a
+                      // mutated database retries into different state and produces a lie.
+                      retries: 0,
+                      expect: { timeout: 30_000 },
+                      use: {
+                          ...devices['Desktop Chrome'],
+                          locale: 'en-GB',
+                          baseURL: API_BUILD_BASE_URL,
+                      },
+                  },
+              ]
+            : []),
     ],
 
-    webServer: {
-        command: 'node e2e/static-server.mjs --root dist --port 4173',
-        url: BASE_URL,
-        reuseExistingServer: process.env['CI'] !== 'true',
-        timeout: 60_000,
-        stdout: 'ignore',
-        stderr: 'pipe',
-    },
+    webServer: [
+        {
+            command: 'node e2e/static-server.mjs --root dist --port 4173',
+            url: BASE_URL,
+            reuseExistingServer: process.env['CI'] !== 'true',
+            timeout: 60_000,
+            stdout: 'ignore',
+            stderr: 'pipe',
+        },
+        ...(API_BUILD_PRESENT
+            ? [
+                  {
+                      command: 'node e2e/static-server.mjs --root dist-api --port 4174',
+                      url: API_BUILD_BASE_URL,
+                      reuseExistingServer: process.env['CI'] !== 'true',
+                      timeout: 60_000,
+                      stdout: 'ignore' as const,
+                      stderr: 'pipe' as const,
+                  },
+              ]
+            : []),
+    ],
 });

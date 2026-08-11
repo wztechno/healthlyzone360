@@ -20,7 +20,9 @@ export interface StackStatus {
 
 async function reachable(url: string): Promise<boolean> {
     try {
-        const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        // Generous on purpose: the Windows Docker stack answers /up in ~5-6s cold (php-fpm over a
+        // bind mount), and a probe that times out on a slow-but-alive stack skips the whole suite.
+        const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
         return response.ok;
     } catch {
         return false;
@@ -152,7 +154,7 @@ export async function issueToken(
  * entry is the full MIME message, quoted-printable encoded; entries are correlated to the address by
  * the `To:` header and the newest matching link is returned.
  */
-export async function fetchVerificationLink(email: string, attempts = 20): Promise<string> {
+export async function fetchVerificationLink(email: string, attempts = 60): Promise<string> {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         let raw: string;
         try {

@@ -1,5 +1,4 @@
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import { defineConfig, devices } from '@playwright/test';
 
@@ -44,8 +43,7 @@ export const ACCEPTANCE_API_URL = process.env['EXPO_PUBLIC_API_URL'] ?? 'http://
  * API bind-mounts to the host; override with `MAIL_LOG_PATH` for an unusual layout.
  */
 export const ACCEPTANCE_MAIL_LOG =
-    process.env['MAIL_LOG_PATH'] ??
-    resolve(dirname(fileURLToPath(import.meta.url)), '../api/storage/logs/laravel.log');
+    process.env['MAIL_LOG_PATH'] ?? resolve(__dirname, '../api/storage/logs/laravel.log');
 
 export default defineConfig({
     testDir: './e2e/acceptance',

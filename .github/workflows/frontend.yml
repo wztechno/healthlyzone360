@@ -140,9 +140,8 @@ jobs:
 
   # ── Playwright against the exported mock build ─────────────────────────────────────────────────
   #
-  # The `acceptance` project (apps/universal/playwright.acceptance.config.ts) is deliberately NOT
-  # run here: it needs the whole Docker stack — PostgreSQL, Redis and the API — with the
-  # demo tenants seeded. Bringing compose up in CI is the follow-up recorded in the phase report.
+  # The API-backed `web-write` project runs in its own job below (`e2e-api`), which provisions
+  # PostgreSQL, Redis and the API the way backend.yml does.
   e2e:
     runs-on: ubuntu-latest
     steps:
@@ -181,6 +180,122 @@ jobs:
         with:
           name: playwright-report
           path: apps/universal/playwright-report
+          retention-days: 7
+
+  # ── Playwright against the exported api build and the real Laravel API ────────────────────────
+  #
+  # The `web-write` project: `dist-api` (EXPO_PUBLIC_DATA_MODE=api) served statically, the Laravel
+  # API on :8080 via `php artisan serve`, PostgreSQL and Redis as services — the same provisioning
+  # backend.yml's test job uses. `artisan serve` rather than docker compose because compose builds
+  # a custom PHP image and starts nginx, horizon and garage before a single test runs; the specs
+  # observe none of that. Mail goes to the log (`MAIL_MAILER=log` in .env.example) and the queue
+  # runs sync, so verification links land in `storage/logs/laravel.log` inline with the request —
+  # exactly where the helpers read them.
+  e2e-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, pgsql, redis
+          tools: composer:v2
+          coverage: none
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Create database roles and databases
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55432"
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+        run: bash infrastructure/docker/postgres/init/01-roles-and-databases.sh
+
+      - name: Prepare API environment
+        working-directory: apps/api
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Migrate and seed the demo world
+        working-directory: apps/api
+        run: php artisan migrate:fresh --database=pgsql_migrations --seed --force
+
+      - name: Serve the API
+        working-directory: apps/api
+        env:
+          QUEUE_CONNECTION: sync
+          PHP_CLI_SERVER_WORKERS: "4"
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8080 &
+          timeout 30 bash -c 'until curl -sf http://localhost:8080/up > /dev/null; do sleep 1; done'
+          echo "API is up."
+
+      - name: Web export — api data (the artefact web-write runs against)
+        working-directory: apps/universal
+        env:
+          APP_MODE: all-dev
+          APP_ENV: development
+          EXPO_PUBLIC_DATA_MODE: api
+          EXPO_PUBLIC_API_URL: http://localhost:8080
+        run: pnpm run build:web:api
+
+      - name: Install Chromium for Playwright
+        working-directory: apps/universal
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright — web-write (single worker, shared database)
+        working-directory: apps/universal
+        env:
+          EXPO_PUBLIC_API_URL: http://localhost:8080
+        run: pnpm run e2e:write
+
+      - if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: playwright-api-report
+          path: |
+            apps/universal/playwright-report
+            apps/universal/test-results
+            apps/api/storage/logs/laravel.log
           retention-days: 7
 
   # ── Visual regression, from the one machine allowed to have an opinion ─────────────────────────
