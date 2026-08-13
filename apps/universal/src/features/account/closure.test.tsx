@@ -11,7 +11,7 @@ import {
     otpInvalidFailure,
 } from '@healthy360/api-client/contracts';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { testMeResponse } from '../../testing/session-fixtures.ts';
@@ -71,7 +71,11 @@ const routerMock = require('expo-router') as { __push: jest.Mock };
 
 function Wizard({ start }: { readonly start: ClosureStep }) {
     const [step, setStep] = useState<string>(start);
-    navigate = setStep;
+    // In an effect, not during render: assigning the module-level hand-off while rendering is the
+    // reassignment the react-hooks rule rejects, and the router mock only navigates after mount.
+    useEffect(() => {
+        navigate = setStep;
+    }, [setStep]);
     return <ClosureWizardScreen step={step} />;
 }
 

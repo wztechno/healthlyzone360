@@ -235,8 +235,11 @@ export function SubscriptionConfiguratorScreen({
 
     const areaStatus = useMemo(() => {
         const selected = addressList.find((entry) => entry.id === addressId);
-        const area = selected?.areaName ?? state?.address.area ?? '';
-        return deliveryAreaStatus(kitchen.data, area);
+        // A saved address carries the server's own answer, computed against the published zone
+        // coverage — authoritative over any client-side comparison of area strings, whose
+        // granularities (gazetteer rows vs a zone's display label) need not match textually.
+        if (selected !== undefined) return selected.isDeliverable ? 'served' : 'unserved';
+        return deliveryAreaStatus(kitchen.data, state?.address.area ?? '');
     }, [addressId, addressList, kitchen.data, state?.address.area]);
 
     const areas = useMemo(() => servedAreas(kitchen.data), [kitchen.data]);

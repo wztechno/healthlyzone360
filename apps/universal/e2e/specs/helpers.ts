@@ -136,23 +136,18 @@ export const PLAN_NAME = 'Balanced Week';
 /**
  * Why a subscription cannot currently be configured against the seeded API.
  *
- * `GET /marketplace/meal-plans` publishes all four of `balanced-week`'s commitments — `days-7`,
- * `days-14`, `days-28`, `days-84`, with their discounts — and `total_price: null` on every one of
- * them. `mapDuration` in `packages/api-client/src/api/plan-mappers.ts` drops any duration without a
- * total ("a duration with no price is a button with no number on it"), so `plan.durations` arrives
- * **empty**: the plan record renders no commitment options and the configurator's third step renders
- * none either. Step three is required, so the journey stops there and no subscription can be created
- * through the interface at all.
- *
- * That is a seed-or-resource gap rather than a spec that drifted — the seeder prices plans per week
- * and nothing computes the per-duration total the resource is supposed to carry — so the journeys
- * that need a commitment skip with this sentence attached instead of failing. They start asserting
- * again, untouched, the day a duration arrives with a price.
+ * `GET /marketplace/meal-plans` publishes every commitment with `total_price: null` — a
+ * multi-configuration plan has no single plan-level figure, and the server refuses to invent one.
+ * `mapDuration` used to drop such durations, which emptied the configurator's third step and made
+ * subscriptions unreachable; it now keeps them, and the screens derive the selected variant's
+ * total. These skips are therefore a **tripwire**, not an expectation: they fire only if that
+ * regression returns, and the sentence below says exactly what broke when they do.
  */
 export const NO_PRICED_DURATIONS =
-    'The seeded plan publishes no priced commitment: every duration on `balanced-week` returns ' +
-    '`total_price: null`, `mapDuration` drops it, and the configurator’s duration step therefore ' +
-    'has nothing to choose. No subscription can be created through the UI until one is priced.';
+    'The configurator’s duration step rendered no commitment options. Either the plan lost its ' +
+    'durations on the wire, or `mapDuration` has gone back to dropping durations whose ' +
+    '`total_price` is null (the derived-total fix in plan-mappers/plan-detail/plan-duration-' +
+    'selector) — no subscription can be created through the UI while this holds.';
 
 /** A published Verdant meal, hand-authored in `DemoTenantSeeder` rather than ported from a fixture. */
 export const MEAL_SLUG = 'grilled-chicken-freekeh';
@@ -197,10 +192,7 @@ async function fileReadable(path: string): Promise<boolean> {
  * mail server, so the "inbox" prerequisite is simply that the log file is readable.
  */
 export async function probeStack(): Promise<StackStatus> {
-    const [api, mailLog] = await Promise.all([
-        reachable(`${API_URL}/up`),
-        fileReadable(MAIL_LOG),
-    ]);
+    const [api, mailLog] = await Promise.all([reachable(`${API_URL}/up`), fileReadable(MAIL_LOG)]);
 
     const missing = [
         api ? null : `the API at ${API_URL}`,

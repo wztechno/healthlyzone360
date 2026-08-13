@@ -104,6 +104,13 @@ export interface CustomerAddress {
     /** Directions for the driver. Not an address line. */
     readonly notes: string | null;
     readonly isDefault: boolean;
+    /**
+     * Whether a kitchen currently publishes a delivery zone covering this address's area —
+     * computed by the server against the real zone coverage, which is the only place that answer
+     * exists. Screens must prefer this over any client-side comparison of area strings: the
+     * gazetteer's granularity and a zone's display label do not have to match textually.
+     */
+    readonly isDeliverable: boolean;
 }
 
 export interface SaveAddressRequest {

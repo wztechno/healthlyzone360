@@ -190,6 +190,7 @@ export function mapAddress(wire: WireAddress, areaName: AreaNames): CustomerAddr
         // The wire calls them directions, which is the better name: they are for the driver, not
         // part of the address.
         notes: wire.directions ?? null,
+        isDeliverable: wire.is_deliverable,
         isDefault: wire.is_default,
     };
 }

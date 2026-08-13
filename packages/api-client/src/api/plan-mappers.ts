@@ -39,9 +39,11 @@ export function mapDuration(wire: WireDuration): PlanDurationOption | null {
     const duration = days === null ? undefined : DURATION_BY_DAYS[days];
     if (duration === undefined) return null;
 
+    // `null` is a real answer, not a hole: a multi-configuration plan has no single plan-level
+    // total (the variants price differently), and the server refuses to invent one. The screens
+    // derive the figure for the variant in front of the person instead. Dropping the duration
+    // here would empty the configurator's commitment step for every such plan.
     const totalPrice = mapMoney(wire.total_price);
-    // A duration with no price is a button with no number on it.
-    if (totalPrice === null) return null;
 
     return {
         duration,

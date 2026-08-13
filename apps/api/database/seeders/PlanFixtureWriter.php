@@ -66,11 +66,17 @@ use RuntimeException;
  * fictitious calorie bands — a fabricated energy range would be a nutrition
  * claim, and household size is not one.
  *
- * ## `per_week`
+ * ## `per_day`, derived from the weekly figure
  *
- * The fixture states a weekly price and the plan declares `per_week` as its
- * pricing basis, so the consumer surface's `price_per_week` is the number the
- * kitchen quoted rather than a daily figure multiplied by seven.
+ * The fixture states a weekly price, but the storefront quoting engine
+ * (`StorefrontQuoting`) refuses any basis other than `per_day` with
+ * `subscription.refused / pricing_basis_unsupported` — a `per_week` plan lists
+ * on the marketplace and then cannot be subscribed to at all. So the seeder
+ * stores the derived daily figure, `round(weekly / 7)`, and accepts the
+ * consequence it implies: the presenter's `price_per_week` (daily × 7) can
+ * drift from the fixture's weekly number by up to three minor units. A
+ * subscription that can actually be started beats a headline that matches a
+ * retired fixture to the fils.
  */
 final class PlanFixtureWriter
 {
@@ -155,10 +161,11 @@ final class PlanFixtureWriter
                 'organisation_id' => $kitchen->getKey(),
                 'plan_type' => PlanType::Both,
 
-                // The fixture quotes a weekly figure, so the plan says it is
-                // priced weekly. Declaring `per_day` and dividing would publish
-                // a daily number nobody quoted.
-                'pricing_basis' => PlanPricingBasis::PerWeek,
+                // `per_day`, not the fixture's weekly framing: the storefront
+                // quoting engine supports no other basis, and a plan that
+                // cannot be quoted cannot be subscribed to. See the class
+                // docblock for the derivation and its ≤3-fils weekly drift.
+                'pricing_basis' => PlanPricingBasis::PerDay,
                 'allows_free_selection' => false,
                 'skip_allowed' => true,
                 'pause_allowed' => true,
@@ -208,7 +215,9 @@ final class PlanFixtureWriter
                 ],
                 [
                     'organisation_id' => $kitchen->getKey(),
-                    'unit_amount_minor' => (int) $variantFixture['price_per_week_minor'],
+                    // The confirmed standing price is per day (the plan's basis),
+                    // derived once from the fixture's weekly figure.
+                    'unit_amount_minor' => (int) round(((int) $variantFixture['price_per_week_minor']) / 7),
                     'price_status' => PriceStatus::Confirmed,
                     'effective_from' => now()->toDateString(),
                     'created_by' => $owner->getKey(),

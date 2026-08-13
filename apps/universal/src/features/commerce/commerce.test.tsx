@@ -476,7 +476,10 @@ const ADVERTISED_VARIANT = PLAN_VARIANTS[1]!;
  * 1w — 47 500 × 1, no discount.        2w — 47 500 × 2 = 95 000, less 5 %  → 90 250.
  * 4w — 47 500 × 4 = 190 000, less 10 % → 171 000.  12w — 47 500 × 12 = 570 000, less 20 % → 456 000.
  */
-const PLAN_DURATION_OPTIONS: readonly PlanDurationOption[] = [
+/** The authored options always carry a total; the contract allows `null` for multi-config plans. */
+type AuthoredDurationOption = PlanDurationOption & { readonly totalPrice: Money };
+
+const PLAN_DURATION_OPTIONS: readonly AuthoredDurationOption[] = [
     { duration: '1w', discountPercent: 0, totalPrice: { amount: 47_500, currency: AED } },
     { duration: '2w', discountPercent: 5, totalPrice: { amount: 90_250, currency: AED } },
     { duration: '4w', discountPercent: 10, totalPrice: { amount: 171_000, currency: AED } },
@@ -503,7 +506,7 @@ const PLAN: SubscriptionPlan = {
 /** The first duration is the one a freshly opened configurator starts on. */
 const DEFAULT_DURATION: PlanDuration = PLAN_DURATION_OPTIONS[0]!.duration;
 
-function durationOption(duration: PlanDuration): PlanDurationOption {
+function durationOption(duration: PlanDuration): AuthoredDurationOption {
     const option = PLAN_DURATION_OPTIONS.find((entry) => entry.duration === duration);
     if (option === undefined) throw new Error(`No ${duration} option on the authored plan.`);
     return option;
@@ -585,6 +588,7 @@ function testAddress(overrides: Partial<CustomerAddress> = {}): CustomerAddress 
         label: 'Home',
         areaId: uuid(11, 1) as ServiceAreaId,
         areaName: 'Business Bay',
+        isDeliverable: true,
         line1: '12 Sunset Street',
         line2: null,
         building: null,

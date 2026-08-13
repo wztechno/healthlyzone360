@@ -1057,6 +1057,50 @@ describe('PlanDetailScreen', () => {
         });
     });
 
+    /**
+     * A multi-configuration plan arrives with `totalPrice: null` on every duration — the server
+     * will not quote one figure across differently-priced variants. The screen must derive the
+     * selected variant's total (weekly × weeks × discount) rather than dropping the duration,
+     * which is exactly the regression that made subscriptions unreachable when the seeded
+     * per-week plans first hit the real API.
+     */
+    it('derives duration totals from the selected variant when the server states none', async () => {
+        const plan = STRENGTH_BUILD!;
+        const unpriced = {
+            ...plan,
+            durations: plan.durations.map((option) => ({ ...option, totalPrice: null })),
+        };
+
+        await renderStubScreen(<PlanDetailScreen planId={String(plan.id)} />, {
+            repositories: {
+                ...CATALOGUE_REPOSITORIES,
+                marketplace: {
+                    ...CATALOGUE_REPOSITORIES.marketplace,
+                    getPlan: async () => unpriced,
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('plan-detail-duration-12w')).toBeTruthy();
+        });
+
+        // The advertised (middle) variant is what an unopened page shows, so the derived figure
+        // is its weekly price over twelve weeks, less the option's stated discount.
+        const middle = plan.variants[Math.floor(plan.variants.length / 2)]!;
+        const option = unpriced.durations.find((entry) => entry.duration === '12w')!;
+        const expectedMinor = Math.round(
+            (middle.pricePerWeek.amount * 12 * (100 - option.discountPercent)) / 100,
+        );
+        // Digit-by-digit with any grouping/decimal codepoint between them: the formatter's
+        // separators vary by ICU build, and this assertion is about the arithmetic, not the glyphs.
+        const digits = String(expectedMinor).split('');
+        const cents = digits.splice(-2).join('');
+        expect(screen.getByTestId('plan-detail-duration-12w')).toHaveTextContent(
+            new RegExp(`${digits.join('.?')}.?${cents}`),
+        );
+    });
+
     it('changes the band, and the macro ranges follow', async () => {
         await renderStubScreen(<PlanDetailScreen planId={String(STRENGTH_BUILD!.id)} />, {
             repositories: CATALOGUE_REPOSITORIES,

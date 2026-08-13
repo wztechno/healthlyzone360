@@ -490,6 +490,7 @@ describe('AddressEditorScreen', () => {
                         label: request.label,
                         areaId: request.areaId,
                         areaName: area.name,
+                        isDeliverable: true,
                         line1: request.line1,
                         line2: null,
                         building: null,

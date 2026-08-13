@@ -117,8 +117,14 @@ export interface ApiReferenceReads {
     listAccountServiceAreas(): Promise<readonly AccountServiceArea[]>;
 }
 
-/** Every page of the gazetteer an address select needs — it is a closed list, not a feed. */
-const AREA_PAGE_LIMIT = 200;
+/**
+ * Every page of the gazetteer an address select needs — it is a closed list, not a feed.
+ *
+ * 100, not more: the endpoint rejects any `limit` above `CursorPage`'s cap with
+ * `request.invalid` (400), and a directory whose first page 400s resolves every address's
+ * area name to `''`. The walk below follows `has_more`, so page size is throughput, not reach.
+ */
+const AREA_PAGE_LIMIT = 100;
 
 export function createApiReferenceReads(transport: Transport): ApiReferenceReads {
     function areaQuery(filter?: ServiceAreaFilter): string {

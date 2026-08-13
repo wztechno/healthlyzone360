@@ -223,15 +223,14 @@ test.describe('plan detail (en)', () => {
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
         await expect(page.getByTestId('plan-detail-variant-picker')).toBeVisible();
         /*
-         * The commitments *section*, not a commitment.
-         *
-         * `plan-detail-duration-12w` was the mock world's vocabulary and the API does publish the
-         * matching 84-day option — but with `total_price: null`, which `mapDuration` drops, so the
-         * plan arrives with an empty `durations` list and the section renders its heading and its
-         * caption over nothing. The section still has to be there; naming an option that the data
-         * cannot supply would be asserting the fixture. See `NO_PRICED_DURATIONS` in `helpers.ts`.
+         * The commitments, by name: the API publishes the 84-day option with `total_price: null`
+         * (a multi-configuration plan carries no plan-level figure) and the screen derives the
+         * selected variant's total instead — so the 12-week row must render, priced. If it
+         * vanishes again, `mapDuration` has regressed to dropping null-total durations; see
+         * `NO_PRICED_DURATIONS` in `helpers.ts`.
          */
         await expect(page.getByTestId('plan-detail-durations')).toBeVisible();
+        await expect(page.getByTestId('plan-detail-duration-12w')).toBeVisible();
         await expect(page.getByTestId('plan-detail-delivery')).toBeVisible();
         await expect(page.getByTestId('plan-detail-sample-grid')).toBeVisible();
         await expect(page.getByTestId('plan-detail-price')).toBeVisible();

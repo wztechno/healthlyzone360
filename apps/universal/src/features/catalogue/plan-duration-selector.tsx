@@ -5,7 +5,9 @@ import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { discountedTotalMinorUnits, weeksFor } from '../commerce/configurator.ts';
 import { formatMoney } from '../marketplace/format.ts';
+import { cheapestVariant } from './plan-catalogue.ts';
 
 /**
  * The commitment picker on a plan card.
@@ -39,6 +41,23 @@ export function PlanDurationSelector({ plan, testID }: PlanDurationSelectorProps
     const active = durations.find((option) => option.duration === selected) ?? durations[0];
     if (active === undefined) return null;
 
+    // A multi-configuration plan carries no plan-level total, so the figure shown is derived from
+    // the same variant the card's headline advertises — the cheapest — never a dressed-up middle.
+    const advertised = cheapestVariant(plan);
+    const total =
+        active.totalPrice ??
+        (advertised === null
+            ? null
+            : {
+                  amount: discountedTotalMinorUnits(
+                      advertised.pricePerWeek.amount,
+                      weeksFor(active.duration),
+                      active.discountPercent,
+                  ),
+                  currency: advertised.pricePerWeek.currency,
+              });
+    if (total === null) return null;
+
     return (
         <Stack space="xs" testID={testID}>
             <Text variant="label" tone="secondary">
@@ -60,7 +79,7 @@ export function PlanDurationSelector({ plan, testID }: PlanDurationSelectorProps
             <Inline space="xs" align="center" wrap>
                 <Text variant="caption">
                     {t('catalogue:plans.durationTotal', {
-                        price: formatMoney(formatter, active.totalPrice),
+                        price: formatMoney(formatter, total),
                     })}
                 </Text>
                 {active.discountPercent > 0 ? (
