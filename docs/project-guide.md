@@ -379,23 +379,9 @@ npx playwright test --project=web-write --workers=1
 Set `E2E_RESET_DB=1` on the playwright invocation to `migrate:fresh --seed` first (the global
 setup refuses unless `apps/api/.env` says `APP_ENV=local|testing`).
 
-Acceptance (the live-API proof — stack must be up):
-
-```powershell
-# Windows PowerShell
-cd apps/api; php artisan migrate:fresh --database=pgsql_migrations --seed --force
-cd ../universal
-$env:EXPO_PUBLIC_DATA_MODE='api'; $env:APP_MODE='all-dev'; pnpm run build:web:api
-pnpm run e2e:acceptance                             # 7 tests against http://localhost:8080
-```
-
-```bash
-# Git Bash / WSL / macOS / Linux
-cd apps/api && php artisan migrate:fresh --database=pgsql_migrations --seed --force
-cd ../universal
-EXPO_PUBLIC_DATA_MODE=api APP_MODE=all-dev pnpm run build:web:api
-pnpm run e2e:acceptance
-```
+The former standalone acceptance suite is folded into the write specs above (`*.write.spec.ts`
+under `e2e/specs/` — registration, devices, workspace incl. the seeded 2FA account, commerce);
+`pnpm run e2e:write` is its successor and there is no separate `e2e:acceptance` config.
 
 Visual regression (Docker required; run from **PowerShell at the repo root** — see 5.7):
 
