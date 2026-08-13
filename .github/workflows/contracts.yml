@@ -62,8 +62,8 @@ jobs:
       - name: Fail on drift
         run: git diff --exit-code -- packages/api-client/src/generated
 
-  fixture-conformance:
-    name: Fixtures conform to the generated schemas
+  payload-conformance:
+    name: Recorded payloads conform to the generated schemas
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -80,8 +80,9 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      # Recorded API payloads and every mock scenario, validated against the generated Zod schemas,
-      # then mapped forward to prove the two repository implementations agree (plan §18).
+      # Payloads recorded from the seeded Docker stack, validated against the generated Zod
+      # schemas and mapped onto the domain contract; plus the repository-surface drift check
+      # (the mock world these jobs once validated is deleted — ADR-0013).
       - name: Vitest — api-client (contracts, mappers, conformance)
         run: pnpm --filter @healthy360/api-client run test
 
