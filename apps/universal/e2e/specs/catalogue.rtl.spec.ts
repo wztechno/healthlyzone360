@@ -1,13 +1,23 @@
 import { expect, test } from '@playwright/test';
 
+import { APP_URL, PLAN_SLUG, probeStack, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
+
 const ARABIC_SCRIPT = /[؀-ۿ]/;
 /** Eastern Arabic-Indic digits — what a `-u-nu-arab` formatter would emit. */
 const ARABIC_INDIC_DIGITS = /[٠-٩]/;
 
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
 test.beforeEach(async ({ context }) => {
+    skipUnlessStackIsUp(stack);
     // The pre-hydration script in `+html.tsx` reads this cookie before any styles apply, so the
     // document is RTL from the first paint and the catalogue never flashes left-to-right either.
-    await context.addCookies([{ name: 'h360_locale', value: 'ar', url: 'http://localhost:4173' }]);
+    await context.addCookies([{ name: 'h360_locale', value: 'ar', url: APP_URL }]);
 });
 
 /**
@@ -71,7 +81,7 @@ test.describe('catalogue (ar, RTL)', () => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();
 
-        await page.getByTestId('plan-card-balanced-week-compare').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-compare`).click();
         await page.getByTestId('plan-card-lean-cut-compare').click();
         await page.getByTestId('plans-compare-open').click();
 

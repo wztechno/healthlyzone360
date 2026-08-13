@@ -2,7 +2,8 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { CONSUMER_EMAIL, probeStack, signIn, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
 
 /**
  * The accessibility gate for the marketplace and the consumer home: zero serious or critical axe
@@ -19,6 +20,21 @@ async function expectNoSeriousViolations(page: Page, screen: string) {
         `${screen}: ${blocking.map((v) => `${v.id} (${v.impact}): ${v.help}`).join('; ')}`,
     ).toEqual([]);
 }
+
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
+test.beforeEach(() => {
+    // Signing in is three chained round trips against the local Docker stack, and choosing an
+    // organisation is three more; the project's 90 s default is a budget for one. `test.slow()`
+    // triples it for the journeys that really do pay that cost, rather than raising the ceiling
+    // for every test that reads a single endpoint.
+    test.slow();
+    skipUnlessStackIsUp(stack);
+});
 
 test.describe('marketplace accessibility (axe)', () => {
     test('landing', async ({ page }) => {
@@ -73,13 +89,19 @@ test.describe('marketplace accessibility (axe)', () => {
     });
 
     test('consumer home', async ({ page }) => {
-        await signIn(page);
-        // Wait for the login to land before reloading: `signIn` submits the form and returns, and
-        // a `goto` that races the mutation navigates before the session token has been written.
-        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
+        // `signIn` waits for an authenticated landmark *and* for the token to reach storage, so the
+        // `goto` below cannot race the credential the way the old "sign-in screen hidden" wait did.
+        await signIn(page, CONSUMER_EMAIL);
         await page.goto('/customer');
         await expect(page.getByTestId('consumer-home-screen')).toBeVisible();
-        await expect(page.getByTestId('subscription-card-content')).toBeVisible();
+        // The subscription card in whichever of its two real states this database is in — the seed
+        // creates no subscription, so the empty state is the honest default. Both are swept.
+        await expect(
+            page
+                .getByTestId('subscription-card-content')
+                .or(page.getByTestId('consumer-subscription-browse'))
+                .first(),
+        ).toBeVisible();
         await expectNoSeriousViolations(page, 'consumer-home');
     });
 });

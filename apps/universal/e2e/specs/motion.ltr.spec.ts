@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { CONSUMER_EMAIL, probeStack, signIn, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
 
 /**
  * Reduced motion renders **final states**, not slower ones.
@@ -35,6 +36,21 @@ import { signIn } from './helpers.ts';
  */
 
 test.use({ contextOptions: { reducedMotion: 'reduce' } });
+
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
+test.beforeEach(() => {
+    // Signing in is three chained round trips against the local Docker stack, and choosing an
+    // organisation is three more; the project's 90 s default is a budget for one. `test.slow()`
+    // triples it for the journeys that really do pay that cost, rather than raising the ceiling
+    // for every test that reads a single endpoint.
+    test.slow();
+    skipUnlessStackIsUp(stack);
+});
 
 /** Below this an element is not "faded slightly", it is being animated or hidden. */
 const SETTLED_OPACITY = 0.99;
@@ -159,13 +175,13 @@ test.describe('reduced motion renders final states', () => {
     });
 
     test('a signed-in list settles with nothing parked mid-entrance', async ({ page }) => {
-        await signIn(page);
-        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
+        await signIn(page, CONSUMER_EMAIL);
         await page.goto('/customer/subscriptions');
         await expect(page.getByTestId('subscriptions-screen')).toBeVisible();
 
         // Every card is wrapped in a `FadeIn` with a staggered delay computed from its position,
-        // which is where a suppressed animation would blank the most content.
+        // which is where a suppressed animation would blank the most content. The empty state is
+        // wrapped too, so this holds whether or not a write journey has created a subscription.
         await expectSettled(page.getByTestId('subscriptions-screen'), 'subscriptions list');
     });
 

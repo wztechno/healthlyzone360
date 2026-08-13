@@ -1,7 +1,16 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import {
+    APP_URL,
+    CONSUMER_EMAIL,
+    MEAL_NAME,
+    MEAL_SLUG,
+    PLAN_NAME,
+    PLAN_SLUG,
+    authenticatedLandmark,
+    signIn,
+} from './helpers.ts';
 
 /**
  * The shared machinery behind the three visual-regression projects.
@@ -17,43 +26,48 @@ import { signIn } from './helpers.ts';
  * That is enforced rather than documented: {@link visualEnabled} is false unless `PLAYWRIGHT_VISUAL`
  * is `1`, which only the `e2e:visual` root script sets, and only when it starts the container. A
  * local `npx playwright test` therefore *skips* the visual projects with a message saying so,
- * instead of producing 38 confident-looking failures that mean nothing.
+ * instead of producing confident-looking failures that mean nothing.
  *
  * ## Why the clock is pinned
  *
- * The fixture world is pinned to `PROTOTYPE_NOW` (`mock/prototype/constants.ts`) —
- * 2026-07-30T09:00:00Z, inside the fixture planner week that starts on Monday 2026-07-27. The
- * *browser's* clock is not: the planner marks the current day column, so a baseline captured on one
- * day disagrees with the same page captured on the next. {@link preparePage} therefore fixes the
- * page clock to the same instant the fixtures were built from, which makes "today" a property of the
- * data set rather than of the calendar.
+ * The data is seeded, but "today" is not: several of these surfaces mark the current day or compute
+ * the earliest delivery date from it, so a baseline captured on one day disagrees with the same page
+ * captured on the next. {@link preparePage} therefore fixes the page clock to one instant, which
+ * makes "today" a property of the run rather than of the calendar.
  *
  * `clock.setFixedTime` is used rather than `clock.install`: it freezes what `Date` reports while
  * leaving `setTimeout` and the animation frame loop running, which is what React Query, the router
  * and the font loader all need in order to settle at all.
+ *
+ * ## Why nothing here is addressed by identifier any more
+ *
+ * It used to be. `/meals/{FIRST_MEAL_ID}` was a constant copied out of the fixture generator, which
+ * was legitimate while the world was rebuilt deterministically in the browser. It is impossible
+ * against PostgreSQL: every primary key is a UUIDv7 minted at seed time, so the same meal has a
+ * different address after every `migrate:fresh`. Each page below is therefore reached the way a
+ * person reaches it — a listing, then the card whose test id is the record's **slug**, which is
+ * stable across a reseed — and each still asserts the record's *name*, so landing on a different
+ * meal fails loudly here instead of quietly re-baselining a different dish.
  */
 
-/** The instant the whole prototype world is derived from. Mirrors `PROTOTYPE_NOW`. */
+/** The instant every shot is taken at. Any fixed point does; this one is inside the seeded world. */
 export const VISUAL_CLOCK = new Date('2026-07-30T09:00:00.000Z');
 
-/** Monday of the fixture planner week. Mirrors `PROTOTYPE_WEEK_START`. */
+/** Monday of the week {@link VISUAL_CLOCK} sits in. */
 export const FIXTURE_WEEK = '2026-07-27';
 
 /**
- * Deterministic fixture identifiers, from `mock/prototype/ids.ts`.
+ * The records the two detail shots are of, by slug, with the names they carry.
  *
- * Band `c0` is meals and `d0` is subscription plans; ordinal `00` is the first row of each table.
- * They are written out rather than imported because the specs deliberately do not depend on the
- * application's module graph — but every page that uses one asserts the record's name as well, so a
- * reordered fixture table fails loudly here instead of quietly re-baselining a different meal.
+ * `grilled-chicken-freekeh` is one of `DemoTenantSeeder`'s three hand-authored Verdant meals — it
+ * has a full nutrition panel with real provenance notes rather than the neutral preview row the
+ * ported fixture meals carry, which makes it the honest subject for a facts-panel baseline.
+ * `balanced-week` is the plan the whole commerce story is told through.
  */
-export const FIRST_MEAL_ID = '01935f6d-0000-7000-8000-00000000c000';
-export const FIRST_PLAN_ID = '01935f6d-0000-7000-8000-00000000d000';
-
-/** The name the first meal fixture carries. Guards against a silent fixture reorder. */
-export const FIRST_MEAL_NAME = 'Herb Garden Chicken Bowl';
-/** The name the first plan fixture carries. */
-export const FIRST_PLAN_NAME = 'Balanced Week';
+export const VISUAL_MEAL_SLUG = MEAL_SLUG;
+export const VISUAL_MEAL_NAME = MEAL_NAME;
+export const VISUAL_PLAN_SLUG = PLAN_SLUG;
+export const VISUAL_PLAN_NAME = PLAN_NAME;
 
 export const VISUAL_ENV_FLAG = 'PLAYWRIGHT_VISUAL';
 
@@ -96,12 +110,12 @@ export interface VisualPage {
 }
 
 /**
- * The eight surfaces under visual regression.
+ * The surfaces under visual regression.
  *
- * Chosen for stability, not for coverage: each one is built from pinned fixtures, has settled
- * layout, and is a page whose *composition* a regression would be visible in. Screens that are
- * still moving — anything a wave is actively building — are deliberately absent, because a baseline
- * over moving markup is a baseline that gets deleted rather than read.
+ * Chosen for stability, not for coverage: each one is built from seeded data, has settled layout,
+ * and is a page whose *composition* a regression would be visible in. Screens that are still moving
+ * — anything a wave is actively building — are deliberately absent, because a baseline over moving
+ * markup is a baseline that gets deleted rather than read.
  */
 export const VISUAL_PAGES: readonly VisualPage[] = [
     {
@@ -139,8 +153,10 @@ export const VISUAL_PAGES: readonly VisualPage[] = [
         key: 'meal-detail',
         session: false,
         open: async (page) => {
-            await page.goto(`/meals/${FIRST_MEAL_ID}`);
-            await expect(page.getByTestId('meal-detail-name')).toContainText(FIRST_MEAL_NAME);
+            await page.goto('/meals');
+            await expect(page.getByTestId('meals-grid')).toBeVisible();
+            await page.getByTestId(`meal-card-${VISUAL_MEAL_SLUG}`).click();
+            await expect(page.getByTestId('meal-detail-name')).toContainText(VISUAL_MEAL_NAME);
         },
         ready: ['meal-detail-screen', 'meal-detail-facts'],
     },
@@ -148,8 +164,10 @@ export const VISUAL_PAGES: readonly VisualPage[] = [
         key: 'plan-detail',
         session: false,
         open: async (page) => {
-            await page.goto(`/plans/${FIRST_PLAN_ID}`);
-            await expect(page.getByTestId('plan-detail-name')).toContainText(FIRST_PLAN_NAME);
+            await page.goto('/plans');
+            await expect(page.getByTestId('plans-grid')).toBeVisible();
+            await page.getByTestId(`plan-card-${VISUAL_PLAN_SLUG}-open`).click();
+            await expect(page.getByTestId('plan-detail-name')).toContainText(VISUAL_PLAN_NAME);
         },
         ready: ['plan-detail-screen', 'plan-detail-durations'],
     },
@@ -157,7 +175,9 @@ export const VISUAL_PAGES: readonly VisualPage[] = [
         key: 'subscription-configurator',
         session: true,
         open: async (page) => {
-            await page.goto(`/plans/${FIRST_PLAN_ID}`);
+            await page.goto('/plans');
+            await expect(page.getByTestId('plans-grid')).toBeVisible();
+            await page.getByTestId(`plan-card-${VISUAL_PLAN_SLUG}-open`).click();
             await expect(page.getByTestId('plan-detail-configure')).toBeVisible();
             await page.getByTestId('plan-detail-configure').click();
         },
@@ -176,6 +196,11 @@ export function visualPage(key: string): VisualPage {
 /**
  * Everything that has to be true *before* a page is opened: the clock, the viewport, and — for
  * Arabic — the locale cookie the pre-hydration script in `+html.tsx` reads before any style applies.
+ *
+ * The cookie's URL is derived from {@link APP_URL} rather than written out, so a run against a
+ * non-default port (`E2E_BASE_URL`) still sets a cookie the document will actually receive. A cookie
+ * scoped to the wrong origin is silently ignored, and the shot would be a perfectly stable English
+ * baseline saved under an Arabic name.
  */
 export async function preparePage(
     page: Page,
@@ -185,9 +210,7 @@ export async function preparePage(
     await page.clock.setFixedTime(VISUAL_CLOCK);
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     if (options.arabic === true) {
-        await page
-            .context()
-            .addCookies([{ name: 'h360_locale', value: 'ar', url: 'http://localhost:4173' }]);
+        await page.context().addCookies([{ name: 'h360_locale', value: 'ar', url: APP_URL }]);
     }
 }
 
@@ -201,8 +224,10 @@ export async function preparePage(
  */
 export async function openAndSettle(page: Page, target: VisualPage): Promise<void> {
     if (target.session) {
-        await signIn(page);
-        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
+        // The seeded consumer: verified, activated, no membership — so the landing resolver sends
+        // this account to the customer home rather than through a workspace picker.
+        await signIn(page, CONSUMER_EMAIL);
+        await expect(authenticatedLandmark(page)).toBeVisible();
     }
 
     await target.open(page);

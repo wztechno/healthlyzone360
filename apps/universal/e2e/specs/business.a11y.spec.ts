@@ -2,19 +2,27 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-import { selectCedarHamraContext, signIn } from './helpers.ts';
+import {
+    CORPORATE_BUYER,
+    probeStack,
+    selectAcmeContext,
+    signIn,
+    skipUnlessStackIsUp,
+} from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
 
 /**
- * The accessibility gate for the B2B workspaces: zero serious or critical axe violations.
+ * The accessibility gate for the B2B workspace: zero serious or critical axe violations.
  *
- * Same threshold as the marketplace, catalogue, planner and commerce sweeps — moderate findings go
- * to the risk register rather than blocking here.
+ * Same threshold as the marketplace, catalogue and commerce sweeps — moderate findings go to the
+ * risk register rather than blocking here.
  *
- * Two surfaces are swept in an interactive state rather than only as they land, because that is
- * where the failures are: the quotation builder *after* it has been refused, since an error
- * associated with the wrong field is invisible until it exists; and the tier table at phone width,
- * where `Table` switches from an ARIA table to stacked cards and the labelled-field relationship has
- * to survive the switch.
+ * One surface is swept in an interactive state rather than only as it lands: the quotation builder
+ * *after* it has been refused, since an error associated with the wrong field is invisible until it
+ * exists. The volume-tier table sweeps this file used to carry are gone with the rest of the priced
+ * coverage; see the header of `business.ltr.spec.ts` — which also records why the not-found sweep
+ * this file used to carry is gone: `/corporate/items/{unknown-code}` renders an empty `<main>`
+ * against the real API, and there is no state there to sweep.
  */
 async function expectNoSeriousViolations(page: Page, screen: string) {
     const results = await new AxeBuilder({ page }).analyze();
@@ -27,11 +35,24 @@ async function expectNoSeriousViolations(page: Page, screen: string) {
     ).toEqual([]);
 }
 
-const SAR_LINE_CODE = 'catalogue-wholesale-prepared-pallet';
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
+test.beforeEach(() => {
+    // Signing in is three chained round trips against the local Docker stack, and choosing an
+    // organisation is three more; the project's 90 s default is a budget for one. `test.slow()`
+    // triples it for the journeys that really do pay that cost, rather than raising the ceiling
+    // for every test that reads a single endpoint.
+    test.slow();
+    skipUnlessStackIsUp(stack);
+});
 
 async function openCorporate(page: Page) {
-    await signIn(page);
-    await selectCedarHamraContext(page);
+    await signIn(page, CORPORATE_BUYER);
+    await selectAcmeContext(page);
     await page.goto('/corporate');
     await expect(page.getByTestId('corporate-dashboard-screen')).toBeVisible();
 }
@@ -53,40 +74,21 @@ test.describe('B2B accessibility (axe)', () => {
         await expectNoSeriousViolations(page, 'corporate-dashboard');
     });
 
+    test('the same dashboard on a phone, where the cards stack', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openCorporate(page);
+        await expect(page.getByTestId('corporate-programme-list')).toBeVisible();
+        await expectNoSeriousViolations(page, 'corporate-dashboard-narrow');
+    });
+
     test('the negotiated catalogue, with its filters', async ({ page }) => {
         await openCorporate(page);
         const base = await firstProgrammeBase(page);
         await page.getByTestId(`${base}-open-catalogue`).click();
 
-        await expect(page.getByTestId('corporate-catalogue-list')).toBeVisible();
+        await expect(page.getByTestId('corporate-catalogue-screen')).toBeVisible();
+        await expect(page.getByTestId('corporate-catalogue-search')).toBeVisible();
         await expectNoSeriousViolations(page, 'corporate-catalogue');
-    });
-
-    test('a catalogue line and its volume-tier table', async ({ page }) => {
-        await openCorporate(page);
-        await page
-            .getByTestId('corporate-lookup-code')
-            .locator('input')
-            .first()
-            .fill(SAR_LINE_CODE);
-        await page.getByTestId('corporate-lookup-open').click();
-
-        await expect(page.getByTestId('catalogue-item-tier-table')).toBeVisible();
-        await expectNoSeriousViolations(page, 'catalogue-item');
-    });
-
-    test('the same tier table on a phone, where it becomes stacked cards', async ({ page }) => {
-        await page.setViewportSize({ width: 390, height: 844 });
-        await openCorporate(page);
-        await page
-            .getByTestId('corporate-lookup-code')
-            .locator('input')
-            .first()
-            .fill(SAR_LINE_CODE);
-        await page.getByTestId('corporate-lookup-open').click();
-
-        await expect(page.getByTestId('catalogue-item-tier-table')).toBeVisible();
-        await expectNoSeriousViolations(page, 'catalogue-item-narrow');
     });
 
     test('the quotation builder, and the builder after a refusal', async ({ page }) => {
@@ -94,7 +96,7 @@ test.describe('B2B accessibility (axe)', () => {
         const base = await firstProgrammeBase(page);
         await page.getByTestId(`${base}-request-quotation`).click();
 
-        await expect(page.getByTestId('quotation-builder-lines')).toBeVisible();
+        await expect(page.getByTestId('quotation-builder-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'quotation-builder');
 
         await page.getByTestId('quotation-builder-submit').click();
@@ -106,22 +108,8 @@ test.describe('B2B accessibility (axe)', () => {
         await openCorporate(page);
         await page.getByTestId('corporate-open-quotations').click();
 
-        await expect(page.getByTestId('quotations-list')).toBeVisible();
+        await expect(page.getByTestId('quotations-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'quotations');
     });
 
-    test('the designed not-found states, which are screens in their own right', async ({
-        page,
-    }) => {
-        await openCorporate(page);
-
-        await page
-            .getByTestId('corporate-lookup-code')
-            .locator('input')
-            .first()
-            .fill('catalogue-nothing-like-this');
-        await page.getByTestId('corporate-lookup-open').click();
-        await expect(page.getByTestId('catalogue-item-detail-error')).toBeVisible();
-        await expectNoSeriousViolations(page, 'catalogue-item-not-found');
-    });
 });

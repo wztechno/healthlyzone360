@@ -1,38 +1,57 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { selectCedarHamraContext, signIn } from './helpers.ts';
+import {
+    APP_URL,
+    CORPORATE_BUYER,
+    probeStack,
+    selectAcmeContext,
+    signIn,
+    skipUnlessStackIsUp,
+} from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
 
 const ARABIC_SCRIPT = /[؀-ۿ]/;
 
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
 test.beforeEach(async ({ context }) => {
+    // Signing in is three chained round trips against the local Docker stack, and choosing an
+    // organisation is three more; the project's 90 s default is a budget for one. `test.slow()`
+    // triples it for the journeys that really do pay that cost, rather than raising the ceiling
+    // for every test that reads a single endpoint.
+    test.slow();
+    skipUnlessStackIsUp(stack);
     // The pre-hydration script in `+html.tsx` reads this cookie before any styles apply, so the
     // document is RTL from the first paint and no screen flashes left-to-right.
-    await context.addCookies([{ name: 'h360_locale', value: 'ar', url: 'http://localhost:4173' }]);
+    await context.addCookies([{ name: 'h360_locale', value: 'ar', url: APP_URL }]);
 });
 
 /**
- * The B2B workspaces in Arabic.
+ * The B2B workspace in Arabic.
  *
- * ## Two things a translated B2B screen has to get right that a consumer screen does not
+ * ## What a translated B2B screen has to get right that a consumer screen does not
  *
- * **A price keeps its own currency code.** Arabic numerals and Arabic currency names are the
- * formatter's business, but the *code* on a negotiated line is contractual: a buyer reading
- * `SAR` in an Arabic interface is reading the same fact as a buyer reading `SAR` in English, and a
- * screen that localised it into a converted dirham figure would have changed the agreement. So the
- * assertion here is that the line is still riyals, in Arabic.
+ * **The privacy statement has to read.** A negotiated catalogue is the one surface in this product
+ * whose whole point is that its figures are private to one buyer; a sentence saying so that was
+ * written once in English and never translated is worse than no sentence at all, because an Arabic
+ * reader is then looking at prices with no idea who else can see them.
  *
- * **A tier table has to stay inside itself.** The volume-tier table is the widest thing either
- * workspace renders; a table that pushes the document sideways is the defect the responsive
- * research (`08-responsive-behaviour.md`, RSP-01) is explicit about, and it is easiest to introduce
- * when the direction flips.
+ * **A refusal has to read.** The quotation builder's "this has no lines" error is derived copy the
+ * interface assembles, which is exactly the kind of string that survives untranslated longest —
+ * nobody opens a form only to submit it empty.
+ *
+ * The currency-code assertion this file used to carry is gone with the rest of the priced coverage;
+ * see the header of `business.ltr.spec.ts` for why the seeded negotiated catalogue has no lines.
  */
 
-const SAR_LINE_CODE = 'catalogue-wholesale-prepared-pallet';
-
 async function openCorporate(page: Page) {
-    await signIn(page);
-    await selectCedarHamraContext(page);
+    await signIn(page, CORPORATE_BUYER);
+    await selectAcmeContext(page);
     await page.goto('/corporate');
     await expect(page.getByTestId('corporate-dashboard-screen')).toBeVisible();
 }
@@ -69,42 +88,14 @@ test.describe('corporate workspace (ar, RTL)', () => {
         await expect(page.getByTestId('corporate-catalogue-screen')).toBeVisible();
         await expect(page.getByTestId('corporate-catalogue-title')).toContainText(ARABIC_SCRIPT);
         await expect(page.getByTestId('corporate-catalogue-privacy')).toContainText(ARABIC_SCRIPT);
-        await expect(page.getByTestId('corporate-catalogue-currencies')).toContainText(
-            ARABIC_SCRIPT,
-        );
     });
 
-    test('keeps a negotiated line in its own currency in Arabic', async ({ page }) => {
-        await openCorporate(page);
-
-        await page
-            .getByTestId('corporate-lookup-code')
-            .locator('input')
-            .first()
-            .fill(SAR_LINE_CODE);
-        await page.getByTestId('corporate-lookup-open').click();
-
-        await expect(page.getByTestId('catalogue-item-screen')).toBeVisible();
-        // The currency code is contractual, not copy: it survives translation.
-        await expect(page.getByTestId(`contract-price-headline-${SAR_LINE_CODE}`)).toContainText(
-            /SAR|ر\.س/,
-        );
-        await expect(page.getByTestId('catalogue-item-tier-note')).toContainText(ARABIC_SCRIPT);
-    });
-
-    test('keeps the tier table inside itself rather than scrolling the page sideways', async ({
+    test('keeps the dashboard inside itself rather than scrolling the page sideways', async ({
         page,
     }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await openCorporate(page);
-
-        await page
-            .getByTestId('corporate-lookup-code')
-            .locator('input')
-            .first()
-            .fill(SAR_LINE_CODE);
-        await page.getByTestId('corporate-lookup-open').click();
-        await expect(page.getByTestId('catalogue-item-tier-table')).toBeVisible();
+        await expect(page.getByTestId('corporate-programme-list')).toBeVisible();
 
         const overflow = await page.evaluate(
             () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

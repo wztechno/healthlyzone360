@@ -1,21 +1,39 @@
 import { expect, test } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { PLAN_NAME, PLAN_SLUG, probeStack, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
 
 /**
- * The catalogue journey, in English, against the exported static build.
+ * The catalogue journey, in English, against the exported static build reading the real API.
  *
  * Every navigation below is the real router doing real work — including the shell fallback that
  * makes `/meals/{id}` and `/plans/{id}` resolve without a pre-rendered page.
  *
- * The one thing these tests deliberately do *not* do is assert exact figures. The fixture world is
- * synthetic and its numbers are derived, so pinning "638 kcal" here would make an unrelated
- * ingredient edit fail a routing test. What is pinned is structure: that the figure exists, that
- * the basis toggle changes it, and that the provenance travels with it.
+ * The one thing these tests deliberately do *not* do is assert exact figures. The seeded nutrition
+ * is derived, so pinning "638 kcal" here would make an unrelated ingredient edit fail a routing
+ * test. What is pinned is structure: that the figure exists, that the basis toggle changes it, and
+ * that the provenance travels with it.
+ *
+ * Adding a meal to a basket used to live here too. It writes a cart row now, so it moved to
+ * `commerce.write.spec.ts` where one worker owns the seeded consumer's basket at a time.
  */
 
 /** Currency and price markers that must never appear beside a business-supply marker. */
 const PRICE_MARKER = /\b(AED|SAR|USD|KWD|BHD|OMR)\b/;
+
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
+test.beforeEach(() => {
+    // The catalogue journeys are page-after-page of real cursor requests — the pagination walk
+    // below exhausts a forty-odd-row catalogue twenty at a time — and the project's 90 s default is
+    // a budget for one request. `test.slow()` triples it where that cost is actually paid.
+    test.slow();
+    skipUnlessStackIsUp(stack);
+});
 
 test.describe('meal catalogue (en)', () => {
     test('search, filter and page through the whole catalogue', async ({ page }) => {
@@ -30,9 +48,9 @@ test.describe('meal catalogue (en)', () => {
         const firstPage = await priced.count();
 
         // Page to the end rather than assuming how many pages there are. One press exhausted the
-        // catalogue while it held exactly forty meals, and stopped doing so the day the fixture
-        // world gained two sellable products. The claim worth pinning is that every press adds
-        // meals and that the cursor eventually runs out and says so.
+        // catalogue while it held exactly forty meals, and stopped doing so the day the seeded
+        // world gained sellable products. The claim worth pinning is that every press adds meals
+        // and that the cursor eventually runs out and says so.
         let loaded = firstPage;
         while ((await page.getByTestId('meals-load-more').count()) > 0) {
             await page.getByTestId('meals-load-more').click();
@@ -144,19 +162,6 @@ test.describe('meal detail (en)', () => {
         await expect(page.getByTestId('sign-in-screen')).toBeVisible();
     });
 
-    test('a signed-in visitor adds the meal to a real basket', async ({ page }) => {
-        await signIn(page);
-        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
-
-        await page.goto('/meals');
-        await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
-        await expect(page.getByTestId('meal-detail-add-to-basket')).toBeVisible();
-
-        await page.getByTestId('meal-detail-add-to-basket').click();
-        await expect(page.getByTestId('basket-added')).toBeVisible();
-    });
-
     test('the meal record offers only the actions that work', async ({ page }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
@@ -179,7 +184,7 @@ test.describe('subscription plans (en)', () => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-screen')).toBeVisible();
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await expect(page.getByTestId('plan-card-balanced-week')).toBeVisible();
+        await expect(page.getByTestId(`plan-card-${PLAN_SLUG}`)).toBeVisible();
 
         // A comparison of one plan is not a comparison.
         await expect(page.getByTestId('plans-compare-open')).toHaveAttribute(
@@ -187,7 +192,7 @@ test.describe('subscription plans (en)', () => {
             'true',
         );
 
-        await page.getByTestId('plan-card-balanced-week-compare').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-compare`).click();
         await page.getByTestId('plan-card-lean-cut-compare').click();
         await expect(page.getByTestId('plans-compare-count')).toContainText('2');
 
@@ -196,9 +201,9 @@ test.describe('subscription plans (en)', () => {
         await expect(page.getByTestId('plan-comparison-table')).toBeVisible();
         await expect(page.getByTestId('plan-comparison-caveat')).toBeVisible();
 
-        await page.getByTestId('plan-comparison-open-balanced-week').click();
+        await page.getByTestId(`plan-comparison-open-${PLAN_SLUG}`).click();
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
-        await expect(page.getByTestId('plan-detail-name')).toContainText('Balanced Week');
+        await expect(page.getByTestId('plan-detail-name')).toContainText(PLAN_NAME);
     });
 
     test('the comparison screen says so when nothing was selected', async ({ page }) => {
@@ -213,32 +218,49 @@ test.describe('plan detail (en)', () => {
     test('shows bands, macro ranges, durations, delivery and the sample menu', async ({ page }) => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await page.getByTestId('plan-card-balanced-week-open').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-open`).click();
 
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
         await expect(page.getByTestId('plan-detail-variant-picker')).toBeVisible();
-        await expect(page.getByTestId('plan-detail-macro-protein')).toBeVisible();
-        await expect(page.getByTestId('plan-detail-duration-12w')).toBeVisible();
+        /*
+         * The commitments *section*, not a commitment.
+         *
+         * `plan-detail-duration-12w` was the mock world's vocabulary and the API does publish the
+         * matching 84-day option — but with `total_price: null`, which `mapDuration` drops, so the
+         * plan arrives with an empty `durations` list and the section renders its heading and its
+         * caption over nothing. The section still has to be there; naming an option that the data
+         * cannot supply would be asserting the fixture. See `NO_PRICED_DURATIONS` in `helpers.ts`.
+         */
+        await expect(page.getByTestId('plan-detail-durations')).toBeVisible();
         await expect(page.getByTestId('plan-detail-delivery')).toBeVisible();
         await expect(page.getByTestId('plan-detail-sample-grid')).toBeVisible();
         await expect(page.getByTestId('plan-detail-price')).toBeVisible();
         await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
 
-        // Changing the band changes the figures it governs. The prefix also matches the picker
-        // container and the pre-selected band, so pick an option that is not currently selected.
-        const before = await page.getByTestId('plan-detail-macro-protein-value').innerText();
+        /*
+         * Changing the band changes the figures it governs — asserted on the **energy band**, not
+         * on a macronutrient row.
+         *
+         * `plan-detail-macros` renders its heading and its "ranges, not point values" caption for
+         * every plan, but the rows inside it come from the variant's macro ranges and the seeded
+         * plan profile carries none: `plan-detail-macro-protein` does not exist against this API.
+         * The energy band does, it is per-variant, and it is the figure the picker is actually for
+         * — so the coupling between the two is proven on the field that carries it. The macro rows
+         * come back into this assertion when the plan profile starts publishing ranges.
+         */
+        const before = await page.getByTestId('plan-detail-variant-band').innerText();
         await page
             .getByTestId('plan-detail-variant-picker')
             .locator('[data-testid^="plan-detail-variant-"][aria-selected="false"]')
             .first()
             .click();
-        await expect(page.getByTestId('plan-detail-macro-protein-value')).not.toHaveText(before);
+        await expect(page.getByTestId('plan-detail-variant-band')).not.toHaveText(before);
     });
 
     test('an anonymous visitor is sent to sign in before configuring', async ({ page }) => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await page.getByTestId('plan-card-balanced-week-open').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-open`).click();
 
         await page.getByTestId('plan-detail-configure').click();
         await expect(page.getByTestId('sign-in-screen')).toBeVisible();

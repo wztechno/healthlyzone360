@@ -12,7 +12,7 @@ import {
 import type { StackStatus } from './helpers.ts';
 
 /**
- * **Acceptance (d): device management and real step-up authentication.**
+ * **Device management and real step-up authentication.**
  *
  * The sign-in registers this browser as a device; a second device is created through the token
  * endpoint so there is something to revoke that is not the current credential. Revoking it is
@@ -21,6 +21,14 @@ import type { StackStatus } from './helpers.ts';
  * retried automatically.
  *
  * The last assertion is the one that matters: the revoked token is *dead*, not merely hidden.
+ *
+ * ## Re-runnable without a reseed
+ *
+ * Every device this file creates is named with a timestamp, so a second run never collides with the
+ * first, and the one device that is deliberately *not* revoked by the journey revokes itself at the
+ * end. A run therefore adds nothing permanent to the local database — which is the property that
+ * lets `web-write` be run repeatedly against one seeded world instead of demanding a `migrate:fresh`
+ * between attempts.
  */
 
 let stack: StackStatus;
@@ -30,11 +38,16 @@ test.beforeAll(async () => {
 });
 
 test.beforeEach(() => {
+    // Signing in is three chained round trips against the local Docker stack, and choosing an
+    // organisation is three more; the project's 90 s default is a budget for one. `test.slow()`
+    // triples it for the journeys that really do pay that cost, rather than raising the ceiling
+    // for every test that reads a single endpoint.
+    test.slow();
     skipUnlessStackIsUp(stack);
 });
 
 test('lists real devices and revokes one through the step-up dialog', async ({ page }) => {
-    const secondDeviceName = `Acceptance phone ${Date.now()}`;
+    const secondDeviceName = `E2E phone ${String(Date.now())}`;
 
     await signIn(page, CEDAR_DIETITIAN);
 
@@ -77,7 +90,7 @@ test('lists real devices and revokes one through the step-up dialog', async ({ p
 });
 
 test('a wrong password is rejected by the step-up dialog', async ({ page }) => {
-    const secondDeviceName = `Acceptance tablet ${Date.now()}`;
+    const secondDeviceName = `E2E tablet ${String(Date.now())}`;
 
     await signIn(page, CEDAR_DIETITIAN);
     const second = await issueToken(page.request, CEDAR_DIETITIAN, secondDeviceName);

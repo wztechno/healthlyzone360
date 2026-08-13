@@ -2,6 +2,9 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
+import { PLAN_SLUG, probeStack, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
+
 /**
  * The accessibility gate for the eight catalogue screens: zero serious or critical axe violations.
  *
@@ -21,6 +24,16 @@ async function expectNoSeriousViolations(page: Page, screen: string) {
         `${screen}: ${blocking.map((v) => `${v.id} (${v.impact}): ${v.help}`).join('; ')}`,
     ).toEqual([]);
 }
+
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
+test.beforeEach(() => {
+    skipUnlessStackIsUp(stack);
+});
 
 test.describe('catalogue accessibility (axe)', () => {
     test('meal catalogue, filters and all', async ({ page }) => {
@@ -62,7 +75,7 @@ test.describe('catalogue accessibility (axe)', () => {
 
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await page.getByTestId('plan-card-balanced-week-compare').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-compare`).click();
         await page.getByTestId('plan-card-lean-cut-compare').click();
         await page.getByTestId('plans-compare-open').click();
         await expect(page.getByTestId('plan-comparison-table')).toBeVisible();
@@ -72,7 +85,7 @@ test.describe('catalogue accessibility (axe)', () => {
     test('plan detail', async ({ page }) => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await page.getByTestId('plan-card-balanced-week-open').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-open`).click();
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'plan-detail');
     });

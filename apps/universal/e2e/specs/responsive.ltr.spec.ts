@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { CONSUMER_EMAIL, probeStack, signIn, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
 
 /**
  * Responsive structure at the seven mandated viewports.
@@ -215,6 +216,21 @@ const PUBLIC_PAGES: readonly (readonly [path: string, marker: string])[] = [
     ['/plans', 'plans-screen'],
 ];
 
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
+test.beforeEach(() => {
+    // Signing in is three chained round trips against the local Docker stack, and choosing an
+    // organisation is three more; the project's 90 s default is a budget for one. `test.slow()`
+    // triples it for the journeys that really do pay that cost, rather than raising the ceiling
+    // for every test that reads a single endpoint.
+    test.slow();
+    skipUnlessStackIsUp(stack);
+});
+
 test.describe('responsive structure — public marketplace', () => {
     for (const viewport of VIEWPORTS) {
         test(`${viewport.name}`, async ({ page }) => {
@@ -280,8 +296,7 @@ test.describe('responsive structure — consumer area', () => {
         test(`${viewport.name}`, async ({ page }) => {
             await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-            await signIn(page);
-            await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
+            await signIn(page, CONSUMER_EMAIL);
 
             for (const [path, marker] of CUSTOMER_PAGES) {
                 await page.goto(path);
