@@ -234,7 +234,7 @@ jobs:
 
   # ── Playwright against the exported api build and the real Laravel API ────────────────────────
   #
-  # The `web-write` project: `dist-api` (EXPO_PUBLIC_DATA_MODE=api) served statically, the Laravel
+  # The `web-write` project: `dist-api` served statically, the Laravel
   # API on :8080 via `php artisan serve`, PostgreSQL and Redis as services — the same provisioning
   # backend.yml's test job uses. `artisan serve` rather than docker compose because compose builds
   # a custom PHP image and starts nginx, horizon and garage before a single test runs; the specs
@@ -324,7 +324,6 @@ jobs:
         env:
           APP_MODE: all-dev
           APP_ENV: development
-          EXPO_PUBLIC_DATA_MODE: api
           EXPO_PUBLIC_API_URL: http://localhost:8080
         run: pnpm run build:web:api
 
