@@ -850,39 +850,38 @@ export function mapPlanDuration(option: PlanDurationOption): PlanDurationAdmin {
     };
 }
 
+/**
+ * One cell, one variant.
+ *
+ * A cell carries its own `catalogue_item_variant_id`, and its identity on this API is the
+ * combination *and* the band *and* the service tier — so an energy band routinely holds several
+ * cells. Keying by `energy_band_id` alone and taking the first of each group silently discarded
+ * every other variant in the band: the seeded family plan (one meal a day at 1600–1900 kcal in
+ * three household sizes) read back as a single variant, and a cell switched on in a band that
+ * already had one vanished on the next read while sitting in PostgreSQL.
+ *
+ * A band the plan does not portion by is `null` rather than missing, so it maps to the `0–0` band
+ * the editor draws as "no band" instead of dropping the cell.
+ */
 export function mapPlanVariantsFromCells(
     cells: readonly PlanVariantCell[],
     bands: ReadonlyMap<string, EnergyBand>,
 ): readonly PlanVariantAdmin[] {
-    const grouped = new Map<string, PlanVariantCell[]>();
+    return cells.map((cell) => {
+        const band = cell.energy_band_id === null ? undefined : bands.get(cell.energy_band_id);
 
-    for (const cell of cells) {
-        const key = cell.energy_band_id ?? 'none';
-        const group = grouped.get(key) ?? [];
-        group.push(cell);
-        grouped.set(key, group);
-    }
-
-    const variants: PlanVariantAdmin[] = [];
-
-    for (const [bandKey, group] of grouped) {
-        const lead = group[0]!;
-        const band = bandKey === 'none' ? undefined : bands.get(bandKey);
-
-        variants.push({
-            id: PlanVariantId.unsafe(lead.catalogue_item_variant_id),
+        return {
+            id: PlanVariantId.unsafe(cell.catalogue_item_variant_id),
             name: localised(
-                lead.name_en ?? band?.name_en ?? lead.code,
-                lead.name_ar ?? band?.name_ar,
+                cell.name_en ?? band?.name_en ?? cell.code,
+                cell.name_ar ?? band?.name_ar,
             ),
             energyBand: band ? { min: band.min_kcal, max: band.max_kcal } : { min: 0, max: 0 },
-            mealsPerDay: lead.meals_per_day,
-            snacksPerDay: lead.snacks_per_day,
-            isActive: lead.status === 'active',
-        });
-    }
-
-    return variants;
+            mealsPerDay: cell.meals_per_day,
+            snacksPerDay: cell.snacks_per_day,
+            isActive: cell.status === 'active',
+        };
+    });
 }
 
 export function mapBranchOperating(

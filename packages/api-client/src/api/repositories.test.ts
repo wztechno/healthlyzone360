@@ -1,3 +1,4 @@
+import { MealId, ProductId } from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { ApiError, isRateLimitFailure, isValidationFailure } from '../contracts/failure.ts';
@@ -2326,5 +2327,438 @@ describe('numbered pages on the kitchen catalogue (docs/api/conventions.md)', ()
         // Null rather than 0: the keyset path reads one row beyond the page instead of counting,
         // so there is no total to report and a 0 here would read as "the list is empty".
         expect(page.totalCount).toBeNull();
+    });
+});
+
+/**
+ * The meal read, whose three round trips are the ones every meal write returns through.
+ *
+ * `createMeal`, `updateMeal`, `publishMeal` and `retireMeal` all answer with `getMeal`, so an
+ * envelope this read cannot interpret is a write that never finishes — the write itself having
+ * already landed on the server. That is worth a test of its own.
+ */
+describe('reading a meal back after a write', () => {
+    const CHANNELS_OK: Scripted = {
+        status: 200,
+        body: {
+            data: [
+                {
+                    id: 'channel-1',
+                    organisation_id: 'org-1',
+                    code: 'web-shop',
+                    channel_kind: 'b2c_web',
+                    name_en: 'Web shop',
+                    name_ar: 'المتجر',
+                    order_source: 'web',
+                    status: 'active',
+                    lock_version: 0,
+                },
+            ],
+            meta: { correlation_id: 'c-channels' },
+        },
+    };
+
+    function mealRow(id: string) {
+        return {
+            id,
+            organisation_id: 'org-1',
+            catalogue_id: 'catalogue-1',
+            item_type: 'meal',
+            slug: 'charred-aubergine-bowl',
+            name_en: 'Charred aubergine bowl',
+            name_ar: 'وعاء الباذنجان المشوي',
+            description_en: 'Smoked, with tahini.',
+            description_ar: 'مدخّن، مع طحينة.',
+            recipe_id: null,
+            status: 'draft',
+            data_quality_flags: [],
+            lock_version: 0,
+        };
+    }
+
+    const MEAL_ID = '019ffcaa-6e68-70cb-8ed0-977e577d0ad6';
+
+    const SHOW_OK: Scripted = {
+        status: 200,
+        body: {
+            data: {
+                item: mealRow(MEAL_ID),
+                variants: [],
+                ingredients: [],
+                diet_classifications: ['vegan'],
+                channels: [
+                    {
+                        sales_channel_id: 'channel-1',
+                        is_available: true,
+                        available_from: null,
+                        available_to: null,
+                    },
+                ],
+                availability_days: [],
+            },
+            meta: { correlation_id: 'c-show' },
+        },
+    };
+
+    /**
+     * The allergen endpoint answers `data.allergens`, not a bare list: it states the *basis* of the
+     * derivation in `meta`, so the rows need a key of their own. Reading `data` as the array threw
+     * `allergens.map is not a function` inside every meal read, and because a thrown `TypeError` is
+     * not an `ApiFailure`, the editor rendered no error at all — a create the server had answered
+     * `201` to looked, on screen, like a button nobody had pressed.
+     */
+    const ALLERGENS_OK: Scripted = {
+        status: 200,
+        body: {
+            data: {
+                allergens: [
+                    { allergen_code: 'sesame', containment: 'contains', basis: 'derived' },
+                ],
+            },
+            meta: { correlation_id: 'c-allergens', basis: 'ingredients', recipe_version_id: null },
+        },
+    };
+
+    it('creates a meal and maps the record the three reads describe', async () => {
+        const { repositories, calls } = harness([
+            {
+                status: 201,
+                body: { data: { item: mealRow(MEAL_ID) }, meta: { correlation_id: 'c-create' } },
+            },
+            CHANNELS_OK,
+            SHOW_OK,
+            ALLERGENS_OK,
+        ]);
+
+        const created = await repositories.kitchenAdmin.createMeal({
+            name: { en: 'Charred aubergine bowl', ar: 'وعاء الباذنجان المشوي' },
+            description: { en: 'Smoked, with tahini.', ar: 'مدخّن، مع طحينة.' },
+            portionFactor: 1,
+            mealTypes: ['lunch'],
+            dietClassifications: [],
+        });
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.url).toBe('https://api.example/api/v1/catalogue/items');
+        expect(calls[0]?.body).toEqual({
+            item_type: 'meal',
+            name_en: 'Charred aubergine bowl',
+            name_ar: 'وعاء الباذنجان المشوي',
+            description_en: 'Smoked, with tahini.',
+            description_ar: 'مدخّن، مع طحينة.',
+        });
+        // No diet classifications were asked for, so no second write is invented for them.
+        expect(calls[3]?.url).toBe(
+            `https://api.example/api/v1/catalogue/items/${MEAL_ID}/allergens`,
+        );
+        expect(calls).toHaveLength(4);
+
+        expect(String(created.id)).toBe(MEAL_ID);
+        expect(created.meta.status).toBe('draft');
+        expect(created.allergens.map(String)).toEqual(['sesame']);
+        expect(created.dietClassifications).toEqual(['vegan']);
+    });
+
+    it('reads the same envelope on a plain fetch of the meal', async () => {
+        const { repositories } = harness([CHANNELS_OK, SHOW_OK, ALLERGENS_OK]);
+
+        const meal = await repositories.kitchenAdmin.getMeal(MealId.unsafe(MEAL_ID));
+
+        expect(meal.allergens.map(String)).toEqual(['sesame']);
+        expect(meal.channelAvailability).toEqual([
+            { channel: 'b2c', isAvailable: true, availableFrom: null, availableUntil: null },
+        ]);
+    });
+});
+
+/**
+ * The product editor's two saves, as bodies on the wire.
+ *
+ * Both were refused by the real API against shapes the deleted mock accepted, and neither refusal
+ * was reachable from a screen test: what went wrong is the *translation* between the contract's
+ * flattened vocabularies and the identifiers PostgreSQL keys on.
+ */
+describe('the product editor writes', () => {
+    const PRODUCT_ID = '019ffc6a-3e8f-70dc-a2b4-64ff691e9844';
+    const KILOGRAM = '019ffc6a-2007-713f-887e-1abe7f663309';
+    const GRAM = '019ffc6a-1ff0-727f-92ac-79b511f0e99a';
+    const WEB_SHOP = '019ffc6a-33cf-72ba-9b74-f6ce4a703c26';
+    const WHOLESALE = '019ffc6a-33d6-7248-9c83-a2ec8140cf55';
+    const COUNTER = '019ffc6a-5f4e-7299-9ab0-14ec505fb5b7';
+
+    function productRow(lockVersion: number) {
+        return {
+            id: PRODUCT_ID,
+            organisation_id: 'org-1',
+            catalogue_id: 'catalogue-1',
+            item_type: 'product',
+            slug: 'marinated-chicken-breast',
+            name_en: 'Marinated Chicken Breast',
+            name_ar: 'Marinated Chicken Breast',
+            description_en: null,
+            description_ar: null,
+            status: 'published',
+            data_quality_flags: [],
+            lock_version: lockVersion,
+        };
+    }
+
+    function channelRow(id: string, code: string, kind: string, name: string) {
+        return {
+            id,
+            organisation_id: 'org-1',
+            code,
+            channel_kind: kind,
+            name_en: name,
+            name_ar: name,
+            order_source: null,
+            status: 'active',
+            lock_version: 0,
+        };
+    }
+
+    function itemShow(lockVersion: number, variants: readonly unknown[]): Scripted {
+        return {
+            status: 200,
+            body: {
+                data: {
+                    item: productRow(lockVersion),
+                    variants,
+                    ingredients: [],
+                    diet_classifications: [],
+                    channels: [],
+                    availability_days: [],
+                },
+                meta: { correlation_id: 'c-show' },
+            },
+        };
+    }
+
+    function itemWrite(lockVersion: number): Scripted {
+        return {
+            status: 200,
+            body: {
+                data: { item: productRow(lockVersion), variants: [], channels: [] },
+                meta: { correlation_id: 'c-write' },
+            },
+        };
+    }
+
+    function channelIndex(...rows: readonly unknown[]): Scripted {
+        return { status: 200, body: { data: rows, meta: { correlation_id: 'c-channels' } } };
+    }
+
+    /** The seeded kilogram pack, exactly as `GET /catalogue/items/{item}` answers for it. */
+    const STORED_PACK = {
+        id: '019ffc6a-3e93-70e4-b049-7f0ba33a22f6',
+        variant_type: 'pack',
+        code: '1-kg',
+        name_en: '1 Kg',
+        name_ar: '1 Kg',
+        is_default: true,
+        status: 'active',
+        pack: {
+            pack_quantity: '1.0000',
+            pack_unit_id: KILOGRAM,
+            pack_piece_count: null,
+            pack_format: null,
+            net_weight_grams: null,
+        },
+        lock_version: 0,
+    };
+
+    const UNITS_OK: Scripted = {
+        status: 200,
+        body: {
+            data: {
+                currencies: [{ code: 'AED', name_en: 'UAE dirham' }],
+                default_currency_code: 'AED',
+                measurement_units: [
+                    { id: GRAM, code: 'g', dimension: 'mass', name_en: 'Gram' },
+                    { id: KILOGRAM, code: 'kg', dimension: 'mass', name_en: 'Kilogram' },
+                ],
+            },
+            meta: { correlation_id: 'c-units' },
+        },
+    };
+
+    /**
+     * A pack quantity with no unit is not a size, and the API says so — the whole save came back
+     * `422 variants.0.pack.pack_unit_id`. The unit cannot come from `netUnit` for a pack that
+     * already exists either: `MeasureUnit` cannot name `gallon`, `bag`, `can` or `bunch`, all of
+     * which the seeded catalogue quotes packs in, so a stored pack's own unit is echoed back and
+     * only the pack this submission *adds* has its chosen unit resolved.
+     */
+    it('sends every pack with a unit, echoing the one a stored pack already carries', async () => {
+        const { repositories, calls } = harness([
+            itemWrite(1),
+            itemShow(1, [STORED_PACK]),
+            UNITS_OK,
+            itemWrite(2),
+            channelIndex(),
+            itemShow(2, [STORED_PACK]),
+        ]);
+
+        await repositories.kitchenAdmin.updateProduct(ProductId.unsafe(PRODUCT_ID), {
+            lockVersion: 0,
+            name: { en: 'Marinated Chicken Breast', ar: 'Marinated Chicken Breast' },
+            packVariants: [
+                // `netUnit` reads back as the fallback `g` — the read cannot name kilograms
+                // through `pack_unit_id` alone — so honouring it here would restate a kilogram
+                // pack in grams on a save that touched nothing but the name.
+                {
+                    code: '1-kg',
+                    label: { en: '1 Kg', ar: '1 Kg' },
+                    netQuantity: 1,
+                    netUnit: 'g',
+                    unitsPerPack: 1,
+                },
+                {
+                    code: 'CASE24',
+                    label: { en: '', ar: '' },
+                    netQuantity: 6000,
+                    netUnit: 'g',
+                    unitsPerPack: 24,
+                },
+            ],
+        });
+
+        expect(calls[2]?.url).toBe('https://api.example/api/v1/catalogue/procurement/reference');
+
+        const write = calls[3];
+        expect(write?.method).toBe('PUT');
+        expect(write?.url).toBe(
+            `https://api.example/api/v1/catalogue/items/${PRODUCT_ID}/variants`,
+        );
+        expect(write?.body).toEqual({
+            variants: [
+                {
+                    code: '1-kg',
+                    name_en: '1 Kg',
+                    name_ar: '1 Kg',
+                    pack: { pack_quantity: 1, pack_unit_id: KILOGRAM, pack_piece_count: 1 },
+                },
+                {
+                    code: 'CASE24',
+                    name_en: '',
+                    name_ar: '',
+                    pack: { pack_quantity: 6000, pack_unit_id: GRAM, pack_piece_count: 24 },
+                },
+            ],
+        });
+    });
+
+    /**
+     * One editor save, two lock-versioned writes. The `PATCH` consumes the version the editor
+     * opened on and answers with the next one; sending the opened-on version again made the pack
+     * write a lost race against the rename that preceded it by milliseconds.
+     */
+    it('carries the version each write answered with into the next one', async () => {
+        const { repositories, calls } = harness([
+            itemWrite(1),
+            itemShow(1, [STORED_PACK]),
+            itemWrite(2),
+            channelIndex(),
+            itemShow(2, [STORED_PACK]),
+        ]);
+
+        await repositories.kitchenAdmin.updateProduct(ProductId.unsafe(PRODUCT_ID), {
+            lockVersion: 0,
+            name: { en: 'Marinated Chicken Breast', ar: 'Marinated Chicken Breast' },
+            packVariants: [
+                {
+                    code: '1-kg',
+                    label: { en: '1 Kg', ar: '1 Kg' },
+                    netQuantity: 1,
+                    netUnit: 'g',
+                    unitsPerPack: 1,
+                },
+            ],
+        });
+
+        expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.headers['If-Match']).toBe('"0"');
+        // No unit read at all: every submitted code is one the item already has.
+        expect(calls[2]?.method).toBe('PUT');
+        expect(calls[2]?.headers['If-Match']).toBe('"1"');
+    });
+
+    /**
+     * `SalesChannel` is the contract's flattening of a closed platform *kind* and a channel *row*
+     * an organisation owns. A kitchen that has never opened a counter has no `pos` row, and the
+     * old fallback pointed that decision at whichever row came back first — which, when that row
+     * was already in the submitted set, made the API refuse the whole replacement as a pair
+     * "stated twice".
+     */
+    it('leaves out a channel the organisation does not run rather than guessing one', async () => {
+        const configured = channelIndex(
+            channelRow(WHOLESALE, 'wholesale', 'b2b', 'Wholesale'),
+            channelRow(WEB_SHOP, 'web-shop', 'b2c_web', 'Web shop'),
+        );
+
+        const { repositories, calls } = harness([
+            configured,
+            itemWrite(1),
+            configured,
+            itemShow(1, []),
+        ]);
+
+        await repositories.kitchenAdmin.setProductChannelAvailability(
+            ProductId.unsafe(PRODUCT_ID),
+            {
+                lockVersion: 0,
+                availability: [
+                    { channel: 'b2c', isAvailable: true, availableFrom: null, availableUntil: null },
+                    { channel: 'b2b', isAvailable: true, availableFrom: null, availableUntil: null },
+                    { channel: 'pos', isAvailable: true, availableFrom: null, availableUntil: null },
+                ],
+            },
+        );
+
+        expect(calls[1]?.body).toEqual({
+            channels: [
+                {
+                    sales_channel_id: WEB_SHOP,
+                    is_available: true,
+                    available_from: null,
+                    available_to: null,
+                },
+                {
+                    sales_channel_id: WHOLESALE,
+                    is_available: true,
+                    available_from: null,
+                    available_to: null,
+                },
+            ],
+        });
+    });
+
+    it('sends the counter row once the organisation actually runs one', async () => {
+        const configured = channelIndex(
+            channelRow(WHOLESALE, 'wholesale', 'b2b', 'Wholesale'),
+            channelRow(WEB_SHOP, 'web-shop', 'b2c_web', 'Web shop'),
+            channelRow(COUNTER, 'counter', 'pos', 'Counter'),
+        );
+
+        const { repositories, calls } = harness([
+            configured,
+            itemWrite(1),
+            configured,
+            itemShow(1, []),
+        ]);
+
+        await repositories.kitchenAdmin.setProductChannelAvailability(
+            ProductId.unsafe(PRODUCT_ID),
+            {
+                lockVersion: 0,
+                availability: [
+                    { channel: 'b2c', isAvailable: true, availableFrom: null, availableUntil: null },
+                    { channel: 'pos', isAvailable: true, availableFrom: null, availableUntil: null },
+                ],
+            },
+        );
+
+        const body = calls[1]?.body as { readonly channels: readonly { sales_channel_id: string }[] };
+        expect(body.channels.map((row) => row.sales_channel_id)).toEqual([WEB_SHOP, COUNTER]);
     });
 });

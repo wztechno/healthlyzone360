@@ -682,7 +682,7 @@
         "sectionAliases": "Other names",
         "sectionAllergens": "Allergen mapping",
         "sectionNotes": "Notes",
-        "createdToast": "{{name}} was created as a draft.",
+        "createdToast": "{{name}} was created, and can be used right away.",
         "savedToast": "Changes saved.",
         "saveError": "Those changes could not be saved.",
         "nameRequired": "An English name is required before this can be saved.",

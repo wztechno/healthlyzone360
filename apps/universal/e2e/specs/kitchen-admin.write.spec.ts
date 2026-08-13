@@ -4,7 +4,10 @@ import type { Page } from '@playwright/test';
 import {
     JOURNEY_TIMEOUT,
     KITCHEN_OWNER,
+    VERDANT_SLUG,
+    apiRequest,
     probeStack,
+    readSessionToken,
     selectVerdantKitchenContext,
     signIn,
     skipUnlessStackIsUp,
@@ -265,6 +268,182 @@ async function packedProductBase(page: Page, query = 'Marinated'): Promise<strin
 async function openMeals(page: Page) {
     await openWorkspace(page);
     await openScreen(page, '/kitchen/meals', 'kitchen-meals-screen', 'kitchen-meals-table');
+}
+
+/** The signed-in owner's token plus the Verdant organisation scope, for out-of-band arrangement. */
+async function verdantApiScope(
+    page: Page,
+): Promise<{ token: string; headers: Record<string, string> }> {
+    const token = await readSessionToken(page);
+    const me = await apiRequest(page.request, 'get', '/api/v1/me', { token });
+    const memberships = (
+        (await me.json()) as {
+            data: { memberships: { organisation: { id: string; slug: string } }[] };
+        }
+    ).data.memberships;
+    const organisationId = memberships.find((row) => row.organisation.slug === VERDANT_SLUG)
+        ?.organisation.id;
+    expect(organisationId, 'the kitchen owner should be a member of Verdant').toBeDefined();
+    return { token, headers: { 'X-Organisation-Id': organisationId as string } };
+}
+
+/** The meal id the editor is currently on, read from its own address. */
+function mealIdFromUrl(page: Page): string {
+    return new URL(page.url()).pathname.split('/').filter(Boolean).pop() ?? '';
+}
+
+async function itemLockVersion(
+    page: Page,
+    scope: { token: string; headers: Record<string, string> },
+    itemId: string,
+): Promise<number> {
+    const shown = await apiRequest(page.request, 'get', `/api/v1/catalogue/items/${itemId}`, scope);
+    expect(shown.status(), await shown.text()).toBe(200);
+    return ((await shown.json()) as { data: { item: { lock_version: number } } }).data.item
+        .lock_version;
+}
+
+/**
+ * The allergen basis the API requires before it will publish a meal.
+ *
+ * `CatalogueItemReadiness` refuses `no_allergen_basis` for a meal that links no recipe and lists
+ * no ingredients, and this workspace can offer neither: the meal editor has no ingredient control,
+ * and `GET /catalogue/recipes` answers zero rows for Verdant. So it is arranged over the API — a
+ * *given* of these journeys rather than their subject — and the editor is reloaded onto the
+ * version that write produced, because the page is still holding the create's lock version.
+ */
+async function declareIngredientBasis(page: Page): Promise<void> {
+    const scope = await verdantApiScope(page);
+    const mealId = mealIdFromUrl(page);
+
+    const ingredients = await apiRequest(
+        page.request,
+        'get',
+        '/api/v1/catalogue/ingredients?limit=1',
+        scope,
+    );
+    const ingredientId =
+        ((await ingredients.json()) as { data: { id: string }[] }).data[0]?.id ?? '';
+    expect(ingredientId, 'the seeded world should hold at least one ingredient').not.toBe('');
+
+    const lockVersion = await itemLockVersion(page, scope, mealId);
+    const declared = await apiRequest(
+        page.request,
+        'put',
+        `/api/v1/catalogue/items/${mealId}/ingredients`,
+        {
+            ...scope,
+            headers: { ...scope.headers, 'If-Match': `"${lockVersion}"` },
+            data: { ingredients: [{ ingredient_id: ingredientId, is_representative: true }] },
+        },
+    );
+    expect(declared.status(), await declared.text()).toBe(200);
+
+    await page.reload();
+    await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible({
+        timeout: JOURNEY_TIMEOUT,
+    });
+}
+
+/**
+ * The merchandising facts the *public* marketplace additionally requires: an active consumer
+ * channel assignment and a confirmed price. `MarketplaceMeals::visible()` drops a published meal
+ * that has neither, and the meal editor can arrange neither — channels are read-only for meals by
+ * contract, and pricing lives on the tariff screens. Both are therefore givens, arranged over the
+ * API exactly as a merchandiser's earlier session would have left them.
+ *
+ * The price write restates the whole standing tariff plus the new row, because the endpoint's body
+ * is the desired current state (`PUT /price-lists/{id}/entries` diffs server-side). The read is
+ * capped at one page of 100; the seeded menu tariff holds ~14 rows, and the guard below turns a
+ * grown tariff into a loud failure rather than a silent truncation of somebody's prices.
+ */
+async function putMealOnPublicSale(page: Page): Promise<void> {
+    const scope = await verdantApiScope(page);
+    const mealId = mealIdFromUrl(page);
+
+    const channels = await apiRequest(page.request, 'get', '/api/v1/catalogue/sales-channels', {
+        ...scope,
+    });
+    expect(channels.status(), await channels.text()).toBe(200);
+    const webShopId = (
+        (await channels.json()) as { data: { id: string; channel_kind: string }[] }
+    ).data.find((row) => row.channel_kind === 'b2c_web')?.id;
+    expect(webShopId, 'Verdant should run a b2c_web channel').toBeDefined();
+
+    const lockVersion = await itemLockVersion(page, scope, mealId);
+    const assigned = await apiRequest(
+        page.request,
+        'put',
+        `/api/v1/catalogue/items/${mealId}/channels`,
+        {
+            ...scope,
+            headers: { ...scope.headers, 'If-Match': `"${lockVersion}"` },
+            data: { channels: [{ sales_channel_id: webShopId }] },
+        },
+    );
+    expect(assigned.status(), await assigned.text()).toBe(200);
+
+    const lists = await apiRequest(page.request, 'get', '/api/v1/catalogue/price-lists', scope);
+    expect(lists.status(), await lists.text()).toBe(200);
+    const menu = (
+        (await lists.json()) as {
+            data: { id: string; code: string; status: string; lock_version: number }[];
+        }
+    ).data.find((row) => row.code === 'verdant-menu-usd' && row.status === 'active');
+    expect(menu, 'the seeded menu tariff should be active').toBeDefined();
+    const menuList = menu as { id: string; lock_version: number };
+
+    const standing = await apiRequest(
+        page.request,
+        'get',
+        `/api/v1/catalogue/price-lists/${menuList.id}/entries?limit=100`,
+        scope,
+    );
+    expect(standing.status(), await standing.text()).toBe(200);
+    const standingBody = (await standing.json()) as {
+        data: {
+            catalogue_item_id: string;
+            catalogue_item_variant_id: string | null;
+            min_quantity: number | string | null;
+            unit_amount_minor: number | null;
+            price_status: string;
+        }[];
+        meta?: { next_cursor?: string | null };
+    };
+    expect(
+        standingBody.meta?.next_cursor ?? null,
+        'restating a tariff larger than one page would truncate it — raise the read or rethink',
+    ).toBeNull();
+
+    const restated = standingBody.data.map((entry) => ({
+        catalogue_item_id: entry.catalogue_item_id,
+        catalogue_item_variant_id: entry.catalogue_item_variant_id,
+        min_quantity: entry.min_quantity,
+        unit_amount_minor: entry.unit_amount_minor,
+        price_status: entry.price_status,
+    }));
+    const priced = await apiRequest(
+        page.request,
+        'put',
+        `/api/v1/catalogue/price-lists/${menuList.id}/entries`,
+        {
+            ...scope,
+            headers: { ...scope.headers, 'If-Match': `"${menuList.lock_version}"` },
+            data: {
+                entries: [
+                    ...restated,
+                    {
+                        catalogue_item_id: mealId,
+                        catalogue_item_variant_id: null,
+                        min_quantity: null,
+                        unit_amount_minor: 4200,
+                        price_status: 'confirmed',
+                    },
+                ],
+            },
+        },
+    );
+    expect(priced.status(), await priced.text()).toBe(200);
 }
 
 async function openPriceLists(page: Page) {
@@ -630,7 +809,7 @@ test.describe('kitchen workspace (en)', () => {
         );
     });
 
-    test('creates a draft ingredient rather than publishing one on sight', async ({ page }) => {
+    test('creates an ingredient the kitchen can use the moment it is typed', async ({ page }) => {
         await openIngredients(page);
 
         await page.getByTestId('kitchen-ingredients-toolbar-create').click();
@@ -643,14 +822,19 @@ test.describe('kitchen workspace (en)', () => {
         await page.locator('[data-testid^="kitchen-ingredient-category-option-"]').first().click();
 
         await page.getByTestId('kitchen-ingredient-editor-screen-save').click();
-        await expectToast(page, 'kitchen-ingredient-created-toast', 'draft');
+        await expectToast(page, 'kitchen-ingredient-created-toast', 'right away');
 
         // The create landed on the record's own address, with the mapping section now available.
         await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
+        // An ingredient is an operational record, not a publishable one (D-042): the API's family
+        // is active/inactive/archived, there is no publish route and no way out of `inactive`, so a
+        // create lands `active` — which this workspace's shared status vocabulary draws as
+        // "Published". Asserting "Draft" here was asserting the deleted mock's create; the meal and
+        // plan draft-on-create tests below are correct, because those endpoints do create drafts.
         await expect(page.getByTestId('kitchen-ingredient-editor-screen-status')).toContainText(
-            'Draft',
+            'Published',
         );
     });
 
@@ -866,6 +1050,12 @@ test.describe('kitchen workspace (en)', () => {
         // A draft carries no "on the public menu" notice, because it is not on it.
         await expect(page.getByTestId('kitchen-meal-published')).toHaveCount(0);
 
+        // Sale facts first, basis second: the channel write bumps the item's lock version, and
+        // `declareIngredientBasis` ends by reloading the editor onto the final version — the one
+        // the publish press below must carry.
+        await putMealOnPublicSale(page);
+        await declareIngredientBasis(page);
+
         await page.getByTestId('kitchen-meal-publish').click();
         await expect(page.getByTestId('kitchen-meal-publish-dialog')).toBeVisible();
         // The dialog states the consequence and the label before it asks.
@@ -921,6 +1111,8 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
+
+        await declareIngredientBasis(page);
 
         await page.getByTestId('kitchen-meal-publish').click();
         await page.getByTestId('kitchen-meal-publish-confirm').click();

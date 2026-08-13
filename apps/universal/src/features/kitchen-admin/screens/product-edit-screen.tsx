@@ -148,10 +148,18 @@ function channelsFrom(product: ProductAdmin): readonly ChannelDraft[] {
     }));
 }
 
-/** The editor's packs as the contract's payload. Called only once the row errors are empty. */
+/**
+ * The editor's packs as the contract's payload. Called only once the row errors are empty.
+ *
+ * Trimmed and not upper-cased. A pack code is the identity a price list points at and the key the
+ * server matches a submitted pack to its stored row by; a save that upper-cases it is a save that
+ * renames every pack whose code was not already shouted — archiving the row a price quoted and
+ * inserting a new one beside it. Duplicate detection is still case-insensitive (see
+ * {@link packErrors}), because two codes that differ only in case are the same reference to a human.
+ */
 function packRequest(rows: readonly PackDraft[]): readonly ProductPackVariant[] {
     return rows.map((row) => ({
-        code: row.code.trim().toUpperCase(),
+        code: row.code.trim(),
         label: row.label,
         netQuantity: parseQuantity(row.netQuantity) ?? 0,
         netUnit: row.netUnit,

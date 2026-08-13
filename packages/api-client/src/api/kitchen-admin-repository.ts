@@ -494,7 +494,17 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const lookup = await loadSalesChannelLookup();
             const show = await fetchCatalogueItemShow(String(mealId));
 
-            const allergenWire = await transport.request<DerivedAllergen[]>({
+            /*
+             * `data` is `{ allergens: [...] }` here, not the bare list the ingredient twin
+             * answers with: this endpoint states the *basis* of the derivation in `meta`, so
+             * its rows live under a key (`ShowCatalogueItemAllergensResponses`). Reading the
+             * envelope as an array made every meal read throw `allergens.map is not a
+             * function` — including the one `createMeal` returns through, which is how a save
+             * that the server had already accepted looked like a save nobody pressed.
+             */
+            const allergenWire = await transport.request<{
+                readonly allergens: readonly DerivedAllergen[];
+            }>({
                 method: 'GET',
                 path: `/catalogue/items/${encodeURIComponent(String(mealId))}/allergens`,
             });
@@ -511,7 +521,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     dietClassifications: show.diet_classifications.filter(
                         (code): code is DietClassification => isDietClassification(code),
                     ),
-                    allergens: mapDerivedAllergenCodes(allergenWire),
+                    allergens: mapDerivedAllergenCodes(allergenWire.allergens),
                 },
             );
         },

@@ -1939,25 +1939,39 @@ export interface ServiceAreaGazetteer {
 }
 
 /**
- * The delivery-area gazetteer a zone selects from.
+ * The delivery-area gazetteer a zone selects from, in one country.
  *
- * **Read whole, filtered on the client.** Two reasons, and neither is laziness. First, the picker
- * this feeds is a search box over a few hundred stable rows: filtering locally makes it instant and
- * needs no debounce, no request per keystroke and no "searching…" state. Second, `ServiceAreaFilter`
- * publishes `query` and `countryCode` and the search a person actually performs is over *both*
- * languages and the parent's name — which is `areaMatches` in the feature, not a server parameter.
+ * **Scoped to the organisation's own country, on the server.** The gazetteer is a *platform* table
+ * spanning every market the platform has opened — the committed one is Lebanese, and a demo tenant
+ * adds Emirati rows (data register §5) — while `setZoneAreas` refuses any area outside the country
+ * the zone's organisation operates in (`area_country_mismatch`). An unscoped read therefore offers
+ * a manager hundreds of places their own zone can never cover, and the refusal arrives on save
+ * rather than in the picker. `countryCode` is the one filter this endpoint applies itself, so it is
+ * the one that is sent.
  *
- * One cache entry for the whole workspace: the zone editor is the only reader today, and a second
- * one would share it rather than re-page.
+ * **The rest is filtered on the client.** The picker is a search box over a few hundred stable
+ * rows: filtering locally makes it instant and needs no debounce, no request per keystroke and no
+ * "searching…" state — and the search a person actually performs is over *both* languages and the
+ * parent's name, which is `areaMatches` in the feature, not a server parameter.
+ *
+ * `null` disables the read rather than widening it: a picker that cannot name its country must show
+ * nothing, never everything.
  */
-export function useServiceAreasQuery(enabled = true): UseQueryResult<ServiceAreaGazetteer> {
+export function useServiceAreasQuery(
+    countryCode: string | null,
+    enabled = true,
+): UseQueryResult<ServiceAreaGazetteer> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenAdmin.serviceAreas({ pageSize: SERVICE_AREA_PAGE_SIZE }),
-        enabled: enabled && repositories !== null,
+        queryKey: queryKeys.kitchenAdmin.serviceAreas({
+            pageSize: SERVICE_AREA_PAGE_SIZE,
+            countryCode,
+        }),
+        enabled: enabled && repositories !== null && countryCode !== null,
         queryFn: async (): Promise<ServiceAreaGazetteer> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
+            if (countryCode === null) throw new Error('No country to read the gazetteer for.');
 
             const areas: ServiceArea[] = [];
             let cursor: string | undefined;
@@ -1968,6 +1982,7 @@ export function useServiceAreasQuery(enabled = true): UseQueryResult<ServiceArea
                 const answered: CursorPage<ServiceArea> =
                     await repositories.kitchenAdmin.listServiceAreas({
                         limit: SERVICE_AREA_PAGE_SIZE,
+                        countryCode,
                         ...(cursor === undefined ? {} : { cursor }),
                     });
                 areas.push(...answered.items);

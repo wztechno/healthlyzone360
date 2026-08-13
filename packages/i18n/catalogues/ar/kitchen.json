@@ -746,7 +746,7 @@
         "sectionAliases": "أسماء أخرى",
         "sectionAllergens": "ربط مسبّبات الحساسية",
         "sectionNotes": "ملاحظات",
-        "createdToast": "أُنشئ {{name}} كمسودة.",
+        "createdToast": "أُنشئ {{name}}، ويمكن استخدامه فورًا.",
         "savedToast": "حُفظت التغييرات.",
         "saveError": "تعذّر حفظ هذه التغييرات.",
         "nameRequired": "الاسم بالإنجليزية مطلوب قبل الحفظ.",

@@ -611,7 +611,9 @@ describe('creating and editing a product', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-category-trigger'));
         });
-        await untilVisible('kitchen-product-category-list');
+        // The dialog opens at once; its options land when the library query resolves. Waiting on
+        // the list alone races the 25ms stub latency under a loaded worker pool.
+        await untilVisible('kitchen-product-category-option-store-cupboard');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-category-option-store-cupboard'));
         });
@@ -760,6 +762,66 @@ describe('creating and editing a product', () => {
         // rather than staying the unsaved one it was typed into.
         await untilVisible('kitchen-product-pack-editor-row-seed-2-CASE24');
         expect(screen.queryByTestId('kitchen-product-editor-screen-dirty')).toBeNull();
+    });
+
+    /**
+     * A pack code is the identity a price list points at, and the code is what the server matches a
+     * submitted pack to its stored row by. The editor used to upper-case every code on the way out,
+     * which on a catalogue whose codes are `1-kg` renamed all of them: the stored row counted as
+     * absent from the submission and was archived, a new `1-KG` was inserted beside it, and every
+     * price that quoted the old one was left pointing at a withdrawn pack.
+     */
+    it('submits each pack under the code it is stored with, case and all', async () => {
+        const stored = product({
+            ordinal: 1,
+            name: 'Marinated chicken breast',
+            overrides: {
+                packVariants: [packVariant('1-kg', { label: { en: '1 Kg', ar: '1 Kg' } })],
+            },
+        });
+
+        const { repositories } = await renderStubScreen(
+            <ProductEditScreen product={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        getProduct: async () => stored,
+                        listProducts: productListing(() => [stored]),
+                        listRecipes: async () => page(NO_RECIPES),
+                        updateProduct: async () => stored,
+                    },
+                },
+            },
+        );
+        await untilVisible('kitchen-product-packs-add');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
+        });
+        const added = 'kitchen-product-pack-editor-row-pack-1';
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-code-input`), 'case-24');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-quantity-input`), '6000');
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateProduct).toHaveBeenCalledWith(
+                stored.id,
+                expect.objectContaining({
+                    packVariants: [
+                        expect.objectContaining({ code: '1-kg' }),
+                        expect.objectContaining({ code: 'case-24' }),
+                    ],
+                }),
+            );
+        });
     });
 
     it('persists a channel toggle through its own contract method', async () => {
@@ -1186,6 +1248,132 @@ describe('editing a meal', () => {
  * Publication
  * ---------------------------------------------------------------------------------------------- */
 
+describe('creating a meal', () => {
+    /**
+     * The create request, as the form holds it.
+     *
+     * Asserted on the *request* rather than on the record that comes back, because the record is
+     * the server's answer and this is the only place the screen's own reading of the form is
+     * visible. A bought-in meal — no recipe — is a legitimate draft: the picker's "not built from a
+     * recipe" answer is an answer, and `recipeId` is therefore absent from the request rather than
+     * sent as a null the contract does not describe.
+     */
+    it('sends the form it holds, and lands on the record the server answered with', async () => {
+        let created: MealAdmin | null = null;
+
+        const { repositories } = await renderStubScreen(<MealEditScreen meal="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: async () => page(NO_RECIPES),
+                    createMeal: async (request) => {
+                        created = meal({
+                            ordinal: 9,
+                            overrides: {
+                                name: request.name,
+                                description: request.description,
+                                meta: meta({ status: 'draft', lockVersion: 0 }),
+                                // Empty because the API stores no meal type for anybody: see the
+                                // note on `publishBlockers` in `meal-edit-screen.tsx`.
+                                mealTypes: [],
+                                allergens: [],
+                            },
+                        });
+                        return created;
+                    },
+                },
+            },
+        });
+        await untilVisible('kitchen-meal-name-en-input');
+
+        // Nothing that needs an identifier is offered yet, and that is the create form's promise.
+        expect(screen.getByTestId('kitchen-meal-availability-unavailable')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-meal-publish')).toBeNull();
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-meal-name-en-input'),
+                'Charred aubergine bowl',
+            );
+        });
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-meal-name-ar-input'),
+                'وعاء الباذنجان المشوي',
+            );
+        });
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-meal-description-en-input'),
+                'Smoked, with tahini.',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-type-lunch'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-editor-screen-save'));
+        });
+
+        await untilVisible('kitchen-meal-created-toast');
+
+        expect(repositories.kitchenAdmin.createMeal).toHaveBeenCalledTimes(1);
+        expect(repositories.kitchenAdmin.createMeal).toHaveBeenCalledWith({
+            name: { en: 'Charred aubergine bowl', ar: 'وعاء الباذنجان المشوي' },
+            description: { en: 'Smoked, with tahini.', ar: '' },
+            portionFactor: 1,
+            mealTypes: ['lunch'],
+            dietClassifications: [],
+        });
+        // Created as a draft, and moved onto its own address — the editor cannot go on calling
+        // itself "New meal" over a record that exists.
+        expect(repositories.kitchenAdmin.publishMeal).not.toHaveBeenCalled();
+        expect(routerMock.__replace).toHaveBeenCalledWith(
+            `/kitchen/meals/${String(mealIdentifier(9))}`,
+        );
+    });
+
+    /**
+     * The silent stall this suite exists to prevent.
+     *
+     * A create can fail for a reason the failure union does not carry — a mapper reading an
+     * envelope the wrong way, a bug in an invalidation effect — and until `toFailure` learned to
+     * project the uninterpretable onto `server`, such a rejection rendered *nothing*: no toast, no
+     * alert, the heading still reading "Unsaved changes". Against the live API that is exactly what
+     * a `TypeError` inside the meal read did to a save the server had already accepted.
+     */
+    it('says a create failed even when the failure is not one the contract describes', async () => {
+        const { repositories } = await renderStubScreen(<MealEditScreen meal="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: async () => page(NO_RECIPES),
+                    createMeal: () => {
+                        throw new TypeError('allergens.map is not a function');
+                    },
+                },
+            },
+        });
+        await untilVisible('kitchen-meal-name-en-input');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-meal-name-en-input'), 'Plain rice');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.createMeal).toHaveBeenCalledTimes(1);
+        });
+
+        await untilVisible('kitchen-meal-save-error');
+        // …and nothing claims the write landed.
+        expect(screen.queryByTestId('kitchen-meal-created-toast')).toBeNull();
+        expect(routerMock.__replace).not.toHaveBeenCalled();
+    });
+});
+
 describe('publishing a meal', () => {
     it('claims public visibility only once the server has answered published', async () => {
         let stored = meal({ ordinal: 3, name: 'Charred aubergine bowl' });
@@ -1251,6 +1439,61 @@ describe('publishing a meal', () => {
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith(`/meals/${String(stored.id)}`);
         });
+    });
+
+    /**
+     * The gate lists what a person can fix, and nothing they cannot.
+     *
+     * `MealAdmin.mealTypes` is empty for every meal this API can answer with — no column on
+     * `catalogue_items` records whether a dish is a breakfast or a dinner, and the marketplace names
+     * `meal_types` among the filters it accepts and cannot honour. A blocker on it was therefore a
+     * reason nobody could clear, and it left the confirm button of every publish dialog in the
+     * workspace permanently disabled.
+     */
+    it('does not withhold publication over a meal type this contract cannot store', async () => {
+        let stored = meal({ ordinal: 7, name: 'Bought-in bowl', overrides: { mealTypes: [] } });
+
+        const { repositories } = await renderStubScreen(
+            <MealEditScreen meal={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        getMeal: async () => stored,
+                        listRecipes: async () => page(NO_RECIPES),
+                        publishMeal: async (_id, request) => {
+                            stored = {
+                                ...stored,
+                                meta: meta({
+                                    status: 'published',
+                                    lockVersion: request.lockVersion + 1,
+                                }),
+                            };
+                            return stored;
+                        },
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-meal-publish');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-publish'));
+        });
+        await untilVisible('kitchen-meal-publish-dialog');
+
+        expect(screen.queryByTestId('kitchen-meal-publish-blocked')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-publish-confirm'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.publishMeal).toHaveBeenCalledWith(stored.id, {
+                lockVersion: 1,
+            });
+        });
+        await untilVisible('kitchen-meal-published');
     });
 
     it('gives a new meal no allergen label it did not earn', async () => {

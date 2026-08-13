@@ -609,7 +609,9 @@ describe('the ingredient editor', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
         });
-        await untilVisible('kitchen-ingredient-category-list');
+        // The dialog opens at once; its options land when the library query resolves. Waiting on
+        // the list alone raced the 25ms stub latency and lost under a loaded worker pool.
+        await untilVisible('kitchen-ingredient-category-option-store-cupboard');
         await act(async () => {
             fireEvent.press(
                 screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'),

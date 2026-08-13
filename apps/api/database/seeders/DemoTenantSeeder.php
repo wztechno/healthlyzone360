@@ -149,12 +149,20 @@ class DemoTenantSeeder extends Seeder
         // without touching this file.
         $this->addRole($verdant, $verdantOwner, 'kitchen_manager', $verdantOwner);
 
-        // Two routes to market (K1.4), so channel availability is testable
+        // Three routes to market (K1.4), so channel availability is testable
         // against something a kitchen would actually have: a consumer web
-        // shop and a wholesale desk. Both are structure, not content — no
-        // item, no price and no formulation is seeded anywhere.
+        // shop, a wholesale desk and a counter. All three are structure, not
+        // content — no item, no price and no formulation is seeded anywhere.
+        //
+        // The counter is the third because *switching a product onto* a channel
+        // is only demonstrable against a channel the product is not already on,
+        // and the product catalogue seeder puts every product on the two that
+        // sell it. A kitchen with a till is the most ordinary thing there is —
+        // `olive-terrace-counter` in MarketplaceKitchensSeeder runs one — and a
+        // `pos` channel lists nothing publicly, so nothing consumer-facing moves.
         $webShop = $this->salesChannel($verdant, 'web-shop', 'b2c_web', 'Web shop', 'المتجر الإلكتروني', 'web', $verdantOwner);
         $this->salesChannel($verdant, 'wholesale', 'b2b', 'Wholesale', 'البيع بالجملة', null, $verdantOwner);
+        $this->salesChannel($verdant, 'counter', 'pos', 'Counter', 'الكاشير', 'pos', $verdantOwner);
 
         // These sections both write RLS-scoped rows (price list items, meal
         // publications) and read them straight back through the readiness

@@ -280,6 +280,14 @@ function MealEditor({ meal }: MealEditScreenProps) {
      * while a quarantine is a fact about the record that publication is refused from structurally.
      * Unsaved changes are a blocker because publishing publishes what the server holds, not what is
      * on screen — the same rule the recipe editor states.
+     *
+     * **Meal types are not one of them**, and that is a statement about the contract rather than a
+     * relaxation. Nothing on `catalogue_items` records whether a dish is a breakfast or a dinner —
+     * the marketplace names `meal_types` among the filters it accepts and cannot honour, and the
+     * admin item shape has no field for it — so `MealAdmin.mealTypes` is empty for every meal this
+     * API can answer with. Blocking on it disabled the confirm button of every publish dialog in the
+     * workspace behind a reason nobody could clear. The gates that are real live on the server
+     * (`CatalogueItemReadiness`), and its refusal is rendered below.
      */
     const publishBlockers = useMemo(() => {
         if (data === undefined) return [];
@@ -288,7 +296,6 @@ function MealEditor({ meal }: MealEditScreenProps) {
         if (isTranslationIncomplete(data.description)) {
             reasons.push(t('kitchen:meals.blockDescription'));
         }
-        if (data.mealTypes.length === 0) reasons.push(t('kitchen:meals.blockMealTypes'));
         if (detailsDirty || daysDirty) reasons.push(t('kitchen:meals.blockUnsaved'));
         return reasons;
     }, [data, detailsDirty, daysDirty, t]);

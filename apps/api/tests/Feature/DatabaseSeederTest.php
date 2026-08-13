@@ -499,14 +499,20 @@ it('keeps price visibility away from the chef and the kitchen staff entirely', f
     }
 });
 
-it('gives the demonstration kitchen its two routes to market', function (): void {
+/**
+ * The counter is the third, and it earns its place: *switching a product onto* a channel is only
+ * demonstrable against one the product is not already on, and VerdantProductCatalogueSeeder puts
+ * every product on the two that sell it. `pos` is not a listing kind, so nothing consumer-facing
+ * moves — the marketplace directory and menus read `b2c_web` and `marketplace` only.
+ */
+it('gives the demonstration kitchen its three routes to market', function (): void {
     $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
 
     $channels = SalesChannel::withoutTenancy()->where('organisation_id', $verdant->getKey())->orderBy('code')->get();
 
-    expect($channels->pluck('code')->all())->toBe(['web-shop', 'wholesale'])
+    expect($channels->pluck('code')->all())->toBe(['counter', 'web-shop', 'wholesale'])
         ->and($channels->pluck('channel_kind')->map(static fn ($kind): string => $kind->value)->all())
-        ->toBe(['b2c_web', 'b2b']);
+        ->toBe(['pos', 'b2c_web', 'b2b']);
 });
 
 it('gives the demonstration kitchen a draft tariff in its own currency', function (): void {

@@ -8,6 +8,7 @@ import type {
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
     ServiceArea,
+    ServiceAreaFilter,
     SetDeliveryWindowsRequest,
 } from '@healthy360/api-client/contracts';
 import {
@@ -185,6 +186,19 @@ const GAZETTEER: readonly ServiceArea[] = [
     serviceArea(4, { parentName: { en: 'Sharjah', ar: 'الشارقة' }, isActive: false }),
 ];
 
+/**
+ * A row from another market, which the platform gazetteer really does carry.
+ *
+ * `delivery_areas` has no `organisation_id` — the committed rows are Lebanese and a demo tenant's
+ * are Emirati — while `setZoneAreas` refuses an area outside the organisation's own country. So an
+ * unscoped read is not a harmless extra option: it is a checkbox whose save cannot succeed.
+ */
+const FOREIGN_AREA: ServiceArea = serviceArea(9, {
+    name: { en: 'Achrafieh', ar: 'الأشرفية' },
+    countryCode: 'LB',
+    parentName: { en: 'Beirut', ar: 'بيروت' },
+});
+
 function deliveryWindow(ordinal: number, overrides: Partial<DeliveryWindow> = {}): DeliveryWindow {
     return {
         id: DeliveryWindowId.unsafe(
@@ -293,6 +307,22 @@ function zoneListing(
 }
 
 /**
+ * The gazetteer read, honouring the one filter the endpoint applies itself.
+ *
+ * `country_code` is a real server filter, so the stub applies it rather than answering every row to
+ * every caller — a picker that reads unscoped would otherwise pass here and offer a manager places
+ * their zone can never cover.
+ */
+function gazetteerListing(
+    read: () => readonly ServiceArea[] = () => GAZETTEER,
+): (filter?: ServiceAreaFilter) => Promise<CursorPage<ServiceArea>> {
+    return async (filter) => {
+        const country = filter?.countryCode;
+        return page(read().filter((area) => country === undefined || area.countryCode === country));
+    };
+}
+
+/**
  * Everything the zone editor reads before it can render anything.
  *
  * All four fire on every render of the editor, including the create form and the not-found state —
@@ -307,7 +337,7 @@ function zoneEditorReads(
         getZone: async () => read(),
         listZones: zoneListing(zones),
         listPriceLists: async () => page([]),
-        listServiceAreas: async () => page(GAZETTEER),
+        listServiceAreas: gazetteerListing(),
     };
 }
 
@@ -316,7 +346,7 @@ function zonelessEditorReads() {
     return {
         listZones: zoneListing(() => [SEEDED_ZONE]),
         listPriceLists: async () => page([]),
-        listServiceAreas: async () => page(GAZETTEER),
+        listServiceAreas: gazetteerListing(),
     };
 }
 
@@ -953,6 +983,45 @@ describe('the delivery-zone editor', () => {
         await waitFor(() => {
             expect(stored.areas.map((area) => String(area.id))).not.toContain(String(target.id));
         });
+    });
+
+    /**
+     * The picker asks for one country: the one its own organisation operates in.
+     *
+     * `setZoneAreas` refuses an area from anywhere else (`area_country_mismatch`), and the gazetteer
+     * is a platform table spanning every market the platform has opened — so a picker that read it
+     * whole would offer checkboxes whose save is refused, which is what a real API run found. The
+     * country comes off the session's membership, and the assertion is on both halves: the request
+     * carries it, and the foreign row never becomes an option.
+     */
+    it('offers the gazetteer of its own organisation’s country and no other', async () => {
+        const listServiceAreas = jest.fn(gazetteerListing(() => [...GAZETTEER, FOREIGN_AREA]));
+
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...zoneEditorReads(() => SEEDED_ZONE),
+                    listServiceAreas,
+                },
+            },
+        });
+        await untilVisible('kitchen-zone-area-picker-search');
+
+        expect(listServiceAreas).toHaveBeenCalledWith(
+            expect.objectContaining({ countryCode: 'AE' }),
+        );
+
+        const local = GAZETTEER[2];
+        if (local === undefined) throw new Error('The authored gazetteer is empty.');
+        expect(
+            screen.queryByTestId(`kitchen-zone-area-picker-option-${String(local.id)}-control`),
+        ).toBeTruthy();
+        expect(
+            screen.queryByTestId(
+                `kitchen-zone-area-picker-option-${String(FOREIGN_AREA.id)}-control`,
+            ),
+        ).toBeNull();
     });
 
     it('toggles a window weekday and saves the set, minting an identifier for a new row', async () => {

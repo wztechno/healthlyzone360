@@ -38,6 +38,7 @@ import {
     useUpdateZoneMutation,
     zonesFromPages,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { BilingualField } from '../bilingual-field.tsx';
 import {
     emptyWindow,
@@ -147,12 +148,36 @@ export function DeliveryZoneEditScreen({ zone }: DeliveryZoneEditScreenProps) {
     );
 }
 
+/**
+ * The country the organisation in context operates in, from the session rather than a request.
+ *
+ * The area picker must offer that country's gazetteer and no other: the platform table spans every
+ * market — the committed rows are Lebanese, the demo tenant's Emirati — and `setZoneAreas` refuses
+ * an area outside the organisation's own country. `me()` already carries the organisation on every
+ * membership, so naming the country costs nothing, exactly as the branch editor names its branch.
+ *
+ * `null` when no membership answers the context, which the surrounding organisation gate makes
+ * unreachable here; the picker then reads nothing rather than reading every country.
+ */
+function useOrganisationCountry(): string | null {
+    const access = useAccessState();
+    const { me } = useSession();
+    const membershipId = access.organisation?.membershipId;
+
+    return useMemo(() => {
+        if (membershipId === undefined) return null;
+        const membership = me?.memberships.find((candidate) => candidate.id === membershipId);
+        return membership?.organisation.countryCode ?? null;
+    }, [me, membershipId]);
+}
+
 function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const organisationCountry = useOrganisationCountry();
 
     const isCreating = zone === undefined || zone === 'new';
     const parsed = isCreating ? null : DeliveryZoneId.safeParse(zone);
@@ -160,7 +185,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const record = useAdminZoneQuery(parsed);
     const allZones = useAdminZonesQuery({ limit: 100 });
     const priceLists = usePriceListsQuery({ limit: 100 });
-    const gazetteer = useServiceAreasQuery();
+    const gazetteer = useServiceAreasQuery(organisationCountry);
 
     const create = useCreateZoneMutation();
     const update = useUpdateZoneMutation();

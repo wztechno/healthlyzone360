@@ -62,6 +62,7 @@ import type {
     MealCombinationOption,
     PlanDurationOption,
     PlanVariantCell,
+    ProcurementReference,
 } from '../generated/types.ts';
 import {
     buildCategoryLookup,
@@ -160,23 +161,37 @@ function sittingsForMealsPerDay(mealsPerDay: number): {
     return { includes_breakfast: false, includes_lunch: true, includes_dinner: false };
 }
 
+/**
+ * The platform's measurement units, by code.
+ *
+ * `/catalogue/procurement/reference` is the only endpoint that publishes the
+ * vocabulary itself — every other surface hands out the identifier of a unit
+ * something already uses. It used to be read off `/catalogue/ingredients`,
+ * which meant a unit no ingredient had been keyed in with was unresolvable:
+ * the demo kitchen's ingredients are all in grams, so a pack quoted in
+ * kilograms had no identifier to send and the write was refused. Every role
+ * that holds `catalogue.manage_organisation` holds `inventory.view_organisation`
+ * too, so the read is available wherever a catalogue write is.
+ */
 class MeasurementUnitLookup {
     readonly #codeToId = new Map<string, string>();
+
+    #loaded = false;
 
     async resolve(transport: Transport, unit: MeasureUnit): Promise<string | null> {
         const cached = this.#codeToId.get(unit);
         if (cached !== undefined) return cached;
+        if (this.#loaded) return null;
 
-        const envelope = await transport.requestEnvelope<AdminIngredient[]>({
+        const envelope = await transport.requestEnvelope<ProcurementReference>({
             method: 'GET',
-            path: '/catalogue/ingredients?limit=100',
+            path: '/catalogue/procurement/reference',
         });
 
-        for (const row of envelope.data) {
-            if (row.default_unit_code !== null && row.default_unit_code !== undefined) {
-                this.#codeToId.set(row.default_unit_code, row.default_unit_id);
-            }
+        for (const row of envelope.data.measurement_units) {
+            this.#codeToId.set(row.code, row.id);
         }
+        this.#loaded = true;
 
         return this.#codeToId.get(unit) ?? null;
     }
@@ -213,10 +228,23 @@ function wireIngredientAllergens(mappings: readonly IngredientAllergenMapping[])
     });
 }
 
+/**
+ * Which of the organisation's channel rows one contract channel names, or
+ * `null` when it names none.
+ *
+ * A `SalesChannel` is the frontend contract's flattening of two server
+ * concepts: `channel_kind` is a closed platform vocabulary, while a *channel*
+ * is a row an organisation owns. An organisation that has never opened a
+ * counter has no `pos` row, and there is nothing for "sold over the counter"
+ * to point at. This used to fall back to `channels[0]`, which did not fail —
+ * it wrote the decision against a different channel entirely, and, when that
+ * channel was already in the submitted set, made the same pair appear twice
+ * and took the whole replacement down with it (`channels.N` "stated twice").
+ */
 function salesChannelIdFor(
     channel: SetChannelAvailabilityRequest['availability'][number]['channel'],
     channels: readonly AdminSalesChannel[],
-): string {
+): string | null {
     const match = channels.find((row) => {
         switch (channel) {
             case 'b2c':
@@ -233,7 +261,7 @@ function salesChannelIdFor(
                 return row.code === channel;
         }
     });
-    return match?.id ?? channels[0]?.id ?? '';
+    return match?.id ?? null;
 }
 
 export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdminWrites {
@@ -333,54 +361,103 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         };
     }
 
+    /**
+     * The contract's packs as the variant set-replacement body.
+     *
+     * `pack_unit_id` is required — a pack quantity with no unit is not a size —
+     * and it is *not* derivable from `ProductPackVariant.netUnit` for a pack
+     * that already exists. `netUnit` is a `MeasureUnit`, the ten-value nutrition
+     * vocabulary, and the platform's `measurement_units` table is wider than it:
+     * the demo catalogue alone quotes packs in `gallon`, `bag`, `can` and
+     * `bunch`, none of which that union can name. So the unit a stored pack
+     * already carries is echoed back by code, and only a pack the submission
+     * *adds* has its `netUnit` resolved — which keeps a rename-free save from
+     * silently restating a kilogram pack in grams.
+     *
+     * @param existing the item's stored variants, keyed by code — empty when the
+     *   item is being created and there is nothing to preserve.
+     */
     async function wireProductVariants(
         packs: CreateProductRequest['packVariants'] | UpdateProductRequest['packVariants'],
+        existing: ReadonlyMap<string, AdminCatalogueItemVariant> = new Map(),
     ): Promise<
         Array<{
             readonly code: string;
             readonly name_en?: string;
             readonly name_ar?: string;
-            readonly pack?: { readonly pack_quantity: number; readonly pack_piece_count: number };
+            readonly pack?: {
+                readonly pack_quantity: number;
+                readonly pack_unit_id?: string;
+                readonly pack_piece_count: number;
+            };
         }>
     > {
         if (packs === undefined) return [];
 
-        return packs.map((pack) => ({
-            code: pack.code,
-            name_en: pack.label.en,
-            name_ar: pack.label.ar,
-            pack: {
-                pack_quantity: pack.netQuantity,
-                pack_piece_count: pack.unitsPerPack,
-            },
-        }));
+        const wired = [];
+
+        for (const pack of packs) {
+            const stored = existing.get(pack.code)?.pack?.pack_unit_id;
+            const unitId = stored ?? (await units.resolve(transport, pack.netUnit));
+
+            wired.push({
+                code: pack.code,
+                name_en: pack.label.en,
+                name_ar: pack.label.ar,
+                pack: {
+                    pack_quantity: pack.netQuantity,
+                    ...(unitId === null ? {} : { pack_unit_id: unitId }),
+                    pack_piece_count: pack.unitsPerPack,
+                },
+            });
+        }
+
+        return wired;
     }
 
+    /** The item's stored variants by code, for a submission that has to preserve them. */
+    async function storedVariantsByCode(
+        itemId: string,
+    ): Promise<ReadonlyMap<string, AdminCatalogueItemVariant>> {
+        const show = await fetchCatalogueItemShow(itemId);
+        return new Map(show.variants.map((variant) => [variant.code, variant]));
+    }
+
+    /**
+     * Each accepted write bumps the item's `lock_version`, so the version a
+     * later call in the same save has to send is the one the previous call
+     * answered with — not the one the editor opened on. Returning it is what
+     * lets a caller chain them without guessing.
+     */
     async function patchCatalogueItem(
         itemId: string,
         lockVersion: number,
         body: Record<string, unknown>,
-    ): Promise<void> {
-        await transport.request({
+    ): Promise<number> {
+        const data = await transport.request<{ readonly item: AdminCatalogueItem }>({
             method: 'PATCH',
             path: `/catalogue/items/${encodeURIComponent(itemId)}`,
             headers: ifMatch(lockVersion),
             body,
         });
+
+        return data.item.lock_version;
     }
 
     async function replaceItemVariants(
         itemId: string,
         lockVersion: number,
         variants: Awaited<ReturnType<typeof wireProductVariants>>,
-    ): Promise<void> {
-        if (variants.length === 0) return;
-        await transport.request({
+    ): Promise<number> {
+        if (variants.length === 0) return lockVersion;
+        const data = await transport.request<{ readonly item: AdminCatalogueItem }>({
             method: 'PUT',
             path: `/catalogue/items/${encodeURIComponent(itemId)}/variants`,
             headers: ifMatch(lockVersion),
             body: { variants },
         });
+
+        return data.item.lock_version;
     }
 
     async function replaceDietClassifications(
@@ -727,8 +804,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
 
             const variants = await wireProductVariants(request.packVariants);
             if (variants.length > 0) {
-                await replaceItemVariants(itemId, lockVersion, variants);
-                lockVersion += 1;
+                lockVersion = await replaceItemVariants(itemId, lockVersion, variants);
             }
 
             if (
@@ -764,21 +840,29 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.is_market_priced = request.isMarketPriced;
             if (request.isAssorted !== undefined) body.is_assorted = request.isAssorted;
 
+            // One editor save, up to three lock-versioned writes. Each accepted
+            // one bumps the item, so the second and third have to carry what the
+            // one before them answered with — sending the version the editor
+            // opened on made every save with both a renamed field and a pack
+            // list a lost race against itself.
+            let lockVersion = request.lockVersion;
+
             if (Object.keys(body).length > 0) {
-                await patchCatalogueItem(id, request.lockVersion, body);
+                lockVersion = await patchCatalogueItem(id, lockVersion, body);
             }
 
-            const variants = await wireProductVariants(request.packVariants);
+            const variants = await wireProductVariants(
+                request.packVariants,
+                request.packVariants === undefined
+                    ? new Map()
+                    : await storedVariantsByCode(id),
+            );
             if (variants.length > 0) {
-                await replaceItemVariants(id, request.lockVersion, variants);
+                lockVersion = await replaceItemVariants(id, lockVersion, variants);
             }
 
             if (request.dietClassifications !== undefined) {
-                await replaceDietClassifications(
-                    id,
-                    request.lockVersion,
-                    request.dietClassifications,
-                );
+                await replaceDietClassifications(id, lockVersion, request.dietClassifications);
             }
 
             return reads.getProduct(productId);
@@ -799,18 +883,29 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         ): Promise<ProductAdmin> {
             const channels = await loadSalesChannels();
 
+            // A row naming a channel this organisation does not run is left
+            // out rather than pointed at some other channel: the set is a
+            // replacement, and a guess would both mis-state the offering and
+            // collide with the row that channel legitimately holds.
+            const assignments = request.availability.flatMap((row) => {
+                const salesChannelId = salesChannelIdFor(row.channel, channels);
+                if (salesChannelId === null) return [];
+
+                return [
+                    {
+                        sales_channel_id: salesChannelId,
+                        is_available: row.isAvailable,
+                        available_from: row.availableFrom,
+                        available_to: row.availableUntil,
+                    },
+                ];
+            });
+
             await transport.request({
                 method: 'PUT',
                 path: `/catalogue/items/${encodeURIComponent(String(productId))}/channels`,
                 headers: ifMatch(request.lockVersion),
-                body: {
-                    channels: request.availability.map((row) => ({
-                        sales_channel_id: salesChannelIdFor(row.channel, channels),
-                        is_available: row.isAvailable,
-                        available_from: row.availableFrom,
-                        available_to: row.availableUntil,
-                    })),
-                },
+                body: { channels: assignments },
             });
 
             return reads.getProduct(productId);
