@@ -284,10 +284,11 @@ export default tseslint.config(
         },
     },
 
-    // Prompt 2 guard invariants (plan §5), orchestrator-owned.
+    // Guard invariants, orchestrator-owned.
     //
-    // 1. Screens never import fixtures: the mock world (including the prototype fixture world)
-    //    is reachable only through repositories. Tests and the app's own test harness are exempt.
+    // 1. No screen reaches into a `mock` folder: the fixture world was deleted (ADR-0013) and
+    //    this rule is what keeps a resurrected one — or a stray test double parked under `mock/`
+    //    — out of app code. Data flows through the repository hooks; tests use src/testing.
     // 2. No dead controls: an empty onPress body is a dead button by construction. Real handlers
     //    call a hook, a mutation or usePrototypeAction() — never nothing.
     {
@@ -305,13 +306,9 @@ export default tseslint.config(
                     patterns: [
                         ...restrictedImports.patterns,
                         {
-                            group: [
-                                '**/mock/**',
-                                '@healthy360/api-client/mock',
-                                '@healthy360/api-client/mock/**',
-                            ],
+                            group: ['**/mock/**'],
                             message:
-                                'Screens must not import fixtures or the mock world directly (plan §5). Go through the repository hooks; tests use src/testing helpers.',
+                                'App code must not import from a mock folder — the fixture world is deleted (ADR-0013). Go through the repository hooks; tests use src/testing helpers.',
                         },
                     ],
                 },

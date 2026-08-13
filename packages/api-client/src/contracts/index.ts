@@ -681,18 +681,14 @@ export type {
  */
 export interface Repositories {
     /**
-     * Which implementation the application was handed.
+     * The implementation discriminant.
      *
-     * Both implementations already carried this as their own discriminant; it is declared here so a
-     * screen can ask without narrowing to `ApiRepositories` or `MockRepositories` first. The one
-     * legitimate use is a surface that exists **only** in the fixture world and has to say so
-     * honestly in `api` mode — never a behaviour switch inside a surface both implementations
-     * cover, which would be the mock and the API quietly diverging.
-     *
-     * Gate on this rather than on a build flag: a test harness injects mock repositories while the
-     * build's configured data mode is already `api`, so the flag and the truth disagree.
+     * `'api'` is the only value since ADR-0013 deleted the mock implementation. The field survives
+     * the narrowing because the api bundle and the test stubs both carry it, and because a future
+     * second implementation (an offline cache, say — ADR-0012) would widen it again; nothing may
+     * branch on it today, which the closed union now proves at compile time.
      */
-    readonly kind: 'api' | 'mock';
+    readonly kind: 'api';
 
     readonly auth: AuthRepository;
     readonly session: SessionRepository;

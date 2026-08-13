@@ -44,7 +44,7 @@
         },
         "build:web": {
             "dependsOn": ["topo"],
-            "env": ["APP_MODE", "APP_ENV", "EXPO_PUBLIC_DATA_MODE"],
+            "env": ["APP_MODE", "APP_ENV"],
             "outputs": ["dist/**", ".expo/**"]
         },
         "dev": {

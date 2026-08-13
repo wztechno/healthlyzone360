@@ -78,13 +78,8 @@ export type {
     VirtualDietitianRepository,
 } from './contracts/index.ts';
 
-export {
-    MissingApiBaseUrlError,
-    MockDataInProductionError,
-    REPOSITORY_APP_ENVS,
-    createRepositories,
-} from './registry.ts';
-export type { KeyValueStorage, RepositoryAppEnv, RepositoryConfig } from './registry.ts';
+export { MissingApiBaseUrlError, REPOSITORY_APP_ENVS, createRepositories } from './registry.ts';
+export type { RepositoryAppEnv, RepositoryConfig } from './registry.ts';
 
 /**
  * The API base URL default, so the application can show what it will talk to. The repositories
@@ -92,19 +87,6 @@ export type { KeyValueStorage, RepositoryAppEnv, RepositoryConfig } from './regi
  */
 export { DEFAULT_API_BASE_URL } from './api/config.ts';
 export type { ClientPlatform } from './api/config.ts';
-
-/**
- * Scenario metadata is re-exported from the package root because the development banner and the
- * Playwright harness need the *names* without pulling the fixture world into the bundle. The
- * repositories themselves stay behind the dynamic import in `createRepositories`.
- */
-export {
-    DEFAULT_MOCK_SCENARIO,
-    MOCK_SCENARIOS,
-    MOCK_SCENARIO_NAMES,
-    isMockScenarioName,
-} from './mock/scenarios.ts';
-export type { MockScenario, MockScenarioName } from './mock/scenarios.ts';
 
 export { SORT_DIRECTIONS, emptyPage, pageCount } from './contracts/index.ts';
 export {

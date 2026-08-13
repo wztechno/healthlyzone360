@@ -62,10 +62,6 @@ export const LOCALE_DIRECTION: Readonly<Record<Locale, TextDirection>> = {
 export const SESSION_STATES = ['restoring', 'anonymous', 'authenticated'] as const;
 export type SessionState = (typeof SESSION_STATES)[number];
 
-/** Where the frontend reads its data from (plan §18). */
-export const DATA_MODES = ['mock', 'api'] as const;
-export type DataMode = (typeof DATA_MODES)[number];
-
 function memberOf<T extends readonly string[]>(values: T) {
     const set: ReadonlySet<string> = new Set<string>(values);
     return (value: unknown): value is T[number] => typeof value === 'string' && set.has(value);
@@ -77,7 +73,6 @@ export const isMembershipStatus = memberOf(MEMBERSHIP_STATUSES);
 export const isTextDirection = memberOf(TEXT_DIRECTIONS);
 export const isLocale = memberOf(LOCALES);
 export const isSessionState = memberOf(SESSION_STATES);
-export const isDataMode = memberOf(DATA_MODES);
 
 /** A membership only confers access while it is `active` (plan §10 step 2). */
 export function isUsableMembershipStatus(status: MembershipStatus): boolean {

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5221 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5214 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -44,8 +44,6 @@ export interface NamespaceKeys {
     | 'forbidden.signInAgain'
     | 'forbidden.switchOrganisation'
     | 'forbidden.title'
-    | 'mockMode.badge'
-    | 'mockMode.description'
     | 'notFound.body'
     | 'notFound.home'
     | 'notFound.title'
@@ -1726,11 +1724,6 @@ export interface NamespaceKeys {
     | 'action.signUp'
     | 'app.name'
     | 'app.tagline'
-    | 'dev.mockBadge'
-    | 'dev.mockDescription'
-    | 'dev.mockScenario'
-    | 'dev.switchScenario'
-    | 'dev.switchScenarioHint'
     | 'direction.ltr'
     | 'direction.rtl'
     | 'locale.arabic'
@@ -5295,8 +5288,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:forbidden.signInAgain',
   'access:forbidden.switchOrganisation',
   'access:forbidden.title',
-  'access:mockMode.badge',
-  'access:mockMode.description',
   'access:notFound.body',
   'access:notFound.home',
   'access:notFound.title',
@@ -6970,11 +6961,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.signUp',
   'common:app.name',
   'common:app.tagline',
-  'common:dev.mockBadge',
-  'common:dev.mockDescription',
-  'common:dev.mockScenario',
-  'common:dev.switchScenario',
-  'common:dev.switchScenarioHint',
   'common:direction.ltr',
   'common:direction.rtl',
   'common:locale.arabic',

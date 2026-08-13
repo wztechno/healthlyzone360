@@ -59,7 +59,8 @@ import { defineConfig, devices } from '@playwright/test';
  * `e2e/specs/visual-pages.ts`; the switch is `PLAYWRIGHT_VISUAL=1`, set by the repository's
  * `e2e:visual` script and by nothing else.
  */
-export const BASE_URL = process.env['E2E_BASE_URL'] ?? process.env['BASE_URL'] ?? 'http://localhost:4173';
+export const BASE_URL =
+    process.env['E2E_BASE_URL'] ?? process.env['BASE_URL'] ?? 'http://localhost:4173';
 
 /**
  * The one artefact. Required, not detected.

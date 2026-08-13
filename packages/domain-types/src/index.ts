@@ -54,7 +54,6 @@ export type { CodeCodecName, IdCodec, IdCodecName } from './ids.ts';
 
 export {
     APP_MODES,
-    DATA_MODES,
     LOCALE_DIRECTION,
     LOCALES,
     MEMBERSHIP_STATUSES,
@@ -65,7 +64,6 @@ export {
     TEXT_DIRECTIONS,
     directionForLocale,
     isAppMode,
-    isDataMode,
     isLocale,
     isMembershipStatus,
     isRouteArea,
@@ -75,7 +73,6 @@ export {
 } from './enums.ts';
 export type {
     AppMode,
-    DataMode,
     DevelopmentLocale,
     Locale,
     MembershipStatus,

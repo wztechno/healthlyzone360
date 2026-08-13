@@ -20,14 +20,10 @@
             "port": 4174
         },
         {
-            "name": "universal-web-mock",
+            "name": "universal-web-alt",
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8085"],
-            "port": 8085,
-            "env": {
-                "//": "Does not take effect on its own — apps/universal/.env pins EXPO_PUBLIC_DATA_MODE=api and expo loads it after the process environment. To reach a guarded workspace route in the browser, either edit that file or start apps/api. The e2e suite signs in properly and is the real gate.",
-                "EXPO_PUBLIC_DATA_MODE": "mock"
-            }
+            "port": 8085
         }
     ]
 }

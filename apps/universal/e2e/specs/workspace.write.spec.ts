@@ -156,9 +156,9 @@ test('signs in through the real two-factor challenge', async ({ page }) => {
      * Waiting only for the landmark meant the last two spent the whole 450-second test timeout
      * looking like a hang; naming them makes each one a sentence instead.
      */
-    await expect(landed.or(page.getByTestId('two-factor-screen')).or(anonymous).first()).toBeVisible(
-        { timeout: JOURNEY_TIMEOUT },
-    );
+    await expect(
+        landed.or(page.getByTestId('two-factor-screen')).or(anonymous).first(),
+    ).toBeVisible({ timeout: JOURNEY_TIMEOUT });
 
     if ((await page.getByTestId('two-factor-screen').count()) > 0) {
         // One fresh code, once — a loop here would be a way of never noticing a broken enrolment.

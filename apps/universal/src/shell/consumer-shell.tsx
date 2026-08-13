@@ -10,7 +10,6 @@ import { Text as RNText, View } from 'react-native';
 import { Gate } from '../access/gate.tsx';
 import { useCartQuery } from '../data/marketplace-hooks.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
-import { DevBanner } from '../dev/dev-banner.tsx';
 import { consumerNavigation } from '../navigation/consumer-items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 
@@ -84,7 +83,6 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
 
     const banner = (
         <View>
-            <DevBanner />
             <OfflineIndicator testID="offline-indicator" state={connectivity} />
         </View>
     );

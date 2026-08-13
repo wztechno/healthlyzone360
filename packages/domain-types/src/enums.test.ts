@@ -11,7 +11,6 @@ import {
     SESSION_STATES,
     directionForLocale,
     isAppMode,
-    isDataMode,
     isLocale,
     isMembershipStatus,
     isRouteArea,
@@ -88,12 +87,9 @@ describe('guards', () => {
         expect(guard(0)).toBe(false);
     });
 
-    it('isTextDirection and isDataMode behave the same way', () => {
+    it('isTextDirection behaves the same way', () => {
         expect(isTextDirection('rtl')).toBe(true);
         expect(isTextDirection('sideways')).toBe(false);
-        expect(isDataMode('mock')).toBe(true);
-        expect(isDataMode('api')).toBe(true);
-        expect(isDataMode('fixture')).toBe(false);
     });
 });
 

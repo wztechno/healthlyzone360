@@ -16,7 +16,6 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Platform, Pressable, Text as RNText, View } from 'react-native';
 
-import { DevBanner } from '../dev/dev-banner.tsx';
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { useCartQuery } from '../data/marketplace-hooks.ts';
@@ -152,7 +151,6 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const banner = (
         <View>
             <SkipToContent />
-            <DevBanner />
             <OfflineIndicator testID="offline-indicator" state={connectivity} />
         </View>
     );

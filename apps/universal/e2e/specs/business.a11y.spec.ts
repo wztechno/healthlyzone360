@@ -111,5 +111,4 @@ test.describe('B2B accessibility (axe)', () => {
         await expect(page.getByTestId('quotations-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'quotations');
     });
-
 });

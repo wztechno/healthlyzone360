@@ -18,9 +18,6 @@ type AppMode = (typeof APP_MODES)[number];
 const APP_ENVS = ['development', 'preview', 'production'] as const;
 type AppEnv = (typeof APP_ENVS)[number];
 
-const DATA_MODES = ['mock', 'api'] as const;
-type DataMode = (typeof DATA_MODES)[number];
-
 interface ModeIdentity {
     readonly name: string;
     readonly slug: string;
@@ -77,25 +74,12 @@ function readEnum<T extends string>(name: string, allowed: readonly T[], fallbac
 
 const appMode = readEnum<AppMode>('APP_MODE', APP_MODES, 'all-dev');
 const appEnv = readEnum<AppEnv>('APP_ENV', APP_ENVS, 'development');
-const dataMode = readEnum<DataMode>('EXPO_PUBLIC_DATA_MODE', DATA_MODES, 'api');
 
 const identity = MODE_IDENTITIES[appMode];
 
-// ── mock-cannot-ship gate #1 ────────────────────────────────────────────────────────────────────
-// Fails the *configuration* step, so no production artefact can even be produced with mock data.
-// The second gate is a runtime assertion inside the repository factory (Phase 5b).
-if (appEnv === 'production' && dataMode !== 'api') {
-    throw new Error(
-        [
-            'Refusing to configure a production build with mock data.',
-            `  APP_ENV=${appEnv}`,
-            `  EXPO_PUBLIC_DATA_MODE=${dataMode}`,
-            'Production builds must read from the Healthy360 API. Set EXPO_PUBLIC_DATA_MODE=api',
-            'or build a non-production APP_ENV. (plan §18; docs/architecture/05-universal-frontend.md §6)',
-        ].join('\n'),
-    );
-}
-
+// There is no data-mode switch any more (ADR-0013): every build reads from the Healthy360 API,
+// and the surviving production guard — a required EXPO_PUBLIC_API_URL — lives in the repository
+// factory (`MissingApiBaseUrlError`), where a patched bundle cannot route around it.
 if (appEnv === 'production' && !identity.productionReady) {
     throw new Error(
         [
@@ -147,7 +131,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     extra: {
         appMode,
         appEnv,
-        dataMode,
         productionReady: identity.productionReady,
     },
 });

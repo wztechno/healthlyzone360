@@ -9,7 +9,6 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate } from '../access/gate.tsx';
-import { DevBanner } from '../dev/dev-banner.tsx';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { isAreaAvailable } from '../features/availability.ts';
 import { permittedNavigation } from '../navigation/items.ts';
@@ -104,7 +103,6 @@ function GuardedAreaShell({
 
     const banner = (
         <View>
-            <DevBanner />
             <OfflineIndicator testID="offline-indicator" state={connectivity} />
         </View>
     );

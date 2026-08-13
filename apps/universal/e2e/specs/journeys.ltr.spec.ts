@@ -86,7 +86,9 @@ test.describe('authentication and context journey (en)', () => {
         await expect(page.getByTestId('profile-branch')).toHaveText('Hamra');
 
         // Permissions come from the server's calculated set, never from client-side role inference.
-        await expect(page.getByTestId('profile-permission-organisation.view_current')).toBeVisible();
+        await expect(
+            page.getByTestId('profile-permission-organisation.view_current'),
+        ).toBeVisible();
 
         // Both memberships are listed even though only one is the active context.
         await expect(page.getByTestId(`profile-membership-${CEDAR_SLUG}`)).toBeVisible();
