@@ -1,9 +1,9 @@
 /**
  * `@healthy360/api-client` — the boundary between screens and data (plan §18).
  *
- * Two implementations sit behind one set of contracts: the fixture world in `./mock` and the real
- * transport in `./api`, the latter typed by the OpenAPI document through `./generated`. Nothing
- * above this package can tell them apart, which is the entire purpose of the split.
+ * One implementation sits behind the contracts: the real transport in `./api`, typed by the
+ * OpenAPI document through `./generated` (ADR-0013 — the fixture world is gone). Screens depend
+ * on the contracts alone; tests substitute stub repositories at the same seam.
  */
 export {
     API_FAILURE_CODES,

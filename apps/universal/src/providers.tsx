@@ -39,7 +39,8 @@ export interface AppProvidersProps {
  * 3. `QueryClientProvider` — the cache the session lives in.
  * 4. `OnlineStatusProvider` — bridges connectivity into that client's `onlineManager`, so it sits
  *    inside the client but outside anything that fetches.
- * 5. `AppRepositoryProvider` — builds the data layer (async; may fail on the production-mock gate).
+ * 5. `AppRepositoryProvider` — builds the data layer (async; may fail on the missing-base-URL
+ *    gate in production).
  * 6. `SessionProvider` — reads `me()` through the repositories and projects the access state.
  * 7. `ToastProvider` — last, so its live regions overlay the application rather than the reverse.
  */

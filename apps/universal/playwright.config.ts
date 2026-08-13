@@ -14,8 +14,8 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * ## One artefact, one server
  *
- * There is exactly one export now — `dist-api`, built with `EXPO_PUBLIC_DATA_MODE=api` — and one
- * static server in front of it on `:4173`. The mock artefact (`dist`) and its second server are
+ * There is exactly one export now — `dist-api`, pointed at the stack via `EXPO_PUBLIC_API_URL` —
+ * and one static server in front of it on `:4173`. The mock artefact (`dist`) and its second server are
  * gone, along with the conditional registration that used to make `dist-api` optional: it is not
  * optional any more, so a missing one is an error with instructions rather than a suite that
  * quietly loses a third of its projects.
@@ -23,7 +23,7 @@ import { defineConfig, devices } from '@playwright/test';
  * ```sh
  * cd apps/universal
  * APP_MODE=all-dev APP_ENV=development \
- *   EXPO_PUBLIC_DATA_MODE=api EXPO_PUBLIC_API_URL=http://localhost:8080 \
+ *   EXPO_PUBLIC_API_URL=http://localhost:8080 \
  *   pnpm run build:web:api
  * pnpm run e2e                       # every read-only project
  * pnpm run e2e:write                 # the mutating journeys, one worker
@@ -79,7 +79,7 @@ if (!existsSync(API_BUILD_DIR)) {
             '',
             '  cd apps/universal',
             '  APP_MODE=all-dev APP_ENV=development \\',
-            '    EXPO_PUBLIC_DATA_MODE=api EXPO_PUBLIC_API_URL=http://localhost:8080 \\',
+            '    EXPO_PUBLIC_API_URL=http://localhost:8080 \\',
             '    pnpm run build:web:api',
             '',
             'The suite also needs the Laravel stack up and seeded (`docker compose up -d --wait`).',
