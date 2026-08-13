@@ -575,10 +575,13 @@ it('seeds Verdant sellable products alongside its published preview meals', func
         ->where('status', CatalogueItemStatus::Published->value)
         ->get();
 
-    // The three seeded demonstration meals plus the 37 photographed prototype
-    // meals the API-mode marketplace preview shows — forty in all, the same
-    // count MarketplaceReadTest pins from the public endpoint.
-    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(40)
+    // The three seeded demonstration meals plus the eleven photographed
+    // prototype meals the fixture assigns to *this* kitchen — fourteen, the
+    // same count MarketplaceReadTest pins from the public endpoint. The other
+    // twenty-six belong to the preview kitchens, which `DatabaseSeeder` keeps
+    // out of PHPUnit; `MarketplacePreviewWorldTest` seeds them and pins the
+    // forty-meal total there.
+    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(14)
         ->and($published->where('item_type', CatalogueItemType::Product)->count())->toBeGreaterThan(3)
         ->and(PriceList::withoutTenancy()
             ->where('organisation_id', $verdant->getKey())
@@ -671,7 +674,7 @@ it('seeds a published marketplace subscription plan', function (): void {
 
     $plan = CatalogueItem::withoutTenancy()
         ->where('organisation_id', $verdant->getKey())
-        ->where('slug', 'marketplace-balanced-plan')
+        ->where('slug', 'balanced-week')
         ->sole();
 
     expect($plan->item_type)->toBe(CatalogueItemType::SubscriptionPlan)
@@ -947,6 +950,7 @@ it('gives every demonstration user a verified account and a profile', function (
 })->with([
     'owner@cedar.test',
     'dietitian@cedar.test',
+    'two-factor@cedar.test',
     'owner@verdant.test',
     'chef@verdant.test',
     'patient@healthy360.test',

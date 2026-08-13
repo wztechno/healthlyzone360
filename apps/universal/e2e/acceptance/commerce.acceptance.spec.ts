@@ -16,7 +16,7 @@ import type { StackStatus } from './helpers.ts';
 
 const CONSUMER_EMAIL = 'nour@healthy360.test';
 const PUBLISHED_MEAL_SLUG = 'grilled-chicken-freekeh';
-const PUBLISHED_PLAN_SLUG = 'marketplace-balanced-plan';
+const PUBLISHED_PLAN_SLUG = 'balanced-week';
 
 let stack: StackStatus;
 

@@ -136,7 +136,12 @@ it('lists the published menu with prices, derived allergens and preview nutritio
     $slugs = $meals->pluck('slug')->all();
 
     expect($slugs)->toContain('grilled-chicken-freekeh', 'mezze-plate', 'red-lentil-soup')
-        ->and($meals)->toHaveCount(40)
+
+        // The demonstration kitchen's own fourteen. The other twenty-six
+        // photographed preview meals belong to the five preview kitchens, which
+        // `DatabaseSeeder` keeps out of PHPUnit — `MarketplacePreviewWorldTest`
+        // seeds them and pins the forty-meal customer catalogue there.
+        ->and($meals)->toHaveCount(14)
 
         // The control: a draft meal with only a placeholder price, seeded to
         // prove the two exclusions rather than only to be excluded.
@@ -191,7 +196,7 @@ it('lists published subscription plans from the demonstration kitchen', function
 
     $slugs = collect($this->getJson('/api/v1/marketplace/meal-plans')->json('data'))->pluck('slug')->all();
 
-    expect($slugs)->toContain('marketplace-balanced-plan')
+    expect($slugs)->toContain('balanced-week')
         ->and($slugs)->not->toContain('balanced-plan');
 });
 

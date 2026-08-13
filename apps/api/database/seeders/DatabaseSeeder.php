@@ -24,6 +24,11 @@ use Illuminate\Database\Seeder;
  * kitchen reference data (allergen classes, platform ingredient library) sits
  * with the rest of the reference layer, because it depends on measurement
  * units and on nothing tenant-shaped.
+ *
+ * The preview marketplace (five more kitchens and the eight plans the customer
+ * app was designed against) sits immediately after the demonstration tenants,
+ * because it relocates meals that seeder writes and prices plans onto tariffs
+ * it created — and is skipped under PHPUnit; see {@see self::previewWorld()}.
  */
 class DatabaseSeeder extends Seeder
 {
@@ -37,6 +42,7 @@ class DatabaseSeeder extends Seeder
             FeatureDefinitionSeeder::class,
             ConsentDefinitionSeeder::class,
             DemoTenantSeeder::class,
+            ...$this->previewWorld(),
             // After the tenants, and necessarily so: the demo customer's
             // address has to sit in an area a demo kitchen already claims, or
             // the activation evaluator would refuse it — which is exactly the
@@ -48,5 +54,31 @@ class DatabaseSeeder extends Seeder
             // After Verdant's wholesale channel and published meals exist.
             B2bProgrammesDemoSeeder::class,
         ]);
+    }
+
+    /**
+     * The five preview marketplace kitchens and the eight preview plans —
+     * seeded everywhere except under PHPUnit.
+     *
+     * The photographed preview world is opt-in under PHPUnit: ~115 test cases
+     * seed this graph, only the preview test asserts against it, and five more
+     * organisations carrying twenty-six meals and eight subscription plans is a
+     * cost every one of them would pay for nothing. The gate lives here rather
+     * than inside the seeders so that `$this->seed(MarketplaceKitchensSeeder::class)`
+     * still works from the test that does want them.
+     *
+     * `runningUnitTests()`, not `APP_ENV=testing` — the precedent
+     * `VerdantProductCatalogueSeeder` sets: a polluted shell environment must
+     * not silently empty a demo marketplace.
+     *
+     * @return list<class-string>
+     */
+    private function previewWorld(): array
+    {
+        if (app()->runningUnitTests()) {
+            return [];
+        }
+
+        return [MarketplaceKitchensSeeder::class, MarketplacePlansSeeder::class];
     }
 }

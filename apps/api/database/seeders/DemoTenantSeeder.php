@@ -70,6 +70,7 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
+use Laravel\Fortify\Fortify;
 use RuntimeException;
 
 /**
@@ -97,6 +98,13 @@ class DemoTenantSeeder extends Seeder
 {
     private const string DEMO_PASSWORD = 'password';
 
+    /**
+     * The TOTP shared secret `two-factor@cedar.test` is enrolled with, base32.
+     * Fixed and published so an end-to-end suite can generate a valid code for
+     * that account; see {@see self::enrolTwoFactor()} for why that is safe.
+     */
+    private const string DEMO_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
+
     public function run(): void
     {
         if (! App::environment(['local', 'testing'])) {
@@ -107,6 +115,8 @@ class DemoTenantSeeder extends Seeder
 
         $cedarOwner = $this->user('owner@cedar.test', 'Nadia', 'Haddad', 'ar', 'LB');
         $dietitian = $this->user('dietitian@cedar.test', 'Rami', 'Khoury', 'en', 'LB');
+        $twoFactor = $this->user('two-factor@cedar.test', 'Sami', 'Nasr', 'en', 'LB');
+        $this->enrolTwoFactor($twoFactor);
         $verdantOwner = $this->user('owner@verdant.test', 'Layla', 'Mansour', 'ar', 'AE');
         $chef = $this->user('chef@verdant.test', 'Omar', 'Saleh', 'en', 'AE');
         $patient = $this->user('patient@healthy360.test', 'Maya', 'Aoun', 'en', 'LB');
@@ -124,6 +134,7 @@ class DemoTenantSeeder extends Seeder
         $this->membership($cedar, $cedarOwner, null, 'organisation_owner', $cedarOwner);
         $this->membership($cedar, $dietitian, $hamra, 'member', $cedarOwner);
         $this->membership($cedar, $patient, null, 'member', $cedarOwner);
+        $this->membership($cedar, $twoFactor, null, 'member', $cedarOwner);
 
         $this->membership($verdant, $verdantOwner, null, 'organisation_owner', $verdantOwner);
         $this->membership($verdant, $chef, $alQuoz, 'branch_manager', $verdantOwner);
@@ -464,13 +475,60 @@ class DemoTenantSeeder extends Seeder
     }
 
     /**
+     * Rename the marketplace plan the API demo carried before the customer
+     * prototype's fixture set the slug.
+     *
+     * The prototype and this seeder were describing the same product under two
+     * names — `marketplace-balanced-plan` here, `balanced-week` there — and
+     * `MarketplacePlansSeeder` now re-authors its matrix from the fixture, so
+     * the slug has to be the fixture's. Renamed rather than dropped: prices,
+     * configurations and channel assignments all point at that row, and a
+     * delete would take a published plan's history with it. The one case that
+     * cannot be renamed — a `balanced-week` already existing beside it — leaves
+     * the legacy row alone, because merging two published plans is not a
+     * seeder's decision to make.
+     */
+    private function renameLegacyMarketplacePlan(Organisation $verdant): void
+    {
+        $legacy = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('slug', 'marketplace-balanced-plan')
+            ->first();
+
+        if (! $legacy instanceof CatalogueItem) {
+            return;
+        }
+
+        $taken = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('slug', 'balanced-week')
+            ->exists();
+
+        if ($taken) {
+            return;
+        }
+
+        $legacy->forceFill([
+            'slug' => 'balanced-week',
+            'name_en' => 'Balanced Week',
+            'name_ar' => 'الأسبوع المتوازن',
+        ])->save();
+    }
+
+    /**
      * A fully priced, published subscription plan assigned to the web shop —
      * the smallest complete world in which `GET /marketplace/meal-plans`
      * returns something real, while `balanced-plan` stays deliberately
      * unpublishable as the gate demo.
+     *
+     * The slug is the customer prototype's (`balanced-week`): the fixture and
+     * this seeder describe one product, and `MarketplacePlansSeeder` re-authors
+     * this plan's matrix from that fixture when the preview world is seeded.
      */
     private function seedMarketplacePlan(Organisation $verdant, SalesChannel $webShop, User $creator): void
     {
+        $this->renameLegacyMarketplacePlan($verdant);
+
         $catalogue = Catalogue::withoutTenancy()
             ->where('organisation_id', $verdant->getKey())
             ->where('code', 'default')
@@ -506,10 +564,10 @@ class DemoTenantSeeder extends Seeder
         $plan = $this->catalogueItem(
             $verdant,
             $catalogue,
-            'marketplace-balanced-plan',
+            'balanced-week',
             CatalogueItemType::SubscriptionPlan,
-            'Marketplace balanced plan',
-            'الخطة المتوازنة للمتجر',
+            'Balanced Week',
+            'الأسبوع المتوازن',
             $creator,
         );
 
@@ -832,8 +890,9 @@ class DemoTenantSeeder extends Seeder
     }
 
     /**
-     * The demonstration kitchen's **published** menu — three meals that reach
-     * the public marketplace end to end (M1).
+     * The demonstration kitchen's **published** menu — three hand-authored
+     * meals that reach the public marketplace end to end (M1), plus the eleven
+     * customer-preview meals the fixture assigns to this kitchen.
      *
      * Everything above this method is structure: a catalogue with nothing on
      * sale, a draft tariff demonstrating the price-list publish gate, a plan
@@ -998,10 +1057,19 @@ class DemoTenantSeeder extends Seeder
             ],
         ];
 
-        /** @var list<array{slug: string, name: string, description: string, diets: list<string>, amount_minor: int, serving_label: string, grams: int|float|null, amounts: array<string, int|float>, note: string}> $prototypeMeals */
+        /** @var list<array{slug: string, kitchen_slug: string, name: string, description: string, diets: list<string>, amount_minor: int, serving_label: string, grams: int|float|null, amounts: array<string, int|float>, note: string}> $prototypeMeals */
         $prototypeMeals = require database_path('seeders/fixtures/prototype_marketplace_meals.php');
 
         foreach ($prototypeMeals as $prototypeMeal) {
+            // Only the rows this kitchen cooks. The fixture names an owning
+            // kitchen per meal, and the other twenty-six belong to the preview
+            // kitchens `MarketplaceKitchensSeeder` seeds — a copy of each under
+            // Verdant would put the same dish on the marketplace twice, under
+            // two different kitchens' names.
+            if ($prototypeMeal['kitchen_slug'] !== 'verdant-kitchen') {
+                continue;
+            }
+
             $menuItems[] = [
                 'slug' => $prototypeMeal['slug'],
                 'name_en' => $prototypeMeal['name'],
@@ -1152,7 +1220,9 @@ class DemoTenantSeeder extends Seeder
     /**
      * Converts the existing customer mock's per-serving facts into the API
      * record shape. The mock is deliberately marked synthetic; it is present
-     * solely so API-mode previews match the 40 photographed customer meals.
+     * solely so API-mode previews match the 40 photographed customer meals —
+     * fourteen of them here, the other twenty-six under the preview kitchens
+     * `MarketplaceKitchensSeeder` seeds.
      *
      * @param  array{serving_label: string, grams: int|float|null, amounts: array<string, int|float>, note: string}  $meal
      * @return array<string, mixed>
@@ -1411,6 +1481,44 @@ class DemoTenantSeeder extends Seeder
                 ['organisation_id' => $organisation->getKey(), 'created_by' => $creator->getKey()],
             );
         });
+    }
+
+    /**
+     * A demonstration account with two-factor authentication **fully enrolled**
+     * against a fixed, published secret.
+     *
+     * The secret is `JBSWY3DPEHPK3PXP` — the canonical RFC 4648 base32 test
+     * vector, written here on purpose so an end-to-end suite can compute a
+     * valid TOTP for this account without scraping one out of the database.
+     * It is safe precisely because it is public: this seeder never runs outside
+     * `local` and `testing`, and every account it creates already shares one
+     * well-known password.
+     *
+     * Enrolment is written the way Fortify writes it, not approximated:
+     * `two_factor_secret` and `two_factor_recovery_codes` hold ciphertext from
+     * Fortify's own encrypter (the columns are not Eloquent casts — see
+     * {@see User}), the recovery codes are a JSON list in the same shape
+     * `EnableTwoFactorAuthentication` produces, and `two_factor_confirmed_at`
+     * is stamped because this account is past the two-step enrolment rather
+     * than half-way through it. `POST /auth/tokens` challenges it, so a client
+     * that omits `two_factor_code` gets `auth.two_factor_required`.
+     */
+    private function enrolTwoFactor(User $user): void
+    {
+        $user->forceFill([
+            'two_factor_secret' => Fortify::currentEncrypter()->encrypt(self::DEMO_TOTP_SECRET),
+            'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt((string) json_encode([
+                'h360demo01-recovery01',
+                'h360demo02-recovery02',
+                'h360demo03-recovery03',
+                'h360demo04-recovery04',
+                'h360demo05-recovery05',
+                'h360demo06-recovery06',
+                'h360demo07-recovery07',
+                'h360demo08-recovery08',
+            ])),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
     }
 
     private function user(string $email, string $givenName, string $familyName, string $languageCode, string $countryCode): User
