@@ -255,13 +255,10 @@ describe('the api bundle exposes the prototype repositories', () => {
 /**
  * **The import graph.**
  *
- * The fixture world is large — sixty ingredients, twenty recipes rolled up through the nutrition
- * package, forty meals with fourteen days of availability each — and it exists only for mock mode.
- * `createRepositories` keeps the two implementations behind separate dynamic imports so a build can
- * split them; that split is worth nothing if a file under `src/api/` reaches into `src/mock/`.
- *
- * Asserted by reading the source rather than by inspecting a bundle, because it has to fail in the
- * unit suite, on the commit that introduces it, rather than in a bundle-size report later.
+ * The fixture world is deleted (ADR-0013), and this scan is what keeps it deleted from this side:
+ * no file under `src/api/` may import anything whose specifier mentions `mock`, so a resurrected
+ * fixture — or a stray test double parked under a `mock/` folder — fails the unit suite on the
+ * commit that introduces it rather than in a bundle-size report later.
  */
 describe('the api chunk does not import the fixture world', () => {
     const API_DIR = fileURLToPath(new URL('.', import.meta.url));
@@ -272,21 +269,6 @@ describe('the api chunk does not import the fixture world', () => {
 
     it('has source files to check', () => {
         expect(sources.length).toBeGreaterThan(4);
-    });
-
-    /**
-     * The package root re-exports the scenario *names* so the development banner and the Playwright
-     * harness can list them without pulling the world they describe. That only holds while
-     * `mock/scenarios.ts` itself stays free of the prototype subtree.
-     */
-    it('keeps the scenario list free of the prototype fixtures', () => {
-        const scenarios = readFileSync(
-            fileURLToPath(new URL('../mock/scenarios.ts', import.meta.url)),
-            'utf8',
-        );
-        // Import specifiers only: the prose above the scenarios legitimately points at the store.
-        const imports = [...scenarios.matchAll(/from\s+'([^']+)'/g)].map((match) => match[1] ?? '');
-        expect(imports.filter((specifier) => specifier.includes('prototype'))).toEqual([]);
     });
 
     it.each(sources)('%s imports nothing from ../mock', (file) => {

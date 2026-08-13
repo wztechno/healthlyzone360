@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 
 import { asApiFailure } from '../contracts/failure.ts';
 import { createMemoryTokenStore } from '../contracts/session.ts';
-import { KitchenOrdersMockStore } from '../mock/kitchen-orders/store.ts';
 import { createApiKitchenOrdersRepository } from './kitchen-orders-repository.ts';
 import { createTransport } from './transport.ts';
 
@@ -310,76 +309,5 @@ describe('createApiKitchenOrdersRepository — the three lifecycle writes', () =
             .catch((error: unknown) => error);
 
         expect(asApiFailure(caught)?.code).toBe('resource.conflict');
-    });
-});
-
-describe('KitchenOrdersMockStore', () => {
-    it('seeds five Verdant orders spanning all four statuses', () => {
-        const statuses = new KitchenOrdersMockStore().orders().map((order) => order.status);
-
-        expect(statuses).toHaveLength(5);
-        expect(new Set(statuses)).toEqual(
-            new Set(['placed', 'confirmed', 'fulfilled', 'cancelled']),
-        );
-    });
-
-    it('walks placed → confirmed → fulfilled, bumping the lock version each time', () => {
-        const store = new KitchenOrdersMockStore();
-        const placed = store.orders().find((order) => order.status === 'placed');
-        expect(placed).toBeDefined();
-
-        const confirmed = store.confirm({ id: placed!.id, lockVersion: placed!.lockVersion });
-        expect(confirmed.status).toBe('confirmed');
-        expect(confirmed.lockVersion).toBe(placed!.lockVersion + 1);
-
-        const fulfilled = store.fulfil({ id: confirmed.id, lockVersion: confirmed.lockVersion });
-        expect(fulfilled.status).toBe('fulfilled');
-        expect(fulfilled.fulfilledAt).not.toBeNull();
-    });
-
-    it('refuses a stale lock version with the same code the API answers', () => {
-        const store = new KitchenOrdersMockStore();
-        const placed = store.orders().find((order) => order.status === 'placed')!;
-
-        let caught: unknown;
-        try {
-            store.confirm({ id: placed.id, lockVersion: placed.lockVersion - 1 });
-        } catch (error: unknown) {
-            caught = error;
-        }
-
-        expect(asApiFailure(caught)?.code).toBe('resource.conflict');
-    });
-
-    it('refuses an illegal transition out of a terminal status', () => {
-        const store = new KitchenOrdersMockStore();
-        const fulfilled = store.orders().find((order) => order.status === 'fulfilled')!;
-
-        let caught: unknown;
-        try {
-            store.cancel({
-                id: fulfilled.id,
-                lockVersion: fulfilled.lockVersion,
-                reason: 'customer_requested',
-            });
-        } catch (error: unknown) {
-            caught = error;
-        }
-
-        expect(asApiFailure(caught)?.code).toBe('resource.conflict');
-    });
-
-    it('filters by status and pages on an opaque keyset cursor', () => {
-        const store = new KitchenOrdersMockStore();
-
-        const first = store.list({ status: 'placed', limit: 1 });
-        expect(first.items).toHaveLength(1);
-        expect(first.hasMore).toBe(true);
-        expect(first.nextCursor).not.toBeNull();
-
-        const second = store.list({ status: 'placed', limit: 1, cursor: first.nextCursor! });
-        expect(second.items).toHaveLength(1);
-        expect(second.items[0]?.id).not.toBe(first.items[0]?.id);
-        expect(second.hasMore).toBe(false);
     });
 });
