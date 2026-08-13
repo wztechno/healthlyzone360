@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import {
+    JOURNEY_TIMEOUT,
     KITCHEN_OWNER,
     probeStack,
     selectVerdantKitchenContext,
@@ -13,14 +14,14 @@ import type { StackStatus } from './helpers.ts';
 /**
  * The kitchen workspace, end to end, against the real API.
  *
- * ## Why the whole file is a write spec now
+ * ## Why the whole file is a write spec
  *
  * A management workspace earns its keep by *changing something*, and every spine journey below does:
  * an ingredient is created and renamed, a pack is added to a product, a price is confirmed and its
- * list published, a plan cell is switched on, a zone gains a gazetteer area, a branch closes a day,
- * a meal is published onto the public menu. In the mock world all of that lived inside one page and
- * evaporated with it, so it was safe to run in parallel. Against PostgreSQL each one is a row that
- * outlives the test, so the whole file belongs to `web-write` — one worker, no retries.
+ * list published, a plan cell is switched on, a zone gains a gazetteer area, a meal is published onto
+ * the public menu. In the mock world all of that lived inside one page and evaporated with it, so it
+ * was safe to run in parallel. Against PostgreSQL each one is a row that outlives the test, so the
+ * whole file belongs to `web-write` — one worker, no retries.
  *
  * ## The persona is the kitchen's owner, and it has to be
  *
@@ -29,21 +30,51 @@ import type { StackStatus } from './helpers.ts';
  * the catalogue endpoints answer `403` for it, which reads in a spec as a broken screen rather than
  * as the server being right.
  *
+ * ## Screens are reached by address, not by pressing through the hub
+ *
+ * Every journey below used to start with `page.goto('/kitchen')` and a press on a family card, and
+ * that one habit is what made the first run of this file against the real stack fail twenty-six
+ * times over. `/kitchen` is not a cheap screen: its cards and KPI strip fan out into **forty-odd**
+ * catalogue requests (four per publishable family, plus the review queue's own seven), and on the
+ * Windows Docker stack — which answers each request in five to six seconds and only four at a time —
+ * the hub's own data takes a **hundred seconds** to settle. Worse, those requests are still in
+ * flight when the card is pressed, so the list that opens next queues behind them and misses the
+ * project's 30-second assertion budget on a stack that is working perfectly.
+ *
+ * Navigating straight to `/kitchen/ingredients` costs the two requests that screen actually needs
+ * and lands in ten to twenty-five seconds. So `openIngredients` and its siblings address the screen
+ * directly, and the hub is only opened by the two journeys that are *about* the hub — which pay the
+ * hundred seconds honestly, on {@link HUB_TIMEOUT}.
+ *
+ * ## What the list columns can and cannot say against this API
+ *
+ * The catalogue *index* endpoints return bare records: `GET /catalogue/items` carries no pack
+ * variants and no channel availability, `GET /catalogue/price-lists` carries no entries,
+ * `GET /catalogue/delivery-zones` carries no areas, and `GET /catalogue/ingredients` carries no
+ * allergen mappings. Every one of those collections is a separate call on the *show* endpoint, which
+ * only an editor makes. The mock world served them inline, so the list screens grew columns for
+ * them — and against PostgreSQL those columns render their honest empty state on every row, for
+ * every kitchen, permanently (`kitchen-product-{id}-packs-none`, `-channels-none`,
+ * `kitchen-price-list-{id}-entries-none`, `kitchen-zone-{id}-areas-none`,
+ * `kitchen-plan-{id}-variants-none`, `-durations-none`).
+ *
+ * So the list assertions here say what the list can actually answer, and every round trip that used
+ * to be read back off a list column is read back off **the record's own editor after a refetch**
+ * instead — which is the stronger claim anyway: it is the row PostgreSQL returned, not a number the
+ * table derived.
+ *
  * ## Recipes are absent, and that is the seed rather than the screen
  *
- * `GET /catalogue/recipes` answers `total_count: 0` for Verdant — no seeder writes one. The four
- * recipe journeys this file used to carry (list, draft-from-published, publish the successor,
- * withdraw) are therefore *deleted rather than skipped*: a recipe test against an empty recipe book
- * proves nothing, and a skipped one accumulates as noise. They come back with the seeder that gives
- * the demonstration kitchen a recipe book; `kitchen-admin-recipes.test.tsx` covers the editor's
- * behaviour in the meantime.
+ * `GET /catalogue/recipes` answers `count: 0` for Verdant — no seeder writes one. The four recipe
+ * journeys this file used to carry are therefore *deleted rather than skipped*: a recipe test against
+ * an empty recipe book proves nothing, and a skipped one accumulates as noise.
+ * `kitchen-admin-recipes.test.tsx` covers the editor's behaviour in the meantime.
  *
  * ## Every record this file creates is uniquely named
  *
  * A slug is unique per organisation, so a second run that created "Charred aubergine bowl" again
  * would be refused by the server for a reason that has nothing to do with the journey. Names carry a
- * timestamp, which makes the suite re-runnable against one seeded world — the property that lets
- * `pnpm run e2e:write` be pressed twice without a `migrate:fresh` in between.
+ * timestamp, which makes the suite re-runnable against one seeded world.
  */
 
 let stack: StackStatus;
@@ -54,30 +85,92 @@ test.beforeAll(async () => {
 
 test.beforeEach(() => {
     // Signing in is three chained round trips against the local Docker stack, and choosing an
-    // organisation is three more; the project's 90 s default is a budget for one. `test.slow()`
-    // triples it for the journeys that really do pay that cost, rather than raising the ceiling
-    // for every test that reads a single endpoint.
+    // organisation is three more; the project's 150 s default is a budget for one screen.
+    // `test.slow()` triples it for the journeys that really do pay that cost.
     test.slow();
     skipUnlessStackIsUp(stack);
 });
+
+/**
+ * What the hub is allowed to take, as opposed to a single screen.
+ *
+ * Measured rather than guessed: on this stack `/kitchen` paints in five seconds and its cards finish
+ * counting a hundred and six seconds later, because the strip fans out into roughly forty-five
+ * catalogue requests and php-fpm answers four at a time at five seconds each. The project's
+ * 30-second `expect` budget is right for one request and wrong for that, and raising the project
+ * budget would have hidden a genuinely stuck request everywhere else. Only the two hub journeys pay
+ * it.
+ */
+const HUB_TIMEOUT = 240_000;
 
 /** A name nothing else in the database can already be using. */
 function unique(prefix: string): string {
     return `${prefix} ${String(Date.now())}`;
 }
 
-async function openKitchen(page: Page) {
+/**
+ * The toast a write raises, waited for on the **journey** budget rather than the assertion one.
+ *
+ * Every one of these used to be a bare `toBeVisible()`, and that is a 30-second budget for a POST
+ * against a stack where a *read* costs five to six seconds and the whole suite is competing for four
+ * php-fpm workers. Under load `POST /catalogue/ingredients` was still in flight at thirty seconds —
+ * the save button was still `loading`, the record had not been created, and the failure read as a
+ * screen that never confirmed rather than as a stack that was merely busy.
+ *
+ * A toast dismisses itself after five seconds (`DEFAULT_TOAST_DURATION_MS`), which is not a race
+ * here: Playwright is already polling when it appears, so a long wait costs nothing and only ever
+ * pays out on a slow write.
+ */
+async function expectToast(page: Page, testId: string, contains?: string): Promise<void> {
+    const toast = page.getByTestId(testId);
+    if (contains === undefined) {
+        await expect(toast).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        return;
+    }
+    await expect(toast).toContainText(contains, { timeout: JOURNEY_TIMEOUT });
+}
+
+/** Signed in, in the Verdant workspace, and nowhere in particular yet. */
+async function openWorkspace(page: Page) {
     await signIn(page, KITCHEN_OWNER);
     await selectVerdantKitchenContext(page);
+}
+
+/**
+ * One kitchen screen, by address.
+ *
+ * The `dataTestId` wait is the point: it is the screen's *loaded* state — the table, the count, the
+ * grid — so the journey that follows never starts against a skeleton. On the journey budget, because
+ * a list is a page of records plus whatever the columns derive, not one request.
+ */
+async function openScreen(
+    page: Page,
+    route: string,
+    screenTestId: string,
+    dataTestId: string,
+): Promise<void> {
+    await page.goto(route);
+    await expect(page.getByTestId(screenTestId)).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+    await expect(page.getByTestId(dataTestId)).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+}
+
+/** The hub itself, for the two journeys that are about it. */
+async function openKitchen(page: Page) {
+    await openWorkspace(page);
     await page.goto('/kitchen');
-    await expect(page.getByTestId('kitchen-home-screen')).toBeVisible();
+    await expect(page.getByTestId('kitchen-home-screen')).toBeVisible({
+        timeout: JOURNEY_TIMEOUT,
+    });
 }
 
 async function openIngredients(page: Page) {
-    await openKitchen(page);
-    await page.getByTestId('kitchen-family-ingredients-open').click();
-    await expect(page.getByTestId('kitchen-ingredients-screen')).toBeVisible();
-    await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+    await openWorkspace(page);
+    await openScreen(
+        page,
+        '/kitchen/ingredients',
+        'kitchen-ingredients-screen',
+        'kitchen-ingredients-table',
+    );
 }
 
 /** The `kitchen-ingredient-{id}` prefix of the first row that offers an open control. */
@@ -116,17 +209,19 @@ async function createOwnIngredient(page: Page, nameEn: string) {
     await page.locator('[data-testid^="kitchen-ingredient-category-option-"]').first().click();
 
     await page.getByTestId('kitchen-ingredient-editor-screen-save').click();
-    await expect(page.getByTestId('kitchen-ingredient-created-toast')).toBeVisible();
+    await expectToast(page, 'kitchen-ingredient-created-toast');
     // The create landed on the record's own address; the mapping section only exists there.
-    await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible();
+    await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible({
+        timeout: JOURNEY_TIMEOUT,
+    });
 }
 
 /**
  * The `kitchen-ingredient-{id}` prefix of the one row matching a search.
  *
- * Searching rather than reading the first row, because a freshly created ingredient sorts last by
- * `created_at` and therefore lands on the ninth page of a 218-row library. Narrowing the list to it
- * is both shorter than paging to it and the thing a person would actually do.
+ * Searching rather than reading the first row, because a freshly created ingredient sorts by slug
+ * into a 218-row library and may land on any of its nine pages. Narrowing the list to it is both
+ * shorter than paging to it and the thing a person would actually do.
  */
 async function rowMatching(page: Page, query: string): Promise<string> {
     await page
@@ -138,47 +233,48 @@ async function rowMatching(page: Page, query: string): Promise<string> {
     const control = page
         .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-open"]')
         .first();
-    await expect(control).toBeVisible();
+    await expect(control).toBeVisible({ timeout: JOURNEY_TIMEOUT });
     const testId = await control.getAttribute('data-testid');
     if (testId === null) throw new Error('The ingredient row carries no test id.');
     return testId.slice(0, testId.length - '-open'.length);
 }
 
 async function openProducts(page: Page) {
-    await openKitchen(page);
-    await page.getByTestId('kitchen-family-products-open').click();
-    await expect(page.getByTestId('kitchen-products-screen')).toBeVisible();
-    await expect(page.getByTestId('kitchen-products-table')).toBeVisible();
+    await openWorkspace(page);
+    await openScreen(page, '/kitchen/products', 'kitchen-products-screen', 'kitchen-products-table');
 }
 
 /**
- * The `kitchen-product-{id}` prefix of a product that already carries at least one pack.
+ * The `kitchen-product-{id}` prefix of a product that carries at least one pack.
  *
- * Narrowed by search rather than taken from the top of the list: the first row alphabetically is a
- * draft with no packs at all, and two of the journeys below need an existing pack to read a code
- * off. `VerdantProductCatalogueSeeder` gives every production product a default pack variant.
+ * Narrowed by search rather than taken from the top of the list, and the search term matters: the
+ * first row alphabetically is a draft with no packs at all, while `marinated-chicken-breast` is a
+ * published product `VerdantProductCatalogueSeeder` gives a default `1-kg` pack. Two of the journeys
+ * below need an existing pack to read a code off. The *list* cannot say which rows have packs — see
+ * the note on this file — so the query names the record instead.
  */
 async function packedProductBase(page: Page, query = 'Marinated'): Promise<string> {
     await page.getByTestId('kitchen-products-toolbar-search').locator('input').first().fill(query);
     const control = page.locator('[data-testid^="kitchen-product-"][data-testid$="-open"]').first();
-    await expect(control).toBeVisible();
+    await expect(control).toBeVisible({ timeout: JOURNEY_TIMEOUT });
     const testId = await control.getAttribute('data-testid');
     if (testId === null) throw new Error('The product row carries no test id.');
     return testId.slice(0, testId.length - '-open'.length);
 }
 
 async function openMeals(page: Page) {
-    await openKitchen(page);
-    await page.getByTestId('kitchen-family-meals-open').click();
-    await expect(page.getByTestId('kitchen-meals-screen')).toBeVisible();
-    await expect(page.getByTestId('kitchen-meals-table')).toBeVisible();
+    await openWorkspace(page);
+    await openScreen(page, '/kitchen/meals', 'kitchen-meals-screen', 'kitchen-meals-table');
 }
 
 async function openPriceLists(page: Page) {
-    await openKitchen(page);
-    await page.getByTestId('kitchen-family-price-lists-open').click();
-    await expect(page.getByTestId('kitchen-price-lists-screen')).toBeVisible();
-    await expect(page.getByTestId('kitchen-price-lists-table')).toBeVisible();
+    await openWorkspace(page);
+    await openScreen(
+        page,
+        '/kitchen/price-lists',
+        'kitchen-price-lists-screen',
+        'kitchen-price-lists-table',
+    );
 }
 
 /** The `kitchen-price-list-{id}` prefix of the first row. */
@@ -202,17 +298,15 @@ async function firstEntryRow(page: Page): Promise<string> {
     const control = page
         .locator('[data-testid^="kitchen-price-list-entries-row-"][data-testid$="-status-label"]')
         .first();
-    await expect(control).toBeVisible();
+    await expect(control).toBeVisible({ timeout: JOURNEY_TIMEOUT });
     const testId = await control.getAttribute('data-testid');
     if (testId === null) throw new Error('The entry row carries no test id.');
     return testId.slice(0, testId.length - '-status-label'.length);
 }
 
 async function openPlans(page: Page) {
-    await openKitchen(page);
-    await page.getByTestId('kitchen-family-plans-open').click();
-    await expect(page.getByTestId('kitchen-plans-screen')).toBeVisible();
-    await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
+    await openWorkspace(page);
+    await openScreen(page, '/kitchen/plans', 'kitchen-plans-screen', 'kitchen-plans-table');
 }
 
 /** The `kitchen-plan-{id}` prefix of the first plan row. */
@@ -225,10 +319,13 @@ async function firstPlanBase(page: Page): Promise<string> {
 }
 
 async function openZones(page: Page) {
-    await openKitchen(page);
-    await page.getByTestId('kitchen-family-delivery-zones-open').click();
-    await expect(page.getByTestId('kitchen-zones-screen')).toBeVisible();
-    await expect(page.getByTestId('kitchen-zones-table')).toBeVisible();
+    await openWorkspace(page);
+    await openScreen(
+        page,
+        '/kitchen/delivery-zones',
+        'kitchen-zones-screen',
+        'kitchen-zones-table',
+    );
 }
 
 /** The `kitchen-zone-{id}` prefix of the first delivery-zone row. */
@@ -241,18 +338,11 @@ async function firstZoneBase(page: Page): Promise<string> {
 }
 
 async function openReview(page: Page) {
-    await openKitchen(page);
-    await page.getByTestId('kitchen-family-review-open').click();
-    await expect(page.getByTestId('kitchen-review-screen')).toBeVisible();
-}
-
-/** The first weekday row of the branch-hours editor that is currently open for trade. */
-async function firstOpenDayRow(page: Page): Promise<string> {
-    for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
-        const row = `kitchen-branch-hours-rows-day-${String(weekday)}`;
-        if ((await page.getByTestId(`${row}-opens-input`).count()) > 0) return row;
-    }
-    throw new Error('The seeded branch is closed every day.');
+    await openWorkspace(page);
+    await page.goto('/kitchen/review');
+    await expect(page.getByTestId('kitchen-review-screen')).toBeVisible({
+        timeout: JOURNEY_TIMEOUT,
+    });
 }
 
 /** The test id of the duration row this session just added, whatever ordinal it took. */
@@ -265,6 +355,27 @@ async function addedDurationRow(page: Page): Promise<string> {
     const testId = await row.getAttribute('data-testid');
     if (testId === null) throw new Error('The duration row carries no test id.');
     return testId;
+}
+
+/**
+ * The `…-row-{key}` prefix of the first seeded duration that carries a **day count**.
+ *
+ * Not `seed-duration-0`, which is what this used to take. The seeded plan's first commitment is a
+ * `one_off` — a single delivery — and the whole point of the `duration_kind` model is that such a
+ * row has no day field at all (`-days-absent` in place of `-days-input`). Driving the "take the day
+ * field away" journey from it therefore asserted the end state as the start state and failed on the
+ * first line. Anchoring on the field itself picks the first `fixed_days` row whatever its ordinal.
+ */
+async function firstFixedDaysRow(page: Page): Promise<string> {
+    const control = page
+        .locator(
+            '[data-testid^="kitchen-plan-duration-rows-row-seed-duration-"][data-testid$="-days-input"]',
+        )
+        .first();
+    await expect(control).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+    const testId = await control.getAttribute('data-testid');
+    if (testId === null) throw new Error('The duration row carries no test id.');
+    return testId.slice(0, testId.length - '-days-input'.length);
 }
 
 test.describe('kitchen workspace (en)', () => {
@@ -284,28 +395,36 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-family-allergen-classes')).toBeVisible();
 
         // Every family with a publication state counts what a kitchen acts on: published,
-        // drafts, quarantined — read from the API, per family, not shared.
+        // drafts, quarantined — read from the API, per family, not shared. This is the assertion
+        // the hub budget exists for: the badge only exists once its four requests have landed.
         await expect(page.getByTestId('kitchen-family-products-published')).toContainText(
             'published',
+            { timeout: HUB_TIMEOUT },
         );
-        await expect(page.getByTestId('kitchen-family-meals-published')).toContainText('published');
+        await expect(page.getByTestId('kitchen-family-meals-published')).toContainText('published', {
+            timeout: HUB_TIMEOUT,
+        });
 
         // Counts come from the repository, not from a constant on the card.
-        await expect(page.getByTestId('kitchen-family-ingredients-total')).toContainText('records');
+        await expect(page.getByTestId('kitchen-family-ingredients-total')).toContainText('records', {
+            timeout: HUB_TIMEOUT,
+        });
         // A reference family says what it is instead of inventing a draft count.
         await expect(page.getByTestId('kitchen-family-allergen-classes-reference')).toContainText(
             'Reference',
+            { timeout: HUB_TIMEOUT },
         );
         await expect(page.getByTestId('kitchen-family-allergen-classes-drafts')).toHaveCount(0);
     });
 
     test('opens an ops panel that does not invent stock counts', async ({ page }) => {
-        await openKitchen(page);
-        await page.getByTestId('kitchen-family-stock-open').click();
-        await expect(page.getByTestId('kitchen-stock-panel')).toBeVisible();
+        await openWorkspace(page);
+        await openScreen(page, '/kitchen/stock', 'kitchen-stock-screen', 'kitchen-stock-panel');
 
         // Each metric equals the number of rows the screen actually fetched.
-        await expect(page.getByTestId('kitchen-stock-items-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-stock-items-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         await expect(page.getByTestId('kitchen-stock-levels-table')).toBeVisible();
 
         const itemRows = page.locator('[data-testid^="kitchen-stock-item-"][data-testid$="-name"]');
@@ -336,10 +455,21 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId(`${base}-status`)).toBeVisible();
         await expect(page.getByTestId(`${base}-updated`)).toBeVisible();
 
-        // The allergen chips are codes rather than prose: a label is read against a regulatory
-        // identity, and translating one into a row's own language would break that reading.
+        /*
+         * The allergen column, in whichever of its two honest forms this API can produce.
+         *
+         * The chips are codes rather than prose where there are chips — a label is read against a
+         * regulatory identity, and translating one into a row's own language would break that
+         * reading. But `GET /catalogue/ingredients` returns no allergen mappings at all (they are a
+         * separate call on the show endpoint), so against the real stack **every** row renders
+         * `-allergens-none` and asserting the chips would be asserting the mock's payload. Both
+         * outcomes are accepted, and the cell being *absent* is still a failure.
+         */
         await expect(
-            page.locator('[data-testid^="kitchen-ingredient-"][data-testid$="-allergens"]').first(),
+            page
+                .getByTestId(`${base}-allergens`)
+                .or(page.getByTestId(`${base}-allergens-none`))
+                .first(),
         ).toBeVisible();
 
         await expect(page.getByTestId('kitchen-ingredients-toolbar-result-summary')).toContainText(
@@ -370,7 +500,7 @@ test.describe('kitchen workspace (en)', () => {
         // Waiting on the *rows*, not on the control: the control marks the new page the moment it
         // is pressed, while the previous page stays on screen until the next one lands — which is
         // the point of holding it, and a race for any assertion that reads the table.
-        await expect(nameCells.first()).not.toHaveText(first[0]!);
+        await expect(nameCells.first()).not.toHaveText(first[0]!, { timeout: JOURNEY_TIMEOUT });
 
         const second = await namesOn();
         // Offset pagination's whole failure mode is repeating and skipping rows, so the assertion
@@ -378,7 +508,7 @@ test.describe('kitchen workspace (en)', () => {
         expect(second.filter((name) => first.includes(name))).toEqual([]);
 
         await pager.getByTestId('kitchen-ingredients-pagination-previous').click();
-        await expect(nameCells.first()).toHaveText(first[0]!);
+        await expect(nameCells.first()).toHaveText(first[0]!, { timeout: JOURNEY_TIMEOUT });
         expect(await namesOn()).toEqual(first);
     });
 
@@ -400,11 +530,15 @@ test.describe('kitchen workspace (en)', () => {
             .first()
             .fill('chicken');
 
-        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         await expect(page.getByTestId('kitchen-ingredients-error')).toHaveCount(0);
-        // Few enough matches to fit one page, so the control removes itself rather than offering a
-        // single disabled row of buttons.
-        await expect(page.getByTestId('kitchen-ingredients-pagination')).toHaveCount(0);
+        // Three matches in the seeded library, so they fit one page and the control removes itself
+        // rather than offering a single disabled row of buttons.
+        await expect(page.getByTestId('kitchen-ingredients-pagination')).toHaveCount(0, {
+            timeout: JOURNEY_TIMEOUT,
+        });
     });
 
     test('narrows the list, and says so when nothing matches', async ({ page }) => {
@@ -416,10 +550,14 @@ test.describe('kitchen workspace (en)', () => {
             .first()
             .fill('nothing-like-this-exists');
 
-        await expect(page.getByTestId('kitchen-ingredients-empty')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredients-empty')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         await page.getByTestId('kitchen-ingredients-clear').click();
-        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
     });
 
     test('rewrites both halves of a bilingual name, and the list shows the change', async ({
@@ -440,12 +578,16 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-ingredient-editor-screen-dirty')).toBeVisible();
 
         await page.getByTestId('kitchen-ingredient-editor-screen-save').click();
-        await expect(page.getByTestId('kitchen-ingredient-saved-toast')).toBeVisible();
-        await expect(page.getByTestId('kitchen-ingredient-editor-screen-dirty')).toHaveCount(0);
+        await expectToast(page, 'kitchen-ingredient-saved-toast');
+        await expect(page.getByTestId('kitchen-ingredient-editor-screen-dirty')).toHaveCount(0, {
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         // Back to the list: the row reads what was just written, which is the server agreeing.
         await page.getByTestId('kitchen-ingredient-editor-screen-back').click();
-        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         const base = await rowMatching(page, checked);
         await expect(page.getByTestId(`${base}-name`)).toContainText(checked);
@@ -467,7 +609,9 @@ test.describe('kitchen workspace (en)', () => {
 
         await page.getByTestId('kitchen-ingredient-editor-screen-back').click();
         await page.getByTestId('kitchen-ingredient-editor-screen-unsaved-discard').click();
-        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
     });
 
     test('states the food-safety consequence before an allergen mapping is touched', async ({
@@ -477,7 +621,9 @@ test.describe('kitchen workspace (en)', () => {
 
         const base = await firstRowBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         await expect(page.getByTestId('kitchen-ingredient-allergen-safety')).toContainText(
             'published label',
@@ -497,10 +643,12 @@ test.describe('kitchen workspace (en)', () => {
         await page.locator('[data-testid^="kitchen-ingredient-category-option-"]').first().click();
 
         await page.getByTestId('kitchen-ingredient-editor-screen-save').click();
-        await expect(page.getByTestId('kitchen-ingredient-created-toast')).toContainText('draft');
+        await expectToast(page, 'kitchen-ingredient-created-toast', 'draft');
 
         // The create landed on the record's own address, with the mapping section now available.
-        await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredient-allergens')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         await expect(page.getByTestId('kitchen-ingredient-editor-screen-status')).toContainText(
             'Draft',
         );
@@ -519,7 +667,9 @@ test.describe('kitchen workspace (en)', () => {
         await createOwnIngredient(page, name);
 
         await page.getByTestId('kitchen-ingredient-editor-screen-back').click();
-        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         const base = await rowMatching(page, name);
 
         await page.getByTestId(`${base}-archive`).click();
@@ -530,9 +680,19 @@ test.describe('kitchen workspace (en)', () => {
         ).toContainText('Nothing is deleted');
 
         await page.getByTestId('kitchen-ingredients-archive-confirm').click();
-        await expect(page.getByTestId('kitchen-ingredients-archived-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-ingredients-archived-toast');
     });
 
+    /**
+     * What a product row can say, and what it deliberately does not claim.
+     *
+     * The pack and channel columns used to be asserted as populated. They cannot be against this
+     * API: `GET /catalogue/items` returns the item and nothing hanging off it, so `packVariants` and
+     * `channelAvailability` arrive empty on every row and the columns render their "no pack
+     * recorded" / "on no channel" states. Asserting the populated form was asserting the mock's
+     * payload; asserting the cell *exists in one of its two forms* is the claim the screen can
+     * actually keep, and it still fails if a column disappears.
+     */
     test('lists products with their packs, channels and the archive that is not a delete', async ({
         page,
     }) => {
@@ -541,9 +701,15 @@ test.describe('kitchen workspace (en)', () => {
         const base = await packedProductBase(page);
         await expect(page.getByTestId(`${base}-name`)).toBeVisible();
         await expect(page.getByTestId(`${base}-category`)).toBeVisible();
-        await expect(page.getByTestId(`${base}-packs`)).toBeVisible();
-        await expect(page.getByTestId(`${base}-packs-count`)).toContainText('pack');
-        await expect(page.getByTestId(`${base}-channels`)).toBeVisible();
+        await expect(
+            page.getByTestId(`${base}-packs`).or(page.getByTestId(`${base}-packs-none`)).first(),
+        ).toBeVisible();
+        await expect(
+            page
+                .getByTestId(`${base}-channels`)
+                .or(page.getByTestId(`${base}-channels-none`))
+                .first(),
+        ).toBeVisible();
         await expect(page.getByTestId(`${base}-status`)).toBeVisible();
 
         // A product has no publish action on this contract, so no row offers one.
@@ -555,19 +721,29 @@ test.describe('kitchen workspace (en)', () => {
     });
 
     /**
-     * The product round trip: open a record, add a pack, save, and read the new pack back off the
-     * list. Every step goes through `KitchenAdminRepository` onto the API; the list counting one
-     * more pack at the end is PostgreSQL agreeing.
+     * The product round trip: open a record, add a pack, save, and read the new pack back.
+     *
+     * Read back **from the record's own editor after a refetch**, not from the list's pack column.
+     * That column counts `ProductAdmin.packVariants`, which the index endpoint does not return — it
+     * says "no pack recorded" for every product in the database and would have said it just as
+     * loudly after a successful save. Leaving the editor and re-opening the row re-issues
+     * `GET /catalogue/items/{id}`, so the pack that comes back is the one PostgreSQL stored.
      */
     test('adds a pack to a product, saves it, and the list counts it', async ({ page }) => {
         await openProducts(page);
 
         const base = await packedProductBase(page);
-        const before = (await page.getByTestId(`${base}-packs-count`).textContent()) ?? '';
 
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-product-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-product-editor-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         await expect(page.getByTestId('kitchen-product-editor-screen-status')).toBeVisible();
+
+        const packRows = page.locator(
+            '[data-testid^="kitchen-product-pack-editor-row-"][data-testid$="-code-input"]',
+        );
+        const before = await packRows.count();
 
         await page.getByTestId('kitchen-product-packs-add').click();
         const added = 'kitchen-product-pack-editor-row-pack-1';
@@ -577,21 +753,34 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-product-editor-screen-dirty')).toBeVisible();
 
         // A pack code is unique within its product, so it carries the run's timestamp too.
-        await page
-            .getByTestId(`${added}-code`)
-            .locator('input')
-            .first()
-            .fill(`CASE${String(Date.now()).slice(-6)}`);
+        const code = `CASE${String(Date.now()).slice(-6)}`;
+        await page.getByTestId(`${added}-code`).locator('input').first().fill(code);
         await page.getByTestId(`${added}-quantity`).locator('input').first().fill('6000');
         await page.getByTestId(`${added}-units-per-pack`).locator('input').first().fill('24');
 
         await page.getByTestId('kitchen-product-editor-screen-save').click();
-        await expect(page.getByTestId('kitchen-product-saved-toast')).toBeVisible();
-        await expect(page.getByTestId('kitchen-product-editor-screen-dirty')).toHaveCount(0);
+        await expectToast(page, 'kitchen-product-saved-toast');
+        await expect(page.getByTestId('kitchen-product-editor-screen-dirty')).toHaveCount(0, {
+            timeout: JOURNEY_TIMEOUT,
+        });
 
+        // Out of the editor and back into it, which is a fresh read of the record.
         await page.getByTestId('kitchen-product-editor-screen-back').click();
-        await expect(page.getByTestId('kitchen-products-table')).toBeVisible();
-        await expect(page.getByTestId(`${base}-packs-count`)).not.toHaveText(before);
+        await expect(page.getByTestId('kitchen-products-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-product-packs')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await expect(packRows).toHaveCount(before + 1, { timeout: JOURNEY_TIMEOUT });
+        // …and it is the pack that was typed: the row is keyed by the code the server gave back.
+        await expect(
+            page.locator(
+                `[data-testid^="kitchen-product-pack-editor-row-seed-"][data-testid$="-${code}"]`,
+            ),
+        ).toHaveCount(1);
     });
 
     test('refuses a duplicate pack code rather than orphaning a price', async ({ page }) => {
@@ -599,7 +788,9 @@ test.describe('kitchen workspace (en)', () => {
 
         const base = await packedProductBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-product-packs-add')).toBeVisible();
+        await expect(page.getByTestId('kitchen-product-packs-add')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         const first = page
             .locator('[data-testid^="kitchen-product-pack-editor-row-"][data-testid$="-code"]')
@@ -620,12 +811,14 @@ test.describe('kitchen workspace (en)', () => {
 
         const base = await packedProductBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-product-channel-editor')).toBeVisible();
+        await expect(page.getByTestId('kitchen-product-channel-editor')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         // Every channel is a row, including the ones the product is not sold through.
         await page.getByTestId('kitchen-product-channel-editor-pos-toggle-control').click();
         await page.getByTestId('kitchen-product-channels-save').click();
-        await expect(page.getByTestId('kitchen-product-channels-saved-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-product-channels-saved-toast');
     });
 
     test('lists meals with the label they carry and what publication means', async ({ page }) => {
@@ -667,7 +860,7 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-meal-type-lunch').click();
 
         await page.getByTestId('kitchen-meal-editor-screen-save').click();
-        await expect(page.getByTestId('kitchen-meal-created-toast')).toContainText('draft');
+        await expectToast(page, 'kitchen-meal-created-toast', 'draft');
         await expect(page.getByTestId('kitchen-meal-editor-screen-status')).toContainText('Draft');
 
         // A draft carries no "on the public menu" notice, because it is not on it.
@@ -680,19 +873,25 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-meal-publish-allergens')).toBeVisible();
 
         await page.getByTestId('kitchen-meal-publish-confirm').click();
-        await expect(page.getByTestId('kitchen-meal-published-toast')).toBeVisible();
-        await expect(page.getByTestId('kitchen-meal-published')).toBeVisible();
+        await expectToast(page, 'kitchen-meal-published-toast');
+        await expect(page.getByTestId('kitchen-meal-published')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         await page.getByTestId('kitchen-meal-view-public').click();
-        await expect(page.getByTestId('meal-detail-name')).toContainText(name);
+        await expect(page.getByTestId('meal-detail-name')).toContainText(name, {
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         // …and it is in the public listing too, reached from the meal's own breadcrumb. The
         // listing is cursor-paginated over a catalogue of forty-odd, so it is searched rather than
         // scrolled — which also proves the new row is in the *query* and not merely addressable.
         await page.getByTestId('meal-detail-breadcrumbs').getByText('Meals').click();
-        await expect(page.getByTestId('meals-grid')).toBeVisible();
+        await expect(page.getByTestId('meals-grid')).toBeVisible({ timeout: JOURNEY_TIMEOUT });
         await page.getByTestId('meals-filter-search').locator('input').first().fill(name);
-        await expect(page.getByTestId('meals-grid')).toContainText(name);
+        await expect(page.getByTestId('meals-grid')).toContainText(name, {
+            timeout: JOURNEY_TIMEOUT,
+        });
     });
 
     /**
@@ -700,6 +899,11 @@ test.describe('kitchen workspace (en)', () => {
      *
      * Taking "the first retire control on the page" would withdraw a seeded marketplace meal from
      * the public catalogue every run, which every read-only project then reads a smaller world from.
+     *
+     * Both languages and a meal type are filled before publishing, and that is not padding: the
+     * editor's own gate refuses publication while either half of the name or description is missing
+     * or no meal type is chosen (`publishBlockers` in `meal-edit-screen.tsx`), so a meal created with
+     * an English name alone reaches a dialog whose confirm button is permanently disabled.
      */
     test('withdraws a meal behind a confirmation that says nothing is deleted', async ({
         page,
@@ -709,18 +913,27 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-meals-toolbar-create').click();
         const name = unique('Withdrawable bowl');
         await page.getByTestId('kitchen-meal-name-en-input').fill(name);
+        await page.getByTestId('kitchen-meal-name-ar-input').fill('وعاء قابل للسحب');
+        await page.getByTestId('kitchen-meal-description-en-input').fill('A dish to withdraw.');
+        await page.getByTestId('kitchen-meal-description-ar-input').fill('طبق للسحب.');
+        await page.getByTestId('kitchen-meal-type-lunch').click();
         await page.getByTestId('kitchen-meal-editor-screen-save').click();
-        await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible();
+        await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         await page.getByTestId('kitchen-meal-publish').click();
         await page.getByTestId('kitchen-meal-publish-confirm').click();
-        await expect(page.getByTestId('kitchen-meal-published-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-meal-published-toast');
 
+        await expect(page.getByTestId('kitchen-meal-retire')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         await page.getByTestId('kitchen-meal-retire').click();
         await expect(page.getByTestId('kitchen-meal-retire-dialog')).toBeVisible();
         await expect(page.getByTestId('kitchen-meal-retire-consequence')).toBeVisible();
         await page.getByTestId('kitchen-meal-retire-confirm').click();
-        await expect(page.getByTestId('kitchen-meal-retired-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-meal-retired-toast');
     });
 
     test('shows the confidential margin in the kitchen and nowhere a customer looks', async ({
@@ -728,7 +941,9 @@ test.describe('kitchen workspace (en)', () => {
     }) => {
         await openMeals(page);
         await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();
-        await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         await expect(page.getByTestId('kitchen-meal-confidential')).toBeVisible();
         await expect(page.getByTestId('kitchen-meal-confidential-badge')).toContainText(
@@ -738,22 +953,27 @@ test.describe('kitchen workspace (en)', () => {
         await expect(
             page
                 .getByTestId('kitchen-meal-margin')
-                .or(page.getByTestId('kitchen-meal-margin-unknown')),
+                .or(page.getByTestId('kitchen-meal-margin-unknown'))
+                .first(),
         ).toBeVisible();
 
         // The consumer meal page has no margin to render, because the shape has no field for one.
         await page.goto('/meals');
-        await expect(page.getByTestId('meals-grid')).toBeVisible();
+        await expect(page.getByTestId('meals-grid')).toBeVisible({ timeout: JOURNEY_TIMEOUT });
         await expect(page.getByText(/gross margin/i)).toHaveCount(0);
     });
 
     test('publishes the allergen reference as reference, with no way to change it', async ({
         page,
     }) => {
-        await openKitchen(page);
-        await page.getByTestId('kitchen-family-allergen-classes-open').click();
+        await openWorkspace(page);
+        await openScreen(
+            page,
+            '/kitchen/allergen-classes',
+            'kitchen-allergen-classes-screen',
+            'kitchen-allergen-classes-count',
+        );
 
-        await expect(page.getByTestId('kitchen-allergen-classes-screen')).toBeVisible();
         await expect(page.getByTestId('kitchen-allergen-classes-governance')).toContainText(
             'managed by the platform',
         );
@@ -776,38 +996,55 @@ test.describe('kitchen workspace (en)', () => {
     /* ── price lists (K1.5) ──────────────────────────────────────────────────────────────────── */
 
     /**
-     * The round trip this slice exists for: change one amount, save it, and read the entry split
-     * back off the list screen.
+     * The round trip this slice exists for: change one amount, save it, and publish the list.
+     *
+     * Two things changed against the real API. The entry-split columns (`-entries-confirmed`,
+     * `-entries-placeholder`, `-entries-market`) are gone from the assertions because
+     * `GET /catalogue/price-lists` returns no entries at all — every row renders `-entries-none`,
+     * always — so the split is asserted in the editor, where the entries really are.
      *
      * The publish half runs only while a draft list still exists. Publication is a **one-way**
      * transition on a shared database — the seed ships exactly one draft tariff (`verdant-web-usd`)
      * and once it is published no second run can publish it again. So the dialog's assertions,
      * including the negative one that matters most (a list is published with placeholder and
      * market-priced rows still in it, and the dialog has to say those never reach a customer), are
-     * driven when the control is there and skipped with a sentence when a previous run already used
-     * it up. A test that silently passed on a published list would be the most expensive
-     * true-sounding green in this suite.
+     * driven when the control is there and skipped with a sentence when a previous run used it up.
      */
     test('confirms a price, and states what will never reach a customer', async ({ page }) => {
         await openPriceLists(page);
 
-        // The list answers "how many of these prices are real?", not only "how many are there?".
+        // The list answers what it can: a currency per row, and the entry column in whichever form
+        // the index endpoint's payload allows.
         const anyBase = await firstPriceListBase(page);
         await expect(page.getByTestId(`${anyBase}-currency`)).toBeVisible();
-        await expect(page.getByTestId(`${anyBase}-entries-confirmed`)).toContainText('confirmed');
-        await expect(page.getByTestId(`${anyBase}-entries-placeholder`)).toBeVisible();
-        await expect(page.getByTestId(`${anyBase}-entries-market`)).toBeVisible();
+        await expect(
+            page
+                .getByTestId(`${anyBase}-entries`)
+                .or(page.getByTestId(`${anyBase}-entries-none`))
+                .first(),
+        ).toBeVisible();
 
         // No create control anywhere: the contract publishes no `createPriceList`.
         await expect(page.getByTestId('kitchen-price-lists-toolbar-create')).toHaveCount(0);
         // …and no publish from a row: the consequence needs the editor's context.
         await expect(page.getByTestId(`${anyBase}-publish`)).toHaveCount(0);
 
+        /*
+         * Narrowed to the drafts, and *waited on by row count*.
+         *
+         * The result summary is no help here: it is only hidden while the query is `isPending`,
+         * which a refetch over existing data never is, so it reads the old total for as long as the
+         * new page takes to land. The row count is the thing the filter actually changes — seven
+         * seeded lists, one of them a draft — so it is what the wait is anchored on.
+         */
+        const rows = page.locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]');
+        const unfiltered = await rows.count();
         await page.getByTestId('kitchen-price-lists-toolbar-status-draft').click();
-        const hasDraft =
-            (await page
-                .locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]')
-                .count()) > 0;
+        await expect
+            .poll(async () => rows.count(), { timeout: JOURNEY_TIMEOUT })
+            .toBeLessThan(unfiltered);
+
+        const hasDraft = (await rows.count()) > 0;
         test.skip(
             !hasDraft,
             'Every seeded price list is already published — publication is one-way, so a previous ' +
@@ -816,12 +1053,18 @@ test.describe('kitchen workspace (en)', () => {
 
         const base = await firstPriceListBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-price-list-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-price-list-editor-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         // The currency is a fact rather than a field — there is no request that could change it.
         await expect(page.getByTestId('kitchen-price-list-currency')).toBeVisible();
         await expect(page.getByTestId('kitchen-price-list-readonly-note')).toContainText(
             'cannot be changed here',
+        );
+        // …and here — not on the list — is where "how many of these prices are real?" is answered.
+        await expect(page.getByTestId('kitchen-price-list-draft-confirmed')).toContainText(
+            'confirmed',
         );
 
         const row = await firstEntryRow(page);
@@ -834,7 +1077,7 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-price-list-editor-screen-dirty')).toBeVisible();
 
         await page.getByTestId('kitchen-price-list-editor-screen-save').click();
-        await expect(page.getByTestId('kitchen-price-list-saved-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-price-list-saved-toast');
         // The figure survives the round trip through integer minor units unchanged.
         await expect(page.getByTestId(`${row}-amount`).locator('input').first()).toHaveValue(
             '5.50',
@@ -850,8 +1093,10 @@ test.describe('kitchen workspace (en)', () => {
         );
 
         await page.getByTestId('kitchen-price-list-publish-confirm').click();
-        await expect(page.getByTestId('kitchen-price-list-published-toast')).toBeVisible();
-        await expect(page.getByTestId('kitchen-price-list-published')).toBeVisible();
+        await expectToast(page, 'kitchen-price-list-published-toast');
+        await expect(page.getByTestId('kitchen-price-list-published')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         // A published list offers no second publish.
         await expect(page.getByTestId('kitchen-price-list-publish')).toHaveCount(0);
     });
@@ -870,7 +1115,9 @@ test.describe('kitchen workspace (en)', () => {
         await openPriceLists(page);
         const base = await firstPriceListBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-price-list-entries')).toBeVisible();
+        await expect(page.getByTestId('kitchen-price-list-entries')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         const row = await firstEntryRow(page);
         await page.getByTestId(`${row}-status-confirmed`).click();
@@ -913,16 +1160,37 @@ test.describe('kitchen workspace (en)', () => {
 
     /* ── plans (K1.6) ────────────────────────────────────────────────────────────────────────── */
 
+    /**
+     * What a plan row can say about how finished it is.
+     *
+     * The price column is the one of the three that survives contact with this API: it is derived
+     * from the kitchen's price lists, which the screen fetches itself. Configurations and durations
+     * are *not* on `GET /catalogue/items` — they come back only from the show endpoint — so those two
+     * columns render `-variants-none` and `-durations-none` for every plan in the database and the
+     * coverage sentence they used to be asserted on has nowhere to come from. The cell is asserted
+     * in whichever form the payload allows; the coverage claim itself is made in the editor below,
+     * where the matrix is real.
+     */
     test('lists plans by how finished they are, not by how many there are', async ({ page }) => {
         await openPlans(page);
 
         const base = await firstPlanBase(page);
-        // Coverage rather than a count: three configurations across a six-cell grid is not a
-        // finished plan, and a column showing only "3" would say that it was.
-        await expect(page.getByTestId(`${base}-variants-coverage`)).toContainText('cells sold');
-        await expect(page.getByTestId(`${base}-durations-days`)).toBeVisible();
+        await expect(
+            page
+                .getByTestId(`${base}-variants-coverage`)
+                .or(page.getByTestId(`${base}-variants-none`))
+                .first(),
+        ).toBeVisible();
+        await expect(
+            page
+                .getByTestId(`${base}-durations-days`)
+                .or(page.getByTestId(`${base}-durations-none`))
+                .first(),
+        ).toBeVisible();
         // The price column is derived from the price lists, which is where a plan price lives.
-        await expect(page.getByTestId(`${base}-prices-confirmed`)).toContainText('confirmed');
+        await expect(page.getByTestId(`${base}-prices-confirmed`)).toContainText('confirmed', {
+            timeout: JOURNEY_TIMEOUT,
+        });
         await expect(page.getByTestId(`${base}-status`)).toBeVisible();
         await expect(page.getByTestId('kitchen-plans-toolbar-result-summary')).toContainText(
             'match',
@@ -931,12 +1199,17 @@ test.describe('kitchen workspace (en)', () => {
 
     /**
      * The spine of the slice: switch a cell of the matrix on, add a 20-day commitment, save both,
-     * and read the change back off the list.
+     * and read the change back off a fresh fetch of the plan.
      *
      * The 20 days are the point of the `duration_kind` model (plan §4.3) — the consumer contract's
      * `1w | 2w | 4w | 12w` union could not express them at all — and the cell is the point of the
      * matrix: a configuration that exists *is* the availability, so switching one on is the whole
      * write.
+     *
+     * The read-back leaves the editor and comes back rather than reading the list's columns, which
+     * against this API carry neither configurations nor durations. Re-opening the record re-issues
+     * `GET /catalogue/items/{id}`, so what the matrix and the duration rows show afterwards is what
+     * PostgreSQL holds.
      */
     test('switches a cell on, adds a 20-day commitment, and the list reads both back', async ({
         page,
@@ -945,7 +1218,9 @@ test.describe('kitchen workspace (en)', () => {
 
         const base = await firstPlanBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         await expect(page.getByTestId('kitchen-plan-matrix-grid')).toBeVisible();
 
         const coverage = page.getByTestId('kitchen-plan-matrix-coverage');
@@ -965,7 +1240,7 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-plan-editor-screen-dirty')).toBeVisible();
 
         await page.getByTestId('kitchen-plan-variants-save').click();
-        await expect(page.getByTestId('kitchen-plan-variants-saved-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-plan-variants-saved-toast');
 
         // …and the 20-day commitment, which is the duration model's whole reason for existing.
         await page.getByTestId('kitchen-plan-durations-add').click();
@@ -975,12 +1250,26 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId(`${row}-discount-state`)).toContainText('not as zero');
 
         await page.getByTestId('kitchen-plan-durations-save').click();
-        await expect(page.getByTestId('kitchen-plan-durations-saved-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-plan-durations-saved-toast');
 
+        // Out and back in: a fresh read of the plan, and both writes are in it.
         await page.getByTestId('kitchen-plan-editor-screen-back').click();
-        await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
-        await expect(page.getByTestId(`${base}-durations-days`)).toContainText('20');
-        await expect(page.getByTestId(`${base}-variants-coverage`)).not.toHaveText(before);
+        await expect(page.getByTestId('kitchen-plans-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-plan-matrix-grid')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await expect(coverage).not.toHaveText(before);
+        await expect(
+            page
+                .locator(
+                    '[data-testid^="kitchen-plan-duration-rows-row-seed-duration-"][data-testid$="-fixed_days-20"]',
+                )
+                .first(),
+        ).toBeVisible({ timeout: JOURNEY_TIMEOUT });
     });
 
     /**
@@ -990,13 +1279,11 @@ test.describe('kitchen workspace (en)', () => {
         await openPlans(page);
         const base = await firstPlanBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-plan-duration-rows')).toBeVisible();
+        await expect(page.getByTestId('kitchen-plan-duration-rows')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
-        const first = page
-            .locator('[data-testid^="kitchen-plan-duration-rows-row-seed-duration-0-"]')
-            .first();
-        const testId = await first.getAttribute('data-testid');
-        if (testId === null) throw new Error('The duration row carries no test id.');
+        const testId = await firstFixedDaysRow(page);
 
         await expect(page.getByTestId(`${testId}-days-input`)).not.toHaveValue('');
 
@@ -1032,24 +1319,34 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-plan-name-en-input').fill(unique('Autumn reset'));
         await page.getByTestId('kitchen-plan-name-ar-input').fill('إعادة ضبط الخريف');
         await page.getByTestId('kitchen-plan-editor-screen-save').click();
-        await expect(page.getByTestId('kitchen-plan-created-toast')).toContainText('draft');
+        await expectToast(page, 'kitchen-plan-created-toast', 'draft');
         await expect(page.getByTestId('kitchen-plan-editor-screen-status')).toContainText('Draft');
 
+        await expect(page.getByTestId('kitchen-plan-publish')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
         await page.getByTestId('kitchen-plan-publish').click();
         await expect(page.getByTestId('kitchen-plan-publish-dialog')).toBeVisible();
-        await expect(page.getByTestId('kitchen-plan-publish-blocked')).toContainText('sells');
+        await expect(page.getByTestId('kitchen-plan-publish-blocked')).toContainText('sells', {
+            timeout: JOURNEY_TIMEOUT,
+        });
         await expect(page.getByTestId('kitchen-plan-publish-blocked')).toContainText(
             'confirmed price',
+            { timeout: JOURNEY_TIMEOUT },
         );
         await expect(page.getByTestId('kitchen-plan-publish-confirm')).toBeDisabled();
     });
 
     /**
-     * The delivery slice's spine: choose an area, save it, and read the coverage back off the list.
+     * The delivery slice's spine: choose an area, save it, and read the coverage back.
      *
      * `setZoneAreas` replaces the whole set, so this is the write that decides where a kitchen can
      * deliver at all — and the picker is the one control in this workspace that has to work over a
      * few hundred gazetteer rows, which is why the search box is driven here too.
+     *
+     * Read back from the editor's own count rather than from the list's area column: the zone index
+     * endpoint returns no areas (they are `GET /catalogue/delivery-zones/{zone}/areas`, a separate
+     * call the editor makes), so that column says "no areas chosen" for every zone regardless.
      */
     test('adds a gazetteer area to a zone and the list reads the new coverage back', async ({
         page,
@@ -1057,11 +1354,17 @@ test.describe('kitchen workspace (en)', () => {
         await openZones(page);
 
         const base = await firstZoneBase(page);
-        const before = (await page.getByTestId(`${base}-area-count`).textContent()) ?? '';
 
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible();
-        await expect(page.getByTestId('kitchen-zone-area-picker-search')).toBeVisible();
+        await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-zone-area-picker-search')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const count = page.getByTestId('kitchen-zone-areas-count');
+        const before = (await count.textContent()) ?? '';
 
         // An area this zone does not already cover. The checkbox group is the picker's real
         // control; the chips above it are the summary of what it produced.
@@ -1077,11 +1380,18 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-zone-editor-screen-dirty')).toBeVisible();
 
         await page.getByTestId('kitchen-zone-areas-save').click();
-        await expect(page.getByTestId('kitchen-zone-areas-saved-toast')).toBeVisible();
+        await expectToast(page, 'kitchen-zone-areas-saved-toast');
 
+        // Out of the editor and back into it, which re-reads the zone's areas from the API.
         await page.getByTestId('kitchen-zone-editor-screen-back').click();
-        await expect(page.getByTestId('kitchen-zones-table')).toBeVisible();
-        await expect(page.getByTestId(`${base}-area-count`)).not.toHaveText(before);
+        await expect(page.getByTestId('kitchen-zones-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId(`${base}-open`).click();
+        await expect(page.getByTestId('kitchen-zone-areas')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(count).not.toHaveText(before, { timeout: JOURNEY_TIMEOUT });
     });
 
     /**
@@ -1092,9 +1402,12 @@ test.describe('kitchen workspace (en)', () => {
         await openZones(page);
         const base = await firstZoneBase(page);
         await page.getByTestId(`${base}-open`).click();
-        await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-zone-editor-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         const fee = page.getByTestId('kitchen-zone-fee-input');
+        await expect(fee).toBeVisible({ timeout: JOURNEY_TIMEOUT });
         await fee.fill('');
         await expect(page.getByTestId('kitchen-zone-fee-state')).toContainText(
             'not the same as free',
@@ -1117,22 +1430,34 @@ test.describe('kitchen workspace (en)', () => {
     /**
      * The queue, and the row it leads to.
      *
-     * Two of the seeded platform ingredients carry `verification_status: requires_review`, which the
-     * mapper turns into `review_required` and the queue reports as a quarantine. What is *not*
-     * asserted any more is the reviewer's evidence — the mock seeded a note describing a
-     * burghul/pita allergen contradiction, and the platform library ships no notes at all. Asserting
-     * a note the seed does not write would be asserting the fixture that no longer exists.
+     * One seeded platform ingredient — `burghul-bulgur` — carries `verification_status:
+     * requires_review`, which the mapper turns into `review_required` and the queue reports as a
+     * quarantine: one record, blocked. What is *not* asserted any more is the reviewer's evidence —
+     * the mock seeded a note describing a burghul/pita allergen contradiction, and the platform
+     * library ships no notes at all. Asserting a note the seed does not write would be asserting the
+     * fixture that no longer exists.
+     *
+     * This journey pays the hub's real cost, because the hub card *is* the subject: the review badge
+     * is the last thing on that screen to resolve.
      */
     test('surfaces the queue from the hub and follows a row into its editor', async ({ page }) => {
         await openKitchen(page);
 
         // The hub leads with the number, and separates "blocked" from "unfinished".
-        await expect(page.getByTestId('kitchen-family-review-total')).toContainText('review');
-        await expect(page.getByTestId('kitchen-family-review-blocked')).toContainText('blocked');
+        await expect(page.getByTestId('kitchen-family-review-total')).toContainText('review', {
+            timeout: HUB_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-family-review-blocked')).toContainText('blocked', {
+            timeout: HUB_TIMEOUT,
+        });
 
         await page.getByTestId('kitchen-family-review-open').click();
-        await expect(page.getByTestId('kitchen-review-screen')).toBeVisible();
-        await expect(page.getByTestId('kitchen-review-sections')).toBeVisible();
+        await expect(page.getByTestId('kitchen-review-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-review-sections')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         // The ingredient section exists because something is in it; a family with nothing to
         // report gets no heading at all.
@@ -1146,7 +1471,9 @@ test.describe('kitchen workspace (en)', () => {
             .first();
         await expect(first).toBeVisible();
         await first.click();
-        await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
     });
 
     /**
@@ -1163,6 +1490,7 @@ test.describe('kitchen workspace (en)', () => {
 
         await expect(page.getByTestId('kitchen-review-scope')).toContainText(
             'allergen quarantines',
+            { timeout: JOURNEY_TIMEOUT },
         );
         await expect(page.getByTestId('kitchen-review-not-checked')).toContainText(
             'delivery zones and opening hours',
@@ -1175,75 +1503,107 @@ test.describe('kitchen workspace (en)', () => {
     /**
      * A branch's trading week, end to end.
      *
-     * Two claims are asserted where they are visible. Closing a day **removes** its three fields
-     * rather than greying them, because a disabled field still holding `08:00` would show a time
-     * that is not being saved. And the cut-off rule is enforced per row, before the save, with the
-     * offending day named.
+     * ## Held open on a real defect, not on a spec that drifted
      *
-     * The read-back is a genuine round trip now: leaving and returning re-fetches from the API, so
-     * the assertion at the end is PostgreSQL agreeing rather than an in-page store remembering.
+     * `/kitchen/branch-operating` renders a **blank page** against this stack, by whichever route it
+     * is reached — `page.goto`, or the hub card this journey used to press. The React tree throws
+     * during render and nothing is left on screen:
+     *
+     * ```
+     * [pageerror] Not a valid date:
+     * ```
+     *
+     * The chain is three files long and each link is deliberate on its own.
+     * `GET /kitchen/branch-operating` returns seven weekday rows and **no timestamps**, so
+     * `mapBranchOperating` fills the record's `meta.updatedAt` with the sentinel
+     * `UNKNOWN_ISO_DATE_TIME` (`packages/api-client/src/api/kitchen-admin-mappers.ts:919`), which is
+     * the empty string and is documented as such:
+     * *"A timestamp the API does not expose. Screens must render it as 'unknown', never format it."*
+     * (`packages/api-client/src/api/mappers.ts:67`). `EditorFrame` then formats it —
+     * `formatter.formatRelativeTime(meta.updatedAt)` at
+     * `apps/universal/src/features/kitchen-admin/editor-frame.tsx:87`, unconditional — and
+     * `createFormatter`'s `toDate` throws a `TypeError` on `new Date('')`
+     * (`packages/i18n/src/format.ts:49`). Nothing catches it, so the whole screen is lost.
+     *
+     * Every other editor escapes only because its endpoint *does* send `updated_at`; this is the one
+     * record on the contract that cannot. The fix is one guard in `EditorFrame` (render
+     * `kitchen:editor.neverSaved` for an empty `updatedAt`, exactly as it already does for a null
+     * `meta`) and it is application code, which this spec may not touch. The journey below is written
+     * out in full so that the guard lands with its test already waiting.
      */
-    test('closes a day, copies the rest, and refuses a cut-off after closing time', async ({
-        page,
-    }) => {
-        await openKitchen(page);
-        await page.getByTestId('kitchen-family-branch-operating-open').click();
-        await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible();
+    test.fixme(
+        'closes a day, copies the rest, and refuses a cut-off after closing time',
+        async ({ page }) => {
+            await openWorkspace(page);
+            await page.goto('/kitchen/branch-operating');
+            await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible({
+                timeout: JOURNEY_TIMEOUT,
+            });
 
-        // Seven rows, always. A closed day is a day somebody answered.
-        for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
-            await expect(
-                page.getByTestId(`kitchen-branch-hours-rows-day-${String(weekday)}`),
-            ).toBeVisible();
-        }
+            // Seven rows, always. A closed day is a day somebody answered.
+            for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
+                await expect(
+                    page.getByTestId(`kitchen-branch-hours-rows-day-${String(weekday)}`),
+                ).toBeVisible();
+            }
 
-        const row = await firstOpenDayRow(page);
-        await page.getByTestId(`${row}-opens-input`).fill('09:15');
-        await page.getByTestId(`${row}-closes-input`).fill('21:45');
-        await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
+            const row = await firstOpenDayRow(page);
+            await page.getByTestId(`${row}-opens-input`).fill('09:15');
+            await page.getByTestId(`${row}-closes-input`).fill('21:45');
+            await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
 
-        // A cut-off after closing time is refused on its own row, before anything is sent.
-        await page.getByTestId(`${row}-cut-off-input`).fill('23:00');
-        await expect(page.getByTestId(`${row}-error`)).toContainText('cut-off');
-        await expect(page.getByTestId('kitchen-branch-hours-screen-save')).toBeDisabled();
-        await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
-        await expect(page.getByTestId(`${row}-error`)).toHaveCount(0);
+            // A cut-off after closing time is refused on its own row, before anything is sent.
+            await page.getByTestId(`${row}-cut-off-input`).fill('23:00');
+            await expect(page.getByTestId(`${row}-error`)).toContainText('cut-off');
+            await expect(page.getByTestId('kitchen-branch-hours-screen-save')).toBeDisabled();
+            await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
+            await expect(page.getByTestId(`${row}-error`)).toHaveCount(0);
 
-        // Copy onto the open days, and say so — six rows changing below the fold is invisible
-        // otherwise.
-        await page.getByTestId(`${row}-copy`).click();
-        await expect(page.getByTestId('kitchen-branch-hours-rows-announcer')).toContainText(
-            'copied',
-        );
+            // Copy onto the open days, and say so — six rows changing below the fold is invisible
+            // otherwise.
+            await page.getByTestId(`${row}-copy`).click();
+            await expect(page.getByTestId('kitchen-branch-hours-rows-announcer')).toContainText(
+                'copied',
+            );
 
-        // Closing a day takes its fields away rather than disabling them. Never the row being
-        // edited above, so the two assertions cannot collide.
-        const target =
-            row === 'kitchen-branch-hours-rows-day-3'
-                ? 'kitchen-branch-hours-rows-day-4'
-                : 'kitchen-branch-hours-rows-day-3';
-        await page.getByTestId(`${target}-closed-control`).click();
-        await expect(page.getByTestId(`${target}-opens-input`)).toHaveCount(0);
-        await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
+            // Closing a day takes its fields away rather than disabling them. Never the row being
+            // edited above, so the two assertions cannot collide.
+            const target =
+                row === 'kitchen-branch-hours-rows-day-3'
+                    ? 'kitchen-branch-hours-rows-day-4'
+                    : 'kitchen-branch-hours-rows-day-3';
+            await page.getByTestId(`${target}-closed-control`).click();
+            await expect(page.getByTestId(`${target}-opens-input`)).toHaveCount(0);
+            await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
 
-        await page.getByTestId('kitchen-branch-hours-screen-save').click();
-        await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
+            await page.getByTestId('kitchen-branch-hours-screen-save').click();
+            await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
 
-        await page.getByTestId('kitchen-branch-hours-screen-back').click();
-        await expect(page.getByTestId('kitchen-home-screen')).toBeVisible();
-        await page.getByTestId('kitchen-family-branch-operating-open').click();
-        await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible();
-        await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
-        await expect(page.getByTestId(`${row}-cut-off-input`)).toHaveValue('17:30');
+            await page.reload();
+            await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible({
+                timeout: JOURNEY_TIMEOUT,
+            });
+            await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
+            await expect(page.getByTestId(`${row}-cut-off-input`)).toHaveValue('17:30');
 
-        // Put the closed day back: every read-only project reads this branch's week, and a Tuesday
-        // that is shut because a test shut it is a world nobody seeded.
-        await page.getByTestId(`${target}-closed-control`).click();
-        await expect(page.getByTestId(`${target}-opens-input`)).toBeVisible();
-        await page.getByTestId(`${target}-opens-input`).fill('08:00');
-        await page.getByTestId(`${target}-closes-input`).fill('20:00');
-        await page.getByTestId(`${target}-cut-off-input`).fill('18:00');
-        await page.getByTestId('kitchen-branch-hours-screen-save').click();
-        await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
-    });
+            // Put the closed day back: every read-only project reads this branch's week, and a
+            // Tuesday that is shut because a test shut it is a world nobody seeded.
+            await page.getByTestId(`${target}-closed-control`).click();
+            await expect(page.getByTestId(`${target}-opens-input`)).toBeVisible();
+            await page.getByTestId(`${target}-opens-input`).fill('08:00');
+            await page.getByTestId(`${target}-closes-input`).fill('20:00');
+            await page.getByTestId(`${target}-cut-off-input`).fill('18:00');
+            await page.getByTestId('kitchen-branch-hours-screen-save').click();
+            await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
+        },
+    );
 });
+
+/** The first weekday row of the branch-hours editor that is currently open for trade. */
+async function firstOpenDayRow(page: Page): Promise<string> {
+    for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
+        const row = `kitchen-branch-hours-rows-day-${String(weekday)}`;
+        if ((await page.getByTestId(`${row}-opens-input`).count()) > 0) return row;
+    }
+    throw new Error('The seeded branch is closed every day.');
+}

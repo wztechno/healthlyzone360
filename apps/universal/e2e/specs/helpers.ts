@@ -564,9 +564,7 @@ export async function fetchVerificationLink(needle: string, attempts = 60): Prom
         // Laravel log entries begin with a `[timestamp]` prefix; split so each block is one message.
         const entries = raw.split(/(?=^\[\d{4}-\d\d-\d\d[ T])/m);
         for (let index = entries.length - 1; index >= 0; index -= 1) {
-            const decoded = decodeQuotedPrintable(entries[index] ?? '');
-            if (!decoded.includes(needle)) continue;
-            const link = extractVerificationLink(decoded);
+            const link = verificationLinkIn(entries[index] ?? '', needle);
             if (link !== null) return link;
         }
 
@@ -580,8 +578,38 @@ export async function fetchVerificationLink(needle: string, attempts = 60): Prom
 }
 
 /**
- * Undo the quoted-printable encoding the mail logger writes: soft line breaks (`=` at end of line)
- * are removed and `=XX` escapes decoded, so a signed URL split across lines becomes whole again.
+ * The link in one logged message, or `null`.
+ *
+ * **The quoted-printable decode is attempted rather than applied**, and that is the fix for a
+ * failure that read as a broken mailer. Laravel's log mailer writes the rendered message *as it
+ * is* — the local stack's entries carry a literal `?expires=1786642048&signature=289ba6…` — while
+ * `decodeQuotedPrintable` treats every `=XX` as an escape. Run unconditionally it therefore ate the
+ * URL's own separators: `=17` became one control character and `=28` became `(`, so the extracted
+ * link had no `signature=` in it at all and the assertion blamed the API.
+ *
+ * So the raw entry is tried first and the decoded one only if the raw yields nothing usable, with
+ * {@link isSignedVerificationLink} deciding what "usable" means. A genuinely quoted-printable body
+ * fails that test in its raw form — `expires=3D1786642048` is not `expires=<digits>` — so a mailer
+ * that does encode is still handled, by the second attempt rather than by luck.
+ */
+function verificationLinkIn(entry: string, needle: string): string | null {
+    for (const body of [entry, decodeQuotedPrintable(entry)]) {
+        if (!body.includes(needle)) continue;
+        const link = extractVerificationLink(body);
+        if (link !== null && isSignedVerificationLink(link)) return link;
+    }
+    return null;
+}
+
+/** A signed URL still carrying both of its query parameters intact. */
+function isSignedVerificationLink(link: string): boolean {
+    return /[?&]expires=\d+/.test(link) && /[?&]signature=[0-9a-f]{16,}/.test(link);
+}
+
+/**
+ * Undo the quoted-printable encoding a mail logger *may* write: soft line breaks (`=` at end of
+ * line) are removed and `=XX` escapes decoded, so a signed URL split across lines becomes whole
+ * again. Only ever used as the second attempt — see {@link verificationLinkIn}.
  */
 function decodeQuotedPrintable(body: string): string {
     return body

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import {
     CEDAR_DIETITIAN,
@@ -131,6 +132,23 @@ test('the kitchen workspace opens for the kitchen manager', async ({ page }) => 
  * step. A code generated in the last second of a window would be rejected by the time the round
  * trip lands, so it is regenerated once on refusal rather than retried blindly.
  */
+/**
+ * Types a freshly generated code and presses submit, waiting for the control to be idle first.
+ *
+ * The wait is what stops a retry from queueing behind the attempt it is retrying: the button is
+ * `loading` (disabled, `aria-busy`) for as long as the challenge request is in flight, and a click
+ * issued in that window is retried by Playwright against a node the next render replaces.
+ */
+async function submitTotp(page: Page): Promise<void> {
+    const field = page.getByTestId('two-factor-code').locator('input').first();
+    await field.fill('');
+    await field.fill(totpCode());
+
+    const submit = page.getByTestId('two-factor-submit');
+    await expect(submit).toBeEnabled({ timeout: JOURNEY_TIMEOUT });
+    await submit.click();
+}
+
 test('signs in through the real two-factor challenge', async ({ page }) => {
     await page.goto('/sign-in');
     await expect(page.getByTestId('sign-in-screen')).toBeVisible();
@@ -141,30 +159,33 @@ test('signs in through the real two-factor challenge', async ({ page }) => {
     // Not an error: the form advances to its second step.
     await expect(page.getByTestId('two-factor-screen')).toBeVisible();
 
-    await page.getByTestId('two-factor-code').locator('input').first().fill(totpCode());
-    await page.getByTestId('two-factor-submit').click();
+    await submitTotp(page);
 
     const landed = authenticatedLandmark(page);
     const anonymous = page.getByTestId('landing-screen');
-
     /*
-     * Bounded on the journey budget, and every outcome named.
+     * The *refusal*, not the challenge screen — and that distinction is the whole repair.
      *
-     * Three things can be on screen after the challenge: an authenticated landmark, the challenge
-     * again (the 30-second window turned over between generating the code and the server checking
-     * it), or the anonymous marketplace — the same post-sign-in session race `signIn` documents.
-     * Waiting only for the landmark meant the last two spent the whole 450-second test timeout
-     * looking like a hang; naming them makes each one a sentence instead.
+     * Three things can follow the challenge: an authenticated landmark, a refused code (the
+     * 30-second window turned over between generating it and the server checking it), or the
+     * anonymous marketplace — the same post-sign-in session race `signIn` documents. Waiting for
+     * `two-factor-screen` as the middle outcome could never work: it is the screen the code was
+     * just typed into, so it is already visible and the race resolved on it *before the server had
+     * answered*. The retry below then filled a form whose submit was still `aria-busy`, Playwright
+     * spun on a disabled button until the re-render detached it, and a sign-in that had actually
+     * succeeded spent the whole 450-second budget looking like a hang.
+     *
+     * `two-factor-code-error` is the honest middle outcome: the field's error slot, which
+     * `sign-in-screen.tsx` fills from the challenge mutation's failure and nothing else.
      */
-    await expect(
-        landed.or(page.getByTestId('two-factor-screen')).or(anonymous).first(),
-    ).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+    const refused = page.getByTestId('two-factor-code-error');
+    await expect(landed.or(refused).or(anonymous).first()).toBeVisible({
+        timeout: JOURNEY_TIMEOUT,
+    });
 
-    if ((await page.getByTestId('two-factor-screen').count()) > 0) {
+    if ((await refused.count()) > 0) {
         // One fresh code, once — a loop here would be a way of never noticing a broken enrolment.
-        await page.getByTestId('two-factor-code').locator('input').first().fill('');
-        await page.getByTestId('two-factor-code').locator('input').first().fill(totpCode());
-        await page.getByTestId('two-factor-submit').click();
+        await submitTotp(page);
         await expect(landed.or(anonymous).first()).toBeVisible({ timeout: JOURNEY_TIMEOUT });
     }
 

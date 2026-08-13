@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import {
     CEDAR_DIETITIAN,
     DEMO_PASSWORD,
+    JOURNEY_TIMEOUT,
     apiRequest,
     issueToken,
     probeStack,
+    selectCedarContext,
     signIn,
     skipUnlessStackIsUp,
 } from './helpers.ts';
@@ -46,10 +49,31 @@ test.beforeEach(() => {
     skipUnlessStackIsUp(stack);
 });
 
+/**
+ * Signed in **and in a workspace**, which `/devices` turns out to require.
+ *
+ * `device.manage_own` looks like a permission a person carries everywhere, and it is not: the
+ * session projects `permissions` from `me.active_context` alone (`src/session/machine.ts`), so an
+ * account with no chosen organisation holds *no* permissions at all and the route's
+ * `allOf: ['device.manage_own']` gate refuses — `devices-screen` never renders and the failure reads
+ * as a screen that never loaded.
+ *
+ * It bit this file and not the others because `dietitian@cedar.test` is the one persona with **two**
+ * memberships: the picker cannot auto-select for them, so a bare `signIn` leaves them contextless.
+ * The state was invisible locally whenever `workspace.write.spec.ts` had run first and left a
+ * remembered organisation behind, and reappeared on every freshly seeded database — which is exactly
+ * the kind of order dependence a write suite must not have. Choosing Cedar explicitly makes the
+ * precondition part of the journey instead of part of the luck.
+ */
+async function openDevices(page: Page): Promise<void> {
+    await signIn(page, CEDAR_DIETITIAN);
+    await selectCedarContext(page);
+    await page.goto('/devices');
+    await expect(page.getByTestId('devices-screen')).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+}
+
 test('lists real devices and revokes one through the step-up dialog', async ({ page }) => {
     const secondDeviceName = `E2E phone ${String(Date.now())}`;
-
-    await signIn(page, CEDAR_DIETITIAN);
 
     // A second, independent credential — the thing under revocation.
     const second = await issueToken(page.request, CEDAR_DIETITIAN, secondDeviceName);
@@ -57,15 +81,14 @@ test('lists real devices and revokes one through the step-up dialog', async ({ p
     const alive = await apiRequest(page.request, 'get', '/api/v1/me', { token: second.token });
     expect(alive.status()).toBe(200);
 
-    await page.goto('/devices');
-    await expect(page.getByTestId('devices-screen')).toBeVisible();
+    await openDevices(page);
 
     // The browser's own device was created by the sign-in and is badged as current.
     const currentBadge = page.locator('[data-testid$="-current"]');
     await expect(currentBadge.first()).toBeVisible();
 
     const target = page.getByTestId(`device-${second.deviceId}`);
-    await expect(target).toBeVisible();
+    await expect(target).toBeVisible({ timeout: JOURNEY_TIMEOUT });
     await expect(target).toContainText(secondDeviceName);
 
     await page.getByTestId(`device-${second.deviceId}-revoke`).click();
@@ -79,8 +102,14 @@ test('lists real devices and revokes one through the step-up dialog', async ({ p
     await page.getByTestId('step-up-submit').click();
 
     // Confirmation unlocks the credential and the original revocation is retried for the user.
-    await expect(page.getByTestId('device-revoked-toast')).toBeVisible();
-    await expect(page.getByTestId(`device-${second.deviceId}`)).toHaveCount(0);
+    // Two chained writes — `POST /auth/confirm-password` then the retried `DELETE` — so the toast is
+    // waited for on the journey budget rather than on the single-request one.
+    await expect(page.getByTestId('device-revoked-toast')).toBeVisible({
+        timeout: JOURNEY_TIMEOUT,
+    });
+    await expect(page.getByTestId(`device-${second.deviceId}`)).toHaveCount(0, {
+        timeout: JOURNEY_TIMEOUT,
+    });
 
     const dead = await apiRequest(page.request, 'get', '/api/v1/me', { token: second.token });
     expect(dead.status()).toBe(401);
@@ -92,15 +121,17 @@ test('lists real devices and revokes one through the step-up dialog', async ({ p
 test('a wrong password is rejected by the step-up dialog', async ({ page }) => {
     const secondDeviceName = `E2E tablet ${String(Date.now())}`;
 
-    await signIn(page, CEDAR_DIETITIAN);
     const second = await issueToken(page.request, CEDAR_DIETITIAN, secondDeviceName);
 
-    await page.goto('/devices');
-    await expect(page.getByTestId(`device-${second.deviceId}`)).toBeVisible();
+    // The device is created *before* the screen is opened, so the list it renders already has it.
+    await openDevices(page);
+    await expect(page.getByTestId(`device-${second.deviceId}`)).toBeVisible({
+        timeout: JOURNEY_TIMEOUT,
+    });
 
     await page.getByTestId(`device-${second.deviceId}-revoke`).click();
     await page.getByTestId('revoke-dialog-confirm').click();
-    await expect(page.getByTestId('step-up-dialog')).toBeVisible();
+    await expect(page.getByTestId('step-up-dialog')).toBeVisible({ timeout: JOURNEY_TIMEOUT });
 
     await page.getByTestId('step-up-password').locator('input').first().fill('not-the-password');
     await page.getByTestId('step-up-submit').click();
