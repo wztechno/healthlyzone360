@@ -60,7 +60,7 @@ The foundation is complete only when **all** of the following are true:
 | Repository & infrastructure | Installs from a clean clone; Docker services start; Laravel boots against PostgreSQL and Redis; migrations and seeders succeed |
 | Authentication | A user can register and log in; email-verification behaviour exists; web cookie authentication works; native token authentication works |
 | Tenancy & access | A user can select an organisation and branch; `/api/v1/me` returns memberships, context, permissions and entitlements; cross-organisation access tests pass; representative RLS tests pass |
-| Contract & frontend | The generated TypeScript client matches OpenAPI; the Expo web application works; a native development build works; English and Arabic layouts work; mock mode cannot enter production |
+| Contract & frontend | The generated TypeScript client matches OpenAPI; the Expo web application works; a native development build works; English and Arabic layouts work; a production build refuses to boot without a real API base URL (the client is api-only — ADR-0013) |
 | Quality & honesty | Required CI checks pass; documentation reflects implementation; deferred functionality is identified honestly |
 
 The foundation must never be declared complete while a mandatory gate is failing.

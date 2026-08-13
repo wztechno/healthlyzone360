@@ -19,11 +19,16 @@ The project was delivered in two sequenced prompts:
 | **1 — Platform foundation** | Laravel 13 API + PostgreSQL row-level security + Expo universal app, with a working end-to-end vertical slice (register → verify e-mail → pick organisation → pick branch → permissions → workspace) proven against the real API | **Complete** — 175 backend tests, acceptance suite 7/7 against the live stack |
 | **2 — Reference research + UI prototype** | 18 evidence-classified research documents on two reference products, plus a full mock-first UI prototype (~83 routes: marketplace, onboarding, nutrition, virtual dietitian, planner, commerce, B2B, professional) and six **proposed** (not implemented) API contract drafts | **Complete** — 254/254 e2e + 38/38 visual baselines; no backend domain code written |
 
-The critical honesty rule that governs everything: **mock mode is a test fixture, not the
-product runtime.** Default builds use `EXPO_PUBLIC_DATA_MODE=api` against the Laravel API.
-Kitchen catalogue, marketplace, cart/checkout (COD), subscriptions, kitchen ops, and B2B
-programmes/quotations are wired. Surfaces that remain deferred are listed in §6 below and are
-hidden or honestly empty in the product UI — they are not silently mocked in API mode.
+The critical honesty rule that governs everything, in its post-D-087 form: **there is no mock
+mode.** The mock implementation was deleted on 2026-08-11/12 (ADR-0013, D-087); every build
+talks to the Laravel API, screens are tested against declared stub worlds, and every Playwright
+project runs the api export against the seeded Docker stack. Kitchen catalogue, marketplace,
+cart/checkout (COD), subscriptions, kitchen ops, and B2B programmes/quotations are wired.
+Surfaces with no backend (planner, nutrition, recipes/grocery, virtual dietitian, dietitian
+directory and review queue, partner supply, POS, driver, patient/clinic/insurance workspaces)
+are **hidden** by `apps/universal/src/features/availability.ts` — no entry points, direct URLs
+redirect — with `api/prototype-repositories.ts` still rejecting nameably underneath as the
+dead-man's switch.
 
 ---
 
@@ -81,10 +86,11 @@ rows even with raw SQL through the app role).
 
 ### 2.5 Frontend foundation
 
-- **Repository boundary**: screens talk to hooks, hooks talk to repository interfaces, and each
-  interface has two implementations — `mock` (a deterministic in-memory world with scenarios,
-  latency simulation and localStorage persistence) and `api` (the generated client). A build is
-  pinned to one mode via `EXPO_PUBLIC_DATA_MODE`.
+- **Repository boundary**: screens talk to hooks, hooks talk to repository interfaces, and the
+  one implementation is `api` (the generated client). The full 21-repository / 238-method
+  surface is recorded as data in `packages/api-client/src/contracts/repository-surface.ts`,
+  compile-checked against the contracts and runtime-checked against the api bundle. (The former
+  `mock` implementation was deleted — ADR-0013.)
 - **Design system** (`packages/design-system` over `design-tokens`): primitives, forms, overlays,
   navigation, status components, app shells — all direction-aware (RTL via logical utilities
   only; `rtl:`/`ltr:` variants are lint-banned), theme-aware (light/dark) and axe-clean, with a
@@ -95,11 +101,12 @@ rows even with raw SQL through the app role).
 - **Foundation screens**: the full auth journey, organisation/branch pickers, workspace selector,
   profile, devices (with step-up), consent, forbidden/not-found, all with loading/empty/error
   states.
-- **Verification**: jest + React Native Testing Library for screens (against the real mock
-  repositories, not stubbed hooks), Vitest for packages, Playwright for web e2e in three
-  projects (LTR, RTL, axe accessibility), and a separate 7-test **acceptance suite** that runs
-  the real registration→workspace journey against the live Docker stack, reading the
-  verification e-mail from the API log (the dev `log` mailer).
+- **Verification**: jest + React Native Testing Library for screens — each suite declares its
+  session and repository answers through `src/testing/stub-screen.tsx` (unstubbed calls fail
+  loudly, never silently) — Vitest for packages, and Playwright for web e2e where **every**
+  project (LTR, RTL, axe, visual, and the single-worker `web-write` mutation project) runs the
+  api export against the seeded Docker stack, reading verification e-mail from the API log (the
+  dev `log` mailer).
 
 ### 2.6 Documentation and CI
 
@@ -169,7 +176,7 @@ integration is designed as documentation only under `docs/architecture/integrati
   and builder (submission is a **real** store mutation); partner commitments and supply
   schedule; dietitian review queue, review detail and client plan.
 
-### 3.4 The guard invariants (what keeps the prototype honest)
+### 3.4 The guard invariants (what kept the prototype honest — historical; the mock world and its gates were retired by ADR-0013/D-087)
 
 - **No dead controls**: every control either genuinely mutates the mock world, or is an explicit
   `usePrototypeAction` that shows "Not built yet — nothing was changed" plus (dev builds only)
@@ -215,14 +222,14 @@ apps/universal/               Expo SDK 57 universal app (web + iOS + Android)
                               virtual-dietitian, planner, commerce, business, professional
   src/data/                   TanStack Query hooks + query-key registry
   src/prototype/              The honest prototype-action mechanism
-  e2e/specs/                  Playwright: *.ltr / *.rtl / *.a11y / *.visual* + sweeps
-  e2e/acceptance/             The 7-test live-API acceptance suite
+  e2e/specs/                  Playwright: *.ltr / *.rtl / *.a11y / *.visual* / *.write —
+                              all against the api export + the seeded Docker stack
 packages/
   domain-types/               Branded IDs, closed unions, Money (integer minor units)
   permissions/                The pure 7-gate permission kernel
   nutrition/                  Facts contracts + MockNutritionTargetEngine (cited formulae)
-  api-client/                 Repository contracts; mock/ (foundation) + mock/prototype/
-                              (fixture world); api/ (generated client + prototype stubs)
+  api-client/                 Repository contracts + surface table; api/ (generated client
+                              + the prototype.not_implemented stubs for unbuilt families)
   design-tokens/  design-system/  i18n/
 docs/
   architecture/               10 architecture docs, 12 ADRs, integrations, notes
@@ -301,57 +308,35 @@ corepack enable
 If `pnpm --version` already answers, skip corepack entirely. Ignore pnpm's "update available"
 banner — the repo pins `pnpm@11.15.1` through the `packageManager` field.
 
-### 5.3 Run the app in MOCK mode (the Prompt 2 prototype — no backend needed)
+### 5.3 Mock mode — removed
 
-This is the mode that showcases everything from Prompt 2:
+There is no mock mode any more (ADR-0013, D-087). `EXPO_PUBLIC_DATA_MODE` is gone; every run
+is §5.4 against the live backend. The seeded demo world now carries what the fixture world used
+to showcase: six photographed kitchens, eight published plans and the forty-meal catalogue.
 
-```powershell
-# Windows PowerShell (env vars are set with $env:, not VAR=value prefixes)
-cd apps/universal
-$env:EXPO_PUBLIC_DATA_MODE='mock'; $env:APP_MODE='all-dev'; npx expo start --web --clear
-```
-
-```bash
-# Git Bash / WSL / macOS / Linux
-cd apps/universal
-EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo start --web --clear
-```
-
-- Opens on <http://localhost:8081>. **Always pass `--clear`** — Metro inlines `EXPO_PUBLIC_*`
-  variables at build time and caches them, so a stale cache silently serves the wrong mode.
-- A development banner shows the active mock **scenario**; switch worlds from its picker
-  (e.g. `consumer-prototype`, `consumer-onboarding`, `multi-org-dietitian`). Switching clears
-  the session.
-- Demo accounts (password is always `password`):
-  - `layla.haddad@cedarclinic.example` — multi-organisation dietitian (foundation journey:
-    organisation picker → branch picker → workspace).
-  - `nour.saleh@example.com` — the consumer (planner, nutrition, Virtual Dietitian, commerce).
-- Tour of the prototype: start signed-out on `/` (marketplace) → `/discover`, `/kitchens`,
-  `/meals`, `/plans`, `/tools/calorie-calculator` → sign in as the consumer → `/customer`
-  (home), `/customer/onboarding/1`, `/customer/nutrition`, `/customer/virtual-dietitian`,
-  `/customer/planner`, `/customer/cart`, `/customer/subscriptions` → corporate/partner/dietitian
-  workspaces for the B2B and professional surfaces. `/showcase` is the design-system gallery.
-- Arabic/RTL: switch the locale from the banner/profile; the whole app mirrors.
-- Native: `npx expo start --clear` with the same env, then press `a`/`i` or scan with Expo Go.
-
-### 5.4 Run the app in API mode (the implemented foundation, against the live backend)
+### 5.4 Run the app (against the live backend)
 
 ```powershell
 # Windows PowerShell — stack must be up (5.1)
 cd apps/universal
-$env:EXPO_PUBLIC_DATA_MODE='api'; $env:EXPO_PUBLIC_API_URL='http://localhost:8080'; $env:APP_MODE='all-dev'; npx expo start --web --clear
+$env:EXPO_PUBLIC_API_URL='http://localhost:8080'; $env:APP_MODE='all-dev'; npx expo start --web --clear
 ```
 
 ```bash
 # Git Bash / WSL / macOS / Linux — stack must be up (5.1)
 cd apps/universal
-EXPO_PUBLIC_DATA_MODE=api EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo start --web --clear
+EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo start --web --clear
 ```
 
-In api mode only the foundation is real: registration (verification e-mail is written to the API
-log, `apps/api/storage/logs/laravel.log`), sign-in, organisation/branch/workspace, profile, devices with step-up
-revocation, consent. Every Prompt 2 repository method answers `prototype.not_implemented` — by
-design (the contracts are proposals, not implementations).
+Real end to end: registration (verification e-mail is written to the API log,
+`apps/api/storage/logs/laravel.log`), sign-in (incl. the seeded 2FA account
+`two-factor@cedar.test`, TOTP secret `DemoTenantSeeder::DEMO_TOTP_SECRET`),
+organisation/branch/workspace, profile, devices with step-up revocation, consent, the
+six-kitchen marketplace with its forty meals and eight plans, cart/checkout (COD),
+subscriptions, the whole kitchen workspace (catalogue, recipes, pricing, delivery, plans,
+orders, KDS, inventory/ops), and B2B programmes/quotations. The families with no backend are
+hidden from the UI entirely (§1); their repository methods still answer
+`prototype.not_implemented` if reached by code.
 
 ### 5.5 Run the test suites
 
@@ -371,22 +356,28 @@ pnpm run i18n:check
 pnpm run gen:api:check
 ```
 
-End-to-end (mock world — export once, then run; the config serves `dist/` on port 4173):
+End-to-end (against the seeded live stack — export the api artefact once, then run; the config
+serves `dist-api/` on port 4173):
 
 ```powershell
-# Windows PowerShell
+# Windows PowerShell — stack must be up and seeded (5.1)
 cd apps/universal
-$env:EXPO_PUBLIC_DATA_MODE='mock'; $env:APP_MODE='all-dev'; npx expo export -p web --clear
-npx playwright test                                 # 254 tests; 38 visual skip on the host
-npx playwright test e2e/specs/planner.ltr.spec.ts   # one file while iterating
+$env:EXPO_PUBLIC_API_URL='http://localhost:8080'; $env:APP_MODE='all-dev'; npx expo export -p web --output-dir dist-api --clear
+npx playwright test --project=web-ltr --project=web-rtl --project=a11y   # read-only projects, parallel
+npx playwright test --project=web-write --workers=1                      # mutating specs, single worker
+npx playwright test e2e/specs/catalogue.ltr.spec.ts                      # one file while iterating
 ```
 
 ```bash
 # Git Bash / WSL / macOS / Linux
 cd apps/universal
-EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo export -p web --clear
-npx playwright test
+EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo export -p web --output-dir dist-api --clear
+npx playwright test --project=web-ltr --project=web-rtl --project=a11y
+npx playwright test --project=web-write --workers=1
 ```
+
+Set `E2E_RESET_DB=1` on the playwright invocation to `migrate:fresh --seed` first (the global
+setup refuses unless `apps/api/.env` says `APP_ENV=local|testing`).
 
 Acceptance (the live-API proof — stack must be up):
 
