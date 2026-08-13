@@ -6,6 +6,7 @@ import { Icon } from '../icons/icon.tsx';
 import { IconButton } from '../actions/button.tsx';
 import { cx } from '../internal/class-names.ts';
 import { descriptionProps } from '../internal/a11y.ts';
+import { FadeIn } from '../motion/fade-in.tsx';
 import { REQUIRED_MARK } from './form-field.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
 
@@ -192,7 +193,12 @@ export function Select<T extends string = string>({
             <Modal
                 visible={open}
                 transparent
-                animationType="fade"
+                // animationType 'none' for the same reason as Dialog and Drawer: react-native-web's
+                // animated modals never fire animationend here, so the modal never activates — the
+                // wrapper keeps `aria-modal` without ever gaining its dialog role (an axe-critical
+                // aria-allowed-attr violation), the focus trap stays off, and Escape is ignored.
+                // FadeIn below supplies the entrance.
+                animationType="none"
                 onRequestClose={close}
                 // Names react-native-web's own dialog wrapper, exactly as `Dialog` does: it spreads
                 // unrecognised props onto that element, and an active modal without an accessible
@@ -201,130 +207,138 @@ export function Select<T extends string = string>({
                 {...({ 'aria-labelledby': `${base}-dialog-title` } as object)}
             >
                 <View className="flex-1 items-center justify-center bg-overlay p-4">
-                    <View
-                        testID={testID === undefined ? undefined : `${testID}-list`}
-                        role="dialog"
-                        accessibilityRole="none"
-                        aria-modal
-                        aria-labelledby={`${base}-dialog-title`}
-                        className="w-full max-w-[420px] overflow-hidden rounded-xl bg-surface-raised"
-                    >
-                        <View className="flex-row items-center justify-between gap-2 border-b border-stroke-subtle p-4">
-                            <RNText
-                                nativeID={`${base}-dialog-title`}
-                                accessibilityRole="header"
-                                aria-level={2}
-                                className="flex-1 text-base font-semibold text-content-primary text-start"
-                            >
-                                {label}
-                            </RNText>
-                            <IconButton
-                                testID={testID === undefined ? undefined : `${testID}-close`}
-                                size="sm"
-                                label={t('common:action.close')}
-                                icon={<Icon name="close" />}
-                                onPress={close}
-                            />
-                        </View>
-
-                        {!searchable ? null : (
-                            <View className="flex-col gap-1 border-b border-stroke-subtle p-4">
-                                <TextInputField
-                                    testID={testID === undefined ? undefined : `${testID}-search`}
-                                    id={`${base}-search`}
-                                    label={t('designSystem:select.searchLabel')}
-                                    placeholder={t('designSystem:select.searchPlaceholder')}
-                                    value={query}
-                                    onChangeText={setQuery}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    inputMode="search"
-                                />
-                                <RNText
-                                    nativeID={statusId}
-                                    testID={
-                                        testID === undefined ? undefined : `${testID}-search-status`
-                                    }
-                                    role="status"
-                                    aria-live="polite"
-                                    accessibilityLiveRegion="polite"
-                                    className="text-xs text-content-secondary text-start"
-                                >
-                                    {statusText}
-                                </RNText>
-                            </View>
-                        )}
-
-                        <ScrollView
-                            role="radiogroup"
+                    <FadeIn className="w-full max-w-[420px]">
+                        <View
+                            testID={testID === undefined ? undefined : `${testID}-list`}
+                            role="dialog"
+                            accessibilityRole="none"
+                            aria-modal
                             aria-labelledby={`${base}-dialog-title`}
-                            {...(searchable ? { 'aria-describedby': statusId } : {})}
-                            className="max-h-[360px]"
+                            className="w-full overflow-hidden rounded-xl bg-surface-raised"
                         >
-                            {!searchable || visible.length > 0 ? null : (
+                            <View className="flex-row items-center justify-between gap-2 border-b border-stroke-subtle p-4">
                                 <RNText
-                                    testID={
-                                        testID === undefined ? undefined : `${testID}-no-results`
-                                    }
-                                    className="px-4 py-3 text-sm text-content-secondary text-start"
+                                    nativeID={`${base}-dialog-title`}
+                                    accessibilityRole="header"
+                                    aria-level={2}
+                                    className="flex-1 text-base font-semibold text-content-primary text-start"
                                 >
-                                    {t('designSystem:select.noResults')}
+                                    {label}
                                 </RNText>
-                            )}
-                            {visible.map((option) => {
-                                const isSelected = option.value === value;
-                                return (
-                                    <Pressable
-                                        key={option.value}
+                                <IconButton
+                                    testID={testID === undefined ? undefined : `${testID}-close`}
+                                    size="sm"
+                                    label={t('common:action.close')}
+                                    icon={<Icon name="close" />}
+                                    onPress={close}
+                                />
+                            </View>
+
+                            {!searchable ? null : (
+                                <View className="flex-col gap-1 border-b border-stroke-subtle p-4">
+                                    <TextInputField
+                                        testID={
+                                            testID === undefined ? undefined : `${testID}-search`
+                                        }
+                                        id={`${base}-search`}
+                                        label={t('designSystem:select.searchLabel')}
+                                        placeholder={t('designSystem:select.searchPlaceholder')}
+                                        value={query}
+                                        onChangeText={setQuery}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        inputMode="search"
+                                    />
+                                    <RNText
+                                        nativeID={statusId}
                                         testID={
                                             testID === undefined
                                                 ? undefined
-                                                : `${testID}-option-${option.value}`
+                                                : `${testID}-search-status`
                                         }
-                                        role="radio"
-                                        accessibilityRole="radio"
-                                        accessibilityLabel={option.label}
-                                        aria-label={option.label}
-                                        aria-checked={isSelected}
-                                        accessibilityState={{
-                                            checked: isSelected,
-                                            disabled: option.disabled === true,
-                                        }}
-                                        aria-disabled={option.disabled === true}
-                                        focusable={option.disabled !== true}
-                                        disabled={option.disabled === true}
-                                        onPress={() => {
-                                            onChange(option.value);
-                                            close();
-                                        }}
-                                        className={cx(
-                                            'flex-row items-center gap-3 border-b border-stroke-subtle px-4 py-3 min-h-touch',
-                                            option.disabled === true ? 'opacity-50' : null,
-                                        )}
+                                        role="status"
+                                        aria-live="polite"
+                                        accessibilityLiveRegion="polite"
+                                        className="text-xs text-content-secondary text-start"
                                     >
-                                        <View className="w-5">
-                                            {isSelected ? (
-                                                <Icon
-                                                    name="check"
-                                                    className="text-content-on-brand-subtle"
-                                                />
-                                            ) : null}
-                                        </View>
-                                        <View className="flex-1 flex-col gap-0.5">
-                                            <RNText className="text-base text-content-primary text-start">
-                                                {option.label}
-                                            </RNText>
-                                            {option.description === undefined ? null : (
-                                                <RNText className="text-xs text-content-secondary text-start">
-                                                    {option.description}
-                                                </RNText>
+                                        {statusText}
+                                    </RNText>
+                                </View>
+                            )}
+
+                            <ScrollView
+                                role="radiogroup"
+                                aria-labelledby={`${base}-dialog-title`}
+                                {...(searchable ? { 'aria-describedby': statusId } : {})}
+                                className="max-h-[360px]"
+                            >
+                                {!searchable || visible.length > 0 ? null : (
+                                    <RNText
+                                        testID={
+                                            testID === undefined
+                                                ? undefined
+                                                : `${testID}-no-results`
+                                        }
+                                        className="px-4 py-3 text-sm text-content-secondary text-start"
+                                    >
+                                        {t('designSystem:select.noResults')}
+                                    </RNText>
+                                )}
+                                {visible.map((option) => {
+                                    const isSelected = option.value === value;
+                                    return (
+                                        <Pressable
+                                            key={option.value}
+                                            testID={
+                                                testID === undefined
+                                                    ? undefined
+                                                    : `${testID}-option-${option.value}`
+                                            }
+                                            role="radio"
+                                            accessibilityRole="radio"
+                                            accessibilityLabel={option.label}
+                                            aria-label={option.label}
+                                            aria-checked={isSelected}
+                                            accessibilityState={{
+                                                checked: isSelected,
+                                                disabled: option.disabled === true,
+                                            }}
+                                            aria-disabled={option.disabled === true}
+                                            focusable={option.disabled !== true}
+                                            disabled={option.disabled === true}
+                                            onPress={() => {
+                                                onChange(option.value);
+                                                close();
+                                            }}
+                                            className={cx(
+                                                'flex-row items-center gap-3 border-b border-stroke-subtle px-4 py-3 min-h-touch',
+                                                option.disabled === true ? 'opacity-50' : null,
                                             )}
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
-                        </ScrollView>
-                    </View>
+                                        >
+                                            <View className="w-5">
+                                                {isSelected ? (
+                                                    <Icon
+                                                        name="check"
+                                                        className="text-content-on-brand-subtle"
+                                                    />
+                                                ) : null}
+                                            </View>
+                                            <View className="flex-1 flex-col gap-0.5">
+                                                <RNText className="text-base text-content-primary text-start">
+                                                    {option.label}
+                                                </RNText>
+                                                {option.description === undefined ? null : (
+                                                    <RNText className="text-xs text-content-secondary text-start">
+                                                        {option.description}
+                                                    </RNText>
+                                                )}
+                                            </View>
+                                        </Pressable>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    </FadeIn>
                 </View>
             </Modal>
         </View>

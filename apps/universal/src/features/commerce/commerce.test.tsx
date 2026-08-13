@@ -1232,6 +1232,9 @@ describe('step validation', () => {
             plan: PLAN,
             allowedWeekdays: [1, 2, 3, 4, 5, 7],
             areaStatus: 'served',
+            // The typed-address path: these pure cases author full address fields, so the
+            // saved-address shortcut stays out of the way.
+            hasSavedAddress: false,
             earliestStartDate: '2026-07-31',
             translate,
         };

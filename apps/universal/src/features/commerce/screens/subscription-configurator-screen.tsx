@@ -256,10 +256,11 @@ export function SubscriptionConfiguratorScreen({
             plan: item,
             allowedWeekdays,
             areaStatus,
+            hasSavedAddress: addressId !== null,
             earliestStartDate: earliestStartDate(),
             translate: (key: string) => validationTranslate(key),
         };
-    }, [allowedWeekdays, areaStatus, item, validationTranslate]);
+    }, [addressId, allowedWeekdays, areaStatus, item, validationTranslate]);
 
     const issues =
         state === null || context === null ? [] : validateConfiguratorStep(step, state, context);
