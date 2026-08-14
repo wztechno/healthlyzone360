@@ -92,9 +92,9 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Expo Doctor
-        working-directory: apps/universal
-        run: pnpm run doctor
+      # No Expo Doctor step: `expo-doctor` ships as its own package and is not a dependency here,
+      # so the step could only ever fail on a clean install. It stays a local tool — run
+      # `pnpm --filter universal run doctor` when dependency drift is the question being asked.
 
       # The one artefact everything runs against since ADR-0013: the all-dev api export.
       # (The mock export and its production negative gate died with the mock implementation;
