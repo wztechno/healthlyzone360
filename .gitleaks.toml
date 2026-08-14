@@ -1,0 +1,24 @@
+# Gitleaks configuration.
+#
+# The default rule set, plus one narrow allowlist. Everything gitleaks detects by default still
+# fails the build — this file exists to name a single known false positive rather than to soften
+# the scan.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+The deleted mock repository tree.
+
+`generic-api-key` fires on `MOCK_SIGNING_TOKEN = 'b2b-signatory-verified'` in the fixture world's
+B2B store: a descriptive constant the mock compared against to stand in for a completed signatory
+challenge, never a credential and never accepted by any server. The file was deleted with the rest
+of the mock layer (ADR-0013, D-087), but a pull request scans the commit range rather than the
+working tree, so the finding resurfaces on every run against history that predates the deletion.
+
+Scoped to the path, not to the rule or the string: `packages/api-client/src/mock/` cannot come back
+— the tree is gone and `eslint.config.mjs` bans imports from any `**/mock/**` path as a regression
+guard — so this allowlist can never widen to cover live code.
+"""
+paths = ['''packages/api-client/src/mock/.*''']
