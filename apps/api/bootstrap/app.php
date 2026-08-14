@@ -45,6 +45,15 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Every deployed environment terminates TLS ahead of PHP (Caddy → nginx
+        // → FPM in infrastructure/deploy), so without this the framework sees
+        // the proxy's address as the client address: `throttleApi()` buckets
+        // every caller into one key, and url()/redirect() emit http:// against
+        // an https:// site. The proxy layer is not reachable from outside the
+        // deployment network and rewrites X-Forwarded-For with the real peer
+        // rather than appending to it, so trusting it wholesale is safe here.
+        $middleware->trustProxies(at: '*');
+
         // Sanctum: cookie sessions for first-party origins, bearer tokens
         // for every other client.
         $middleware->statefulApi();

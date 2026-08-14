@@ -75,7 +75,7 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(60)
+        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(config('api.rate_limit'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
 
         RateLimiter::for('catalogue-import', fn (Request $request): Limit => Limit::perHour(5)
