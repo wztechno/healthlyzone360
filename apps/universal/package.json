@@ -8,7 +8,7 @@
         "android": "expo start --android",
         "ios": "expo start --ios",
         "web": "expo start --web",
-        "build:web": "expo export -p web --clear",
+        "build:web": "expo export -p web --output-dir dist-api --clear",
         "build:web:api": "expo export -p web --output-dir dist-api --clear",
         "build:images": "node scripts/build-image-manifest.mjs",
         "build:images:check": "node scripts/build-image-manifest.mjs --check",

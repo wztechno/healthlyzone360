@@ -39,7 +39,7 @@ reads `EXPO_PUBLIC_API_URL` from it (the committed default points at the local s
 
 ```bash
 pnpm --filter universal dev            # expo start (reads apps/universal/.env)
-pnpm --filter universal build:web      # expo export -p web
+pnpm --filter universal build:web      # expo export -p web into dist-api (the only artefact)
 pnpm --filter universal test           # jest-expo render tests
 pnpm --filter universal typecheck
 pnpm --filter universal lint

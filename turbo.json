@@ -45,7 +45,7 @@
         "build:web": {
             "dependsOn": ["topo"],
             "env": ["APP_MODE", "APP_ENV"],
-            "outputs": ["dist/**", ".expo/**"]
+            "outputs": ["dist-api/**", ".expo/**"]
         },
         "dev": {
             "cache": false,
