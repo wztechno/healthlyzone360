@@ -2411,9 +2411,7 @@ describe('reading a meal back after a write', () => {
         status: 200,
         body: {
             data: {
-                allergens: [
-                    { allergen_code: 'sesame', containment: 'contains', basis: 'derived' },
-                ],
+                allergens: [{ allergen_code: 'sesame', containment: 'contains', basis: 'derived' }],
             },
             meta: { correlation_id: 'c-allergens', basis: 'ingredients', recipe_version_id: null },
         },
@@ -2708,9 +2706,24 @@ describe('the product editor writes', () => {
             {
                 lockVersion: 0,
                 availability: [
-                    { channel: 'b2c', isAvailable: true, availableFrom: null, availableUntil: null },
-                    { channel: 'b2b', isAvailable: true, availableFrom: null, availableUntil: null },
-                    { channel: 'pos', isAvailable: true, availableFrom: null, availableUntil: null },
+                    {
+                        channel: 'b2c',
+                        isAvailable: true,
+                        availableFrom: null,
+                        availableUntil: null,
+                    },
+                    {
+                        channel: 'b2b',
+                        isAvailable: true,
+                        availableFrom: null,
+                        availableUntil: null,
+                    },
+                    {
+                        channel: 'pos',
+                        isAvailable: true,
+                        availableFrom: null,
+                        availableUntil: null,
+                    },
                 ],
             },
         );
@@ -2752,13 +2765,25 @@ describe('the product editor writes', () => {
             {
                 lockVersion: 0,
                 availability: [
-                    { channel: 'b2c', isAvailable: true, availableFrom: null, availableUntil: null },
-                    { channel: 'pos', isAvailable: true, availableFrom: null, availableUntil: null },
+                    {
+                        channel: 'b2c',
+                        isAvailable: true,
+                        availableFrom: null,
+                        availableUntil: null,
+                    },
+                    {
+                        channel: 'pos',
+                        isAvailable: true,
+                        availableFrom: null,
+                        availableUntil: null,
+                    },
                 ],
             },
         );
 
-        const body = calls[1]?.body as { readonly channels: readonly { sales_channel_id: string }[] };
+        const body = calls[1]?.body as {
+            readonly channels: readonly { sales_channel_id: string }[];
+        };
         expect(body.channels.map((row) => row.sales_channel_id)).toEqual([WEB_SHOP, COUNTER]);
     });
 });

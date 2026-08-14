@@ -853,9 +853,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
 
             const variants = await wireProductVariants(
                 request.packVariants,
-                request.packVariants === undefined
-                    ? new Map()
-                    : await storedVariantsByCode(id),
+                request.packVariants === undefined ? new Map() : await storedVariantsByCode(id),
             );
             if (variants.length > 0) {
                 lockVersion = await replaceItemVariants(id, lockVersion, variants);

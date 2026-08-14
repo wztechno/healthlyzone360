@@ -438,7 +438,10 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
 
     if (!isDeliverySlotCode(state.slotCode)) issues.push('commerce:configurator.issues.slot');
 
-    if (!context.hasSavedAddress && !isAddressComplete(state.address, (key) => context.translate(key))) {
+    if (
+        !context.hasSavedAddress &&
+        !isAddressComplete(state.address, (key) => context.translate(key))
+    ) {
         issues.push('commerce:configurator.issues.address');
     }
 

@@ -244,7 +244,12 @@ async function rowMatching(page: Page, query: string): Promise<string> {
 
 async function openProducts(page: Page) {
     await openWorkspace(page);
-    await openScreen(page, '/kitchen/products', 'kitchen-products-screen', 'kitchen-products-table');
+    await openScreen(
+        page,
+        '/kitchen/products',
+        'kitchen-products-screen',
+        'kitchen-products-table',
+    );
 }
 
 /**
@@ -580,14 +585,20 @@ test.describe('kitchen workspace (en)', () => {
             'published',
             { timeout: HUB_TIMEOUT },
         );
-        await expect(page.getByTestId('kitchen-family-meals-published')).toContainText('published', {
-            timeout: HUB_TIMEOUT,
-        });
+        await expect(page.getByTestId('kitchen-family-meals-published')).toContainText(
+            'published',
+            {
+                timeout: HUB_TIMEOUT,
+            },
+        );
 
         // Counts come from the repository, not from a constant on the card.
-        await expect(page.getByTestId('kitchen-family-ingredients-total')).toContainText('records', {
-            timeout: HUB_TIMEOUT,
-        });
+        await expect(page.getByTestId('kitchen-family-ingredients-total')).toContainText(
+            'records',
+            {
+                timeout: HUB_TIMEOUT,
+            },
+        );
         // A reference family says what it is instead of inventing a draft count.
         await expect(page.getByTestId('kitchen-family-allergen-classes-reference')).toContainText(
             'Reference',
@@ -886,7 +897,10 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId(`${base}-name`)).toBeVisible();
         await expect(page.getByTestId(`${base}-category`)).toBeVisible();
         await expect(
-            page.getByTestId(`${base}-packs`).or(page.getByTestId(`${base}-packs-none`)).first(),
+            page
+                .getByTestId(`${base}-packs`)
+                .or(page.getByTestId(`${base}-packs-none`))
+                .first(),
         ).toBeVisible();
         await expect(
             page
@@ -1723,72 +1737,71 @@ test.describe('kitchen workspace (en)', () => {
      * `meta`) and it is application code, which this spec may not touch. The journey below is written
      * out in full so that the guard lands with its test already waiting.
      */
-    test.fixme(
-        'closes a day, copies the rest, and refuses a cut-off after closing time',
-        async ({ page }) => {
-            await openWorkspace(page);
-            await page.goto('/kitchen/branch-operating');
-            await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible({
-                timeout: JOURNEY_TIMEOUT,
-            });
+    test.fixme('closes a day, copies the rest, and refuses a cut-off after closing time', async ({
+        page,
+    }) => {
+        await openWorkspace(page);
+        await page.goto('/kitchen/branch-operating');
+        await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
-            // Seven rows, always. A closed day is a day somebody answered.
-            for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
-                await expect(
-                    page.getByTestId(`kitchen-branch-hours-rows-day-${String(weekday)}`),
-                ).toBeVisible();
-            }
+        // Seven rows, always. A closed day is a day somebody answered.
+        for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
+            await expect(
+                page.getByTestId(`kitchen-branch-hours-rows-day-${String(weekday)}`),
+            ).toBeVisible();
+        }
 
-            const row = await firstOpenDayRow(page);
-            await page.getByTestId(`${row}-opens-input`).fill('09:15');
-            await page.getByTestId(`${row}-closes-input`).fill('21:45');
-            await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
+        const row = await firstOpenDayRow(page);
+        await page.getByTestId(`${row}-opens-input`).fill('09:15');
+        await page.getByTestId(`${row}-closes-input`).fill('21:45');
+        await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
 
-            // A cut-off after closing time is refused on its own row, before anything is sent.
-            await page.getByTestId(`${row}-cut-off-input`).fill('23:00');
-            await expect(page.getByTestId(`${row}-error`)).toContainText('cut-off');
-            await expect(page.getByTestId('kitchen-branch-hours-screen-save')).toBeDisabled();
-            await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
-            await expect(page.getByTestId(`${row}-error`)).toHaveCount(0);
+        // A cut-off after closing time is refused on its own row, before anything is sent.
+        await page.getByTestId(`${row}-cut-off-input`).fill('23:00');
+        await expect(page.getByTestId(`${row}-error`)).toContainText('cut-off');
+        await expect(page.getByTestId('kitchen-branch-hours-screen-save')).toBeDisabled();
+        await page.getByTestId(`${row}-cut-off-input`).fill('17:30');
+        await expect(page.getByTestId(`${row}-error`)).toHaveCount(0);
 
-            // Copy onto the open days, and say so — six rows changing below the fold is invisible
-            // otherwise.
-            await page.getByTestId(`${row}-copy`).click();
-            await expect(page.getByTestId('kitchen-branch-hours-rows-announcer')).toContainText(
-                'copied',
-            );
+        // Copy onto the open days, and say so — six rows changing below the fold is invisible
+        // otherwise.
+        await page.getByTestId(`${row}-copy`).click();
+        await expect(page.getByTestId('kitchen-branch-hours-rows-announcer')).toContainText(
+            'copied',
+        );
 
-            // Closing a day takes its fields away rather than disabling them. Never the row being
-            // edited above, so the two assertions cannot collide.
-            const target =
-                row === 'kitchen-branch-hours-rows-day-3'
-                    ? 'kitchen-branch-hours-rows-day-4'
-                    : 'kitchen-branch-hours-rows-day-3';
-            await page.getByTestId(`${target}-closed-control`).click();
-            await expect(page.getByTestId(`${target}-opens-input`)).toHaveCount(0);
-            await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
+        // Closing a day takes its fields away rather than disabling them. Never the row being
+        // edited above, so the two assertions cannot collide.
+        const target =
+            row === 'kitchen-branch-hours-rows-day-3'
+                ? 'kitchen-branch-hours-rows-day-4'
+                : 'kitchen-branch-hours-rows-day-3';
+        await page.getByTestId(`${target}-closed-control`).click();
+        await expect(page.getByTestId(`${target}-opens-input`)).toHaveCount(0);
+        await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
 
-            await page.getByTestId('kitchen-branch-hours-screen-save').click();
-            await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
+        await page.getByTestId('kitchen-branch-hours-screen-save').click();
+        await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
 
-            await page.reload();
-            await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible({
-                timeout: JOURNEY_TIMEOUT,
-            });
-            await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
-            await expect(page.getByTestId(`${row}-cut-off-input`)).toHaveValue('17:30');
+        await page.reload();
+        await expect(page.getByTestId('kitchen-branch-hours-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId(`${target}-closed-note`)).toBeVisible();
+        await expect(page.getByTestId(`${row}-cut-off-input`)).toHaveValue('17:30');
 
-            // Put the closed day back: every read-only project reads this branch's week, and a
-            // Tuesday that is shut because a test shut it is a world nobody seeded.
-            await page.getByTestId(`${target}-closed-control`).click();
-            await expect(page.getByTestId(`${target}-opens-input`)).toBeVisible();
-            await page.getByTestId(`${target}-opens-input`).fill('08:00');
-            await page.getByTestId(`${target}-closes-input`).fill('20:00');
-            await page.getByTestId(`${target}-cut-off-input`).fill('18:00');
-            await page.getByTestId('kitchen-branch-hours-screen-save').click();
-            await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
-        },
-    );
+        // Put the closed day back: every read-only project reads this branch's week, and a
+        // Tuesday that is shut because a test shut it is a world nobody seeded.
+        await page.getByTestId(`${target}-closed-control`).click();
+        await expect(page.getByTestId(`${target}-opens-input`)).toBeVisible();
+        await page.getByTestId(`${target}-opens-input`).fill('08:00');
+        await page.getByTestId(`${target}-closes-input`).fill('20:00');
+        await page.getByTestId(`${target}-cut-off-input`).fill('18:00');
+        await page.getByTestId('kitchen-branch-hours-screen-save').click();
+        await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
+    });
 });
 
 /** The first weekday row of the branch-hours editor that is currently open for trade. */

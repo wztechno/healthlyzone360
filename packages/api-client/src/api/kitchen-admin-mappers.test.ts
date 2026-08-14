@@ -81,7 +81,12 @@ describe('mapPlanVariantsFromCells', () => {
     it('carries each cell own shape, band and status', () => {
         const [full, lunch, retired] = mapPlanVariantsFromCells(
             [
-                cell({ code: 'full-day', meals_per_day: 3, snacks_per_day: 1, name_en: 'Full day' }),
+                cell({
+                    code: 'full-day',
+                    meals_per_day: 3,
+                    snacks_per_day: 1,
+                    name_en: 'Full day',
+                }),
                 cell({ code: 'lunch-dinner', meals_per_day: 2 }),
                 cell({ code: 'gone', status: 'archived' }),
             ],
