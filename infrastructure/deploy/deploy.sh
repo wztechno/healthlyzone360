@@ -170,6 +170,13 @@ fi
 echo "==> starting the full stack"
 docker compose up -d --remove-orphans
 
+# The web root is a bind mount, and the documented upgrade replaces ./web on the
+# host wholesale. A running nginx keeps its handle on the *deleted* directory, so
+# it goes on serving the old export — or nothing at all — while compose sees a
+# service whose configuration has not changed and leaves it alone. Recreating it
+# rebinds the mount to the directory that now exists.
+docker compose up -d --force-recreate web
+
 # Horizon holds its supervisor configuration in memory; a new image means a new
 # container, but an already-running one has to be told to pick the code up.
 docker compose restart queue scheduler >/dev/null 2>&1 || true
