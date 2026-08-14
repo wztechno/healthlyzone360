@@ -338,6 +338,12 @@ async function submitSignIn(page: Page, email: string, password: string): Promis
      * screen entirely. And `landing-screen` — the *anonymous* marketplace — is the outcome
      * described above: an accepted credential whose session never became authenticated. No account
      * in this suite legitimately lands there, so seeing it is a result, not a wait.
+     *
+     * That last clause is only true because `landing-screen` names one screen. It used to name two:
+     * the restoring splash at `/` carried it as well, so this race resolved on the splash one frame
+     * after `router.replace('/')` — with `me()` still in flight — and reported every healthy sign-in
+     * as the anonymous outcome. The splash is `session-restoring-screen` now, which matches nothing
+     * here, which is exactly right: "still restoring" is a reason to keep waiting, not an answer.
      */
     const landmark = authenticatedLandmark(page);
     const refusal = page.getByTestId('sign-in-error');
