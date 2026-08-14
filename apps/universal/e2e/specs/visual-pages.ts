@@ -8,8 +8,8 @@ import {
     MEAL_SLUG,
     PLAN_NAME,
     PLAN_SLUG,
-    authenticatedLandmark,
-    signIn,
+    issueToken,
+    seedSession,
 } from './helpers.ts';
 
 /**
@@ -215,6 +215,15 @@ export async function preparePage(
 }
 
 /**
+ * One consumer token per worker process, issued on first use.
+ *
+ * Module scope is deliberately the cache: Playwright gives each worker its own module registry, so
+ * this is per-worker state rather than shared mutable state between them, and a token outlives the
+ * page it was issued for.
+ */
+let consumerToken: string | null = null;
+
+/**
  * Opens a page and waits until it is genuinely still.
  *
  * Three separate things settle at different times and all three move pixels: the route's own
@@ -226,8 +235,15 @@ export async function openAndSettle(page: Page, target: VisualPage): Promise<voi
     if (target.session) {
         // The seeded consumer: verified, activated, no membership — so the landing resolver sends
         // this account to the customer home rather than through a workspace picker.
-        await signIn(page, CONSUMER_EMAIL);
-        await expect(authenticatedLandmark(page)).toBeVisible();
+        //
+        // One token for the whole worker, seeded rather than typed. The single authenticated page
+        // here is photographed at three viewports and each of those retries once, which is six
+        // credential attempts inside a minute — enough to trip the API's sign-in throttle and turn
+        // the last baselines into pictures of "try again in 13 seconds".
+        consumerToken ??= (
+            await issueToken(page.request, CONSUMER_EMAIL, 'visual-baselines', 'web')
+        ).token;
+        await seedSession(page, consumerToken);
     }
 
     await target.open(page);

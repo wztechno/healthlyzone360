@@ -381,6 +381,29 @@ export async function signInExpectingRefusal(
     await expect(page.getByTestId('sign-in-screen')).toBeVisible();
 }
 
+/**
+ * Puts a session in place without driving the sign-in form.
+ *
+ * The form is the honest way to prove that signing in *works*, and the journeys use it for exactly
+ * that. A suite that merely needs to *be* signed in pays a different price for it: the API throttles
+ * repeated credential attempts, so a handful of form sign-ins inside a minute are refused — and a
+ * visual suite then photographs the refusal and calls it a baseline. One token, issued over the API
+ * and seeded here, is both stable and fast.
+ *
+ * It is seeded through `addInitScript` rather than `page.evaluate` because the write has to happen
+ * before the application's own scripts read storage, which on the first navigation is already too
+ * late. A wrong or expired token still fails loudly: the page renders signed out and the caller's
+ * own readiness assertions never resolve.
+ */
+export async function seedSession(page: Page, token: string): Promise<void> {
+    await page.addInitScript(
+        ([key, value]) => {
+            globalThis.localStorage.setItem(key, value);
+        },
+        [SESSION_TOKEN_KEY, token] as const,
+    );
+}
+
 /** The bearer token the running application is holding, read from its own storage. */
 export async function readSessionToken(page: Page): Promise<string> {
     const token = await page.evaluate(
