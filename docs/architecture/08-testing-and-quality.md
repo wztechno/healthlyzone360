@@ -131,7 +131,7 @@ OpenAPI 3.1 is linted and bundled with Redocly; implemented endpoints have contr
 | Workflow | Jobs |
 | --- | --- |
 | **Backend** | composer validation; Pint; Larastan; Pest; PostgreSQL migration test; tenancy tests; RLS tests; OpenAPI lint and bundle |
-| **Frontend** | frozen pnpm install; formatting; ESLint; TypeScript; Vitest; Jest Expo; Expo Doctor; web export (`all-dev` api artefact); web export (one production mode); Playwright read projects + the single-worker `web-write` mutation project against a provisioned Laravel stack; visual regression from the pinned container |
+| **Frontend** | frozen pnpm install; formatting; ESLint; TypeScript; Vitest; Jest Expo; Expo Doctor; web export (`all-dev` api artefact); web export (one production mode); Playwright read projects + the single-worker `web-write` mutation project against a provisioned Laravel stack |
 | **Security and contracts** | secret scanning; dependency review; CodeQL; generated-client drift; recorded-payload/schema conformance |
 
 Renovate/Dependabot updates must pass these workflows before merge (plan §3).

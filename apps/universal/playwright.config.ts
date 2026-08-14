@@ -29,7 +29,7 @@ import { defineConfig, devices } from '@playwright/test';
  * pnpm run e2e:write                 # the mutating journeys, one worker
  * ```
  *
- * Seven projects, matched by file-name suffix:
+ * Four projects, matched by file-name suffix:
  *
  * | project       | files                     | what it proves                                        |
  * | ------------- | ------------------------- | ----------------------------------------------------- |
@@ -37,27 +37,18 @@ import { defineConfig, devices } from '@playwright/test';
  * | `web-rtl`     | `*.rtl.spec.ts`           | the same core journeys in Arabic, `dir="rtl"` asserted |
  * | `a11y`        | `*.a11y.spec.ts`          | axe on every functional screen: nothing serious        |
  * | `web-write`   | `*.write.spec.ts`         | the journeys that mutate the database, serially        |
- * | `visual`      | `*.visual.spec.ts`        | the English light-appearance baselines                 |
- * | `visual-rtl`  | `*.visual-rtl.spec.ts`    | the Arabic right-to-left baselines                     |
- * | `visual-dark` | `*.visual-dark.spec.ts`   | the dark-appearance baselines                          |
+ *
+ * There is no screenshot-baseline project. Pixel comparison was retired deliberately: the baselines
+ * are only authoritative inside one pinned container, they go stale on every change to the seeded
+ * world, and re-shooting them cost more than the regressions they caught. Appearance is covered by
+ * what the other projects already assert — structure, direction and axe.
  *
  * ## Why the timeouts are what they are
  *
- * Every navigation in every project is now several real HTTP round trips against a Windows Docker
- * stack (php-fpm over a bind mount), which answers in roughly two to six seconds locally and in tens
- * of milliseconds on CI's artisan-serve stack. So the *non-visual* budgets are generous on purpose —
- * 90 s per test, 20 s per assertion — and the margin costs nothing where it matters. The visual
- * projects keep their original 45 s / 10 s: a screenshot comparison is CPU, not latency, and a
- * baseline that takes 90 s to disagree is a slow way to learn nothing.
- *
- * ## The visual projects only produce a verdict inside the pinned container
- *
- * A screenshot baseline is a claim about glyph rasterisation, and that claim is only true on the
- * machine that made it: Windows, macOS and two differently-packaged Linux boxes all disagree. So the
- * baselines are captured and compared **only** inside `mcr.microsoft.com/playwright:v1.62.0-noble`
- * — the same image CI uses — and every visual test skips elsewhere with an explicit message. See
- * `e2e/specs/visual-pages.ts`; the switch is `PLAYWRIGHT_VISUAL=1`, set by the repository's
- * `e2e:visual` script and by nothing else.
+ * Every navigation in every project is several real HTTP round trips against a Windows Docker stack
+ * (php-fpm over a bind mount), which answers in roughly two to six seconds locally and in tens of
+ * milliseconds on CI's artisan-serve stack. So the budgets are generous on purpose — 90 s per test,
+ * 20 s per assertion — and the margin costs nothing where it matters.
  */
 export const BASE_URL =
     process.env['E2E_BASE_URL'] ?? process.env['BASE_URL'] ?? 'http://localhost:4173';
@@ -87,30 +78,6 @@ if (!existsSync(API_BUILD_DIR)) {
     );
 }
 
-/**
- * One per cent of the frame. On the largest shot (1440×900) that is about thirteen thousand pixels:
- * enough to absorb subpixel differences in glyph rasterisation between two runs of the same
- * container, and nowhere near enough to absorb a moved card, a changed spacing step or a badge that
- * stopped rendering.
- */
-const SCREENSHOT_OPTIONS = {
-    maxDiffPixelRatio: 0.01,
-    animations: 'disabled',
-    caret: 'hide',
-    // CSS pixels rather than device pixels, so a baseline does not depend on the DPR of whatever
-    // ran it.
-    scale: 'css',
-} as const;
-
-/**
- * The visual projects' original budgets, restated per project so raising the global ones for the
- * API-backed journeys cannot silently change what a screenshot comparison waits for.
- */
-const VISUAL_TIMING = {
-    timeout: 45_000,
-    expect: { timeout: 10_000, toHaveScreenshot: SCREENSHOT_OPTIONS },
-} as const;
-
 export default defineConfig({
     testDir: './e2e/specs',
     globalSetup: './e2e/global-setup.ts',
@@ -124,19 +91,7 @@ export default defineConfig({
     timeout: 90_000,
     expect: {
         timeout: 20_000,
-        toHaveScreenshot: SCREENSHOT_OPTIONS,
     },
-
-    /**
-     * `e2e/specs/__screenshots__/{project}/{name}.png`.
-     *
-     * Deliberately without `{platform}`. The default template embeds the operating system in the
-     * file name, which is honest for a suite whose baselines are captured on several — and
-     * misleading for one whose baselines may only ever come from a single pinned Linux container.
-     * A `-linux` suffix would invite somebody to add a `-win32` sibling, which is precisely the
-     * thing that must not exist.
-     */
-    snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
 
     use: {
         baseURL: BASE_URL,
@@ -184,53 +139,6 @@ export default defineConfig({
             retries: 0,
             expect: { timeout: 30_000 },
             use: { ...devices['Desktop Chrome'], locale: 'en-GB' },
-        },
-
-        /*
-         * The three visual projects share everything except locale and appearance. Each sets
-         * `reducedMotion: 'reduce'` on top of the per-shot `animations: 'disabled'` above: the
-         * latter freezes CSS animations at the moment of capture, the former makes the application
-         * itself render final states, and a baseline wants both — one stops the paint moving, the
-         * other stops the layout depending on when the shot was taken.
-         *
-         * The viewport is set per test rather than per project: eight pages at three sizes is
-         * twenty-four combinations, and three projects per size would be nine projects saying the
-         * same thing.
-         */
-        {
-            name: 'visual',
-            testMatch: /.*\.visual\.spec\.ts/,
-            ...VISUAL_TIMING,
-            use: {
-                ...devices['Desktop Chrome'],
-                locale: 'en-GB',
-                colorScheme: 'light',
-                contextOptions: { reducedMotion: 'reduce' },
-            },
-        },
-        {
-            name: 'visual-rtl',
-            testMatch: /.*\.visual-rtl\.spec\.ts/,
-            ...VISUAL_TIMING,
-            use: {
-                ...devices['Desktop Chrome'],
-                locale: 'ar',
-                colorScheme: 'light',
-                contextOptions: { reducedMotion: 'reduce' },
-            },
-        },
-        {
-            name: 'visual-dark',
-            testMatch: /.*\.visual-dark\.spec\.ts/,
-            ...VISUAL_TIMING,
-            use: {
-                ...devices['Desktop Chrome'],
-                locale: 'en-GB',
-                // Dark styling is entirely `@media (prefers-color-scheme: dark)` in the generated
-                // token stylesheet — there is no in-application toggle to drive instead.
-                colorScheme: 'dark',
-                contextOptions: { reducedMotion: 'reduce' },
-            },
         },
     ],
 

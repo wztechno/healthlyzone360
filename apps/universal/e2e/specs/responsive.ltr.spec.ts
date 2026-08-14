@@ -9,10 +9,10 @@ import type { StackStatus } from './helpers.ts';
  *
  * ## Structure, not pixels
  *
- * The visual projects (`*.visual*.spec.ts`) own "does this page still look like itself". This file
- * owns something a screenshot cannot express, because a screenshot of a broken layout is a perfectly
- * valid screenshot: **invariants**. A page may be redesigned freely and every assertion below still
- * has to hold, which is what makes them worth running on every change rather than re-baselining.
+ * This file owns something a screenshot cannot express, because a screenshot of a broken layout is a
+ * perfectly valid screenshot: **invariants**. A page may be redesigned freely and every assertion
+ * below still has to hold, which is what makes them worth running on every change — and what makes
+ * them the whole of the layout story now that pixel baselines are gone.
  *
  * Four invariants, each a real defect if it breaks:
  *

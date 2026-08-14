@@ -193,9 +193,10 @@ integration is designed as documentation only under `docs/architecture/integrati
 ### 3.5 The verification layer
 
 - Playwright projects: `web-ltr`, `web-rtl` (a real Arabic build), `a11y` (axe, zero
-  serious/critical), plus **visual regression** (`visual`, `visual-rtl`, `visual-dark`) with 38
-  committed baselines that are authoritative **only** from the pinned
-  `mcr.microsoft.com/playwright:v1.62.0-noble` container (host runs skip by design).
+  serious/critical) and `web-write` (the mutating journeys, one worker). There is **no**
+  screenshot-baseline project: pixel comparison was retired (D-088) because the baselines were
+  authoritative from one pinned container only, went stale on every change to the seeded world, and
+  cost more to re-shoot than the regressions they caught.
 - A responsive spec asserting structure at all seven mandated viewports (320→1440 px): no
   horizontal overflow, navigation switches form, ≥44 px touch targets, grid-vs-agenda planner.
 - Reduced-motion, prototype-action and no-external-request sweeps; export byte budgets in CI.
@@ -383,13 +384,6 @@ The former standalone acceptance suite is folded into the write specs above (`*.
 under `e2e/specs/` — registration, devices, workspace incl. the seeded 2FA account, commerce);
 `pnpm run e2e:write` is its successor and there is no separate `e2e:acceptance` config.
 
-Visual regression (Docker required; run from **PowerShell at the repo root** — see 5.7):
-
-```bash
-pnpm -w run e2e:visual            # compare against the 38 committed baselines
-pnpm -w run e2e:visual:update     # re-capture baselines (only after intentional UI changes)
-```
-
 Export budget check: `cd apps/universal && pnpm run budget:export`.
 
 ### 5.6 Reset / day-to-day
@@ -407,8 +401,6 @@ docker compose up -d --wait        # daily start (setup is one-time)
 | App behaves like the wrong data mode | Metro cached the inlined env. Re-run any `expo start`/`export` **with `--clear`**. |
 | Queue/api container crash-loops after host `composer install` | Host vendor contains Windows junctions Linux can't resolve. Run `docker compose exec -T api composer install`, then `docker compose restart queue nginx`. |
 | Docker engine won't start from a script | `com.docker.service` needs an elevated (UAC) first start — launch Docker Desktop interactively once. |
-| `e2e:visual` fails with a mangled `C:\c\...` path | Don't run the visual scripts from Git Bash with `MSYS_NO_PATHCONV`; use PowerShell at the repo root: `pnpm -w run e2e:visual`. |
-| Visual tests "skipped" locally | By design (D-031): baselines are only valid from the pinned Linux container; the scripts above run it for you. |
 | Acceptance devices tests fail on the first run after a fresh reseed | Observed once; passed on re-run and in isolation — consistent with login throttling across rapid same-account sign-ins. Re-run before investigating. |
 | Migrations fail with permission errors | You ran them as the runtime role. Always migrate via the migrator connection: `php artisan migrate --database=pgsql_migrations`. |
 | `VAR=value command` → "not recognized as the name of a cmdlet" | That is bash syntax and you are in PowerShell. Use the PowerShell variants above: `$env:VAR='value'; command`. |
