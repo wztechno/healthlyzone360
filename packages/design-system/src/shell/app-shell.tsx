@@ -549,8 +549,17 @@ export function AppShell({
                      * whole catalogue column to 237px and stacked a forty-card grid one card
                      * wide. Stretch fills the container, `max-w` caps it, and the auto inline
                      * margins centre what is left over.
+                     *
+                     * `w-full` is what keeps that stretch honest below the cap. React Native
+                     * defaults `flexShrink` to 0, so without an explicit width this box takes its
+                     * own max-content size whenever that exceeds the space available — 405px
+                     * against a 343px content box on a 375px phone — and since `body` sets
+                     * `overflow-x: hidden`, the excess is not scrollable but simply cut off. Every
+                     * page in the shell lost its right edge on any viewport under ~437px.
+                     * `width: 100%` resolves against the parent's content box, so the box now
+                     * tracks the space it is given and `max-w` still caps it on wide screens.
                      */}
-                    <View className="mx-auto max-w-[1152px] flex-col gap-4 self-stretch">
+                    <View className="mx-auto w-full max-w-[1152px] flex-col gap-4 self-stretch">
                         {children}
                     </View>
                     {footer === undefined ? null : (
