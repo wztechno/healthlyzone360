@@ -8,7 +8,6 @@ import {
     Heading,
     Inline,
     SegmentedControl,
-    Select,
     Skeleton,
     Stack,
     Table,
@@ -17,16 +16,13 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
-import { IngredientId } from '@healthy360/domain-types';
-import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { ingredientsFromPages, useIngredientsQuery } from '../../../data/kitchen-admin-hooks.ts';
 import {
-    useCreateStockItemMutation,
     useRecordStockAdjustmentMutation,
     useRecordStockWasteMutation,
     useSetStockThresholdMutation,
@@ -35,7 +31,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
-import { displayName, parseQuantity } from '../format.ts';
+import { parseQuantity } from '../format.ts';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
 import {
@@ -46,23 +42,30 @@ import {
 } from '../ops-format.ts';
 
 /**
- * `/kitchen/stock` — the inventory ledger (O1).
+ * `/kitchen/stock` — the inventory ledger (O1, reworked by INV2.0).
  *
- * ## Two lists, not one, because they answer different questions
+ * ## Nothing is declared here any more
  *
- * "Stock items" is the master data — every SKU the kitchen has declared, whether or not anything
- * has ever been received against it. "Stock levels" is what the active branch actually holds right
- * now, denormalised with the item's own code and name so the table needs no join
- * (`contracts/kitchen-ops.ts`). A brand-new item with nothing received yet appears in the first
- * table and not the second, and that absence is itself the fact worth showing rather than a row of
- * zeroes this contract has no endpoint to have produced.
+ * A stock item is **derived**: one per ingredient in the library, one per product the kitchen buys
+ * in to resell. There is no "add item" — a shelf follows an ingredient or a product, and a shelf
+ * that followed neither was the orphan the derivation abolished. What this screen does is what a
+ * kitchen actually does to stock: count it, waste it, and set the point it reorders at.
+ *
+ * ## Three lists, because they answer three different questions
+ *
+ * **Ingredients** and **Products** are the same table split by `backing` — raw goods the kitchen
+ * cooks with, finished goods it resells. They are two books in one place rather than two tables in
+ * the database: `stock_levels`, `stock_movements` and `goods_receipt_lines` all point at one
+ * `stock_items`, and splitting it would have doubled all three. **Stock levels** is what the active
+ * branch actually holds right now, denormalised with the item's own code and name so the table needs
+ * no join (`contracts/kitchen-ops.ts`). A shelf with nothing received yet appears in the first two
+ * and not the third, and that absence is itself the fact worth showing.
  *
  * ## Adjust and waste both act on an item, not a level
  *
- * `recordStockAdjustment` and `recordStockWaste` both create the level row if none exists yet — see
- * the mock store's own note — so the row action lives on the *items* table, which is the complete
- * set of things that can be adjusted, rather than on the levels table, which is only the subset that
- * already has a quantity.
+ * `recordStockAdjustment` and `recordStockWaste` both create the level row if none exists yet, so
+ * the row actions live on the *item* tables — the complete set of things that can be adjusted —
+ * rather than on the levels table, which is only the subset that already has a quantity.
  */
 
 export function StockScreen() {
@@ -79,11 +82,8 @@ export function StockScreen() {
 
 type MovementMode = 'adjust' | 'waste';
 
-const NO_INGREDIENT = '__none__';
-
 function Stock() {
     const { t } = useTranslation();
-    const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
     const access = useAccessState();
@@ -92,18 +92,10 @@ function Stock() {
 
     const items = useStockItemsQuery();
     const levels = useStockLevelsQuery();
-    const ingredients = useIngredientsQuery({ limit: 100 });
 
-    const createItem = useCreateStockItemMutation();
     const adjustment = useRecordStockAdjustmentMutation();
     const waste = useRecordStockWasteMutation();
     const threshold = useSetStockThresholdMutation();
-
-    const [creating, setCreating] = useState(false);
-    const [newCode, setNewCode] = useState('');
-    const [newName, setNewName] = useState('');
-    const [newUnit, setNewUnit] = useState('kg');
-    const [newIngredientId, setNewIngredientId] = useState<string>(NO_INGREDIENT);
 
     const [movement, setMovement] = useState<{ item: StockItem; mode: MovementMode } | null>(null);
     const [movementQuantity, setMovementQuantity] = useState('');
@@ -113,14 +105,33 @@ function Stock() {
     const [thresholdValue, setThresholdValue] = useState('');
     const [parLevelValue, setParLevelValue] = useState('');
 
-    const itemRows = items.data ?? [];
     const levelRows = levels.data ?? [];
+
+    // The two books, split off `items.data` rather than off a `?? []` fallback: the fallback is a
+    // fresh array on every render, which would make both memos recompute forever.
+    //
+    // The server's ranking — stocked first, then ever-moved, then by name — survives the split
+    // because `filter` preserves order, and nothing here re-sorts. That is what keeps a
+    // two-hundred-row ingredient library readable.
+    const ingredientRows = useMemo(
+        () => (items.data ?? []).filter((row) => row.backing === 'ingredient'),
+        [items.data],
+    );
+    const productRows = useMemo(
+        () => (items.data ?? []).filter((row) => row.backing === 'product'),
+        [items.data],
+    );
 
     const metrics: readonly OpsMetric[] = [
         {
-            key: 'items',
-            labelKey: 'kitchen:ops.stock.metrics.items',
-            value: items.isPending ? null : itemRows.length,
+            key: 'ingredients',
+            labelKey: 'kitchen:ops.stock.metrics.ingredients',
+            value: items.isPending ? null : ingredientRows.length,
+        },
+        {
+            key: 'products',
+            labelKey: 'kitchen:ops.stock.metrics.products',
+            value: items.isPending ? null : productRows.length,
         },
         {
             key: 'levels',
@@ -140,26 +151,6 @@ function Stock() {
             value: levels.isPending ? null : levelRows.filter((level) => level.isLow).length,
         },
     ];
-
-    const ingredientOptions = useMemo(
-        () => [
-            { value: NO_INGREDIENT, label: t('kitchen:ops.stock.noIngredientOption') },
-            ...ingredientsFromPages(ingredients.data?.pages).map((ingredient) => ({
-                value: String(ingredient.id),
-                label: displayName(ingredient.name, locale).value,
-            })),
-        ],
-        [ingredients.data, locale, t],
-    );
-
-    function closeCreate() {
-        setCreating(false);
-        setNewCode('');
-        setNewName('');
-        setNewUnit('kg');
-        setNewIngredientId(NO_INGREDIENT);
-        createItem.reset();
-    }
 
     function closeMovement() {
         setMovement(null);
@@ -347,16 +338,72 @@ function Stock() {
             render: (row) => <Text tone="secondary">{row.unitCode}</Text>,
         },
         {
-            key: 'ingredient',
-            header: t('kitchen:ops.stock.columnIngredient'),
+            key: 'held',
+            header: t('kitchen:ops.stock.columnHeld'),
+            /*
+             * Why the ranking is visible rather than only implied. Every ingredient in the library
+             * gets a shelf, so most rows here are things this kitchen has never touched — and a
+             * reader scrolling a long table needs to see which of them are real without comparing
+             * against the levels table. `isStocked` is the same flag the ordering used.
+             */
             render: (row) =>
-                row.ingredientId === null ? (
-                    <Text tone="secondary">{t('kitchen:ops.stock.noIngredient')}</Text>
+                row.isStocked ? (
+                    <Badge
+                        testID={`${stockItemRowTestId(String(row.id))}-stocked`}
+                        tone="success"
+                        icon="check"
+                        label={t('kitchen:ops.stock.inStockBadge')}
+                    />
                 ) : (
-                    <Text tone="secondary">{t('kitchen:ops.stock.linkedIngredient')}</Text>
+                    <Text
+                        tone="secondary"
+                        testID={`${stockItemRowTestId(String(row.id))}-unstocked`}
+                    >
+                        {row.hasHistory
+                            ? t('kitchen:ops.stock.emptyShelf')
+                            : t('kitchen:ops.stock.neverStocked')}
+                    </Text>
                 ),
         },
     ];
+
+    /** Adjust / waste / threshold, offered identically on both books. */
+    const itemRowAction = canManage
+        ? {
+              header: t('kitchen:ops.stock.columnActions'),
+              render: (row: StockItem) => (
+                  <Inline space="xs" wrap justify="end">
+                      <Button
+                          testID={`${stockItemRowTestId(String(row.id))}-adjust`}
+                          size="sm"
+                          variant="secondary"
+                          label={t('kitchen:ops.stock.adjust')}
+                          onPress={() => {
+                              setMovement({ item: row, mode: 'adjust' });
+                          }}
+                      />
+                      <Button
+                          testID={`${stockItemRowTestId(String(row.id))}-waste`}
+                          size="sm"
+                          variant="ghost"
+                          label={t('kitchen:ops.stock.waste')}
+                          onPress={() => {
+                              setMovement({ item: row, mode: 'waste' });
+                          }}
+                      />
+                      <Button
+                          testID={`${stockItemRowTestId(String(row.id))}-threshold`}
+                          size="sm"
+                          variant="ghost"
+                          label={t('kitchen:ops.stock.threshold')}
+                          onPress={() => {
+                              openThreshold(row);
+                          }}
+                      />
+                  </Inline>
+              ),
+          }
+        : undefined;
 
     const failure = toFailure(items.error) ?? toFailure(levels.error);
 
@@ -409,174 +456,61 @@ function Stock() {
                         </Stack>
 
                         <Stack space="sm">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2} testID="kitchen-stock-items-title">
-                                    {t('kitchen:ops.stock.itemsTitle')}
-                                </Heading>
-                                {canManage ? (
-                                    <Button
-                                        testID="kitchen-stock-add-item"
-                                        size="sm"
-                                        label={t('kitchen:ops.stock.addItem')}
-                                        onPress={() => {
-                                            setCreating(true);
-                                        }}
-                                    />
-                                ) : null}
-                            </Inline>
+                            <Heading level={2} testID="kitchen-stock-ingredients-title">
+                                {t('kitchen:ops.stock.ingredientsTitle')}
+                            </Heading>
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.stock.ingredientsHint')}
+                            </Text>
 
-                            {itemRows.length === 0 ? (
+                            {ingredientRows.length === 0 ? (
                                 <EmptyState
-                                    testID="kitchen-stock-items-empty"
-                                    title={t('kitchen:ops.stock.emptyTitle')}
-                                    body={t('kitchen:ops.stock.emptyBody')}
+                                    testID="kitchen-stock-ingredients-empty"
+                                    title={t('kitchen:ops.stock.ingredientsEmptyTitle')}
+                                    body={t('kitchen:ops.stock.ingredientsEmptyBody')}
                                 />
                             ) : (
                                 <Table<StockItem>
-                                    testID="kitchen-stock-items-table"
-                                    caption={t('kitchen:ops.stock.itemsTitle')}
+                                    testID="kitchen-stock-ingredients-table"
+                                    caption={t('kitchen:ops.stock.ingredientsTitle')}
                                     captionHidden
                                     columns={itemColumns}
-                                    rows={itemRows}
+                                    rows={ingredientRows}
                                     rowKey={(row) => String(row.id)}
-                                    rowAction={
-                                        canManage
-                                            ? {
-                                                  header: t('kitchen:ops.stock.columnActions'),
-                                                  render: (row) => (
-                                                      <Inline space="xs" wrap justify="end">
-                                                          <Button
-                                                              testID={`${stockItemRowTestId(String(row.id))}-adjust`}
-                                                              size="sm"
-                                                              variant="secondary"
-                                                              label={t('kitchen:ops.stock.adjust')}
-                                                              onPress={() => {
-                                                                  setMovement({
-                                                                      item: row,
-                                                                      mode: 'adjust',
-                                                                  });
-                                                              }}
-                                                          />
-                                                          <Button
-                                                              testID={`${stockItemRowTestId(String(row.id))}-waste`}
-                                                              size="sm"
-                                                              variant="ghost"
-                                                              label={t('kitchen:ops.stock.waste')}
-                                                              onPress={() => {
-                                                                  setMovement({
-                                                                      item: row,
-                                                                      mode: 'waste',
-                                                                  });
-                                                              }}
-                                                          />
-                                                          <Button
-                                                              testID={`${stockItemRowTestId(String(row.id))}-threshold`}
-                                                              size="sm"
-                                                              variant="ghost"
-                                                              label={t(
-                                                                  'kitchen:ops.stock.threshold',
-                                                              )}
-                                                              onPress={() => {
-                                                                  openThreshold(row);
-                                                              }}
-                                                          />
-                                                      </Inline>
-                                                  ),
-                                              }
-                                            : undefined
-                                    }
+                                    rowAction={itemRowAction}
+                                />
+                            )}
+                        </Stack>
+
+                        <Stack space="sm">
+                            <Heading level={2} testID="kitchen-stock-products-title">
+                                {t('kitchen:ops.stock.productsTitle')}
+                            </Heading>
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.stock.productsHint')}
+                            </Text>
+
+                            {productRows.length === 0 ? (
+                                <EmptyState
+                                    testID="kitchen-stock-products-empty"
+                                    title={t('kitchen:ops.stock.productsEmptyTitle')}
+                                    body={t('kitchen:ops.stock.productsEmptyBody')}
+                                />
+                            ) : (
+                                <Table<StockItem>
+                                    testID="kitchen-stock-products-table"
+                                    caption={t('kitchen:ops.stock.productsTitle')}
+                                    captionHidden
+                                    columns={itemColumns}
+                                    rows={productRows}
+                                    rowKey={(row) => String(row.id)}
+                                    rowAction={itemRowAction}
                                 />
                             )}
                         </Stack>
                     </Stack>
                 )}
             </OpsPanel>
-
-            <Dialog
-                testID="kitchen-stock-create-dialog"
-                open={creating}
-                onClose={closeCreate}
-                title={t('kitchen:ops.stock.addItemTitle')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-stock-create-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={closeCreate}
-                        />
-                        <Button
-                            testID="kitchen-stock-create-confirm"
-                            label={t('kitchen:common.save')}
-                            loading={createItem.isPending}
-                            disabled={newCode.trim() === '' || newName.trim() === ''}
-                            onPress={() => {
-                                createItem.mutate(
-                                    {
-                                        code: newCode.trim(),
-                                        nameEn: newName.trim(),
-                                        unitCode: newUnit.trim() === '' ? 'kg' : newUnit.trim(),
-                                        ingredientId:
-                                            newIngredientId === NO_INGREDIENT
-                                                ? null
-                                                : IngredientId.unsafe(newIngredientId),
-                                    },
-                                    {
-                                        onSuccess: () => {
-                                            closeCreate();
-                                            toast.show({
-                                                testID: 'kitchen-stock-created-toast',
-                                                tone: 'success',
-                                                message: t('kitchen:ops.stock.createdToast', {
-                                                    name: newName.trim(),
-                                                }),
-                                            });
-                                        },
-                                    },
-                                );
-                            }}
-                        />
-                    </>
-                }
-            >
-                <Stack space="md">
-                    {createItem.error === null ? null : (
-                        <Text testID="kitchen-stock-create-error" tone="danger">
-                            {toFailure(createItem.error)?.message ??
-                                t('kitchen:ops.stock.saveFailed')}
-                        </Text>
-                    )}
-                    <TextInputField
-                        testID="kitchen-stock-create-code"
-                        label={t('kitchen:ops.stock.fieldCode')}
-                        value={newCode}
-                        onChangeText={setNewCode}
-                        required
-                    />
-                    <TextInputField
-                        testID="kitchen-stock-create-name"
-                        label={t('kitchen:ops.stock.fieldName')}
-                        value={newName}
-                        onChangeText={setNewName}
-                        required
-                    />
-                    <TextInputField
-                        testID="kitchen-stock-create-unit"
-                        label={t('kitchen:ops.stock.fieldUnit')}
-                        hint={t('kitchen:ops.stock.fieldUnitHint')}
-                        value={newUnit}
-                        onChangeText={setNewUnit}
-                    />
-                    <Select
-                        testID="kitchen-stock-create-ingredient"
-                        label={t('kitchen:ops.stock.fieldIngredient')}
-                        options={ingredientOptions}
-                        value={newIngredientId}
-                        onChange={setNewIngredientId}
-                        searchable
-                    />
-                </Stack>
-            </Dialog>
 
             <Dialog
                 testID="kitchen-stock-movement-dialog"

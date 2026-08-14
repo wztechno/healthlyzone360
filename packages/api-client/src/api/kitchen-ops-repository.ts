@@ -19,7 +19,6 @@ import type {
     ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
-    CreateStockItemRequest,
     CreateSupplierRequest,
     GoodsReceipt,
     GoodsReceiptLine,
@@ -81,6 +80,10 @@ function mapStockItem(wire: WireStockItem): StockItem {
         nameEn: wire.name_en,
         unitCode: wire.unit_code,
         ingredientId: wire.ingredient_id === null ? null : IngredientId.unsafe(wire.ingredient_id),
+        catalogueItemId: wire.catalogue_item_id,
+        backing: wire.backing,
+        isStocked: wire.is_stocked,
+        hasHistory: wire.has_history,
     };
 }
 
@@ -253,29 +256,6 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 readonly stock_items: readonly WireStockItem[];
             }>({ method: 'GET', path: '/catalogue/inventory/items' });
             return envelope.data.stock_items.map(mapStockItem);
-        },
-
-        async createStockItem(request: CreateStockItemRequest): Promise<StockItem> {
-            const envelope = await transport.requestEnvelope<{
-                readonly stock_item: WireStockItem;
-            }>({
-                method: 'POST',
-                path: '/catalogue/inventory/items',
-                body: {
-                    code: request.code,
-                    name_en: request.nameEn,
-                    ...(request.unitCode === undefined ? {} : { unit_code: request.unitCode }),
-                    ...(request.ingredientId === undefined
-                        ? {}
-                        : {
-                              ingredient_id:
-                                  request.ingredientId === null
-                                      ? null
-                                      : String(request.ingredientId),
-                          }),
-                },
-            });
-            return mapStockItem(envelope.data.stock_item);
         },
 
         async listStockLevels(): Promise<readonly StockLevel[]> {

@@ -53,6 +53,9 @@ class DatabaseSeeder extends Seeder
             OpsDemoSeeder::class,
             // After Verdant's wholesale channel and published meals exist.
             B2bProgrammesDemoSeeder::class,
+            // Last: stock is derived from the ingredient library and every
+            // kitchen's bought-in products, so all of both must already exist.
+            DerivedStockSeeder::class,
         ]);
     }
 

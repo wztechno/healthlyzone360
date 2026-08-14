@@ -16,6 +16,7 @@ jest.mock('expo-router', () => ({
     Link: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+/** An ingredient-backed shelf by default; pass `backing: 'product'` for the resale book. */
 function stockItem(ordinal: number, overrides: Partial<StockItem> = {}): StockItem {
     return {
         id: `stock-item-${String(ordinal)}` as StockItem['id'],
@@ -23,6 +24,10 @@ function stockItem(ordinal: number, overrides: Partial<StockItem> = {}): StockIt
         nameEn: `Stock item ${String(ordinal)}`,
         unitCode: 'kg',
         ingredientId: null,
+        catalogueItemId: null,
+        backing: 'ingredient',
+        isStocked: false,
+        hasHistory: false,
         ...overrides,
     };
 }
@@ -44,12 +49,16 @@ function stockLevel(ordinal: number, overrides: Partial<StockLevel> = {}): Stock
 }
 
 describe('ops panels', () => {
-    it('renders the stock board with live counts from the declared world', async () => {
+    it('splits the stock board into the two books and counts each from the declared world', async () => {
         await renderStubScreen(<StockScreen />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenOps: {
-                    listStockItems: async () => [1, 2, 3, 4].map((n) => stockItem(n)),
+                    // Three ingredients the kitchen cooks with, one product it buys in to resell.
+                    listStockItems: async () => [
+                        ...[1, 2, 3].map((n) => stockItem(n)),
+                        stockItem(4, { backing: 'product', catalogueItemId: 'catalogue-item-4' }),
+                    ],
                     listStockLevels: async () => [1, 2, 3].map((n) => stockLevel(n)),
                 },
                 kitchenAdmin: { listIngredients: async () => page([]) },
@@ -60,13 +69,16 @@ describe('ops panels', () => {
             expect(screen.getByTestId('kitchen-stock-panel')).toBeTruthy();
         });
 
-        // Live counts of what the screen fetched, not fabricated KPIs: four items, three levels,
-        // and no level at zero quantity.
+        // Live counts of what the screen fetched, not fabricated KPIs: the two books are counted
+        // separately, three levels, and no level at zero quantity.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-stock-panel-metric-items-value')).toHaveTextContent(
-                '4',
-            );
+            expect(
+                screen.getByTestId('kitchen-stock-panel-metric-ingredients-value'),
+            ).toHaveTextContent('3');
         });
+        expect(screen.getByTestId('kitchen-stock-panel-metric-products-value')).toHaveTextContent(
+            '1',
+        );
         expect(screen.getByTestId('kitchen-stock-panel-metric-levels-value')).toHaveTextContent(
             '3',
         );
@@ -74,11 +86,33 @@ describe('ops panels', () => {
             '0',
         );
 
-        expect(screen.getByTestId('kitchen-stock-items-table')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-stock-ingredients-table')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-stock-products-table')).toBeTruthy();
         expect(screen.getByTestId('kitchen-stock-levels-table')).toBeTruthy();
     });
 
-    it('shows an honest empty state when the world has no stock items', async () => {
+    it('offers no way to declare a stock item — a shelf follows an ingredient or a product', async () => {
+        await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1)],
+                    listStockLevels: async () => [],
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-stock-ingredients-table')).toBeTruthy();
+        });
+
+        // A kitchen manager holds the manage permission and still gets no create affordance.
+        expect(screen.queryByTestId('kitchen-stock-add-item')).toBeNull();
+        expect(screen.queryByTestId('kitchen-stock-create-dialog')).toBeNull();
+    });
+
+    it('shows an honest empty state for each book when the world has neither', async () => {
         await renderStubScreen(<StockScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -91,7 +125,8 @@ describe('ops panels', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-stock-items-empty')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-stock-ingredients-empty')).toBeTruthy();
         });
+        expect(screen.getByTestId('kitchen-stock-products-empty')).toBeTruthy();
     });
 });

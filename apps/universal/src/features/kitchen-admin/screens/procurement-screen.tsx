@@ -9,6 +9,7 @@ import {
     EmptyState,
     ErrorState,
     Heading,
+    Icon,
     Inline,
     Select,
     Skeleton,
@@ -60,12 +61,13 @@ import type { OpsMetric } from '../ops-panel.tsx';
  * ## What the receipt form actually needs to be usable (INV1.1)
  *
  * Three gaps this screen closes. A supplier can be **created inline** — the contract now publishes a
- * writer — so a kitchen with an empty book is not stuck. The **price currency is chosen on the
- * receipt**, defaulting to the kitchen's own currency (`getProcurementReference`), so a price is no
- * longer silently dropped when a supplier happens to carry no currency; the price fields sit behind
- * `inventory.view_costs_organisation`, so a chef without that code posts quantities only. And each
- * line carries a **purchase unit**, defaulting to the stock item's own and offering only the units
- * in its dimension, so "25 kg of flour at 2.00/kg" records exactly that rather than a bare number.
+ * writer — so a kitchen with an empty book is not stuck; the action sits directly under the supplier
+ * picker it feeds rather than between two unrelated fields. Prices are booked in
+ * {@link RECEIPT_CURRENCY} and the form offers no way to change that, so a price is never silently
+ * dropped for want of a currency; the price fields sit behind `inventory.view_costs_organisation`,
+ * so a chef without that code posts quantities only. And each line carries a **purchase unit**,
+ * defaulting to the stock item's own and offering only the units in its dimension, so "25 kg of
+ * flour at 2.00/kg" records exactly that rather than a bare number.
  */
 
 /**
@@ -78,8 +80,17 @@ import type { OpsMetric } from '../ops-panel.tsx';
  */
 const CONVERTIBLE_DIMENSIONS: ReadonlySet<string> = new Set(['mass', 'volume']);
 
-/** The last-resort receipt currency when the organisation has none and the reference lists none. */
-const FALLBACK_CURRENCY = 'USD';
+/**
+ * The one currency a goods receipt's prices are booked in.
+ *
+ * Fixed, and deliberately not a control: a receipt currency the receiver could change is a currency
+ * they can get wrong, and the server refuses a purchase that would blend a second currency into an
+ * ingredient's moving average anyway (`MixedIngredientCostCurrency` — there is no exchange rate in
+ * this system). One currency on the form is the same rule stated where it can still be obeyed. It
+ * reaches the reader through the unit-price label rather than a disabled picker, so it is announced
+ * with the field it constrains instead of sitting beside it as dead furniture.
+ */
+const RECEIPT_CURRENCY = 'USD';
 
 export function ProcurementScreen() {
     return (
@@ -113,12 +124,10 @@ function Procurement() {
     const [lines, setLines] = useState<readonly StockItemLineDraft[]>([]);
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [documentRef, setDocumentRef] = useState('');
-    const [receiptCurrency, setReceiptCurrency] = useState<string | null>(null);
 
     const [creatingSupplier, setCreatingSupplier] = useState(false);
     const [newSupplierName, setNewSupplierName] = useState('');
     const [newSupplierCode, setNewSupplierCode] = useState('');
-    const [newSupplierCurrency, setNewSupplierCurrency] = useState<string | null>(null);
     const [newSupplierEmail, setNewSupplierEmail] = useState('');
     const [newSupplierPhone, setNewSupplierPhone] = useState('');
 
@@ -137,25 +146,9 @@ function Procurement() {
         [suppliers.data],
     );
 
-    const currencyOptions: readonly SelectOption<string>[] = useMemo(
-        () =>
-            (referenceData?.currencies ?? []).map((currency) => ({
-                value: currency.code,
-                label: `${currency.code} — ${currency.nameEn}`,
-            })),
-        [referenceData],
-    );
-
-    /** The kitchen's own currency (organisation default), the honest default for a fresh receipt. */
-    const kitchenCurrency =
-        referenceData?.defaultCurrencyCode ??
-        referenceData?.currencies[0]?.code ??
-        FALLBACK_CURRENCY;
-
-    // Prices are booked in the receipt-level currency, defaulting to the kitchen's own — never
-    // silently dropped for want of a supplier currency (a selected supplier only pre-selects it).
-    // A user without the cost permission never sets a currency and posts quantities only.
-    const currencyCode = canViewCosts ? receiptCurrency : null;
+    // Prices are booked in RECEIPT_CURRENCY, never silently dropped for want of a supplier
+    // currency. A user without the cost permission carries no currency and posts quantities only.
+    const currencyCode = canViewCosts ? RECEIPT_CURRENCY : null;
     const formatMoney = (amount: number) =>
         `${formatter.formatNumber(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${currencyCode === null ? '' : ` ${currencyCode}`}`;
 
@@ -230,6 +223,13 @@ function Procurement() {
         },
     ];
 
+    /*
+     * Mapped in the order the server gave them and **never re-sorted** (INV2.0). Stock items are
+     * derived now — every ingredient in the library has a shelf — so this picker is hundreds of rows
+     * long, and the server ranks the ones this kitchen actually holds or has ever moved to the top.
+     * Sorting alphabetically here would bury them under two hundred it has never touched; the
+     * `searchable` type-ahead handles the tail.
+     */
     const stockItemOptions = useMemo(
         () =>
             (stockItems.data ?? []).map((item) => ({
@@ -246,7 +246,6 @@ function Procurement() {
     }, [stockItems.data]);
 
     function openPosting() {
-        setReceiptCurrency(kitchenCurrency);
         setPosting(true);
     }
 
@@ -255,17 +254,7 @@ function Procurement() {
         setLines([]);
         setSupplierId(null);
         setDocumentRef('');
-        setReceiptCurrency(null);
         postReceipt.reset();
-    }
-
-    /** Picking a supplier pre-selects its currency when it carries one — a hint, never a lock. */
-    function selectSupplier(value: string | null) {
-        setSupplierId(value);
-        const supplier = supplierRows.find((row) => String(row.id) === value) ?? null;
-        if (supplier?.currencyCode != null && supplier.currencyCode !== '') {
-            setReceiptCurrency(supplier.currencyCode);
-        }
     }
 
     const linesValid = lines.length > 0 && stockItemLinesWellFormed(lines);
@@ -307,7 +296,6 @@ function Procurement() {
         setCreatingSupplier(false);
         setNewSupplierName('');
         setNewSupplierCode('');
-        setNewSupplierCurrency(null);
         setNewSupplierEmail('');
         setNewSupplierPhone('');
         createSupplier.reset();
@@ -321,14 +309,15 @@ function Procurement() {
             {
                 nameEn: newSupplierName.trim(),
                 code: newSupplierCode.trim() === '' ? null : newSupplierCode.trim(),
-                currencyCode: newSupplierCurrency,
+                // The only currency this system prices in, so it is the only honest answer.
+                currencyCode: RECEIPT_CURRENCY,
                 contactEmail: newSupplierEmail.trim() === '' ? null : newSupplierEmail.trim(),
                 contactPhone: newSupplierPhone.trim() === '' ? null : newSupplierPhone.trim(),
             },
             {
                 onSuccess: (supplier) => {
                     // Select the freshly created supplier so a post in progress can use it at once.
-                    selectSupplier(String(supplier.id));
+                    setSupplierId(String(supplier.id));
                     closeCreateSupplier();
                     toast.show({
                         testID: 'kitchen-procurement-supplier-created-toast',
@@ -556,46 +545,43 @@ function Procurement() {
                                 t('kitchen:ops.procurement.postFailed')}
                         </Text>
                     )}
-                    <Inline space="sm" align="end" wrap>
-                        <Select
-                            testID="kitchen-procurement-post-supplier"
-                            label={t('kitchen:ops.procurement.fieldSupplier')}
-                            options={supplierOptions}
-                            value={supplierId}
-                            onChange={selectSupplier}
-                            searchable
-                            className="min-w-[220px] flex-1"
-                        />
-                        {canManage ? (
-                            <Button
-                                testID="kitchen-procurement-post-new-supplier"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:ops.procurement.newSupplier')}
-                                onPress={() => {
-                                    setCreatingSupplier(true);
-                                }}
+                    <Inline space="sm" align="start" wrap>
+                        {/*
+                         * "New supplier" belongs to the picker above it, not between the two fields
+                         * of a wrapping row — there it read as a third field with no label, and it
+                         * pushed the document reference onto a line of its own. A ghost button
+                         * under the control it feeds is the shape of an action *about* that field.
+                         */}
+                        <Stack space="xs" className="min-w-[220px] flex-1">
+                            <Select
+                                testID="kitchen-procurement-post-supplier"
+                                label={t('kitchen:ops.procurement.fieldSupplier')}
+                                options={supplierOptions}
+                                value={supplierId}
+                                onChange={setSupplierId}
+                                searchable
                             />
-                        ) : null}
+                            {canManage ? (
+                                <Button
+                                    testID="kitchen-procurement-post-new-supplier"
+                                    size="sm"
+                                    variant="ghost"
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    label={t('kitchen:ops.procurement.newSupplier')}
+                                    onPress={() => {
+                                        setCreatingSupplier(true);
+                                    }}
+                                />
+                            ) : null}
+                        </Stack>
                         <TextInputField
                             testID="kitchen-procurement-post-document-ref"
                             label={t('kitchen:ops.procurement.fieldDocumentRef')}
                             value={documentRef}
                             onChangeText={setDocumentRef}
-                            className="min-w-[160px] flex-1"
+                            className="min-w-[180px] flex-1"
                         />
                     </Inline>
-                    {canViewCosts ? (
-                        <Select
-                            testID="kitchen-procurement-post-currency"
-                            label={t('kitchen:ops.procurement.fieldCurrency')}
-                            options={currencyOptions}
-                            value={receiptCurrency}
-                            onChange={setReceiptCurrency}
-                            searchable
-                            className="min-w-[220px]"
-                        />
-                    ) : null}
                     <StockItemLineEditor
                         testID="kitchen-procurement-post-lines"
                         lines={lines}
@@ -611,7 +597,9 @@ function Procurement() {
                         defaultUnitIdForItem={defaultUnitIdForItem}
                         unitLabelFor={unitLabelFor}
                         withCost={canViewCosts}
-                        unitPriceLabel={t('kitchen:ops.procurement.fieldLineUnitPrice')}
+                        unitPriceLabel={t('kitchen:ops.procurement.fieldLineUnitPrice', {
+                            currency: RECEIPT_CURRENCY,
+                        })}
                         formatMoney={formatMoney}
                     />
                 </Stack>
@@ -647,27 +635,24 @@ function Procurement() {
                                 t('kitchen:ops.procurement.newSupplierFailed')}
                         </Text>
                     )}
-                    <TextInputField
-                        testID="kitchen-procurement-supplier-name"
-                        label={t('kitchen:ops.procurement.fieldSupplierName')}
-                        value={newSupplierName}
-                        onChangeText={setNewSupplierName}
-                    />
+                    {/*
+                     * No currency picker. It was only ever a hint the receipt form pre-selected,
+                     * and the receipt now books in RECEIPT_CURRENCY regardless — a picker whose
+                     * answer changes nothing is a question that should not be asked.
+                     */}
                     <Inline space="sm" align="start" wrap>
+                        <TextInputField
+                            testID="kitchen-procurement-supplier-name"
+                            label={t('kitchen:ops.procurement.fieldSupplierName')}
+                            value={newSupplierName}
+                            onChangeText={setNewSupplierName}
+                            className="min-w-[200px] flex-1"
+                        />
                         <TextInputField
                             testID="kitchen-procurement-supplier-code"
                             label={t('kitchen:ops.procurement.fieldSupplierCode')}
                             value={newSupplierCode}
                             onChangeText={setNewSupplierCode}
-                            className="min-w-[160px] flex-1"
-                        />
-                        <Select
-                            testID="kitchen-procurement-supplier-currency"
-                            label={t('kitchen:ops.procurement.fieldSupplierCurrency')}
-                            options={currencyOptions}
-                            value={newSupplierCurrency}
-                            onChange={setNewSupplierCurrency}
-                            searchable
                             className="min-w-[160px] flex-1"
                         />
                     </Inline>

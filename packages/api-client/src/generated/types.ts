@@ -3684,22 +3684,53 @@ export type KitchenOrderDelivery = CustomerOrderDelivery & {
 };
 
 /**
- * A warehouse item (O1): a free SKU or code, no platform vocabulary
- * behind it, and an optional link to the recipe ingredient master. A
- * kitchen may stock something — packaging, cleaning supplies — that
- * will never be a recipe ingredient, and the link exists for the
- * common case without requiring it.
+ * A shelf a kitchen holds. Derived (INV2.0) from one of two things: an
+ * ingredient it cooks with, or a product it buys in to resell.
+ *
+ * `ingredient_id` is always set on a derived shelf, resold products
+ * included — moving-average cost, COGS and the monthly report are all
+ * keyed by ingredient, so a shelf without one would be a shelf with no
+ * valuation. For a resold product that ingredient is an implementation
+ * detail the kitchen never manages; `catalogue_item_id` is the product
+ * it actually is, and `backing` is the field to branch on.
  *
  */
 export type StockItem = {
     id: Uuid;
+    /**
+     * Minted once from the source slug and stable thereafter.
+     */
     code: string;
     name_en: string;
     /**
-     * Defaults to `kg` when not supplied at creation.
+     * The ingredient's own unit, or for a resold product its purchasing
+     * unit — a bottle of oil is bought by the bottle, not by the litre a
+     * recipe would divide.
+     *
      */
     unit_code: string;
+    /**
+     * Null only on a row that pre-dates derivation and has not been
+     * adopted yet; every derived shelf has one.
+     *
+     */
     ingredient_id: Uuid | null;
+    /**
+     * The resold product this shelf is, or null when it is an ingredient.
+     */
+    catalogue_item_id: Uuid | null;
+    /**
+     * Which book this shelf belongs in.
+     */
+    backing: 'ingredient' | 'product';
+    /**
+     * Some branch holds a non-zero quantity of it.
+     */
+    is_stocked: boolean;
+    /**
+     * It has moved at least once — received, adjusted, wasted or consumed.
+     */
+    has_history: boolean;
 };
 
 export type StockItemCollection = {
@@ -3707,26 +3738,6 @@ export type StockItemCollection = {
         stock_items: Array<StockItem>;
     };
     meta: Meta;
-};
-
-export type StockItemEnvelope = {
-    data: {
-        stock_item: StockItem;
-    };
-    meta: Meta;
-};
-
-export type CreateStockItemRequest = {
-    /**
-     * Unique within the organisation. A duplicate is `422 validation.failed`.
-     */
-    code: string;
-    name_en: string;
-    /**
-     * Defaults to `kg` when omitted.
-     */
-    unit_code?: string;
-    ingredient_id?: Uuid | null;
 };
 
 /**
@@ -18469,61 +18480,6 @@ export type ListStockItemsResponses = {
 };
 
 export type ListStockItemsResponse = ListStockItemsResponses[keyof ListStockItemsResponses];
-
-export type CreateStockItemData = {
-    body: CreateStockItemRequest;
-    headers: {
-        /**
-         * The active organisation. Never trusted without server-side validation
-         * against an active membership.
-         *
-         */
-        'X-Organisation-Id': Uuid;
-        /**
-         * An opaque client-generated identifier for support correlation. Logged
-         * and echoed back; never used as the correlation identifier.
-         *
-         */
-        'X-Client-Request-Id'?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/catalogue/inventory/items';
-};
-
-export type CreateStockItemErrors = {
-    /**
-     * No usable credential was presented.
-     */
-    401: ErrorEnvelope;
-    /**
-     * The context was refused (`context.organisation_forbidden`,
-     * `context.branch_out_of_scope`) or the membership's roles do not grant
-     * the required permission (`authz.permission_denied`, with the denying
-     * RBAC step in `details.reason`).
-     *
-     */
-    403: ErrorEnvelope;
-    /**
-     * The submitted data is invalid.
-     */
-    422: ErrorEnvelope;
-    /**
-     * The rate limit for this endpoint was exceeded.
-     */
-    429: ErrorEnvelope;
-};
-
-export type CreateStockItemError = CreateStockItemErrors[keyof CreateStockItemErrors];
-
-export type CreateStockItemResponses = {
-    /**
-     * The stock item was created.
-     */
-    201: StockItemEnvelope;
-};
-
-export type CreateStockItemResponse = CreateStockItemResponses[keyof CreateStockItemResponses];
 
 export type ListStockLevelsData = {
     body?: never;

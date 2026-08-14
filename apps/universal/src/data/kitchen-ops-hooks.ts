@@ -4,7 +4,6 @@ import type {
     ConsumptionExceptionFilter,
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
-    CreateStockItemRequest,
     CreateSupplierRequest,
     GoodsReceipt,
     GoodsReceiptResult,
@@ -65,7 +64,11 @@ export { toFailure } from './hooks.ts';
 
 /* ── inventory (O1) ──────────────────────────────────────────────────────────────────────────── */
 
-/** Every stock item the organisation has declared. Not paginated — the table is small by design. */
+/**
+ * Every shelf the organisation holds, in the order the server ranked them — stocked first, then
+ * ever-moved, then by name (INV2.0). Not paginated. **Never re-sort this list for a picker**: the
+ * ranking is what keeps a two-hundred-row ingredient library usable.
+ */
 export function useStockItemsQuery(enabled = true): UseQueryResult<readonly StockItem[]> {
     const { repositories } = useRepositoryContext();
 
@@ -120,20 +123,10 @@ function useKitchenOpsWriteEffects(): () => void {
     };
 }
 
-export function useCreateStockItemMutation(): UseMutationResult<
-    StockItem,
-    unknown,
-    CreateStockItemRequest
-> {
-    const repositories = useRepositories();
-    const onWritten = useKitchenOpsWriteEffects();
-
-    return useMutation({
-        mutationFn: (request: CreateStockItemRequest) =>
-            repositories.kitchenOps.createStockItem(request),
-        onSuccess: onWritten,
-    });
-}
+/*
+ * No stock-item writer (INV2.0). A shelf is derived from an ingredient or from a
+ * product the kitchen buys in to resell, so it appears when one of those does.
+ */
 
 /** A signed correction to one item's level at one branch. Creates the level row if none exists. */
 export function useRecordStockAdjustmentMutation(): UseMutationResult<

@@ -29,9 +29,11 @@ import type { CursorPage, CursorPageRequest } from './pagination.ts';
  *
  * ## Four scopes, deliberately locked to v1
  *
- * 1. **Inventory (O1).** Stock items are free codes with an optional `ingredientId` — a kitchen may
- *    stock packaging or cleaning supplies that will never be a recipe ingredient. Levels are
- *    per-branch and read through the active branch context (`X-Branch-Id`, set by
+ * 1. **Inventory (O1, reworked by INV2.0).** Stock items are **derived**, not declared: one per
+ *    ingredient in the library and one per product the kitchen buys in to resell, so there is no
+ *    writer here at all. `listStockItems` returns them ranked — stocked first, then ever-moved, then
+ *    by name — and a caller that preserves that order gets a usable picker over a long list. Levels
+ *    are per-branch and read through the active branch context (`X-Branch-Id`, set by
  *    `ContextRepository`); nothing here takes a branch filter because the header already narrows it.
  * 2. **Procurement (O2) is receipts-only.** There is no purchase-order surface: `listSuppliers` and
  *    the goods-receipt pair are the whole scope, and `GoodsReceipt.purchaseOrderId` is always `null`
@@ -52,20 +54,29 @@ import type { CursorPage, CursorPageRequest } from './pagination.ts';
  * Inventory (O1)
  * ---------------------------------------------------------------------------------------------- */
 
+/** Which of the two things a shelf is derived from (INV2.0). */
+export type StockItemBacking = 'ingredient' | 'product';
+
+/**
+ * A shelf a kitchen holds — derived, never declared (INV2.0).
+ *
+ * `ingredientId` is what the shelf costs itself by and is set on every derived row, resold products
+ * included: the moving average and COGS are keyed by ingredient. `catalogueItemId` is the product it
+ * actually *is* when a kitchen buys it in to resell, and `backing` is the field to branch on rather
+ * than testing which id is null.
+ */
 export interface StockItem {
     readonly id: StockItemId;
     readonly code: string;
     readonly nameEn: string;
     readonly unitCode: string;
     readonly ingredientId: IngredientId | null;
-}
-
-export interface CreateStockItemRequest {
-    readonly code: string;
-    readonly nameEn: string;
-    /** Defaults to `kg` server-side when omitted. */
-    readonly unitCode?: string | undefined;
-    readonly ingredientId?: IngredientId | null | undefined;
+    readonly catalogueItemId: string | null;
+    readonly backing: StockItemBacking;
+    /** Some branch holds a non-zero quantity. Ranks this shelf to the top of a picker. */
+    readonly isStocked: boolean;
+    /** It has moved at least once — received, adjusted, wasted or consumed. */
+    readonly hasHistory: boolean;
 }
 
 /** One stock item's on-hand quantity at one branch, denormalised so a levels row needs no join. */
@@ -493,9 +504,11 @@ export interface QualityCheckResult {
  * ---------------------------------------------------------------------------------------------- */
 
 export interface KitchenOpsRepository {
-    /** Every stock item the organisation has declared. Not paginated — see the file header. */
+    /**
+     * Every shelf the organisation holds, ranked stocked-first (INV2.0). Not paginated — see the
+     * file header. There is no writer: a shelf follows an ingredient or a resold product.
+     */
     listStockItems(): Promise<readonly StockItem[]>;
-    createStockItem(request: CreateStockItemRequest): Promise<StockItem>;
 
     /** Every level the active branch context can see (`X-Branch-Id`, not a parameter here). */
     listStockLevels(): Promise<readonly StockLevel[]>;

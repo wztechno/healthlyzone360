@@ -162,7 +162,6 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
-use Healthy360\Inventory\Http\Controllers\StockItemStoreController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
 use Healthy360\Inventory\Http\Controllers\StockThresholdController;
@@ -1372,7 +1371,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             });
 
             Route::middleware('permission:inventory.manage_organisation')->group(function (): void {
-                Route::post('/inventory/items', StockItemStoreController::class)->name('catalogue.inventory.items.store');
+                /*
+                | No `POST /inventory/items` (INV2.0). A stock item is derived
+                | from an ingredient or a bought-in product, so declaring one by
+                | hand would create a shelf that no recipe explodes into and no
+                | sale deducts from — the exact orphan the derivation exists to
+                | abolish. A kitchen adds an ingredient or a product; the shelf
+                | follows.
+                */
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
                 Route::patch('/inventory/threshold', StockThresholdController::class)->name('catalogue.inventory.threshold.update');

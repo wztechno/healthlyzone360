@@ -7,10 +7,12 @@ use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
+use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\ReferenceData\Models\MeasurementUnit;
 
 beforeEach(function (): void {
     $this->seed([
@@ -69,38 +71,89 @@ it('records waste as a negative movement', function (): void {
         ->assertJsonPath('data.movement.quantity_delta', '-3.0000');
 });
 
-it('lists and creates stock items with an optional ingredient link', function (): void {
-    $ingredient = Ingredient::factory()->create([
+/*
+| The index used to be half of a list-and-create test. There is no create any
+| more (INV2.0) — declaring an ingredient *is* how a shelf comes into being — so
+| what is worth proving is the read contract the pickers depend on: every
+| ingredient is listed, tagged with what backs it, and ranked so the shelves a
+| kitchen actually uses are not buried under two hundred it does not.
+*/
+it('lists a shelf for every ingredient, tagged by backing and ranked with the stocked ones first', function (): void {
+    $kg = MeasurementUnit::query()->where('code', 'kg')->sole();
+
+    Ingredient::factory()->create([
         'organisation_id' => $this->tenant->organisation->getKey(),
+        'name_en' => 'Aubergine',
+        'default_unit_id' => (string) $kg->getKey(),
+    ]);
+    $chickpeas = Ingredient::factory()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'name_en' => 'Chickpeas',
+        'default_unit_id' => (string) $kg->getKey(),
     ]);
 
-    $this->getJson('/api/v1/catalogue/inventory/items', $this->headers)->assertOk();
+    // Both shelves exist already; only one holds anything.
+    $stocked = StockItem::withoutTenancy()->where('ingredient_id', (string) $chickpeas->getKey())->sole();
 
-    $created = $this->postJson('/api/v1/catalogue/inventory/items', [
-        'code' => 'chickpeas-01',
-        'name_en' => 'Chickpeas',
-        'unit_code' => 'kg',
-        'ingredient_id' => (string) $ingredient->getKey(),
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', [
+        'branch_id' => (string) $this->branch->getKey(),
+        'stock_item_id' => (string) $stocked->getKey(),
+        'quantity_delta' => 12,
     ], $this->headers)->assertCreated();
 
-    $created->assertJsonPath('data.stock_item.code', 'chickpeas-01')
-        ->assertJsonPath('data.stock_item.ingredient_id', (string) $ingredient->getKey());
+    $response = $this->getJson('/api/v1/catalogue/inventory/items', $this->headers)->assertOk();
 
-    $this->getJson('/api/v1/catalogue/inventory/items', $this->headers)->assertOk()
-        ->assertJsonFragment(['code' => 'chickpeas-01']);
-});
-
-it('refuses a duplicate stock item code for the same organisation', function (): void {
-    StockItem::query()->create([
-        'organisation_id' => $this->tenant->organisation->getKey(),
-        'code' => 'sugar-01',
-        'name_en' => 'Sugar',
+    $response->assertJsonFragment([
+        'name_en' => 'Chickpeas',
+        'backing' => 'ingredient',
+        'is_stocked' => true,
     ]);
 
-    $this->postJson('/api/v1/catalogue/inventory/items', [
-        'code' => 'sugar-01',
-        'name_en' => 'Sugar (again)',
-    ], $this->headers)->assertUnprocessable();
+    // Chickpeas holds twelve kilograms and Aubergine holds nothing, so the
+    // picker meets Chickpeas first despite losing on the alphabet.
+    $names = collect($response->json('data.stock_items'))->pluck('name_en');
+
+    expect($names->first())->toBe('Chickpeas')
+        ->and($names)->toContain('Aubergine');
+});
+
+/*
+| Stock item codes stay unique per organisation — the same guarantee this file
+| used to prove by posting a duplicate to `POST /inventory/items` and asserting a
+| 422. That endpoint is gone (INV2.0): stock items are derived, so nobody can
+| offer a duplicate, and the guarantee moved from "the API refuses yours" to
+| "derivation never mints one".
+|
+| The case that would actually collide is a platform-library ingredient and a
+| kitchen's own sharing a slug — `ingredients` is unique on
+| `(organisation_id, slug)` with NULLS NOT DISTINCT, so the two can coexist and
+| both derive into the same kitchen.
+*/
+it('mints distinct stock item codes when a library ingredient and a kitchen ingredient share a slug', function (): void {
+    $kg = MeasurementUnit::query()->where('code', 'kg')->sole();
+
+    Ingredient::factory()->create([
+        'organisation_id' => null,
+        'slug' => 'sugar',
+        'name_en' => 'Sugar',
+        'default_unit_id' => (string) $kg->getKey(),
+    ]);
+    Ingredient::factory()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'slug' => 'sugar',
+        'name_en' => 'Sugar (house)',
+        'default_unit_id' => (string) $kg->getKey(),
+    ]);
+
+    app(StockItemDerivationService::class)->syncOrganisation((string) $this->tenant->organisation->getKey());
+
+    $codes = StockItem::withoutTenancy()
+        ->where('organisation_id', $this->tenant->organisation->getKey())
+        ->pluck('code');
+
+    expect($codes)->toHaveCount($codes->unique()->count())
+        ->and($codes)->toContain('sugar')
+        ->and($codes)->toContain('sugar-2');
 });
 
 /*

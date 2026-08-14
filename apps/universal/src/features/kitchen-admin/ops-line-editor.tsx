@@ -51,6 +51,7 @@ export interface StockItemLineEditorProps {
     readonly unitLabelFor?: (stockItemId: string | null, unitId: string | null) => string;
     /** When set, each row also captures a unit price and shows a running line total (INV1.1). */
     readonly withCost?: boolean;
+    /** Names the currency the price is booked in — the receipt form has no picker for it. */
     readonly unitPriceLabel?: string;
     /** Renders a per-row line total and the receipt total: `(quantity, unitPrice) => formatted`. */
     readonly formatMoney?: (amount: number) => string;
@@ -159,7 +160,10 @@ export function StockItemLineEditor({
                                 updateLine(line.key, { unitPrice: value });
                             }}
                             keyboardType="decimal-pad"
-                            className="w-28"
+                            // Wider than the quantity beside it: this label carries the currency
+                            // the price is booked in, and a label that wraps drops its own input
+                            // half a line below every other control in the row.
+                            className="w-36"
                         />
                     ) : null}
                     {withCost ? (

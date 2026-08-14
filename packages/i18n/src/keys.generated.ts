@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5282 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5279 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2735,7 +2735,6 @@ export interface NamespaceKeys {
     | 'ops.procurement.costsRedacted'
     | 'ops.procurement.emptyBody'
     | 'ops.procurement.emptyTitle'
-    | 'ops.procurement.fieldCurrency'
     | 'ops.procurement.fieldDocumentRef'
     | 'ops.procurement.fieldLineItem'
     | 'ops.procurement.fieldLineQuantity'
@@ -2743,7 +2742,6 @@ export interface NamespaceKeys {
     | 'ops.procurement.fieldLineUnitPrice'
     | 'ops.procurement.fieldSupplier'
     | 'ops.procurement.fieldSupplierCode'
-    | 'ops.procurement.fieldSupplierCurrency'
     | 'ops.procurement.fieldSupplierEmail'
     | 'ops.procurement.fieldSupplierName'
     | 'ops.procurement.fieldSupplierPhone'
@@ -2891,49 +2889,48 @@ export interface NamespaceKeys {
     | 'ops.quotations.total'
     | 'ops.quotations.totalsHeading'
     | 'ops.readyForApi'
-    | 'ops.stock.addItem'
-    | 'ops.stock.addItemTitle'
     | 'ops.stock.adjust'
     | 'ops.stock.adjustHint'
     | 'ops.stock.adjustTitle'
     | 'ops.stock.adjustedToast'
     | 'ops.stock.columnActions'
-    | 'ops.stock.columnIngredient'
+    | 'ops.stock.columnHeld'
     | 'ops.stock.columnItem'
     | 'ops.stock.columnQuantity'
     | 'ops.stock.columnThreshold'
     | 'ops.stock.columnUnit'
-    | 'ops.stock.createdToast'
     | 'ops.stock.direction'
     | 'ops.stock.directionDecrease'
     | 'ops.stock.directionIncrease'
     | 'ops.stock.emptyBody'
+    | 'ops.stock.emptyShelf'
     | 'ops.stock.emptyTitle'
     | 'ops.stock.fieldAdjustQuantity'
-    | 'ops.stock.fieldCode'
-    | 'ops.stock.fieldIngredient'
-    | 'ops.stock.fieldName'
     | 'ops.stock.fieldParLevel'
     | 'ops.stock.fieldParLevelHint'
     | 'ops.stock.fieldThreshold'
     | 'ops.stock.fieldThresholdHint'
-    | 'ops.stock.fieldUnit'
-    | 'ops.stock.fieldUnitHint'
     | 'ops.stock.fieldWasteQuantity'
-    | 'ops.stock.itemsTitle'
+    | 'ops.stock.inStockBadge'
+    | 'ops.stock.ingredientsEmptyBody'
+    | 'ops.stock.ingredientsEmptyTitle'
+    | 'ops.stock.ingredientsHint'
+    | 'ops.stock.ingredientsTitle'
     | 'ops.stock.levelsTitle'
-    | 'ops.stock.linkedIngredient'
     | 'ops.stock.lowBadge'
     | 'ops.stock.lowStockCount'
-    | 'ops.stock.metrics.items'
+    | 'ops.stock.metrics.ingredients'
     | 'ops.stock.metrics.levels'
     | 'ops.stock.metrics.lowStock'
     | 'ops.stock.metrics.outOfStock'
-    | 'ops.stock.noIngredient'
-    | 'ops.stock.noIngredientOption'
+    | 'ops.stock.metrics.products'
+    | 'ops.stock.neverStocked'
     | 'ops.stock.noLevels'
     | 'ops.stock.noThreshold'
-    | 'ops.stock.saveFailed'
+    | 'ops.stock.productsEmptyBody'
+    | 'ops.stock.productsEmptyTitle'
+    | 'ops.stock.productsHint'
+    | 'ops.stock.productsTitle'
     | 'ops.stock.subtitle'
     | 'ops.stock.threshold'
     | 'ops.stock.thresholdClearedToast'
@@ -8035,7 +8032,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.costsRedacted',
   'kitchen:ops.procurement.emptyBody',
   'kitchen:ops.procurement.emptyTitle',
-  'kitchen:ops.procurement.fieldCurrency',
   'kitchen:ops.procurement.fieldDocumentRef',
   'kitchen:ops.procurement.fieldLineItem',
   'kitchen:ops.procurement.fieldLineQuantity',
@@ -8043,7 +8039,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.fieldLineUnitPrice',
   'kitchen:ops.procurement.fieldSupplier',
   'kitchen:ops.procurement.fieldSupplierCode',
-  'kitchen:ops.procurement.fieldSupplierCurrency',
   'kitchen:ops.procurement.fieldSupplierEmail',
   'kitchen:ops.procurement.fieldSupplierName',
   'kitchen:ops.procurement.fieldSupplierPhone',
@@ -8191,49 +8186,48 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.total',
   'kitchen:ops.quotations.totalsHeading',
   'kitchen:ops.readyForApi',
-  'kitchen:ops.stock.addItem',
-  'kitchen:ops.stock.addItemTitle',
   'kitchen:ops.stock.adjust',
   'kitchen:ops.stock.adjustHint',
   'kitchen:ops.stock.adjustTitle',
   'kitchen:ops.stock.adjustedToast',
   'kitchen:ops.stock.columnActions',
-  'kitchen:ops.stock.columnIngredient',
+  'kitchen:ops.stock.columnHeld',
   'kitchen:ops.stock.columnItem',
   'kitchen:ops.stock.columnQuantity',
   'kitchen:ops.stock.columnThreshold',
   'kitchen:ops.stock.columnUnit',
-  'kitchen:ops.stock.createdToast',
   'kitchen:ops.stock.direction',
   'kitchen:ops.stock.directionDecrease',
   'kitchen:ops.stock.directionIncrease',
   'kitchen:ops.stock.emptyBody',
+  'kitchen:ops.stock.emptyShelf',
   'kitchen:ops.stock.emptyTitle',
   'kitchen:ops.stock.fieldAdjustQuantity',
-  'kitchen:ops.stock.fieldCode',
-  'kitchen:ops.stock.fieldIngredient',
-  'kitchen:ops.stock.fieldName',
   'kitchen:ops.stock.fieldParLevel',
   'kitchen:ops.stock.fieldParLevelHint',
   'kitchen:ops.stock.fieldThreshold',
   'kitchen:ops.stock.fieldThresholdHint',
-  'kitchen:ops.stock.fieldUnit',
-  'kitchen:ops.stock.fieldUnitHint',
   'kitchen:ops.stock.fieldWasteQuantity',
-  'kitchen:ops.stock.itemsTitle',
+  'kitchen:ops.stock.inStockBadge',
+  'kitchen:ops.stock.ingredientsEmptyBody',
+  'kitchen:ops.stock.ingredientsEmptyTitle',
+  'kitchen:ops.stock.ingredientsHint',
+  'kitchen:ops.stock.ingredientsTitle',
   'kitchen:ops.stock.levelsTitle',
-  'kitchen:ops.stock.linkedIngredient',
   'kitchen:ops.stock.lowBadge',
   'kitchen:ops.stock.lowStockCount',
-  'kitchen:ops.stock.metrics.items',
+  'kitchen:ops.stock.metrics.ingredients',
   'kitchen:ops.stock.metrics.levels',
   'kitchen:ops.stock.metrics.lowStock',
   'kitchen:ops.stock.metrics.outOfStock',
-  'kitchen:ops.stock.noIngredient',
-  'kitchen:ops.stock.noIngredientOption',
+  'kitchen:ops.stock.metrics.products',
+  'kitchen:ops.stock.neverStocked',
   'kitchen:ops.stock.noLevels',
   'kitchen:ops.stock.noThreshold',
-  'kitchen:ops.stock.saveFailed',
+  'kitchen:ops.stock.productsEmptyBody',
+  'kitchen:ops.stock.productsEmptyTitle',
+  'kitchen:ops.stock.productsHint',
+  'kitchen:ops.stock.productsTitle',
   'kitchen:ops.stock.subtitle',
   'kitchen:ops.stock.threshold',
   'kitchen:ops.stock.thresholdClearedToast',

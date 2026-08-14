@@ -202,6 +202,19 @@ function levelOf(StockItem $item): string
     return (string) StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity');
 }
 
+/**
+ * Remove the shelf derivation (INV2.0) creates the instant an ingredient is
+ * declared, for the two tests that are *about* an ingredient having none.
+ *
+ * Deleting it is the honest arrangement: the alternative is a test that passes
+ * only while some other component happens not to have run, which is how a
+ * precondition quietly stops being true.
+ */
+function dropDerivedStockItem(Ingredient $ingredient): void
+{
+    StockItem::withoutTenancy()->where('ingredient_id', (string) $ingredient->getKey())->delete();
+}
+
 it('explodes a meal recipe — summing duplicate lines, dividing by yield, applying waste, converting units, and scaling by order quantity', function (): void {
     // Flour in kg on the shelf and in the average; two duplicate recipe lines
     // (100 g + 150 g = 250 g); yield 5 pieces; 10% waste; two meals ordered.
@@ -369,6 +382,12 @@ it('records an exception when an ingredient has no stock item at the branch', fu
         'default_unit_id' => (string) $this->kg->getKey(),
     ]);
 
+    // Derivation (INV2.0) gives a declared ingredient a shelf immediately, so
+    // the state this test is about has to be arranged rather than assumed:
+    // without this the deduction reaches an empty shelf and reports
+    // `insufficient_stock`, which is a different refusal with a different fix.
+    dropDerivedStockItem($ingredient);
+
     $recipe = Recipe::factory()->create(['organisation_id' => $this->organisation->getKey()]);
     $version = RecipeVersion::factory()->published()->create([
         'recipe_id' => $recipe->getKey(),
@@ -455,6 +474,10 @@ it('retries a blocked line once the stock item exists, deducting and auto-resolv
         'organisation_id' => $this->organisation->getKey(),
         'default_unit_id' => (string) $this->kg->getKey(),
     ]);
+
+    // As above: derivation would otherwise have given it a shelf already, and
+    // this test is about the retry that follows a *missing* one.
+    dropDerivedStockItem($ingredient);
 
     $recipe = Recipe::factory()->create(['organisation_id' => $this->organisation->getKey()]);
     $version = RecipeVersion::factory()->published()->create([

@@ -7958,10 +7958,18 @@ paths:
         - Kitchen inventory & production
       summary: List stock items
       description: |
-        Every warehouse item the organisation has declared (O1) — a free
-        code and name, and an optional link to the recipe ingredient
-        master. Not paginated: a kitchen's stock list is small enough to
-        fetch whole, the way suppliers and production orders already are.
+        Every shelf the organisation has. Stock items are **derived**
+        (INV2.0), not declared: one per ingredient in the library — the
+        platform's and the kitchen's own — and one per product the kitchen
+        buys in to resell. `backing` says which. Not paginated: the list is
+        fetched whole, the way suppliers and production orders already are.
+
+        **The order is the ranking.** Shelves that hold something come
+        first, then shelves that have ever moved, then the rest by name — a
+        picker over the whole ingredient library is unusable alphabetically.
+        A client that preserves the order it is given gets the shelves a
+        kitchen actually receives at the top; `is_stocked` and `has_history`
+        are published so it can mark the difference too.
 
         Requires `inventory.view_organisation`.
       parameters:
@@ -7981,45 +7989,6 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-    post:
-      operationId: createStockItem
-      tags:
-        - Kitchen inventory & production
-      summary: Declare a stock item
-      description: |
-        `code` is a free SKU (O1) — no platform vocabulary constrains it,
-        and it need not match anything on a supplier's own invoice.
-        `ingredient_id` is optional: a stock item does not have to be
-        modelled as a recipe ingredient to be stocked.
-
-        Requires `inventory.manage_organisation`.
-      parameters:
-        - $ref: '#/components/parameters/XOrganisationIdRequired'
-        - $ref: '#/components/parameters/XClientRequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateStockItemRequest'
-      responses:
-        '201':
-          description: The stock item was created.
-          headers:
-            X-Correlation-Id:
-              $ref: '#/components/headers/XCorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StockItemEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/ContextOrPermissionDenied'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/levels:
@@ -25026,29 +24995,61 @@ components:
         - name_en
         - unit_code
         - ingredient_id
+        - catalogue_item_id
+        - backing
+        - is_stocked
+        - has_history
       description: |
-        A warehouse item (O1): a free SKU or code, no platform vocabulary
-        behind it, and an optional link to the recipe ingredient master. A
-        kitchen may stock something — packaging, cleaning supplies — that
-        will never be a recipe ingredient, and the link exists for the
-        common case without requiring it.
+        A shelf a kitchen holds. Derived (INV2.0) from one of two things: an
+        ingredient it cooks with, or a product it buys in to resell.
+
+        `ingredient_id` is always set on a derived shelf, resold products
+        included — moving-average cost, COGS and the monthly report are all
+        keyed by ingredient, so a shelf without one would be a shelf with no
+        valuation. For a resold product that ingredient is an implementation
+        detail the kitchen never manages; `catalogue_item_id` is the product
+        it actually is, and `backing` is the field to branch on.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
         code:
           type: string
           maxLength: 64
+          description: Minted once from the source slug and stable thereafter.
         name_en:
           type: string
           maxLength: 160
         unit_code:
           type: string
           maxLength: 16
-          description: Defaults to `kg` when not supplied at creation.
+          description: |
+            The ingredient's own unit, or for a resold product its purchasing
+            unit — a bottle of oil is bought by the bottle, not by the litre a
+            recipe would divide.
         ingredient_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+          description: |
+            Null only on a row that pre-dates derivation and has not been
+            adopted yet; every derived shelf has one.
+        catalogue_item_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The resold product this shelf is, or null when it is an ingredient.
+        backing:
+          type: string
+          enum:
+            - ingredient
+            - product
+          description: Which book this shelf belongs in.
+        is_stocked:
+          type: boolean
+          description: Some branch holds a non-zero quantity of it.
+        has_history:
+          type: boolean
+          description: It has moved at least once — received, adjusted, wasted or consumed.
       additionalProperties: false
     StockItemCollection:
       type: object
@@ -25067,43 +25068,6 @@ components:
                 $ref: '#/components/schemas/StockItem'
         meta:
           $ref: '#/components/schemas/Meta'
-    StockItemEnvelope:
-      type: object
-      required:
-        - data
-        - meta
-      properties:
-        data:
-          type: object
-          required:
-            - stock_item
-          properties:
-            stock_item:
-              $ref: '#/components/schemas/StockItem'
-        meta:
-          $ref: '#/components/schemas/Meta'
-    CreateStockItemRequest:
-      type: object
-      required:
-        - code
-        - name_en
-      properties:
-        code:
-          type: string
-          maxLength: 64
-          description: Unique within the organisation. A duplicate is `422 validation.failed`.
-        name_en:
-          type: string
-          maxLength: 160
-        unit_code:
-          type: string
-          maxLength: 16
-          description: Defaults to `kg` when omitted.
-        ingredient_id:
-          oneOf:
-            - $ref: '#/components/schemas/Uuid'
-            - type: 'null'
-      additionalProperties: false
     StockLevel:
       type: object
       required:

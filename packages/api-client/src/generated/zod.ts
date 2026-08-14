@@ -2700,11 +2700,15 @@ export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
 }));
 
 /**
- * A warehouse item (O1): a free SKU or code, no platform vocabulary
- * behind it, and an optional link to the recipe ingredient master. A
- * kitchen may stock something — packaging, cleaning supplies — that
- * will never be a recipe ingredient, and the link exists for the
- * common case without requiring it.
+ * A shelf a kitchen holds. Derived (INV2.0) from one of two things: an
+ * ingredient it cooks with, or a product it buys in to resell.
+ *
+ * `ingredient_id` is always set on a derived shelf, resold products
+ * included — moving-average cost, COGS and the monthly report are all
+ * keyed by ingredient, so a shelf without one would be a shelf with no
+ * valuation. For a resold product that ingredient is an implementation
+ * detail the kitchen never manages; `catalogue_item_id` is the product
+ * it actually is, and `backing` is the field to branch on.
  *
  */
 export const zStockItem = z.object({
@@ -2712,7 +2716,11 @@ export const zStockItem = z.object({
     code: z.string().max(64),
     name_en: z.string().max(160),
     unit_code: z.string().max(16),
-    ingredient_id: zUuid.nullable()
+    ingredient_id: zUuid.nullable(),
+    catalogue_item_id: zUuid.nullable(),
+    backing: z.enum(['ingredient', 'product']),
+    is_stocked: z.boolean(),
+    has_history: z.boolean()
 });
 
 export const zStockItemCollection = z.object({
@@ -2720,20 +2728,6 @@ export const zStockItemCollection = z.object({
         stock_items: z.array(zStockItem)
     }),
     meta: zMeta
-});
-
-export const zStockItemEnvelope = z.object({
-    data: z.object({
-        stock_item: zStockItem
-    }),
-    meta: zMeta
-});
-
-export const zCreateStockItemRequest = z.object({
-    code: z.string().max(64),
-    name_en: z.string().max(160),
-    unit_code: z.string().max(16).optional(),
-    ingredient_id: zUuid.nullish()
 });
 
 /**
@@ -9315,18 +9309,6 @@ export const zListStockItemsHeaders = z.object({
  * Every stock item.
  */
 export const zListStockItemsResponse = zStockItemCollection;
-
-export const zCreateStockItemBody = zCreateStockItemRequest;
-
-export const zCreateStockItemHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-/**
- * The stock item was created.
- */
-export const zCreateStockItemResponse = zStockItemEnvelope;
 
 export const zListStockLevelsHeaders = z.object({
     'X-Organisation-Id': zUuid,
