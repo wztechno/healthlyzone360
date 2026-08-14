@@ -169,7 +169,13 @@ async function createSubscription(page: Page): Promise<void> {
     await page.getByTestId('configurator-confirm-acknowledge-control').click();
     await page.getByTestId('configurator-create').click();
 
-    await expect(page.getByTestId('configurator-success-screen')).toBeVisible();
+    // The create is this journey's one multi-write chain, and the local stack answers each API
+    // call in seconds — the project-wide 30s expect is enough for every read above but not,
+    // reliably, for this step on a cold stack. Same budget the kitchen workspace file gives its
+    // write-toasts.
+    await expect(page.getByTestId('configurator-success-screen')).toBeVisible({
+        timeout: 120_000,
+    });
 }
 
 /**
