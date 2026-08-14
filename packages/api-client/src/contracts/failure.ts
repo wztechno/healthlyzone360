@@ -108,6 +108,10 @@ import type { OtpChannel } from './verification.ts';
  *   missing fields. The screen scrolls to the vault, not to the form.
  * - **`b2b.signatory_required`** — signing was attempted without the step-up. The panel reopens the
  *   passcode step.
+ * - **`b2b.quotation_state_invalid`** — pricing was refused because the quotation is no longer
+ *   `submitted`: the buyer accepted, declined or let it expire while the kitchen had it open. The
+ *   panel re-reads and shows where it actually stands, rather than offering the prices again against
+ *   a state that will refuse them a second time.
  * - **`request.idempotency_key_reused`** — the same key arrived with a *different* body. It is a
  *   client defect, like `request.precondition_required`, and must be reported rather than retried:
  *   a retry with a fresh key would place a second order.
@@ -178,6 +182,7 @@ export const API_FAILURE_CODES = [
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
+    'b2b.quotation_state_invalid',
     // The six refusal codes (S1, J2, B2).
     'subscription.refused',
     'subscription.change_refused',
@@ -405,6 +410,7 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
+    'b2b.quotation_state_invalid',
     // The six refusals. Every one of them is a *verdict* about the request as sent: a duration the
     // plan does not offer stays unoffered, a change inside the cut-off is still inside it a second
     // later, a closure already in flight is still in flight, a transition the state machine refuses
@@ -484,6 +490,7 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'b2b.application_state_invalid': 'This application has moved on since you opened it.',
     'b2b.documents_incomplete': 'Some required documents are still missing.',
     'b2b.signatory_required': 'Confirm the code we sent before signing.',
+    'b2b.quotation_state_invalid': 'This quotation has moved on since you opened it.',
     'subscription.refused': 'This plan cannot be subscribed to as configured.',
     'subscription.change_refused': 'This change to your subscription was not accepted.',
     'closure.refused': 'This closure request could not be taken any further.',

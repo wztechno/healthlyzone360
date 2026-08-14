@@ -12,6 +12,7 @@ import type {
     OrderId,
     PriceListId,
     ProductId,
+    QuotationId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
@@ -72,6 +73,7 @@ export const QUERY_ROOTS = [
     'kitchenAdmin',
     'kitchenOps',
     'kitchenOrders',
+    'kitchenQuotations',
     'account',
     'verification',
     'guest',
@@ -425,6 +427,29 @@ export const queryKeys = {
         all: () => ['kitchenOrders'] as const,
         list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
         order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
+    },
+
+    /**
+     * ── kitchenQuotations: the seller's view of the quotations submitted against this kitchen ────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `business`, on exactly the terms `kitchenOrders` is not a
+     * branch of `commerce` (`api-client/src/contracts/kitchen-quotations.ts`): `business` caches the
+     * *buyer's* ask, this caches the *seller's* answer, and pricing a quotation must not evict a
+     * buyer's quotation list — nor should a buyer accepting one evict the kitchen's work queue.
+     *
+     * `list` takes no filter, and the absence is the endpoint's rather than an oversight: the wire
+     * offers neither query parameters nor a cursor here, so there is only ever one list to cache.
+     * The status filter the screen offers is applied to the rows it already holds.
+     *
+     * **Never persisted**, on `kitchenOrders`' terms: a quotation is another organisation's
+     * negotiated commercial position, held on a tablet the whole kitchen signs into.
+     */
+    kitchenQuotations: {
+        all: () => ['kitchenQuotations'] as const,
+        list: () => ['kitchenQuotations', 'list'] as const,
+        quotation: (quotationId: QuotationId) =>
+            ['kitchenQuotations', 'quotation', quotationId] as const,
     },
 
     /**

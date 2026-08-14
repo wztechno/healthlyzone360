@@ -52,6 +52,7 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'b2b.application_state_invalid': 'errors:failure.b2b_application_state_invalid',
     'b2b.documents_incomplete': 'errors:failure.b2b_documents_incomplete',
     'b2b.signatory_required': 'errors:failure.b2b_signatory_required',
+    'b2b.quotation_state_invalid': 'errors:failure.b2b_quotation_state_invalid',
     // The six refusal codes (S1, J2, B2). Five of them carry structured detail — the reasons a
     // configurator lists, the checks a wind-down must settle, the transitions still open — and the
     // owning surface renders that detail itself. These entries are what a *generic* error boundary

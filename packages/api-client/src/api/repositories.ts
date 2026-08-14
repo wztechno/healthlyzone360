@@ -54,6 +54,7 @@ import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
 import { createApiKitchenAdminWrites } from './kitchen-admin-writes.ts';
 import { createApiKitchenOpsRepository } from './kitchen-ops-repository.ts';
 import { createApiKitchenOrdersRepository } from './kitchen-orders-repository.ts';
+import { createApiKitchenQuotationsRepository } from './kitchen-quotations-repository.ts';
 import { createApiSubscriptionReads } from './subscription-repository.ts';
 import { createApiVerificationRepository } from './verification-repository.ts';
 import {
@@ -518,6 +519,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         },
         kitchenOps: createApiKitchenOpsRepository(transport),
         kitchenOrders: createApiKitchenOrdersRepository(transport),
+        kitchenQuotations: createApiKitchenQuotationsRepository(transport),
         invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),
     };

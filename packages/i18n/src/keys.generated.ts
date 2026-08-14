@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5214 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5282 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1902,6 +1902,7 @@ export interface NamespaceKeys {
     | 'failure.authz_permission_denied'
     | 'failure.b2b_application_state_invalid'
     | 'failure.b2b_documents_incomplete'
+    | 'failure.b2b_quotation_state_invalid'
     | 'failure.b2b_signatory_required'
     | 'failure.cart_line_refused'
     | 'failure.closure_refused'
@@ -2406,6 +2407,8 @@ export interface NamespaceKeys {
     | 'families.purchases.name'
     | 'families.qc.description'
     | 'families.qc.name'
+    | 'families.quotations.description'
+    | 'families.quotations.name'
     | 'families.recipes.description'
     | 'families.recipes.name'
     | 'families.review.description'
@@ -2822,6 +2825,71 @@ export interface NamespaceKeys {
     | 'ops.qc.subjectTypeLabel'
     | 'ops.qc.subtitle'
     | 'ops.qc.title'
+    | 'ops.quotations.caption'
+    | 'ops.quotations.clearFilter'
+    | 'ops.quotations.columnActions'
+    | 'ops.quotations.columnCurrency'
+    | 'ops.quotations.columnReference'
+    | 'ops.quotations.columnStatus'
+    | 'ops.quotations.columnSubmitted'
+    | 'ops.quotations.conflictBody'
+    | 'ops.quotations.conflictRefresh'
+    | 'ops.quotations.conflictTitle'
+    | 'ops.quotations.currency'
+    | 'ops.quotations.decidedAt'
+    | 'ops.quotations.declineHeading'
+    | 'ops.quotations.detailLoadErrorTitle'
+    | 'ops.quotations.detailTitle'
+    | 'ops.quotations.emptyBody'
+    | 'ops.quotations.emptyTitle'
+    | 'ops.quotations.expiresAt'
+    | 'ops.quotations.filter.all'
+    | 'ops.quotations.filter.awaiting'
+    | 'ops.quotations.filter.closed'
+    | 'ops.quotations.filter.quoted'
+    | 'ops.quotations.filterLabel'
+    | 'ops.quotations.filteredEmptyBody'
+    | 'ops.quotations.filteredEmptyTitle'
+    | 'ops.quotations.guidanceBody'
+    | 'ops.quotations.guidanceTitle'
+    | 'ops.quotations.lineColumn'
+    | 'ops.quotations.lineNotPriced'
+    | 'ops.quotations.linePriceHint'
+    | 'ops.quotations.linePriceInvalid'
+    | 'ops.quotations.linePriceLabel'
+    | 'ops.quotations.lineQuantity'
+    | 'ops.quotations.lineTotal'
+    | 'ops.quotations.lineUnitPrice'
+    | 'ops.quotations.lineUnnamed'
+    | 'ops.quotations.linesHeading'
+    | 'ops.quotations.loadErrorTitle'
+    | 'ops.quotations.metrics.awaiting'
+    | 'ops.quotations.metrics.loaded'
+    | 'ops.quotations.metrics.quoted'
+    | 'ops.quotations.noLines'
+    | 'ops.quotations.noNotes'
+    | 'ops.quotations.notPricedYet'
+    | 'ops.quotations.notes'
+    | 'ops.quotations.open'
+    | 'ops.quotations.price'
+    | 'ops.quotations.programme'
+    | 'ops.quotations.quotedAt'
+    | 'ops.quotations.quotedToast'
+    | 'ops.quotations.requestHeading'
+    | 'ops.quotations.send'
+    | 'ops.quotations.staleBody'
+    | 'ops.quotations.staleTitle'
+    | 'ops.quotations.status.accepted'
+    | 'ops.quotations.status.declined'
+    | 'ops.quotations.status.expired'
+    | 'ops.quotations.status.quoted'
+    | 'ops.quotations.status.submitted'
+    | 'ops.quotations.submittedAt'
+    | 'ops.quotations.subtitle'
+    | 'ops.quotations.timelineHeading'
+    | 'ops.quotations.title'
+    | 'ops.quotations.total'
+    | 'ops.quotations.totalsHeading'
     | 'ops.readyForApi'
     | 'ops.stock.addItem'
     | 'ops.stock.addItemTitle'
@@ -7137,6 +7205,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.authz_permission_denied',
   'errors:failure.b2b_application_state_invalid',
   'errors:failure.b2b_documents_incomplete',
+  'errors:failure.b2b_quotation_state_invalid',
   'errors:failure.b2b_signatory_required',
   'errors:failure.cart_line_refused',
   'errors:failure.closure_refused',
@@ -7638,6 +7707,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.purchases.name',
   'kitchen:families.qc.description',
   'kitchen:families.qc.name',
+  'kitchen:families.quotations.description',
+  'kitchen:families.quotations.name',
   'kitchen:families.recipes.description',
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
@@ -8054,6 +8125,71 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.qc.subjectTypeLabel',
   'kitchen:ops.qc.subtitle',
   'kitchen:ops.qc.title',
+  'kitchen:ops.quotations.caption',
+  'kitchen:ops.quotations.clearFilter',
+  'kitchen:ops.quotations.columnActions',
+  'kitchen:ops.quotations.columnCurrency',
+  'kitchen:ops.quotations.columnReference',
+  'kitchen:ops.quotations.columnStatus',
+  'kitchen:ops.quotations.columnSubmitted',
+  'kitchen:ops.quotations.conflictBody',
+  'kitchen:ops.quotations.conflictRefresh',
+  'kitchen:ops.quotations.conflictTitle',
+  'kitchen:ops.quotations.currency',
+  'kitchen:ops.quotations.decidedAt',
+  'kitchen:ops.quotations.declineHeading',
+  'kitchen:ops.quotations.detailLoadErrorTitle',
+  'kitchen:ops.quotations.detailTitle',
+  'kitchen:ops.quotations.emptyBody',
+  'kitchen:ops.quotations.emptyTitle',
+  'kitchen:ops.quotations.expiresAt',
+  'kitchen:ops.quotations.filter.all',
+  'kitchen:ops.quotations.filter.awaiting',
+  'kitchen:ops.quotations.filter.closed',
+  'kitchen:ops.quotations.filter.quoted',
+  'kitchen:ops.quotations.filterLabel',
+  'kitchen:ops.quotations.filteredEmptyBody',
+  'kitchen:ops.quotations.filteredEmptyTitle',
+  'kitchen:ops.quotations.guidanceBody',
+  'kitchen:ops.quotations.guidanceTitle',
+  'kitchen:ops.quotations.lineColumn',
+  'kitchen:ops.quotations.lineNotPriced',
+  'kitchen:ops.quotations.linePriceHint',
+  'kitchen:ops.quotations.linePriceInvalid',
+  'kitchen:ops.quotations.linePriceLabel',
+  'kitchen:ops.quotations.lineQuantity',
+  'kitchen:ops.quotations.lineTotal',
+  'kitchen:ops.quotations.lineUnitPrice',
+  'kitchen:ops.quotations.lineUnnamed',
+  'kitchen:ops.quotations.linesHeading',
+  'kitchen:ops.quotations.loadErrorTitle',
+  'kitchen:ops.quotations.metrics.awaiting',
+  'kitchen:ops.quotations.metrics.loaded',
+  'kitchen:ops.quotations.metrics.quoted',
+  'kitchen:ops.quotations.noLines',
+  'kitchen:ops.quotations.noNotes',
+  'kitchen:ops.quotations.notPricedYet',
+  'kitchen:ops.quotations.notes',
+  'kitchen:ops.quotations.open',
+  'kitchen:ops.quotations.price',
+  'kitchen:ops.quotations.programme',
+  'kitchen:ops.quotations.quotedAt',
+  'kitchen:ops.quotations.quotedToast',
+  'kitchen:ops.quotations.requestHeading',
+  'kitchen:ops.quotations.send',
+  'kitchen:ops.quotations.staleBody',
+  'kitchen:ops.quotations.staleTitle',
+  'kitchen:ops.quotations.status.accepted',
+  'kitchen:ops.quotations.status.declined',
+  'kitchen:ops.quotations.status.expired',
+  'kitchen:ops.quotations.status.quoted',
+  'kitchen:ops.quotations.status.submitted',
+  'kitchen:ops.quotations.submittedAt',
+  'kitchen:ops.quotations.subtitle',
+  'kitchen:ops.quotations.timelineHeading',
+  'kitchen:ops.quotations.title',
+  'kitchen:ops.quotations.total',
+  'kitchen:ops.quotations.totalsHeading',
   'kitchen:ops.readyForApi',
   'kitchen:ops.stock.addItem',
   'kitchen:ops.stock.addItemTitle',

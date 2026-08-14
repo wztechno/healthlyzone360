@@ -42,6 +42,12 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'delivery_zone.manage_organisation',
     'order.view_organisation',
     'order.manage_organisation',
+    // B1/B4. The backend grants this pair to `kitchen_manager` alongside the tariff pair — reading
+    // what corporate buyers submitted against this kitchen's programmes, and naming a price against
+    // it. Absent here until the kitchen gained a screen that needed them, which is exactly the drift
+    // this fixture's "mirrors the template roles" promise exists to prevent.
+    'b2b_quotation.view_organisation',
+    'b2b_quotation.quote_organisation',
     'inventory.view_organisation',
     'inventory.manage_organisation',
     'inventory.view_costs_organisation',

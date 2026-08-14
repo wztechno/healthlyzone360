@@ -24,6 +24,13 @@ use Illuminate\Http\JsonResponse;
  * anything checked here — this controller only has to prove the quotation
  * belongs to the caller's kitchen, which `B2bLocator::kitchenQuotation()`
  * already does.
+ *
+ * The answer carries the lines through
+ * {@see B2bLocator::kitchenQuotationLines()} for the reason
+ * `KitchenQuotationShowController` does: the presenter's own
+ * `$quotation->lines()` fallback is scoped to the buyer, so from here it
+ * answers an empty set — and a client that seeds this response into its cache
+ * would blank the very prices this request just recorded.
  */
 final class KitchenQuotationQuoteController
 {
@@ -53,7 +60,11 @@ final class KitchenQuotationQuoteController
 
         $quoted = $this->quotations->quote($record, $actor, $request->payload(), $expected);
 
-        return ApiResponse::data(['quotation' => $this->presenter->quotation($quoted)])
-            ->withHeaders(['ETag' => '"'.$quoted->lock_version.'"']);
+        return ApiResponse::data([
+            'quotation' => $this->presenter->quotation(
+                $quoted,
+                $this->locator->kitchenQuotationLines($quoted),
+            ),
+        ])->withHeaders(['ETag' => '"'.$quoted->lock_version.'"']);
     }
 }

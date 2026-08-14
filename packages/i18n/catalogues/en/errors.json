@@ -62,6 +62,7 @@
         "b2b_application_state_invalid": "This application has moved on since you opened it. Reload to see where it stands.",
         "b2b_documents_incomplete": "Some required documents are still missing. Add them before submitting.",
         "b2b_signatory_required": "Confirm the code we sent before signing.",
+        "b2b_quotation_state_invalid": "This quotation has moved on since you opened it. Reload to see where it stands.",
         "subscription_refused": "This plan cannot be subscribed to with the options you chose. Adjust them and try again.",
         "subscription_change_refused": "This change to your subscription was not accepted. Review the details and try again.",
         "closure_refused": "This closure request could not be taken any further. Reload to see where it stands.",

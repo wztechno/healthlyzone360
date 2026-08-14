@@ -61,6 +61,19 @@ export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 
 /**
+ * The B2B quotation pair (B4), split for the reason `price_list.*` was split in K1.5: seeing what a
+ * corporate buyer submitted and deciding what to charge them for it are different authorities, and
+ * the backend grants both only to `kitchen_manager` and `commercial_manager`.
+ *
+ * Deliberately not the `order.*` codes the family sits beside in this registry. An order is a sale
+ * at a price already agreed; a quotation is the negotiation that fixes one, against a named buyer
+ * organisation under a signed agreement — "may cancel somebody's dinner" is the wrong question to
+ * ask before opening it.
+ */
+export const B2B_QUOTATION_VIEW_PERMISSION = 'b2b_quotation.view_organisation';
+export const B2B_QUOTATION_QUOTE_PERMISSION = 'b2b_quotation.quote_organisation';
+
+/**
  * The cost permission (INV1.1). It gates every money-bearing inventory surface exactly as
  * `recipe.view_costs_organisation` gates recipe costs — here, the purchases ledger. A kitchen hand
  * who counts stock and posts receipts does not thereby see what those receipts cost.
@@ -271,6 +284,23 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         href: '/kitchen/price-lists',
         permission: PRICE_LIST_VIEW_PERMISSION,
         managePermission: PRICE_LIST_MANAGE_PERMISSION,
+    },
+    {
+        key: 'quotations',
+        kind: 'managed',
+        group: 'commercial',
+        nameKey: 'kitchen:families.quotations.name',
+        descriptionKey: 'kitchen:families.quotations.description',
+        // `☰`, three stacked rules — the price-list glyph, deliberately. A quotation *is* a schedule
+        // of priced rows; the only difference is that it is addressed to one buyer under one
+        // agreement rather than published to a channel. The card sits beside price lists for the
+        // same reason, and the compromise that entry records (no money glyph exists in a table of
+        // typographic characters, and any currency sign would name one currency on a family whose
+        // rows each carry their own) applies here word for word.
+        icon: 'menu',
+        href: '/kitchen/quotations',
+        permission: B2B_QUOTATION_VIEW_PERMISSION,
+        managePermission: B2B_QUOTATION_QUOTE_PERMISSION,
     },
     {
         key: 'plans',

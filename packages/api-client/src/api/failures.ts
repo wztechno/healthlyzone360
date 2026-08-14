@@ -240,6 +240,10 @@ const DIRECT_CODES = {
     'b2b.application_state_invalid': 'b2b.application_state_invalid',
     'b2b.documents_incomplete': 'b2b.documents_incomplete',
     'b2b.signatory_required': 'b2b.signatory_required',
+    // B4's quotation refusal, reachable since the kitchen gained a screen to price from. It carries
+    // the allowed transitions and the current lock version in `details`, but the remedy does not
+    // vary with them — re-read and show where the quotation actually stands — so it is a plain row.
+    'b2b.quotation_state_invalid': 'b2b.quotation_state_invalid',
 
     // The one of the six refusal codes that carries nothing structured. The other five are built by
     // their own branches below, for the reason the OTP three are: the detail *is* the screen.

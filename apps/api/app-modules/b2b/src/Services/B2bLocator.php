@@ -11,11 +11,13 @@ use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\B2b\Models\KycDocument;
 use Healthy360\B2b\Models\OrganisationInvitation;
 use Healthy360\B2b\Models\Quotation;
+use Healthy360\B2b\Models\QuotationLine;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Turns B2B route parameters into records the caller is allowed to see, or
@@ -262,6 +264,29 @@ final class B2bLocator
         }
 
         return $quotation;
+    }
+
+    /**
+     * The lines of a quotation the kitchen reached sideways.
+     *
+     * `Quotation->lines()` cannot be used from this side and fails *silently*
+     * when it is: `QuotationLine` is `OrganisationScoped` on the **buyer**
+     * organisation, so under the seller's active tenant the relation matches
+     * nothing and the presenter renders `lines: []` — a quotation that looks
+     * empty rather than one that refuses to load. The bypass is the same one
+     * {@see self::kitchenQuotation()} needs and the same one
+     * `QuotationService::quote()` already applies when it prices these rows;
+     * ownership was proven by the join through `kitchen_organisation_id`
+     * before this is ever called.
+     *
+     * @return Collection<int, QuotationLine>
+     */
+    public function kitchenQuotationLines(Quotation $quotation): Collection
+    {
+        return QuotationLine::withoutTenancy()
+            ->where('quotation_id', $quotation->getKey())
+            ->orderBy('line_number')
+            ->get();
     }
 
     /**

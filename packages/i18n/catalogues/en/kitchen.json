@@ -138,6 +138,79 @@
                 "cancelled": "Cancelled"
             }
         },
+        "quotations": {
+            "title": "Quotations",
+            "subtitle": "What corporate buyers have asked this kitchen to price, newest first — name a figure against every line and send it back.",
+            "emptyTitle": "No quotations yet",
+            "emptyBody": "When a corporate buyer submits a request against one of this kitchen's programmes, it arrives here.",
+            "filteredEmptyTitle": "No quotations in this view",
+            "filteredEmptyBody": "Show all to see every request this kitchen has received.",
+            "clearFilter": "Show all",
+            "metrics": {
+                "loaded": "Received",
+                "awaiting": "Awaiting a price",
+                "quoted": "Priced"
+            },
+            "caption": "Quotations submitted against this kitchen",
+            "filterLabel": "Show",
+            "filter": {
+                "all": "All",
+                "awaiting": "Awaiting a price",
+                "quoted": "Priced",
+                "closed": "Closed"
+            },
+            "columnReference": "Reference",
+            "columnStatus": "Status",
+            "columnSubmitted": "Submitted",
+            "columnCurrency": "Currency",
+            "columnActions": "Actions",
+            "open": "Open",
+            "price": "Price it",
+            "loadErrorTitle": "Quotations could not be loaded",
+            "detailTitle": "Quotation {{reference}}",
+            "detailLoadErrorTitle": "This quotation could not be read",
+            "linesHeading": "Lines",
+            "noLines": "This quotation has no lines.",
+            "lineColumn": "Line",
+            "lineUnnamed": "Unnamed line",
+            "lineQuantity": "Quantity",
+            "lineUnitPrice": "Unit price",
+            "lineTotal": "Line total",
+            "lineNotPriced": "Not priced",
+            "linePriceLabel": "Unit price for line {{line}}",
+            "linePriceHint": "The price of one unit, in {{currency}}.",
+            "linePriceInvalid": "Enter an amount with no more decimal places than the currency has.",
+            "guidanceTitle": "Every line needs a price",
+            "guidanceBody": "Prices are in {{currency}}, which the buyer's agreement fixed — you are not choosing it. Sending is refused until every line carries a price; zero is accepted.",
+            "send": "Send prices",
+            "quotedToast": "Quotation {{reference}} priced.",
+            "totalsHeading": "Totals",
+            "currency": "Currency",
+            "total": "Total",
+            "notPricedYet": "Not priced yet",
+            "requestHeading": "The request",
+            "programme": "Programme",
+            "notes": "Buyer's note",
+            "noNotes": "None",
+            "timelineHeading": "Timeline",
+            "submittedAt": "Submitted",
+            "quotedAt": "Priced",
+            "expiresAt": "Expires",
+            "decidedAt": "Decided",
+            "declineHeading": "Why the buyer declined",
+            "conflictTitle": "This quotation changed while you were working on it",
+            "conflictBody": "Somebody else priced it. Refresh to read where it stands now, then try again.",
+            "staleTitle": "The buyer has already decided",
+            "staleBody": "This quotation was accepted, declined or has expired, so prices can no longer be sent for it. Refresh to see where it stands.",
+            "conflictRefresh": "Refresh this quotation",
+            "status": {
+                "submitted": "Awaiting a price",
+                "quoted": "Priced",
+                "accepted": "Accepted",
+                "declined": "Declined",
+                "expired": "Expired"
+            }
+        },
         "stock": {
             "title": "Stock",
             "subtitle": "On-hand quantities per branch and the movement ledger — no valuation in this phase.",
@@ -455,6 +528,10 @@
         "priceLists": {
             "name": "Price lists",
             "description": "What this kitchen charges, per channel — and which of those prices are actually decided."
+        },
+        "quotations": {
+            "name": "Quotations",
+            "description": "What corporate buyers have asked this kitchen to price — name a figure against every line."
         },
         "plans": {
             "name": "Plans",

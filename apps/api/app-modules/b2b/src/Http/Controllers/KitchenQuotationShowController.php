@@ -16,6 +16,12 @@ use Illuminate\Http\JsonResponse;
 /**
  * GET /api/v1/b2b/kitchen/quotations/{quotation} — one submitted quotation,
  * from the seller kitchen's side.
+ *
+ * The lines are fetched through {@see B2bLocator::kitchenQuotationLines()}
+ * rather than left to the presenter's `$quotation->lines()` fallback. That
+ * relation is scoped to the **buyer** organisation, so from the seller's tenant
+ * it returns nothing at all — and a kitchen cannot price a quotation whose
+ * lines it was never shown.
  */
 final class KitchenQuotationShowController
 {
@@ -41,7 +47,11 @@ final class KitchenQuotationShowController
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
-        return ApiResponse::data(['quotation' => $this->presenter->quotation($record)])
-            ->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
+        return ApiResponse::data([
+            'quotation' => $this->presenter->quotation(
+                $record,
+                $this->locator->kitchenQuotationLines($record),
+            ),
+        ])->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }
 }

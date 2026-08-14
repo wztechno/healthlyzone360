@@ -268,6 +268,7 @@ export const REPOSITORY_SURFACE = {
         'setStockThreshold',
     ],
     kitchenOrders: ['cancelOrder', 'confirmOrder', 'fulfilOrder', 'getOrder', 'listOrders'],
+    kitchenQuotations: ['getQuotation', 'listQuotations', 'quoteQuotation'],
     platformAdmin: [
         'createKitchen',
         'getKitchen',

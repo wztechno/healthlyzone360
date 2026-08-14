@@ -1,6 +1,8 @@
 import type {
     KitchenOrderCancellationReason,
     KitchenOrderStatus,
+    KitchenQuotationLine,
+    KitchenQuotationStatus,
     ProductionOrderStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
@@ -158,6 +160,69 @@ export function canCancelKitchenOrder(status: KitchenOrderStatus): boolean {
     return status === 'placed' || status === 'confirmed';
 }
 
+/* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */
+
+const KITCHEN_QUOTATION_STATUS_KEYS: Readonly<Record<KitchenQuotationStatus, string>> = {
+    submitted: 'kitchen:ops.quotations.status.submitted',
+    quoted: 'kitchen:ops.quotations.status.quoted',
+    accepted: 'kitchen:ops.quotations.status.accepted',
+    declined: 'kitchen:ops.quotations.status.declined',
+    expired: 'kitchen:ops.quotations.status.expired',
+};
+
+export function kitchenQuotationStatusKey(status: KitchenQuotationStatus): string {
+    return KITCHEN_QUOTATION_STATUS_KEYS[status];
+}
+
+/**
+ * The tone a quotation's status badge carries.
+ *
+ * `submitted` is a warning on exactly the grounds `placed` is one on an order: it is the only state
+ * on this list that is somebody's job *right now* — a buyer is waiting on a price — and neutral
+ * would read as settled. `declined` and `expired` are neutral rather than danger: a buyer walking
+ * away is an outcome, not a fault, and colouring it as an error would ask a kitchen manager to
+ * treat a closed negotiation as a problem to fix.
+ */
+const KITCHEN_QUOTATION_STATUS_TONES: Readonly<Record<KitchenQuotationStatus, BadgeTone>> = {
+    submitted: 'warning',
+    quoted: 'info',
+    accepted: 'success',
+    declined: 'neutral',
+    expired: 'neutral',
+};
+
+export function kitchenQuotationStatusTone(status: KitchenQuotationStatus): BadgeTone {
+    return KITCHEN_QUOTATION_STATUS_TONES[status];
+}
+
+/**
+ * The one transition this side of the relationship owns, restated as the question the button asks.
+ *
+ * `submitted → quoted` and nothing else — the contract's machine, read from the same table the
+ * server enforces. A "Send prices" control offered on a `quoted` or `accepted` row would earn a
+ * `b2b.quotation_state_invalid` the person did nothing to deserve.
+ */
+export function canQuoteKitchenQuotation(status: KitchenQuotationStatus): boolean {
+    return status === 'submitted';
+}
+
+/** `true` once every line carries a price — what the wire says a `quoted` quotation looks like. */
+export function isKitchenQuotationPriced(lines: readonly KitchenQuotationLine[]): boolean {
+    return lines.length > 0 && lines.every((line) => line.lineTotalMinor !== null);
+}
+
+/**
+ * The quotation's total, or `null` when any line is still unpriced.
+ *
+ * Summed here rather than read from the wire because the wire carries no total: it prices lines, and
+ * the sum of a set that is only partly priced is not a smaller total, it is not a total at all. The
+ * currency is the quotation's own, so there is no cross-currency case to guard against.
+ */
+export function kitchenQuotationTotalMinor(lines: readonly KitchenQuotationLine[]): number | null {
+    if (!isKitchenQuotationPriced(lines)) return null;
+    return lines.reduce((sum, line) => sum + (line.lineTotalMinor ?? 0), 0);
+}
+
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */
 
 export function stockItemRowTestId(stockItemId: string): string {
@@ -186,4 +251,8 @@ export function qualityCheckRowTestId(qualityCheckId: string): string {
 
 export function kitchenOrderRowTestId(orderId: string): string {
     return `kitchen-order-${orderId}`;
+}
+
+export function kitchenQuotationRowTestId(quotationId: string): string {
+    return `kitchen-quotation-${quotationId}`;
 }

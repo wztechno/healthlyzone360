@@ -9,6 +9,7 @@ import type { FoodRepository } from './foods.ts';
 import type { KitchenAdminRepository } from './kitchen-admin.ts';
 import type { KitchenOpsRepository } from './kitchen-ops.ts';
 import type { KitchenOrdersRepository } from './kitchen-orders.ts';
+import type { KitchenQuotationsRepository } from './kitchen-quotations.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
 import type { MealPlanRepository } from './planner.ts';
@@ -423,6 +424,16 @@ export type {
     KitchenOrderTransitionRequest,
 } from './kitchen-orders.ts';
 
+export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';
+export type {
+    KitchenQuotation,
+    KitchenQuotationLine,
+    KitchenQuotationPrice,
+    KitchenQuotationsRepository,
+    KitchenQuotationStatus,
+    QuoteKitchenQuotationRequest,
+} from './kitchen-quotations.ts';
+
 export { REVIEW_PRIORITIES, REVIEW_QUEUE_STATES, REVIEW_SUBJECTS } from './professional.ts';
 export type {
     ApproveReviewRequest,
@@ -727,6 +738,18 @@ export interface Repositories {
      * being the other minus some fields.
      */
     readonly kitchenOrders: KitchenOrdersRepository;
+
+    /**
+     * The B2B quotations submitted against this kitchen, and the one action that answers them.
+     *
+     * A sibling of `business` rather than a branch of it, for the reason `kitchenOrders` is a
+     * sibling of `commerce`: `business` is the **buyer's** quotation — the ask they raised and the
+     * decision they take on the answer — and this one is the **seller's**, which carries the line
+     * identifiers and the lock version the buyer's shape has no use for and should not be handed.
+     * The two are reached through different routes, gated by different permissions, and an
+     * invalidation should never cross between them. See `./kitchen-quotations.ts`'s header.
+     */
+    readonly kitchenQuotations: KitchenQuotationsRepository;
 
     /**
      * Platform administration of kitchen tenants (PA1) — the nineteenth field.

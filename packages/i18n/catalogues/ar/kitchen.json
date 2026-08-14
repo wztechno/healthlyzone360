@@ -154,6 +154,79 @@
                 "cancelled": "ملغى"
             }
         },
+        "quotations": {
+            "title": "عروض الأسعار",
+            "subtitle": "ما طلب المشترون من الشركات تسعيره لدى هذا المطبخ، الأحدث أولاً — حدِّد سعراً لكل سطر ثم أرسله.",
+            "emptyTitle": "لا توجد عروض أسعار بعد",
+            "emptyBody": "حين يقدّم مشترٍ من الشركات طلباً على أحد برامج هذا المطبخ، يصل إلى هنا.",
+            "filteredEmptyTitle": "لا توجد عروض أسعار في هذا العرض",
+            "filteredEmptyBody": "اعرض الكل لرؤية كل طلب وصل إلى هذا المطبخ.",
+            "clearFilter": "عرض الكل",
+            "metrics": {
+                "loaded": "الواردة",
+                "awaiting": "بانتظار التسعير",
+                "quoted": "مُسعَّرة"
+            },
+            "caption": "عروض الأسعار المقدَّمة إلى هذا المطبخ",
+            "filterLabel": "العرض",
+            "filter": {
+                "all": "الكل",
+                "awaiting": "بانتظار التسعير",
+                "quoted": "مُسعَّرة",
+                "closed": "مغلقة"
+            },
+            "columnReference": "المرجع",
+            "columnStatus": "الحالة",
+            "columnSubmitted": "تاريخ التقديم",
+            "columnCurrency": "العملة",
+            "columnActions": "إجراءات",
+            "open": "فتح",
+            "price": "تسعيره",
+            "loadErrorTitle": "تعذّر تحميل عروض الأسعار",
+            "detailTitle": "عرض السعر {{reference}}",
+            "detailLoadErrorTitle": "تعذّرت قراءة عرض السعر هذا",
+            "linesHeading": "السطور",
+            "noLines": "لا تحتوي عرض السعر هذا على أي سطر.",
+            "lineColumn": "السطر",
+            "lineUnnamed": "سطر بلا اسم",
+            "lineQuantity": "الكمية",
+            "lineUnitPrice": "سعر الوحدة",
+            "lineTotal": "إجمالي السطر",
+            "lineNotPriced": "غير مُسعَّر",
+            "linePriceLabel": "سعر الوحدة للسطر {{line}}",
+            "linePriceHint": "سعر وحدة واحدة، بعملة {{currency}}.",
+            "linePriceInvalid": "أدخل مبلغاً بعدد منازل عشرية لا يتجاوز ما تسمح به العملة.",
+            "guidanceTitle": "كل سطر يحتاج إلى سعر",
+            "guidanceBody": "الأسعار بعملة {{currency}}، وقد حدّدتها اتفاقية المشتري ولست أنت من يختارها. لن يُقبل الإرسال قبل تسعير كل سطر، والصفر مقبول.",
+            "send": "إرسال الأسعار",
+            "quotedToast": "تم تسعير عرض السعر {{reference}}.",
+            "totalsHeading": "الإجماليات",
+            "currency": "العملة",
+            "total": "الإجمالي",
+            "notPricedYet": "لم يُسعَّر بعد",
+            "requestHeading": "الطلب",
+            "programme": "البرنامج",
+            "notes": "ملاحظة المشتري",
+            "noNotes": "لا توجد",
+            "timelineHeading": "التسلسل الزمني",
+            "submittedAt": "قُدِّم",
+            "quotedAt": "سُعِّر",
+            "expiresAt": "ينتهي",
+            "decidedAt": "تقرّر",
+            "declineHeading": "سبب رفض المشتري",
+            "conflictTitle": "تغيّر عرض السعر هذا أثناء عملك عليه",
+            "conflictBody": "قام شخص آخر بتسعيره. حدّث القراءة لمعرفة وضعه الآن ثم أعد المحاولة.",
+            "staleTitle": "المشتري اتخذ قراره بالفعل",
+            "staleBody": "قُبل عرض السعر هذا أو رُفض أو انتهت صلاحيته، فلم يعد بالإمكان إرسال أسعار له. حدّث القراءة لمعرفة وضعه.",
+            "conflictRefresh": "تحديث عرض السعر هذا",
+            "status": {
+                "submitted": "بانتظار التسعير",
+                "quoted": "مُسعَّر",
+                "accepted": "مقبول",
+                "declined": "مرفوض",
+                "expired": "منتهي الصلاحية"
+            }
+        },
         "stock": {
             "title": "المخزون",
             "subtitle": "الكميات المتوفرة لكل فرع ودفتر الحركات — بلا تقييم في هذه المرحلة.",
@@ -483,6 +556,10 @@
         "priceLists": {
             "name": "قوائم الأسعار",
             "description": "ما يتقاضاه هذا المطبخ، لكل قناة — وأيّ تلك الأسعار مُقرّر فعلًا."
+        },
+        "quotations": {
+            "name": "عروض الأسعار",
+            "description": "ما طلب المشترون من الشركات تسعيره لدى هذا المطبخ — حدِّد سعراً لكل سطر."
         },
         "plans": {
             "name": "الخطط",
