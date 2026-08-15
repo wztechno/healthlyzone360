@@ -22,6 +22,8 @@ describe('kitchen nav', () => {
     it('sections permitted families without empty groups', () => {
         const sections = kitchenNavSections(managerState);
         expect(sections.map((section) => section.group)).toEqual([
+            // The desk is first: it is the only group whose contents are somebody else's clock.
+            'orderDesk',
             'workbench',
             'catalogue',
             'commercial',

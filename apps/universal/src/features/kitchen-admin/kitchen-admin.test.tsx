@@ -374,7 +374,12 @@ describe('entity registry', () => {
 
     it('assigns every family to a known ops group', () => {
         for (const family of ENTITY_FAMILIES) {
-            expect(['workbench', 'catalogue', 'commercial', 'operations']).toContain(family.group);
+            // Restated rather than read from `ENTITY_GROUPS`, on purpose: a test that took the
+            // tuple would pass whatever the tuple said, and the point here is that adding a group
+            // is a decision somebody looked at.
+            expect(['orderDesk', 'workbench', 'catalogue', 'commercial', 'operations']).toContain(
+                family.group,
+            );
         }
     });
 });

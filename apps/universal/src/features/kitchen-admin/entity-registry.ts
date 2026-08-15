@@ -109,10 +109,27 @@ export type EntityKind = (typeof ENTITY_KINDS)[number];
 /**
  * Hub and kitchen-rail sectioning. Order here is display order for grouped nav and the hub grid.
  *
- * `workbench` is the "what now?" queue; `catalogue` is what goes into a dish; `commercial` is what
- * a customer is charged and where it is delivered; `operations` is stock through QC (ops panels).
+ * `orderDesk` is the counter — live customer work; `workbench` is the "what now?" queue over this
+ * workspace's own records; `catalogue` is what goes into a dish; `commercial` is what a customer is
+ * charged and where it is delivered; `operations` is stock through QC (ops panels).
+ *
+ * ## Why the desk is first, above the workbench
+ *
+ * The ordering of this tuple is "how immediate is it?", which is the same rule that puts the review
+ * queue first among the families: everything below the top answers "where do I go?", and the top
+ * answers "what should I do *now*?". The workbench held that position while the most immediate thing
+ * in the workspace was a blocked record or an unresolved stock exception — all of which are this
+ * kitchen's own housekeeping, and none of which has anybody waiting on the phone. The Order Desk is
+ * the only group whose contents are somebody *else's* clock: a customer is due food at a named hour,
+ * and the queue is sorted by how close that hour is. That belongs above the housekeeping.
  */
-export const ENTITY_GROUPS = ['workbench', 'catalogue', 'commercial', 'operations'] as const;
+export const ENTITY_GROUPS = [
+    'orderDesk',
+    'workbench',
+    'catalogue',
+    'commercial',
+    'operations',
+] as const;
 export type EntityGroup = (typeof ENTITY_GROUPS)[number];
 
 export interface EntityFamily {
@@ -133,6 +150,34 @@ export interface EntityFamily {
 }
 
 export const ENTITY_FAMILIES: readonly EntityFamily[] = [
+    {
+        key: 'order-desk',
+        // A view across the order book rather than a family of records: no listing of its own, no
+        // create control and no lifecycle — exactly what the third kind was added for. The sale
+        // wizard that will give this surface something to create is a later slice; until it lands,
+        // calling this `managed` would promise a draft count that cannot exist.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderDesk.name',
+        descriptionKey: 'kitchen:families.orderDesk.description',
+        // `▤`, the ruled sheet — a timetable, which is what this queue is: the open orders in the
+        // order their hour falls. Deliberately *not* `☰`, the order book's docket glyph, even
+        // though these are the same dockets: the two nouns are already adjacent in the rail
+        // ("Orders", "Order desk"), and two adjacent cards wearing one glyph would leave the label
+        // doing all the work of telling them apart. The compromise every other card in this
+        // workspace records applies unchanged — the icon set is a table of typographic characters,
+        // and a real icon set retires it.
+        icon: 'calendar',
+        href: '/kitchen/order-desk',
+        // The order book's own pair, and deliberately the same pair: this is the same rows read in
+        // a different order, so "may see the orders placed against this kitchen" is exactly the
+        // right question to ask before opening it. The *contact* columns inside the queue are a
+        // greater authority and carry their own code
+        // (`order.view_customer_contact_organisation`), resolved server-side — a screen never asks
+        // for it, because the field is simply absent from rows a caller may not read it on.
+        permission: ORDER_VIEW_PERMISSION,
+        managePermission: ORDER_MANAGE_PERMISSION,
+    },
     {
         key: 'review',
         kind: 'workbench',

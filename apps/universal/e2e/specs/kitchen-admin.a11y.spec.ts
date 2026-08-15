@@ -164,6 +164,22 @@ async function openReview(page: Page) {
     await expect(page.getByTestId('kitchen-review-screen')).toBeVisible();
 }
 
+/**
+ * The Order Desk queue.
+ *
+ * Anchored on the screen container rather than on the table, unlike every other helper here, and
+ * deliberately: the queue is bounded by *what is due*, so on a shared database with no open orders
+ * in today's window the honest landing state is the empty state and waiting for a table would turn
+ * a correct screen into a timeout. Both states are worth sweeping — the toolbar, its segmented
+ * control and its chip group are on screen either way.
+ */
+async function openOrderDesk(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-order-desk-open').click();
+    await expect(page.getByTestId('kitchen-order-desk-screen')).toBeVisible();
+    await expect(page.getByTestId('kitchen-order-desk-toolbar')).toBeVisible();
+}
+
 test.describe('kitchen workspace accessibility (axe)', () => {
     test('the workspace hub', async ({ page }) => {
         await openKitchen(page);
@@ -557,6 +573,55 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.setViewportSize({ width: 390, height: 844 });
         await openZones(page);
         await expectNoSeriousViolations(page, 'kitchen-zones-narrow');
+    });
+
+    /* ── the order desk queue ────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The desk queue as it lands, with its two filter controls.
+     *
+     * The risk here is in the toolbar rather than in the table. A `tablist` without an accessible
+     * name and a checkbox group whose chips have lost their label are both serious findings and both
+     * invisible by eye — and this screen is the first in the workspace to put a segmented control
+     * and a chip group in one panel with a search field.
+     */
+    test('the order desk queue, with its window and status filters', async ({ page }) => {
+        await openOrderDesk(page);
+        await expectNoSeriousViolations(page, 'kitchen-order-desk');
+    });
+
+    /**
+     * The same queue at phone width, where `Table` stops being an ARIA table and becomes stacked
+     * cards. Each row carries a due badge and a status badge whose meaning must survive the switch,
+     * and the ingredient list already documents this as the width where the labelled-field
+     * relationship goes missing unnoticed.
+     */
+    test('the same queue on a phone, where the table becomes stacked cards', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openOrderDesk(page);
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-narrow');
+    });
+
+    /**
+     * The queue narrowed to a window with nothing in it.
+     *
+     * Switching the window is local to this screen — it changes a query parameter, writes nothing —
+     * so it is reachable from a project that runs in parallel with three others. `overdue` is the
+     * window most likely to be empty on a demonstration database, which is the point: an empty state
+     * that arrives *after* a filter change is a region that replaces a table, and a heading order or
+     * a live region left behind by that swap is exactly what this sweep catches.
+     */
+    test('the queue after a window change, whichever of the two states it lands in', async ({
+        page,
+    }) => {
+        await openOrderDesk(page);
+        await page.getByTestId('kitchen-order-desk-window-overdue').click();
+        await expect(
+            page
+                .getByTestId('kitchen-order-desk-table')
+                .or(page.getByTestId('kitchen-order-desk-empty')),
+        ).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-overdue');
     });
 
     /* ── the review queue (K1.8) ─────────────────────────────────────────────────────────────── */

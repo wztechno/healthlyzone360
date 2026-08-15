@@ -13,6 +13,7 @@ import type { KitchenOrdersRepository } from './kitchen-orders.ts';
 import type { KitchenQuotationsRepository } from './kitchen-quotations.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
+import type { OrderDeskRepository } from './order-desk.ts';
 import type { MealPlanRepository } from './planner.ts';
 import type { PlatformAdminRepository } from './platform-admin.ts';
 import type { ProfessionalRepository } from './professional.ts';
@@ -425,6 +426,20 @@ export type {
     KitchenOrderTransitionRequest,
 } from './kitchen-orders.ts';
 
+export { ORDER_DESK_QUEUE_STATUSES, ORDER_DESK_WINDOWS } from './order-desk.ts';
+export type {
+    OrderDeskCustomerContact,
+    OrderDeskDeliveryJob,
+    OrderDeskPayment,
+    OrderDeskQueue,
+    OrderDeskQueueFilters,
+    OrderDeskQueueMeta,
+    OrderDeskQueueRow,
+    OrderDeskQueueStatus,
+    OrderDeskRepository,
+    OrderDeskWindow,
+} from './order-desk.ts';
+
 export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';
 export type {
     DeliverDriverJobRequest,
@@ -748,6 +763,23 @@ export interface Repositories {
      * being the other minus some fields.
      */
     readonly kitchenOrders: KitchenOrdersRepository;
+
+    /**
+     * The Order Desk's queue — the same open orders as `kitchenOrders`, in the order somebody has
+     * to work them, with the day and clock that ordering was computed against.
+     *
+     * Its own field rather than a method on `kitchenOrders`, and the reason is the sort. The order
+     * book is walked with a cursor, newest first; this queue is sorted by a *computed* due instant
+     * across three tables, which `CursorPage` cannot page. One contract carrying both would have to
+     * publish a cursor that is meaningless on half its methods. It also reads two fields the book
+     * does not — a customer's name and phone number, behind their own permission code — so the
+     * narrower surface is the one that can state that boundary in a single place.
+     *
+     * Read-only. Moving an order stays on `kitchenOrders`, where the `lockVersion` and the three
+     * `If-Match` writes already live; two modules able to transition the same row would be two
+     * ideas of which version they hold.
+     */
+    readonly orderDesk: OrderDeskRepository;
 
     /**
      * The B2B quotations submitted against this kitchen, and the one action that answers them.

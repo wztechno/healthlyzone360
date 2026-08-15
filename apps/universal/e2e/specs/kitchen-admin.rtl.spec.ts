@@ -565,4 +565,71 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await expect(code).toBeVisible();
         await expect(code).not.toContainText(ARABIC_SCRIPT);
     });
+
+    /**
+     * The Order Desk queue in Arabic, where the direction rule meets a *timezone identifier*.
+     *
+     * The desk states the day and the clock the server sorted against, because with no branch named
+     * the boundary is UTC rather than this kitchen's local midnight. `Asia/Dubai` and `UTC` are IANA
+     * identifiers on the same terms an allergen code and a currency code are: identities, not copy,
+     * and they read the same in either language.
+     *
+     * The queue is bounded by what is *due*, so a demonstration database may legitimately have
+     * nothing in today's window. Both landing states are asserted rather than one being waited for:
+     * an empty state that is only translated in English is exactly the kind of gap a spec that
+     * skipped it would miss.
+     */
+    test('translates the order desk queue and keeps the time zone as an identifier', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+
+        // The desk is the first group in the rail and on the hub, so its card is the first thing a
+        // reader meets in this workspace — in this direction as in the other.
+        await expect(page.getByTestId('kitchen-family-order-desk-name')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await page.getByTestId('kitchen-family-order-desk-open').click();
+        await expect(page.getByTestId('kitchen-order-desk-screen')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-order-desk-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-order-desk-subtitle')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-order-desk-window-today')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-status-label')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-search-label')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // The zone the queue was measured on is an IANA identifier: no Arabic-Indic digits, and no
+        // attempt to translate `UTC`.
+        const measuredOn = page.getByTestId('kitchen-order-desk-measured-on');
+        await expect(measuredOn).toBeVisible();
+        await expect(measuredOn).toContainText(ARABIC_SCRIPT);
+
+        const table = page.getByTestId('kitchen-order-desk-table');
+        if ((await table.count()) > 0) {
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-number'),
+            ).toContainText(ARABIC_SCRIPT);
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-customer'),
+            ).toContainText(ARABIC_SCRIPT);
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-due'),
+            ).toContainText(ARABIC_SCRIPT);
+        } else {
+            await expect(page.getByTestId('kitchen-order-desk-empty')).toContainText(ARABIC_SCRIPT);
+        }
+
+        // And the queue must stay inside itself: a six-column table is the easiest place in this
+        // workspace to push the document sideways, in either direction.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
 });

@@ -73,6 +73,7 @@ export const QUERY_ROOTS = [
     'kitchenAdmin',
     'kitchenOps',
     'kitchenOrders',
+    'orderDesk',
     'kitchenQuotations',
     'account',
     'verification',
@@ -431,6 +432,39 @@ export const queryKeys = {
     },
 
     /**
+     * ── orderDesk: the open book in the order somebody at a desk has to work it ──────────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Added whole by the Order Desk wave, which owns this file's change for that slice — the
+     * header's rule is that a later wave asks rather than edits, and this is the wave that was
+     * asked.
+     *
+     * Its own root rather than a branch of `kitchenOrders`, and the reason is invalidation rather
+     * than taxonomy. They read the same rows through two endpoints with two different sorts, and a
+     * desk agent polling a queue every fifteen seconds must not be evicting the order book from
+     * under a manager working the detail panel beside them. When the desk gains its own writes they
+     * will invalidate both roots explicitly, which is a decision somebody can read; one shared root
+     * would make the coupling implicit and permanent.
+     *
+     * One entry, and `queue(filters)` takes the whole filter object per shape rule 3 — window,
+     * branch, statuses, delivery-window code and the order-number search are one *view*, so two
+     * screens asking for the same view share an entry and a filter change is a different entry
+     * rather than a mutation of this one. There is no by-identifier entry: the queue's detail read
+     * is `kitchenOrders.order(id)`, because the thing being opened is the order.
+     *
+     * **Never persisted, and one step further out than `kitchenOrders`.** These rows carry a named
+     * customer's *display name and telephone number* — disclosed only to a caller holding
+     * `order.view_customer_contact_organisation` — on a tablet at a counter that the whole kitchen
+     * signs into and that members of the public stand in front of. Writing them to disk would
+     * outlive both the session and the permission that allowed them to be read.
+     * `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     */
+    orderDesk: {
+        all: () => ['orderDesk'] as const,
+        queue: (filter?: QueryScope) => ['orderDesk', 'queue', scope(filter)] as const,
+    },
+
+    /**
      * ── kitchenQuotations: the seller's view of the quotations submitted against this kitchen ────
      * ────────────────────────────────────────────────────────────────────────────────────────────
      *
@@ -666,7 +700,10 @@ export const queryKeys = {
  * clearest grounds of any of them: it holds the names and email addresses of the owners of
  * organisations the reader does not belong to. `kitchenOrders` is absent on both grounds at once —
  * a kitchen's order book is commercial data *and* a list of named customers' delivery addresses,
- * held on a tablet the whole kitchen signs into.
+ * held on a tablet the whole kitchen signs into. `orderDesk` is absent for the same reason and one
+ * step further out: its rows carry customers' names and telephone numbers, served only to a caller
+ * holding `order.view_customer_contact_organisation`, and a cache on disk would outlive both the
+ * session and the permission that allowed them to be read.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

@@ -10,6 +10,8 @@ import type {
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
 
+import { ticketAgeTone } from '../kds/kds-board.ts';
+
 /**
  * Display helpers for the kitchen ops workspace (O1–O4).
  *
@@ -160,6 +162,44 @@ export function canCancelKitchenOrder(status: KitchenOrderStatus): boolean {
     return status === 'placed' || status === 'confirmed';
 }
 
+/* ── the order desk queue ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Whole minutes an order is *past* the instant it was due, clamped at zero.
+ *
+ * Clamped rather than signed, because the two sides of the deadline are different questions and only
+ * one of them is this function's. "Due in forty minutes" is a time, and the row shows it as one; "we
+ * are forty minutes late" is a state of alarm, and it is the only thing the ageing scale below is
+ * asked to grade. A signed value would let a badge get louder the *earlier* an order is, which is
+ * the opposite of the truth.
+ *
+ * A `dueAt` that cannot be parsed reads as zero — not late. The wire declares the field non-null and
+ * the server computes it for every row, so this is unreachable behind a conformant endpoint; when it
+ * is reached, a neutral row is the failure that does not manufacture an emergency.
+ */
+export function minutesPastDue(dueAt: string, now: Date): number {
+    const due = Date.parse(dueAt);
+    if (Number.isNaN(due)) return 0;
+    return Math.max(0, Math.floor((now.getTime() - due) / 60_000));
+}
+
+/**
+ * The tone the desk queue's due badge carries.
+ *
+ * Deliberately `ticketAgeTone` — the kitchen display's own scale, amber at fifteen minutes and red
+ * at thirty — rather than a second table with the same numbers in it. The two surfaces are looking
+ * at the same orders from two seats, and an order that is red on the wall has to be red at the desk;
+ * two tables would agree today and drift the first time one of them is tuned.
+ *
+ * What differs is what the minutes are measured *from*. The board ages a ticket from when it was
+ * placed, because a cook's question is "how long has this been waiting on me?". The desk ages it
+ * from when it is **due**, because a desk's question is "how late are we to the customer?" — and an
+ * order placed a fortnight ago for tomorrow lunchtime is not late at all.
+ */
+export function orderDeskDueTone(dueAt: string, now: Date): BadgeTone {
+    return ticketAgeTone(minutesPastDue(dueAt, now));
+}
+
 /* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */
 
 const KITCHEN_QUOTATION_STATUS_KEYS: Readonly<Record<KitchenQuotationStatus, string>> = {
@@ -255,4 +295,13 @@ export function kitchenOrderRowTestId(orderId: string): string {
 
 export function kitchenQuotationRowTestId(quotationId: string): string {
     return `kitchen-quotation-${quotationId}`;
+}
+
+/**
+ * A desk queue row. Its own prefix rather than `kitchenOrderRowTestId`'s even though the subject is
+ * the same order: both surfaces can be on screen in one Playwright run, and two nodes under one id
+ * is a query that silently finds the wrong one.
+ */
+export function orderDeskRowTestId(orderId: string): string {
+    return `kitchen-order-desk-row-${orderId}`;
 }

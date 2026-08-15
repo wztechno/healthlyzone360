@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5304 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5335 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2347,6 +2347,34 @@ export interface NamespaceKeys {
     | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
+    | 'desk.a11y.noCustomerName'
+    | 'desk.caption'
+    | 'desk.clearFilters'
+    | 'desk.columnCustomer'
+    | 'desk.columnDue'
+    | 'desk.columnNumber'
+    | 'desk.columnSlot'
+    | 'desk.columnStatus'
+    | 'desk.columnTotal'
+    | 'desk.emptyBody'
+    | 'desk.emptyTitle'
+    | 'desk.filteredEmptyBody'
+    | 'desk.filteredEmptyTitle'
+    | 'desk.loadErrorTitle'
+    | 'desk.measuredOn'
+    | 'desk.noSlot'
+    | 'desk.searchHint'
+    | 'desk.searchLabel'
+    | 'desk.searchPlaceholder'
+    | 'desk.statusLabel'
+    | 'desk.subtitle'
+    | 'desk.title'
+    | 'desk.truncatedBody'
+    | 'desk.truncatedTitle'
+    | 'desk.window.next7'
+    | 'desk.window.overdue'
+    | 'desk.window.today'
+    | 'desk.windowLabel'
     | 'driver.deliver'
     | 'driver.deliverBody'
     | 'driver.deliverConfirm'
@@ -2415,6 +2443,8 @@ export interface NamespaceKeys {
     | 'families.ingredients.name'
     | 'families.meals.description'
     | 'families.meals.name'
+    | 'families.orderDesk.description'
+    | 'families.orderDesk.name'
     | 'families.orders.description'
     | 'families.orders.name'
     | 'families.plans.description'
@@ -2593,6 +2623,7 @@ export interface NamespaceKeys {
     | 'nav.groups.catalogue'
     | 'nav.groups.commercial'
     | 'nav.groups.operations'
+    | 'nav.groups.orderDesk'
     | 'nav.groups.workbench'
     | 'nav.overview'
     | 'nav.railTitle'
@@ -7669,6 +7700,34 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
+  'kitchen:desk.a11y.noCustomerName',
+  'kitchen:desk.caption',
+  'kitchen:desk.clearFilters',
+  'kitchen:desk.columnCustomer',
+  'kitchen:desk.columnDue',
+  'kitchen:desk.columnNumber',
+  'kitchen:desk.columnSlot',
+  'kitchen:desk.columnStatus',
+  'kitchen:desk.columnTotal',
+  'kitchen:desk.emptyBody',
+  'kitchen:desk.emptyTitle',
+  'kitchen:desk.filteredEmptyBody',
+  'kitchen:desk.filteredEmptyTitle',
+  'kitchen:desk.loadErrorTitle',
+  'kitchen:desk.measuredOn',
+  'kitchen:desk.noSlot',
+  'kitchen:desk.searchHint',
+  'kitchen:desk.searchLabel',
+  'kitchen:desk.searchPlaceholder',
+  'kitchen:desk.statusLabel',
+  'kitchen:desk.subtitle',
+  'kitchen:desk.title',
+  'kitchen:desk.truncatedBody',
+  'kitchen:desk.truncatedTitle',
+  'kitchen:desk.window.next7',
+  'kitchen:desk.window.overdue',
+  'kitchen:desk.window.today',
+  'kitchen:desk.windowLabel',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
   'kitchen:driver.deliverConfirm',
@@ -7737,6 +7796,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
   'kitchen:families.meals.name',
+  'kitchen:families.orderDesk.description',
+  'kitchen:families.orderDesk.name',
   'kitchen:families.orders.description',
   'kitchen:families.orders.name',
   'kitchen:families.plans.description',
@@ -7915,6 +7976,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.groups.catalogue',
   'kitchen:nav.groups.commercial',
   'kitchen:nav.groups.operations',
+  'kitchen:nav.groups.orderDesk',
   'kitchen:nav.groups.workbench',
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',

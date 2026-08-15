@@ -26,6 +26,7 @@ export interface KitchenNavSection {
 }
 
 const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
+    orderDesk: 'kitchen:nav.groups.orderDesk',
     workbench: 'kitchen:nav.groups.workbench',
     catalogue: 'kitchen:nav.groups.catalogue',
     commercial: 'kitchen:nav.groups.commercial',

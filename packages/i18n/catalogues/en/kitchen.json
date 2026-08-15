@@ -46,6 +46,7 @@
         "railTitle": "Kitchen",
         "overview": "Overview",
         "groups": {
+            "orderDesk": "Order desk",
             "workbench": "Workbench",
             "catalogue": "Catalogue",
             "commercial": "Commercial",
@@ -532,6 +533,40 @@
             "delivered": "Customer told: delivered"
         }
     },
+    "desk": {
+        "title": "Order desk",
+        "subtitle": "The open book in the order it has to be worked — soonest due at the top. It refreshes itself while it is on screen.",
+        "caption": "Open orders, soonest due first",
+        "measuredOn": "Measured against {{date}}, on the {{timezone}} clock.",
+        "searchLabel": "Order number",
+        "searchPlaceholder": "For example 0148",
+        "searchHint": "Order numbers only. A customer's name or telephone number is not searchable here.",
+        "windowLabel": "Which orders",
+        "window": {
+            "today": "Today",
+            "overdue": "Overdue",
+            "next7": "Next 7 days"
+        },
+        "statusLabel": "Status",
+        "columnNumber": "Order",
+        "columnCustomer": "Customer",
+        "columnDue": "Due",
+        "columnSlot": "Slot",
+        "columnStatus": "Status",
+        "columnTotal": "Total",
+        "noSlot": "No slot named",
+        "loadErrorTitle": "The queue could not be loaded",
+        "emptyTitle": "Nothing due",
+        "emptyBody": "Orders arrive here as customers place them, the soonest due at the top.",
+        "filteredEmptyTitle": "No orders match this view",
+        "filteredEmptyBody": "Nothing in this window matches what you asked for. Widen the window, or clear the filters.",
+        "clearFilters": "Clear filters",
+        "truncatedTitle": "Showing the first {{limit}} orders",
+        "truncatedBody": "More orders matched than this view will ever show, and there is no second page. Narrow the window, the slot or the status to reach the rest.",
+        "a11y": {
+            "noCustomerName": "No customer name on this order."
+        }
+    },
     "families": {
         "ingredients": {
             "name": "Ingredients",
@@ -612,6 +647,10 @@
         "consumptionExceptions": {
             "name": "Consumption exceptions",
             "description": "Sales a confirmed order could not deduct from stock honestly — review, retry, or resolve each one."
+        },
+        "orderDesk": {
+            "name": "Order desk",
+            "description": "Every open order in the order it is due — what is late, what is next, and who to ring about it."
         }
     },
     "analytics": {
