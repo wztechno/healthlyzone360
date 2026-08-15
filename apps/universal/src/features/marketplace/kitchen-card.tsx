@@ -83,6 +83,10 @@ export function KitchenCard({ kitchen, onPress, testID }: KitchenCardProps) {
             interactive
             onPress={onPress}
             footer={footer}
+            // Fills the grid cell, so a kitchen with two cuisine chips ends level with the one
+            // beside it that has five. `Card`'s `self-stretch` only ever governed the width; see
+            // the note on the same class in `meal-card.tsx`.
+            className="grow"
             accessibilityLabel={t('marketplace:kitchens.cardLabel', { kitchen: kitchen.name })}
         >
             <EntityImage

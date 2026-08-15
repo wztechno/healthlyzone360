@@ -157,7 +157,8 @@
             "carbohydrate": "carbs",
             "fat": "fat"
         },
-        "openMeal": "Open {{meal}}"
+        "openMeal": "Open {{meal}}",
+        "dietTagsTitle": "How {{meal}} is classified"
     },
     "dietitians": {
         "title": "Dietitians",
@@ -409,5 +410,9 @@
         "friday": "Friday",
         "saturday": "Saturday",
         "sunday": "Sunday"
+    },
+    "tags": {
+        "more": "+{{n}} more",
+        "showAll": "Show all {{n}} labels"
     }
 }
