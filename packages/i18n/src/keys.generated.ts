@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5280 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5279 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -22,7 +22,6 @@ export interface NamespaceKeys {
     | 'area.partner'
     | 'area.patient'
     | 'area.platform-admin'
-    | 'area.pos'
     | 'area.public'
     | 'denial.email_unverified.body'
     | 'denial.email_unverified.title'
@@ -5332,7 +5331,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:area.partner',
   'access:area.patient',
   'access:area.platform-admin',
-  'access:area.pos',
   'access:area.public',
   'access:denial.email_unverified.body',
   'access:denial.email_unverified.title',

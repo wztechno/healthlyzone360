@@ -34,7 +34,6 @@ export const FEATURE_AVAILABILITY = {
     dietCategories: false,
     professionalReview: false,
     partnerSupply: false,
-    posSale: false,
     driverJobs: false,
     clinicWorkspace: false,
     insuranceWorkspace: false,
@@ -59,7 +58,6 @@ export function isFeatureAvailable(key: FeatureKey): boolean {
 const AREA_FEATURES: Partial<Record<RouteArea, FeatureKey>> = {
     dietitian: 'professionalReview',
     partner: 'partnerSupply',
-    pos: 'posSale',
     driver: 'driverJobs',
     clinic: 'clinicWorkspace',
     insurance: 'insuranceWorkspace',

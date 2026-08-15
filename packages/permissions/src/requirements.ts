@@ -32,7 +32,7 @@ export const ROUTE_PATHS = {
     forbidden: '/forbidden',
     workspace: '/workspace',
     customerHome: '/customer',
-    posHome: '/pos',
+    kdsHome: '/kds',
     driverHome: '/driver',
 } as const;
 
@@ -81,7 +81,7 @@ const AUTHENTICATED_ORG_AREA = {
  * authenticated, email-verified user but **no** organisation context (orchestrator decision D1 —
  * see `docs/architecture/notes/phase5b-decisions.md`). Every remaining area is a staff area and
  * additionally requires a server-confirmed organisation context. Branch context is required only
- * where an operation is physically bound to a site — kitchen, POS and KDS.
+ * where an operation is physically bound to a site — kitchen and KDS.
  *
  * **No area is entitlement-gated in Phase 1** (orchestrator decision D2). The backend seeds four
  * `feature.*` definitions and none of them maps to "may this area render". The entitlement gate in
@@ -101,7 +101,6 @@ export const ROUTE_REQUIREMENTS: Readonly<Record<RouteArea, RouteRequirement>> =
     clinic: { area: 'clinic', ...AUTHENTICATED_ORG_AREA },
 
     kitchen: { area: 'kitchen', ...AUTHENTICATED_ORG_AREA, requiresBranch: true },
-    pos: { area: 'pos', ...AUTHENTICATED_ORG_AREA, requiresBranch: true },
     kds: { area: 'kds', ...AUTHENTICATED_ORG_AREA, requiresBranch: true },
 
     driver: { area: 'driver', ...AUTHENTICATED_ORG_AREA },

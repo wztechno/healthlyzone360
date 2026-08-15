@@ -101,15 +101,7 @@ describe('availableWorkspaceAreas', () => {
             (option) => option.area,
         );
 
-        for (const area of [
-            'dietitian',
-            'clinic',
-            'insurance',
-            'patient',
-            'partner',
-            'pos',
-            'driver',
-        ])
+        for (const area of ['dietitian', 'clinic', 'insurance', 'patient', 'partner', 'driver'])
             expect(areas).not.toContain(area);
     });
 
@@ -130,7 +122,7 @@ describe('availableWorkspaceAreas', () => {
         });
         const areas = availableWorkspaceAreas(state).map((option) => option.area);
 
-        for (const area of ['kitchen', 'pos', 'kds']) expect(areas).not.toContain(area);
+        for (const area of ['kitchen', 'kds']) expect(areas).not.toContain(area);
     });
 
     /** Decision D1: consumer areas open on a global identity alone. */
@@ -148,7 +140,7 @@ describe('availableWorkspaceAreas', () => {
 
     it('never offers an area outside the build family', () => {
         const areas = availableWorkspaceAreas(hydrated([], 'staff')).map((option) => option.area);
-        expect(areas).not.toContain('pos');
+        expect(areas).not.toContain('kds');
         expect(areas).not.toContain('customer');
     });
 
@@ -161,7 +153,7 @@ describe('availableWorkspaceAreas', () => {
 
 describe('areasForMode', () => {
     it('reports what a build family compiles, regardless of the user', () => {
-        expect(areasForMode('kiosk')).toEqual(['pos', 'kds']);
+        expect(areasForMode('kiosk')).toEqual(['kds']);
         expect(areasForMode('driver')).toEqual(['driver']);
         expect(areasForMode('customer')).toEqual(['customer', 'patient']);
     });

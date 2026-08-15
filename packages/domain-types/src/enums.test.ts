@@ -24,8 +24,8 @@ describe('closed unions', () => {
         expect([...APP_MODES]).toEqual(['customer', 'staff', 'kiosk', 'driver', 'all-dev']);
     });
 
-    it('declares exactly the fourteen route areas from 05-universal-frontend.md §3', () => {
-        expect(ROUTE_AREAS).toHaveLength(14);
+    it('declares exactly the thirteen route areas from 05-universal-frontend.md §3', () => {
+        expect(ROUTE_AREAS).toHaveLength(13);
         expect([...ROUTE_AREAS]).toEqual([
             'public',
             'auth',
@@ -34,7 +34,6 @@ describe('closed unions', () => {
             'dietitian',
             'clinic',
             'kitchen',
-            'pos',
             'kds',
             'driver',
             'partner',

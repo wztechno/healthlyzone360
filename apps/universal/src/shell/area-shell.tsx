@@ -18,8 +18,9 @@ import { useAccessState } from '../session/session-provider.tsx';
 /**
  * Which shell chrome each area gets.
  *
- * Kiosk hardware (POS, KDS) is bare by design; drivers get thumb-reachable tabs; consumers get a
- * plain top bar because a sidebar of one item is noise; everything else is a staff workspace.
+ * Kiosk hardware (the KDS ticket board) is bare by design; drivers get thumb-reachable tabs;
+ * consumers get a plain top bar because a sidebar of one item is noise; everything else is a staff
+ * workspace.
  */
 export const AREA_SHELL_VARIANT: Readonly<Record<RouteArea, AppShellVariant>> = {
     public: 'public',
@@ -29,7 +30,6 @@ export const AREA_SHELL_VARIANT: Readonly<Record<RouteArea, AppShellVariant>> = 
     dietitian: 'workspace',
     clinic: 'workspace',
     kitchen: 'workspace',
-    pos: 'kiosk',
     kds: 'kiosk',
     driver: 'driver',
     partner: 'workspace',
@@ -62,7 +62,7 @@ export interface AreaShellProps {
  * nobody may be there, however entitled they are — so it is answered before the session is even
  * consulted. Splitting it into this outer component rather than an early return inside the body is
  * what keeps the hooks unconditional: the redirect happens with no hook having run, so a direct hit
- * on `/pos` never mounts a query, a logout mutation or a line of chrome on its way back to `/`.
+ * on `/driver` never mounts a query, a logout mutation or a line of chrome on its way back to `/`.
  */
 export function AreaShell(props: AreaShellProps) {
     if (!isAreaAvailable(props.area)) return <Redirect href="/" />;

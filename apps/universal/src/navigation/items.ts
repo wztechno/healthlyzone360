@@ -56,14 +56,13 @@ export const WORKSPACE_NAVIGATION: readonly NavigationDescriptor[] = [
     },
 ];
 
-/** The fourteen registry areas minus the two that are not workspaces. */
+/** The thirteen registry areas minus the two that are not workspaces. */
 export const WORKSPACE_AREAS: readonly RouteArea[] = [
     'customer',
     'patient',
     'dietitian',
     'clinic',
     'kitchen',
-    'pos',
     'kds',
     'driver',
     'partner',

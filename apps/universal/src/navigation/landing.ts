@@ -17,10 +17,9 @@ const FALLBACK_HREF = '/workspace';
  * separately.
  *
  * So the substitution happens here instead, at the two call sites that launch the application. A
- * kiosk build lands on `/pos` and a driver build on `/driver`; neither area has endpoints yet, so
- * both would arrive at a route that immediately redirects home — a launch that flickers through two
- * screens to reach the third. Sending them straight to the workspace picker skips the flicker and
- * lands them somewhere that works.
+ * driver build lands on `/driver`, an area with no endpoints yet, so it would arrive at a route that
+ * immediately redirects home — a launch that flickers through two screens to reach the third.
+ * Sending it straight to the workspace picker skips the flicker and lands it somewhere that works.
  *
  * The `reason` is passed through untouched. It says why the *kernel* chose what it chose, and the
  * splash branches on `session_restoring` / `unauthenticated`; rewriting it to describe this

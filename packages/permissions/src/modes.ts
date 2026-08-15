@@ -9,7 +9,7 @@ import type { AppMode, RouteArea } from '@healthy360/domain-types';
 export const MODE_ROUTE_AREAS: Readonly<Record<AppMode, readonly RouteArea[]>> = {
     customer: ['public', 'auth', 'customer', 'patient'],
     staff: ['auth', 'dietitian', 'clinic', 'kitchen', 'partner', 'corporate', 'insurance'],
-    kiosk: ['auth', 'pos', 'kds'],
+    kiosk: ['auth', 'kds'],
     driver: ['auth', 'driver'],
     'all-dev': [...ROUTE_AREAS],
 };

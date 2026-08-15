@@ -12,7 +12,7 @@ export type AppMode = (typeof APP_MODES)[number];
 export const PRODUCTION_READY_APP_MODES = ['customer', 'staff', 'all-dev'] as const;
 export type ProductionReadyAppMode = (typeof PRODUCTION_READY_APP_MODES)[number];
 
-/** The fourteen route areas recognised by the route registry (05-universal-frontend.md §3). */
+/** The thirteen route areas recognised by the route registry (05-universal-frontend.md §3). */
 export const ROUTE_AREAS = [
     'public',
     'auth',
@@ -21,7 +21,6 @@ export const ROUTE_AREAS = [
     'dietitian',
     'clinic',
     'kitchen',
-    'pos',
     'kds',
     'driver',
     'partner',
