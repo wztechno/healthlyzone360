@@ -4768,46 +4768,6 @@ export const zReplaceCatalogueItemAvailabilityRequest = z.object({
 });
 
 /**
- * One ticket on the kitchen display rail.
- */
-export const zKitchenDisplayTicket = z.object({
-    id: zUuid,
-    label: z.string().max(160),
-    status: z.enum([
-        'new',
-        'preparing',
-        'ready'
-    ]),
-    station: z.string().max(64),
-    source_type: z.string().max(48),
-    source_id: zUuid
-});
-
-export const zCreatePosSaleLine = z.object({
-    catalogue_item_id: zUuid,
-    quantity: z.number().gte(0.0001),
-    line_total_minor: z.int().gte(0)
-});
-
-export const zCreatePosSaleRequest = z.object({
-    pos_shift_id: zUuid,
-    payment_method_kind: z.enum(['cash_on_delivery', 'card']),
-    currency_code: zCurrencyCode,
-    lines: z.array(zCreatePosSaleLine).min(1)
-});
-
-/**
- * A recorded counter sale. Three fields — the lines are not echoed back,
- * because the caller sent them.
- *
- */
-export const zPosTransaction = z.object({
-    id: zUuid,
-    total_minor: z.int().gte(0),
-    payment_method_kind: z.enum(['cash_on_delivery', 'card'])
-});
-
-/**
  * Where the job is in its life.
  */
 export const zDeliveryJobStatus = z.enum([
@@ -6808,13 +6768,6 @@ export const zKycDocumentPath = zUuid;
  *
  */
 export const zKycAccessPurpose = z.string().min(1).max(160);
-
-/**
- * The ticket identifier. Unlike the catalogue paths this one takes an
- * identifier only — a rail ticket has no stable key a human would hold.
- *
- */
-export const zKitchenDisplayTicketPath = zUuid;
 
 /**
  * The delivery job identifier. One that is not the caller's own answers
@@ -10184,64 +10137,6 @@ export const zWithdrawMyConsentPath = z.object({
  * The consent is withdrawn, or was never held.
  */
 export const zWithdrawMyConsentResponse = z.void();
-
-export const zListKitchenDisplayTicketsHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Branch-Id': zUuid.optional(),
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-/**
- * Up to 100 open tickets, oldest first.
- */
-export const zListKitchenDisplayTicketsResponse = z.object({
-    data: z.object({
-        tickets: z.array(zKitchenDisplayTicket).max(100)
-    }),
-    meta: zMeta
-});
-
-export const zBumpKitchenDisplayTicketHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-export const zBumpKitchenDisplayTicketPath = z.object({
-    ticket: zUuid
-});
-
-/**
- * The ticket, bumped.
- */
-export const zBumpKitchenDisplayTicketResponse = z.object({
-    data: z.object({
-        ticket: z.object({
-            id: zUuid,
-            status: z.string()
-        })
-    }),
-    meta: zMeta
-});
-
-export const zCreatePosSaleBody = zCreatePosSaleRequest;
-
-export const zCreatePosSaleHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-/**
- * The recorded transaction — its identifier, the computed total and
- * how it was paid. The lines are not echoed back; the caller sent
- * them.
- *
- */
-export const zCreatePosSaleResponse = z.object({
-    data: z.object({
-        pos_transaction: zPosTransaction
-    }),
-    meta: zMeta
-});
 
 export const zListDeliveryJobsHeaders = z.object({
     'X-Organisation-Id': zUuid,

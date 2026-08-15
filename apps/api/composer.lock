@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c79be617a004421176d295ff5d2281ad",
+    "content-hash": "f258658c95c893e831b837b4793867c8",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2391,36 +2391,6 @@
             }
         },
         {
-            "name": "healthy360/kitchen-display",
-            "version": "1.0",
-            "dist": {
-                "type": "path",
-                "url": "app-modules/kitchen-display",
-                "reference": "1c0a3d67a50daa14518dfbce3e9beee69989fa68"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Healthy360\\KitchenDisplay\\Providers\\KitchenDisplayServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Healthy360\\KitchenDisplay\\": "src/",
-                    "Healthy360\\KitchenDisplay\\Tests\\": "tests/"
-                }
-            },
-            "license": [
-                "proprietary"
-            ],
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
-        },
-        {
             "name": "healthy360/kitchens",
             "version": "1.0",
             "dist": {
@@ -2571,36 +2541,6 @@
                     "Healthy360\\PlatformAdministration\\Tests\\": "tests/",
                     "Healthy360\\PlatformAdministration\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\PlatformAdministration\\Database\\Seeders\\": "database/seeders/"
-                }
-            },
-            "license": [
-                "proprietary"
-            ],
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
-        },
-        {
-            "name": "healthy360/pos",
-            "version": "1.0",
-            "dist": {
-                "type": "path",
-                "url": "app-modules/pos",
-                "reference": "110738835a31b9393af79d15e39f8a06000cb297"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Healthy360\\POS\\Providers\\PosServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Healthy360\\POS\\": "src/",
-                    "Healthy360\\POS\\Tests\\": "tests/"
                 }
             },
             "license": [

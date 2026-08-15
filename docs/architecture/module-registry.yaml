@@ -543,15 +543,38 @@ modules:
     description: Commissions, settlements, partner payouts and financial reporting feeds; tax jurisdictions arrive here.
     depends_on: [Payments, Subscriptions]
 
+  # Flipped back to `planned` by the Order Desk, which demolished both
+  # directories, both composer packages and all five tables. This is the first
+  # backwards status change in the registry, so it is worth stating why it is a
+  # flip rather than `deprecated` or `retired`: those two describe a capability
+  # that shipped and is being wound down, and neither of these ever shipped
+  # one. What existed was scaffolding — four models, one controller and an
+  # empty provider for POS; a table nothing ever wrote to for KitchenDisplay —
+  # so `planned` is the honest description of where they now stand.
+  #
+  # POS was a parallel sales ledger: a counter sale wrote a `pos_transactions`
+  # row and never became an `Order`, was priced by a client-supplied
+  # `line_total_minor` rather than a price list, moved no stock, and named no
+  # customer. The Order Desk (`app-modules/orders/src/OrderDesk/`) does the same
+  # job on the real order machinery instead, which is why this is a deletion
+  # and not a repair. Whether a counter surface ever returns as its own module
+  # is genuinely open — hence `planned` rather than nothing at all.
+  #
+  # KitchenDisplay competed with the KDS board that already reads
+  # `GET /catalogue/orders`. Its `kitchen_display_tickets` table had no
+  # producer, so the rail could only ever have shown a copy of the order book
+  # kept in step by projection code nobody wrote.
+  #
+  # `SalesChannelKind::Pos` is untouched and unrelated: a sales channel kind is
+  # where a thing was sold, and the demo tenant's `counter` channel keeps using
+  # it.
   - name: POS
-    status: foundation
-    phase: 2
+    status: planned
     description: Online-only point-of-sale — registers, shifts and transactions with COD or sandbox card (ADR-0012 offline deferred).
     depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Catalogues, Pricing, Payments]
 
   - name: KitchenDisplay
-    status: foundation
-    phase: 2
+    status: planned
     description: KDS tickets from orders and production with bump states; online-only MVP.
     depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Production, Orders]
 

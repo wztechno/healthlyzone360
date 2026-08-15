@@ -166,8 +166,6 @@ use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
 use Healthy360\Inventory\Http\Controllers\StockThresholdController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
-use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketBumpController;
-use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketIndexController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
@@ -199,7 +197,6 @@ use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenReactivate
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenShowController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
-use Healthy360\POS\Http\Controllers\PosSaleStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -1351,11 +1348,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | `inventory.view_costs_organisation`, gates the money INV1.1/INV1.2
             | add and is wired into the registry now; nothing in this slice is
             | cost-bearing yet, so no route checks it.
-            |
-            | `pos/sales` deliberately stays on `catalogue.manage_organisation`:
-            | recording a till sale is a commerce action, not an inventory one,
-            | and INV1.0's re-point named inventory, procurement, production, QC
-            | and the display rail — not POS.
             */
             Route::middleware('permission:inventory.view_organisation')->group(function (): void {
                 Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
@@ -1368,7 +1360,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
-                Route::get('/kitchen-display/tickets', KdsTicketIndexController::class)->name('catalogue.kitchen-display.tickets.index');
             });
 
             Route::middleware('permission:inventory.manage_organisation')->group(function (): void {
@@ -1392,7 +1383,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/quality-control/checks', QualityCheckStoreController::class)->name('catalogue.quality-control.checks.store');
                 Route::post('/quality-control/checks/{qualityCheck}/hold', QualityCheckHoldController::class)->name('catalogue.quality-control.checks.hold');
                 Route::post('/quality-control/checks/{qualityCheck}/release', QualityCheckReleaseController::class)->name('catalogue.quality-control.checks.release');
-                Route::post('/kitchen-display/tickets/{ticket}/bump', KdsTicketBumpController::class)->name('catalogue.kitchen-display.tickets.bump');
             });
 
             /*
@@ -1412,10 +1402,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 | gates money everywhere in this domain, not the plain view code.
                 */
                 Route::get('/reports/monthly-cost', MonthlyCostReportController::class)->name('catalogue.reports.monthly-cost.index');
-            });
-
-            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
-                Route::post('/pos/sales', PosSaleStoreController::class)->name('catalogue.pos.sales.store');
             });
 
             /*
