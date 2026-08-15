@@ -2,6 +2,7 @@ import type { AccountRepository } from './account.ts';
 import type { AuthRepository } from './auth.ts';
 import type { B2BApplicationRepository } from './b2b-application.ts';
 import type { BusinessRepository } from './business.ts';
+import type { DriverJobsRepository } from './driver-jobs.ts';
 import type { GuestRepository } from './guest.ts';
 import type { InvitationsRepository } from './invitations.ts';
 import type { CommerceRepository } from './commerce.ts';
@@ -424,6 +425,15 @@ export type {
     KitchenOrderTransitionRequest,
 } from './kitchen-orders.ts';
 
+export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';
+export type {
+    DeliverDriverJobRequest,
+    DriverJob,
+    DriverJobStatus,
+    DriverJobsRepository,
+    DriverJobTrackingStatus,
+} from './driver-jobs.ts';
+
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';
 export type {
     KitchenQuotation,
@@ -750,6 +760,21 @@ export interface Repositories {
      * invalidation should never cross between them. See `./kitchen-quotations.ts`'s header.
      */
     readonly kitchenQuotations: KitchenQuotationsRepository;
+
+    /**
+     * One driver's run sheet, and the stamp that closes a job.
+     *
+     * Not a branch of `kitchenOrders` and not a branch of `commerce`. Both of those are *orders* —
+     * the seller's ticket and the buyer's receipt — and this is a **delivery job**, a different row
+     * in a different module with its own two-axis status. The only field they share is the order
+     * identifier, which is exactly the seam a driver reads out loud and nothing more.
+     *
+     * The narrowest surface on this bundle, and deliberately: two methods, no filters, no cursor,
+     * no lock version. See `./driver-jobs.ts` for why each of those absences is the subject's shape
+     * rather than a gap. The routes carry no permission code — `where driver_user_id = me` is the
+     * whole isolation — so there is no call here that could reach another driver's work.
+     */
+    readonly driverJobs: DriverJobsRepository;
 
     /**
      * Platform administration of kitchen tenants (PA1) — the nineteenth field.

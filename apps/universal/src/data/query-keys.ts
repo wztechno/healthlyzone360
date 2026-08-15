@@ -80,6 +80,7 @@ export const QUERY_ROOTS = [
     'b2bApplication',
     'platformAdmin',
     'invitations',
+    'driverJobs',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -617,6 +618,35 @@ export const queryKeys = {
     invitations: {
         all: () => ['invitations'] as const,
         byToken: (token: string) => ['invitations', 'token', token] as const,
+    },
+
+    /**
+     * ── driverJobs: one driver's run sheet ──────────────────────────────────────────────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Added whole by the Order Desk delivery-chain wave, which owns this file's change for that
+     * slice — the header's rule is that a later wave asks rather than edits, and this is the wave
+     * that was asked.
+     *
+     * Its own root rather than a branch of `kitchenOrders` for the reason
+     * `api-client/src/contracts/driver-jobs.ts` gives: those are the seller's *orders* and these are
+     * *delivery jobs* — a different table, a different module and a two-axis status the order shape
+     * has no room for. They also invalidate on opposite events. A driver stamping a job delivered
+     * must not evict the kitchen's order book off a tablet somebody is working, and a kitchen
+     * confirming an order must not throw away the run sheet in a driver's pocket.
+     *
+     * One entry and no parameters, because the endpoint has none: no cursor, no filters, and the
+     * narrowing is `driver_user_id = me` rather than anything a key could carry. `all()` exists so
+     * the deliver mutation has a prefix to invalidate, which is the same prefix — kept anyway so
+     * the invalidation reads like every other one in this file rather than like a special case.
+     *
+     * **Never persisted.** A run sheet is a list of live deliveries — where somebody's food is
+     * going, right now — held on a phone that travels, gets left in a car and changes hands between
+     * shifts. `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     */
+    driverJobs: {
+        all: () => ['driverJobs'] as const,
+        list: () => ['driverJobs', 'list'] as const,
     },
 } as const;
 

@@ -34,7 +34,7 @@ export const FEATURE_AVAILABILITY = {
     dietCategories: false,
     professionalReview: false,
     partnerSupply: false,
-    driverJobs: false,
+    driverJobs: true,
     clinicWorkspace: false,
     insuranceWorkspace: false,
     patientWorkspace: false,
@@ -54,6 +54,10 @@ export function isFeatureAvailable(key: FeatureKey): boolean {
  * Areas absent from this map are available: `kitchen`, `corporate`, `customer`, `kds`, `auth`,
  * `public` and `platform-admin` all have real endpoints behind them, so listing them here as `true`
  * would be a second registry to keep in step with this one.
+ *
+ * `driver` stays listed even though `driverJobs` is now `true`. The mapping is what makes the flag
+ * mean anything: an entry removed on the day its feature landed would have to be reconstructed —
+ * correctly — the day the run sheet was ever taken back out.
  */
 const AREA_FEATURES: Partial<Record<RouteArea, FeatureKey>> = {
     dietitian: 'professionalReview',

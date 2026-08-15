@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5279 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5304 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2347,6 +2347,31 @@ export interface NamespaceKeys {
     | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
+    | 'driver.deliver'
+    | 'driver.deliverBody'
+    | 'driver.deliverConfirm'
+    | 'driver.deliverDismiss'
+    | 'driver.deliverTitle'
+    | 'driver.emptyBody'
+    | 'driver.emptyTitle'
+    | 'driver.loadErrorTitle'
+    | 'driver.notesHint'
+    | 'driver.notesLabel'
+    | 'driver.orderLabel'
+    | 'driver.orderReference'
+    | 'driver.status.assigned'
+    | 'driver.status.cancelled'
+    | 'driver.status.delivered'
+    | 'driver.status.failed'
+    | 'driver.status.in_transit'
+    | 'driver.status.pending'
+    | 'driver.subtitle'
+    | 'driver.title'
+    | 'driver.tracking.arrived'
+    | 'driver.tracking.awaiting_assignment'
+    | 'driver.tracking.delivered'
+    | 'driver.tracking.en_route'
+    | 'driver.tracking.picked_up'
     | 'editor.archive'
     | 'editor.archiveBody'
     | 'editor.archiveConfirm'
@@ -7644,6 +7669,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
+  'kitchen:driver.deliver',
+  'kitchen:driver.deliverBody',
+  'kitchen:driver.deliverConfirm',
+  'kitchen:driver.deliverDismiss',
+  'kitchen:driver.deliverTitle',
+  'kitchen:driver.emptyBody',
+  'kitchen:driver.emptyTitle',
+  'kitchen:driver.loadErrorTitle',
+  'kitchen:driver.notesHint',
+  'kitchen:driver.notesLabel',
+  'kitchen:driver.orderLabel',
+  'kitchen:driver.orderReference',
+  'kitchen:driver.status.assigned',
+  'kitchen:driver.status.cancelled',
+  'kitchen:driver.status.delivered',
+  'kitchen:driver.status.failed',
+  'kitchen:driver.status.in_transit',
+  'kitchen:driver.status.pending',
+  'kitchen:driver.subtitle',
+  'kitchen:driver.title',
+  'kitchen:driver.tracking.arrived',
+  'kitchen:driver.tracking.awaiting_assignment',
+  'kitchen:driver.tracking.delivered',
+  'kitchen:driver.tracking.en_route',
+  'kitchen:driver.tracking.picked_up',
   'kitchen:editor.archive',
   'kitchen:editor.archiveBody',
   'kitchen:editor.archiveConfirm',

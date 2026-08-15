@@ -501,6 +501,37 @@
         "noBranchTitle": "No kitchen chosen",
         "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets."
     },
+    "driver": {
+        "title": "Your deliveries",
+        "subtitle": "Every job assigned to you that is still live, oldest first. The list refreshes itself while it is on screen.",
+        "loadErrorTitle": "Your deliveries could not be loaded",
+        "emptyTitle": "Nothing to run",
+        "emptyBody": "Jobs appear here the moment dispatch assigns one to you.",
+        "orderLabel": "Order",
+        "orderReference": "Order {{reference}}",
+        "deliver": "Mark delivered",
+        "deliverTitle": "Mark this delivery as done?",
+        "deliverBody": "This tells the kitchen the customer has the order. It cannot be undone from here.",
+        "deliverDismiss": "Not yet",
+        "deliverConfirm": "Mark delivered",
+        "notesLabel": "Proof of delivery (optional)",
+        "notesHint": "Who took it, where you left it — anything the kitchen would need if the customer calls.",
+        "status": {
+            "pending": "Not assigned",
+            "assigned": "Assigned to you",
+            "in_transit": "On the road",
+            "delivered": "Delivered",
+            "failed": "Could not deliver",
+            "cancelled": "Cancelled"
+        },
+        "tracking": {
+            "awaiting_assignment": "Customer told: waiting for a driver",
+            "picked_up": "Customer told: collected",
+            "en_route": "Customer told: on the way",
+            "arrived": "Customer told: arrived",
+            "delivered": "Customer told: delivered"
+        }
+    },
     "families": {
         "ingredients": {
             "name": "Ingredients",

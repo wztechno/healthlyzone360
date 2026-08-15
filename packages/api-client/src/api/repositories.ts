@@ -43,6 +43,7 @@ import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { createApiBusinessRepository } from './business-repository.ts';
 import { createApiInvitationsRepository } from './invitations-repository.ts';
 import { createApiCartSurface } from './cart-repository.ts';
+import { createApiDriverJobsRepository } from './driver-jobs-repository.ts';
 import { createApiOrderPlacement } from './order-repository.ts';
 import {
     API_PROTOTYPE_REPOSITORIES,
@@ -520,6 +521,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         kitchenOps: createApiKitchenOpsRepository(transport),
         kitchenOrders: createApiKitchenOrdersRepository(transport),
         kitchenQuotations: createApiKitchenQuotationsRepository(transport),
+        driverJobs: createApiDriverJobsRepository(transport),
         invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),
     };

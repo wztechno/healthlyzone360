@@ -101,8 +101,19 @@ describe('availableWorkspaceAreas', () => {
             (option) => option.area,
         );
 
-        for (const area of ['dietitian', 'clinic', 'insurance', 'patient', 'partner', 'driver'])
+        for (const area of ['dietitian', 'clinic', 'insurance', 'patient', 'partner'])
             expect(areas).not.toContain(area);
+    });
+
+    /**
+     * The other half of the same filter, and the reason `driver` left the list above: the run
+     * sheet's endpoints are wired, so the area is a real destination in the families that compile
+     * it. This is the assertion that would fail if `driverJobs` were flipped back without the rest
+     * of the client going with it.
+     */
+    it('offers the driver area now that the run sheet has endpoints behind it', () => {
+        const areas = availableWorkspaceAreas(hydrated([])).map((option) => option.area);
+        expect(areas).toContain('driver');
     });
 
     it('adds platform-admin once the permission is present', () => {
