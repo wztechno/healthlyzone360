@@ -89,20 +89,6 @@ export interface CardProps {
  * The transition runs off the duration tokens rather than a literal, because those are what
  * `prefers-reduced-motion` zeroes — a hard-coded `.18s` would keep animating for a reader who
  * asked it not to.
- *
- * ## A card that needs a control of its own must not take `onPress`
- *
- * `onPress` makes the card a `button`, and **a button may not contain another focusable thing**.
- * That is not a preference: axe reports `nested-interactive` at *serious*, the e2e accessibility
- * gate fails on serious, and the reason behind the rule is real — a screen reader reading a button
- * reads its label, and a control buried inside that label is unreachable.
- *
- * So a card carrying its own control leaves `onPress` unset and makes the press target an explicit
- * region *inside* it, as a sibling of that control. `meal-card.tsx` does exactly this — its media
- * and text are one `Pressable`, and the "+3 more" that opens the classifications which did not fit
- * is beside it rather than within it. Every other pressable card in the application carries no
- * control at all and stays the simpler shape: one element with the role, the label and the focus
- * ring.
  */
 export function Card({
     children,

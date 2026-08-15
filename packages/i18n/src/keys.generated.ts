@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5282 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5280 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3849,7 +3849,6 @@ export interface NamespaceKeys {
     | 'menu.cardLabel'
     | 'menu.containsAllergens'
     | 'menu.detailTitle'
-    | 'menu.dietTagsTitle'
     | 'menu.emptyBody'
     | 'menu.emptyTitle'
     | 'menu.fullDetailsBody'
@@ -3910,7 +3909,6 @@ export interface NamespaceKeys {
     | 'subscriptionStates.paused'
     | 'subscriptionStates.skipped_today'
     | 'tags.more'
-    | 'tags.showAll'
     | 'title'
     | 'weekday.friday'
     | 'weekday.monday'
@@ -9148,7 +9146,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.cardLabel',
   'marketplace:menu.containsAllergens',
   'marketplace:menu.detailTitle',
-  'marketplace:menu.dietTagsTitle',
   'marketplace:menu.emptyBody',
   'marketplace:menu.emptyTitle',
   'marketplace:menu.fullDetailsBody',
@@ -9209,7 +9206,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:subscriptionStates.paused',
   'marketplace:subscriptionStates.skipped_today',
   'marketplace:tags.more',
-  'marketplace:tags.showAll',
   'marketplace:title',
   'marketplace:weekday.friday',
   'marketplace:weekday.monday',

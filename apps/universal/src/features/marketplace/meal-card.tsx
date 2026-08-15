@@ -3,7 +3,7 @@ import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../../media/entity-image.tsx';
 
@@ -42,18 +42,17 @@ import { TagCluster } from './tag-cluster.tsx';
  * in the same place**, because a row that mixes the two still has to let the eye run along one
  * line of prices.
  *
- * ## Where pressing it goes, and what exactly is pressable
+ * ## Where pressing it goes
  *
  * Wherever the parent says. Until the catalogue wave landed there was no `/meals/{meal}` to link
  * to, so the menu answered a press with an in-place drawer; now the record exists, every caller
  * navigates to it and the drawer is gone. The card itself never knew the difference — `onPress` is
  * the whole contract, which is why the handoff cost this component nothing but a paragraph.
  *
- * The *target* is narrower than it once was. The whole card used to be one `button`; the photograph
- * and the text are now that button and the diet cluster sits beside it, because the cluster has a
- * control of its own and a focusable thing inside a button is an axe `nested-interactive` failure
- * and unreachable to a screen reader besides. The consequence to know about: the footer strip — the
- * four figures and the price — no longer navigates when pressed.
+ * The whole card is that one target, and it stays that way. The consequence worth knowing is on the
+ * diet cluster below: its `+3 more` is a label rather than a control, because a focusable thing
+ * inside a `button` is an axe `nested-interactive` failure. The classifications it counts are on
+ * the meal's own page, which is where a press lands anyway.
  */
 export interface MealCardProps {
     readonly meal: MarketplaceMeal;
@@ -182,96 +181,68 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
              * ScrollView) rather than sizing it to its content.
              */
             className="grow"
+            onPress={onPress}
+            accessibilityLabel={t('marketplace:menu.cardLabel', {
+                meal: meal.name,
+                energy,
+                protein,
+            })}
         >
-            {/*
-             * The press target is this region rather than the card, and that is forced by the tag
-             * cluster below it. The cluster carries a `+3 more` control, and a focusable control
-             * inside a `button` is an axe `nested-interactive` failure — serious, which is what the
-             * accessibility gate blocks on — as well as being genuinely unreachable to a screen
-             * reader, which reads a button's label and never its innards. So the media and the text
-             * are one target and the cluster is its sibling. The card's remaining strip, the
-             * figures and the price, is information rather than a target; it was pressable before
-             * and is not now, which is the price of the control being reachable at all.
-             */}
-            <Pressable
-                testID={`${resolvedTestID}-open`}
-                role="button"
-                accessibilityRole="button"
-                focusable
-                onPress={onPress}
-                accessibilityLabel={t('marketplace:menu.cardLabel', {
-                    meal: meal.name,
-                    energy,
-                    protein,
-                })}
-                className="flex-col"
-            >
-                <EntityImage
-                    testID={`${resolvedTestID}-image`}
-                    assetId={meal.imagePlaceholderId}
-                    variant="card"
-                    seed={meal.slug}
-                    label={t('marketplace:menu.imageLabel', { meal: meal.name })}
-                    aspect="card"
-                    flush
-                    overlayStart={<MediaChip label={meal.kitchenName} />}
+            <EntityImage
+                testID={`${resolvedTestID}-image`}
+                assetId={meal.imagePlaceholderId}
+                variant="card"
+                seed={meal.slug}
+                label={t('marketplace:menu.imageLabel', { meal: meal.name })}
+                aspect="card"
+                flush
+                overlayStart={<MediaChip label={meal.kitchenName} />}
+            />
+
+            <View className="flex-col gap-2 px-4 pt-4">
+                <View className="flex-row items-start gap-2">
+                    <RNText
+                        numberOfLines={2}
+                        className="flex-1 font-display text-lg leading-tight text-content-primary text-start"
+                    >
+                        {meal.name}
+                    </RNText>
+                    {/* Decorative: the card is already a button and announces its own name. */}
+                    <Icon name="chevronEnd" className="mt-0.5 text-content-secondary" />
+                </View>
+
+                {/*
+                 * A minimum height rather than a fixed one. Two lines is what most descriptions
+                 * run to, and reserving that much stops a one-line meal sitting beside a two-line
+                 * one with its tags a step higher — while a product, which has no description at
+                 * all, collapses the row entirely rather than holding an empty gap.
+                 */}
+                {meal.description === '' ? null : (
+                    <Text
+                        tone="secondary"
+                        variant="caption"
+                        numberOfLines={2}
+                        className="min-h-[40px]"
+                    >
+                        {meal.description}
+                    </Text>
+                )}
+
+                {/*
+                 * Clamped to two lines above `md`, with whatever does not fit counted in a
+                 * trailing `+3 more`. That counter is a label rather than a control on purpose:
+                 * the whole card is the button, and a focusable thing inside a button is an axe
+                 * `nested-interactive` failure. See `tag-cluster.tsx` for why the count is
+                 * measured rather than fixed, and why phones keep the unclamped row.
+                 */}
+                <TagCluster
+                    testID={`${resolvedTestID}-diets`}
+                    tags={meal.dietClassifications.map((diet) => ({
+                        key: diet,
+                        label: t(`marketplace:diets.${diet}`),
+                    }))}
                 />
-
-                <View className="flex-col gap-2 px-4 pt-4">
-                    <View className="flex-row items-start gap-2">
-                        <RNText
-                            numberOfLines={2}
-                            className="flex-1 font-display text-lg leading-tight text-content-primary text-start"
-                        >
-                            {meal.name}
-                        </RNText>
-                        {/* Decorative: the region is already a button and announces its own name. */}
-                        <Icon name="chevronEnd" className="mt-0.5 text-content-secondary" />
-                    </View>
-
-                    {/*
-                     * A minimum height rather than a fixed one. Two lines is what most descriptions
-                     * run to, and reserving that much stops a one-line meal sitting beside a
-                     * two-line one with its tags a step higher — while a product, which has no
-                     * description at all, collapses the row entirely rather than holding an empty
-                     * gap.
-                     */}
-                    {meal.description === '' ? null : (
-                        <Text
-                            tone="secondary"
-                            variant="caption"
-                            numberOfLines={2}
-                            className="min-h-[40px]"
-                        >
-                            {meal.description}
-                        </Text>
-                    )}
-                </View>
-            </Pressable>
-
-            {/*
-             * Clamped to two lines above `md`. A meal carries up to nine classifications and they
-             * were the last thing making neighbouring cards different heights — see
-             * `tag-cluster.tsx` for why the count is measured rather than fixed, and why phones
-             * keep the unclamped row.
-             */}
-            {/*
-             * Not an empty wrapper when there is nothing to put in it: the card body spaces its
-             * children with a gap, so a zero-height view here would still push a product — which
-             * has no classifications at all — a step away from its own footer.
-             */}
-            {meal.dietClassifications.length === 0 ? null : (
-                <View className="px-4">
-                    <TagCluster
-                        testID={`${resolvedTestID}-diets`}
-                        title={t('marketplace:menu.dietTagsTitle', { meal: meal.name })}
-                        tags={meal.dietClassifications.map((diet) => ({
-                            key: diet,
-                            label: t(`marketplace:diets.${diet}`),
-                        }))}
-                    />
-                </View>
-            )}
+            </View>
         </Card>
     );
 }

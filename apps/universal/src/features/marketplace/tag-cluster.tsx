@@ -1,7 +1,7 @@
-import { Dialog, useBreakpoint } from '@healthy360/design-system';
+import { useBreakpoint } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 /**
@@ -14,9 +14,18 @@ import type { LayoutChangeEvent } from 'react-native';
  * that every card below the tallest one in its row is a different height, so the eye has no line to
  * run along. The pinned footer already fixes the *price*; this fixes everything above it.
  *
- * So the cluster is clamped to `maxRows` lines and the labels that do not fit are moved behind a
- * `+{n} more` control that opens a dialog listing all of them. Nothing is lost — a person scanning
- * for "gluten free" can still find it — and the block has one of two heights instead of three.
+ * So the cluster is clamped to `maxRows` lines and the labels that do not fit are counted in a
+ * trailing `+3 more`.
+ *
+ * ## The counter is a label, not a control
+ *
+ * Deliberately, and the reason is structural rather than aesthetic. The card it sits in is one
+ * `button`, and a focusable thing inside a button is an axe `nested-interactive` failure — serious,
+ * which the accessibility gate blocks on — as well as being unreachable to a screen reader, which
+ * reads a button's label and never its innards. Making the counter pressable would therefore have
+ * meant giving up the whole card as a press target, and a card you can only click two thirds of is
+ * a worse trade than a count you cannot press. The full list is one press away on the meal's own
+ * page, which is where the card goes anyway.
  *
  * ## Why it measures instead of showing a fixed number
  *
@@ -47,8 +56,6 @@ export interface TagClusterItem {
 
 export interface TagClusterProps {
     readonly tags: readonly TagClusterItem[];
-    /** Names the dialog that lists every label. */
-    readonly title: string;
     /** Lines the visible row is allowed to run to above `md`. Defaults to two. */
     readonly maxRows?: number | undefined;
     readonly testID?: string | undefined;
@@ -83,7 +90,7 @@ function rowsNeeded(widths: readonly number[], available: number): number {
 
 /**
  * How many labels to show. The counter is packed *with* them whenever it will be rendered, because
- * a count that only fits because the control it makes room for was left out is not a fit.
+ * a count that only fits because the label it makes room for was left out is not a fit.
  */
 function fittingCount(
     widths: readonly number[],
@@ -108,10 +115,23 @@ function TagLabel({ label }: { readonly label: string }) {
     );
 }
 
-export function TagCluster({ tags, title, maxRows = 2, testID }: TagClusterProps) {
+/**
+ * The counter, in the label's own shape but in the neutral tone.
+ *
+ * The tone is what stops it reading as one more classification — on a card people scan for what
+ * they can eat, "+3 more" must not look like a dietary claim.
+ */
+function MoreLabel({ label }: { readonly label: string }) {
+    return (
+        <View className="min-h-[24px] justify-center rounded-full border border-stroke-subtle bg-surface-sunken px-2.5">
+            <RNText className="text-xs font-semibold text-content-secondary">{label}</RNText>
+        </View>
+    );
+}
+
+export function TagCluster({ tags, maxRows = 2, testID }: TagClusterProps) {
     const { t } = useTranslation();
     const { atLeast } = useBreakpoint();
-    const [open, setOpen] = useState(false);
     const [available, setAvailable] = useState<number | null>(null);
     const [widths, setWidths] = useState<Readonly<Record<string, number>>>({});
 
@@ -187,52 +207,12 @@ export function TagCluster({ tags, title, maxRows = 2, testID }: TagClusterProps
                         <TagLabel key={tag.key} label={tag.label} />
                     ))}
                     {hidden > 0 ? (
-                        <Pressable
-                            testID={testID === undefined ? undefined : `${testID}-more`}
-                            role="button"
-                            accessibilityRole="button"
-                            accessibilityLabel={t('marketplace:tags.showAll', {
-                                n: tags.length,
-                            })}
-                            aria-label={t('marketplace:tags.showAll', { n: tags.length })}
-                            onPress={() => {
-                                setOpen(true);
-                            }}
-                        >
+                        <View testID={testID === undefined ? undefined : `${testID}-more`}>
                             <MoreLabel label={t('marketplace:tags.more', { n: hidden })} />
-                        </Pressable>
+                        </View>
                     ) : null}
                 </View>
             </View>
-
-            <Dialog
-                testID={testID === undefined ? undefined : `${testID}-dialog`}
-                open={open}
-                onClose={() => {
-                    setOpen(false);
-                }}
-                title={title}
-            >
-                <View className="flex-row flex-wrap gap-1.5">
-                    {tags.map((tag) => (
-                        <TagLabel key={tag.key} label={tag.label} />
-                    ))}
-                </View>
-            </Dialog>
-        </View>
-    );
-}
-
-/**
- * The counter, in the label's own shape but in the neutral tone.
- *
- * It reads as a control rather than as one more classification, which matters: a person scanning
- * diet tags must not mistake "+3 more" for a dietary claim.
- */
-function MoreLabel({ label }: { readonly label: string }) {
-    return (
-        <View className="min-h-[24px] justify-center rounded-full border border-stroke-subtle bg-surface-sunken px-2.5">
-            <RNText className="text-xs font-semibold text-content-secondary">{label}</RNText>
         </View>
     );
 }

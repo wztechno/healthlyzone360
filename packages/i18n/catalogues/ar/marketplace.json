@@ -157,8 +157,7 @@
             "carbohydrate": "كربوهيدرات",
             "fat": "دهون"
         },
-        "openMeal": "افتح {{meal}}",
-        "dietTagsTitle": "تصنيف {{meal}}"
+        "openMeal": "افتح {{meal}}"
     },
     "dietitians": {
         "title": "أخصائيو التغذية",
@@ -416,7 +415,6 @@
         "sunday": "الأحد"
     },
     "tags": {
-        "more": "+{{n}} أخرى",
-        "showAll": "عرض جميع الوسوم البالغة {{n}}"
+        "more": "+{{n}} أخرى"
     }
 }
