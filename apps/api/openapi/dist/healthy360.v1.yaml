@@ -9571,6 +9571,228 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/quote:
+    post:
+      operationId: quoteOrderDesk
+      tags:
+        - Order desk
+      summary: What this sale would cost, and everything standing in the way of it
+      description: |
+        **A POST that writes nothing.** The question has a basket in it and a
+        basket does not fit in a query string — the same argument
+        `POST /catalogue/checkout/preview` is a POST on. Nothing is created,
+        nothing is reserved, and asking twice is asking once.
+
+        ## Refusals are the answer, not a failure
+
+        **This operation returns `200` with the problems in the body**, and it is
+        the one place in this API where that is right. A withdrawn article, an
+        unpriced one, an address nobody delivers to, a cut-off that passed at
+        three: each arrives as a `reason` code beside the lines that *did* price,
+        and the desk agent sees both halves at once. A `422` would give them one
+        problem per round trip and lose the total, which is the number the
+        customer is standing there waiting for.
+
+        Line refusals sit on the line, in `lines[].refusals`, using the same
+        vocabulary the placement refusal folds in per article — `item_unknown`,
+        `item_not_published`, `variant_unknown`, `variant_not_active`,
+        `channel_unavailable`, `unpriced`, `currency_mismatch`,
+        `channel_not_trading`. Order-level refusals sit in the top-level
+        `refusals`, and are the three families an agent can actually do something
+        about: the fulfilment **shape** (`customer_required`,
+        `address_required`, `address_not_applicable`), the **destination**
+        (`address_not_deliverable`, `area_not_served`, `zone_suspended`, and a
+        `currency_mismatch` whose `subject` is `delivery_fee`), and the
+        **schedule** (`cut_off_passed`, `branch_closed`, `date_in_the_past`).
+
+        **`quotable` is the field a screen branches on.** It is false whenever
+        *any* refusal exists, line-level or order-level, because the placement
+        operation refuses a whole order when any reason is collected. The totals
+        are still computed — over the refusal-free lines only — because "drop the
+        soup and it comes to eleven dollars" is the agent's next sentence. They
+        are not what would be charged, which is exactly what `quotable` says.
+
+        ## What is deliberately not asked
+
+        **Eligibility.** A quote for a caller whose account was opened thirty
+        seconds ago must not report `account_not_ready`: the desk bypasses that
+        gate when it places, so raising it here would refuse a sale that is about
+        to go through perfectly. **The corporate agreement gate** likewise — it
+        is a no-op on the counter's `pos` channel, and running it would quote a
+        wholesale minimum against a sandwich.
+
+        ## Prices are the same prices
+
+        Every line is probed through the kitchen's `desk` channel, on the
+        requested day, in that channel's own tariff currency, by the same code
+        path the placement uses — and the line total is rounded once, in minor
+        units. Two implementations of "what does this cost" is how a quote and a
+        receipt come to differ by a piastre while the customer is holding both.
+
+        A kitchen with no `desk` channel, or one that is not trading, is
+        **`409 resource.conflict`** rather than twelve `channel_unavailable`
+        refusals: "the counter was never opened" is one sentence, and "none of
+        this food is available" is the wrong twelve.
+
+        Duplicate lines naming the same article and pack are **merged** before
+        pricing, exactly as the placement merges them, so the quantity quoted is
+        the quantity charged.
+
+        Requires `order.view_organisation`. Selling is the sibling operation and
+        needs `order.create_on_behalf_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteOrderDeskRequest'
+      responses:
+        '200':
+          description: The priced basket, its totals, and every refusal standing between it and a sale.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskQuoteEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/orders:
+    post:
+      operationId: placeOrderDeskOrder
+      tags:
+        - Order desk
+      summary: Sell something across the counter
+      description: |
+        The other side of `POST /orders`. That one is a customer converting their
+        own basket; this is a member of staff placing an order **for** somebody —
+        a walk-in at the counter, a caller on the telephone, a regular collecting
+        at six — and the whole of what makes it different is that whoever pressed
+        the button is not whoever is going to eat.
+
+        ## `order.create_on_behalf_organisation`
+
+        Its own code, and not `order.manage_organisation`. Confirming, fulfilling
+        and cancelling change what a customer is already owed; **placing** decides
+        they are owed anything at all, and it is the one order action with nobody
+        on the other side to have agreed to it. It also carries a real bypass:
+        naming the agent skips the activation checklist entirely, because the
+        member of staff standing in front of the customer is the verification the
+        checklist was asking for. A provisional account with no verified email
+        can be sold to here and cannot check out for itself.
+
+        ## `Idempotency-Key` is **mandatory**
+
+        Absent or blank is `400 request.invalid` with `details.header`. It is
+        required here and optional on `POST /orders` because the two have
+        different fallbacks, not different standards: a customer's checkout
+        converts a cart, and a double-tapped checkout finds that cart already
+        converted and refuses. **A desk sale has no cart, and may have no
+        customer at all.** Nothing in the schema would notice a second identical
+        counter sale — two orders, two sets of stock movements at confirm, and a
+        till out by one lunch with no row saying which one was the mistake.
+
+        A replay returns the original envelope, the original `201` and
+        `Idempotency-Replayed: true`. A key reused against a **different** body
+        is `409 request.idempotency_key_reused`; the fix is a new key. The key is
+        scoped to the **member of staff**, never to the customer: the customer
+        may be an account opened during the call, or on a counter sale may not
+        exist, and neither is a durable subject for a replay guard.
+
+        ## The shape of a sale
+
+        `fulfilment_type` decides which of the other fields are required,
+        forbidden or merely allowed, and the rule is enforced as a **refusal**
+        rather than as validation so that an order wrong in two ways says both:
+
+        | | customer | address |
+        |---|---|---|
+        | `delivery` | required | required |
+        | `pickup` | required | **forbidden** |
+        | `counter` | optional | **forbidden** |
+
+        A pickup is still cooked to a slot, so `delivery_window_code`,
+        `requested_delivery_date` and the branch cut-off all apply to one. A
+        counter sale is handed over now and has no day to be late for.
+
+        ## No amounts in the body, ever
+
+        Every line is repriced at placement against the tariff standing at that
+        moment; the quote operation's numbers were advisory and were never
+        stored. A body that could state a total would be a client quoting the
+        server its own prices, at a counter, with nobody watching. The
+        consequence is real and correct: a price that moved between the quote and
+        the tap is charged at the new figure, and an article withdrawn in between
+        refuses the placement outright.
+
+        Refusals are **`409 order.placement_refused`** carrying `details.reasons`
+        — every blocker at once, from the same vocabulary `POST /orders` uses
+        plus the three shape reasons above. Duplicate lines naming the same
+        article and pack are merged into one line before anything is priced,
+        because `order_lines` holds one row per article and three taps of the
+        same coffee is a quantity, not three lines.
+
+        No `If-Match`: nothing existing is written, so there is no validator a
+        screen could have been holding. No `Location` header: nothing in this API
+        emits one.
+
+        The order comes back in the **kitchen** shape — the audience is a member
+        of staff reading their own book — so it carries `lock_version` for the
+        confirm that follows and `placed_on_behalf_by` naming who took the order.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderDeskRequest'
+      responses:
+        '201':
+          description: |
+            The order as the kitchen sees it, with every line at the price it was
+            placed at. A replay of a request this key already answered returns
+            this same body and this same status, with
+            `Idempotency-Replayed: true`; nothing ran a second time.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /guest/sessions:
     post:
       operationId: startGuestSession
@@ -27002,6 +27224,328 @@ components:
                     The IANA zone that day was computed in — the named branch's,
                     or `UTC` when no branch was named. Echoed because the client
                     did not choose it and cannot derive it.
+    OrderDeskBasketLine:
+      type: object
+      required:
+        - catalogue_item_id
+        - quantity
+      description: |
+        One tap at the counter. The desk sends what the agent pressed, duplicates
+        and all: the server merges lines naming the same article **and the same
+        pack** into one line whose quantity is the sum, first-seen position
+        preserved, because `order_lines` holds one row per article and three taps
+        of the same coffee is a quantity rather than three lines. An article
+        ordered plain and the same article ordered in a pack stay two lines —
+        they are two different things to sell.
+
+        Both the quote and the placement merge identically, so the quantity
+        quoted is the quantity charged.
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The pack, when the article has variants.
+        quantity:
+          type:
+            - number
+            - string
+          description: |
+            How many. Numeric rather than integer because a counter sells 0.35 kg
+            as readily as three coffees, and accepted as a string as well as a
+            number so a client holding a decimal can send it without a float
+            round trip. Zero and negatives are `422`.
+          examples:
+            - '0.3500'
+            - 3
+      additionalProperties: false
+    OrderDeskSaleBase:
+      type: object
+      description: |
+        The fields a desk quote and a desk sale share — everything except how the
+        customer is paying, which only a sale needs to state.
+
+        `fulfilment_type` decides which of the rest are required, forbidden or
+        merely allowed. The rule is **not** enforced as validation: it arrives as
+        `customer_required` / `address_required` / `address_not_applicable`, in
+        the quote's `refusals` or in the placement's refusal envelope, so that a
+        request wrong in two ways says both instead of surfacing one as a `422`
+        and the other as a `409`.
+      required:
+        - fulfilment_type
+        - lines
+      properties:
+        fulfilment_type:
+          $ref: '#/components/schemas/FulfilmentType'
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderDeskBasketLine'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The branch that will produce this order. The same fact the queue
+            takes as a query parameter, in a body because a POST states its facts
+            in one — and it is not a filter here: it decides **which cut-off
+            applies** and **which branch-scoped delivery zone wins**, both of
+            which change the answer. A branch belonging to another kitchen is
+            `422`.
+        customer_account_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Who this is for. Required for a delivery and a pickup, optional for a
+            counter sale — a regular is worth naming and a stranger is not.
+
+            Resolved **by identifier**, never inferred from the caller: the
+            caller is a member of staff, and inferring would place the order
+            against the agent's own account or the kitchen's corporate buyer.
+            Where an identifier legitimately comes from is the desk's customer
+            search, which is the org-scoped door.
+        customer_address_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Where it goes. **Delivery only** — a pickup or a counter sale
+            carrying one is refused rather than silently ignored, because an
+            address supplied and dropped means the caller believed something
+            about this order that is not true of it.
+
+            It must belong to `customer_account_id`; one that does not is `404`,
+            deliberately the same answer as "no such address", because confirming
+            that an identifier exists but is somebody else's is itself the
+            disclosure.
+        requested_delivery_date:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: |
+            The day asked for, `YYYY-MM-DD`. Applies to a pickup as well as a
+            delivery: a collection is cooked to a slot like anything else, so the
+            branch cut-off is asked about it. A counter sale is handed over now
+            and has no day to be late for.
+        delivery_window_code:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+          description: |
+            The slot, by the window's own code. Not validated against the
+            kitchen's windows here — whether that slot is offered on that day by
+            that branch is a scheduling question answered with the cut-off rules
+            in hand.
+    QuoteOrderDeskRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrderDeskSaleBase'
+        - type: object
+          additionalProperties: false
+          description: |
+            A basket to price, and the shape of the sale it would become. No
+            payment method: nothing is being paid for yet.
+    PlaceOrderDeskRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrderDeskSaleBase'
+        - type: object
+          required:
+            - payment_method
+          properties:
+            payment_method:
+              $ref: '#/components/schemas/PaymentMethod'
+          additionalProperties: false
+          description: |
+            The quote's body plus one field, which is the whole difference
+            between asking what a sale would cost and making one.
+
+            `payment_method` is required and has no default. It was hardcoded to
+            cash on delivery for the whole of the first order phase and stopped
+            being able to be the moment somebody could pay at a counter; a
+            default here would put that decision back one layer up, where it
+            would be even less visible.
+
+            It captures **intent**, and is deliberately not constrained to agree
+            with any receipt recorded later: an order taken for cash at the
+            counter and settled by a WISH transfer is an ordinary evening, and
+            recording the divergence is why the two columns exist.
+
+            There is still no amount of any kind. Every line is repriced at
+            placement against the standing tariff, and a body that could state a
+            total would be a client quoting the server its own prices.
+    OrderDeskQuoteRefusal:
+      type: object
+      required:
+        - reason
+      description: |
+        One thing standing between this basket and a sale, as **data**.
+
+        `reason` is a stable machine key and every other property is whatever
+        identifies the offending thing — `catalogue_item_id` on a line refusal,
+        `delivery_area_id` on a zone one, `fulfilment_type` on a shape one,
+        `cut_off_at` and `branch_id` on a schedule one. The shape is open on
+        purpose: it is the same `{reason, …context}` vocabulary the placement
+        refusal carries, and pinning the context keys per reason would freeze a
+        vocabulary both endpoints extend together.
+      properties:
+        reason:
+          type: string
+          description: |
+            The stable key. Line-level: `item_unknown`, `item_not_published`,
+            `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+            `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+            `customer_required`, `address_required`, `address_not_applicable`,
+            `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+            `currency_mismatch` (with `subject: delivery_fee`), `cut_off_passed`,
+            `branch_closed`, `date_in_the_past`.
+      additionalProperties: true
+    OrderDeskQuoteLine:
+      type: object
+      required:
+        - catalogue_item_id
+        - catalogue_item_variant_id
+        - quantity
+        - name_en
+        - name_ar
+        - unit_price_minor
+        - line_total_minor
+        - currency_code
+        - refusals
+      description: |
+        One line of the quote, priced or explained.
+
+        The four price-bearing fields are **null together** whenever the line was
+        refused: there is no price to show for an article the kitchen has
+        withdrawn, and a zero would read as free. `refusals` is what says why, and
+        an empty array is what says the line is sellable.
+
+        `quantity` is the **merged** quantity — duplicate taps summed — because
+        that is the number the placement will use and therefore the number the
+        agent has to see.
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        quantity:
+          type: string
+          description: A decimal string, never a number, for the reason every quantity on this platform is one.
+          examples:
+            - '3.000000'
+        name_en:
+          type:
+            - string
+            - 'null'
+          description: Null when the article could not be read at all — an identifier from another kitchen, or one that no longer exists.
+        name_ar:
+          type:
+            - string
+            - 'null'
+        unit_price_minor:
+          type:
+            - integer
+            - 'null'
+        line_total_minor:
+          type:
+            - integer
+            - 'null'
+          description: Minor units, rounded once at the line total rather than at the unit price, so rounding cannot compound across an order.
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: The price's currency where there is one, and the counter's own tariff currency where there is not.
+        refusals:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+      additionalProperties: false
+    OrderDeskQuote:
+      type: object
+      required:
+        - lines
+        - subtotal_minor
+        - delivery_fee_minor
+        - total_minor
+        - currency_code
+        - refusals
+        - quotable
+      description: |
+        What this basket would come to, and everything standing in the way of it.
+
+        **The totals are summed over the refusal-free lines only**, and they are
+        offered even when the sale cannot proceed because "drop the soup and it
+        comes to eleven dollars" is the agent's next sentence. They are not what
+        would be charged, which is what `quotable` is for.
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteLine'
+        subtotal_minor:
+          type: integer
+          minimum: 0
+        delivery_fee_minor:
+          type:
+            - integer
+            - 'null'
+          description: |
+            **Null rather than zero when no fee applies**, and the difference is
+            real: zero is a fee somebody decided on — a free-delivery zone — and
+            a pickup or a counter sale has no fee at all. A screen that could not
+            tell them apart would print "Delivery: 0.00" on a counter sale. Null
+            also when the destination was refused, because an unserved area has
+            no fee to quote.
+        total_minor:
+          type: integer
+          minimum: 0
+          description: '`subtotal_minor` plus the fee where there is one. No discount slot exists anywhere in this schema.'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: |
+            The counter channel's own tariff currency — the currency of the first
+            price list it would actually consult, falling back to the kitchen's
+            default when it has none. Nothing is ever converted.
+        refusals:
+          type: array
+          description: Order-level refusals — the shape, the destination and the schedule. Line refusals are on their lines.
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+        quotable:
+          type: boolean
+          description: |
+            Whether this basket could be placed as it stands. **False whenever
+            any refusal exists at all**, line-level or order-level, because the
+            placement operation refuses a whole order when any reason is
+            collected — a quote showing a confident total for a basket the sale
+            would then reject is a number the agent reads out loud and has to
+            take back.
+      additionalProperties: false
+    OrderDeskQuoteEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - quote
+          properties:
+            quote:
+              $ref: '#/components/schemas/OrderDeskQuote'
+        meta:
+          $ref: '#/components/schemas/Meta'
     GuestSessionGrade:
       type: string
       enum:
@@ -33800,10 +34344,10 @@ components:
     CreatePlatformKitchenRequest:
       type: object
       description: |
-        **One request creates four things, in one transaction: the
+        **One request creates five things, in one transaction: the
         organisation, one active main branch, the `kitchen_production`
-        capability, and a `b2c_web` sales channel coded `web-shop`.** All four
-        or none.
+        capability, a `b2c_web` sales channel coded `web-shop`, and a `pos`
+        sales channel coded `desk`.** All five or none.
 
         A kitchen that is only an organisation row is a kitchen whose workspace
         refuses on the first screen: the organisation context resolves a
@@ -33814,6 +34358,14 @@ components:
         to add the rest afterwards was rejected because it makes the console's
         success message a lie for the twenty minutes before somebody notices. A
         new kitchen works immediately; it simply has nothing in it yet.
+
+        The fifth is the counter. The Order Desk sells through its own channel
+        rather than through the web shop, so that a kitchen may put the catering
+        trays across the counter without putting them on the site — and a
+        kitchen provisioned without one can take a web order but not a walk-in,
+        which is half a business. Both channels open empty: a kitchen created a
+        moment ago has no articles and no tariffs, so there is nothing to
+        assign to either.
 
         The wholesale channel is deliberately **not** created. A kitchen that
         has never traded with a company does not need a B2B channel sitting

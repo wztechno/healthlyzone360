@@ -28,6 +28,29 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *    `place_order`, which is the grade a proven contact point buys. Distinct
  *    from the two above because a guest never activates and never will.
  *  * `cart_empty`, `cart_not_open` — nothing to place, or already placed.
+ *  * `customer_required` — a delivery or a pickup with nobody named. Somebody
+ *    has to be rung when the food is late, and a collection nobody can be
+ *    called about is a bag on a shelf. A **counter** sale is exempt: a stranger
+ *    buying lunch is not worth inventing a customer record for.
+ *  * `address_required` — a delivery with no destination.
+ *  * `address_not_applicable` — a pickup or a counter sale that carries one.
+ *    Refused rather than silently dropped, and this is the one of the three
+ *    that would otherwise go unsaid: an address supplied and ignored means the
+ *    caller believed something about this order that is not true of it, and the
+ *    honest answer is to say so before the food is cooked. It is also the
+ *    refusal a desk meets most often — an agent starts a delivery for a known
+ *    customer, the customer decides to wait for it, and the address is still on
+ *    the placement.
+ *
+ * The three above are `ComposedPlacement`'s shape rules, asked by
+ * `OrderPlacementService::shapeReasons()`. They restate in PHP what
+ * `orders_fulfilment_shape_check` states in SQL, and they are here rather than
+ * left to the database so that a desk agent who picked the wrong fulfilment
+ * type reads a sentence instead of SQLSTATE 23514 from three layers down. Each
+ * carries the offending `fulfilment_type`. `POST /catalogue/order-desk/quote`
+ * serves the identical vocabulary as **data** rather than as a refusal, because
+ * a quote's job is to explain rather than to stop.
+ *
  *  * `address_not_owned` — the address belongs to another account.
  *  * `area_not_served`, `zone_suspended` — nobody delivers there, or this
  *    kitchen has paused going there. Kept apart because one is permanent and

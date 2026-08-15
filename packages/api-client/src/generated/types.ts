@@ -4793,6 +4793,229 @@ export type OrderDeskQueueEnvelope = {
 };
 
 /**
+ * One tap at the counter. The desk sends what the agent pressed, duplicates
+ * and all: the server merges lines naming the same article **and the same
+ * pack** into one line whose quantity is the sum, first-seen position
+ * preserved, because `order_lines` holds one row per article and three taps
+ * of the same coffee is a quantity rather than three lines. An article
+ * ordered plain and the same article ordered in a pack stay two lines —
+ * they are two different things to sell.
+ *
+ * Both the quote and the placement merge identically, so the quantity
+ * quoted is the quantity charged.
+ *
+ */
+export type OrderDeskBasketLine = {
+    catalogue_item_id: Uuid;
+    /**
+     * The pack, when the article has variants.
+     */
+    catalogue_item_variant_id?: Uuid | null;
+    /**
+     * How many. Numeric rather than integer because a counter sells 0.35 kg
+     * as readily as three coffees, and accepted as a string as well as a
+     * number so a client holding a decimal can send it without a float
+     * round trip. Zero and negatives are `422`.
+     *
+     */
+    quantity: number | string;
+};
+
+/**
+ * The fields a desk quote and a desk sale share — everything except how the
+ * customer is paying, which only a sale needs to state.
+ *
+ * `fulfilment_type` decides which of the rest are required, forbidden or
+ * merely allowed. The rule is **not** enforced as validation: it arrives as
+ * `customer_required` / `address_required` / `address_not_applicable`, in
+ * the quote's `refusals` or in the placement's refusal envelope, so that a
+ * request wrong in two ways says both instead of surfacing one as a `422`
+ * and the other as a `409`.
+ *
+ */
+export type OrderDeskSaleBase = {
+    fulfilment_type: FulfilmentType;
+    lines: Array<OrderDeskBasketLine>;
+    /**
+     * The branch that will produce this order. The same fact the queue
+     * takes as a query parameter, in a body because a POST states its facts
+     * in one — and it is not a filter here: it decides **which cut-off
+     * applies** and **which branch-scoped delivery zone wins**, both of
+     * which change the answer. A branch belonging to another kitchen is
+     * `422`.
+     *
+     */
+    branch_id?: Uuid | null;
+    /**
+     * Who this is for. Required for a delivery and a pickup, optional for a
+     * counter sale — a regular is worth naming and a stranger is not.
+     *
+     * Resolved **by identifier**, never inferred from the caller: the
+     * caller is a member of staff, and inferring would place the order
+     * against the agent's own account or the kitchen's corporate buyer.
+     * Where an identifier legitimately comes from is the desk's customer
+     * search, which is the org-scoped door.
+     *
+     */
+    customer_account_id?: Uuid | null;
+    /**
+     * Where it goes. **Delivery only** — a pickup or a counter sale
+     * carrying one is refused rather than silently ignored, because an
+     * address supplied and dropped means the caller believed something
+     * about this order that is not true of it.
+     *
+     * It must belong to `customer_account_id`; one that does not is `404`,
+     * deliberately the same answer as "no such address", because confirming
+     * that an identifier exists but is somebody else's is itself the
+     * disclosure.
+     *
+     */
+    customer_address_id?: Uuid | null;
+    /**
+     * The day asked for, `YYYY-MM-DD`. Applies to a pickup as well as a
+     * delivery: a collection is cooked to a slot like anything else, so the
+     * branch cut-off is asked about it. A counter sale is handed over now
+     * and has no day to be late for.
+     *
+     */
+    requested_delivery_date?: string | null;
+    /**
+     * The slot, by the window's own code. Not validated against the
+     * kitchen's windows here — whether that slot is offered on that day by
+     * that branch is a scheduling question answered with the cut-off rules
+     * in hand.
+     *
+     */
+    delivery_window_code?: string | null;
+};
+
+export type QuoteOrderDeskRequest = OrderDeskSaleBase & {};
+
+export type PlaceOrderDeskRequest = OrderDeskSaleBase & {
+    payment_method: PaymentMethod;
+};
+
+/**
+ * One thing standing between this basket and a sale, as **data**.
+ *
+ * `reason` is a stable machine key and every other property is whatever
+ * identifies the offending thing — `catalogue_item_id` on a line refusal,
+ * `delivery_area_id` on a zone one, `fulfilment_type` on a shape one,
+ * `cut_off_at` and `branch_id` on a schedule one. The shape is open on
+ * purpose: it is the same `{reason, …context}` vocabulary the placement
+ * refusal carries, and pinning the context keys per reason would freeze a
+ * vocabulary both endpoints extend together.
+ *
+ */
+export type OrderDeskQuoteRefusal = {
+    /**
+     * The stable key. Line-level: `item_unknown`, `item_not_published`,
+     * `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+     * `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+     * `customer_required`, `address_required`, `address_not_applicable`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `currency_mismatch` (with `subject: delivery_fee`), `cut_off_passed`,
+     * `branch_closed`, `date_in_the_past`.
+     *
+     */
+    reason: string;
+    [key: string]: unknown;
+};
+
+/**
+ * One line of the quote, priced or explained.
+ *
+ * The four price-bearing fields are **null together** whenever the line was
+ * refused: there is no price to show for an article the kitchen has
+ * withdrawn, and a zero would read as free. `refusals` is what says why, and
+ * an empty array is what says the line is sellable.
+ *
+ * `quantity` is the **merged** quantity — duplicate taps summed — because
+ * that is the number the placement will use and therefore the number the
+ * agent has to see.
+ *
+ */
+export type OrderDeskQuoteLine = {
+    catalogue_item_id: Uuid;
+    catalogue_item_variant_id: string | null;
+    /**
+     * A decimal string, never a number, for the reason every quantity on this platform is one.
+     */
+    quantity: string;
+    /**
+     * Null when the article could not be read at all — an identifier from another kitchen, or one that no longer exists.
+     */
+    name_en: string | null;
+    name_ar: string | null;
+    unit_price_minor: number | null;
+    /**
+     * Minor units, rounded once at the line total rather than at the unit price, so rounding cannot compound across an order.
+     */
+    line_total_minor: number | null;
+    /**
+     * The price's currency where there is one, and the counter's own tariff currency where there is not.
+     */
+    currency_code: string;
+    refusals: Array<OrderDeskQuoteRefusal>;
+};
+
+/**
+ * What this basket would come to, and everything standing in the way of it.
+ *
+ * **The totals are summed over the refusal-free lines only**, and they are
+ * offered even when the sale cannot proceed because "drop the soup and it
+ * comes to eleven dollars" is the agent's next sentence. They are not what
+ * would be charged, which is what `quotable` is for.
+ *
+ */
+export type OrderDeskQuote = {
+    lines: Array<OrderDeskQuoteLine>;
+    subtotal_minor: number;
+    /**
+     * **Null rather than zero when no fee applies**, and the difference is
+     * real: zero is a fee somebody decided on — a free-delivery zone — and
+     * a pickup or a counter sale has no fee at all. A screen that could not
+     * tell them apart would print "Delivery: 0.00" on a counter sale. Null
+     * also when the destination was refused, because an unserved area has
+     * no fee to quote.
+     *
+     */
+    delivery_fee_minor: number | null;
+    /**
+     * `subtotal_minor` plus the fee where there is one. No discount slot exists anywhere in this schema.
+     */
+    total_minor: number;
+    /**
+     * The counter channel's own tariff currency — the currency of the first
+     * price list it would actually consult, falling back to the kitchen's
+     * default when it has none. Nothing is ever converted.
+     *
+     */
+    currency_code: string;
+    /**
+     * Order-level refusals — the shape, the destination and the schedule. Line refusals are on their lines.
+     */
+    refusals: Array<OrderDeskQuoteRefusal>;
+    /**
+     * Whether this basket could be placed as it stands. **False whenever
+     * any refusal exists at all**, line-level or order-level, because the
+     * placement operation refuses a whole order when any reason is
+     * collected — a quote showing a confident total for a basket the sale
+     * would then reject is a number the agent reads out loud and has to
+     * take back.
+     *
+     */
+    quotable: boolean;
+};
+
+export type OrderDeskQuoteEnvelope = {
+    data: {
+        quote: OrderDeskQuote;
+    };
+    meta: Meta;
+};
+
+/**
  * How much a guest token is allowed to do — the entire authorisation model
  * for the guest journey, in two values. `checkout_draft` is what an
  * anonymous browser is handed on its first request: enough to build a
@@ -8576,10 +8799,10 @@ export type PlatformKitchenSummaryEnvelope = {
 };
 
 /**
- * **One request creates four things, in one transaction: the
+ * **One request creates five things, in one transaction: the
  * organisation, one active main branch, the `kitchen_production`
- * capability, and a `b2c_web` sales channel coded `web-shop`.** All four
- * or none.
+ * capability, a `b2c_web` sales channel coded `web-shop`, and a `pos`
+ * sales channel coded `desk`.** All five or none.
  *
  * A kitchen that is only an organisation row is a kitchen whose workspace
  * refuses on the first screen: the organisation context resolves a
@@ -8590,6 +8813,14 @@ export type PlatformKitchenSummaryEnvelope = {
  * to add the rest afterwards was rejected because it makes the console's
  * success message a lie for the twenty minutes before somebody notices. A
  * new kitchen works immediately; it simply has nothing in it yet.
+ *
+ * The fifth is the counter. The Order Desk sells through its own channel
+ * rather than through the web shop, so that a kitchen may put the catering
+ * trays across the counter without putting them on the site — and a
+ * kitchen provisioned without one can take a web order but not a walk-in,
+ * which is half a business. Both channels open empty: a kitchen created a
+ * moment ago has no articles and no tariffs, so there is nothing to
+ * assign to either.
  *
  * The wholesale channel is deliberately **not** created. A kitchen that
  * has never traded with a company does not need a B2B channel sitting
@@ -20797,6 +21028,158 @@ export type ListOrderDeskQueueResponses = {
 };
 
 export type ListOrderDeskQueueResponse = ListOrderDeskQueueResponses[keyof ListOrderDeskQueueResponses];
+
+export type QuoteOrderDeskData = {
+    body: QuoteOrderDeskRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/quote';
+};
+
+export type QuoteOrderDeskErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type QuoteOrderDeskError = QuoteOrderDeskErrors[keyof QuoteOrderDeskErrors];
+
+export type QuoteOrderDeskResponses = {
+    /**
+     * The priced basket, its totals, and every refusal standing between it and a sale.
+     */
+    200: OrderDeskQuoteEnvelope;
+};
+
+export type QuoteOrderDeskResponse = QuoteOrderDeskResponses[keyof QuoteOrderDeskResponses];
+
+export type PlaceOrderDeskOrderData = {
+    body: PlaceOrderDeskRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * As `Idempotency-Key`, but mandatory. Used where the command creates
+         * records that cannot be un-created — provisioning a tenant — and where
+         * a retry with no key would therefore be unrecoverable rather than
+         * merely wasteful. Absent is **400** `request.invalid`.
+         *
+         */
+        'Idempotency-Key': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/orders';
+};
+
+export type PlaceOrderDeskOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PlaceOrderDeskOrderError = PlaceOrderDeskOrderErrors[keyof PlaceOrderDeskOrderErrors];
+
+export type PlaceOrderDeskOrderResponses = {
+    /**
+     * The order as the kitchen sees it, with every line at the price it was
+     * placed at. A replay of a request this key already answered returns
+     * this same body and this same status, with
+     * `Idempotency-Replayed: true`; nothing ran a second time.
+     *
+     */
+    201: KitchenOrderEnvelope;
+};
+
+export type PlaceOrderDeskOrderResponse = PlaceOrderDeskOrderResponses[keyof PlaceOrderDeskOrderResponses];
 
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;

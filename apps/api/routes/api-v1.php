@@ -186,7 +186,9 @@ use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
@@ -1528,6 +1530,67 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             */
             Route::middleware('permission:order.view_organisation')->group(function (): void {
                 Route::get('/order-desk/queue', OrderDeskQueueController::class)->name('catalogue.order-desk.queue');
+
+                /*
+                | **A POST that writes nothing.** The question has a basket in
+                | it, and a basket does not fit in a query string — the same
+                | argument `POST /catalogue/checkout/preview` is a POST on.
+                | Nothing is created, nothing is reserved, and asking twice is
+                | asking once.
+                |
+                | It sits behind `order.view_organisation` rather than beside
+                | the sale below, and that is the split the desk role is built
+                | around: working out what a basket comes to commits the kitchen
+                | to nothing, and a trainee at the counter pricing something for
+                | a caller needs no greater authority than reading the day's
+                | book. Selling is the other route.
+                |
+                | **It answers 200 with the problems in the body.** A withdrawn
+                | article, an address nobody delivers to, a cut-off that passed
+                | at three — each is a `reason` beside the lines that did price,
+                | because a quote's job is to *explain*. A 422 would hand the
+                | agent one problem per round trip and lose the total, which is
+                | the number the customer is standing there waiting for.
+                */
+                Route::post('/order-desk/quote', OrderDeskQuoteController::class)
+                    ->name('catalogue.order-desk.quote');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Selling across the counter (C2)
+            |--------------------------------------------------------------
+            |
+            | The other side of `POST /orders`. That one is a customer
+            | converting their own basket; this is a member of staff placing an
+            | order **for** somebody, and the whole of what makes it different
+            | is that whoever pressed the button is not whoever is going to eat.
+            |
+            | `order.create_on_behalf_organisation`, its own code and not
+            | `order.manage_organisation`. Confirming and cancelling change what
+            | a customer is already owed; placing decides they are owed anything
+            | at all, and it is the one order action with nobody on the other
+            | side to have agreed to it. It also carries the eligibility bypass
+            | — naming `placed_on_behalf_by` skips the activation checklist,
+            | because the member of staff in front of the customer is the
+            | verification the checklist was asking for.
+            |
+            | `idempotency`, and the controller additionally **requires** the
+            | key. The middleware only enforces semantics when a key is present,
+            | which is right where a key is optional and wrong here: a customer
+            | checkout that is double-tapped finds its cart already converted
+            | and refuses, and a desk sale has no cart — and may have no
+            | customer — so nothing in the schema would notice a second
+            | identical counter sale. The key is the only guard there is.
+            |
+            | No `precondition`. Nothing existing is written, so there is no
+            | validator a screen could have been holding.
+            |
+            */
+            Route::middleware('permission:order.create_on_behalf_organisation')->group(function (): void {
+                Route::post('/order-desk/orders', OrderDeskPlacementController::class)
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.orders.store');
             });
 
             /*

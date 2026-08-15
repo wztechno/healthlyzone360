@@ -3572,6 +3572,123 @@ export const zOrderDeskQueueEnvelope = z.object({
 });
 
 /**
+ * One tap at the counter. The desk sends what the agent pressed, duplicates
+ * and all: the server merges lines naming the same article **and the same
+ * pack** into one line whose quantity is the sum, first-seen position
+ * preserved, because `order_lines` holds one row per article and three taps
+ * of the same coffee is a quantity rather than three lines. An article
+ * ordered plain and the same article ordered in a pack stay two lines —
+ * they are two different things to sell.
+ *
+ * Both the quote and the placement merge identically, so the quantity
+ * quoted is the quantity charged.
+ *
+ */
+export const zOrderDeskBasketLine = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    quantity: z.union([
+        z.number(),
+        z.string()
+    ])
+});
+
+/**
+ * The fields a desk quote and a desk sale share — everything except how the
+ * customer is paying, which only a sale needs to state.
+ *
+ * `fulfilment_type` decides which of the rest are required, forbidden or
+ * merely allowed. The rule is **not** enforced as validation: it arrives as
+ * `customer_required` / `address_required` / `address_not_applicable`, in
+ * the quote's `refusals` or in the placement's refusal envelope, so that a
+ * request wrong in two ways says both instead of surfacing one as a `422`
+ * and the other as a `409`.
+ *
+ */
+export const zOrderDeskSaleBase = z.object({
+    fulfilment_type: zFulfilmentType,
+    lines: z.array(zOrderDeskBasketLine).min(1),
+    branch_id: zUuid.nullish(),
+    customer_account_id: zUuid.nullish(),
+    customer_address_id: zUuid.nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    delivery_window_code: z.string().max(40).nullish()
+});
+
+export const zQuoteOrderDeskRequest = zOrderDeskSaleBase.and(z.object({}));
+
+export const zPlaceOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
+    payment_method: zPaymentMethod
+}));
+
+/**
+ * One thing standing between this basket and a sale, as **data**.
+ *
+ * `reason` is a stable machine key and every other property is whatever
+ * identifies the offending thing — `catalogue_item_id` on a line refusal,
+ * `delivery_area_id` on a zone one, `fulfilment_type` on a shape one,
+ * `cut_off_at` and `branch_id` on a schedule one. The shape is open on
+ * purpose: it is the same `{reason, …context}` vocabulary the placement
+ * refusal carries, and pinning the context keys per reason would freeze a
+ * vocabulary both endpoints extend together.
+ *
+ */
+export const zOrderDeskQuoteRefusal = z.object({
+    reason: z.string()
+});
+
+/**
+ * One line of the quote, priced or explained.
+ *
+ * The four price-bearing fields are **null together** whenever the line was
+ * refused: there is no price to show for an article the kitchen has
+ * withdrawn, and a zero would read as free. `refusals` is what says why, and
+ * an empty array is what says the line is sellable.
+ *
+ * `quantity` is the **merged** quantity — duplicate taps summed — because
+ * that is the number the placement will use and therefore the number the
+ * agent has to see.
+ *
+ */
+export const zOrderDeskQuoteLine = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    quantity: z.string(),
+    name_en: z.string().nullable(),
+    name_ar: z.string().nullable(),
+    unit_price_minor: z.int().nullable(),
+    line_total_minor: z.int().nullable(),
+    currency_code: z.string().length(3),
+    refusals: z.array(zOrderDeskQuoteRefusal)
+});
+
+/**
+ * What this basket would come to, and everything standing in the way of it.
+ *
+ * **The totals are summed over the refusal-free lines only**, and they are
+ * offered even when the sale cannot proceed because "drop the soup and it
+ * comes to eleven dollars" is the agent's next sentence. They are not what
+ * would be charged, which is what `quotable` is for.
+ *
+ */
+export const zOrderDeskQuote = z.object({
+    lines: z.array(zOrderDeskQuoteLine),
+    subtotal_minor: z.int().gte(0),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int().gte(0),
+    currency_code: z.string().length(3),
+    refusals: z.array(zOrderDeskQuoteRefusal),
+    quotable: z.boolean()
+});
+
+export const zOrderDeskQuoteEnvelope = z.object({
+    data: z.object({
+        quote: zOrderDeskQuote
+    }),
+    meta: zMeta
+});
+
+/**
  * How much a guest token is allowed to do — the entire authorisation model
  * for the guest journey, in two values. `checkout_draft` is what an
  * anonymous browser is handed on its first request: enough to build a
@@ -6539,10 +6656,10 @@ export const zPlatformKitchenSummaryEnvelope = z.object({
 });
 
 /**
- * **One request creates four things, in one transaction: the
+ * **One request creates five things, in one transaction: the
  * organisation, one active main branch, the `kitchen_production`
- * capability, and a `b2c_web` sales channel coded `web-shop`.** All four
- * or none.
+ * capability, a `b2c_web` sales channel coded `web-shop`, and a `pos`
+ * sales channel coded `desk`.** All five or none.
  *
  * A kitchen that is only an organisation row is a kitchen whose workspace
  * refuses on the first screen: the organisation context resolves a
@@ -6553,6 +6670,14 @@ export const zPlatformKitchenSummaryEnvelope = z.object({
  * to add the rest afterwards was rejected because it makes the console's
  * success message a lie for the twenty minutes before somebody notices. A
  * new kitchen works immediately; it simply has nothing in it yet.
+ *
+ * The fifth is the counter. The Order Desk sells through its own channel
+ * rather than through the web shop, so that a kitchen may put the catering
+ * trays across the counter without putting them on the site — and a
+ * kitchen provisioned without one can take a web order but not a walk-in,
+ * which is half a business. Both channels open empty: a kitchen created a
+ * moment ago has no articles and no tariffs, so there is nothing to
+ * assign to either.
  *
  * The wholesale channel is deliberately **not** created. A kitchen that
  * has never traded with a company does not need a B2B channel sitting
@@ -9935,6 +10060,35 @@ export const zListOrderDeskQueueQuery = z.object({
  * The open queue in due order, capped, with the day and clock it was measured against.
  */
 export const zListOrderDeskQueueResponse = zOrderDeskQueueEnvelope;
+
+export const zQuoteOrderDeskBody = zQuoteOrderDeskRequest;
+
+export const zQuoteOrderDeskHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The priced basket, its totals, and every refusal standing between it and a sale.
+ */
+export const zQuoteOrderDeskResponse = zOrderDeskQuoteEnvelope;
+
+export const zPlaceOrderDeskOrderBody = zPlaceOrderDeskRequest;
+
+export const zPlaceOrderDeskOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The order as the kitchen sees it, with every line at the price it was
+ * placed at. A replay of a request this key already answered returns
+ * this same body and this same status, with
+ * `Idempotency-Replayed: true`; nothing ran a second time.
+ *
+ */
+export const zPlaceOrderDeskOrderResponse = zKitchenOrderEnvelope;
 
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 

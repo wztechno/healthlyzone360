@@ -95,9 +95,19 @@ final readonly class KitchenProvisioning
     public const string DEFAULT_CHANNEL_CODE = 'web-shop';
 
     /**
-     * The counter. Read by the Order Desk's channel locator, by the backfill
-     * migration that opened one for every kitchen provisioned before this
-     * constant existed, and by `DemoTenantSeeder`.
+     * The counter. Written here, by the backfill migration that opened one for
+     * every kitchen provisioned before this constant existed, and by
+     * `DemoTenantSeeder`.
+     *
+     * **`DeskChannelLocator` holds the same literal rather than importing this
+     * one, and that duplication is deliberate.** The Order Desk lives in the
+     * orders module, which has no edge to platform administration and should
+     * not grow one for a four-letter string: this module provisions tenants and
+     * knows what an order desk is, and that module takes orders and must not
+     * know a provisioning console exists. Either constant moving without the
+     * other produces a kitchen whose desk cannot sell, which is the exact state
+     * the locator's 409 is written to explain — so the failure is loud, and the
+     * two are named in each other's docblocks so the pair stays findable.
      */
     public const string DESK_CHANNEL_CODE = 'desk';
 
