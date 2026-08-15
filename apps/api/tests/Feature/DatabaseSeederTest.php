@@ -330,7 +330,18 @@ it('seeds exactly the registered permission set', function (): void {
     // platform code had already been added to the registry without this pin
     // being refreshed — the registry stood at 48 before INV1.0, and the three
     // inventory codes take it to 51. Re-pinned to the registry's actual size.
-    expect(Permission::query()->count())->toBe(51)
+    //
+    // C2 (the order desk) takes it to 54 with three organisation codes, and the
+    // shape of that trio is the argument for all three:
+    // `order.view_customer_contact_organisation` adds two fields to a queue row
+    // and permits no action at all; `order.create_on_behalf_organisation` is the
+    // authority to place an order nobody asked for themselves, bypassing the
+    // activation checklist because the member of staff is the verification; and
+    // `customer.create_on_behalf_organisation` — the first `customer.*`
+    // organisation code on the platform — opens the account a cold caller has no
+    // way to open. Selling to somebody and adding them to the file are separate
+    // authorities, which is why the last two are two codes and not one.
+    expect(Permission::query()->count())->toBe(54)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -366,14 +377,15 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 39],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 38],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 42],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 41],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book and runs inventory including its costs' => ['kitchen_manager', 24],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs and holds the order desk in full' => ['kitchen_manager', 27],
     'chef edits recipes and their costs and runs inventory, but never publishes and never sees a price or an inventory cost' => ['kitchen_chef', 7],
     'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
-    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book and reads inventory and its costs' => ['commercial_manager', 15],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
+    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, and decides neither the range nor the tariff' => ['order_desk_agent', 7],
 ]);
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
@@ -841,8 +853,12 @@ it('seeds two delivery windows, one of them restricted to some weekdays', functi
         ->and($windows->firstWhere('code', 'evening')?->weekdays)->toBe([1, 2, 3, 4]);
 });
 
-it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8);
+it('seeds the nine platform template roles plus the platform operators bespoke role', function (): void {
+    // Nine since C2. `order_desk_agent` is the first template that describes a
+    // shift rather than a discipline — who is standing at the counter, not what
+    // they are responsible for — and it is still organisation-scoped like the
+    // eight before it.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(9);
 
     // The one organisation-scoped role the demo seeds: platform permissions
     // are granted deliberately, inside a platform-operator organisation, and

@@ -40,6 +40,11 @@ function organisationTemplateRoleCodes(): array
         // through a bespoke role inside the platform-operator organisation
         // instead (DemoTenantSeeder).
         'kitchen_manager', 'kitchen_chef', 'kitchen_staff', 'commercial_manager',
+
+        // C2: the order desk. The ninth, and organisation-scoped like the rest
+        // — a desk agent is somebody's employee working somebody's counter, and
+        // there is no cross-tenant reading of any kind behind the role.
+        'order_desk_agent',
     ];
 }
 
