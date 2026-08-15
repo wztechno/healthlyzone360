@@ -184,6 +184,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
+use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
@@ -1479,6 +1480,19 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/cancel', KitchenOrderCancelController::class)
                     ->middleware('precondition')
                     ->name('catalogue.orders.cancel');
+
+                // A fourth sub-resource, and the only one that is not a
+                // transition: it writes a row in another table and leaves the
+                // order exactly as it found it, `lock_version` included. The
+                // `If-Match` is still required — it guards against acting on a
+                // stale view, which is how cash gets keyed against an order
+                // somebody cancelled a minute ago — and `idempotency` is what
+                // stops a desk tablet on a bad connection paying twice, since
+                // two genuine receipts for one amount are exactly what a deposit
+                // and a balance look like.
+                Route::post('/orders/{order}/payments', OrderPaymentReceiptStoreController::class)
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.orders.payments.store');
             });
 
             /*

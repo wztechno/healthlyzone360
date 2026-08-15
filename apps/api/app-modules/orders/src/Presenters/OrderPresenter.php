@@ -6,6 +6,7 @@ namespace Healthy360\Orders\Presenters;
 
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Orders\Models\OrderPaymentReceipt;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -55,6 +56,20 @@ use Healthy360\Orders\Models\OrderLine;
  * snapshotted it: code and containment, never the derivation or the source
  * ingredient. It is what the customer was told the food contains, and an order
  * line is the most likely row on the platform to be handed to a courier.
+ *
+ * ## The two payment shapes live here as well
+ *
+ * `paymentReceipt()` and `paymentSummary()` are kitchen-side shapes for an
+ * order's money, and they are here rather than in a presenter of their own for
+ * one reason: **two surfaces serve them and neither owns them.** The desk's
+ * receipt endpoint returns both, and `OrderDeskPresenter` puts the summary on
+ * every queue row. A shape defined at one of those two call sites would be
+ * imported by the other, which is how a queue row and a receipt response start
+ * disagreeing about what `receipted` means.
+ *
+ * Neither is a customer shape and neither ever will be. What a kitchen has been
+ * paid is the kitchen's ledger; what the customer owes is their order total,
+ * which the customer shape already carries.
  */
 final class OrderPresenter
 {
@@ -254,6 +269,86 @@ final class OrderPresenter
             'lines' => $presented,
             'created_at' => $order->created_at?->toIso8601String(),
             'updated_at' => $order->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * One statement that money arrived.
+     *
+     * `method` is the receipt's own, which is **how the money turned up** and
+     * deliberately not the order's `payment_method`, which is what was intended
+     * at placement. An order taken for cash at the counter and settled by WISH
+     * is a real evening; serving one of the two figures under the other's name
+     * would make it unreadable.
+     *
+     * `confirmed_by` is served — the whole control on a WISH receipt is that a
+     * named person asserted it, and a receipt whose asserter the reader cannot
+     * see is an anonymous claim. It names a member of the kitchen's own staff to
+     * the kitchen's own staff, which is the audience `OrderPresenter::kitchen()`
+     * already shows `created_by` to.
+     *
+     * No `organisation_id`: a receipt is reachable only through an order that
+     * `OrderQuery::forSeller()` has already scoped, so the field would restate
+     * the caller's own organisation to itself.
+     *
+     * @return array{
+     *     id: string,
+     *     order_id: string,
+     *     method: string,
+     *     amount_minor: int,
+     *     currency_code: string,
+     *     reference: string|null,
+     *     confirmed_by: string,
+     *     confirmed_at: string,
+     *     notes: string|null,
+     *     created_at: string|null
+     * }
+     */
+    public function paymentReceipt(OrderPaymentReceipt $receipt): array
+    {
+        return [
+            'id' => (string) $receipt->getKey(),
+            'order_id' => $receipt->order_id,
+            'method' => $receipt->method->value,
+            'amount_minor' => $receipt->amount_minor,
+            'currency_code' => $receipt->currency_code,
+            'reference' => $receipt->reference,
+            'confirmed_by' => $receipt->confirmed_by,
+            'confirmed_at' => $receipt->confirmed_at->toIso8601String(),
+            'notes' => $receipt->notes,
+            'created_at' => $receipt->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Where an order stands on being paid, in three fields.
+     *
+     * `$receivedMinor` is summed over the order's receipts by the caller and
+     * handed in, never queried here: the desk queue derives it for a whole page
+     * in one grouped statement, and a presenter that fetched its own would turn
+     * two hundred rows into two hundred round trips.
+     *
+     * **`method` is the order's *intended* method**, not any receipt's. A queue
+     * row is read before the money arrives — it is how the desk knows what to
+     * ask the customer for — so the useful fact there is what the order was
+     * taken on. What actually arrived is on the receipts, and the pair is only
+     * legible while each one is served under its own name.
+     *
+     * **`receipted` rather than `paid`.** The word is doing real work: this
+     * platform holds no proof that money exists, only that somebody at a desk
+     * wrote down that it arrived. `>=` and not `==` because over-payment is
+     * ordinary — a customer hands over a round note and takes change from the
+     * till, which is not a row in this table — and a part payment leaves it
+     * false until the balance lands.
+     *
+     * @return array{method: string, received_minor: int, receipted: bool}
+     */
+    public function paymentSummary(Order $order, int $receivedMinor): array
+    {
+        return [
+            'method' => $order->payment_method->value,
+            'received_minor' => $receivedMinor,
+            'receipted' => $receivedMinor >= $order->total_minor,
         ];
     }
 

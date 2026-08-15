@@ -3355,12 +3355,34 @@ export type OrderStatus = 'placed' | 'confirmed' | 'fulfilled' | 'cancelled';
 export type CancellationReason = 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable';
 
 /**
- * One value, and the field exists anyway: an order has to record how it
- * was paid for, and a column that appears the day a second method does
- * would leave every earlier order unable to say.
+ * **Three cases, and each one has a table behind it.** That is the whole
+ * rule this vocabulary is governed by, and it is the same rule that kept it
+ * at one case for the whole of the first phase: a payment method exists
+ * here when there is somewhere in the schema that records money arriving
+ * that way, and not a moment sooner.
+ *
+ * * `cash_on_delivery` — a driver is handed money at a door. The original
+ * case, and still the way most orders are settled.
+ * * `cash_at_counter` — money handed over in the room, at the order desk.
+ * * `wish` — a transfer through the WISH app, **manually confirmed**.
+ * Nothing verifies it: a desk person looks at the merchant app, sees that
+ * the money arrived, and says so, and the receipt's `confirmed_by` names
+ * who.
+ *
+ * What has not changed is the refusal. There is still no `card`, no
+ * `wallet` and no `online` reserved here, and no case is added in
+ * anticipation of a table — a reserved case is a value something eventually
+ * writes, and this value is read to decide what evidence a payment is
+ * expected to carry.
+ *
+ * The vocabulary is used by two fields that are deliberately **not**
+ * constrained to agree. An order's `payment_method` is the *intent*
+ * captured at placement; a payment receipt's `method` is how the money
+ * actually turned up. An order taken for cash at the counter and settled by
+ * WISH is a real evening, and the pair of fields is how it stays legible.
  *
  */
-export type PaymentMethod = 'cash_on_delivery';
+export type PaymentMethod = 'cash_on_delivery' | 'cash_at_counter' | 'wish';
 
 export type OpenCartRequest = {
     /**
@@ -4424,6 +4446,136 @@ export type KitchenOrderEnvelope = {
 };
 
 /**
+ * One statement that money arrived against an order.
+ *
+ * **There is no `currency_code` field, and that is a decision rather than
+ * an omission.** The receipt is denominated in the order's own currency,
+ * taken from the order by the server: a receipt in another currency is not
+ * a receipt for this order, it is a conversion nobody performed and a
+ * figure that cannot be summed against the order's total. Accepting the
+ * field would mean either validating it against the order — a round trip to
+ * be told what the server already knows — or trusting it, and a trusted
+ * mismatch is a kitchen's takings quietly wrong in two currencies at once.
+ *
+ * `method` is **not** constrained to the order's own `payment_method`. See
+ * the operation: recording the divergence is the point.
+ *
+ */
+export type StorePaymentReceiptRequest = {
+    method: PaymentMethod;
+    /**
+     * What arrived, in minor units of the order's currency.
+     *
+     * **At least one**, although the column's own constraint admits zero.
+     * The two answer different questions: the constraint refuses a
+     * *negative* figure, because giving money back is a refund and belongs
+     * to the payments surface. This operation is stricter because a receipt
+     * is evidence — somebody asserting that no money changed hands has
+     * recorded a keystroke, and the row would sit in a day's takings as a
+     * payment event worth nothing.
+     *
+     * There is no upper bound and none against the order's total.
+     * Over-payment is ordinary: a customer hands over a round note and
+     * takes change from the till, which is not a row in this ledger.
+     *
+     */
+    amount_minor: number;
+    /**
+     * The transaction identifier the desk read off the merchant app — a
+     * WISH transfer's, in practice, because cash has no such thing. Free
+     * text because it is somebody else's vocabulary, and bounded because it
+     * is confidential: it points at a real transaction between two named
+     * parties.
+     *
+     */
+    reference?: string | null;
+    /**
+     * Anything the person taking the money needs the next person to know.
+     * Confidential and bounded for the same reason: a free-text note
+     * written at a counter is exactly where somebody puts a customer's
+     * name.
+     *
+     */
+    notes?: string | null;
+};
+
+/**
+ * One recorded arrival of money, and the person who says it arrived.
+ *
+ * **Append-only.** There is no update operation and no delete operation for
+ * a receipt, and there will not be: money arriving is not an event that
+ * un-happens, and giving it back is a refund on the payments surface with
+ * its own authority and its own record.
+ *
+ * No `organisation_id`: a receipt is reachable only through an order the
+ * caller's own kitchen owns, so the field would restate the caller's
+ * organisation to itself.
+ *
+ */
+export type OrderPaymentReceipt = {
+    id: Uuid;
+    order_id: Uuid;
+    method: PaymentMethod;
+    amount_minor: number;
+    /**
+     * The order's currency, always. Never taken from the request.
+     */
+    currency_code: string;
+    /**
+     * Null for cash, which has no transaction identifier.
+     */
+    reference: string | null;
+    confirmed_by: Uuid;
+    /**
+     * When the money arrived, stamped by the server. Not taken from the
+     * request: a desk that could name the moment could name a moment in
+     * another shift, and this is what a day's takings are cut on.
+     *
+     */
+    confirmed_at: string;
+    notes: string | null;
+    created_at: string | null;
+};
+
+/**
+ * Where an order stands on being paid, derived on read and **stored
+ * nowhere**. There is no `payment_status` column behind this and there will
+ * not be one: a stored flag beside an append-only ledger is a second answer
+ * to a question the ledger already answers, and two answers drift.
+ *
+ * `method` is the order's **intended** method, not any receipt's. A desk
+ * reads this before the money arrives — it is how somebody knows what to
+ * ask the customer for — so the useful fact here is what the order was
+ * taken on. What actually arrived is on each receipt, under its own name.
+ *
+ * **`receipted`, not `paid`.** The word is doing real work: this platform
+ * holds no proof that money exists, only that somebody wrote down that it
+ * arrived. It is `received_minor >= total_minor` — an inequality in both
+ * directions, because a part payment leaves it false until the balance
+ * lands and an over-payment does not make it truer.
+ *
+ */
+export type OrderPaymentSummary = {
+    method: PaymentMethod;
+    /**
+     * The sum of every receipt against this order, in the order's currency.
+     * Zero when there are none — never null, because an order whose payment
+     * position is unknown is not a state this platform reaches.
+     *
+     */
+    received_minor: number;
+    receipted: boolean;
+};
+
+export type OrderPaymentReceiptEnvelope = {
+    data: {
+        receipt: OrderPaymentReceipt;
+        payment: OrderPaymentSummary;
+    };
+    meta: Meta;
+};
+
+/**
  * Which slice of the open book the desk is looking at — three questions
  * somebody at a desk actually asks, rather than a date range that could
  * express a hundred nobody does.
@@ -4440,27 +4592,14 @@ export type KitchenOrderEnvelope = {
 export type OrderDeskWindow = 'today' | 'overdue' | 'next_7';
 
 /**
- * **Always `null` in this phase.** The seat a payment receipt sits in once
- * the desk can take money (phase C2b): what was tendered, how, by whom, and
- * against which order.
- *
- * Declared now rather than added later so the row does not change shape
- * under a client. A client written against this phase branches on
- * `payment === null` today and reads a receipt tomorrow; one written
- * against a row where the key was simply absent would have to be changed
- * twice.
- *
- */
-export type OrderDeskPayment = {
-    [key: string]: unknown;
-};
-
-/**
  * **Always `null` in this phase.** The seat a delivery job sits in once
  * confirming a delivery order creates one (phase C3): which driver has it,
  * what state the run is in, and when it was assigned.
  *
- * Declared now for the reason `payment` is — see that schema.
+ * Declared before anything fills it so that the row does not change shape
+ * under a client when it does — the same argument the payment seat was
+ * declared on, and that seat has since been filled by
+ * `OrderPaymentSummary`.
  *
  */
 export type OrderDeskDeliveryJob = {
@@ -4506,7 +4645,7 @@ export type OrderDeskRow = KitchenOrder & {
      *
      */
     due_at: string;
-    payment: OrderDeskPayment | null;
+    payment: OrderPaymentSummary;
     delivery_job: OrderDeskDeliveryJob | null;
     customer?: OrderDeskCustomerContact;
 };
@@ -4881,8 +5020,12 @@ export type GuestOrder = {
     delivery_fee_minor: number | null;
     total_minor: number;
     /**
-     * One case, and no reserved others: a reserved case is a value
-     * something eventually writes.
+     * One case **on this surface**, narrower than the platform's
+     * `PaymentMethod` vocabulary on purpose. A guest checkout takes cash at
+     * the door and offers nothing else: the desk's two methods need
+     * somebody at a desk, and neither is reachable by a customer placing
+     * their own order. Serving the wider enum here would promise a value
+     * this endpoint cannot produce.
      *
      */
     payment_method: 'cash_on_delivery';
@@ -20328,6 +20471,125 @@ export type CancelKitchenOrderResponses = {
 };
 
 export type CancelKitchenOrderResponse = CancelKitchenOrderResponses[keyof CancelKitchenOrderResponses];
+
+export type RecordOrderPaymentData = {
+    body: StorePaymentReceiptRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/payments';
+};
+
+export type RecordOrderPaymentErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordOrderPaymentError = RecordOrderPaymentErrors[keyof RecordOrderPaymentErrors];
+
+export type RecordOrderPaymentResponses = {
+    /**
+     * The receipt that was written, and the order's payment position with
+     * it counted in.
+     *
+     * No `ETag`: the order's validator has not moved, and serving one from
+     * an operation that did not change it would invite a client to treat
+     * this as a write to the order.
+     *
+     */
+    201: OrderPaymentReceiptEnvelope;
+};
+
+export type RecordOrderPaymentResponse = RecordOrderPaymentResponses[keyof RecordOrderPaymentResponses];
 
 export type ListOrderDeskQueueData = {
     body?: never;

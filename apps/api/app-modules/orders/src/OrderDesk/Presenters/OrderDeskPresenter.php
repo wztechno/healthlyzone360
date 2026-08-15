@@ -67,13 +67,22 @@ use Healthy360\Orders\Presenters\OrderPresenter;
  *
  * ## `payment` and `delivery_job`
  *
- * Both are present and both are `null` in this phase. They are the seats the
- * next two slices sit in — C2's receipts and C3's delivery jobs — and they are
- * declared now, as typed nullable objects, so that the wire contract for a desk
- * row does not change shape when they arrive. A client written against this
- * phase branches on `payment === null` today and reads a receipt tomorrow; a
- * client written against a row where the keys were simply absent would have to
- * be changed twice.
+ * Both were declared as typed nullable seats before either had anything to put
+ * in them, so that the wire contract for a desk row would not change shape when
+ * they arrived. `payment` has now arrived and is **never null**: every order has
+ * a payment position, and "nothing has been paid" is `received_minor: 0` with
+ * `receipted: false` rather than an absent object. Null would have been a third
+ * state meaning nothing a desk could act on — an order whose payment position is
+ * unknown is not a state this platform can reach, because the position is
+ * derived from a sum that is zero when there is nothing to sum.
+ *
+ * The sum itself is **not computed here**. It arrives as `$receivedMinor`,
+ * derived for the whole page in one grouped aggregate by `OrderDeskQueue::
+ * receivedByOrder()`, for the reason `due_at` is handed in rather than
+ * recomputed: a presenter that went to the database per row would turn two
+ * hundred rows into two hundred round trips.
+ *
+ * `delivery_job` is still the seat it was — C3's — and still null.
  */
 final class OrderDeskPresenter
 {
@@ -88,6 +97,10 @@ final class OrderDeskPresenter
      * decorating. It is an instant, never null — the expression behind it falls
      * through the delivery window's hours to the end of the requested day, and
      * through a missing requested day to `placed_at`.
+     *
+     * `$receivedMinor` is the sum of this order's receipts, zero when it has
+     * none, and it comes from the same place and for the same reason: the queue
+     * derived it for the whole page in one statement.
      *
      * @param  iterable<int, OrderLine>  $lines
      * @param  array{display_name: string|null, phone: string|null}|null  $contact
@@ -143,7 +156,7 @@ final class OrderDeskPresenter
      *     created_at: string|null,
      *     updated_at: string|null,
      *     due_at: string,
-     *     payment: array<string, mixed>|null,
+     *     payment: array{method: string, received_minor: int, receipted: bool},
      *     delivery_job: array<string, mixed>|null,
      *     customer?: array{display_name: string|null, phone: string|null}
      * }
@@ -152,6 +165,7 @@ final class OrderDeskPresenter
         Order $order,
         iterable $lines,
         string $dueAt,
+        int $receivedMinor,
         bool $includeContact,
         ?array $contact = null,
     ): array {
@@ -159,9 +173,16 @@ final class OrderDeskPresenter
 
         $row['due_at'] = $dueAt;
 
-        // Declared now, filled later. See the class docblock: the seats exist
-        // so the shape does not change under a client when C2 and C3 land.
-        $row['payment'] = null;
+        // The order's *intended* method beside what has actually arrived — the
+        // pair a desk reads together, which is why the summary is one object
+        // rather than two fields on the row. Built by `OrderPresenter` because
+        // the receipt endpoint serves the identical shape, and two copies of
+        // "receipted" would eventually disagree.
+        $row['payment'] = $this->orders->paymentSummary($order, $receivedMinor);
+
+        // Still the seat it was declared as. See the class docblock: C3 fills
+        // it, and the key exists now so the shape does not change under a
+        // client when it does.
         $row['delivery_job'] = null;
 
         if ($includeContact) {

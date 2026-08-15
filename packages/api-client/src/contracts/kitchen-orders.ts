@@ -79,8 +79,12 @@ export const KITCHEN_ORDER_CANCELLATION_REASONS = [
 ] as const;
 export type KitchenOrderCancellationReason = (typeof KITCHEN_ORDER_CANCELLATION_REASONS)[number];
 
-/** One method, and the field exists anyway — see the wire's own note on `payment_method`. */
-export const KITCHEN_ORDER_PAYMENT_METHODS = ['cash_on_delivery'] as const;
+/**
+ * Three methods, and each one has a table behind it — see the wire's own note on `payment_method`.
+ * This is the **intent** captured when the order was placed; how the money actually turned up is on
+ * the order's payment receipts, which are deliberately not constrained to agree with it.
+ */
+export const KITCHEN_ORDER_PAYMENT_METHODS = ['cash_on_delivery', 'cash_at_counter', 'wish'] as const;
 export type KitchenOrderPaymentMethod = (typeof KITCHEN_ORDER_PAYMENT_METHODS)[number];
 
 export interface KitchenOrderLineAllergen {

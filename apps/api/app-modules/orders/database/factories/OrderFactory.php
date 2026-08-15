@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Database\Factories;
 
+use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Models\Order;
@@ -62,6 +63,25 @@ class OrderFactory extends Factory
             'status' => OrderStatus::Fulfilled,
             'confirmed_at' => now(),
             'fulfilled_at' => now(),
+        ]);
+    }
+
+    /**
+     * A cancelled order, stamped and reasoned.
+     *
+     * The three fields move together because `orders_cancellation_check` makes
+     * any other combination illegal: the status and the timestamp are the same
+     * fact stated twice, and a reason without a cancellation is a ghost the
+     * CHECK refuses. A state that set only the status would fail at the
+     * database rather than in the assertion, which is the sort of failure that
+     * gets read as a broken fixture.
+     */
+    public function cancelled(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => OrderStatus::Cancelled,
+            'cancelled_at' => now(),
+            'cancellation_reason' => CancellationReason::CustomerRequested,
         ]);
     }
 }

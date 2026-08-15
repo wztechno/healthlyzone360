@@ -2495,12 +2495,38 @@ export const zCancellationReason = z.enum([
 ]);
 
 /**
- * One value, and the field exists anyway: an order has to record how it
- * was paid for, and a column that appears the day a second method does
- * would leave every earlier order unable to say.
+ * **Three cases, and each one has a table behind it.** That is the whole
+ * rule this vocabulary is governed by, and it is the same rule that kept it
+ * at one case for the whole of the first phase: a payment method exists
+ * here when there is somewhere in the schema that records money arriving
+ * that way, and not a moment sooner.
+ *
+ * * `cash_on_delivery` — a driver is handed money at a door. The original
+ * case, and still the way most orders are settled.
+ * * `cash_at_counter` — money handed over in the room, at the order desk.
+ * * `wish` — a transfer through the WISH app, **manually confirmed**.
+ * Nothing verifies it: a desk person looks at the merchant app, sees that
+ * the money arrived, and says so, and the receipt's `confirmed_by` names
+ * who.
+ *
+ * What has not changed is the refusal. There is still no `card`, no
+ * `wallet` and no `online` reserved here, and no case is added in
+ * anticipation of a table — a reserved case is a value something eventually
+ * writes, and this value is read to decide what evidence a payment is
+ * expected to carry.
+ *
+ * The vocabulary is used by two fields that are deliberately **not**
+ * constrained to agree. An order's `payment_method` is the *intent*
+ * captured at placement; a payment receipt's `method` is how the money
+ * actually turned up. An order taken for cash at the counter and settled by
+ * WISH is a real evening, and the pair of fields is how it stays legible.
  *
  */
-export const zPaymentMethod = z.enum(['cash_on_delivery']);
+export const zPaymentMethod = z.enum([
+    'cash_on_delivery',
+    'cash_at_counter',
+    'wish'
+]);
 
 export const zOpenCartRequest = z.object({
     channel_code: z.string().max(40)
@@ -3317,6 +3343,87 @@ export const zKitchenOrderEnvelope = z.object({
 });
 
 /**
+ * One statement that money arrived against an order.
+ *
+ * **There is no `currency_code` field, and that is a decision rather than
+ * an omission.** The receipt is denominated in the order's own currency,
+ * taken from the order by the server: a receipt in another currency is not
+ * a receipt for this order, it is a conversion nobody performed and a
+ * figure that cannot be summed against the order's total. Accepting the
+ * field would mean either validating it against the order — a round trip to
+ * be told what the server already knows — or trusting it, and a trusted
+ * mismatch is a kitchen's takings quietly wrong in two currencies at once.
+ *
+ * `method` is **not** constrained to the order's own `payment_method`. See
+ * the operation: recording the divergence is the point.
+ *
+ */
+export const zStorePaymentReceiptRequest = z.object({
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(1),
+    reference: z.string().max(120).nullish(),
+    notes: z.string().max(300).nullish()
+});
+
+/**
+ * One recorded arrival of money, and the person who says it arrived.
+ *
+ * **Append-only.** There is no update operation and no delete operation for
+ * a receipt, and there will not be: money arriving is not an event that
+ * un-happens, and giving it back is a refund on the payments surface with
+ * its own authority and its own record.
+ *
+ * No `organisation_id`: a receipt is reachable only through an order the
+ * caller's own kitchen owns, so the field would restate the caller's
+ * organisation to itself.
+ *
+ */
+export const zOrderPaymentReceipt = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(0),
+    currency_code: z.string().length(3),
+    reference: z.string().nullable(),
+    confirmed_by: zUuid,
+    confirmed_at: z.iso.datetime({ offset: true }),
+    notes: z.string().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * Where an order stands on being paid, derived on read and **stored
+ * nowhere**. There is no `payment_status` column behind this and there will
+ * not be one: a stored flag beside an append-only ledger is a second answer
+ * to a question the ledger already answers, and two answers drift.
+ *
+ * `method` is the order's **intended** method, not any receipt's. A desk
+ * reads this before the money arrives — it is how somebody knows what to
+ * ask the customer for — so the useful fact here is what the order was
+ * taken on. What actually arrived is on each receipt, under its own name.
+ *
+ * **`receipted`, not `paid`.** The word is doing real work: this platform
+ * holds no proof that money exists, only that somebody wrote down that it
+ * arrived. It is `received_minor >= total_minor` — an inequality in both
+ * directions, because a part payment leaves it false until the balance
+ * lands and an over-payment does not make it truer.
+ *
+ */
+export const zOrderPaymentSummary = z.object({
+    method: zPaymentMethod,
+    received_minor: z.int().gte(0),
+    receipted: z.boolean()
+});
+
+export const zOrderPaymentReceiptEnvelope = z.object({
+    data: z.object({
+        receipt: zOrderPaymentReceipt,
+        payment: zOrderPaymentSummary
+    }),
+    meta: zMeta
+});
+
+/**
  * Which slice of the open book the desk is looking at — three questions
  * somebody at a desk actually asks, rather than a date range that could
  * express a hundred nobody does.
@@ -3337,25 +3444,14 @@ export const zOrderDeskWindow = z.enum([
 ]);
 
 /**
- * **Always `null` in this phase.** The seat a payment receipt sits in once
- * the desk can take money (phase C2b): what was tendered, how, by whom, and
- * against which order.
- *
- * Declared now rather than added later so the row does not change shape
- * under a client. A client written against this phase branches on
- * `payment === null` today and reads a receipt tomorrow; one written
- * against a row where the key was simply absent would have to be changed
- * twice.
- *
- */
-export const zOrderDeskPayment = z.record(z.string(), z.unknown());
-
-/**
  * **Always `null` in this phase.** The seat a delivery job sits in once
  * confirming a delivery order creates one (phase C3): which driver has it,
  * what state the run is in, and when it was assigned.
  *
- * Declared now for the reason `payment` is — see that schema.
+ * Declared before anything fills it so that the row does not change shape
+ * under a client when it does — the same argument the payment seat was
+ * declared on, and that seat has since been filled by
+ * `OrderPaymentSummary`.
  *
  */
 export const zOrderDeskDeliveryJob = z.record(z.string(), z.unknown());
@@ -3386,7 +3482,7 @@ export const zOrderDeskCustomerContact = z.object({
 
 export const zOrderDeskRow = zKitchenOrder.and(z.object({
     due_at: z.iso.datetime({ offset: true }),
-    payment: zOrderDeskPayment.nullable(),
+    payment: zOrderPaymentSummary,
     delivery_job: zOrderDeskDeliveryJob.nullable(),
     customer: zOrderDeskCustomerContact.optional()
 }));
@@ -9725,6 +9821,30 @@ export const zCancelKitchenOrderPath = z.object({
  * The cancelled order, carrying the reason it was cancelled for.
  */
 export const zCancelKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zRecordOrderPaymentBody = zStorePaymentReceiptRequest;
+
+export const zRecordOrderPaymentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRecordOrderPaymentPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The receipt that was written, and the order's payment position with
+ * it counted in.
+ *
+ * No `ETag`: the order's validator has not moved, and serving one from
+ * an operation that did not change it would invite a client to treat
+ * this as a write to the order.
+ *
+ */
+export const zRecordOrderPaymentResponse = zOrderPaymentReceiptEnvelope;
 
 export const zListOrderDeskQueueHeaders = z.object({
     'X-Organisation-Id': zUuid,

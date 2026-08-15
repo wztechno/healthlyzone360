@@ -15,6 +15,7 @@ use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Models\OrderPaymentReceipt;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
@@ -42,7 +43,15 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 | fallback chain, and the two-hundred-row cap that stands in for pagination the
 | computed sort makes impossible.
 |
-| The last two tests are about disclosure rather than arithmetic. A desk row is
+| The two payment tests are a second piece of arithmetic, derived rather than
+| stored: `received_minor` is a grouped sum over the receipts ledger and
+| `receipted` is that sum against the order's total. Both failures they guard
+| against read as a working screen — a lost `GROUP BY` puts the whole page's
+| takings on every row, and `>` instead of `>=` shows a kitchen that has been
+| paid in full as still owed the money — so the pair is pinned at the boundary
+| and across two orders.
+|
+| The last three tests are about disclosure rather than arithmetic. A desk row is
 | the only kitchen-facing projection on this platform that carries a customer's
 | name and telephone number, and `order.view_customer_contact_organisation` is
 | the whole of what stands between them and everybody who can read the book. The
@@ -417,6 +426,76 @@ it('never shows one kitchen another kitchen\'s queue', function (): void {
     expect($ids)->toBe([(string) $theirs->getKey()]);
 });
 
+it('sums an order\'s receipts and flips receipted at exactly the total', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    // A deposit and a balance: two rows against one order, which is the shape
+    // the receipts ledger exists to allow. The factory's order totals 3000.
+    $order = deskOrder($this, ['requested_delivery_date' => '2026-05-10']);
+
+    OrderPaymentReceipt::factory()->create([
+        'organisation_id' => $this->orgId,
+        'order_id' => $order->getKey(),
+        'confirmed_by' => $this->tenant->user->getKey(),
+        'amount_minor' => 1200,
+    ]);
+
+    $row = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('data.0');
+
+    // Part paid: the sum is real and `receipted` is still false, because a
+    // deposit is not a settled order.
+    expect($row['payment']['received_minor'])->toBe(1200)
+        ->and($row['payment']['receipted'])->toBeFalse();
+
+    // The balance lands the sum on the total exactly. The boundary is the
+    // assertion worth having: `>=` and `>` differ on precisely this row, and a
+    // kitchen that had been paid in full would be shown as owed money by the
+    // wrong one.
+    OrderPaymentReceipt::factory()->cashAtCounter()->create([
+        'organisation_id' => $this->orgId,
+        'order_id' => $order->getKey(),
+        'confirmed_by' => $this->tenant->user->getKey(),
+        'amount_minor' => 1800,
+    ]);
+
+    $row = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('data.0');
+
+    expect($row['payment'])->toBe([
+        // The order's *intended* method, unmoved by the counter-cash receipt
+        // that settled it. Intent and arrival are two facts and the row keeps
+        // them apart.
+        'method' => 'cash_on_delivery',
+        'received_minor' => 3000,
+        'receipted' => true,
+    ]);
+});
+
+it('keeps one order\'s receipts off another order\'s row', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $paid = deskOrder($this, ['requested_delivery_date' => '2026-05-10', 'placed_at' => '2026-05-10 06:00:00']);
+    $unpaid = deskOrder($this, ['requested_delivery_date' => '2026-05-10', 'placed_at' => '2026-05-10 07:00:00']);
+
+    OrderPaymentReceipt::factory()->wish()->create([
+        'organisation_id' => $this->orgId,
+        'order_id' => $paid->getKey(),
+        'confirmed_by' => $this->tenant->user->getKey(),
+        'amount_minor' => 3000,
+    ]);
+
+    // The grouped aggregate is the thing under test: a sum that lost its
+    // GROUP BY would put the whole page's takings on every row, and a page
+    // where every order is paid looks exactly like a working screen.
+    $rows = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('data');
+
+    expect($rows[0]['id'])->toBe((string) $paid->getKey())
+        ->and($rows[0]['payment']['received_minor'])->toBe(3000)
+        ->and($rows[0]['payment']['receipted'])->toBeTrue()
+        ->and($rows[1]['id'])->toBe((string) $unpaid->getKey())
+        ->and($rows[1]['payment']['received_minor'])->toBe(0)
+        ->and($rows[1]['payment']['receipted'])->toBeFalse();
+});
+
 it('withholds the customer\'s name and number from a caller without the contact code', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
 
@@ -433,7 +512,15 @@ it('withholds the customer\'s name and number from a caller without the contact 
         // Everything the order book serves is still here, and so is the queue's
         // own arithmetic: the permission withholds two fields, not the row.
         ->and($row)->toHaveKeys(['id', 'order_number', 'lock_version', 'delivery', 'lines', 'due_at', 'payment', 'delivery_job'])
-        ->and($row['payment'])->toBeNull()
+        // The payment position is a fact about the order, not about the reader:
+        // it is served to anybody who may read the queue at all. Nothing has
+        // been paid here, and that is a zero rather than a null — an order whose
+        // payment position is unknown is not a state this platform reaches.
+        ->and($row['payment'])->toBe([
+            'method' => 'cash_on_delivery',
+            'received_minor' => 0,
+            'receipted' => false,
+        ])
         ->and($row['delivery_job'])->toBeNull();
 });
 

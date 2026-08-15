@@ -93,7 +93,14 @@ final class OrderDeskQueueController
         );
 
         $orders = $page['orders'];
-        $lines = $this->linesFor(array_map(static fn (Order $order): string => (string) $order->getKey(), $orders));
+        $orderIds = array_map(static fn (Order $order): string => (string) $order->getKey(), $orders);
+
+        $lines = $this->linesFor($orderIds);
+
+        // One grouped aggregate for the page, never a sum per row — the same
+        // batching rule the lines follow, and the same arithmetic if it is
+        // broken: two hundred rows, two hundred round trips.
+        $received = $this->queue->receivedByOrder($orderIds);
 
         // Resolved once for the whole page rather than per row, and only when
         // it will be spent: an unpermitted caller never causes the confidential
@@ -113,6 +120,9 @@ final class OrderDeskQueueController
                 $order,
                 $lines[$id] ?? [],
                 $page['due_at'][$id] ?? $order->placed_at->utc()->toIso8601String(),
+                // Absent from the aggregate means nothing has been paid, which
+                // is a zero rather than a missing figure.
+                $received[$id] ?? 0,
                 $includeContact,
                 $contacts[(string) $order->customer_account_id] ?? null,
             );

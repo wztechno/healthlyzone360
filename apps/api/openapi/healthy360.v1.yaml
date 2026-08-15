@@ -9087,6 +9087,118 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/orders/{order}/payments:
+    post:
+      operationId: recordOrderPayment
+      tags: [Kitchen orders]
+      summary: Record that money arrived against an order
+      description: |
+        A sub-resource of the **order**, beside `confirm`, `fulfil` and `cancel`,
+        rather than an order-desk operation. A receipt is not a desk artefact: a
+        driver's cash comes back against an order the desk never touched, and a
+        WISH reconciliation will one day write here with no desk in the room at
+        all. The desk is the surface that usually records one; the order is what
+        a receipt is always about.
+
+        **`method` is deliberately not constrained to the order's own
+        `payment_method`.** An order taken for cash at the counter and settled by
+        a WISH transfer is an ordinary evening, and so is a delivery meant for
+        cash at the door that the customer transferred while the driver waited.
+        The order's field is the *intent* captured at placement and this one is
+        how the money *arrived*; recording the divergence is the point of having
+        two. Refusing it would push a desk into either lying in the request or
+        editing the order, and the second rewrites what the customer agreed to.
+
+        **The body carries no currency.** The receipt is denominated in the
+        order's, taken from the order — a receipt in another currency is not a
+        receipt for this order.
+
+        **Over-payment is permitted and is not an error.** A customer hands over
+        a round note and takes change from the till; the change is not a row
+        here, because this ledger records money arriving and nothing else. Part
+        payment is equally real — a deposit now and a balance on delivery are two
+        rows — so `receipted` is `received_minor >= total_minor` and no amount is
+        checked against the order's total.
+
+        **Whether an order is paid is derived, never stored.** There is no
+        payment-status column on an order and there will not be one: a stored
+        flag beside an append-only ledger is a second answer to a question the
+        ledger already answers.
+
+        **A cancelled order refuses**, `409 resource.conflict`, with
+        `details.status`, `details.allowed_statuses` and
+        `details.current_lock_version`. Nobody records money arriving for an
+        order that no longer exists commercially: the kitchen is not cooking it,
+        and the figure would reconcile against nothing. If a cancelled order
+        really was paid for, what happened is a refund. A **fulfilled** order
+        does *not* refuse — cash on delivery arrives when the food does, and the
+        driver's takings are keyed in afterwards.
+
+        **`If-Match` required**, and it guards something subtler than the
+        lifecycle operations do. Nothing about the order row is written here, so
+        the validator is not protecting against a lost update; it protects
+        against *acting on a stale view* — the screen that offered "take payment"
+        was rendered before somebody cancelled the order. For the same reason the
+        order's `lock_version` is **not** bumped by a receipt: a validator that
+        moved every time a colleague keyed in cash would invalidate every screen
+        holding it, and nothing they were looking at would have changed.
+
+        **`Idempotency-Key` matters more here than on most commands.** Two
+        genuine receipts for the same amount against one order are exactly what a
+        deposit and a balance look like, so nothing about the ledger can tell a
+        retry apart from a second payment. The same key with the same body
+        replays the original `201` and the original receipt.
+
+        Requires `order.manage_organisation`, the same authority as the lifecycle
+        actions: recording that a kitchen has been paid is a write to its book,
+        not a reading of it.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePaymentReceiptRequest'
+      responses:
+        '201':
+          description: |
+            The receipt that was written, and the order's payment position with
+            it counted in.
+
+            No `ETag`: the order's validator has not moved, and serving one from
+            an operation that did not change it would invite a client to treat
+            this as a write to the order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPaymentReceiptEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/order-desk/queue:
     get:
       operationId: listOrderDeskQueue
@@ -22889,10 +23001,32 @@ components:
     PaymentMethod:
       type: string
       description: |
-        One value, and the field exists anyway: an order has to record how it
-        was paid for, and a column that appears the day a second method does
-        would leave every earlier order unable to say.
-      enum: [cash_on_delivery]
+        **Three cases, and each one has a table behind it.** That is the whole
+        rule this vocabulary is governed by, and it is the same rule that kept it
+        at one case for the whole of the first phase: a payment method exists
+        here when there is somewhere in the schema that records money arriving
+        that way, and not a moment sooner.
+
+        * `cash_on_delivery` — a driver is handed money at a door. The original
+          case, and still the way most orders are settled.
+        * `cash_at_counter` — money handed over in the room, at the order desk.
+        * `wish` — a transfer through the WISH app, **manually confirmed**.
+          Nothing verifies it: a desk person looks at the merchant app, sees that
+          the money arrived, and says so, and the receipt's `confirmed_by` names
+          who.
+
+        What has not changed is the refusal. There is still no `card`, no
+        `wallet` and no `online` reserved here, and no case is added in
+        anticipation of a table — a reserved case is a value something eventually
+        writes, and this value is read to decide what evidence a payment is
+        expected to carry.
+
+        The vocabulary is used by two fields that are deliberately **not**
+        constrained to agree. An order's `payment_method` is the *intent*
+        captured at placement; a payment receipt's `method` is how the money
+        actually turned up. An order taken for cash at the counter and settled by
+        WISH is a real evening, and the pair of fields is how it stays legible.
+      enum: [cash_on_delivery, cash_at_counter, wish]
 
     OpenCartRequest:
       type: object
@@ -24563,6 +24697,161 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    StorePaymentReceiptRequest:
+      type: object
+      required: [method, amount_minor]
+      description: |
+        One statement that money arrived against an order.
+
+        **There is no `currency_code` field, and that is a decision rather than
+        an omission.** The receipt is denominated in the order's own currency,
+        taken from the order by the server: a receipt in another currency is not
+        a receipt for this order, it is a conversion nobody performed and a
+        figure that cannot be summed against the order's total. Accepting the
+        field would mean either validating it against the order — a round trip to
+        be told what the server already knows — or trusting it, and a trusted
+        mismatch is a kitchen's takings quietly wrong in two currencies at once.
+
+        `method` is **not** constrained to the order's own `payment_method`. See
+        the operation: recording the divergence is the point.
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+          description: |
+            What arrived, in minor units of the order's currency.
+
+            **At least one**, although the column's own constraint admits zero.
+            The two answer different questions: the constraint refuses a
+            *negative* figure, because giving money back is a refund and belongs
+            to the payments surface. This operation is stricter because a receipt
+            is evidence — somebody asserting that no money changed hands has
+            recorded a keystroke, and the row would sit in a day's takings as a
+            payment event worth nothing.
+
+            There is no upper bound and none against the order's total.
+            Over-payment is ordinary: a customer hands over a round note and
+            takes change from the till, which is not a row in this ledger.
+          examples: [3000]
+        reference:
+          type: ['string', 'null']
+          maxLength: 120
+          description: |
+            The transaction identifier the desk read off the merchant app — a
+            WISH transfer's, in practice, because cash has no such thing. Free
+            text because it is somebody else's vocabulary, and bounded because it
+            is confidential: it points at a real transaction between two named
+            parties.
+          examples: ['WSH-77213']
+        notes:
+          type: ['string', 'null']
+          maxLength: 300
+          description: |
+            Anything the person taking the money needs the next person to know.
+            Confidential and bounded for the same reason: a free-text note
+            written at a counter is exactly where somebody puts a customer's
+            name.
+      additionalProperties: false
+
+    OrderPaymentReceipt:
+      type: object
+      required: [id, order_id, method, amount_minor, currency_code, reference, confirmed_by, confirmed_at, notes, created_at]
+      description: |
+        One recorded arrival of money, and the person who says it arrived.
+
+        **Append-only.** There is no update operation and no delete operation for
+        a receipt, and there will not be: money arriving is not an event that
+        un-happens, and giving it back is a refund on the payments surface with
+        its own authority and its own record.
+
+        No `organisation_id`: a receipt is reachable only through an order the
+        caller's own kitchen owns, so the field would restate the caller's
+        organisation to itself.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 0
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: The order's currency, always. Never taken from the request.
+        reference:
+          type: ['string', 'null']
+          description: Null for cash, which has no transaction identifier.
+        confirmed_by:
+          $ref: '#/components/schemas/Uuid'
+        confirmed_at:
+          type: string
+          format: date-time
+          description: |
+            When the money arrived, stamped by the server. Not taken from the
+            request: a desk that could name the moment could name a moment in
+            another shift, and this is what a day's takings are cut on.
+        notes:
+          type: ['string', 'null']
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    OrderPaymentSummary:
+      type: object
+      required: [method, received_minor, receipted]
+      description: |
+        Where an order stands on being paid, derived on read and **stored
+        nowhere**. There is no `payment_status` column behind this and there will
+        not be one: a stored flag beside an append-only ledger is a second answer
+        to a question the ledger already answers, and two answers drift.
+
+        `method` is the order's **intended** method, not any receipt's. A desk
+        reads this before the money arrives — it is how somebody knows what to
+        ask the customer for — so the useful fact here is what the order was
+        taken on. What actually arrived is on each receipt, under its own name.
+
+        **`receipted`, not `paid`.** The word is doing real work: this platform
+        holds no proof that money exists, only that somebody wrote down that it
+        arrived. It is `received_minor >= total_minor` — an inequality in both
+        directions, because a part payment leaves it false until the balance
+        lands and an over-payment does not make it truer.
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        received_minor:
+          type: integer
+          minimum: 0
+          description: |
+            The sum of every receipt against this order, in the order's currency.
+            Zero when there are none — never null, because an order whose payment
+            position is unknown is not a state this platform reaches.
+        receipted:
+          type: boolean
+      additionalProperties: false
+
+    OrderPaymentReceiptEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [receipt, payment]
+          properties:
+            receipt:
+              $ref: '#/components/schemas/OrderPaymentReceipt'
+            payment:
+              $ref: '#/components/schemas/OrderPaymentSummary'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
     OrderDeskWindow:
       type: string
       enum: [today, overdue, next_7]
@@ -24579,20 +24868,6 @@ components:
         missed. `next_7` runs from today to seven days after it, inclusive at
         both ends.
 
-    OrderDeskPayment:
-      type: object
-      description: |
-        **Always `null` in this phase.** The seat a payment receipt sits in once
-        the desk can take money (phase C2b): what was tendered, how, by whom, and
-        against which order.
-
-        Declared now rather than added later so the row does not change shape
-        under a client. A client written against this phase branches on
-        `payment === null` today and reads a receipt tomorrow; one written
-        against a row where the key was simply absent would have to be changed
-        twice.
-      additionalProperties: true
-
     OrderDeskDeliveryJob:
       type: object
       description: |
@@ -24600,7 +24875,10 @@ components:
         confirming a delivery order creates one (phase C3): which driver has it,
         what state the run is in, and when it was assigned.
 
-        Declared now for the reason `payment` is — see that schema.
+        Declared before anything fills it so that the row does not change shape
+        under a client when it does — the same argument the payment seat was
+        declared on, and that seat has since been filled by
+        `OrderPaymentSummary`.
       additionalProperties: true
 
     OrderDeskCustomerContact:
@@ -24649,9 +24927,7 @@ components:
                 there is no branch, and through `placed_at` when the customer
                 named no day at all.
             payment:
-              oneOf:
-                - $ref: '#/components/schemas/OrderDeskPayment'
-                - type: 'null'
+              $ref: '#/components/schemas/OrderPaymentSummary'
             delivery_job:
               oneOf:
                 - $ref: '#/components/schemas/OrderDeskDeliveryJob'
@@ -24660,8 +24936,15 @@ components:
               $ref: '#/components/schemas/OrderDeskCustomerContact'
           description: |
             One row of the desk queue: everything the order book's row carries,
-            plus the queue's own arithmetic and the two seats the next phases
-            fill.
+            plus the queue's own arithmetic, the order's payment position, and
+            the one seat a later phase still fills.
+
+            `payment` is **never null**. Every order has a payment position, and
+            "nothing has been paid" is `received_minor: 0` with
+            `receipted: false` rather than an absent object — null would be a
+            third state meaning nothing a desk could act on. It is derived for
+            the whole page in one grouped aggregate over the receipts ledger,
+            never a query per row.
 
             The `allOf` is honest here rather than a documentation convenience.
             This shape really is the kitchen shape **plus** fields — the server
@@ -25162,8 +25445,12 @@ components:
           type: string
           enum: [cash_on_delivery]
           description: |
-            One case, and no reserved others: a reserved case is a value
-            something eventually writes.
+            One case **on this surface**, narrower than the platform's
+            `PaymentMethod` vocabulary on purpose. A guest checkout takes cash at
+            the door and offers nothing else: the desk's two methods need
+            somebody at a desk, and neither is reachable by a customer placing
+            their own order. Serving the wider enum here would promise a value
+            this endpoint cannot produce.
         delivery:
           $ref: '#/components/schemas/GuestOrderDelivery'
         placed_at:

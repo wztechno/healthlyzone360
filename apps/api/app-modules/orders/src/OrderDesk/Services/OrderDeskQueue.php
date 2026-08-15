@@ -274,6 +274,51 @@ final class OrderDeskQueue
     }
 
     /**
+     * What each of the given orders has been paid, in **one** statement.
+     *
+     * A grouped aggregate over the whole page rather than a sum per row, for the
+     * reason `linesFor()` batches: two hundred rows is two hundred round trips
+     * if this is got wrong, and unlike the lines it would be two hundred round
+     * trips that each return a single integer.
+     *
+     * Orders with no receipts are simply absent from the result, and the caller
+     * reads them as zero. Filling them in here would mean the aggregate carried
+     * a row for every order whether or not anything had been paid, which is a
+     * larger answer to say the same thing.
+     *
+     * Scoped by order id alone, and that is sufficient: every id in the list
+     * came out of `forSeller()`, which filtered on the organisation, so a
+     * second organisation predicate here would restate a decision already made
+     * — the argument `OrderPaymentReceipt` gives for carrying no ambient scope.
+     *
+     * @param  list<string>  $orderIds
+     * @return array<string, int>
+     */
+    public function receivedByOrder(array $orderIds): array
+    {
+        $orderIds = array_values(array_unique(array_filter($orderIds, static fn (string $id): bool => $id !== '')));
+
+        if ($orderIds === []) {
+            return [];
+        }
+
+        $received = [];
+
+        $rows = DB::table('order_payment_receipts')
+            ->select('order_id')
+            ->selectRaw('sum(amount_minor) as received_minor')
+            ->whereIn('order_id', $orderIds)
+            ->groupBy('order_id')
+            ->get();
+
+        foreach ($rows as $row) {
+            $received[(string) $row->order_id] = (int) $row->received_minor;
+        }
+
+        return $received;
+    }
+
+    /**
      * The joined, scoped, sorted base set.
      *
      * `orders.*` is selected explicitly rather than left bare. Both joins bring
