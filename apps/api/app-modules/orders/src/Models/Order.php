@@ -76,6 +76,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read Collection<int, OrderLine> $lines
+ * @property-read Collection<int, OrderPaymentReceipt> $paymentReceipts
  * @property-read CustomerAccount|null $customerAccount
  */
 #[Classified(DataClassification::Confidential, 'delivery_label', 'delivery_line_one', 'delivery_line_two', 'delivery_city')]
@@ -113,6 +114,17 @@ class Order extends BaseModel
     public function lines(): HasMany
     {
         return $this->hasMany(OrderLine::class);
+    }
+
+    /**
+     * Every statement that money arrived against this order. Whether it is paid
+     * is the sum of them against `total_minor`, never a column.
+     *
+     * @return HasMany<OrderPaymentReceipt, $this>
+     */
+    public function paymentReceipts(): HasMany
+    {
+        return $this->hasMany(OrderPaymentReceipt::class);
     }
 
     /**

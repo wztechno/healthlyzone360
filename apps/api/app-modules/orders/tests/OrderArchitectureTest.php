@@ -30,10 +30,13 @@ use Illuminate\Support\Facades\DB;
 | courier or a marketplace partner, so a cost column here would be a §4.8
 | disclosure waiting for somebody to write a projection.
 |
-| **No payment column of any kind.** Cash on delivery is the whole of C1
-| (F-bis #3), and a nullable card token would be an invitation: something
-| eventually writes to it, and the first thing to write a card reference into a
-| schema with no PCI scope has created a liability no later migration removes.
+| **No payment column of any kind.** A nullable card token would be an
+| invitation: something eventually writes to it, and the first thing to write a
+| card reference into a schema with no PCI scope has created a liability no
+| later migration removes. The Order Desk widened *how* an order may be paid for
+| without touching that: three methods, each backed by a table that records
+| money arriving, and still not one column on `orders` that holds a token, a
+| provider or a status.
 |
 | **One currency per order**, proved by the service refusing rather than by a
 | column comment.
@@ -63,7 +66,7 @@ it('carries no cost, margin or supplier column on either order table', function 
     }
 });
 
-it('carries no card, token or payment-provider column, and admits exactly one payment method', function (): void {
+it('carries no card, token or payment-provider column, and admits exactly the three ways money reaches this platform', function (): void {
     /** @var list<string> $columns */
     $columns = DB::table('information_schema.columns')
         ->where('table_schema', 'public')
@@ -76,16 +79,35 @@ it('carries no card, token or payment-provider column, and admits exactly one pa
             $this->assertStringNotContainsString(
                 $suspect,
                 strtolower($column),
-                "orders.{$column} looks like a payment column. C1 takes cash at the door and models nothing else (F-bis #3); payments arrive with PAY1, under their own review.",
+                "orders.{$column} looks like a payment column. An order states how it is to be paid for and nothing else; what a payment carried lives in the payments module or in order_payment_receipts, under its own review.",
             );
         }
     }
 
-    // And the single-value CHECK exists, so widening it has to be a migration
-    // somebody writes on purpose rather than a value somebody inserts.
+    // The CHECK still exists — and it is *the same constraint*, dropped and
+    // re-added under its own name by
+    // `2026_08_15_003002_widen_payment_methods_and_create_order_payment_receipts`
+    // rather than replaced by a looser one with a different name. That is what
+    // keeps this assertion meaningful: widening the vocabulary has to be a
+    // migration somebody writes on purpose rather than a value somebody
+    // inserts.
+    //
+    // The count moved from one to three, and it moved on the terms the orders
+    // table itself set out: "The single-value CHECK is the point, not a
+    // placeholder. Widening it is a deliberate migration in the phase that
+    // introduces a second way to pay, alongside the tables that make paying
+    // that way possible." The Order Desk is that phase and
+    // `order_payment_receipts` is that table, so all three cases below are
+    // backed by somewhere that records money arriving. A fourth case added
+    // without one fails here, which is the whole point of pinning the identity
+    // of the cases rather than only their number.
     expect(DB::table('pg_constraint')->where('conname', 'orders_payment_method_check')->exists())->toBeTrue()
-        ->and(PaymentMethod::cases())->toHaveCount(1)
-        ->and(PaymentMethod::cases()[0])->toBe(PaymentMethod::CashOnDelivery);
+        ->and(PaymentMethod::cases())->toHaveCount(3)
+        ->and(PaymentMethod::cases())->toBe([
+            PaymentMethod::CashOnDelivery,
+            PaymentMethod::CashAtCounter,
+            PaymentMethod::Wish,
+        ]);
 });
 
 describe('one currency per order', function (): void {
