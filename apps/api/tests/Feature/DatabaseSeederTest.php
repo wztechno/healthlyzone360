@@ -14,6 +14,7 @@ use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\PlanDurationKind;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\EnergyBand;
 use Healthy360\Catalogues\Models\MealCombinationOption;
 use Healthy360\Catalogues\Models\PlanDuration;
@@ -504,15 +505,68 @@ it('keeps price visibility away from the chef and the kitchen staff entirely', f
  * demonstrable against one the product is not already on, and VerdantProductCatalogueSeeder puts
  * every product on the two that sell it. `pos` is not a listing kind, so nothing consumer-facing
  * moves — the marketplace directory and menus read `b2c_web` and `marketplace` only.
+ *
+ * `desk` is the fourth and the second `pos` row, which is the assertion worth keeping: the Order
+ * Desk sells through a channel of its own, and `counter` — an empty channel whose whole job is to
+ * be the one a product is *not* on — must survive beside it rather than be repurposed into it.
  */
-it('gives the demonstration kitchen its three routes to market', function (): void {
+it('gives the demonstration kitchen its four routes to market', function (): void {
     $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
 
     $channels = SalesChannel::withoutTenancy()->where('organisation_id', $verdant->getKey())->orderBy('code')->get();
 
-    expect($channels->pluck('code')->all())->toBe(['counter', 'web-shop', 'wholesale'])
+    expect($channels->pluck('code')->all())->toBe(['counter', 'desk', 'web-shop', 'wholesale'])
         ->and($channels->pluck('channel_kind')->map(static fn ($kind): string => $kind->value)->all())
-        ->toBe(['pos', 'b2c_web', 'b2b']);
+        ->toBe(['pos', 'pos', 'b2c_web', 'b2b'])
+        ->and($channels->pluck('order_source')->all())
+        ->toBe(['pos', 'desk', 'web', null]);
+});
+
+/**
+ * The desk opens holding exactly what the web shop holds — and would sell nothing without both
+ * halves. `LineProbe` refuses an article with no `channel_catalogue_items` row for the channel;
+ * `PriceResolver::listsFor()` reads `channel_price_lists` as the only source of a channel's
+ * tariffs and an empty set refuses every line as `unpriced`. So parity is asserted on both tables
+ * rather than on the channel row, which is the part that cannot sell anything on its own.
+ */
+it('stocks the demonstration kitchen order desk from its web shop', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $channelId = static fn (string $code): string => (string) SalesChannel::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('code', $code)
+        ->sole()
+        ->getKey();
+
+    $shopId = $channelId('web-shop');
+    $deskId = $channelId('desk');
+
+    $offerings = static fn (string $salesChannelId): array => ChannelCatalogueItem::withoutTenancy()
+        ->where('sales_channel_id', $salesChannelId)
+        ->get()
+        ->map(static fn (ChannelCatalogueItem $row): string => implode('|', [
+            (string) $row->catalogue_item_id,
+            (string) $row->catalogue_item_variant_id,
+            $row->is_available ? '1' : '0',
+            (string) $row->available_from?->toDateString(),
+            (string) $row->available_to?->toDateString(),
+        ]))
+        ->sort()
+        ->values()
+        ->all();
+
+    $tariffs = static fn (string $salesChannelId): array => ChannelPriceList::withoutTenancy()
+        ->where('sales_channel_id', $salesChannelId)
+        ->get()
+        ->map(static fn (ChannelPriceList $row): string => $row->price_list_id.'|'.$row->priority)
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($offerings($shopId))->not->toBe([])
+        ->and($offerings($deskId))->toBe($offerings($shopId))
+        ->and($tariffs($shopId))->not->toBe([])
+        ->and($tariffs($deskId))->toBe($tariffs($shopId));
 });
 
 it('gives the demonstration kitchen a draft tariff in its own currency', function (): void {
