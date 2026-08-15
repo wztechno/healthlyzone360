@@ -187,6 +187,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
@@ -1492,6 +1493,41 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/cancel', KitchenOrderCancelController::class)
                     ->middleware('precondition')
                     ->name('catalogue.orders.cancel');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | The order desk (C2)
+            |--------------------------------------------------------------
+            |
+            | The same book as `/orders`, asked a different question. That one
+            | is a ledger — newest first, cursor-walked, every status — and it
+            | answers "what did we do last Tuesday". This one is a **queue**:
+            | what is still open, in the order it has to be worked, which is not
+            | a column but a computed instant across three tables. The two
+            | cannot be one endpoint, because `CursorPage` re-sorts every query
+            | it constrains, so a cursor and this ordering are mutually
+            | exclusive by construction rather than by preference.
+            |
+            | **Bounded, not paginated**, and the response says so: two hundred
+            | rows with `meta.truncated`. A desk queue is a list somebody works
+            | through, and a kitchen with more open orders than that has a
+            | problem the screen should state rather than hide behind a page
+            | two nobody would click.
+            |
+            | `order.view_organisation`, the same read as the book beside it —
+            | seeing the day's work in a useful order is not a greater authority
+            | than seeing it in a useless one. What *is* greater sits inside the
+            | row: the customer's name and the number to ring them on are gated
+            | by `order.view_customer_contact_organisation`, checked by the
+            | controller rather than by a second route, because it withholds two
+            | fields rather than the endpoint. Every other kitchen-facing
+            | projection on the platform withholds the pair outright; the desk
+            | is the one surface where somebody has to make the call.
+            |
+            */
+            Route::middleware('permission:order.view_organisation')->group(function (): void {
+                Route::get('/order-desk/queue', OrderDeskQueueController::class)->name('catalogue.order-desk.queue');
             });
 
             /*

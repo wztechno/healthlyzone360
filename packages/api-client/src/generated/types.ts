@@ -4424,6 +4424,130 @@ export type KitchenOrderEnvelope = {
 };
 
 /**
+ * Which slice of the open book the desk is looking at — three questions
+ * somebody at a desk actually asks, rather than a date range that could
+ * express a hundred nobody does.
+ *
+ * **`today` includes orders with no requested date at all.** An order whose
+ * customer named no day is not scheduled for nothing, it is scheduled for
+ * as soon as possible, and a plain range would silently drop exactly the
+ * set nobody has committed to a day yet. `overdue` does not inherit that
+ * rule: a dateless order is never late, because there is no day it has
+ * missed. `next_7` runs from today to seven days after it, inclusive at
+ * both ends.
+ *
+ */
+export type OrderDeskWindow = 'today' | 'overdue' | 'next_7';
+
+/**
+ * **Always `null` in this phase.** The seat a payment receipt sits in once
+ * the desk can take money (phase C2b): what was tendered, how, by whom, and
+ * against which order.
+ *
+ * Declared now rather than added later so the row does not change shape
+ * under a client. A client written against this phase branches on
+ * `payment === null` today and reads a receipt tomorrow; one written
+ * against a row where the key was simply absent would have to be changed
+ * twice.
+ *
+ */
+export type OrderDeskPayment = {
+    [key: string]: unknown;
+};
+
+/**
+ * **Always `null` in this phase.** The seat a delivery job sits in once
+ * confirming a delivery order creates one (phase C3): which driver has it,
+ * what state the run is in, and when it was assigned.
+ *
+ * Declared now for the reason `payment` is — see that schema.
+ *
+ */
+export type OrderDeskDeliveryJob = {
+    [key: string]: unknown;
+};
+
+/**
+ * The customer's name, and the number somebody can ring them on.
+ *
+ * **Present only when the caller holds
+ * `order.view_customer_contact_organisation`**, and *absent* — not null —
+ * without it. Null here is a fact about the customer ("we hold no number
+ * for them"), and a screen could not tell that apart from a fact about the
+ * reader unless the two cases differed in shape.
+ *
+ * Either field may be null on its own: an anonymised account has no name,
+ * and a customer who never gave a number has no number. The number is
+ * served **verified or not** — a courier ringing about tonight's delivery
+ * needs the number the customer gave, not one the platform has proved.
+ *
+ * This is the whole of the disclosure. No address beyond the delivery
+ * snapshot the order book already serves, no email, no allergen
+ * declaration, no order history, and no account identifier to pivot on.
+ *
+ */
+export type OrderDeskCustomerContact = {
+    display_name: string | null;
+    /**
+     * E.164, as the contact point stores it.
+     */
+    phone: string | null;
+};
+
+export type OrderDeskRow = KitchenOrder & {
+    /**
+     * The instant this order is actually due, as a UTC ISO-8601
+     * timestamp, and **never null**. It is what the queue is sorted by,
+     * computed in SQL from the requested day, the delivery window's
+     * start and the branch's timezone, falling through the end of the
+     * requested day when there are no window hours, through UTC when
+     * there is no branch, and through `placed_at` when the customer
+     * named no day at all.
+     *
+     */
+    due_at: string;
+    payment: OrderDeskPayment | null;
+    delivery_job: OrderDeskDeliveryJob | null;
+    customer?: OrderDeskCustomerContact;
+};
+
+export type OrderDeskQueueEnvelope = {
+    data: Array<OrderDeskRow>;
+    meta: Meta & {
+        /**
+         * Rows in this response.
+         */
+        count: number;
+        /**
+         * The most rows this operation will ever return. There is no
+         * second page — the computed sort makes a cursor impossible —
+         * so the cap is stated rather than implied.
+         *
+         */
+        limit: number;
+        /**
+         * More orders matched than were returned. A screen showing a
+         * truncated queue has to say so: a silent truncation would hide
+         * exactly the backlog the queue exists to surface.
+         *
+         */
+        truncated: boolean;
+        window: OrderDeskWindow;
+        /**
+         * The day the window was measured from.
+         */
+        today: string;
+        /**
+         * The IANA zone that day was computed in — the named branch's,
+         * or `UTC` when no branch was named. Echoed because the client
+         * did not choose it and cannot derive it.
+         *
+         */
+        timezone: string;
+    };
+};
+
+/**
  * How much a guest token is allowed to do — the entire authorisation model
  * for the guest journey, in two values. `checkout_draft` is what an
  * anonymous browser is handed on its first request: enough to build a
@@ -20277,6 +20401,96 @@ export type CancelKitchenOrderResponses = {
 };
 
 export type CancelKitchenOrderResponse = CancelKitchenOrderResponses[keyof CancelKitchenOrderResponses];
+
+export type ListOrderDeskQueueData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Which slice of the open book. Defaults to `today`, which also carries
+         * every order with no requested date at all.
+         *
+         */
+        window?: OrderDeskWindow;
+        /**
+         * Narrow to one production site, and read `today` on that branch's
+         * clock. Omitted, the queue is organisation-wide and the day boundary
+         * is UTC.
+         *
+         */
+        branch_id?: Uuid;
+        /**
+         * Restrict to a subset of the two open states. Omitted, both are
+         * listed. `fulfilled` and `cancelled` are not accepted at all: they are
+         * finished with, and they are the order book's business.
+         *
+         */
+        status?: Array<'placed' | 'confirmed'>;
+        /**
+         * Restrict to one named delivery slot, by the window's own code.
+         */
+        delivery_window_code?: string;
+        /**
+         * Case-insensitive substring match on the order number, and on nothing else.
+         */
+        query?: string;
+    };
+    url: '/catalogue/order-desk/queue';
+};
+
+export type ListOrderDeskQueueErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderDeskQueueError = ListOrderDeskQueueErrors[keyof ListOrderDeskQueueErrors];
+
+export type ListOrderDeskQueueResponses = {
+    /**
+     * The open queue in due order, capped, with the day and clock it was measured against.
+     */
+    200: OrderDeskQueueEnvelope;
+};
+
+export type ListOrderDeskQueueResponse = ListOrderDeskQueueResponses[keyof ListOrderDeskQueueResponses];
 
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;

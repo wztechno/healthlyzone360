@@ -212,6 +212,32 @@ final class PermissionRegistry
             'order.view_organisation' => ['domain' => 'order', 'description' => 'View the orders placed with the organisation'],
             'order.manage_organisation' => ['domain' => 'order', 'description' => 'Confirm, fulfil and cancel the orders placed with the organisation'],
 
+            // C2 (order desk). A third order code, and the narrowest thing in
+            // this registry: it opens no screen and permits no action. It adds
+            // **two fields** to one row — the customer's name and the number
+            // somebody can ring them on — and that is the whole of it.
+            //
+            // Its own code rather than a corner of `order.view_organisation`,
+            // for the reason the K1.3 cost split exists one domain over.
+            // Reading the day's work and reading the people behind it are
+            // different needs: a kitchen hand working the queue needs to know
+            // that four bowls go out at six, and does not thereby need a
+            // directory of everybody the kitchen has ever fed. Every other
+            // kitchen-facing projection on the platform already draws that line
+            // — `SubscriptionPresenter::schedule()` carries no name and no
+            // address, and `KitchenOrderIndexController` refuses to *search* on
+            // either — and the desk queue is the one surface where the number
+            // has a job: somebody is phoning a caller back about tonight's
+            // delivery, and a desk that cannot see the number cannot make the
+            // call.
+            //
+            // `view_customer_contact`, not `view_customer`. There is no
+            // address behind this code, no allergen declaration, no order
+            // history and no account: a name and a telephone number, which is
+            // the least somebody can be called back on. Widening it later would
+            // be a new code, not a quiet extension of this one.
+            'order.view_customer_contact_organisation' => ['domain' => 'order', 'description' => "View the customer's name and telephone number on the order desk queue"],
+
             // B1 (quotations). The buyer side of a quotation — drafting
             // lines, submitting, accepting, declining — needs no permission
             // beyond organisation membership (B7: org-shared server drafts).

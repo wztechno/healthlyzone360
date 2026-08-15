@@ -1,0 +1,184 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Healthy360\Orders\OrderDesk\Presenters;
+
+use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Orders\Presenters\OrderPresenter;
+
+/**
+ * The wire shape of one row on the order desk queue.
+ *
+ * ## Why this one *is* built on `OrderPresenter::kitchen()`
+ *
+ * `OrderPresenter` states the platform's rule about projections and states it
+ * strongly: `customer()` and `kitchen()` are constructed independently, because
+ * a narrow shape produced by unsetting keys from a wide one is one careless
+ * refactor away from leaking. That rule is about **subtraction**, and this row
+ * does not subtract. It is the kitchen shape plus fields, served to the same
+ * audience, behind the same `order.view_organisation` the kitchen shape is
+ * behind — so composing is not the hazard the rule warns about, it is the
+ * defence against a *different* one. Rebuilding the twenty-odd kitchen fields
+ * here would mean two hand-maintained copies of the seller's projection, and
+ * the day somebody adds a column to one the desk would quietly serve a row the
+ * order book does not.
+ *
+ * The disclosure below is the part that is genuinely new, and it is the part
+ * that is gated.
+ *
+ * ## The desk row carries a name and a telephone number. Nothing else does.
+ *
+ * Every other kitchen-facing projection on this platform withholds the pair,
+ * and each does so with a reason worth repeating.
+ * `SubscriptionPresenter::schedule()` carries no customer name and no address
+ * because a production planner counts portions per window per day and every one
+ * of those fields would be personal data on a screen that does not need it.
+ * `KitchenOrderIndexController` will not even *search* on a name, because a
+ * staff-facing search across confidential columns is how a directory of
+ * everybody a kitchen has ever delivered to gets built one query at a time. The
+ * order book's own row (`OrderPresenter::kitchen()`) carries the delivery
+ * address — the food has to reach it — and still carries no name and no number.
+ *
+ * The desk is the one surface where those two facts have a job to do, and the
+ * job is a telephone call. An order is late, or its window has slipped, or the
+ * courier cannot find the building: somebody at the desk rings the customer.
+ * A queue that showed the work but not who to ring would send that person to
+ * another screen to look the customer up — which is a worse disclosure, because
+ * it is a customer lookup with no order to justify it, and it would happen
+ * dozens of times a shift.
+ *
+ * **What gates it.** `order.view_customer_contact_organisation`, checked by the
+ * controller and passed in as `$includeContact`. This class never asks who is
+ * calling. A presenter that read the Gate would be a presenter that could be
+ * reused somewhere the Gate answers a different question — a job, a report, an
+ * export — and be right by accident rather than by construction. Absent the
+ * permission the `customer` key is **not present at all** rather than present
+ * and null: null is a fact about the customer ("we hold no number"), and a
+ * screen cannot tell that apart from a fact about the reader ("you may not see
+ * it") unless the shapes differ.
+ *
+ * **What is deliberately not here.** No address beyond the delivery snapshot
+ * the order book already serves, no email, no allergen declaration, no account
+ * identifier the desk could pivot on, and no order history. A name and a number
+ * is the least somebody can be called back on, and the permission is named for
+ * exactly that much.
+ *
+ * ## `payment` and `delivery_job`
+ *
+ * Both are present and both are `null` in this phase. They are the seats the
+ * next two slices sit in — C2's receipts and C3's delivery jobs — and they are
+ * declared now, as typed nullable objects, so that the wire contract for a desk
+ * row does not change shape when they arrive. A client written against this
+ * phase branches on `payment === null` today and reads a receipt tomorrow; a
+ * client written against a row where the keys were simply absent would have to
+ * be changed twice.
+ */
+final class OrderDeskPresenter
+{
+    public function __construct(private readonly OrderPresenter $orders) {}
+
+    /**
+     * One queue row.
+     *
+     * `due_at` is computed in SQL and handed in rather than derived here, and
+     * that is the point of it: it is the value the list was **sorted** by, so a
+     * presenter that recomputed it could disagree with the ordering it is
+     * decorating. It is an instant, never null — the expression behind it falls
+     * through the delivery window's hours to the end of the requested day, and
+     * through a missing requested day to `placed_at`.
+     *
+     * @param  iterable<int, OrderLine>  $lines
+     * @param  array{display_name: string|null, phone: string|null}|null  $contact
+     * @return array{
+     *     id: string,
+     *     order_number: string,
+     *     organisation_id: string,
+     *     customer_account_id: string,
+     *     sales_channel_id: string,
+     *     branch_id: string|null,
+     *     status: string,
+     *     currency_code: string,
+     *     subtotal_minor: int,
+     *     delivery_fee_minor: int|null,
+     *     total_minor: int,
+     *     payment_method: string,
+     *     delivery: array{
+     *         label: string|null,
+     *         line_one: string,
+     *         line_two: string|null,
+     *         city: string|null,
+     *         area_name_en: string|null,
+     *         area_name_ar: string|null,
+     *         area_id: string|null,
+     *         zone_id: string|null,
+     *         window_code: string|null,
+     *         requested_date: string|null
+     *     },
+     *     placed_at: string,
+     *     confirmed_at: string|null,
+     *     fulfilled_at: string|null,
+     *     cancelled_at: string|null,
+     *     cancellation_reason: string|null,
+     *     created_by: string|null,
+     *     lock_version: int,
+     *     line_count: int,
+     *     lines: list<array{
+     *         id: string,
+     *         catalogue_item_id: string,
+     *         catalogue_item_variant_id: string|null,
+     *         name_en: string,
+     *         name_ar: string,
+     *         variant_label: string|null,
+     *         quantity: string,
+     *         unit_price_minor: int,
+     *         line_total_minor: int,
+     *         currency_code: string,
+     *         allergens: list<array{allergen_code: string, containment: string}>,
+     *         pack_summary: array<string, mixed>|null,
+     *         price_list_id: string|null,
+     *         price_list_item_id: string|null
+     *     }>,
+     *     created_at: string|null,
+     *     updated_at: string|null,
+     *     due_at: string,
+     *     payment: array<string, mixed>|null,
+     *     delivery_job: array<string, mixed>|null,
+     *     customer?: array{display_name: string|null, phone: string|null}
+     * }
+     */
+    public function row(
+        Order $order,
+        iterable $lines,
+        string $dueAt,
+        bool $includeContact,
+        ?array $contact = null,
+    ): array {
+        $row = $this->orders->kitchen($order, $lines);
+
+        $row['due_at'] = $dueAt;
+
+        // Declared now, filled later. See the class docblock: the seats exist
+        // so the shape does not change under a client when C2 and C3 land.
+        $row['payment'] = null;
+        $row['delivery_job'] = null;
+
+        if ($includeContact) {
+            // Null-safe throughout, and every level of it is reachable. The
+            // order may name an account that has been anonymised (J2 redacts
+            // `display_name`), an account whose owner never gave a number, or —
+            // in production, where this query runs under a row-level-security
+            // policy that scopes `customer_accounts` to their own user or their
+            // own organisation — no readable account row at all. A desk row
+            // that fell over on any of those would take the whole queue with
+            // it.
+            $row['customer'] = [
+                'display_name' => $contact['display_name'] ?? null,
+                'phone' => $contact['phone'] ?? null,
+            ];
+        }
+
+        return $row;
+    }
+}

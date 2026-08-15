@@ -3317,6 +3317,93 @@ export const zKitchenOrderEnvelope = z.object({
 });
 
 /**
+ * Which slice of the open book the desk is looking at — three questions
+ * somebody at a desk actually asks, rather than a date range that could
+ * express a hundred nobody does.
+ *
+ * **`today` includes orders with no requested date at all.** An order whose
+ * customer named no day is not scheduled for nothing, it is scheduled for
+ * as soon as possible, and a plain range would silently drop exactly the
+ * set nobody has committed to a day yet. `overdue` does not inherit that
+ * rule: a dateless order is never late, because there is no day it has
+ * missed. `next_7` runs from today to seven days after it, inclusive at
+ * both ends.
+ *
+ */
+export const zOrderDeskWindow = z.enum([
+    'today',
+    'overdue',
+    'next_7'
+]);
+
+/**
+ * **Always `null` in this phase.** The seat a payment receipt sits in once
+ * the desk can take money (phase C2b): what was tendered, how, by whom, and
+ * against which order.
+ *
+ * Declared now rather than added later so the row does not change shape
+ * under a client. A client written against this phase branches on
+ * `payment === null` today and reads a receipt tomorrow; one written
+ * against a row where the key was simply absent would have to be changed
+ * twice.
+ *
+ */
+export const zOrderDeskPayment = z.record(z.string(), z.unknown());
+
+/**
+ * **Always `null` in this phase.** The seat a delivery job sits in once
+ * confirming a delivery order creates one (phase C3): which driver has it,
+ * what state the run is in, and when it was assigned.
+ *
+ * Declared now for the reason `payment` is — see that schema.
+ *
+ */
+export const zOrderDeskDeliveryJob = z.record(z.string(), z.unknown());
+
+/**
+ * The customer's name, and the number somebody can ring them on.
+ *
+ * **Present only when the caller holds
+ * `order.view_customer_contact_organisation`**, and *absent* — not null —
+ * without it. Null here is a fact about the customer ("we hold no number
+ * for them"), and a screen could not tell that apart from a fact about the
+ * reader unless the two cases differed in shape.
+ *
+ * Either field may be null on its own: an anonymised account has no name,
+ * and a customer who never gave a number has no number. The number is
+ * served **verified or not** — a courier ringing about tonight's delivery
+ * needs the number the customer gave, not one the platform has proved.
+ *
+ * This is the whole of the disclosure. No address beyond the delivery
+ * snapshot the order book already serves, no email, no allergen
+ * declaration, no order history, and no account identifier to pivot on.
+ *
+ */
+export const zOrderDeskCustomerContact = z.object({
+    display_name: z.string().nullable(),
+    phone: z.string().nullable()
+});
+
+export const zOrderDeskRow = zKitchenOrder.and(z.object({
+    due_at: z.iso.datetime({ offset: true }),
+    payment: zOrderDeskPayment.nullable(),
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
+
+export const zOrderDeskQueueEnvelope = z.object({
+    data: z.array(zOrderDeskRow),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int(),
+        truncated: z.boolean(),
+        window: zOrderDeskWindow,
+        today: z.iso.date(),
+        timezone: z.string()
+    }))
+});
+
+/**
  * How much a guest token is allowed to do — the entire authorisation model
  * for the guest journey, in two values. `checkout_draft` is what an
  * anonymous browser is handed on its first request: enough to build a
@@ -9685,6 +9772,24 @@ export const zCancelKitchenOrderPath = z.object({
  * The cancelled order, carrying the reason it was cancelled for.
  */
 export const zCancelKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zListOrderDeskQueueHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListOrderDeskQueueQuery = z.object({
+    window: zOrderDeskWindow.optional(),
+    branch_id: zUuid.optional(),
+    status: z.array(z.enum(['placed', 'confirmed'])).optional(),
+    delivery_window_code: z.string().max(40).optional(),
+    query: z.string().max(60).optional()
+});
+
+/**
+ * The open queue in due order, capped, with the day and clock it was measured against.
+ */
+export const zListOrderDeskQueueResponse = zOrderDeskQueueEnvelope;
 
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 

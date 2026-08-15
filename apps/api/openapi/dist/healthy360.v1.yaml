@@ -221,6 +221,25 @@ tags:
       lifecycle decisions it may take on one. Organisation-scoped rather than
       branch-scoped, because a kitchen manager holding an organisation-wide
       membership selects no branch.
+  - name: Order desk
+    description: |
+      The same orders as the book beside it, asked a different question. The
+      book is a ledger — newest first, every status, cursor-walked — and answers
+      "what did we do last Tuesday". The desk is a **queue**: what is still open,
+      in the order it has to be worked, which is not a column but an instant
+      computed from the requested day, the delivery window's hours and the
+      branch's timezone.
+
+      Bounded rather than paginated, because the sort makes a cursor impossible
+      and because a desk queue is a list somebody works through rather than a
+      corpus somebody browses.
+
+      It is also the **only kitchen-facing family that carries a customer's name
+      and telephone number**, and it carries them behind their own permission.
+      Every other projection withholds the pair — a production schedule counts
+      portions, and the order book serves the address the food has to reach and
+      no name at all. The desk is where somebody rings the customer back, which
+      is the one job those two facts have.
   - name: Guest
     description: |
       Buying without an account, and asking to be forgotten afterwards.
@@ -9301,6 +9320,134 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '428':
           $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/queue:
+    get:
+      operationId: listOrderDeskQueue
+      tags:
+        - Order desk
+      summary: The open book, in the order it has to be worked
+      description: |
+        **Not a second order index.** `GET /catalogue/orders` is the kitchen's
+        whole book, newest first, walked with a cursor — the surface for "what
+        did we do last Tuesday". This is the surface for "what is next", which is
+        a different sort and therefore a different operation. They could not be
+        one: the due order is a computed expression across three tables, and the
+        cursor pagination re-sorts everything it walks, so a cursor and this
+        ordering are mutually exclusive by construction.
+
+        **`due_at` is the sort, and it is never null.** It is the instant an
+        order is actually due, built from the day the customer asked for, the
+        start of the delivery window they chose, and the timezone of the branch
+        that cooks it — with three fallbacks, each of which is a state the data
+        really reaches. A window with no hours, or no window at all, falls to the
+        **end** of the requested day: an order due "some time on Thursday" must
+        not sort ahead of one due at nine that morning. No branch falls to UTC,
+        the only zone that is not a guess. And no requested day at all falls to
+        `placed_at` — an order nobody named a day for is not unscheduled, it is
+        as soon as possible, and ordering it by when it arrived is the only
+        ordering fair to whoever has waited longest.
+
+        **Bounded, not paginated.** At most two hundred rows, with
+        `meta.truncated` telling the screen the truth when more matched. A desk
+        queue is a list somebody works through; a kitchen with more than two
+        hundred open orders in one window has a problem the screen should state
+        rather than hide behind a page two nobody would click.
+
+        `window` is a vocabulary rather than a date range because these are the
+        three questions a desk asks. `today` **includes orders with no requested
+        date**; `overdue` deliberately does not, because a dateless order is
+        never late.
+
+        `branch_id` does two jobs. It narrows an organisation-wide queue to one
+        production site — a *narrowing* of a book the caller can already see,
+        which is why it is a query parameter and not `X-Branch-Id` — and it names
+        the clock `today` is read on, because a branch is a place and a place has
+        a working day. Unnamed, the day boundary is UTC. `meta.today` and
+        `meta.timezone` say which was used.
+
+        `query` searches the **order number only**, case-insensitively, on the
+        order book's argument verbatim: a staff-facing search across confidential
+        columns is how a directory of everybody a kitchen has ever delivered to
+        gets built one query at a time. That the row beside it may carry a name
+        changes nothing — reading a name the kitchen already has an order for is
+        a disclosure with a purpose; matching on one turns the queue into a
+        lookup by person.
+
+        Requires `order.view_organisation`. The `customer` object additionally
+        requires `order.view_customer_contact_organisation` and is **absent**
+        without it — absent rather than null, because null is a fact about the
+        customer and a screen cannot tell that apart from a fact about the reader
+        unless the shapes differ.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: window
+          in: query
+          required: false
+          description: |
+            Which slice of the open book. Defaults to `today`, which also carries
+            every order with no requested date at all.
+          schema:
+            $ref: '#/components/schemas/OrderDeskWindow'
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            Narrow to one production site, and read `today` on that branch's
+            clock. Omitted, the queue is organisation-wide and the day boundary
+            is UTC.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: status
+          in: query
+          required: false
+          description: |
+            Restrict to a subset of the two open states. Omitted, both are
+            listed. `fulfilled` and `cancelled` are not accepted at all: they are
+            finished with, and they are the order book's business.
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - placed
+                - confirmed
+          style: form
+          explode: true
+        - name: delivery_window_code
+          in: query
+          required: false
+          description: Restrict to one named delivery slot, by the window's own code.
+          schema:
+            type: string
+            maxLength: 40
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring match on the order number, and on nothing else.
+          schema:
+            type: string
+            maxLength: 60
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The open queue in due order, capped, with the day and clock it was measured against.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskQueueEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /guest/sessions:
@@ -26455,6 +26602,175 @@ components:
               $ref: '#/components/schemas/KitchenOrder'
         meta:
           $ref: '#/components/schemas/Meta'
+    OrderDeskWindow:
+      type: string
+      enum:
+        - today
+        - overdue
+        - next_7
+      description: |
+        Which slice of the open book the desk is looking at — three questions
+        somebody at a desk actually asks, rather than a date range that could
+        express a hundred nobody does.
+
+        **`today` includes orders with no requested date at all.** An order whose
+        customer named no day is not scheduled for nothing, it is scheduled for
+        as soon as possible, and a plain range would silently drop exactly the
+        set nobody has committed to a day yet. `overdue` does not inherit that
+        rule: a dateless order is never late, because there is no day it has
+        missed. `next_7` runs from today to seven days after it, inclusive at
+        both ends.
+    OrderDeskPayment:
+      type: object
+      description: |
+        **Always `null` in this phase.** The seat a payment receipt sits in once
+        the desk can take money (phase C2b): what was tendered, how, by whom, and
+        against which order.
+
+        Declared now rather than added later so the row does not change shape
+        under a client. A client written against this phase branches on
+        `payment === null` today and reads a receipt tomorrow; one written
+        against a row where the key was simply absent would have to be changed
+        twice.
+      additionalProperties: true
+    OrderDeskDeliveryJob:
+      type: object
+      description: |
+        **Always `null` in this phase.** The seat a delivery job sits in once
+        confirming a delivery order creates one (phase C3): which driver has it,
+        what state the run is in, and when it was assigned.
+
+        Declared now for the reason `payment` is — see that schema.
+      additionalProperties: true
+    OrderDeskCustomerContact:
+      type: object
+      required:
+        - display_name
+        - phone
+      description: |
+        The customer's name, and the number somebody can ring them on.
+
+        **Present only when the caller holds
+        `order.view_customer_contact_organisation`**, and *absent* — not null —
+        without it. Null here is a fact about the customer ("we hold no number
+        for them"), and a screen could not tell that apart from a fact about the
+        reader unless the two cases differed in shape.
+
+        Either field may be null on its own: an anonymised account has no name,
+        and a customer who never gave a number has no number. The number is
+        served **verified or not** — a courier ringing about tonight's delivery
+        needs the number the customer gave, not one the platform has proved.
+
+        This is the whole of the disclosure. No address beyond the delivery
+        snapshot the order book already serves, no email, no allergen
+        declaration, no order history, and no account identifier to pivot on.
+      properties:
+        display_name:
+          type:
+            - string
+            - 'null'
+        phone:
+          type:
+            - string
+            - 'null'
+          description: E.164, as the contact point stores it.
+      additionalProperties: false
+    OrderDeskRow:
+      allOf:
+        - $ref: '#/components/schemas/KitchenOrder'
+        - type: object
+          required:
+            - due_at
+            - payment
+            - delivery_job
+          properties:
+            due_at:
+              type: string
+              format: date-time
+              description: |
+                The instant this order is actually due, as a UTC ISO-8601
+                timestamp, and **never null**. It is what the queue is sorted by,
+                computed in SQL from the requested day, the delivery window's
+                start and the branch's timezone, falling through the end of the
+                requested day when there are no window hours, through UTC when
+                there is no branch, and through `placed_at` when the customer
+                named no day at all.
+            payment:
+              oneOf:
+                - $ref: '#/components/schemas/OrderDeskPayment'
+                - type: 'null'
+            delivery_job:
+              oneOf:
+                - $ref: '#/components/schemas/OrderDeskDeliveryJob'
+                - type: 'null'
+            customer:
+              $ref: '#/components/schemas/OrderDeskCustomerContact'
+          description: |
+            One row of the desk queue: everything the order book's row carries,
+            plus the queue's own arithmetic and the two seats the next phases
+            fill.
+
+            The `allOf` is honest here rather than a documentation convenience.
+            This shape really is the kitchen shape **plus** fields — the server
+            composes it — and that is safe where a narrowing would not be,
+            because the desk is served to the same audience behind the same
+            `order.view_organisation`. Rebuilding the seller's twenty-odd fields
+            a second time would mean two hand-maintained copies, and the day
+            somebody added a column to one the desk would quietly serve a row the
+            book does not.
+
+            `customer` is **not** in `required`: it is present only for a caller
+            holding `order.view_customer_contact_organisation`.
+    OrderDeskQueueEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskRow'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - count
+                - limit
+                - truncated
+                - window
+                - today
+                - timezone
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                  description: Rows in this response.
+                limit:
+                  type: integer
+                  description: |
+                    The most rows this operation will ever return. There is no
+                    second page — the computed sort makes a cursor impossible —
+                    so the cap is stated rather than implied.
+                truncated:
+                  type: boolean
+                  description: |
+                    More orders matched than were returned. A screen showing a
+                    truncated queue has to say so: a silent truncation would hide
+                    exactly the backlog the queue exists to surface.
+                window:
+                  $ref: '#/components/schemas/OrderDeskWindow'
+                today:
+                  type: string
+                  format: date
+                  description: The day the window was measured from.
+                timezone:
+                  type: string
+                  description: |
+                    The IANA zone that day was computed in — the named branch's,
+                    or `UTC` when no branch was named. Echoed because the client
+                    did not choose it and cannot derive it.
     GuestSessionGrade:
       type: string
       enum:
