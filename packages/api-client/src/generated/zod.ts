@@ -3689,6 +3689,88 @@ export const zOrderDeskQuoteEnvelope = z.object({
 });
 
 /**
+ * A customer as the order desk sees them: enough to pick the right one out
+ * of a list of five, and nothing more.
+ *
+ * `display_name` and `phone` are the disclosure this shape exists for, and
+ * they are the same pair the queue row carries behind the same permission
+ * code. The two surfaces deliberately agree — a search revealing more than
+ * the queue would make the queue's gating pointless.
+ *
+ * **What is absent is each its own decision.** No email: a number is what a
+ * desk rings, and an address is what a marketing list is built from. No
+ * account number — it is confidential, it is what a person quotes to
+ * *support*, and a desk that could read one could quote it back to a caller
+ * who is not the account holder. No addresses: a street somebody lives on
+ * belongs to the order going there, not to a search result. No order
+ * history and no count of other kitchens, so this never becomes the surface
+ * on which one kitchen reads another's customer relationships. No status,
+ * because the desk bypasses the activation checklist and it would change
+ * nothing an agent could do.
+ *
+ */
+export const zOrderDeskCustomer = z.object({
+    id: zUuid,
+    display_name: z.string().nullable(),
+    phone: z.string().nullable(),
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    has_orders_with_org: z.boolean()
+});
+
+export const zOrderDeskCustomersEnvelope = z.object({
+    data: z.array(zOrderDeskCustomer),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int()
+    }))
+});
+
+export const zOrderDeskCustomerEnvelope = z.object({
+    data: z.object({
+        customer: zOrderDeskCustomer,
+        possible_duplicates: z.array(zOrderDeskCustomer)
+    }),
+    meta: zMeta
+});
+
+export const zCreateOrderDeskCustomerRequest = z.object({
+    display_name: z.string().max(255),
+    phone: z.string().max(255),
+    preferred_language_code: z.string().length(2).nullish(),
+    country_code: z.string().length(2).nullish()
+});
+
+/**
+ * The customer's own address body minus `address_type`, `contact_point_id`
+ * and `is_default` — see the operation for why each is absent. Every length
+ * is the column's.
+ *
+ * `delivery_area_id` is a `uuid` and nothing more. Whether anybody
+ * delivers there is asked at save time and answered as
+ * `address.area_not_served`, which is the sentence the agent reads out to
+ * the customer; an `exists` rule would refuse an unknown identifier as
+ * "invalid" and still say nothing about coverage.
+ *
+ */
+export const zAddOrderDeskCustomerAddressRequest = z.object({
+    delivery_area_id: zUuid,
+    label: z.string().max(60).nullish(),
+    line_one: z.string().max(255),
+    line_two: z.string().max(255).nullish(),
+    building: z.string().max(120).nullish(),
+    floor: z.string().max(40).nullish(),
+    apartment: z.string().max(40).nullish(),
+    directions: z.string().max(1000).nullish(),
+    postal_code: z.string().max(20).nullish()
+});
+
+/**
  * How much a guest token is allowed to do — the entire authorisation model
  * for the guest journey, in two values. `checkout_draft` is what an
  * anonymous browser is handed on its first request: enough to build a
@@ -10089,6 +10171,52 @@ export const zPlaceOrderDeskOrderHeaders = z.object({
  *
  */
 export const zPlaceOrderDeskOrderResponse = zKitchenOrderEnvelope;
+
+export const zSearchOrderDeskCustomersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSearchOrderDeskCustomersQuery = z.object({
+    query: z.string().min(3).max(60)
+});
+
+/**
+ * The matching customers of this kitchen, capped, alphabetically by name.
+ */
+export const zSearchOrderDeskCustomersResponse = zOrderDeskCustomersEnvelope;
+
+export const zCreateOrderDeskCustomerBody = zCreateOrderDeskCustomerRequest;
+
+export const zCreateOrderDeskCustomerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The customer as the desk sees them, and anybody already on that
+ * number. A replay of a request this key already answered returns the
+ * same body and the same status, with `Idempotency-Replayed: true`.
+ *
+ */
+export const zCreateOrderDeskCustomerResponse = zOrderDeskCustomerEnvelope;
+
+export const zAddOrderDeskCustomerAddressBody = zAddOrderDeskCustomerAddressRequest;
+
+export const zAddOrderDeskCustomerAddressHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAddOrderDeskCustomerAddressPath = z.object({
+    account: zUuid
+});
+
+/**
+ * The address was added, with whether anybody delivers to it today.
+ */
+export const zAddOrderDeskCustomerAddressResponse = zCustomerAddressEnvelope;
 
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 

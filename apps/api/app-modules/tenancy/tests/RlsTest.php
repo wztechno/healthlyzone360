@@ -931,16 +931,25 @@ it('still migrates and seeds under the owner role with row-level security enable
     // of the six protected tables with no session context whatsoever.
     $this->seed();
 
-    // Eight platform template roles since K1.1: the four foundation roles plus
-    // kitchen_manager, kitchen_chef, kitchen_staff and commercial_manager.
-    // Pinned so a new template role has to be a deliberate act. K1.3 widened
-    // three of them with `recipe.view_costs_organisation` and added none; K1.6
-    // widened kitchen_manager and commercial_manager with the plan pair and,
-    // again, added none. K1.7 widened the same two with
+    // **Nine** platform template roles since C2: the four foundation roles,
+    // K1.1's kitchen_manager, kitchen_chef, kitchen_staff and
+    // commercial_manager, and now order_desk_agent. Pinned so a new template
+    // role has to be a deliberate act. K1.3 widened three of them with
+    // `recipe.view_costs_organisation` and added none; K1.6 widened
+    // kitchen_manager and commercial_manager with the plan pair and, again,
+    // added none. K1.7 widened the same two with
     // `delivery_zone.manage_organisation` — and kitchen_manager alone with
     // `branch.manage_current`, so the role that runs the kitchen can state
     // when it trades — and still added none.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8)
+    //
+    // C2 is the first phase since K1.1 to add one, and it adds exactly one. The
+    // order desk is a job somebody does rather than a widening of a job somebody
+    // already had: an agent holds the three desk codes plus the reads that make
+    // a counter workable, and no existing role is that shape — kitchen_staff
+    // holds no order codes at all, and kitchen_manager holds strictly more.
+    // `organisationTemplateRoleCodes()` in PermissionRegistryTest names the same
+    // nine and is the other half of this pin.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(9)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(ConsentDefinition::query()->count())->toBeGreaterThan(1);

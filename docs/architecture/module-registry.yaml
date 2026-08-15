@@ -496,11 +496,29 @@ modules:
     description: Persisted single-kitchen baskets — one open cart per customer per channel, lines validated on the way in by a server-side price probe that refuses unpublished, unoffered, unpriced and cross-currency articles, and a daily sweep that closes stale baskets without deleting them. Holds no amount of any kind; the probe establishes orderability and its price is deliberately discarded.
     depends_on: [Support, Organisations, Tenancy, Audit, Catalogues, Pricing, Customers]
 
+  # C2 opens one new edge, Orders → Identity, and it is opened because the desk
+  # **writes** a contact point rather than reading one. The queue deliberately
+  # did not open it: reading two columns of `contact_points` through
+  # `DB::table` was the right size for a lookup, and `OrderDeskQueue::
+  # contactsFor()` says so in as many words. Writing is a different act — a cold
+  # caller's telephone number has to be normalised once, hashed from the
+  # normalised form, and refused if somebody else has already proven it, and
+  # `ContactPointRegistry` is the single write path where all three are true. A
+  # desk that inserted the row itself would be a second, quieter definition of
+  # what a contact point is, and the duplicate-detection index would stop
+  # detecting duplicates.
+  #
+  # The edge runs Orders → Identity and nothing runs back — Identity depends on
+  # Support and ReferenceData alone — so the graph stays acyclic. The
+  # normaliser travels with the registry for the same reason: the desk's
+  # customer search compares against `value_normalised`, and a raw number
+  # compared against a stored E.164 one matches nothing while looking exactly
+  # like "no such customer".
   - name: Orders
     status: foundation
     phase: 2
     description: Order capture — placement that reprices every line authoritatively, snapshots the commercial half of each article and the delivery address, resolves the zone fee and the branch cut-off, and refuses in one answer carrying every reason; the placed/confirmed/fulfilled/cancelled state machine; service-level idempotency over the shared key table; cash on delivery only, with no payment column of any kind. Fulfilment orchestration and delivery operations arrive with F1.
-    depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Kitchens, Cart]
+    depends_on: [Support, ReferenceData, Identity, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Kitchens, Cart]
 
   # Flipped to `foundation` by S1, with the scope narrowed to what the approved
   # semantics actually build (docs/s1-subscription-semantics-proposal.md): a

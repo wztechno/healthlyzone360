@@ -108,6 +108,89 @@ final class CustomerAccountLifecycle
     }
 
     /**
+     * Open a consumer account for somebody a member of staff is writing down.
+     *
+     * The cold caller: a person rings a kitchen having never used the platform,
+     * and there is no account for the order to be placed against. Every other
+     * way an account comes into being is the customer doing it — registering,
+     * checking out as a guest, being provisioned with a corporate buyer — and
+     * this is the one path where the record is made *about* somebody who is not
+     * at a keyboard.
+     *
+     * **A `b2c` account with no user**, which the shape CHECK admits from
+     * 2026_08_16_003006 onwards under `origin = 'staff'`. Not a guest: a guest
+     * is temporary by construction and the expiry sweeps would reap a kitchen's
+     * Thursday regular between two orders. The account is durable and claimable
+     * — the day this person registers, G1's conversion attaches a user to a row
+     * that already holds their number, their address and their order history.
+     *
+     * **`provisional_expires_at` stays NULL**, which is the second half of the
+     * same argument. That column is what `PurgeAbandonedProvisionalAccounts`
+     * reads, and an account somebody at a desk took the trouble to write down is
+     * not an abandoned sign-up. The purge is guarded twice over —
+     * `CustomerAccountOrigin::isPurgeable()` excludes `staff`, and the job also
+     * requires a non-null deadline — so neither guard is load-bearing alone.
+     *
+     * **Provisional, and it stays provisional.** Activation is the evaluator's
+     * verdict and a cold caller satisfies none of it: no verified email, no
+     * declared dietary answer. That is not an obstacle to selling to them,
+     * because the desk's placement path names `placed_on_behalf_by` and skips
+     * the checklist — the member of staff in front of the customer *is* the
+     * verification it was asking for. Marking the account active here would be
+     * the same bypass, written once, in the wrong place, where every other
+     * surface would inherit it.
+     *
+     * Not idempotent, and deliberately unlike `openConsumerAccount()`. There is
+     * no user to converge on and no unique index to converge against: two
+     * callers with the same name are two customers, and a search-first workflow
+     * plus an `Idempotency-Key` on the endpoint is what stops a double tap
+     * becoming two rows.
+     *
+     * @throws RandomException
+     */
+    public function openStaffProvisionedAccount(
+        string $displayName,
+        string $actorUserId,
+        ?string $preferredLanguageCode = null,
+        ?string $countryCode = null,
+    ): CustomerAccount {
+        return DB::transaction(function () use ($displayName, $actorUserId, $preferredLanguageCode, $countryCode): CustomerAccount {
+            $account = CustomerAccount::query()->create([
+                'account_number' => $this->numbers->next(),
+                'account_type' => CustomerAccountType::B2c,
+                'user_id' => null,
+                'organisation_id' => null,
+                'status' => CustomerAccountStatus::Provisional,
+                'origin' => CustomerAccountOrigin::Staff,
+                'display_name' => $displayName,
+                'preferred_language_code' => $preferredLanguageCode,
+                'country_code' => $countryCode,
+                'provisional_expires_at' => null,
+                'last_activity_at' => now(),
+                'created_by' => $actorUserId,
+            ]);
+
+            // The same event `openConsumerAccount()` records, with the same
+            // three metadata keys, so that "how did this account come to exist"
+            // is one query over one code rather than a union of two. The origin
+            // is what tells the two apart, and it is already in the metadata.
+            $this->audit->record(
+                'customer.account_opened',
+                actorUserId: $actorUserId,
+                subjectType: 'customer_account',
+                subjectId: (string) $account->getKey(),
+                metadata: [
+                    'account_type' => $account->account_type->value,
+                    'origin' => CustomerAccountOrigin::Staff->value,
+                    'status' => $account->status->value,
+                ],
+            );
+
+            return $account;
+        });
+    }
+
+    /**
      * Activate, if the evaluator agrees.
      *
      * @throws AccountTransitionRejected

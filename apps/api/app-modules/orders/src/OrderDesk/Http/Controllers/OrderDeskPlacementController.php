@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Healthy360\Cart\Services\ChannelCurrency;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\PaymentMethod;
+use Healthy360\Orders\OrderDesk\Http\Concerns\RequiresIdempotencyKey;
 use Healthy360\Orders\OrderDesk\Http\Concerns\ResolvesDeskParty;
 use Healthy360\Orders\OrderDesk\Http\Requests\PlaceOrderDeskRequest;
 use Healthy360\Orders\OrderDesk\Services\DeskBasket;
@@ -21,7 +22,6 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * POST /api/v1/catalogue/order-desk/orders — the kitchen sells something
@@ -115,6 +115,7 @@ use Illuminate\Http\Request;
  */
 final class OrderDeskPlacementController
 {
+    use RequiresIdempotencyKey;
     use ResolvesDeskParty;
 
     public function __construct(
@@ -132,7 +133,10 @@ final class OrderDeskPlacementController
      */
     public function __invoke(PlaceOrderDeskRequest $request): JsonResponse
     {
-        $idempotencyKey = $this->requiredIdempotencyKey($request);
+        $idempotencyKey = $this->requiredIdempotencyKey(
+            $request,
+            'A desk sale has no basket to be converted twice, so a retry with no key would place a second order nobody could tell from the first. Send an Idempotency-Key.',
+        );
 
         $payload = $request->payload();
 
@@ -204,23 +208,5 @@ final class OrderDeskPlacementController
         }
 
         return $userId;
-    }
-
-    /**
-     * @throws ApiException
-     */
-    private function requiredIdempotencyKey(Request $request): string
-    {
-        $key = $request->header('Idempotency-Key');
-
-        if (! is_string($key) || trim($key) === '') {
-            throw new ApiException(
-                ErrorCode::RequestInvalid,
-                'A desk sale has no basket to be converted twice, so a retry with no key would place a second order nobody could tell from the first. Send an Idempotency-Key.',
-                ['header' => 'Idempotency-Key'],
-            );
-        }
-
-        return trim($key);
     }
 }

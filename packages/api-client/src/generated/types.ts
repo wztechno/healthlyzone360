@@ -5016,6 +5016,149 @@ export type OrderDeskQuoteEnvelope = {
 };
 
 /**
+ * A customer as the order desk sees them: enough to pick the right one out
+ * of a list of five, and nothing more.
+ *
+ * `display_name` and `phone` are the disclosure this shape exists for, and
+ * they are the same pair the queue row carries behind the same permission
+ * code. The two surfaces deliberately agree — a search revealing more than
+ * the queue would make the queue's gating pointless.
+ *
+ * **What is absent is each its own decision.** No email: a number is what a
+ * desk rings, and an address is what a marketing list is built from. No
+ * account number — it is confidential, it is what a person quotes to
+ * *support*, and a desk that could read one could quote it back to a caller
+ * who is not the account holder. No addresses: a street somebody lives on
+ * belongs to the order going there, not to a search result. No order
+ * history and no count of other kitchens, so this never becomes the surface
+ * on which one kitchen reads another's customer relationships. No status,
+ * because the desk bypasses the activation checklist and it would change
+ * nothing an agent could do.
+ *
+ */
+export type OrderDeskCustomer = {
+    id: Uuid;
+    /**
+     * Null on an anonymised account.
+     */
+    display_name: string | null;
+    /**
+     * E.164, as the contact point stores it — the account's primary number
+     * where it has one, otherwise the account holder's. Resolved across
+     * both ownership arms because a registered customer's number hangs off
+     * their identity and a desk-provisioned caller's hangs off the account,
+     * and answering for only one would read as "no phone" rather than as a
+     * bug. Served verified or not.
+     *
+     */
+    phone: string | null;
+    /**
+     * How the record came to exist. `staff` is a caller some kitchen wrote
+     * down at a desk; it is what an agent checks when deciding whether the
+     * details on file were typed or were given by the customer themselves.
+     *
+     */
+    origin: 'self_service' | 'guest' | 'b2b_provisioning' | 'staff' | 'import';
+    /**
+     * Whether **this** kitchen holds at least one order against the
+     * account — a regular versus a name in the book. Scoped to the asking
+     * organisation and silent about anybody else's trade. It is also the
+     * first arm of the scoping rule restated as a fact: a `false` here
+     * means the row is visible on the second arm alone, because somebody
+     * who works at this kitchen wrote them down.
+     *
+     */
+    has_orders_with_org: boolean;
+};
+
+export type OrderDeskCustomersEnvelope = {
+    data: Array<OrderDeskCustomer>;
+    meta: Meta & {
+        count: number;
+        /**
+         * The most rows this operation will ever return. There is no
+         * second page: the agent has somebody on the telephone, and
+         * the answer to a full list is a longer query.
+         *
+         */
+        limit: number;
+    };
+};
+
+export type OrderDeskCustomerEnvelope = {
+    data: {
+        customer: OrderDeskCustomer;
+        /**
+         * Accounts **already** holding the number just recorded, in this
+         * kitchen's scope, computed before the new row existed. Empty is
+         * the ordinary case and is always present rather than omitted.
+         *
+         * This is a warning, never a refusal: two customers genuinely share
+         * a telephone — a household, a reception desk, an office floor —
+         * and the platform's uniqueness rule applies only to verified
+         * contacts, so a second unverified one is legal. Refusing would
+         * make an existing customer's flatmate unserveable at a counter
+         * with somebody waiting.
+         *
+         */
+        possible_duplicates: Array<OrderDeskCustomer>;
+    };
+    meta: Meta;
+};
+
+export type CreateOrderDeskCustomerRequest = {
+    /**
+     * What the caller says their name is. One field rather than a
+     * given/family pair, because the platform's customer may be a company.
+     *
+     */
+    display_name: string;
+    /**
+     * **Required, because a cold caller is a telephone number.** It is how
+     * the kitchen rings back about tonight's delivery and what the next
+     * agent searches on when the same person calls again; an account
+     * without one is a name nobody can act on. Further numbers are added
+     * afterwards through the customer's own contact operations.
+     *
+     * Already in E.164, or `422` on this field. The platform does not infer
+     * a country code from a local number — guessing would send somebody
+     * else's handset a passcode that unlocks an account — so the desk asks
+     * for it.
+     *
+     */
+    phone: string;
+    /**
+     * A language the platform knows; unknown codes are `422` rather than a foreign-key failure.
+     */
+    preferred_language_code?: string | null;
+    country_code?: string | null;
+};
+
+/**
+ * The customer's own address body minus `address_type`, `contact_point_id`
+ * and `is_default` — see the operation for why each is absent. Every length
+ * is the column's.
+ *
+ * `delivery_area_id` is a `uuid` and nothing more. Whether anybody
+ * delivers there is asked at save time and answered as
+ * `address.area_not_served`, which is the sentence the agent reads out to
+ * the customer; an `exists` rule would refuse an unknown identifier as
+ * "invalid" and still say nothing about coverage.
+ *
+ */
+export type AddOrderDeskCustomerAddressRequest = {
+    delivery_area_id: Uuid;
+    label?: string | null;
+    line_one: string;
+    line_two?: string | null;
+    building?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    directions?: string | null;
+    postal_code?: string | null;
+};
+
+/**
  * How much a guest token is allowed to do — the entire authorisation model
  * for the guest journey, in two values. `checkout_draft` is what an
  * anonymous browser is handed on its first request: enough to build a
@@ -21180,6 +21323,210 @@ export type PlaceOrderDeskOrderResponses = {
 };
 
 export type PlaceOrderDeskOrderResponse = PlaceOrderDeskOrderResponses[keyof PlaceOrderDeskOrderResponses];
+
+export type SearchOrderDeskCustomersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * A name fragment, or a telephone number in E.164.
+         */
+        query: string;
+    };
+    url: '/catalogue/order-desk/customers';
+};
+
+export type SearchOrderDeskCustomersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SearchOrderDeskCustomersError = SearchOrderDeskCustomersErrors[keyof SearchOrderDeskCustomersErrors];
+
+export type SearchOrderDeskCustomersResponses = {
+    /**
+     * The matching customers of this kitchen, capped, alphabetically by name.
+     */
+    200: OrderDeskCustomersEnvelope;
+};
+
+export type SearchOrderDeskCustomersResponse = SearchOrderDeskCustomersResponses[keyof SearchOrderDeskCustomersResponses];
+
+export type CreateOrderDeskCustomerData = {
+    body: CreateOrderDeskCustomerRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * As `Idempotency-Key`, but mandatory. Used where the command creates
+         * records that cannot be un-created — provisioning a tenant — and where
+         * a retry with no key would therefore be unrecoverable rather than
+         * merely wasteful. Absent is **400** `request.invalid`.
+         *
+         */
+        'Idempotency-Key': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/customers';
+};
+
+export type CreateOrderDeskCustomerErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateOrderDeskCustomerError = CreateOrderDeskCustomerErrors[keyof CreateOrderDeskCustomerErrors];
+
+export type CreateOrderDeskCustomerResponses = {
+    /**
+     * The customer as the desk sees them, and anybody already on that
+     * number. A replay of a request this key already answered returns the
+     * same body and the same status, with `Idempotency-Replayed: true`.
+     *
+     */
+    201: OrderDeskCustomerEnvelope;
+};
+
+export type CreateOrderDeskCustomerResponse = CreateOrderDeskCustomerResponses[keyof CreateOrderDeskCustomerResponses];
+
+export type AddOrderDeskCustomerAddressData = {
+    body: AddOrderDeskCustomerAddressRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The customer account, as returned by the desk's customer search or create.
+         */
+        account: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/customers/{account}/addresses';
+};
+
+export type AddOrderDeskCustomerAddressErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddOrderDeskCustomerAddressError = AddOrderDeskCustomerAddressErrors[keyof AddOrderDeskCustomerAddressErrors];
+
+export type AddOrderDeskCustomerAddressResponses = {
+    /**
+     * The address was added, with whether anybody delivers to it today.
+     */
+    201: CustomerAddressEnvelope;
+};
+
+export type AddOrderDeskCustomerAddressResponse = AddOrderDeskCustomerAddressResponses[keyof AddOrderDeskCustomerAddressResponses];
 
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;

@@ -186,6 +186,9 @@ use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
@@ -1591,6 +1594,64 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/orders', OrderDeskPlacementController::class)
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | The people on the other end of the telephone (C2)
+            |--------------------------------------------------------------
+            |
+            | Two authorities, deliberately not one, and the split is the
+            | reason the search sits behind the *reading* code.
+            |
+            | Searching reads back the **name and telephone number of people
+            | who never spoke to you**, one query at a time — which is
+            | exactly the disclosure `order.view_customer_contact_
+            | organisation` was minted for, and the same pair the queue row
+            | carries behind the same code. A search that revealed more than
+            | the queue would make the queue's gating pointless.
+            |
+            | Creating is the other code. `customer.create_on_behalf_
+            | organisation` writes down a member of the public who is not at
+            | a keyboard, and the account it opens outlives the sale; a
+            | kitchen may reasonably want an agent who can take an order for
+            | somebody already on file without being able to add people to
+            | the file. The address endpoint is behind the creation code
+            | rather than the reading one for the plainest of reasons: it
+            | writes a street somebody lives on.
+            |
+            | **What scopes them is the application, not the database.** A
+            | `customer_accounts` row carries no organisation — the same
+            | person orders from four kitchens with one account — and the
+            | row-level-security policy admits every ownerless row, which is
+            | every staff-provisioned one, to every kitchen session. The rule
+            | is `DeskCustomerDirectory`'s: an order with this kitchen, or
+            | provisioned by somebody holding an active membership of it.
+            | Migration 2026_08_16_003006 states the concession rather than
+            | implying otherwise.
+            |
+            | `idempotency` on the customer create and **not** on the address.
+            | Nothing in the schema would notice a second identical
+            | customer — the `b2c` unique index is partial on `user_id` and a
+            | staff-provisioned row has none — so a double tap is two legal
+            | people and no row says which was the mistake. A double-tapped
+            | address is a visible duplicate on the screen the agent is
+            | already looking at, and `POST /me/addresses` carries no key
+            | either.
+            |
+            */
+            Route::middleware('permission:order.view_customer_contact_organisation')->group(function (): void {
+                Route::get('/order-desk/customers', OrderDeskCustomerIndexController::class)
+                    ->name('catalogue.order-desk.customers.index');
+            });
+
+            Route::middleware('permission:customer.create_on_behalf_organisation')->group(function (): void {
+                Route::post('/order-desk/customers', OrderDeskCustomerStoreController::class)
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.customers.store');
+
+                Route::post('/order-desk/customers/{account}/addresses', OrderDeskCustomerAddressStoreController::class)
+                    ->name('catalogue.order-desk.customers.addresses.store');
             });
 
             /*

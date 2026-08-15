@@ -9558,6 +9558,296 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/order-desk/customers:
+    get:
+      operationId: searchOrderDeskCustomers
+      tags: [Order desk]
+      summary: Who is this on the telephone?
+      description: |
+        The first thing a desk agent does on every call that is not a walk-in,
+        and **the door every customer identifier the desk uses comes through**.
+        The quote, the sale and the address operation all take a
+        `customer_account_id`; this is where one legitimately comes from, which
+        is what lets those operations trust an identifier without an
+        organisation filter of their own.
+
+        ## `order.view_customer_contact_organisation`, not the creation code
+
+        The permission here is the **reading** one, and the split is the point of
+        having two codes. Opening an account writes down somebody who told you
+        their details; searching reads back the name and telephone number of
+        people who never spoke to you, one query at a time — which is exactly the
+        disclosure the contact code exists for, and the same pair the queue row
+        carries behind the same code. A search revealing more than the queue
+        would make the queue's gating pointless.
+
+        ## Scope: two arms, and the application is the whole control
+
+        An account is returned only when **either** this organisation holds at
+        least one order against it, **or** its origin is `staff` and it was
+        created by a user holding an **active** membership of this organisation.
+
+        There is no third arm and no database predicate doing this work. A
+        `customer_accounts` row carries no organisation — the same person orders
+        from four kitchens with one account — and a staff-provisioned account has
+        neither a user nor an organisation, which is the shape the row-level
+        security policy admits to every kitchen session. The scoping rule, the
+        permission code, and the fact that an account identifier is otherwise
+        unobtainable are the entire isolation story, and the schema migration
+        that made such rows possible states that rather than implying otherwise.
+
+        A consequence worth naming: a member of staff who works at two kitchens
+        holds an active membership of both, so a caller they wrote down at one is
+        visible at the other. Nothing records which kitchen somebody was sitting
+        in when they typed a name, and the alternative — dropping the second arm
+        — would lose a caller between the tap that creates them and the tap that
+        sells to them.
+
+        ## Matching
+
+        `query` matches the **display name** as a case-insensitive substring, and
+        the **telephone number** exactly, after normalisation.
+
+        The number is normalised by the same code that stored it, so
+        `+961 70 123-456` finds `+96170123456`. A query that is not already in
+        E.164 — a name, or a local number with no country code — simply does not
+        engage the phone arm: the platform does not guess a country code, and a
+        raw local number compared against a stored international one would match
+        nothing while looking exactly like "we have no such customer".
+
+        Minimum three characters (shorter is `422`), at most twenty rows, and no
+        cursor: the agent has somebody on the telephone, and the answer to twenty
+        matches is a longer query rather than a second page.
+
+        No `branch_id`. A customer is not a branch's, and offering the parameter
+        would invite a client to believe it narrowed something.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: query
+          in: query
+          required: true
+          description: A name fragment, or a telephone number in E.164.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 60
+          examples:
+            name:
+              value: hadd
+            phone:
+              value: '+96170123456'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The matching customers of this kitchen, capped, alphabetically by name.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomersEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    post:
+      operationId: createOrderDeskCustomer
+      tags: [Order desk]
+      summary: Write down a cold caller
+      description: |
+        Somebody rings a kitchen having never used the platform, and there is no
+        account for the order to be placed against. **This is the one path where
+        a member of staff creates a record about a member of the public who is
+        not at a keyboard**, which is why it has its own code —
+        `customer.create_on_behalf_organisation` — rather than riding on the one
+        that sells them lunch. An account outlives the sale, and a kitchen may
+        reasonably want an agent who can take an order for somebody already on
+        file without being able to add people to the file.
+
+        ## What it writes
+
+        A consumer account with **no login**, `origin: staff`, provisional and
+        with no expiry, plus the caller's telephone number as an account-owned
+        contact point recorded as `staff` and **unverified**.
+
+        Unverified because nobody proved anything: the desk heard a number over a
+        telephone, which is provenance rather than proof. The platform's
+        uniqueness rule applies only to *verified* contacts, which is what makes
+        a duplicate legal — see below — and marking a heard number verified would
+        both lie and let a desk claim a number away from whoever really holds it.
+
+        The account is durable and claimable: the day this person registers, the
+        guest-conversion path attaches a user to a row that already holds their
+        number, their address and their order history. It is deliberately **not**
+        a guest account, which the expiry sweeps would delete somewhere between
+        two orders.
+
+        The account is provisional and stays provisional. A cold caller satisfies
+        none of the activation checklist, and the desk sells to them anyway
+        because the sale operation names the agent and skips it — the member of
+        staff in front of the customer is the verification the checklist was
+        asking for.
+
+        ## `Idempotency-Key` is **mandatory**
+
+        Absent or blank is `400 request.invalid` with `details.header`. Nothing in
+        the schema would notice a second identical customer: the one-account-per-
+        person rule is enforced on the **login**, and a staff-provisioned account
+        has none — so two taps are two perfectly legal people with no row
+        anywhere saying which one was the mistake.
+
+        ## Duplicates are surfaced, not refused
+
+        **Search first** is the workflow. But two customers genuinely do share a
+        telephone number — a household, a reception desk, an office floor — so a
+        number already on file is not an error, and the account is created
+        anyway. `possible_duplicates` then carries every **in-scope** account
+        already holding that exact number, in the same shape the search returns,
+        computed before the new row exists so a customer is never listed as a
+        duplicate of themselves. The agent sees "we already have a Ramy on this
+        number" while the customer is still on the line, which is the only moment
+        merging is cheap.
+
+        The list is scoped exactly as the search is. Answering "somebody,
+        somewhere on the platform, has this number" would turn a duplicate
+        warning into an oracle over every telephone number the platform holds.
+
+        `phone` is refused (`422`, on the `phone` field) unless it is already in
+        E.164. The platform does not infer a country code — guessing one would
+        send somebody else's handset a passcode — so a desk agent asks for it the
+        way they ask for the rest of the number.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderDeskCustomerRequest'
+      responses:
+        '201':
+          description: |
+            The customer as the desk sees them, and anybody already on that
+            number. A replay of a request this key already answered returns the
+            same body and the same status, with `Idempotency-Replayed: true`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/customers/{account}/addresses:
+    post:
+      operationId: addOrderDeskCustomerAddress
+      tags: [Order desk]
+      summary: Where the food is going
+      description: |
+        The second half of writing down a cold caller, and a separate request
+        from the first for a reason a desk agent would recognise: the name and
+        the number come out in the first ten seconds of a call, and the address
+        takes a minute and three corrections.
+
+        ## This is the control the account shape leans on
+
+        Staff-provisioned accounts have **no database-layer isolation** — they
+        are ownerless rows, and the row-level-security policy admits every one of
+        them to every kitchen session. This operation is where that matters most,
+        because what it writes is a street somebody lives on.
+
+        So the account is put through the **same scoping rule as the search** —
+        an order with this kitchen, or provisioned by somebody with an active
+        membership of it — and an identifier that fails it is `404`, not `403`.
+        Confirming that an identifier exists but belongs to somebody else is
+        itself the disclosure.
+
+        ## The rules are the customer's own rules
+
+        A delivery address in an area nobody serves is
+        `422 address.area_not_served`, exactly as it is on the customer's own
+        address book — told to the agent while the customer is still on the
+        telephone, which is the only moment it is useful. The **first** address
+        becomes the default whether or not it was asked for.
+
+        `is_deliverable` on the response is recomputed on every read rather than
+        frozen at save time, because coverage moves.
+
+        ## What the body does not accept
+
+        No `address_type`: the desk adds delivery addresses, and a billing
+        address is an invoicing arrangement rather than something dictated over
+        a telephone. No `contact_point_id`: on the customer's own form it names
+        one of *their* contacts and only they could know which; here it would be
+        an identifier this operation cannot prove belongs to this account. No
+        `is_default`, because the first address is one already.
+
+        **No `Idempotency-Key`**, matching the customer's own address operation.
+        A double-tapped address is a visible duplicate on the screen the agent is
+        already looking at; a double-tapped customer is a second person in the
+        file nobody notices until the next call, which is why the operation
+        beside this one requires a key and this one does not.
+
+        Requires `customer.create_on_behalf_organisation` — the writing code,
+        not the reading one.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          description: The customer account, as returned by the desk's customer search or create.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddOrderDeskCustomerAddressRequest'
+      responses:
+        '201':
+          description: The address was added, with whether anybody delivers to it today.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAddressEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /guest/sessions:
     post:
       operationId: startGuestSession
@@ -25647,6 +25937,190 @@ components:
               $ref: '#/components/schemas/OrderDeskQuote'
         meta:
           $ref: '#/components/schemas/Meta'
+
+    OrderDeskCustomer:
+      type: object
+      required: [id, display_name, phone, origin, has_orders_with_org]
+      description: |
+        A customer as the order desk sees them: enough to pick the right one out
+        of a list of five, and nothing more.
+
+        `display_name` and `phone` are the disclosure this shape exists for, and
+        they are the same pair the queue row carries behind the same permission
+        code. The two surfaces deliberately agree — a search revealing more than
+        the queue would make the queue's gating pointless.
+
+        **What is absent is each its own decision.** No email: a number is what a
+        desk rings, and an address is what a marketing list is built from. No
+        account number — it is confidential, it is what a person quotes to
+        *support*, and a desk that could read one could quote it back to a caller
+        who is not the account holder. No addresses: a street somebody lives on
+        belongs to the order going there, not to a search result. No order
+        history and no count of other kitchens, so this never becomes the surface
+        on which one kitchen reads another's customer relationships. No status,
+        because the desk bypasses the activation checklist and it would change
+        nothing an agent could do.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: [string, 'null']
+          description: Null on an anonymised account.
+        phone:
+          type: [string, 'null']
+          description: |
+            E.164, as the contact point stores it — the account's primary number
+            where it has one, otherwise the account holder's. Resolved across
+            both ownership arms because a registered customer's number hangs off
+            their identity and a desk-provisioned caller's hangs off the account,
+            and answering for only one would read as "no phone" rather than as a
+            bug. Served verified or not.
+        origin:
+          type: string
+          enum: [self_service, guest, b2b_provisioning, staff, import]
+          description: |
+            How the record came to exist. `staff` is a caller some kitchen wrote
+            down at a desk; it is what an agent checks when deciding whether the
+            details on file were typed or were given by the customer themselves.
+        has_orders_with_org:
+          type: boolean
+          description: |
+            Whether **this** kitchen holds at least one order against the
+            account — a regular versus a name in the book. Scoped to the asking
+            organisation and silent about anybody else's trade. It is also the
+            first arm of the scoping rule restated as a fact: a `false` here
+            means the row is visible on the second arm alone, because somebody
+            who works at this kitchen wrote them down.
+
+    OrderDeskCustomersEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskCustomer'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count, limit]
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                limit:
+                  type: integer
+                  description: |
+                    The most rows this operation will ever return. There is no
+                    second page: the agent has somebody on the telephone, and
+                    the answer to a full list is a longer query.
+
+    OrderDeskCustomerEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [customer, possible_duplicates]
+          properties:
+            customer:
+              $ref: '#/components/schemas/OrderDeskCustomer'
+            possible_duplicates:
+              type: array
+              description: |
+                Accounts **already** holding the number just recorded, in this
+                kitchen's scope, computed before the new row existed. Empty is
+                the ordinary case and is always present rather than omitted.
+
+                This is a warning, never a refusal: two customers genuinely share
+                a telephone — a household, a reception desk, an office floor —
+                and the platform's uniqueness rule applies only to verified
+                contacts, so a second unverified one is legal. Refusing would
+                make an existing customer's flatmate unserveable at a counter
+                with somebody waiting.
+              items:
+                $ref: '#/components/schemas/OrderDeskCustomer'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    CreateOrderDeskCustomerRequest:
+      type: object
+      required: [display_name, phone]
+      additionalProperties: false
+      properties:
+        display_name:
+          type: string
+          maxLength: 255
+          description: |
+            What the caller says their name is. One field rather than a
+            given/family pair, because the platform's customer may be a company.
+        phone:
+          type: string
+          maxLength: 255
+          description: |
+            **Required, because a cold caller is a telephone number.** It is how
+            the kitchen rings back about tonight's delivery and what the next
+            agent searches on when the same person calls again; an account
+            without one is a name nobody can act on. Further numbers are added
+            afterwards through the customer's own contact operations.
+
+            Already in E.164, or `422` on this field. The platform does not infer
+            a country code from a local number — guessing would send somebody
+            else's handset a passcode that unlocks an account — so the desk asks
+            for it.
+          examples: ['+96170123456']
+        preferred_language_code:
+          type: [string, 'null']
+          minLength: 2
+          maxLength: 2
+          description: A language the platform knows; unknown codes are `422` rather than a foreign-key failure.
+        country_code:
+          type: [string, 'null']
+          minLength: 2
+          maxLength: 2
+
+    AddOrderDeskCustomerAddressRequest:
+      type: object
+      required: [delivery_area_id, line_one]
+      additionalProperties: false
+      description: |
+        The customer's own address body minus `address_type`, `contact_point_id`
+        and `is_default` — see the operation for why each is absent. Every length
+        is the column's.
+
+        `delivery_area_id` is a `uuid` and nothing more. Whether anybody
+        delivers there is asked at save time and answered as
+        `address.area_not_served`, which is the sentence the agent reads out to
+        the customer; an `exists` rule would refuse an unknown identifier as
+        "invalid" and still say nothing about coverage.
+      properties:
+        delivery_area_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: [string, 'null']
+          maxLength: 60
+        line_one:
+          type: string
+          maxLength: 255
+        line_two:
+          type: [string, 'null']
+          maxLength: 255
+        building:
+          type: [string, 'null']
+          maxLength: 120
+        floor:
+          type: [string, 'null']
+          maxLength: 40
+        apartment:
+          type: [string, 'null']
+          maxLength: 40
+        directions:
+          type: [string, 'null']
+          maxLength: 1000
+        postal_code:
+          type: [string, 'null']
+          maxLength: 20
 
     GuestSessionGrade:
       type: string
