@@ -88,7 +88,7 @@ export function mapOrderLine(wire: WireOrderLine): PlacedOrderLine {
 export function mapOrderAddress(wire: WireDelivery): DeliveryAddress {
     return {
         label: wire.label ?? '',
-        line1: wire.line_one,
+        line1: wire.line_one ?? '',
         line2: wire.line_two,
         area: wire.area_name_en ?? '',
         city: wire.city ?? '',

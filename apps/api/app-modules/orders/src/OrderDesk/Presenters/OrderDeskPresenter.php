@@ -83,6 +83,18 @@ use Healthy360\Orders\Presenters\OrderPresenter;
  * hundred rows into two hundred round trips.
  *
  * `delivery_job` is still the seat it was — C3's — and still null.
+ *
+ * ## The `@return` shape is a restatement, and it moves when `kitchen()` moves
+ *
+ * Everything above the queue's own four keys is `OrderPresenter::kitchen()`'s,
+ * copied into the docblock below because PHP has no way to say "that shape,
+ * plus these". No code here has ever had to change when the order book gained a
+ * column — `row()` composes and only adds — but the *documentation* of the
+ * shape has to be brought along or the file starts describing a response the
+ * server does not send. The fulfilment migration is the first time that
+ * happened: `fulfilment_type`, `placed_on_behalf_by`, the five widened address
+ * fields and two columns becoming nullable all arrived here through
+ * composition, and the shape below was updated to say so.
  */
 final class OrderDeskPresenter
 {
@@ -108,7 +120,7 @@ final class OrderDeskPresenter
      *     id: string,
      *     order_number: string,
      *     organisation_id: string,
-     *     customer_account_id: string,
+     *     customer_account_id: string|null,
      *     sales_channel_id: string,
      *     branch_id: string|null,
      *     status: string,
@@ -117,15 +129,21 @@ final class OrderDeskPresenter
      *     delivery_fee_minor: int|null,
      *     total_minor: int,
      *     payment_method: string,
+     *     fulfilment_type: string,
      *     delivery: array{
      *         label: string|null,
-     *         line_one: string,
+     *         line_one: string|null,
      *         line_two: string|null,
      *         city: string|null,
      *         area_name_en: string|null,
      *         area_name_ar: string|null,
      *         area_id: string|null,
      *         zone_id: string|null,
+     *         building: string|null,
+     *         floor: string|null,
+     *         apartment: string|null,
+     *         directions: string|null,
+     *         contact_point_id: string|null,
      *         window_code: string|null,
      *         requested_date: string|null
      *     },
@@ -135,6 +153,7 @@ final class OrderDeskPresenter
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
      *     created_by: string|null,
+     *     placed_on_behalf_by: string|null,
      *     lock_version: int,
      *     line_count: int,
      *     lines: list<array{

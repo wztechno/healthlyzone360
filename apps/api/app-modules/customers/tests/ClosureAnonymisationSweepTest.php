@@ -57,6 +57,16 @@ use Illuminate\Support\Facades\DB;
 | computed on, and it is classified Public on that table — while the address
 | lines that would take a courier to a door are gone.
 |
+| The order's address snapshot got **wider** when the Order Desk taught orders
+| how they leave (`2026_08_15_003003`): the building, the floor, the flat, the
+| customer's own free-text directions and a reference to the number the courier
+| was given. Every one of them is filled in below with a literal of this
+| person's own, because the column sweep is only as good as the columns the
+| fixture actually writes to — an untouched column is a column that trivially
+| contains no literal, and a redaction that forgot it would pass. The directions
+| field is the sharpest of the set: it is prose a customer wrote for a stranger
+| who has to find them, and it is where a name, a neighbour or a habit ends up.
+|
 | Two more properties ride along, both of them the kind that decay silently:
 |
 |   * the tombstone holds hashes and only hashes, and the email hash still
@@ -112,6 +122,13 @@ it('sweeps every PII literal out of the schema while the order rows survive', fu
     $familyName = 'Mulvaney';
     $street = 'Quibbleworth Lane 4417';
     $label = 'Zaraq front door';
+    // The widened half of the snapshot. Each one is a token nothing else in the
+    // schema could produce, so a match anywhere is this person's address and not
+    // a coincidence.
+    $building = 'Blissmore Tower';
+    $floor = 'Mezzanine Vantrell';
+    $apartment = 'Flat Okonwe 12c';
+    $directions = 'Green door past the Vellichor pharmacy, ring twice';
 
     DB::table('users')->where('id', $user->getKey())->update(['email' => $email]);
 
@@ -133,7 +150,7 @@ it('sweeps every PII literal out of the schema while the order rows survive', fu
         'label' => null,
     ])->save();
 
-    ContactPoint::query()->create([
+    $phoneContact = ContactPoint::query()->create([
         'customer_account_id' => $account->getKey(),
         'channel' => 'phone',
         'value_normalised' => $phone,
@@ -165,6 +182,11 @@ it('sweeps every PII literal out of the schema while the order rows survive', fu
     DB::table('orders')->where('id', $order->getKey())->update([
         'delivery_line_one' => $street,
         'delivery_label' => $label,
+        'delivery_building' => $building,
+        'delivery_floor' => $floor,
+        'delivery_apartment' => $apartment,
+        'delivery_directions' => $directions,
+        'delivery_contact_point_id' => $phoneContact->getKey(),
         'status' => OrderStatus::Fulfilled->value,
         'fulfilled_at' => now(),
     ]);
@@ -208,7 +230,7 @@ it('sweeps every PII literal out of the schema while the order rows survive', fu
 
     // ---------------------------------------------------------------- forget
 
-    $literals = [$email, $phone, $givenName, $familyName, $street, $label];
+    $literals = [$email, $phone, $givenName, $familyName, $street, $label, $building, $floor, $apartment, $directions];
     $hits = [];
 
     foreach (textColumnsInSchema() as [$table, $column]) {
@@ -262,7 +284,22 @@ it('sweeps every PII literal out of the schema while the order rows survive', fu
         ->and($retained->delivery_city)->toBe($orderCity)
         // The street does not.
         ->and($retained->delivery_line_one)->not->toBe($street)
-        ->and($retained->delivery_label)->toBeNull();
+        ->and($retained->delivery_label)->toBeNull()
+        // Nor does the rest of the way to the door. The sweep above already
+        // proves the *strings* are gone; these say the columns were emptied
+        // rather than overwritten with something else that merely fails to
+        // match.
+        ->and($retained->delivery_building)->toBeNull()
+        ->and($retained->delivery_floor)->toBeNull()
+        ->and($retained->delivery_apartment)->toBeNull()
+        ->and($retained->delivery_directions)->toBeNull()
+        // Two mechanisms converge on this one and only one of them is the
+        // redaction: the contact point is deleted outright by the closure and
+        // the foreign key is `nullOnDelete`, so the column would empty itself
+        // even if nothing cleared it. The redaction clears it anyway, because a
+        // redaction that depended on deletion order would be a redaction that
+        // stopped working the day the order of the two changed.
+        ->and($retained->delivery_contact_point_id)->toBeNull();
 
     // ------------------------------------------------------------- tombstone
 

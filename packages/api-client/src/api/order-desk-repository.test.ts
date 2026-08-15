@@ -208,8 +208,8 @@ describe('createApiOrderDeskRepository — listQueue', () => {
         expect(path.startsWith('/catalogue/order-desk/queue?')).toBe(true);
         expect(path).toContain('window=overdue');
         expect(path).toContain(`branch_id=${BRANCH_UUID}`);
-        // `status[]=`, not `status=` twice: the exploded form the specification declares collapses
-        // to a single string in PHP and the controller validates an array. See the module header.
+        // `status[]=`, not `status=` twice: repeated bare parameters collapse to a single string in
+        // PHP and the controller validates an array. The specification declares `status[]` too.
         expect(path).toContain('status[]=placed');
         expect(path).toContain('status[]=confirmed');
         expect(path).toContain('delivery_window_code=morning');

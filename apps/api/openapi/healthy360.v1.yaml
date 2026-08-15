@@ -9275,13 +9275,24 @@ paths:
             is UTC.
           schema:
             $ref: '#/components/schemas/Uuid'
-        - name: status
+        - name: 'status[]'
           in: query
           required: false
           description: |
             Restrict to a subset of the two open states. Omitted, both are
             listed. `fulfilled` and `cancelled` are not accepted at all: they are
             finished with, and they are the order book's business.
+
+            **Repeat the bracketed name** — `?status[]=placed&status[]=confirmed`
+            — which is the only form this server reads. PHP collapses repeated
+            bare parameters to the last value, so the plain `status=placed&
+            status=confirmed` that `style: form` with `explode: true` describes
+            for an unbracketed name arrives at the controller as the single
+            string `confirmed`, fails its `array` rule and earns a 422 on every
+            multi-status request. The name carries the brackets so that the
+            document describes what the endpoint actually accepts; this is the
+            only array-valued query parameter in the specification, so there is
+            no sibling convention it diverges from.
           schema:
             type: array
             items:
@@ -23028,6 +23039,37 @@ components:
         WISH is a real evening, and the pair of fields is how it stays legible.
       enum: [cash_on_delivery, cash_at_counter, wish]
 
+    FulfilmentType:
+      type: string
+      description: |
+        How an order leaves the kitchen. **Three cases, and each one is a
+        different set of facts the order must carry** — which is what makes this
+        a vocabulary rather than a flag. `orders_fulfilment_shape_check` states
+        the column half of it in the database, so the two cannot drift.
+
+        * `delivery` — a courier takes it to a door. A customer and an address,
+          both required. The only way this platform sold anything before the
+          order desk, and still how most orders leave.
+        * `pickup` — the customer collects it. A customer, a **promised slot**,
+          and deliberately **no address**: "be here at six" is a promise whether
+          or not the food travels, but a destination on an order nobody is
+          delivering is a courier instruction that will never be followed.
+        * `counter` — somebody bought lunch at the desk. The customer is
+          **optional** — a regular is worth naming, a stranger is not — and the
+          address is forbidden. The desk may know *who* and must never claim
+          *where*, which is the asymmetry that makes this its own case rather
+          than "pickup without an account".
+
+        `delivery` is the column default, so every order placed before this
+        vocabulary existed carries it.
+
+        What this is **not** is a delivery *status*. Where an order has got to is
+        `status`, which moves; this never moves after placement. An order taken
+        for delivery and collected by an impatient customer is a delivery that
+        was handed over early, not a pickup — rewriting the type would make the
+        fee already snapshotted on the row unexplainable.
+      enum: [delivery, pickup, counter]
+
     OpenCartRequest:
       type: object
       required: [channel_code]
@@ -23430,15 +23472,36 @@ components:
 
     CustomerOrderDelivery:
       type: object
-      required: [label, line_one, line_two, city, area_name_en, area_name_ar, area_id, window_code, requested_date]
+      required:
+        [label, line_one, line_two, city, area_name_en, area_name_ar, area_id,
+         building, floor, apartment, directions, contact_point_id, window_code,
+         requested_date]
       description: |
         The address as it stood when the order was placed, copied. Editing the
         address later must not change where this order was sent.
+
+        **The whole block is null on an order that is not being delivered.**
+        A `pickup` is collected and a `counter` sale is handed over in the room;
+        neither has a destination, and `orders_fulfilment_shape_check` refuses
+        an address on either. Read `fulfilment_type` on the order to tell "there
+        is nowhere to take this" from "the address is missing" — they are
+        different facts and this block looks the same for both.
+
+        `building`, `floor`, `apartment` and `directions` are the half a courier
+        actually navigates by: the street gets somebody to the building, and
+        these get them to the door. They were mirrored onto the order by the
+        fulfilment migration; before it, a snapshot was a strictly poorer copy
+        of the address it came from.
       properties:
         label:
           type: ['string', 'null']
         line_one:
-          type: string
+          type: ['string', 'null']
+          description: |
+            Null on a pickup or a counter sale, which carry no address at all.
+            On a delivery whose customer has since closed their account it is
+            the redaction marker rather than the street: a reader has to be able
+            to tell "this was erased" from "this was never filled in".
         line_two:
           type: ['string', 'null']
         city:
@@ -23455,6 +23518,29 @@ components:
         area_id:
           type: ['string', 'null']
           format: uuid
+        building:
+          type: ['string', 'null']
+          maxLength: 120
+        floor:
+          type: ['string', 'null']
+          maxLength: 40
+        apartment:
+          type: ['string', 'null']
+          maxLength: 40
+        directions:
+          type: ['string', 'null']
+          description: |
+            Free text the customer wrote for whoever has to find them. Never
+            parsed and never matched against — it is prose, and treating it as
+            structure is how "ring twice" becomes a routing decision.
+        contact_point_id:
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            The number the courier was actually given, as a reference rather
+            than a copied string. A snapshot of *which* contact was named at
+            placement, not of what it said: a person who changes their telephone
+            changes it once, and the verification state travels with the row.
         window_code:
           type: ['string', 'null']
         requested_date:
@@ -24506,11 +24592,11 @@ components:
       type: object
       required:
         [id, order_number, status, currency_code, subtotal_minor,
-         delivery_fee_minor, total_minor, payment_method, delivery, placed_at,
-         confirmed_at, fulfilled_at, cancelled_at, cancellation_reason,
-         line_count, lines, created_at]
+         delivery_fee_minor, total_minor, payment_method, fulfilment_type,
+         delivery, placed_at, confirmed_at, fulfilled_at, cancelled_at,
+         cancellation_reason, line_count, lines, created_at]
       description: |
-        The receipt. **Five things on the row are deliberately absent**, each
+        The receipt. **Six things on the row are deliberately absent**, each
         for its own reason:
 
         * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
@@ -24525,6 +24611,16 @@ components:
         * `created_by` — for a self-service order this is the customer and says
           nothing; for a staff-placed order it names an employee to a member of
           the public.
+        * `placed_on_behalf_by` — the same disclosure, sharper. Where
+          `created_by` merely *might* be an employee, this is non-null on
+          exactly the orders a member of staff took for somebody else, so
+          serving it would name a named individual to the customer they served
+          every single time. Who answered the telephone is the kitchen's record
+          of its own shift; a customer with a complaint has the kitchen to
+          complain to, not an employee to identify. `fulfilment_type` **is**
+          served here and is the counter-example: how the food reaches somebody
+          is a term of their own order, and withholding it would leave an empty
+          delivery block with no explanation for it.
         * `lock_version` — the validator of a resource this audience cannot
           write. Serving one with no writer invites `If-Match` at an endpoint
           that would ignore it.
@@ -24557,6 +24653,8 @@ components:
           type: integer
         payment_method:
           $ref: '#/components/schemas/PaymentMethod'
+        fulfilment_type:
+          $ref: '#/components/schemas/FulfilmentType'
         delivery:
           $ref: '#/components/schemas/CustomerOrderDelivery'
         placed_at:
@@ -24592,9 +24690,10 @@ components:
       required:
         [id, order_number, organisation_id, customer_account_id,
          sales_channel_id, branch_id, status, currency_code, subtotal_minor,
-         delivery_fee_minor, total_minor, payment_method, delivery, placed_at,
-         confirmed_at, fulfilled_at, cancelled_at, cancellation_reason,
-         created_by, lock_version, line_count, lines, created_at, updated_at]
+         delivery_fee_minor, total_minor, payment_method, fulfilment_type,
+         delivery, placed_at, confirmed_at, fulfilled_at, cancelled_at,
+         cancellation_reason, created_by, placed_on_behalf_by, lock_version,
+         line_count, lines, created_at, updated_at]
       description: |
         The seller's view of the same row. Built independently of the customer
         shape rather than as a superset of it: a wide shape and a narrow one
@@ -24604,6 +24703,12 @@ components:
         `lock_version` is here because this is the audience that **writes** — a
         screen that could not read the validator could not send the `If-Match`
         the three lifecycle actions demand.
+
+        **`customer_account_id` is nullable and `fulfilment_type` says when.**
+        A counter sale may be a stranger buying a sandwich, and there is nobody
+        to name; a delivery and a pickup always have somebody. The pair has to
+        be read together — a null customer is a fact about a walk-in, never a
+        row that failed to load.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -24612,7 +24717,13 @@ components:
         organisation_id:
           $ref: '#/components/schemas/Uuid'
         customer_account_id:
-          $ref: '#/components/schemas/Uuid'
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            Null only on a `counter` sale nobody named. Present on every
+            delivery and every pickup — `orders_fulfilment_shape_check` requires
+            it — and present on a counter sale for a regular the desk chose to
+            record.
         sales_channel_id:
           $ref: '#/components/schemas/Uuid'
         branch_id:
@@ -24632,6 +24743,8 @@ components:
           type: integer
         payment_method:
           $ref: '#/components/schemas/PaymentMethod'
+        fulfilment_type:
+          $ref: '#/components/schemas/FulfilmentType'
         delivery:
           $ref: '#/components/schemas/KitchenOrderDelivery'
         placed_at:
@@ -24653,6 +24766,18 @@ components:
         created_by:
           type: ['string', 'null']
           format: uuid
+        placed_on_behalf_by:
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            The member of staff who took this order **for** somebody else, and
+            null on every self-service order.
+
+            Deliberately not `created_by`, which is written on every path — a
+            customer placing their own order writes their own user id there — so
+            "did a person at a desk take this" is not answerable from it without
+            asking whether that user happens to be an employee. Seller-only: the
+            customer's shape carries neither.
         lock_version:
           type: integer
           minimum: 0

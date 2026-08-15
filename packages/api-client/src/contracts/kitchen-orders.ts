@@ -127,7 +127,8 @@ export interface KitchenOrderLine {
  */
 export interface KitchenOrderDelivery {
     readonly label: string | null;
-    readonly lineOne: string;
+    /** Null for pickup and counter orders — a collection has no destination to copy. */
+    readonly lineOne: string | null;
     readonly lineTwo: string | null;
     /** The gazetteer's governorate or district. Usually `null` — the platform data leaves it unset. */
     readonly city: string | null;

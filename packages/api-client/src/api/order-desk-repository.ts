@@ -22,18 +22,16 @@ import type { Transport } from './transport.ts';
  * to say which "today" it is showing. So the envelope is answered whole (`{ rows, meta }`) rather
  * than as a bare array.
  *
- * ## The query string, and the one place it disagrees with the OpenAPI document
+ * ## The query string
  *
  * Every filter is optional and every omitted one means "do not narrow" — the server defaults the
  * window to `today` and lists both open statuses. Two details are worth stating.
  *
- * **`status` is sent in PHP's bracket form** (`status[]=placed`), not the `style: form, explode:
- * true` form the specification declares (`status=placed&status=confirmed`). The declared form does
- * not survive PHP: repeated bare parameters collapse to the last value, and the controller validates
- * `status` as an `array`, so the exploded form would earn a 422 on every multi-status request. The
- * bracket form is what the endpoint's own Pest suite sends (`http_build_query(['status' =>
- * ['placed']])`), and it is what works. The specification is the thing that is wrong here; this
- * module is not the place to fix it.
+ * **`status` is sent in PHP's bracket form** (`status[]=placed`). Repeated bare parameters
+ * (`status=placed&status=confirmed`) do not survive PHP — they collapse to the last value — and the
+ * controller validates `status` as an `array`. The OpenAPI document declares the parameter as
+ * `status[]` for exactly this reason, and the bracket form is what the endpoint's own Pest suite
+ * sends (`http_build_query(['status' => ['placed']])`).
  *
  * **`branch_id` is a query parameter, not the `X-Branch-Id` header** the stock surfaces send. That
  * is the endpoint's convention for the whole `order-desk` family and it is deliberate: an

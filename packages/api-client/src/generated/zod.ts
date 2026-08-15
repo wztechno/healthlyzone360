@@ -2528,6 +2528,41 @@ export const zPaymentMethod = z.enum([
     'wish'
 ]);
 
+/**
+ * How an order leaves the kitchen. **Three cases, and each one is a
+ * different set of facts the order must carry** — which is what makes this
+ * a vocabulary rather than a flag. `orders_fulfilment_shape_check` states
+ * the column half of it in the database, so the two cannot drift.
+ *
+ * * `delivery` — a courier takes it to a door. A customer and an address,
+ * both required. The only way this platform sold anything before the
+ * order desk, and still how most orders leave.
+ * * `pickup` — the customer collects it. A customer, a **promised slot**,
+ * and deliberately **no address**: "be here at six" is a promise whether
+ * or not the food travels, but a destination on an order nobody is
+ * delivering is a courier instruction that will never be followed.
+ * * `counter` — somebody bought lunch at the desk. The customer is
+ * **optional** — a regular is worth naming, a stranger is not — and the
+ * address is forbidden. The desk may know *who* and must never claim
+ * *where*, which is the asymmetry that makes this its own case rather
+ * than "pickup without an account".
+ *
+ * `delivery` is the column default, so every order placed before this
+ * vocabulary existed carries it.
+ *
+ * What this is **not** is a delivery *status*. Where an order has got to is
+ * `status`, which moves; this never moves after placement. An order taken
+ * for delivery and collected by an impatient customer is a delivery that
+ * was handed over early, not a pickup — rewriting the type would make the
+ * fee already snapshotted on the row unexplainable.
+ *
+ */
+export const zFulfilmentType = z.enum([
+    'delivery',
+    'pickup',
+    'counter'
+]);
+
 export const zOpenCartRequest = z.object({
     channel_code: z.string().max(40)
 });
@@ -2708,15 +2743,33 @@ export const zKitchenOrderLine = zCustomerOrderLine.and(z.object({
  * The address as it stood when the order was placed, copied. Editing the
  * address later must not change where this order was sent.
  *
+ * **The whole block is null on an order that is not being delivered.**
+ * A `pickup` is collected and a `counter` sale is handed over in the room;
+ * neither has a destination, and `orders_fulfilment_shape_check` refuses
+ * an address on either. Read `fulfilment_type` on the order to tell "there
+ * is nowhere to take this" from "the address is missing" — they are
+ * different facts and this block looks the same for both.
+ *
+ * `building`, `floor`, `apartment` and `directions` are the half a courier
+ * actually navigates by: the street gets somebody to the building, and
+ * these get them to the door. They were mirrored onto the order by the
+ * fulfilment migration; before it, a snapshot was a strictly poorer copy
+ * of the address it came from.
+ *
  */
 export const zCustomerOrderDelivery = z.object({
     label: z.string().nullable(),
-    line_one: z.string(),
+    line_one: z.string().nullable(),
     line_two: z.string().nullable(),
     city: z.string().nullable(),
     area_name_en: z.string().nullable(),
     area_name_ar: z.string().nullable(),
     area_id: z.uuid().nullable(),
+    building: z.string().max(120).nullable(),
+    floor: z.string().max(40).nullable(),
+    apartment: z.string().max(40).nullable(),
+    directions: z.string().nullable(),
+    contact_point_id: z.uuid().nullable(),
     window_code: z.string().nullable(),
     requested_date: z.iso.date().nullable()
 });
@@ -3243,7 +3296,7 @@ export const zQualityCheckEnvelope = z.object({
 });
 
 /**
- * The receipt. **Five things on the row are deliberately absent**, each
+ * The receipt. **Six things on the row are deliberately absent**, each
  * for its own reason:
  *
  * * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
@@ -3258,6 +3311,16 @@ export const zQualityCheckEnvelope = z.object({
  * * `created_by` — for a self-service order this is the customer and says
  * nothing; for a staff-placed order it names an employee to a member of
  * the public.
+ * * `placed_on_behalf_by` — the same disclosure, sharper. Where
+ * `created_by` merely *might* be an employee, this is non-null on
+ * exactly the orders a member of staff took for somebody else, so
+ * serving it would name a named individual to the customer they served
+ * every single time. Who answered the telephone is the kitchen's record
+ * of its own shift; a customer with a complaint has the kitchen to
+ * complain to, not an employee to identify. `fulfilment_type` **is**
+ * served here and is the counter-example: how the food reaches somebody
+ * is a term of their own order, and withholding it would leave an empty
+ * delivery block with no explanation for it.
  * * `lock_version` — the validator of a resource this audience cannot
  * write. Serving one with no writer invites `If-Match` at an endpoint
  * that would ignore it.
@@ -3279,6 +3342,7 @@ export const zCustomerOrder = z.object({
     delivery_fee_minor: z.int().nullable(),
     total_minor: z.int(),
     payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
     delivery: zCustomerOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
@@ -3300,12 +3364,18 @@ export const zCustomerOrder = z.object({
  * screen that could not read the validator could not send the `If-Match`
  * the three lifecycle actions demand.
  *
+ * **`customer_account_id` is nullable and `fulfilment_type` says when.**
+ * A counter sale may be a stranger buying a sandwich, and there is nobody
+ * to name; a delivery and a pickup always have somebody. The pair has to
+ * be read together — a null customer is a fact about a walk-in, never a
+ * row that failed to load.
+ *
  */
 export const zKitchenOrder = z.object({
     id: zUuid,
     order_number: z.string(),
     organisation_id: zUuid,
-    customer_account_id: zUuid,
+    customer_account_id: z.uuid().nullable(),
     sales_channel_id: zUuid,
     branch_id: z.uuid().nullable(),
     status: zOrderStatus,
@@ -3314,6 +3384,7 @@ export const zKitchenOrder = z.object({
     delivery_fee_minor: z.int().nullable(),
     total_minor: z.int(),
     payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
     delivery: zKitchenOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
@@ -3321,6 +3392,7 @@ export const zKitchenOrder = z.object({
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
     created_by: z.uuid().nullable(),
+    placed_on_behalf_by: z.uuid().nullable(),
     lock_version: z.int().gte(0),
     line_count: z.int().gte(0),
     lines: z.array(zKitchenOrderLine),
@@ -9854,7 +9926,7 @@ export const zListOrderDeskQueueHeaders = z.object({
 export const zListOrderDeskQueueQuery = z.object({
     window: zOrderDeskWindow.optional(),
     branch_id: zUuid.optional(),
-    status: z.array(z.enum(['placed', 'confirmed'])).optional(),
+    'status[]': z.array(z.enum(['placed', 'confirmed'])).optional(),
     delivery_window_code: z.string().max(40).optional(),
     query: z.string().max(60).optional()
 });

@@ -38,6 +38,17 @@ use Healthy360\Orders\Models\OrderPaymentReceipt;
  * * **`created_by`** — the user who transacted the placement. For a
  *   self-service order that is the customer themselves and says nothing; for
  *   an order placed by staff it names an employee to a member of the public.
+ * * **`placed_on_behalf_by`** — the same disclosure, sharper. Where
+ *   `created_by` merely *might* be an employee, this column is non-null on
+ *   exactly the orders a member of staff took for somebody else, so serving it
+ *   would name a named individual to the customer they served every single
+ *   time. Who at the kitchen answered the telephone is the kitchen's own
+ *   record of its own shift: it is what a manager reads to answer "who took
+ *   this order", and a customer with a complaint has the kitchen to complain
+ *   to, not an employee to identify. *`fulfilment_type` is served to both* and
+ *   is the pair's counter-example — how the food reaches somebody is a term of
+ *   their own order, and withholding it would leave a receipt with an empty
+ *   delivery block and no reason for it.
  * * **`lock_version`** — the optimistic-concurrency validator of a resource
  *   the customer cannot write. Serving a validator with no writer is an
  *   invitation to send `If-Match` at an endpoint that would ignore it.
@@ -86,14 +97,20 @@ final class OrderPresenter
      *     delivery_fee_minor: int|null,
      *     total_minor: int,
      *     payment_method: string,
+     *     fulfilment_type: string,
      *     delivery: array{
      *         label: string|null,
-     *         line_one: string,
+     *         line_one: string|null,
      *         line_two: string|null,
      *         city: string|null,
      *         area_name_en: string|null,
      *         area_name_ar: string|null,
      *         area_id: string|null,
+     *         building: string|null,
+     *         floor: string|null,
+     *         apartment: string|null,
+     *         directions: string|null,
+     *         contact_point_id: string|null,
      *         window_code: string|null,
      *         requested_date: string|null
      *     },
@@ -137,6 +154,11 @@ final class OrderPresenter
             'delivery_fee_minor' => $order->delivery_fee_minor,
             'total_minor' => $order->total_minor,
             'payment_method' => $order->payment_method->value,
+            // How their food reaches them is the customer's own fact — they
+            // chose it, and a receipt that did not say whether it was being
+            // delivered, collected or handed over at a counter would leave the
+            // empty delivery block below unexplained.
+            'fulfilment_type' => $order->fulfilment_type->value,
             'delivery' => [
                 'label' => $order->delivery_label,
                 'line_one' => $order->delivery_line_one,
@@ -145,6 +167,15 @@ final class OrderPresenter
                 'area_name_en' => $order->delivery_area_name_en,
                 'area_name_ar' => $order->delivery_area_name_ar,
                 'area_id' => $order->delivery_area_id,
+                // The rest of their own address, as it stood at placement. A
+                // customer reading a receipt for a delivery that went to the
+                // wrong floor needs to see which floor the order actually
+                // carried, not which one their address book holds today.
+                'building' => $order->delivery_building,
+                'floor' => $order->delivery_floor,
+                'apartment' => $order->delivery_apartment,
+                'directions' => $order->delivery_directions,
+                'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
@@ -176,7 +207,7 @@ final class OrderPresenter
      *     id: string,
      *     order_number: string,
      *     organisation_id: string,
-     *     customer_account_id: string,
+     *     customer_account_id: string|null,
      *     sales_channel_id: string,
      *     branch_id: string|null,
      *     status: string,
@@ -185,15 +216,21 @@ final class OrderPresenter
      *     delivery_fee_minor: int|null,
      *     total_minor: int,
      *     payment_method: string,
+     *     fulfilment_type: string,
      *     delivery: array{
      *         label: string|null,
-     *         line_one: string,
+     *         line_one: string|null,
      *         line_two: string|null,
      *         city: string|null,
      *         area_name_en: string|null,
      *         area_name_ar: string|null,
      *         area_id: string|null,
      *         zone_id: string|null,
+     *         building: string|null,
+     *         floor: string|null,
+     *         apartment: string|null,
+     *         directions: string|null,
+     *         contact_point_id: string|null,
      *         window_code: string|null,
      *         requested_date: string|null
      *     },
@@ -203,6 +240,7 @@ final class OrderPresenter
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
      *     created_by: string|null,
+     *     placed_on_behalf_by: string|null,
      *     lock_version: int,
      *     line_count: int,
      *     lines: list<array{
@@ -246,6 +284,12 @@ final class OrderPresenter
             'delivery_fee_minor' => $order->delivery_fee_minor,
             'total_minor' => $order->total_minor,
             'payment_method' => $order->payment_method->value,
+            // The field that says what the whole delivery block below means. On
+            // a pickup or a counter row the address is null by constraint, not
+            // by omission, and a kitchen screen cannot tell "no address" from
+            // "address not loaded" without being told which kind of order it is
+            // reading.
+            'fulfilment_type' => $order->fulfilment_type->value,
             'delivery' => [
                 'label' => $order->delivery_label,
                 'line_one' => $order->delivery_line_one,
@@ -255,6 +299,16 @@ final class OrderPresenter
                 'area_name_ar' => $order->delivery_area_name_ar,
                 'area_id' => $order->delivery_area_id,
                 'zone_id' => $order->delivery_zone_id,
+                // The half of the snapshot a courier actually navigates by. The
+                // street gets somebody to the building; the building, the
+                // floor, the flat and the customer's own directions get them to
+                // the door, and the contact point is the number to ring when
+                // they still cannot find it.
+                'building' => $order->delivery_building,
+                'floor' => $order->delivery_floor,
+                'apartment' => $order->delivery_apartment,
+                'directions' => $order->delivery_directions,
+                'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
@@ -264,6 +318,11 @@ final class OrderPresenter
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
             'created_by' => $order->created_by,
+            // Provenance, and the kitchen's own record of its own shift. Null
+            // on every self-service order, which is what makes it readable as
+            // "a person at a desk took this" — `created_by` is written on every
+            // path and answers a different question.
+            'placed_on_behalf_by' => $order->placed_on_behalf_by,
             'lock_version' => $order->lock_version,
             'line_count' => count($presented),
             'lines' => $presented,
