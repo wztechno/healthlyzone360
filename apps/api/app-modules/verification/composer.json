@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/verification",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Verification\\": "src/",
+			"Healthy360\\Verification\\Tests\\": "tests/",
+			"Healthy360\\Verification\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Verification\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Verification\\Providers\\VerificationServiceProvider"
+			]
+		}
+	}
+}

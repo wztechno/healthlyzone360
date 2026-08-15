@@ -35,7 +35,32 @@ export { RESEND_VERIFICATION_COOLDOWN_SECONDS, createApiRepositories } from './r
 export type { ApiRepositories } from './repositories.ts';
 
 /**
- * The eight proposed contracts, as rejections. Exported so the conformance test can walk them
+ * The marketplace, half of which is real (M1). Exported so the conformance suite can drive it
+ * against a stubbed transport without constructing a whole repository bundle.
+ */
+export { createApiMarketplaceRepository } from './marketplace-repository.ts';
+export {
+    DEFAULT_B2B_CART_CHANNEL_CODE,
+    DEFAULT_CART_CHANNEL_CODE,
+    createApiCartSurface,
+} from './cart-repository.ts';
+export { createApiBusinessRepository, createApiBusinessReads } from './business-repository.ts';
+export { createApiInvitationsRepository } from './invitations-repository.ts';
+export {
+    NO_NUTRITION_FACTS,
+    UNSTATED_SERVING,
+    mapCursorPage,
+    mapDeliveryZone,
+    mapKitchen,
+    mapKitchenBranch,
+    mapMarketplaceMeal,
+    mapMoney,
+    mapOpeningHours,
+    mapSalesChannels,
+} from './marketplace-mappers.ts';
+
+/**
+ * The proposed contracts that are still rejections. Exported so the conformance test can walk them
  * without reaching into the bundle, and so the endpoint table has one owner.
  */
 export {
@@ -44,12 +69,14 @@ export {
     apiBusinessRepository,
     apiCommerceRepository,
     apiFoodRepository,
-    apiMarketplaceRepository,
+    apiMarketplacePrototypeRepository,
     apiMealPlanRepository,
     apiNutritionRepository,
     apiProfessionalRepository,
     apiVirtualDietitianRepository,
+    notImplemented,
 } from './prototype-repositories.ts';
+export type { PrototypeMarketplaceRepository } from './prototype-repositories.ts';
 
 export { createActiveContextHolder, createTransport, readPermissionsVersion } from './transport.ts';
 export type { ActiveContextHolder, Envelope, RequestSpec, Transport } from './transport.ts';

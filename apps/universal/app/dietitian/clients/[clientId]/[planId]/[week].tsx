@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { ClientPlanScreen } from '../../../../../src/features/professional/screens/client-plan-screen.tsx';
+import { lazyScreen } from '../../../../../src/shell/lazy-screen.tsx';
 
 /**
  * `/dietitian/clients/{client}/{plan}/{week}` — a client's week, as the professional sees it.
@@ -9,6 +9,13 @@ import { ClientPlanScreen } from '../../../../../src/features/professional/scree
  * defensible default: guessing the week from the clock would show a different week depending on when
  * the link was opened. Each is validated in the screen.
  */
+const ClientPlanScreen = lazyScreen(
+    'dietitian-client-plan-loading',
+    async () =>
+        (await import('../../../../../src/features/professional/screens/index.ts'))
+            .ClientPlanScreen,
+);
+
 export default function DietitianClientPlan() {
     const { clientId, planId, week } = useLocalSearchParams<{
         clientId?: string;

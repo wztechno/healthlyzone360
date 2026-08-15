@@ -210,7 +210,10 @@ describe('draft status is stated everywhere it can be', () => {
     it('the README states the status and the endpoint counts', () => {
         const readme = read('README.md');
         expect(readme).toContain('DRAFT, NOT IMPLEMENTED');
-        expect(readme).toContain('**33 / 35**');
+        // The layout table understated meal-plans as 8 / 9 and so totalled the
+        // prompt's original 33 / 35; the drafts have carried the Wave 2 gate's
+        // two extra paths since then. EXPECTED_PATH_COUNT is the authority.
+        expect(readme).toContain(`**${EXPECTED_PATH_COUNT} / ${EXPECTED_OPERATION_COUNT}**`);
     });
 });
 

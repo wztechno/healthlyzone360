@@ -145,7 +145,7 @@ export function RecipeDetailScreen({ recipeId }: RecipeDetailScreenProps) {
     const browseAction = (
         <Button
             testID="recipe-detail-planner"
-            variant="secondary"
+            variant="quiet"
             label={t('planner:recipe.backToPlanner')}
             onPress={() => {
                 router.push('/customer/planner' as never);

@@ -3,6 +3,7 @@ import {
     Callout,
     Card,
     Chip,
+    Dialog,
     Heading,
     Icon,
     Inline,
@@ -15,8 +16,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
-import { PrototypeDialog } from '../../../prototype/prototype-dialog.tsx';
-import { PrototypeNotice } from '../../../prototype/prototype-notice.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
 
 /**
@@ -65,6 +64,11 @@ const CAPABILITIES: readonly string[] = [
  * a control that pretends to submit, pressing it opens a dialog that says what a business account
  * is for and offers the two real routes there — sign in, or register. Honest, and not a dead end:
  * both buttons navigate to screens that exist.
+ *
+ * It is a plain `Dialog` rather than a `PrototypeDialog`, and the standing prototype banner is gone.
+ * Neither was describing a missing capability: quotations are built, they simply live behind a
+ * business account, and the dialog's own copy has always said exactly that. A "Prototype" badge on
+ * top of it told a visitor the feature does not exist, which is not true.
  */
 export function ForBusinessScreen() {
     const { t } = useTranslation();
@@ -111,6 +115,10 @@ export function ForBusinessScreen() {
                                 testID={`for-business-programme-${programme.key}`}
                                 padding="md"
                                 tone="raised"
+                                // Rule 1 for a card with no price to align: stretch to the cell,
+                                // so a row of programmes shares one height instead of three.
+                                // Prefer `self-stretch` over `h-full` (Yoga + ScrollView flex-grow).
+                                className="self-stretch"
                             >
                                 <Stack space="xs">
                                     <EntityImage
@@ -171,9 +179,7 @@ export function ForBusinessScreen() {
                 body={t('marketplace:forBusiness.pricingBody')}
             />
 
-            <PrototypeNotice body={t('marketplace:forBusiness.prototypeNotice')} />
-
-            <PrototypeDialog
+            <Dialog
                 testID="for-business-enquiry"
                 open={enquiryOpen}
                 onClose={() => {
@@ -181,7 +187,6 @@ export function ForBusinessScreen() {
                 }}
                 title={t('marketplace:forBusiness.enquiryTitle')}
                 description={t('marketplace:forBusiness.enquiryBody')}
-                contract="POST /api/v1/business/quotations"
                 actions={
                     <>
                         <Button

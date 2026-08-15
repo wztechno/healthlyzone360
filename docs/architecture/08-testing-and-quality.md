@@ -115,9 +115,10 @@ React Native Testing Library under Vitest is **not viable**; the runner split be
 
 | Test | Assertion |
 | --- | --- |
-| Fixture ↔ generated-schema conformance | Every mock fixture validates against the OpenAPI-generated schemas — mocks cannot drift from the contract |
+| Recorded-payload ↔ generated-schema conformance | Bodies recorded from the seeded stack validate against the OpenAPI-generated schemas and map onto the domain contract (`api/conformance.test.ts`) |
+| Repository-surface drift | The 21-repository / 238-method surface table matches both the contracts (compile time) and the api bundle (runtime) |
 | Generated-client drift | Regenerating the client from the bundled OpenAPI document produces no diff |
-| Mock-production negative test | A production build with mock mode enabled **fails**; this is asserted, not assumed |
+| No-mock source scan | No file under `src/api/` imports anything whose specifier mentions `mock` (the fixture world is deleted — ADR-0013 — and stays deleted) |
 | RTL visual tests | Arabic layouts verified for the Phase 1 screens (see `05-universal-frontend.md` §8) |
 | Missing-translation checks | CI fails on untranslated keys |
 
@@ -130,8 +131,8 @@ OpenAPI 3.1 is linted and bundled with Redocly; implemented endpoints have contr
 | Workflow | Jobs |
 | --- | --- |
 | **Backend** | composer validation; Pint; Larastan; Pest; PostgreSQL migration test; tenancy tests; RLS tests; OpenAPI lint and bundle |
-| **Frontend** | frozen pnpm install; formatting; ESLint; TypeScript; Vitest; Jest Expo; Expo Doctor; web export (`all-dev`); web export (one production mode); Playwright smoke + accessibility |
-| **Security and contracts** | secret scanning; dependency review; CodeQL; generated-client drift; fixture/schema conformance; mock-production negative test |
+| **Frontend** | frozen pnpm install; formatting; ESLint; TypeScript; Vitest; Jest Expo; Expo Doctor; web export (`all-dev` api artefact); web export (one production mode); Playwright read projects + the single-worker `web-write` mutation project against a provisioned Laravel stack |
+| **Security and contracts** | secret scanning; dependency review; CodeQL; generated-client drift; recorded-payload/schema conformance |
 
 Renovate/Dependabot updates must pass these workflows before merge (plan §3).
 

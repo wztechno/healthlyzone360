@@ -113,18 +113,21 @@ flowchart LR
     S[Screen] --> H[Query/mutation hook]
     H --> R[Repository interface]
     R --> API[API repository<br/>generated OpenAPI client]
-    R --> MOCK[Mock repository<br/>schema-conformant fixtures]
+    API -. unbuilt families .-> STUB[prototype.not_implemented stubs]
 ```
 
-Rules (plan §15, §18):
+Rules (plan §15/§18, revised by ADR-0013):
 
-* Screens never call `fetch` and never import fixtures.
-* API and mock repositories satisfy the same TypeScript contract.
+* Screens never call `fetch`; data flows only through hooks over the repository interface.
+* The interface has one implementation — the API repository. Its full method surface is recorded
+  in `contracts/repository-surface.ts` (compile- and runtime-checked), which also feeds the test
+  stub factory.
 * Generated OpenAPI client code is imported **only** by the API repository layer.
-* Fixtures must conform to the generated schemas (enforced by conformance tests — see `08-testing-and-quality.md`).
-* Mock mode is clearly visible during development (persistent indicator).
-* Production builds **fail** when mock mode is enabled (negative test in CI).
-* Foundation acceptance runs against the real Laravel API, not mocks.
+* Families without a backend keep rejecting stubs (`api/prototype-repositories.ts`) and are
+  hidden from users by `src/features/availability.ts` — no visible entry points, hidden routes
+  redirect.
+* Production builds **fail** without a real API base URL (`MissingApiBaseUrlError`).
+* Every Playwright project runs the api export against the seeded Laravel stack.
 
 ## 7. Design system scope
 

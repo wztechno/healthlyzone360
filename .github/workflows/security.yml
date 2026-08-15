@@ -17,6 +17,11 @@ concurrency:
 jobs:
   secret-scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # gitleaks-action lists the PR's commits over the API on pull_request events; without this
+      # the job dies on a 403 before scanning anything.
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,7 +32,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    # The dependency-review API needs GitHub Advanced Security, which private personal repos do
+    # not have — the job can only fail there. It arms itself if the repository goes public (or
+    # remove the visibility clause after buying GHAS).
+    if: github.event_name == 'pull_request' && github.event.repository.private == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,6 +72,11 @@ jobs:
           exit $fail
 
   codeql:
+    # The analysis itself runs anywhere, but uploading results to code scanning needs GitHub
+    # Advanced Security, which private personal repos do not have — the job can only fail there.
+    # Arms itself on pushes and PRs if the repository goes public; the `== false` comparison
+    # deliberately also skips scheduled runs, whose event payload carries no repository field.
+    if: github.event.repository.private == false
     runs-on: ubuntu-latest
     permissions:
       contents: read

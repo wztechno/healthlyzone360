@@ -1,10 +1,33 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+
+export type TableSortDirection = 'asc' | 'desc';
+
+/**
+ * Column headers: small, bold, upper-case and widely tracked, in the demoted text role.
+ *
+ * A header is a label for the column, not a competitor to the figures under it — so it is the
+ * quietest thing in the table by colour and the most distinct by shape. `content-disabled` is the
+ * demoted role rather than a grey invented for the purpose (§1.3 allows exactly two), and it still
+ * owes the normal-text ratio because it carries real words: 5.17:1 on `surface-raised`, 4.69:1 on
+ * `surface-sunken`. Both are asserted in `packages/design-tokens/src/colour.test.ts`.
+ */
+const HEADER_CELL_CLASS = 'text-xs font-bold uppercase tracking-widest text-content-disabled';
+
+/**
+ * A trailing per-row control — "View", "Edit", a menu. `header` names the column above `md` and is
+ * what a screen reader meets before the buttons; it is required for that reason.
+ */
+export interface TableRowAction<Row> {
+    readonly header: string;
+    readonly render: (row: Row) => ReactNode;
+}
 
 export interface TableColumn<Row> {
     readonly key: string;
@@ -12,12 +35,23 @@ export interface TableColumn<Row> {
     /** Aligns to the trailing edge so figures line up on their last digit. */
     readonly numeric?: boolean | undefined;
     /**
+     * The one figure in the row a reader is actually comparing — a total, a price, a count. It is
+     * set in the display face so the eye finds it without reading the row, and at most one column
+     * should claim it: two "most important" numbers is none.
+     */
+    readonly primary?: boolean | undefined;
+    /**
      * Marks the column that names the row. It becomes a `rowheader` in the table presentation and
      * the card's leading line in the stacked presentation. At most one column should set this.
      */
     readonly rowHeader?: boolean | undefined;
     /** Relative width inside the row. Defaults to 1. */
     readonly flex?: number | undefined;
+    /**
+     * Makes the column's header pressable and gives it an `aria-sort`. Only the wide presentation
+     * has column headers, so this has no effect below `md`.
+     */
+    readonly sortable?: boolean | undefined;
     readonly render: (row: Row) => ReactNode;
 }
 
@@ -29,6 +63,13 @@ export interface TableProps<Row> {
     readonly rowKey: (row: Row) => string;
     readonly captionHidden?: boolean | undefined;
     readonly emptyLabel?: string | undefined;
+    /** The `key` of the column the caller has sorted by, or `null` for "not sorted". */
+    readonly sortKey?: string | null | undefined;
+    /** Only meaningful together with `sortKey`. Defaults to `'asc'`. */
+    readonly sortDirection?: TableSortDirection | undefined;
+    readonly onSortChange?: ((key: string, direction: TableSortDirection) => void) | undefined;
+    /** A trailing action column above `md`; a card footer below it. */
+    readonly rowAction?: TableRowAction<Row> | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -48,6 +89,19 @@ export interface TableProps<Row> {
  * the document (`08-responsive-behaviour.md`, RSP-01). The switch is a *branch*, not a responsive
  * class: rendering both and hiding one leaves the hidden copy in the accessibility tree, and a
  * screen reader user then meets every figure twice.
+ *
+ * **Sorting is fully controlled.** The table never sorts `rows` and never holds sort state: it draws
+ * the affordance, reports the intent through `onSortChange`, and re-renders whatever the caller
+ * hands back. Pressing the column that is already active toggles its direction; pressing any other
+ * sortable column selects it **ascending** — a fresh sort starts at the top of the scale, which is
+ * what every table the reader has already used does, and guessing "descending, because they
+ * probably want the biggest" is a guess. The affordance exists only in the wide presentation: below
+ * `md` there are no column headers to press, so a card list is sorted by whatever control the
+ * screen around it provides, never by the table.
+ *
+ * **`rowAction`** is a trailing cell above `md` — counted in `aria-colcount`, with its own
+ * `columnheader` — and a footer inside each card below it, where a fourth column of buttons would
+ * be the squeeze the stacked branch exists to avoid.
  */
 export function Table<Row>({
     caption,
@@ -56,6 +110,10 @@ export function Table<Row>({
     rowKey,
     captionHidden = false,
     emptyLabel,
+    sortKey = null,
+    sortDirection = 'asc',
+    onSortChange,
+    rowAction,
     className,
     testID,
 }: TableProps<Row>) {
@@ -66,6 +124,12 @@ export function Table<Row>({
     const captionId = `${base}-caption`;
     const wide = atLeast('md');
     const isEmpty = rows.length === 0;
+    const columnCount = columns.length + (rowAction === undefined ? 0 : 1);
+
+    const nextDirection = (key: string): TableSortDirection => {
+        if (key !== sortKey) return 'asc';
+        return sortDirection === 'asc' ? 'desc' : 'asc';
+    };
 
     const captionNode = captionHidden ? null : (
         <RNText
@@ -139,6 +203,14 @@ export function Table<Row>({
                                         </View>
                                     </View>
                                 ))}
+                                {rowAction === undefined ? null : (
+                                    <View
+                                        testID={`${base}-card-${rowKey(row)}-action`}
+                                        className="flex-row flex-wrap items-center justify-end gap-2 border-t border-stroke-subtle pt-2"
+                                    >
+                                        {rowAction.render(row)}
+                                    </View>
+                                )}
                             </View>
                         ))}
                     </View>
@@ -157,29 +229,117 @@ export function Table<Row>({
                     role="table"
                     {...naming}
                     aria-rowcount={rows.length + 1}
-                    aria-colcount={columns.length}
-                    className="flex-col overflow-hidden rounded-lg border border-stroke-subtle"
+                    aria-colcount={columnCount}
+                    className="flex-col"
                 >
                     <View
                         testID={`${base}-header`}
                         role="row"
-                        className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-sunken px-3 py-2"
+                        className="flex-row items-center gap-3 border-b-2 border-stroke-subtle px-1 pb-2"
                     >
-                        {columns.map((column) => (
+                        {columns.map((column) => {
+                            if (column.sortable !== true) {
+                                return (
+                                    <RNText
+                                        key={column.key}
+                                        testID={`${base}-columnheader-${column.key}`}
+                                        role="columnheader"
+                                        numberOfLines={2}
+                                        className={cx(
+                                            HEADER_CELL_CLASS,
+                                            column.numeric === true ? 'text-end' : 'text-start',
+                                        )}
+                                        style={{ flex: column.flex ?? 1 }}
+                                    >
+                                        {column.header}
+                                    </RNText>
+                                );
+                            }
+
+                            const active = column.key === sortKey;
+                            const ascending = active && sortDirection === 'asc';
+
+                            return (
+                                <View
+                                    key={column.key}
+                                    testID={`${base}-columnheader-${column.key}`}
+                                    role="columnheader"
+                                    // The state lives on the header, where ARIA looks for it; the
+                                    // button inside says what pressing it does.
+                                    aria-sort={
+                                        !active ? 'none' : ascending ? 'ascending' : 'descending'
+                                    }
+                                    style={{ flex: column.flex ?? 1 }}
+                                >
+                                    <Pressable
+                                        testID={`${base}-sort-${column.key}`}
+                                        role="button"
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('designSystem:table.sortBy', {
+                                            column: column.header,
+                                        })}
+                                        aria-label={t('designSystem:table.sortBy', {
+                                            column: column.header,
+                                        })}
+                                        // Native has no `aria-sort`, so the current state is
+                                        // carried in the hint there instead of being lost.
+                                        {...(active
+                                            ? {
+                                                  accessibilityHint: t(
+                                                      ascending
+                                                          ? 'designSystem:table.sortedAscending'
+                                                          : 'designSystem:table.sortedDescending',
+                                                  ),
+                                              }
+                                            : {})}
+                                        onPress={() => {
+                                            onSortChange?.(column.key, nextDirection(column.key));
+                                        }}
+                                        className={cx(
+                                            'flex-row items-center gap-1 min-h-touch',
+                                            column.numeric === true
+                                                ? 'justify-end'
+                                                : 'justify-start',
+                                        )}
+                                    >
+                                        <RNText
+                                            numberOfLines={2}
+                                            className={cx(
+                                                'shrink',
+                                                HEADER_CELL_CLASS,
+                                                active ? 'text-content-primary' : null,
+                                                column.numeric === true ? 'text-end' : 'text-start',
+                                            )}
+                                        >
+                                            {column.header}
+                                        </RNText>
+                                        <Icon
+                                            testID={`${base}-sort-indicator-${column.key}`}
+                                            name={
+                                                active && !ascending ? 'chevronDown' : 'chevronUp'
+                                            }
+                                            size="sm"
+                                            className={
+                                                active
+                                                    ? 'text-content-primary'
+                                                    : 'text-content-disabled'
+                                            }
+                                        />
+                                    </Pressable>
+                                </View>
+                            );
+                        })}
+                        {rowAction === undefined ? null : (
                             <RNText
-                                key={column.key}
-                                testID={`${base}-columnheader-${column.key}`}
+                                testID={`${base}-columnheader-action`}
                                 role="columnheader"
                                 numberOfLines={2}
-                                className={cx(
-                                    'text-xs font-semibold text-content-secondary',
-                                    column.numeric === true ? 'text-end' : 'text-start',
-                                )}
-                                style={{ flex: column.flex ?? 1 }}
+                                className={cx(HEADER_CELL_CLASS, 'text-end')}
+                                style={{ flex: 1 }}
                             >
-                                {column.header}
+                                {rowAction.header}
                             </RNText>
-                        ))}
+                        )}
                     </View>
 
                     {rows.map((row) => (
@@ -187,21 +347,37 @@ export function Table<Row>({
                             key={rowKey(row)}
                             testID={`${base}-row-${rowKey(row)}`}
                             role="row"
-                            className="flex-row items-center gap-3 border-t border-stroke-subtle px-3 py-2"
+                            className="flex-row items-center gap-3 border-b border-surface-sunken px-1 py-3"
                         >
                             {columns.map((column) => (
                                 <View
                                     key={column.key}
                                     testID={`${base}-cell-${rowKey(row)}-${column.key}`}
                                     role={column.rowHeader === true ? 'rowheader' : 'cell'}
-                                    className={
-                                        column.numeric === true ? 'items-end' : 'items-start'
-                                    }
+                                    className={cx(
+                                        column.numeric === true ? 'items-end' : 'items-start',
+                                        // The display face is applied to the *cell*, so a caller
+                                        // gets the treatment by declaring which column matters
+                                        // rather than by repeating a class in every `render`.
+                                        column.primary === true
+                                            ? 'font-display text-base text-content-primary'
+                                            : null,
+                                    )}
                                     style={{ flex: column.flex ?? 1 }}
                                 >
                                     {column.render(row)}
                                 </View>
                             ))}
+                            {rowAction === undefined ? null : (
+                                <View
+                                    testID={`${base}-cell-${rowKey(row)}-action`}
+                                    role="cell"
+                                    className="items-end"
+                                    style={{ flex: 1 }}
+                                >
+                                    {rowAction.render(row)}
+                                </View>
+                            )}
                         </View>
                     ))}
                 </View>

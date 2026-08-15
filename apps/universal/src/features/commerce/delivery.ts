@@ -1,22 +1,22 @@
-import type { DeliverySlot, Kitchen } from '@healthy360/api-client/contracts';
+import type {
+    DeliverySlot,
+    Kitchen,
+    KitchenDeliveryWindow,
+} from '@healthy360/api-client/contracts';
 
 /**
  * Delivery slots and the delivery-area check.
  *
- * ## Why the slots are a constant here
+ * ## Where the slot list comes from
  *
- * `contracts/commerce.ts` declares a `DeliverySlot` shape and every request that carries a
- * `slotCode`, but `CommerceRepository` publishes **no operation that lists them** — there is no
- * `listDeliverySlots()` and no slot collection on a kitchen or a plan. So the three codes the
- * repository will accept are declared here, once, and the gap is recorded rather than papered over:
- * a real backend must publish `GET /api/v1/delivery-slots` (or hang the set off the kitchen branch)
- * before this list can stop being a client-side assumption. Sending an unrecognised code is not
- * silently wrong — `previewSubscription` answers with a `subscription.unknown_slot` warning and
- * `changeSlot` rejects outright — which is what makes the assumption checkable rather than hidden.
+ * Prefer the kitchen's published `deliveryWindows` (marketplace kitchen projection).
+ * When a kitchen has not configured windows yet — or the caller has no kitchen in
+ * hand — fall back to {@link FALLBACK_DELIVERY_SLOTS} so subscription editors and
+ * tests keep a stable, recognised set. Sending an unrecognised code is still
+ * rejected by the API (`subscription.unknown_slot` / change-slot failure).
  *
- * Labels are **not** stored here. A `DeliverySlot.label` frozen in English would resurface in
- * English for an Arabic reader; the code is the stable thing and `commerce:slots.<code>` is the
- * displayed thing.
+ * Labels for fallback codes live in `commerce:slots.<code>`. Kitchen-published
+ * windows already carry a localised `label` from the server.
  *
  * ## Why the area check is a real check
  *
@@ -32,22 +32,59 @@ export interface DeliverySlotOption {
     readonly code: string;
     readonly startsAt: string;
     readonly endsAt: string;
+    /** Present when the option came from a kitchen-published window. */
+    readonly label?: string | undefined;
 }
 
-export const DELIVERY_SLOTS: readonly DeliverySlotOption[] = [
+/**
+ * Last-resort slots when the kitchen has published none.
+ *
+ * @deprecated Prefer {@link deliverySlotsForKitchen}. Kept as `DELIVERY_SLOTS` for tests.
+ */
+export const FALLBACK_DELIVERY_SLOTS: readonly DeliverySlotOption[] = [
     { code: 'morning', startsAt: '07:00', endsAt: '10:00' },
     { code: 'midday', startsAt: '11:00', endsAt: '14:00' },
     { code: 'evening', startsAt: '17:00', endsAt: '21:00' },
 ];
 
+/** @deprecated Prefer {@link deliverySlotsForKitchen}. */
+export const DELIVERY_SLOTS = FALLBACK_DELIVERY_SLOTS;
+
 export const DEFAULT_SLOT_CODE = 'midday';
 
-export function isDeliverySlotCode(code: string): boolean {
-    return DELIVERY_SLOTS.some((slot) => slot.code === code);
+export function windowToSlotOption(window: KitchenDeliveryWindow): DeliverySlotOption {
+    return {
+        code: window.code,
+        startsAt: window.startsAt,
+        endsAt: window.endsAt,
+        label: window.label,
+    };
 }
 
-export function deliverySlotByCode(code: string): DeliverySlotOption | null {
-    return DELIVERY_SLOTS.find((slot) => slot.code === code) ?? null;
+/** Slots for a kitchen: published windows when present, otherwise the fallback set. */
+export function deliverySlotsForKitchen(
+    kitchen: Kitchen | undefined | null,
+): readonly DeliverySlotOption[] {
+    const windows = kitchen?.deliveryWindows ?? [];
+    if (windows.length === 0) return FALLBACK_DELIVERY_SLOTS;
+    return windows.map(windowToSlotOption);
+}
+
+export function defaultSlotCodeForKitchen(kitchen: Kitchen | undefined | null): string {
+    const slots = deliverySlotsForKitchen(kitchen);
+    if (slots.some((slot) => slot.code === DEFAULT_SLOT_CODE)) return DEFAULT_SLOT_CODE;
+    return slots[0]?.code ?? DEFAULT_SLOT_CODE;
+}
+
+export function isDeliverySlotCode(code: string, kitchen?: Kitchen | null | undefined): boolean {
+    return deliverySlotsForKitchen(kitchen).some((slot) => slot.code === code);
+}
+
+export function deliverySlotByCode(
+    code: string,
+    kitchen?: Kitchen | null | undefined,
+): DeliverySlotOption | null {
+    return deliverySlotsForKitchen(kitchen).find((slot) => slot.code === code) ?? null;
 }
 
 /** Widens a local option to the contract shape, taking the translated label from the caller. */

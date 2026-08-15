@@ -38,7 +38,9 @@
             "protein": "Protein",
             "rating": "Rating",
             "preparation_time": "Time to prepare"
-        }
+        },
+        "filters": "Filters",
+        "filtersActive": "Filters ({{n}})"
     },
     "filters": {
         "kitchen": "Kitchen",
@@ -58,7 +60,8 @@
         "unitGrams": "g",
         "unitMinutes": "min",
         "clear": "Clear filters",
-        "activeCount": "{{active}} filters applied"
+        "activeCount": "{{active}} filters applied",
+        "removeFilter": "Remove filter: {{filter}}"
     },
     "meal": {
         "loading": "Loading the meal",
@@ -161,24 +164,78 @@
         "prototypeFlag": "Produced by the prototype calculator"
     },
     "plans": {
-        "title": "Subscription plans",
-        "subtitle": "Eight plans from four kitchens, each with calorie bands, duration options and a from-price.",
+        "title": "Healthy eating, planned for real life",
+        "subtitle": "Subscription meal plans from verified kitchens — each with calorie bands, honest pricing and a dietitian consultation before you commit.",
+        "eyebrow": "Meal plans built around your goals",
+        "heroHowItWorks": "How plans work",
+        "heroSpeakToDietitian": "Speak to a dietitian",
+        "trust": {
+            "reviewed": "Dietitian consultation",
+            "kitchens": "Verified kitchens",
+            "flexible": "Flexible durations"
+        },
         "categoryLabel": "Plan category",
         "categoryAll": "All plans",
+        "searchLabel": "Search plans",
+        "searchPlaceholder": "A plan, a kitchen, a way of eating",
+        "kitchenFilter": "Kitchen",
+        "calorieFilter": "Calorie band",
+        "calorie": {
+            "lighter": "Lighter days",
+            "moderate": "Moderate days",
+            "higher": "Higher energy"
+        },
+        "sortLabel": "Sort",
+        "sort": {
+            "recommended": "Recommended",
+            "priceLowHigh": "Price: low to high",
+            "ratingHighLow": "Rating: high to low"
+        },
+        "resultSummary_one": "{{count}} meal plan from {{kitchens}}",
+        "resultSummary_other": "{{count}} meal plans from {{kitchens}}",
+        "kitchenCount_one": "{{count}} verified kitchen",
+        "kitchenCount_other": "{{count}} verified kitchens",
         "fromPrice": "From {{price}} a week",
+        "priceFrom": "From",
+        "perWeekSuffix": "a week",
         "perDayPrice": "about {{price}} a day",
         "energyBand": "{{min}}–{{max}} kcal",
+        "bandsLabel": "Calorie bands a day",
+        "byKitchen": "by {{kitchen}}",
+        "durationsLabel": "Commitment",
+        "durationsFor": "Commitment options for {{plan}}",
+        "durationTotal": "{{price}} total",
+        "durationSaves": "Save {{discount}}%",
+        "durationNoDiscount": "No discount",
+        "viewPlan": "View plan",
+        "viewPlanNamed": "View {{plan}}",
         "mealsPerDay": "{{meals}} meals and {{snacks}} snacks a day",
         "mealsPerDayNoSnacks": "{{meals}} meals a day",
         "durations": "{{durations}}",
         "compareLabel": "Compare",
+        "compareTitle": "Compare plans",
+        "compareTrayLabel": "Plan comparison tray",
         "compareHint": "Select up to three plans, then open the comparison.",
+        "compareEmpty": "Select up to three plans to compare them side by side.",
+        "compareClear": "Clear",
+        "compareRemove": "Remove {{plan}} from the comparison",
         "compareSelected": "{{selected}} of 3 plans selected",
         "compareOpen": "Compare selected plans",
         "compareFull": "Three plans is the most that fits side by side. Deselect one to add another.",
-        "emptyTitle": "No plans in that category",
-        "emptyBody": "Try another category, or clear the filters to see every plan.",
-        "ratingLabel": "Average rating for {{plan}}"
+        "methodologyTitle": "How to read the nutrition figures",
+        "ctaTitle": "Not sure which plan fits you?",
+        "ctaBody": "Every plan starts with a dietitian consultation, so the calorie band and any restriction are set by a professional rather than guessed from a catalogue. If you would rather talk it through first, that is the place to start.",
+        "ctaPrimary": "Speak to a dietitian",
+        "ctaSecondary": "How plans work",
+        "emptyTitle": "No plans match those filters",
+        "emptyBody": "Widen the search, remove a filter, or clear them all to see every plan.",
+        "ratingLabel": "Average rating for {{plan}}",
+        "durationShort": {
+            "1w": "1 wk",
+            "2w": "2 wk",
+            "4w": "4 wk",
+            "12w": "12 wk"
+        }
     },
     "compare": {
         "title": "Compare plans",

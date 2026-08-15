@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $code
  * @property int $version
  * @property string $purpose
+ * @property string $audience
+ * @property bool $is_required
+ * @property int $display_order
  * @property string $body_en
  * @property string $body_ar
  * @property bool $is_active
@@ -38,6 +41,8 @@ class ConsentDefinition extends BaseModel
         return [
             'version' => 'integer',
             'is_active' => 'boolean',
+            'is_required' => 'boolean',
+            'display_order' => 'integer',
         ];
     }
 

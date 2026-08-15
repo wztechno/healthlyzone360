@@ -1,38 +1,28 @@
-import type { AppMode, DataMode } from '@healthy360/domain-types';
+import type { AppMode } from '@healthy360/domain-types';
 
 import type { ClientPlatform } from './api/config.ts';
 import { DEFAULT_API_BASE_URL } from './api/config.ts';
 import { createMemoryTokenStore } from './contracts/session.ts';
 import type { Repositories, SessionTokenStore } from './contracts/index.ts';
-import type { MockScenarioName } from './mock/scenarios.ts';
+import type { GuestTokenStore } from './session/guest-token-store.ts';
 
 export const REPOSITORY_APP_ENVS = ['development', 'preview', 'production'] as const;
 export type RepositoryAppEnv = (typeof REPOSITORY_APP_ENVS)[number];
 
-/** Minimal string storage the application supplies (localStorage on web, memory on native). */
-export interface KeyValueStorage {
-    get(key: string): string | null;
-    set(key: string, value: string): void;
-}
-
 export interface RepositoryConfig {
-    readonly dataMode: DataMode;
     readonly appEnv: RepositoryAppEnv;
-    /** Which mock world to load. Ignored when `dataMode` is `api`. */
-    readonly scenario?: MockScenarioName | undefined;
-    /** Simulated latency for the mock repositories; `0` in unit tests. */
-    readonly latencyMs?: number | undefined;
     readonly tokenStore?: SessionTokenStore | undefined;
     /**
-     * Mock mode only: backs the mock server's context persistence so a page reload keeps the
-     * last-applied organisation/branch context, exactly as the real backend does
-     * (`user_profiles.last_organisation_id`, Phase 4).
+     * The guest credential's store (plan Phase G1). Supplied by the application, for the same
+     * reason `tokenStore` is: only the application knows whether this device has a
+     * `sessionStorage` or a keychain. Defaults to a memory store, which is correct in tests and in
+     * Node and merely forgetful in a browser.
      */
-    readonly keyValueStorage?: KeyValueStorage | undefined;
+    readonly guestTokenStore?: GuestTokenStore | undefined;
     /**
-     * Base URL for the API repositories, for example `http://localhost:8080`. Used only when
-     * `dataMode` is `api`; defaults to `DEFAULT_API_BASE_URL` outside production, and is *required*
-     * in production, where guessing `localhost` would be a silent outage.
+     * Base URL for the API repositories, for example `http://localhost:8080`. Defaults to
+     * `DEFAULT_API_BASE_URL` outside production, and is *required* in production, where guessing
+     * `localhost` would be a silent outage.
      */
     readonly baseUrl?: string | undefined;
     /** Diagnostic request headers (`X-App-Mode`, `X-Client-Version`, `X-Client-Platform`). */
@@ -45,7 +35,7 @@ export interface RepositoryConfig {
     readonly locale?: (() => string) | undefined;
 }
 
-/** Raised when `dataMode` is `api` in production with no base URL to talk to. */
+/** Raised in production when there is no base URL to talk to. */
 export class MissingApiBaseUrlError extends Error {
     constructor() {
         super(
@@ -60,79 +50,14 @@ export class MissingApiBaseUrlError extends Error {
 }
 
 /**
- * Mock-cannot-ship **gate #2** (plan §18).
- *
- * Gate #1 refuses to *configure* a production build with mock data (`app.config.ts`). This is the
- * runtime backstop for anything that slips past it — a patched bundle, a mis-set env var read after
- * configuration, a preview artefact promoted by hand. It throws rather than degrading, because
- * silently serving fixtures to a real user is the worst available outcome.
- */
-export class MockDataInProductionError extends Error {
-    constructor(appEnv: RepositoryAppEnv) {
-        super(
-            [
-                'Refusing to create mock repositories in a production application.',
-                `  appEnv=${appEnv}`,
-                '  dataMode=mock',
-                'Production builds must read from the Healthy360 API (plan §18;',
-                'docs/architecture/05-universal-frontend.md §6).',
-            ].join('\n'),
-        );
-        this.name = 'MockDataInProductionError';
-    }
-}
-
-/**
  * The single place a `Repositories` bundle is created.
  *
- * Both implementations are behind dynamic imports, so a production bundle can tree-shake — or at
- * least code-split — the entire fixture world out of the initial chunk, and a mock-mode
- * development build never pulls the generated wire types in either. The async signature exists for
- * that reason alone.
- *
- * The split matters more since Prompt 2 than it did before. `./mock/repositories.ts` now also builds
- * the prototype world — sixty ingredients, twenty recipes rolled up through `@healthy360/nutrition`,
- * forty meals with two weeks of availability each — and none of it may reach an api-mode build.
- * `./api/prototype-repositories.ts` therefore imports nothing from `./mock/`, and
- * `api/prototype-repositories.test.ts` reads the source of every file in `src/api/` to prove it.
+ * One implementation since ADR-0013 — the API repositories — behind a dynamic import so the
+ * ~12K-line transport-and-mapper layer stays off the entry chunk's critical path (fonts, i18n and
+ * the landing shell paint first). The surviving guard is the production base-URL check: the mock
+ * gates this factory once carried defended an implementation that no longer exists.
  */
 export async function createRepositories(config: RepositoryConfig): Promise<Repositories> {
-    if (config.dataMode === 'mock') {
-        if (config.appEnv === 'production') throw new MockDataInProductionError(config.appEnv);
-
-        const { createMockRepositories } = await import('./mock/repositories.ts');
-
-        const storage = config.keyValueStorage;
-        const storageKey = `h360.mock-contexts.${config.scenario ?? 'default'}`;
-        const contexts =
-            storage === undefined
-                ? undefined
-                : {
-                      load: () => {
-                          try {
-                              const raw = storage.get(storageKey);
-                              return raw === null ? null : JSON.parse(raw);
-                          } catch {
-                              return null;
-                          }
-                      },
-                      save: (map: object) => {
-                          try {
-                              storage.set(storageKey, JSON.stringify(map));
-                          } catch {
-                              /* Persistence is best-effort; the in-memory world still works. */
-                          }
-                      },
-                  };
-
-        return createMockRepositories({
-            scenario: config.scenario,
-            latencyMs: config.latencyMs,
-            tokenStore: config.tokenStore,
-            contexts,
-        });
-    }
-
     const baseUrl = config.baseUrl ?? '';
     if (baseUrl === '' && config.appEnv === 'production') throw new MissingApiBaseUrlError();
 
@@ -141,6 +66,9 @@ export async function createRepositories(config: RepositoryConfig): Promise<Repo
     return createApiRepositories({
         baseUrl: baseUrl === '' ? DEFAULT_API_BASE_URL : baseUrl,
         tokenStore: config.tokenStore ?? createMemoryTokenStore(),
+        ...(config.guestTokenStore === undefined
+            ? {}
+            : { guestTokenStore: config.guestTokenStore }),
         ...(config.appMode === undefined ? {} : { appMode: config.appMode }),
         ...(config.clientVersion === undefined ? {} : { clientVersion: config.clientVersion }),
         ...(config.platform === undefined ? {} : { platform: config.platform }),

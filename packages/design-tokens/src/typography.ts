@@ -38,6 +38,33 @@ export const fontFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
     },
 };
 
+/**
+ * Display family — Space Grotesk (mood board Option 02) for headings, KPIs and numeric emphasis.
+ *
+ * Only its 500 and 700 cuts are shipped, so `regular`/`medium` both resolve to 500 and
+ * `semibold`/`bold` to 700. Space Grotesk carries no Arabic glyphs, so the web stack lists
+ * `IBM Plex Sans Arabic` next: font fallback is per-glyph on the web, so a mixed heading renders its
+ * Latin in Grotesk and its Arabic in Plex without a second class. On native (one family, no per-glyph
+ * fallback) the {@link Heading} applies the display face only in Latin locales, so Arabic headings
+ * keep Plex there too.
+ */
+export const displayFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
+    latin: {
+        regular: 'SpaceGrotesk_500Medium',
+        medium: 'SpaceGrotesk_500Medium',
+        semibold: 'SpaceGrotesk_700Bold',
+        bold: 'SpaceGrotesk_700Bold',
+        stack: "'Space Grotesk', 'IBM Plex Sans Arabic', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    },
+    arabic: {
+        regular: 'IBMPlexSansArabic_600SemiBold',
+        medium: 'IBMPlexSansArabic_600SemiBold',
+        semibold: 'IBMPlexSansArabic_700Bold',
+        bold: 'IBMPlexSansArabic_700Bold',
+        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
+    },
+};
+
 /** Line-height multipliers, per script. Applied to the font size to get a line height. */
 export const lineHeightMultipliers: Readonly<Record<Script, number>> = {
     latin: 1.5,
@@ -94,6 +121,20 @@ export const letterSpacing = {
     wide: 0.4,
 } as const;
 export type LetterSpacingName = keyof typeof letterSpacing;
+
+/**
+ * Display tracking — for Space Grotesk at {@link DISPLAY_SIZE_THRESHOLD} and above.
+ *
+ * Expressed in `em` rather than px, which is why it is not a fourth stop on {@link letterSpacing}:
+ * the three above are absolute and the same at every size, but display tracking has to scale with
+ * the type or it means nothing. `tight` (−0.4px) is a tenth of what a 48px heading needs, and large
+ * display type set at normal tracking genuinely reads loose.
+ *
+ * Web only in practice: React Native's `letterSpacing` takes a number of points and has no `em`, so
+ * native headings keep their default tracking. The design is reviewed on the web, and inventing a
+ * single px value here would be wrong at three of the four display sizes.
+ */
+export const displayLetterSpacing = '-0.02em';
 
 /**
  * Resolved line height for a size in a script, rounded to a whole pixel so text baselines line up

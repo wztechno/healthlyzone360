@@ -123,7 +123,7 @@ export function GroceryListScreen({ week }: GroceryListScreenProps) {
             <Inline space="sm" wrap>
                 <Button
                     testID="grocery-back-to-week"
-                    variant="secondary"
+                    variant="quiet"
                     size="sm"
                     label={t('planner:grocery.backToWeek')}
                     onPress={() => {
@@ -154,7 +154,7 @@ export function GroceryListScreen({ week }: GroceryListScreenProps) {
                 emptyActions={
                     <Button
                         testID="grocery-empty-week"
-                        variant="secondary"
+                        variant="quiet"
                         label={t('planner:grocery.backToWeek')}
                         onPress={() => {
                             router.push(`/customer/planner/week/${weekStart}` as never);

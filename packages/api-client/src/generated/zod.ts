@@ -34,10 +34,45 @@ export const zErrorCode = z.enum([
     'context.organisation_required',
     'context.organisation_forbidden',
     'context.branch_out_of_scope',
+    'context.branch_required',
     'authz.permission_denied',
     'request.invalid',
+    'request.precondition_required',
+    'request.idempotency_key_reused',
     'resource.not_found',
     'resource.conflict',
+    'organisation.suspended',
+    'catalogue.in_use',
+    'catalogue.version_immutable',
+    'catalogue.allergen_unmapped',
+    'catalogue.publish_blocked',
+    'otp.invalid',
+    'otp.expired',
+    'otp.attempts_exceeded',
+    'otp.cooldown_active',
+    'otp.locked',
+    'otp.channel_unavailable',
+    'contact.already_in_use',
+    'account.verification_required',
+    'address.area_not_served',
+    'guest.session_invalid',
+    'cart.line_refused',
+    'cart.channel_refused',
+    'order.placement_refused',
+    'b2b.application_state_invalid',
+    'b2b.documents_incomplete',
+    'b2b.signatory_required',
+    'b2b.quotation_state_invalid',
+    'b2b.quotation_empty',
+    'subscription.refused',
+    'subscription.change_refused',
+    'closure.refused',
+    'offboarding.refused',
+    'offboarding.settlement_outstanding',
+    'record_export.unavailable',
+    'payment.refund_exceeds_capture',
+    'inventory.insufficient_stock',
+    'unit.conversion_unsupported',
     'rate_limit.exceeded',
     'server.internal_error'
 ]);
@@ -160,7 +195,8 @@ export const zRegisterRequest = z.object({
     country_code: z.string().length(2).nullish(),
     timezone: z.string().max(64).optional(),
     accepts_terms: z.literal(true),
-    accepts_privacy: z.literal(true)
+    accepts_privacy: z.literal(true),
+    account_type: z.enum(['b2c']).optional()
 });
 
 export const zLoginRequest = z.object({
@@ -196,6 +232,6177 @@ export const zResetPasswordRequest = z.object({
 export const zTwoFactorChallengeRequest = z.object({
     code: z.string().nullish(),
     recovery_code: z.string().nullish()
+});
+
+export const zPaginationMeta = zMeta.and(z.object({
+    count: z.int().gte(0),
+    next_cursor: z.string().nullable(),
+    has_more: z.boolean()
+}));
+
+/**
+ * What the kitchen catalogue answers with when `page` was sent. The
+ * cursor fields are absent: a numbered page has no cursor to hand back,
+ * and a client that sent `page` is not walking.
+ *
+ */
+export const zNumberedPaginationMeta = zMeta.and(z.object({
+    count: z.int().gte(0),
+    page: z.int().gte(1),
+    per_page: z.int().gte(1).lte(100),
+    total_count: z.int().gte(0),
+    total_pages: z.int().gte(0)
+}));
+
+/**
+ * Which of the two the endpoint answers with is decided by the request:
+ * send `page` and it is `NumberedPaginationMeta`, omit it and it is
+ * `PaginationMeta`. Only the kitchen catalogue offers the choice.
+ *
+ */
+export const zPaginatedOrNumberedMeta = z.union([
+    zPaginationMeta,
+    zNumberedPaginationMeta
+]);
+
+/**
+ * A canonical allergen class code — an immutable regulatory identity.
+ * Never renamed and never deleted; a class that should no longer be
+ * offered is deactivated instead. The fourteen seeded values match the
+ * universal client's `AllergenCode` union one for one.
+ *
+ */
+export const zAllergenCode = z.string().max(20).regex(/^[a-z][a-z0-9_]*$/);
+
+/**
+ * The operational lifecycle of an ingredient. Deliberately not the
+ * publication family (`draft`/`published`/…): an ingredient is never
+ * sold, so it has no publication state of its own.
+ *
+ */
+export const zIngredientStatus = z.enum([
+    'active',
+    'inactive',
+    'archived'
+]);
+
+/**
+ * How much the platform trusts what it holds about this ingredient.
+ * `requires_review` is a recorded contradiction awaiting a human — the
+ * seeded burghul and pita rows carry it because the source workbook
+ * tags them allergen-free while its own allergen key does not.
+ *
+ */
+export const zIngredientVerificationStatus = z.enum([
+    'verified',
+    'unverified',
+    'requires_review'
+]);
+
+/**
+ * Local availability in the launch market. Null where the source does not say.
+ */
+export const zAvailabilityTier = z.enum([
+    'core',
+    'common',
+    'specialty_imported'
+]).nullable();
+
+/**
+ * The administrative shape of an ingredient. Carries **both** names and
+ * ignores `Accept-Language` for them: a bilingual editor has to see what
+ * it is editing. There is no public ingredient projection.
+ *
+ */
+export const zAdminIngredient = z.object({
+    id: zUuid,
+    organisation_id: zUuid.nullable(),
+    is_platform: z.boolean(),
+    slug: z.string().max(120),
+    name_en: z.string(),
+    name_ar: z.string(),
+    ingredient_category_id: zUuid.nullable(),
+    ingredient_subcategory_id: zUuid.nullable(),
+    default_unit_id: zUuid,
+    default_unit_code: z.string().nullish(),
+    yield_factor: z.string(),
+    forked_from_ingredient_id: zUuid.nullish(),
+    availability_tier: zAvailabilityTier.optional(),
+    status: zIngredientStatus,
+    verification_status: zIngredientVerificationStatus,
+    notes: z.string().nullish(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zIngredientEnvelope = z.object({
+    data: z.object({
+        ingredient: zAdminIngredient
+    }),
+    meta: zMeta
+});
+
+export const zIngredientAlias = z.object({
+    id: zUuid,
+    alias: z.string().max(160),
+    alias_normalised: z.string().max(160),
+    locale: z.enum(['en', 'ar']).nullish(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish()
+});
+
+export const zIngredientCategory = z.object({
+    id: zUuid,
+    organisation_id: zUuid.nullable(),
+    is_platform: z.boolean(),
+    parent_id: zUuid.nullable(),
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    display_order: z.int(),
+    is_active: z.boolean()
+});
+
+export const zIngredientCategoryEnvelope = z.object({
+    data: z.object({
+        category: zIngredientCategory
+    }),
+    meta: zMeta
+});
+
+export const zIngredientAllergenMapping = z.object({
+    id: zUuid,
+    allergen_code: zAllergenCode,
+    layer: z.enum(['platform_baseline', 'organisation_overlay']),
+    organisation_id: zUuid.nullable(),
+    containment: z.enum(['contains', 'may_contain']),
+    market_scope: z.enum([
+        'all',
+        'us_only',
+        'eu_only'
+    ]),
+    source: z.enum([
+        'master_list',
+        'technical_sheet',
+        'supplier_declaration',
+        'kitchen_declared',
+        'inferred'
+    ]),
+    verification_status: z.enum([
+        'verified',
+        'unverified',
+        'requires_review',
+        'requires_supplier_confirmation'
+    ]),
+    evidence: z.string().nullish()
+});
+
+export const zIngredientAllergenCollection = z.object({
+    data: z.array(zIngredientAllergenMapping),
+    meta: zMeta
+});
+
+export const zCreateIngredientRequest = z.object({
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    slug: z.string().max(110).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
+    ingredient_category_id: zUuid.nullish(),
+    ingredient_subcategory_id: zUuid.nullish(),
+    default_unit_id: zUuid,
+    yield_factor: z.number().gt(0).lte(99.9999).optional(),
+    availability_tier: zAvailabilityTier.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * A partial update. `slug` and `status` are absent by design — the slug
+ * is the handle a re-import converges on, and status changes are
+ * lifecycle actions with their own routes.
+ *
+ */
+export const zUpdateIngredientRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    ingredient_category_id: zUuid.nullish(),
+    ingredient_subcategory_id: zUuid.nullish(),
+    default_unit_id: zUuid.optional(),
+    yield_factor: z.number().gt(0).lte(99.9999).optional(),
+    availability_tier: zAvailabilityTier.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+export const zReplaceIngredientAllergensRequest = z.object({
+    market_scope: z.enum([
+        'all',
+        'us_only',
+        'eu_only'
+    ]).optional().default('all'),
+    mappings: z.array(z.object({
+        allergen_code: zAllergenCode,
+        containment: z.enum(['contains', 'may_contain']),
+        source: z.enum([
+            'master_list',
+            'technical_sheet',
+            'supplier_declaration',
+            'kitchen_declared',
+            'inferred'
+        ]).nullish(),
+        verification_status: z.enum([
+            'verified',
+            'unverified',
+            'requires_review',
+            'requires_supplier_confirmation'
+        ]).nullish(),
+        evidence: z.string().max(2000).nullish()
+    })).max(50)
+});
+
+/**
+ * The operational lifecycle of a recipe *identity*. Deliberately not the
+ * publication family: a recipe is never published, its versions are.
+ * There is no `inactive` either — "temporarily not in use" is expressed
+ * by having no published version.
+ *
+ */
+export const zRecipeStatus = z.enum(['active', 'archived']);
+
+/**
+ * How guarded a formulation is. Defaults to `confidential` because a
+ * recipe is a kitchen's commercial secret until somebody decides
+ * otherwise, and a default that leaks is a default that is wrong exactly
+ * once. Neither value makes a formulation public: recipe lines are on
+ * the public denylist regardless.
+ *
+ */
+export const zRecipeConfidentiality = z.enum(['internal', 'confidential']).default('confidential');
+
+/**
+ * The publication lifecycle of a version. `review_required` is a
+ * **stored** quarantine state, not a flag beside one: a critical
+ * allergen contradiction has to block publication structurally, and a
+ * boolean next to a status is something a publish path can forget to
+ * read. A quarantined version is still editable — the point is that
+ * somebody fixes it — and is as unpublishable as a draft.
+ *
+ * "Publishable" is never stored; it is the readiness evaluator's verdict
+ * at the moment of publication.
+ *
+ */
+export const zRecipeVersionStatus = z.enum([
+    'draft',
+    'review_required',
+    'published',
+    'retired'
+]);
+
+/**
+ * `indicative` is a formulation without costs — which is what the
+ * sauces-and-dressings source provides, and recording that honestly
+ * beats inventing figures. `costed` is what a technical sheet is.
+ *
+ */
+export const zRecipeCompleteness = z.enum(['indicative', 'costed']);
+
+/**
+ * Whether the frozen allergen label still matches the ingredient
+ * mappings it was computed from. A new version is `stale` — nothing has
+ * been derived for it, and claiming `current` for an empty label would be
+ * the most dangerous default available. `failed` records that a recompute
+ * was attempted and could not complete, which must never be
+ * indistinguishable from "not tried yet".
+ *
+ */
+export const zDerivationState = z.enum([
+    'current',
+    'stale',
+    'failed'
+]);
+
+/**
+ * Where a label row came from. `derived` was computed from the effective
+ * ingredient mappings and carries the ingredient that caused it;
+ * `declared` is a human statement — a chef who knows the fryer is shared
+ * — that no mapping implies. A derivation never weakens a declaration.
+ *
+ */
+export const zAllergenDerivation = z.enum(['declared', 'derived']);
+
+/**
+ * The administrative shape of a recipe identity. Carries **both** names
+ * and ignores `Accept-Language` for them: a bilingual editor has to see
+ * what it is editing. There is no public recipe projection.
+ *
+ */
+export const zAdminRecipe = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullish(),
+    slug: z.string().max(120),
+    name_en: z.string(),
+    name_ar: z.string(),
+    recipe_category: z.string().max(40).nullish(),
+    source_kind: z.string().max(40).nullish(),
+    confidentiality: zRecipeConfidentiality,
+    status: zRecipeStatus,
+    notes: z.string().nullish(),
+    published_version_number: z.int().gte(1).nullable(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zRecipeEnvelope = z.object({
+    data: z.object({
+        recipe: zAdminRecipe
+    }),
+    meta: zMeta
+});
+
+/**
+ * The header of a recipe version. `derived_input_hash` is deliberately
+ * absent from the wire: it is an internal fingerprint, and publishing it
+ * would invite clients to compare hashes instead of reading
+ * `derivation_state`.
+ *
+ */
+export const zAdminRecipeVersion = z.object({
+    id: zUuid,
+    recipe_id: zUuid,
+    version_number: z.int().gte(1),
+    status: zRecipeVersionStatus,
+    completeness: zRecipeCompleteness,
+    yield_quantity: z.string().nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).nullish(),
+    input_quantity_total: z.string().nullish(),
+    waste_coefficient_percent: z.string(),
+    derivation_state: zDerivationState,
+    derived_at: z.iso.datetime({ offset: true }).nullish(),
+    published_at: z.iso.datetime({ offset: true }).nullish(),
+    review_reason: z.string().max(200).nullish(),
+    notes: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zRecipeVersionEnvelope = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion
+    }),
+    meta: zMeta
+});
+
+/**
+ * One formulation line.
+ *
+ * **No cost fields.** `recipe_version_lines` carries
+ * `unit_cost_amount`, `line_cost_amount` and `cost_currency_code`, and
+ * this projection reads none of them. The cost surface is K1.3, behind
+ * `recipe.view_costs_organisation`; until that permission exists there is
+ * no way to serve a cost to the right people, so the honest projection
+ * serves it to nobody.
+ *
+ */
+export const zRecipeLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    ingredient_id: zUuid,
+    quantity: z.string().nullish(),
+    unit_id: zUuid.nullish(),
+    source_designation: z.string().max(160).nullish(),
+    comment: z.string().max(255).nullish()
+});
+
+/**
+ * What a version produces. An ingredient with a row here is what the
+ * design used to call an "intermediate"; there is no kind column
+ * anywhere, because being an intermediate is a fact about some version's
+ * outputs and not a property of the ingredient.
+ *
+ */
+export const zRecipeOutput = z.object({
+    id: zUuid,
+    ingredient_id: zUuid,
+    output_quantity: z.string(),
+    unit_id: zUuid,
+    is_primary: z.boolean()
+});
+
+export const zRecipeStep = z.object({
+    id: zUuid,
+    step_number: z.int().gte(1),
+    instruction_en: z.string(),
+    instruction_ar: z.string().nullish(),
+    minutes: z.int().gte(0).nullish()
+});
+
+/**
+ * One row of a version's frozen label — the only part of a recipe version
+ * that is ever meant to reach a diner.
+ *
+ */
+export const zRecipeVersionAllergen = z.object({
+    id: zUuid,
+    allergen_code: zAllergenCode,
+    containment: z.enum(['contains', 'may_contain']),
+    derivation: zAllergenDerivation,
+    source_ingredient_id: zUuid.nullish(),
+    source_note: z.string().max(255).nullish()
+});
+
+/**
+ * Where a snapshot's arithmetic came from.
+ *
+ * `recalculated` is arithmetic this system performed over the version's
+ * lines: reproducible, and re-derivable from data still in the database.
+ *
+ * `as_recorded` is what a source technical sheet stated, stored verbatim
+ * **including its errors**. Several of the source sheets do their own
+ * arithmetic and do it wrong; correcting one on import destroys the
+ * evidence that it needs correcting, and trusting one puts a wrong number
+ * behind a right-looking label. Storing both and saying which is which is
+ * the only honest option. Written by the private importer only.
+ *
+ */
+export const zCostBasis = z.enum(['as_recorded', 'recalculated']);
+
+/**
+ * One costed formulation line. Served **only** from the technical sheet,
+ * behind `recipe.view_costs_organisation`; the ordinary `RecipeLine`
+ * projection carries none of these fields.
+ *
+ */
+export const zTechnicalSheetLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    ingredient_id: zUuid,
+    quantity: z.string().nullish(),
+    unit_id: zUuid.nullish(),
+    unit_cost_amount: z.string().nullish(),
+    line_cost_amount: z.string().nullish(),
+    cost_currency_code: z.string().length(3).nullish(),
+    source_designation: z.string().max(160).nullish(),
+    comment: z.string().max(255).nullish()
+});
+
+/**
+ * What one version cost, at one moment, on one basis. Append-only:
+ * `UPDATE` and `DELETE` are revoked from the application database role,
+ * so a snapshot is superseded by a newer one and never edited.
+ *
+ * The per-unit figures are null when the version does not say what it
+ * yields. Inventing a denominator to fill a column is the fabrication
+ * this programme exists to avoid.
+ *
+ */
+export const zCostSnapshot = z.object({
+    id: zUuid,
+    recipe_version_id: zUuid,
+    basis: zCostBasis,
+    currency_code: z.string().length(3),
+    total_input_cost_amount: z.string(),
+    cost_per_yield_unit_amount: z.string().nullish(),
+    yield_unit_id: zUuid.nullish(),
+    cost_per_piece_amount: z.string().nullish(),
+    waste_coefficient_percent: z.string(),
+    cost_per_yield_unit_with_waste_amount: z.string().nullish(),
+    cost_per_piece_with_waste_amount: z.string().nullish(),
+    source_label: z.string().max(60).nullish(),
+    basis_mismatch: z.boolean(),
+    calculated_at: z.iso.datetime({ offset: true }),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * The confidential cost projection of one recipe version.
+ */
+export const zTechnicalSheet = z.object({
+    version: zAdminRecipeVersion,
+    completeness: zRecipeCompleteness,
+    currency_code: z.string().length(3).nullish(),
+    currency_conflict: z.boolean(),
+    lines: z.array(zTechnicalSheetLine),
+    uncosted_line_numbers: z.array(z.int().gte(1)),
+    snapshots: z.object({
+        recalculated: zCostSnapshot.nullable(),
+        as_recorded: zCostSnapshot.nullable()
+    })
+});
+
+export const zCreateRecipeRequest = z.object({
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    slug: z.string().max(110).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
+    branch_id: zUuid.nullish(),
+    recipe_category: z.string().max(40).nullish(),
+    source_kind: z.string().max(40).nullish(),
+    confidentiality: zRecipeConfidentiality.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * A partial update. `slug` and `status` are absent by design — the slug
+ * is the handle a re-import converges on, and status changes are
+ * lifecycle actions with their own routes.
+ *
+ */
+export const zUpdateRecipeRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    branch_id: zUuid.nullish(),
+    recipe_category: z.string().max(40).nullish(),
+    source_kind: z.string().max(40).nullish(),
+    confidentiality: zRecipeConfidentiality.optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * An empty body opens a blank draft. `copy_from_version` is a version
+ * *number* — what a human reads on a technical sheet — resolved inside
+ * this recipe only.
+ *
+ */
+export const zCreateRecipeVersionRequest = z.object({
+    copy_from_version: z.int().gte(1).nullish()
+});
+
+/**
+ * A partial update of a version header. `status`, `derivation_state`,
+ * `derived_at`, `published_at` and `published_by` are absent by design:
+ * each is a conclusion the server reached.
+ *
+ */
+export const zUpdateRecipeVersionRequest = z.object({
+    completeness: zRecipeCompleteness.optional(),
+    yield_quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).nullish(),
+    input_quantity_total: z.number().gt(0).lte(99999999.9999).nullish(),
+    waste_coefficient_percent: z.number().gte(0).lte(999.99).optional(),
+    notes: z.string().max(2000).nullish()
+});
+
+export const zReplaceRecipeLinesRequest = z.object({
+    lines: z.array(z.object({
+        ingredient_id: zUuid,
+        quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+        unit_id: zUuid.nullish(),
+        unit_cost_amount: z.union([
+            z.number().gte(0).lte(1000000000000),
+            z.string()
+        ]).nullish(),
+        cost_currency_code: z.string().length(3).nullish(),
+        source_designation: z.string().max(160).nullish(),
+        comment: z.string().max(255).nullish()
+    })).max(200)
+});
+
+/**
+ * No amounts, deliberately. Every figure on a `recalculated` snapshot is
+ * derived from the version's own lines and yield.
+ *
+ */
+export const zCreateCostSnapshotRequest = z.object({
+    basis: z.enum(['recalculated'])
+});
+
+export const zReplaceRecipeOutputsRequest = z.object({
+    outputs: z.array(z.object({
+        ingredient_id: zUuid,
+        output_quantity: z.number().gt(0).lte(99999999.9999),
+        unit_id: zUuid,
+        is_primary: z.boolean().nullish().default(false)
+    })).max(20)
+});
+
+export const zReplaceRecipeStepsRequest = z.object({
+    steps: z.array(z.object({
+        instruction_en: z.string().max(4000),
+        instruction_ar: z.string().max(4000).nullish(),
+        minutes: z.int().gte(0).lte(10000).nullish()
+    })).max(100)
+});
+
+/**
+ * The anonymous projection of an allergen class: exactly one
+ * server-localised name and description, plus the regulatory metadata a
+ * customer needs to read a label correctly.
+ *
+ */
+export const zPublicAllergenClass = z.object({
+    code: zAllergenCode,
+    name: z.string(),
+    description: z.string().nullish(),
+    regulatory_ref: z.string().max(20),
+    is_eu_14: z.boolean(),
+    is_us_big_9: z.boolean(),
+    us_declaration_required: z.boolean(),
+    us_threshold_ppm: z.int().nullish(),
+    severe_by_default: z.boolean().optional(),
+    display_order: z.int()
+});
+
+/**
+ * The governance shape: both languages, and the activation flag the
+ * public projection has no business carrying.
+ *
+ */
+export const zAdminAllergenClass = z.object({
+    code: zAllergenCode,
+    name_en: z.string(),
+    name_ar: z.string(),
+    description_en: z.string().nullish(),
+    description_ar: z.string().nullish(),
+    regulatory_ref: z.string().max(20),
+    is_eu_14: z.boolean(),
+    is_us_big_9: z.boolean(),
+    us_declaration_required: z.boolean(),
+    us_threshold_ppm: z.int().nullish(),
+    severe_by_default: z.boolean().optional(),
+    display_order: z.int(),
+    is_active: z.boolean()
+});
+
+export const zAllergenClassEnvelope = z.object({
+    data: z.object({
+        allergen_class: zAdminAllergenClass
+    }),
+    meta: zMeta
+});
+
+export const zCreateAllergenClassRequest = z.object({
+    code: zAllergenCode,
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255),
+    description_en: z.string().max(2000).nullish(),
+    description_ar: z.string().max(2000).nullish(),
+    regulatory_ref: z.string().max(20),
+    is_eu_14: z.boolean(),
+    is_us_big_9: z.boolean(),
+    us_declaration_required: z.boolean().nullish(),
+    us_threshold_ppm: z.int().gte(1).nullish(),
+    severe_by_default: z.boolean().nullish(),
+    display_order: z.int().gte(0).nullish()
+});
+
+/**
+ * `code` is deliberately absent and is actively rejected rather than
+ * ignored: a request that appeared to rename a regulatory identity and
+ * quietly did nothing would be worse than one that failed.
+ *
+ */
+export const zUpdateAllergenClassRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    description_en: z.string().max(2000).nullish(),
+    description_ar: z.string().max(2000).nullish(),
+    regulatory_ref: z.string().max(20).optional(),
+    is_eu_14: z.boolean().optional(),
+    is_us_big_9: z.boolean().optional(),
+    us_declaration_required: z.boolean().optional(),
+    us_threshold_ppm: z.int().gte(1).nullish(),
+    severe_by_default: z.boolean().optional(),
+    display_order: z.int().gte(0).optional()
+});
+
+/**
+ * Which kind of sellable thing an item is — the discriminator that lets
+ * products, meals and subscription plans share one table, one price path,
+ * one availability table and one publication gate. What genuinely differs
+ * between them is nullable columns and child tables, not the apparatus
+ * around them.
+ *
+ */
+export const zCatalogueItemType = z.enum([
+    'product',
+    'meal',
+    'subscription_plan'
+]);
+
+/**
+ * The publication lifecycle of a sellable item — the **same** four-state
+ * family a recipe version carries, and deliberately not the
+ * `active | archived` pair the operational tables use.
+ *
+ * `review_required` is a stored **quarantine**, not a queue position: a
+ * critical allergen contradiction must make publication structurally
+ * impossible rather than decorate the row with a flag a publish path can
+ * forget to read.
+ *
+ * `retired` is terminal for consumer visibility and keeps the row,
+ * because an order or a price snapshot may point at it forever. Sellable
+ * items **retire; they never archive**.
+ *
+ */
+export const zCatalogueItemStatus = z.enum([
+    'draft',
+    'review_required',
+    'published',
+    'retired'
+]);
+
+/**
+ * Whether a variant is a pack of a product or one configuration of a
+ * subscription plan. Derived from the item's own type and never accepted
+ * from a client; a meal has neither.
+ *
+ */
+export const zCatalogueVariantType = z.enum(['pack', 'plan_configuration']);
+
+/**
+ * The operational lifecycle of a variant. **Not** the publication family,
+ * and the asymmetry with the parent item is deliberate: a pack is not
+ * separately published. Publishing the 500 g jar while the 1 kg jar sits
+ * in draft is not a state a kitchen wants, it is a state a kitchen ends
+ * up in.
+ *
+ */
+export const zCatalogueVariantStatus = z.enum([
+    'draft',
+    'active',
+    'archived'
+]);
+
+/**
+ * The container a pack comes in. `loose` is a real answer, not a missing
+ * one, which is why the field is nullable *and* carries this value: "the
+ * kitchen said loose" and "nobody has said" are different facts.
+ *
+ */
+export const zCataloguePackFormat = z.enum([
+    'bottle',
+    'bag',
+    'can',
+    'gallon',
+    'bunch',
+    'loose'
+]);
+
+/**
+ * Whether the kitchen makes this, buys it in, or both. `both` is not
+ * indecision: several source articles are produced in-house when volume
+ * allows and bought in when it does not.
+ *
+ */
+export const zCatalogueProductionMode = z.enum([
+    'production',
+    'supplier',
+    'both'
+]);
+
+/**
+ * What sort of route to market a channel is. The *kind* is a closed
+ * vocabulary a projection branches on; the *channel* is a row an
+ * organisation owns, because two kitchens legitimately run two different
+ * wholesale desks. The universal client's `SalesChannel` union is the
+ * prototype's flattening of the two.
+ *
+ */
+export const zSalesChannelKind = z.enum([
+    'b2c_web',
+    'b2b',
+    'pos',
+    'marketplace',
+    'corporate',
+    'insurance'
+]);
+
+/**
+ * Whether a channel is currently trading. Operational, never the
+ * publication family: nothing a customer sees is a channel — what a
+ * customer sees is the items available through one.
+ *
+ */
+export const zSalesChannelStatus = z.enum(['active', 'inactive']);
+
+/**
+ * The administrative shape of a sales channel. Carries **both** names and
+ * ignores `Accept-Language` for them.
+ *
+ */
+export const zAdminSalesChannel = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    code: z.string().max(40),
+    channel_kind: zSalesChannelKind,
+    name_en: z.string(),
+    name_ar: z.string(),
+    order_source: z.string().max(30).nullish(),
+    status: zSalesChannelStatus,
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zSalesChannelEnvelope = z.object({
+    data: z.object({
+        sales_channel: zAdminSalesChannel
+    }),
+    meta: zMeta
+});
+
+export const zCreateSalesChannelRequest = z.object({
+    code: z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    channel_kind: zSalesChannelKind,
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    order_source: z.string().max(30).nullish()
+});
+
+/**
+ * `code` and `channel_kind` are deliberately absent. Changing either
+ * means creating the new channel and deactivating the old one — which is
+ * what actually happened.
+ *
+ */
+export const zUpdateSalesChannelRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    order_source: z.string().max(30).nullish(),
+    status: zSalesChannelStatus.optional()
+});
+
+/**
+ * The administrative shape of a sellable item. Carries **both** names and
+ * ignores `Accept-Language` for them: a bilingual editor has to see what
+ * it is editing.
+ *
+ * **No price, cost or margin field exists here or on any child shape**,
+ * because no such column exists on any table in this family. Money lives
+ * in the pricing tables; the admin contract's confidential
+ * `marginPercent` is a presentation figure derived from a confirmed price
+ * and a recipe cost per serving, and has no server-side home in this
+ * slice.
+ *
+ * There is no public projection yet. When one arrives it will be a
+ * separate schema with its own denylist sweep, never this one with fields
+ * removed.
+ *
+ */
+export const zAdminCatalogueItem = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    catalogue_id: zUuid,
+    item_type: zCatalogueItemType,
+    slug: z.string().max(140),
+    name_en: z.string(),
+    name_ar: z.string(),
+    description_en: z.string().nullish(),
+    description_ar: z.string().nullish(),
+    product_category_id: zUuid.nullish(),
+    production_mode: zCatalogueProductionMode.nullish(),
+    recipe_id: zUuid.nullish(),
+    ingredient_id: zUuid.nullish(),
+    purchasing_unit_id: zUuid.nullish(),
+    usage_unit_id: zUuid.nullish(),
+    is_market_priced: z.boolean(),
+    is_assorted: z.boolean(),
+    status: zCatalogueItemStatus,
+    review_reason: z.string().max(200).nullish(),
+    image_placeholder_id: z.string().max(80).nullish(),
+    data_quality_flags: z.array(z.string()),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCatalogueItemEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem
+    }),
+    meta: zMeta
+});
+
+export const zCataloguePackDetail = z.object({
+    pack_quantity: z.string(),
+    pack_unit_id: zUuid,
+    pack_piece_count: z.int().gte(1).nullish(),
+    pack_format: zCataloguePackFormat.nullish(),
+    net_weight_grams: z.int().gte(1).nullish()
+});
+
+/**
+ * The thing a price actually points at — one pack, or one plan configuration.
+ */
+export const zAdminCatalogueItemVariant = z.object({
+    id: zUuid,
+    variant_type: zCatalogueVariantType,
+    code: z.string().max(60),
+    name_en: z.string().nullish(),
+    name_ar: z.string().nullish(),
+    is_default: z.boolean(),
+    status: zCatalogueVariantStatus,
+    pack: zCataloguePackDetail.nullable(),
+    lock_version: z.int().gte(0)
+});
+
+/**
+ * One line of the public ingredient list — what a diner is told is in the
+ * dish. **Not a formulation**: there is no quantity here and there will
+ * not be.
+ *
+ */
+export const zAdminCatalogueItemIngredient = z.object({
+    id: zUuid,
+    ingredient_id: zUuid,
+    is_representative: z.boolean(),
+    display_order: z.int().gte(1)
+});
+
+/**
+ * One statement that a channel offers this item, optionally narrowed to
+ * one variant and one date window. There is deliberately no price here.
+ *
+ */
+export const zAdminChannelAssignment = z.object({
+    id: zUuid,
+    sales_channel_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullable(),
+    is_available: z.boolean(),
+    available_from: z.iso.date().nullable(),
+    available_to: z.iso.date().nullable()
+});
+
+export const zDerivedAllergen = z.object({
+    allergen_code: zAllergenCode,
+    containment: z.enum(['contains', 'may_contain']),
+    derivation: z.enum(['declared', 'derived']),
+    source_ingredient_id: zUuid.nullable()
+});
+
+export const zDerivedAllergenSet = z.object({
+    basis: z.enum([
+        'recipe_version',
+        'item_ingredients',
+        'none'
+    ]),
+    recipe_version_id: zUuid.nullable(),
+    allergens: z.array(zDerivedAllergen)
+});
+
+export const zDerivedAllergenMeta = zMeta.and(z.object({
+    basis: z.enum([
+        'recipe_version',
+        'item_ingredients',
+        'none'
+    ]),
+    recipe_version_id: zUuid.nullable()
+}));
+
+export const zReadinessReason = z.object({
+    code: z.string(),
+    detail: z.string(),
+    context: z.record(z.string(), z.unknown())
+});
+
+export const zPublicationReadiness = z.object({
+    publishable: z.boolean(),
+    reasons: z.array(zReadinessReason)
+});
+
+export const zRecipeVersionReadinessMeta = zMeta.and(z.object({
+    recipe_id: zUuid,
+    version_number: z.int(),
+    status: zRecipeVersionStatus,
+    derivation_state: zDerivationState
+}));
+
+export const zCatalogueItemReadinessMeta = zMeta.and(z.object({
+    slug: z.string(),
+    item_type: zCatalogueItemType,
+    status: zCatalogueItemStatus
+}));
+
+/**
+ * Derived and server-authored values are absent by construction:
+ * `status` (always `draft`), `lock_version`, `organisation_id` and the
+ * source-provenance fields are not accepted, and neither are variants,
+ * ingredients, diet tags or channels — each of those is its own
+ * set-replace endpoint.
+ *
+ */
+export const zCreateCatalogueItemRequest = z.object({
+    item_type: zCatalogueItemType,
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    slug: z.string().max(130).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
+    description_en: z.string().max(4000).nullish(),
+    description_ar: z.string().max(4000).nullish(),
+    catalogue_id: zUuid.nullish(),
+    product_category_id: zUuid.nullish(),
+    production_mode: zCatalogueProductionMode.nullish(),
+    recipe_id: zUuid.nullish(),
+    ingredient_id: zUuid.nullish(),
+    purchasing_unit_id: zUuid.nullish(),
+    usage_unit_id: zUuid.nullish(),
+    is_market_priced: z.boolean().optional(),
+    is_assorted: z.boolean().optional(),
+    image_placeholder_id: z.string().max(80).nullish()
+});
+
+/**
+ * `slug` and `item_type` are deliberately absent and are actively
+ * **rejected** rather than ignored: a request that appeared to move a
+ * slug and quietly did nothing would be worse than one that failed.
+ * `status` is absent because publication and retirement are POST
+ * sub-resource actions.
+ *
+ */
+export const zUpdateCatalogueItemRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    description_en: z.string().max(4000).nullish(),
+    description_ar: z.string().max(4000).nullish(),
+    product_category_id: zUuid.nullish(),
+    production_mode: zCatalogueProductionMode.nullish(),
+    recipe_id: zUuid.nullish(),
+    ingredient_id: zUuid.nullish(),
+    purchasing_unit_id: zUuid.nullish(),
+    usage_unit_id: zUuid.nullish(),
+    is_market_priced: z.boolean().optional(),
+    is_assorted: z.boolean().optional(),
+    image_placeholder_id: z.string().max(80).nullish()
+});
+
+/**
+ * A kitchen withdrawing a seasonal line owes nobody an explanation, so a
+ * reason is optional; where one is given it is recorded on the audit
+ * event.
+ *
+ */
+export const zRetireCatalogueItemRequest = z.object({
+    reason: z.string().max(200).nullish()
+});
+
+export const zReplaceCatalogueItemVariantsRequest = z.object({
+    variants: z.array(z.object({
+        id: zUuid.nullish(),
+        code: z.string().max(60),
+        name_en: z.string().max(255).nullish(),
+        name_ar: z.string().max(255).nullish(),
+        is_default: z.boolean().optional(),
+        status: zCatalogueVariantStatus.optional(),
+        pack: zCataloguePackDetail.nullish()
+    })).max(100)
+});
+
+export const zReplaceCatalogueItemIngredientsRequest = z.object({
+    ingredients: z.array(z.object({
+        ingredient_id: zUuid,
+        is_representative: z.boolean().optional()
+    })).max(100)
+});
+
+export const zReplaceCatalogueItemDietClassificationsRequest = z.object({
+    diet_classifications: z.array(z.string().max(40)).max(20)
+});
+
+export const zReplaceCatalogueItemChannelsRequest = z.object({
+    channels: z.array(z.object({
+        sales_channel_id: zUuid,
+        catalogue_item_variant_id: zUuid.nullish(),
+        is_available: z.boolean().optional().default(true),
+        available_from: z.iso.date().nullish(),
+        available_to: z.iso.date().nullish()
+    })).max(50)
+});
+
+/**
+ * The public projection of a diet classification: **one** server-localised
+ * name, never both language columns.
+ *
+ */
+export const zPublicDietClassification = z.object({
+    code: z.string().max(40),
+    name: z.string(),
+    display_order: z.int().gte(0)
+});
+
+/**
+ * An ISO 4217 code. Every amount in the pricing family carries or
+ * inherits exactly one, and no operation performs cross-currency
+ * arithmetic.
+ *
+ */
+export const zCurrencyCode = z.string().length(3).regex(/^[A-Z]{3}$/);
+
+/**
+ * The **operational** lifecycle of a tariff, deliberately not the
+ * sellable family (`draft | review_required | published | retired`). A
+ * price list is not published content; it is the instrument that prices
+ * content, so it has no review state and no retirement. What a customer
+ * sees is a *price*, and whether one reaches them is decided by the
+ * channel assignment and the public projection.
+ *
+ * An `active` list is still editable — that is the point of
+ * effective-dating. An `archived` one refuses every write.
+ *
+ */
+export const zPriceListStatus = z.enum([
+    'draft',
+    'active',
+    'archived'
+]);
+
+/**
+ * Who the tariff is for. `public` is the tariff anybody may be shown;
+ * `agreement` is one customer's negotiated position, and showing it to a
+ * second customer is the failure this module is built to prevent.
+ *
+ * A column rather than an inference from the channel kind, because one
+ * channel legitimately carries both.
+ *
+ */
+export const zPriceListCustomerScope = z.enum(['public', 'agreement']);
+
+/**
+ * What the row actually claims — the honest badge.
+ *
+ * - `confirmed` — a real number the kitchen stands behind. Carries
+ * `unit_amount_minor`. **The only status a public surface may serve.**
+ * - `placeholder` — the source stated no price and nobody has supplied
+ * one. Amount null, never public: a placeholder rendered as a price is
+ * a lie with a currency symbol on it, and rendered as zero it is a
+ * worse one.
+ * - `market_priced` — quoted at the time of sale. Amount null, and the
+ * absence *is* the statement, which is why it is a status rather than a
+ * missing row.
+ *
+ * The pairing is enforced by a database CHECK —
+ * `(price_status = 'confirmed') = (unit_amount_minor IS NOT NULL)` — so a
+ * client may branch on either half and get the same answer.
+ *
+ */
+export const zPriceStatus = z.enum([
+    'confirmed',
+    'placeholder',
+    'market_priced'
+]);
+
+/**
+ * The administrative shape of a price list header. Carries **both** names
+ * and ignores `Accept-Language` for them.
+ *
+ * No amounts: the header is a name, a currency and a status. The numbers
+ * are behind `…/entries`.
+ *
+ */
+export const zAdminPriceList = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullish(),
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    currency_code: zCurrencyCode,
+    customer_scope: zPriceListCustomerScope,
+    status: zPriceListStatus,
+    valid_from: z.iso.date().nullish(),
+    valid_to: z.iso.date().nullish(),
+    source_system: z.string().max(40).nullish(),
+    source_ref: z.string().max(160).nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * One price, for one pricing point, over one interval of time.
+ *
+ * The pricing point is `(catalogue_item_id, catalogue_item_variant_id,
+ * min_quantity)`. The **standing** row of a point is the one whose
+ * `effective_to` is null; everything else is history, and history is
+ * closed rather than edited.
+ *
+ */
+export const zAdminPriceListEntry = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    min_quantity: z.string().regex(/^\d+\.\d{4}$/).nullish(),
+    unit_amount_minor: z.int().gte(1).nullish(),
+    currency_code: zCurrencyCode,
+    price_status: zPriceStatus,
+    effective_from: z.iso.date(),
+    effective_to: z.iso.date().nullish(),
+    superseded_by_id: zUuid.nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zPriceListChannelAssignment = z.object({
+    id: zUuid,
+    sales_channel_id: zUuid,
+    price_list_id: zUuid,
+    priority: z.int()
+});
+
+/**
+ * How many standing rows the list has, and how many of those are real
+ * prices. The pair is what a merchandiser reads as "312 priced, 8 owed".
+ *
+ */
+export const zPriceListEntryCounts = z.object({
+    open: z.int().gte(0),
+    confirmed: z.int().gte(0)
+});
+
+export const zPriceListEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList
+    }),
+    meta: zMeta
+});
+
+export const zPriceListDetailEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList,
+        channels: z.array(zPriceListChannelAssignment)
+    }),
+    meta: zMeta.and(z.object({
+        entry_counts: zPriceListEntryCounts
+    }))
+});
+
+export const zPriceListEntriesEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList,
+        entries: z.array(zAdminPriceListEntry)
+    }),
+    meta: zMeta.and(z.object({
+        currency_code: zCurrencyCode
+    }))
+});
+
+export const zPriceListChannelsEnvelope = z.object({
+    data: z.object({
+        price_list: zAdminPriceList,
+        channels: z.array(zPriceListChannelAssignment)
+    }),
+    meta: zMeta
+});
+
+export const zCreatePriceListRequest = z.object({
+    code: z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3),
+    customer_scope: zPriceListCustomerScope.optional(),
+    branch_id: zUuid.nullish(),
+    valid_from: z.iso.date().nullish(),
+    valid_to: z.iso.date().nullish()
+});
+
+/**
+ * `code` is deliberately absent and is **rejected** rather than ignored
+ * if sent. `status` is absent too: activation and archiving are POST
+ * sub-resource actions.
+ *
+ */
+export const zUpdatePriceListRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3).optional(),
+    customer_scope: zPriceListCustomerScope.optional(),
+    branch_id: zUuid.nullish(),
+    valid_from: z.iso.date().nullish(),
+    valid_to: z.iso.date().nullish()
+});
+
+/**
+ * The desired **current** pricing state. `entries` is required but may be
+ * empty: an empty array withdraws every price, which is a decision a
+ * merchandiser makes and not a field they forgot.
+ *
+ */
+export const zReplacePriceListEntriesRequest = z.object({
+    entries: z.array(z.object({
+        catalogue_item_id: zUuid,
+        catalogue_item_variant_id: zUuid.nullish(),
+        min_quantity: z.union([
+            z.number(),
+            z.string()
+        ]).nullish(),
+        unit_amount_minor: z.int().gte(1).nullish(),
+        price_status: zPriceStatus
+    })).max(500)
+});
+
+/**
+ * The complete set of channels quoting from this list. Empty detaches it
+ * from all of them — the step `archive` insists on first.
+ *
+ */
+export const zReplacePriceListChannelsRequest = z.object({
+    channels: z.array(z.object({
+        sales_channel_id: zUuid,
+        priority: z.int().nullish()
+    })).max(50)
+});
+
+/**
+ * Whether a duration is a single purchase or a fixed run of days.
+ *
+ * **This is what replaced the zero-day sentinel.** The legacy model wrote
+ * "not a subscription, just a one-off order" as a duration of `0` days â€” a
+ * magic value that reads as data, that every consumer has to know the
+ * convention for, and that a per-day calculation divides by. Branch on
+ * this, never on the number.
+ *
+ */
+export const zPlanDurationKind = z.enum(['one_off', 'fixed_days']);
+
+/**
+ * How a plan may be bought. Deliberately not two booleans: "sold both
+ * ways" is a third answer a kitchen gives rather than the conjunction of
+ * the other two, and a pair of flags would additionally let a plan say
+ * neither.
+ *
+ */
+export const zPlanType = z.enum([
+    'both',
+    'subscription',
+    'limited_time'
+]);
+
+/**
+ * What the number on a price row *means* for this plan. It lives on the
+ * plan rather than on the price because it is a fact about the plan's
+ * commercial shape: two lists quoting the same plan on two different bases
+ * would be two answers to "what does a week cost".
+ *
+ */
+export const zPlanPricingBasis = z.enum([
+    'per_day',
+    'per_week',
+    'total'
+]);
+
+/**
+ * One of the four coordinates of a matrix cell.
+ */
+export const zServiceTier = z.enum(['standard', 'premium']);
+
+export const zMealCombinationOption = z.object({
+    id: zUuid,
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    includes_breakfast: z.boolean(),
+    includes_lunch: z.boolean(),
+    includes_dinner: z.boolean(),
+    meals_per_day: z.int().gte(1),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zMealCombinationOptionEnvelope = z.object({
+    data: z.object({
+        combination: zMealCombinationOption
+    }),
+    meta: zMeta
+});
+
+export const zEnergyBand = z.object({
+    id: zUuid,
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    min_kcal: z.int().gte(0),
+    max_kcal: z.int(),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zEnergyBandEnvelope = z.object({
+    data: z.object({
+        energy_band: zEnergyBand
+    }),
+    meta: zMeta
+});
+
+export const zPlanDurationOption = z.object({
+    id: zUuid,
+    code: z.string().max(40),
+    duration_kind: zPlanDurationKind,
+    duration_days: z.int().gte(1).nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zPlanDurationEnvelope = z.object({
+    data: z.object({
+        duration: zPlanDurationOption
+    }),
+    meta: zMeta
+});
+
+/**
+ * The commercial terms of one subscription plan â€” how it is sold, how a
+ * price is quoted, and what a subscriber may do to a delivery once it is
+ * scheduled.
+ *
+ */
+export const zPlanProfile = z.object({
+    catalogue_item_id: zUuid,
+    plan_type: zPlanType,
+    pricing_basis: zPlanPricingBasis,
+    allows_free_selection: z.boolean(),
+    skip_allowed: z.boolean(),
+    pause_allowed: z.boolean(),
+    change_cutoff_hours: z.int().gte(0),
+    summary_en: z.string().nullish(),
+    summary_ar: z.string().nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zPlanProfileEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        profile: zPlanProfile.nullable()
+    }),
+    meta: zMeta
+});
+
+/**
+ * One cell of a plan's availability matrix, together with the variant that
+ * carries it. **The variant is the priceable thing**: a price row names
+ * `catalogue_item_variant_id`, exactly as it does for a pack.
+ *
+ */
+export const zPlanVariantCell = z.object({
+    catalogue_item_variant_id: zUuid,
+    code: z.string().max(60),
+    status: zCatalogueVariantStatus,
+    name_en: z.string().nullish(),
+    name_ar: z.string().nullish(),
+    meal_combination_option_id: zUuid,
+    energy_band_id: zUuid.nullable(),
+    service_tier: zServiceTier,
+    includes_snacks: z.boolean(),
+    meals_per_day: z.int().gte(1),
+    snacks_per_day: z.int().gte(0)
+});
+
+export const zPlanVariantsEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        cells: z.array(zPlanVariantCell)
+    }),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zPlanDurationAssignment = z.object({
+    id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    variant_code: z.string().max(60).nullish(),
+    plan_duration_id: zUuid,
+    discount_percent: z.string().nullable(),
+    is_available: z.boolean()
+});
+
+export const zPlanVariantDurationsEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        assignments: z.array(zPlanDurationAssignment)
+    }),
+    meta: zMeta.and(z.object({
+        count: z.int(),
+        unstated_discount_count: z.int()
+    }))
+});
+
+export const zCreateMealCombinationOptionRequest = z.object({
+    code: z.string().max(40),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    includes_breakfast: z.boolean().nullish(),
+    includes_lunch: z.boolean().nullish(),
+    includes_dinner: z.boolean().nullish(),
+    meals_per_day: z.int().gte(1).lte(12),
+    display_order: z.int().gte(0).nullish()
+});
+
+/**
+ * `code` is refused rather than ignored: a configuration identifier is
+ * derived from it.
+ *
+ */
+export const zUpdateMealCombinationOptionRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    includes_breakfast: z.boolean().optional(),
+    includes_lunch: z.boolean().optional(),
+    includes_dinner: z.boolean().optional(),
+    meals_per_day: z.int().gte(1).lte(12).optional(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+export const zCreateEnergyBandRequest = z.object({
+    code: z.string().max(40),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    min_kcal: z.int().gte(0).lte(20000),
+    max_kcal: z.int().gte(1).lte(20000),
+    display_order: z.int().gte(0).nullish()
+});
+
+export const zUpdateEnergyBandRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    min_kcal: z.int().gte(0).lte(20000).optional(),
+    max_kcal: z.int().gte(1).lte(20000).optional(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * `duration_days` is required exactly when `duration_kind` is
+ * `fixed_days`, and refused exactly when it is `one_off`. Both mismatches
+ * are `422`, and a CHECK constraint refuses them underneath.
+ *
+ */
+export const zCreatePlanDurationRequest = z.object({
+    code: z.string().max(40),
+    duration_kind: zPlanDurationKind,
+    duration_days: z.int().gte(1).lte(3650).nullish(),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    display_order: z.int().gte(0).nullish()
+});
+
+/**
+ * The kind/days correspondence is applied to the **merged** row, so
+ * turning a fixed run into a one-off means sending `duration_days: null`
+ * as well.
+ *
+ */
+export const zUpdatePlanDurationRequest = z.object({
+    duration_kind: zPlanDurationKind.optional(),
+    duration_days: z.int().gte(1).lte(3650).nullish(),
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * The whole small document. Every field is optional and omitted ones take
+ * their documented defaults, so `{}` legitimately means "the ordinary
+ * terms".
+ *
+ */
+export const zPutPlanProfileRequest = z.object({
+    plan_type: zPlanType.nullish(),
+    pricing_basis: zPlanPricingBasis.nullish(),
+    allows_free_selection: z.boolean().nullish(),
+    skip_allowed: z.boolean().nullish(),
+    pause_allowed: z.boolean().nullish(),
+    change_cutoff_hours: z.int().gte(0).lte(720).nullish(),
+    summary_en: z.string().max(2000).nullish(),
+    summary_ar: z.string().max(2000).nullish()
+});
+
+/**
+ * The complete matrix. `cells` is required but may be empty: an empty
+ * array archives every configuration, which is a decision a kitchen makes
+ * and not a field they forgot.
+ *
+ * `variant_type` is not a field â€” it is derived from the item's own type â€”
+ * and neither is `catalogue_item_id`, which is in the URL.
+ *
+ */
+export const zReplacePlanVariantsRequest = z.object({
+    cells: z.array(z.object({
+        code: z.string().max(60).nullish(),
+        name_en: z.string().max(255).nullish(),
+        name_ar: z.string().max(255).nullish(),
+        status: zCatalogueVariantStatus.nullish(),
+        meal_combination_option_id: zUuid,
+        energy_band_id: zUuid.nullish(),
+        service_tier: zServiceTier.nullish(),
+        includes_snacks: z.boolean().nullish(),
+        meals_per_day: z.int().gte(1).lte(12),
+        snacks_per_day: z.int().gte(0).lte(12).nullish()
+    })).max(200)
+});
+
+/**
+ * The complete set of configuration Ã— duration pairings. Empty removes
+ * every one of them.
+ *
+ * Each row names its configuration by `catalogue_item_variant_id` **or**
+ * `variant_code`, and its duration by `plan_duration_id` **or**
+ * `duration_code`.
+ *
+ */
+export const zReplacePlanVariantDurationsRequest = z.object({
+    assignments: z.array(z.object({
+        catalogue_item_variant_id: zUuid.nullish(),
+        variant_code: z.string().max(60).nullish(),
+        plan_duration_id: zUuid.nullish(),
+        duration_code: z.string().max(40).nullish(),
+        discount_percent: z.union([
+            z.number().gte(0).lt(100),
+            z.string()
+        ]).nullish(),
+        is_available: z.boolean().nullish()
+    })).max(500)
+});
+
+/**
+ * The **operational** lifecycle of a zone, not the sellable family. A
+ * zone is configuration; what a customer sees is whether their address
+ * can be delivered to.
+ *
+ * `inactive` is a suspension a kitchen expects to reverse and it **keeps**
+ * its area claims; `archived` is terminal and **releases** them.
+ *
+ */
+export const zDeliveryZoneStatus = z.enum([
+    'active',
+    'inactive',
+    'archived'
+]);
+
+/**
+ * Whether the zone is the organisation's default map or one branch's
+ * override. Stated rather than inferred from a null `branch_id`, so a
+ * client does not have to know that NULL is a meaningful value here.
+ *
+ */
+export const zDeliveryZoneScope = z.enum(['organisation', 'branch']);
+
+export const zDeliveryZone = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullable(),
+    scope: zDeliveryZoneScope,
+    code: z.string().max(40),
+    name_en: z.string(),
+    name_ar: z.string(),
+    currency_code: z.string().length(3),
+    delivery_fee_minor: z.int().gte(0).nullable(),
+    minimum_order_minor: z.int().gte(0).nullable(),
+    estimated_minutes: z.int().gte(1).nullable(),
+    status: zDeliveryZoneStatus,
+    is_active: z.boolean(),
+    source_system: z.string().max(40).nullish(),
+    source_ref: z.string().max(160).nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zDeliveryZoneEnvelope = z.object({
+    data: z.object({
+        delivery_zone: zDeliveryZone
+    }),
+    meta: zMeta
+});
+
+export const zDeliveryZoneDetailEnvelope = z.object({
+    data: z.object({
+        delivery_zone: zDeliveryZone
+    }),
+    meta: zMeta.and(z.object({
+        area_count: z.int().gte(0).optional()
+    }))
+});
+
+export const zDeliveryZonesEnvelope = z.object({
+    data: z.array(zDeliveryZone),
+    meta: zPaginatedOrNumberedMeta
+});
+
+/**
+ * A platform place as an administrator sees it — both language columns
+ * and the active flag, because a kitchen choosing areas needs to know
+ * that one it already serves has been withdrawn.
+ *
+ */
+export const zAdminDeliveryArea = z.object({
+    id: zUuid,
+    country_code: z.string().length(2),
+    code: z.string().max(60),
+    name_en: z.string(),
+    name_ar: z.string(),
+    region: z.string().max(60).nullable(),
+    display_order: z.int(),
+    is_active: z.boolean()
+});
+
+/**
+ * An integer number of minor units and its currency code. `4200` with
+ * `AED` is 42.00 AED. Amounts are never formatted server-side and never
+ * travel without their currency (master plan v2 §4.4).
+ *
+ */
+export const zMarketplaceMoney = z.object({
+    amount: z.int().gte(0),
+    currency: z.string().length(3)
+});
+
+/**
+ * The eight consumer switches, derived from the kitchen's **active**
+ * sales channels. The platform stores six channel *kinds*, and the
+ * mapping is: `b2c_web` sets `b2c`, `b2b` sets `b2b`, `pos` sets `pos`,
+ * `marketplace` sets `marketplace`, `corporate` sets `corporate`, and
+ * `insurance` sets nothing (there is no consumer switch for it, and
+ * mapping it onto `corporate` would tell a diner that a kitchen with an
+ * insurer agreement takes corporate orders).
+ *
+ * **`subscription`, `delivery` and `pickup` are always `false`.** That is
+ * a statement rather than an omission: `subscription` is a property of
+ * what is sold, not of a route to market, and no column anywhere records a
+ * delivery or pickup arrangement. Deriving them from something adjacent —
+ * "it has a delivery zone, so it delivers" — would publish an inference as
+ * a fact on the one surface where a customer acts on it.
+ *
+ */
+export const zMarketplaceSalesChannels = z.object({
+    b2c: z.boolean(),
+    b2b: z.boolean(),
+    marketplace: z.boolean(),
+    pos: z.boolean(),
+    subscription: z.boolean(),
+    delivery: z.boolean(),
+    pickup: z.boolean(),
+    corporate: z.boolean()
+});
+
+/**
+ * One kitchen's published terms for reaching a set of places. The fee and
+ * the minimum are what the kitchen *charges*, never what the food costs
+ * it — which is why they are publishable at all.
+ *
+ */
+export const zMarketplaceDeliveryZone = z.object({
+    id: zUuid,
+    name: z.string(),
+    area: z.string(),
+    country_code: z.string().max(2),
+    delivery_fee: zMarketplaceMoney.nullable(),
+    minimum_order: zMarketplaceMoney.nullable(),
+    estimated_minutes: z.int().gte(0).nullable()
+});
+
+/**
+ * One configured day. A closed day is a **row with no times**, not a
+ * missing one: "we are shut on Friday" and "nobody has filled in Friday"
+ * are different facts, and only the days a kitchen has configured appear.
+ *
+ */
+export const zMarketplaceOpeningHours = z.object({
+    weekday: z.int().gte(1).lte(7),
+    opens_at: z.string().nullable(),
+    closes_at: z.string().nullable(),
+    order_cut_off_at: z.string().nullable()
+});
+
+export const zMarketplaceBranch = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    name: z.string(),
+    area: z.string(),
+    country_code: z.string().max(2),
+    time_zone: z.string(),
+    delivery_zones: z.array(zMarketplaceDeliveryZone),
+    opening_hours: z.array(zMarketplaceOpeningHours),
+    supports_pickup: z.boolean(),
+    is_active: z.boolean()
+});
+
+/**
+ * One named delivery slot a customer may pick at checkout.
+ */
+export const zMarketplaceDeliveryWindow = z.object({
+    code: z.string(),
+    label: z.string(),
+    starts_at: z.string(),
+    ends_at: z.string(),
+    weekdays: z.array(z.int().gte(1).lte(7))
+});
+
+export const zMarketplaceKitchen = z.object({
+    id: zUuid,
+    name: z.string(),
+    slug: z.string(),
+    tagline: z.string(),
+    description: z.string(),
+    country_code: z.string().max(2),
+    cuisines: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    channels: zMarketplaceSalesChannels,
+    branches: z.array(zMarketplaceBranch),
+    delivery_windows: z.array(zMarketplaceDeliveryWindow),
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0),
+    image_placeholder_id: z.string(),
+    is_verified: z.boolean()
+});
+
+/**
+ * One day of the fourteen-day ordering calendar, derived from the
+ * branches' operating weeks and cut-offs. A day is orderable when at least
+ * one active branch is open on it and that branch's cut-off has not
+ * passed; a day nobody has configured is not orderable.
+ *
+ */
+export const zMarketplaceAvailability = z.object({
+    date: z.iso.date(),
+    available: z.boolean(),
+    remaining: z.int().nullable(),
+    order_cut_off_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * The named portion to which the meal facts apply.
+ */
+export const zMarketplaceServing = z.object({
+    label: z.string(),
+    quantity: z.number(),
+    unit: z.enum([
+        'g',
+        'kg',
+        'ml',
+        'l',
+        'piece',
+        'slice',
+        'portion',
+        'cup',
+        'tbsp',
+        'tsp'
+    ]),
+    grams: z.number().nullable(),
+    millilitres: z.number().nullable(),
+    household_measure: z.string().nullable()
+});
+
+export const zMarketplaceNutrientAmount = z.object({
+    nutrient_id: z.string(),
+    unit: z.enum([
+        'kcal',
+        'kJ',
+        'g',
+        'mg',
+        'ug',
+        'ml',
+        'IU'
+    ]),
+    value: z.number(),
+    kind: z.enum([
+        'planned',
+        'actual',
+        'target'
+    ]),
+    tolerance: z.null()
+});
+
+export const zMarketplaceNutritionSource = z.object({
+    kind: z.enum([
+        'synthetic_prototype',
+        'ingredient_derived',
+        'laboratory',
+        'manufacturer',
+        'professional_entry'
+    ]),
+    label: z.string(),
+    version: z.string(),
+    calculated_at: z.iso.datetime({ offset: true })
+});
+
+export const zMarketplaceNutritionCalculation = z.object({
+    method: z.string(),
+    basis: z.enum([
+        'per_serving',
+        'per_100g',
+        'per_recipe',
+        'per_meal',
+        'per_day',
+        'per_week'
+    ]),
+    calculated_at: z.iso.datetime({ offset: true }),
+    prototype: z.boolean(),
+    rounding: z.string(),
+    notes: z.array(z.string())
+});
+
+/**
+ * Per-serving nutrition facts with their source and calculation method.
+ */
+export const zMarketplaceNutritionFacts = z.object({
+    basis: z.enum([
+        'per_serving',
+        'per_100g',
+        'per_recipe',
+        'per_meal',
+        'per_day',
+        'per_week'
+    ]),
+    kind: z.enum([
+        'planned',
+        'actual',
+        'target'
+    ]),
+    serving: zMarketplaceServing.nullable(),
+    total_grams: z.number().nullable(),
+    amounts: z.array(zMarketplaceNutrientAmount),
+    source: zMarketplaceNutritionSource,
+    calculation: zMarketplaceNutritionCalculation
+});
+
+export const zMarketplaceMeal = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    kitchen_name: z.string(),
+    item_type: z.enum(['meal', 'product']),
+    name: z.string(),
+    slug: z.string(),
+    description: z.string(),
+    meal_types: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    cuisines: z.array(z.string()),
+    allergens: z.array(zAllergenCode),
+    serving: zMarketplaceServing.nullable(),
+    nutrition: zMarketplaceNutritionFacts.nullable(),
+    price: zMarketplaceMoney,
+    preparation_minutes: z.int().nullable(),
+    image_placeholder_id: z.string(),
+    availability: z.array(zMarketplaceAvailability),
+    channels: zMarketplaceSalesChannels,
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplaceEnergyBand = z.object({
+    min: z.int(),
+    max: z.int()
+});
+
+export const zMarketplacePlanVariant = z.object({
+    id: zUuid,
+    plan_id: zUuid,
+    name: z.string(),
+    energy_range: zMarketplaceEnergyBand.nullable(),
+    protein_range: z.null(),
+    carbohydrate_range: z.null(),
+    fat_range: z.null(),
+    meals_per_day: z.int().gte(1),
+    snacks_per_day: z.int().gte(0),
+    price_per_week: zMarketplaceMoney.nullable()
+});
+
+/**
+ * **A documented widening of the proposed draft** (master plan v2 §4.3,
+ * amending OD-3). The draft typed a duration as one of `1w`, `2w`, `4w`,
+ * `12w`. The platform stores an explicit `kind` (`one_off` or
+ * `fixed_days`) and a nullable number of days, precisely so that
+ * "not a subscription, just one order" stops being a magic zero a per-day
+ * calculation divides by — and real kitchen runs of 5, 20, 40 and 60 days
+ * are not expressible in the draft's enumeration at all.
+ *
+ */
+export const zMarketplacePlanDuration = z.object({
+    code: z.string(),
+    name: z.string(),
+    kind: z.enum(['one_off', 'fixed_days']),
+    days: z.int().gte(1).nullable(),
+    discount_percent: z.string().nullable(),
+    total_price: zMarketplaceMoney.nullable()
+});
+
+export const zMarketplacePlan = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+    description: z.string(),
+    category_slugs: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    variants: z.array(zMarketplacePlanVariant),
+    durations: z.array(zMarketplacePlanDuration),
+    sample_meal_ids: z.array(zUuid),
+    image_placeholder_id: z.string(),
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplaceListMeta = zPaginationMeta.and(z.object({
+    locale: z.enum(['en', 'ar']),
+    unsupported_filters: z.array(z.string())
+}));
+
+export const zMarketplaceKitchensEnvelope = z.object({
+    data: z.array(zMarketplaceKitchen),
+    meta: zMarketplaceListMeta
+});
+
+export const zMarketplaceMealsEnvelope = z.object({
+    data: z.array(zMarketplaceMeal),
+    meta: zMarketplaceListMeta
+});
+
+export const zMarketplacePlansEnvelope = z.object({
+    data: z.array(zMarketplacePlan),
+    meta: zMarketplaceListMeta
+});
+
+/**
+ * The public projection: **one** server-localised `name`, never both
+ * language columns.
+ *
+ */
+export const zPublicDeliveryArea = z.object({
+    id: zUuid,
+    country_code: z.string().length(2),
+    code: z.string().max(60),
+    name: z.string(),
+    region: z.string().max(60).nullable(),
+    display_order: z.int()
+});
+
+export const zPublicDeliveryAreasEnvelope = z.object({
+    data: z.array(zPublicDeliveryArea),
+    meta: zPaginationMeta.and(z.object({
+        locale: z.enum(['en', 'ar']).optional(),
+        country_code: z.string().length(2).optional()
+    }))
+});
+
+export const zDeliveryZoneAreasEnvelope = z.object({
+    data: z.array(zAdminDeliveryArea),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        inactive_area_count: z.int().gte(0).optional(),
+        scope: zDeliveryZoneScope.optional()
+    }))
+});
+
+export const zDeliveryWindow = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    code: z.string().max(30),
+    name_en: z.string(),
+    name_ar: z.string(),
+    starts_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    ends_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    weekdays: z.array(z.int().gte(1).lte(7)).max(7),
+    display_order: z.int(),
+    is_active: z.boolean(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zDeliveryWindowEnvelope = z.object({
+    data: z.object({
+        delivery_window: zDeliveryWindow
+    }),
+    meta: zMeta
+});
+
+export const zDeliveryWindowsEnvelope = z.object({
+    data: z.array(zDeliveryWindow),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        active_count: z.int().gte(0).optional()
+    }))
+});
+
+/**
+ * One weekday of one branch's week. A **closed day is a row** with both
+ * times null — "we are shut on Sunday" and "nobody has filled in Sunday"
+ * are different facts, and only the first is stored as a row.
+ *
+ */
+export const zBranchOperatingDay = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    weekday: z.int().gte(1).lte(7),
+    is_open: z.boolean(),
+    opens_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    closes_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable(),
+    order_cut_off_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/).nullable()
+});
+
+export const zBranchOperatingEnvelope = z.object({
+    data: z.array(zBranchOperatingDay).max(7),
+    meta: zMeta.and(z.object({
+        configured_weekdays: z.array(z.int().gte(1).lte(7)).max(7).optional(),
+        open_day_count: z.int().gte(0).lte(7).optional(),
+        is_complete: z.boolean().optional()
+    }))
+});
+
+/**
+ * No `status`: a zone is created active, archiving is a POST action and
+ * suspension is `is_active` on the update (master plan v2 §4.15).
+ *
+ */
+export const zCreateDeliveryZoneRequest = z.object({
+    code: z.string().max(40),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    branch_id: zUuid.nullish(),
+    delivery_fee_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    estimated_minutes: z.int().gte(1).nullish()
+});
+
+/**
+ * Every field optional. `code` and `status` are **rejected**, not
+ * ignored — a client that sent one believed it was writing something.
+ *
+ */
+export const zUpdateDeliveryZoneRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    currency_code: z.string().length(3).optional(),
+    branch_id: zUuid.nullish(),
+    delivery_fee_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    estimated_minutes: z.int().gte(1).nullish(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * The desired **whole** map. Areas absent from it are released, which is
+ * the only way to hand a place to a different zone. An empty array is a
+ * zone that covers nowhere — a legitimate intermediate state while a
+ * kitchen redraws.
+ *
+ */
+export const zReplaceDeliveryZoneAreasRequest = z.object({
+    service_area_ids: z.array(zUuid).max(500)
+});
+
+export const zCreateDeliveryWindowRequest = z.object({
+    code: z.string().max(30),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    starts_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    ends_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    weekdays: z.array(z.int().gte(1).lte(7)).max(7).nullish(),
+    display_order: z.int().gte(0).nullish(),
+    is_active: z.boolean().nullish()
+});
+
+/**
+ * Every field optional; `code` is **rejected**, not ignored. The pairing
+ * and ordering rules run against the **merged** row, so sending only one
+ * end compares it with the stored other.
+ *
+ */
+export const zUpdateDeliveryWindowRequest = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).nullish(),
+    starts_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    ends_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+    weekdays: z.array(z.int().gte(1).lte(7)).max(7).nullish(),
+    display_order: z.int().gte(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+/**
+ * The desired **whole** week. An omitted weekday is a day nobody has
+ * decided about; a day sent with no times is closed. An empty array
+ * clears the week back to unconfigured.
+ *
+ * There is no `branch_id`: the branch comes from `X-Branch-Id`, validated
+ * against the caller's membership scope.
+ *
+ */
+export const zReplaceBranchOperatingRequest = z.object({
+    days: z.array(z.object({
+        weekday: z.int().gte(1).lte(7),
+        opens_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+        closes_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish(),
+        order_cut_off_at: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).nullish()
+    })).max(7)
+});
+
+/**
+ * Three states, two of them terminal. `converted` and `expired` both mean
+ * "no longer shoppable" and are kept apart because only one is a success:
+ * a converted cart has an order behind it, an expired one is somebody who
+ * changed their mind. Collapsing them would make basket abandonment
+ * unanswerable.
+ *
+ */
+export const zCartStatus = z.enum([
+    'open',
+    'converted',
+    'expired'
+]);
+
+/**
+ * `placed → confirmed → fulfilled`, with `cancelled` reachable from the
+ * first two and from nowhere else. A fulfilled order is not cancellable:
+ * the food has been delivered, and what happens next is a refund or a
+ * complaint — different objects with different money attached.
+ *
+ * Deliberately absent: anything about payment (there is one method and it
+ * happens at the door), anything about production stages (the kitchen
+ * display's vocabulary), and any `pending` or `draft` — an order that has
+ * not been placed is a cart.
+ *
+ */
+export const zOrderStatus = z.enum([
+    'placed',
+    'confirmed',
+    'fulfilled',
+    'cancelled'
+]);
+
+/**
+ * Why an order was cancelled. A fixed vocabulary rather than free text
+ * because the answer is read by machines as often as by people: free text
+ * turns a count into a search problem, and it is how personal data ends up
+ * in a column nobody classified.
+ *
+ * `delivery_unavailable` is separate from `kitchen_unable_to_fulfil`
+ * because the food could be made but not delivered — the kitchen's fault
+ * in a different way, and the one an operations team can fix.
+ * `payment_failed` is **not** here: there is nothing to fail.
+ *
+ */
+export const zCancellationReason = z.enum([
+    'customer_requested',
+    'kitchen_unable_to_fulfil',
+    'delivery_unavailable',
+    'address_unreachable'
+]);
+
+/**
+ * One value, and the field exists anyway: an order has to record how it
+ * was paid for, and a column that appears the day a second method does
+ * would leave every earlier order unable to say.
+ *
+ */
+export const zPaymentMethod = z.enum(['cash_on_delivery']);
+
+export const zOpenCartRequest = z.object({
+    channel_code: z.string().max(40)
+});
+
+export const zAddCartItemRequest = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    quantity: z.union([
+        z.number(),
+        z.string()
+    ]).optional(),
+    delivery_date: z.iso.date().nullish()
+});
+
+export const zSetCartItemQuantityRequest = z.object({
+    quantity: z.union([
+        z.number(),
+        z.string()
+    ])
+});
+
+export const zCartLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    quantity: z.string(),
+    delivery_date: z.iso.date().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * **No amount of any kind appears here, and none ever will.** The cart
+ * tables hold no price column: the server's probe establishes that a line
+ * is orderable and discards its price, because a cart price is advisory and
+ * every line is repriced at placement. A subtotal here would be a number no
+ * table holds and no checkout will honour.
+ *
+ */
+export const zCart = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zCartStatus,
+    currency_code: z.string().length(3),
+    expires_at: z.iso.datetime({ offset: true }),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zCartLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCartEnvelope = z.object({
+    data: z.object({
+        cart: zCart
+    }),
+    meta: zMeta
+});
+
+/**
+ * The line the request was about, **and** the basket around it. The write
+ * moved the cart's validator and pushed its expiry out, so a response
+ * carrying only the line would hand a client two stale facts.
+ *
+ */
+export const zCartLineEnvelope = z.object({
+    data: z.object({
+        line: zCartLine,
+        cart: zCart
+    }),
+    meta: zMeta
+});
+
+/**
+ * Four fields, and none of them is a price. Every amount is decided during
+ * placement, against the tariff standing at that moment; a body that could
+ * state a total would be a client quoting the server its own prices.
+ *
+ */
+export const zPlaceOrderRequest = z.object({
+    cart_id: zUuid,
+    customer_address_id: zUuid,
+    delivery_window_code: z.string().max(40).nullish(),
+    requested_delivery_date: z.iso.date().nullish()
+});
+
+/**
+ * The same four fields `PlaceOrderRequest` takes, and none of them is a
+ * price here either — the server prices, the same way, for the same
+ * reason.
+ *
+ */
+export const zPreviewCheckoutRequest = z.object({
+    cart_id: zUuid,
+    customer_address_id: z.uuid().nullish(),
+    delivery_window_code: z.string().max(40).nullish(),
+    requested_delivery_date: z.iso.date().nullish()
+});
+
+/**
+ * What a basket would cost, priced by the same `LineProbe` and
+ * `ZoneResolver` `POST /orders` runs at placement — a preview and the
+ * placement it precedes never quote two different numbers for a basket
+ * nothing has changed about.
+ *
+ * Nothing here is a refusal: every fact placement would refuse the whole
+ * order over comes back in `warnings` instead, in the same vocabulary,
+ * beside whatever total could still be priced.
+ *
+ */
+export const zCheckoutPreview = z.object({
+    cart_id: zUuid,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    line_count: z.int().gte(0),
+    warnings: z.array(z.string())
+});
+
+export const zCheckoutPreviewEnvelope = z.object({
+    data: z.object({
+        preview: zCheckoutPreview
+    }),
+    meta: zMeta
+});
+
+export const zCancelOrderRequest = z.object({
+    reason: zCancellationReason
+});
+
+/**
+ * The customer-facing allergen label, and nothing else. The derivation and
+ * the source ingredient are dropped at snapshot time: a source ingredient
+ * names part of a formulation, and an order line is the most likely row on
+ * the platform to be handed to a courier or a marketplace partner.
+ *
+ */
+export const zOrderLineAllergen = z.object({
+    allergen_code: zAllergenCode,
+    containment: z.string()
+});
+
+/**
+ * The article as it stood the moment the order was placed — a snapshot,
+ * not a join. Renaming the catalogue item tomorrow does not rewrite what a
+ * customer bought.
+ *
+ * `price_list_id` and `price_list_item_id` exist on the row and are
+ * **never** on this shape: they answer "why was this the price?" a year
+ * later, and on a receipt they would name a kitchen's tariff structure to
+ * the person being charged by it.
+ *
+ */
+export const zCustomerOrderLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    variant_label: z.string().nullable(),
+    quantity: z.string(),
+    unit_price_minor: z.int(),
+    line_total_minor: z.int(),
+    currency_code: z.string().length(3),
+    allergens: z.array(zOrderLineAllergen),
+    pack_summary: z.record(z.string(), z.unknown()).nullable()
+});
+
+export const zKitchenOrderLine = zCustomerOrderLine.and(z.object({
+    price_list_id: z.uuid().nullable(),
+    price_list_item_id: z.uuid().nullable()
+}));
+
+/**
+ * The address as it stood when the order was placed, copied. Editing the
+ * address later must not change where this order was sent.
+ *
+ */
+export const zCustomerOrderDelivery = z.object({
+    label: z.string().nullable(),
+    line_one: z.string(),
+    line_two: z.string().nullable(),
+    city: z.string().nullable(),
+    area_name_en: z.string().nullable(),
+    area_name_ar: z.string().nullable(),
+    area_id: z.uuid().nullable(),
+    window_code: z.string().nullable(),
+    requested_date: z.iso.date().nullable()
+});
+
+export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
+    zone_id: z.uuid().nullable()
+}));
+
+/**
+ * A shelf a kitchen holds. Derived (INV2.0) from one of two things: an
+ * ingredient it cooks with, or a product it buys in to resell.
+ *
+ * `ingredient_id` is always set on a derived shelf, resold products
+ * included — moving-average cost, COGS and the monthly report are all
+ * keyed by ingredient, so a shelf without one would be a shelf with no
+ * valuation. For a resold product that ingredient is an implementation
+ * detail the kitchen never manages; `catalogue_item_id` is the product
+ * it actually is, and `backing` is the field to branch on.
+ *
+ */
+export const zStockItem = z.object({
+    id: zUuid,
+    code: z.string().max(64),
+    name_en: z.string().max(160),
+    unit_code: z.string().max(16),
+    ingredient_id: zUuid.nullable(),
+    catalogue_item_id: zUuid.nullable(),
+    backing: z.enum(['ingredient', 'product']),
+    is_stocked: z.boolean(),
+    has_history: z.boolean()
+});
+
+export const zStockItemCollection = z.object({
+    data: z.object({
+        stock_items: z.array(zStockItem)
+    }),
+    meta: zMeta
+});
+
+/**
+ * One stock item's on-hand quantity at one branch. `item_code`,
+ * `item_name_en` and `ingredient_id` are denormalised from the stock
+ * item, so a levels screen never has to round-trip to render a row.
+ * `is_low` is computed on read (INV1.3): true when `reorder_threshold`
+ * is set and `quantity` is at or below it, false when no threshold is
+ * set — never a stored flag.
+ *
+ */
+export const zStockLevel = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    quantity: z.string(),
+    reorder_threshold: z.string().nullable(),
+    par_level: z.string().nullable(),
+    is_low: z.boolean(),
+    item_code: z.string(),
+    item_name_en: z.string(),
+    ingredient_id: zUuid.nullable()
+});
+
+export const zStockLevelEnvelope = z.object({
+    data: z.object({
+        level: zStockLevel
+    }),
+    meta: zMeta
+});
+
+export const zLowStockCountEnvelope = z.object({
+    data: z.object({
+        count: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
+ * Sets or clears a level's reorder threshold. `reorder_threshold` is
+ * required as a field but nullable as a value — passing null clears the
+ * threshold. `par_level` is optional and independently nullable.
+ *
+ */
+export const zSetStockThresholdRequest = z.object({
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    reorder_threshold: z.number().gte(0).nullable(),
+    par_level: z.number().gte(0).nullish()
+});
+
+export const zStockLevelCollection = z.object({
+    data: z.object({
+        levels: z.array(zStockLevel)
+    }),
+    meta: zMeta
+});
+
+export const zStockMovement = z.object({
+    id: zUuid,
+    quantity_delta: z.string(),
+    reason: z.enum([
+        'adjust',
+        'waste',
+        'receipt',
+        'consume',
+        'yield'
+    ])
+});
+
+export const zStockMovementEnvelope = z.object({
+    data: z.object({
+        movement: zStockMovement
+    }),
+    meta: zMeta
+});
+
+export const zStockAdjustmentRequest = z.object({
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    quantity_delta: z.number(),
+    notes: z.string().max(255).nullish()
+});
+
+export const zStockWasteRequest = z.object({
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    quantity: z.number().gt(0),
+    notes: z.string().max(255).nullish()
+});
+
+export const zSupplier = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    currency_code: z.string().nullable(),
+    contact_email: z.string().nullable(),
+    contact_phone: z.string().nullable()
+});
+
+export const zSupplierCollection = z.object({
+    data: z.object({
+        suppliers: z.array(zSupplier)
+    }),
+    meta: zMeta
+});
+
+/**
+ * `code` is optional — omit it and the server mints a unique
+ * per-organisation code from the name. `currency_code` is a hint the
+ * receipt form pre-selects and is never required.
+ *
+ */
+export const zCreateSupplierRequest = z.object({
+    name_en: z.string().min(1).max(160),
+    code: z.string().max(64).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    contact_email: z.string().max(160).nullish(),
+    contact_phone: z.string().max(40).nullish()
+});
+
+export const zSupplierEnvelope = z.object({
+    data: z.object({
+        supplier: zSupplier
+    }),
+    meta: zMeta
+});
+
+/**
+ * One active currency a receipt price can be booked in.
+ */
+export const zCurrencyOption = z.object({
+    code: z.string().length(3),
+    name_en: z.string()
+});
+
+/**
+ * One active measurement unit a purchase line can be quoted in.
+ * `dimension` (e.g. `mass`, `volume`, `count`) is what makes conversion
+ * safe — the line editor offers only units in the stock item's own
+ * dimension, because the conversion service refuses across dimensions.
+ *
+ */
+export const zMeasurementUnitOption = z.object({
+    id: zUuid,
+    code: z.string(),
+    dimension: z.string(),
+    name_en: z.string()
+});
+
+/**
+ * The reference sets the goods-receipt form needs (INV1.1). `default_currency_code`
+ * is the organisation's own currency and the honest default for a receipt;
+ * it is `null` only when the organisation has none on file.
+ *
+ */
+export const zProcurementReference = z.object({
+    currencies: z.array(zCurrencyOption),
+    default_currency_code: z.string().length(3).nullable(),
+    measurement_units: z.array(zMeasurementUnitOption)
+});
+
+export const zProcurementReferenceEnvelope = z.object({
+    data: zProcurementReference,
+    meta: zMeta
+});
+
+/**
+ * The money fields (INV1.1) are served as `null` when the reader lacks
+ * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
+ * `quantity` and `unit_id` are warehouse facts and are never redacted.
+ *
+ */
+export const zGoodsReceiptLine = z.object({
+    stock_item_id: zUuid,
+    quantity: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_price_amount: z.string().nullable(),
+    line_total_amount: z.string().nullable(),
+    cost_currency_code: z.string().nullable()
+});
+
+/**
+ * A supplier named on a receipt or ledger line (INV1.1).
+ */
+export const zSupplierRef = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string()
+});
+
+/**
+ * A receipt still has no purchase-order surface in v1 (O2) —
+ * `purchase_order_id` is always null. Since INV1.1 it also records who was
+ * paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
+ * in `currency_code`, offered only when every priced line shares one
+ * currency (there is no exchange rate in this system, §4.4). When the
+ * reader lacks `inventory.view_costs_organisation` every money field is
+ * null and `costs_redacted` is true.
+ *
+ */
+export const zGoodsReceipt = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    supplier: zSupplierRef.nullable(),
+    document_ref: z.string().nullable(),
+    purchase_order_id: zUuid.nullable(),
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    currency_code: z.string().nullable(),
+    receipt_total_amount: z.string().nullable(),
+    costs_redacted: z.boolean(),
+    lines: z.array(zGoodsReceiptLine)
+});
+
+export const zGoodsReceiptCollection = z.object({
+    data: z.object({
+        goods_receipts: z.array(zGoodsReceipt)
+    }),
+    meta: zMeta
+});
+
+/**
+ * A line's price is optional (INV1.1). `cost_currency_code` is required
+ * with a price — a price with no currency is not a price. `unit_id` is
+ * optional: omit it and the price is taken as per the stock item's own
+ * unit, which is how a delivery note reads. A priced line whose stock item
+ * is backed by an ingredient blends into that ingredient's weighted
+ * moving-average cost; an unpriced line moves stock only.
+ *
+ */
+export const zGoodsReceiptLineInput = z.object({
+    stock_item_id: zUuid,
+    quantity: z.number().gt(0),
+    unit_id: zUuid.optional(),
+    unit_price_amount: z.number().gte(0).optional(),
+    cost_currency_code: z.string().length(3).optional()
+});
+
+/**
+ * Posting a receipt writes every line straight into the inventory
+ * ledger (`reason: receipt`) inside one transaction — there is no
+ * draft state to save and return to. Since INV1.1 it also records the
+ * supplier and document reference and blends each priced line's cost.
+ *
+ */
+export const zPostGoodsReceiptRequest = z.object({
+    branch_id: zUuid,
+    supplier_id: zUuid.nullish(),
+    document_ref: z.string().nullish(),
+    purchase_order_id: zUuid.nullish(),
+    lines: z.array(zGoodsReceiptLineInput).min(1)
+});
+
+export const zGoodsReceiptEnvelope = z.object({
+    data: z.object({
+        goods_receipt: z.object({
+            id: zUuid
+        })
+    }),
+    meta: zMeta
+});
+
+/**
+ * One purchases-ledger row — a receipt line with its date, supplier and item (INV1.1).
+ */
+export const zPurchasesLedgerLine = z.object({
+    id: zUuid,
+    goods_receipt_id: zUuid,
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    supplier: zSupplierRef.nullable(),
+    document_ref: z.string().nullable(),
+    stock_item_id: zUuid,
+    item_code: z.string().nullable(),
+    item_name_en: z.string().nullable(),
+    ingredient_id: zUuid.nullable(),
+    quantity: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_price_amount: z.string().nullable(),
+    line_total_amount: z.string().nullable(),
+    cost_currency_code: z.string().nullable(),
+    costs_redacted: z.boolean()
+});
+
+export const zPurchasesLedgerCollection = z.object({
+    data: z.object({
+        purchases: z.array(zPurchasesLedgerLine)
+    }),
+    meta: zPaginationMeta
+});
+
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+ */
+export const zMonthlyCostReportRow = z.object({
+    month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+    currency_code: z.string(),
+    spend_amount: z.string(),
+    cogs_amount: z.string(),
+    waste_amount: z.string().nullable(),
+    waste_quantity: z.string().nullable(),
+    revenue_amount: z.string(),
+    gross_margin_amount: z.string(),
+    gross_margin_percent: z.string().nullable(),
+    meal_revenue_amount: z.string(),
+    product_revenue_amount: z.string(),
+    other_revenue_amount: z.string(),
+    meal_cogs_amount: z.string(),
+    product_cogs_amount: z.string(),
+    other_cogs_amount: z.string(),
+    has_data_quality_flag: z.boolean(),
+    exception_count: z.int()
+});
+
+export const zMonthlyCostReportCollection = z.object({
+    data: z.object({
+        report: z.array(zMonthlyCostReportRow)
+    }),
+    meta: zMeta
+});
+
+/**
+ * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the consumption service raises; a client renders it as a human label rather than branching on it.
+ */
+export const zConsumptionExceptionReasonCode = z.enum([
+    'no_branch',
+    'no_catalogue_item',
+    'no_recipe_version',
+    'no_yield_piece_count',
+    'unquantified_recipe_line',
+    'no_ingredient_link',
+    'no_stock_item',
+    'no_stock_unit',
+    'unit_conversion_unsupported',
+    'no_ingredient_cost',
+    'insufficient_stock'
+]);
+
+/**
+ * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
+ */
+export const zConsumptionException = z.object({
+    id: zUuid,
+    order_id: zUuid.nullable(),
+    order_number: z.string().nullable(),
+    order_line_id: zUuid.nullable(),
+    catalogue_item_id: zUuid.nullable(),
+    item_name_en: z.string().nullable(),
+    branch_id: zUuid.nullable(),
+    branch_name: z.string().nullable(),
+    reason_code: zConsumptionExceptionReasonCode,
+    detail: z.string().nullable(),
+    resolved: z.boolean(),
+    resolved_at: z.iso.datetime({ offset: true }).nullable(),
+    resolved_by: zUuid.nullable(),
+    resolution_note: z.string().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zConsumptionExceptionCollection = z.object({
+    data: z.object({
+        exceptions: z.array(zConsumptionException)
+    }),
+    meta: zPaginationMeta
+});
+
+export const zConsumptionExceptionEnvelope = z.object({
+    data: z.object({
+        exception: zConsumptionException
+    }),
+    meta: zMeta
+});
+
+export const zConsumptionExceptionCountEnvelope = z.object({
+    data: z.object({
+        count: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
+ * Optionally records why an exception is being marked handled.
+ */
+export const zResolveConsumptionExceptionRequest = z.object({
+    note: z.string().max(500).nullish()
+});
+
+export const zProductionOrder = z.object({
+    id: zUuid,
+    recipe_version_id: zUuid,
+    status: z.enum([
+        'planned',
+        'in_progress',
+        'completed',
+        'cancelled'
+    ]),
+    branch_id: zUuid
+});
+
+export const zProductionOrderCollection = z.object({
+    data: z.object({
+        production_orders: z.array(zProductionOrder)
+    }),
+    meta: zMeta
+});
+
+export const zCreateProductionOrderRequest = z.object({
+    branch_id: zUuid,
+    recipe_version_id: zUuid,
+    planned_yield: z.number().nullish()
+});
+
+export const zProductionOrderEnvelope = z.object({
+    data: z.object({
+        production_order: z.object({
+            id: zUuid,
+            status: z.enum([
+                'planned',
+                'in_progress',
+                'completed',
+                'cancelled'
+            ])
+        })
+    }),
+    meta: zMeta
+});
+
+export const zProductionMovementInput = z.object({
+    stock_item_id: zUuid,
+    quantity: z.number()
+});
+
+/**
+ * No production tasks here (O5) — completing an order is entirely
+ * about the stock it consumed and yielded, not a checklist.
+ *
+ */
+export const zCompleteProductionOrderRequest = z.object({
+    consumes: z.array(zProductionMovementInput).optional(),
+    yields: z.array(zProductionMovementInput).optional()
+});
+
+/**
+ * The only two subjects a check may attach to (O3). Anything else is
+ * `422 validation.failed`.
+ *
+ */
+export const zQualityCheckSubjectType = z.enum(['goods_receipt', 'production_order']);
+
+export const zQualityCheck = z.object({
+    id: zUuid,
+    subject_type: zQualityCheckSubjectType,
+    subject_id: zUuid,
+    status: z.enum([
+        'pending',
+        'passed',
+        'hold',
+        'released'
+    ])
+});
+
+export const zQualityCheckCollection = z.object({
+    data: z.object({
+        quality_checks: z.array(zQualityCheck)
+    }),
+    meta: zMeta
+});
+
+export const zCreateQualityCheckRequest = z.object({
+    subject_type: zQualityCheckSubjectType,
+    subject_id: zUuid,
+    notes: z.string().nullish()
+});
+
+export const zQualityCheckEnvelope = z.object({
+    data: z.object({
+        quality_check: z.object({
+            id: zUuid,
+            status: z.enum([
+                'pending',
+                'passed',
+                'hold',
+                'released'
+            ])
+        })
+    }),
+    meta: zMeta
+});
+
+/**
+ * The receipt. **Five things on the row are deliberately absent**, each
+ * for its own reason:
+ *
+ * * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
+ * named to the person being charged by it; on an agreement list, one
+ * customer's negotiated position is reconstructable from which list
+ * priced their line.
+ * * `organisation_id` — the seller's internal key. The customer bought
+ * from a kitchen, not from a UUID. *That this shape carries no kitchen
+ * identity at all is a stated gap*: naming the kitchen means a public
+ * projection of an organisation, which belongs to the marketplace
+ * family.
+ * * `created_by` — for a self-service order this is the customer and says
+ * nothing; for a staff-placed order it names an employee to a member of
+ * the public.
+ * * `lock_version` — the validator of a resource this audience cannot
+ * write. Serving one with no writer invites `If-Match` at an endpoint
+ * that would ignore it.
+ * * `branch_id`, `sales_channel_id`, `delivery_zone_id` — the kitchen's
+ * operating arrangements; none of them changes anything the customer can
+ * do.
+ *
+ * The **amounts are here**, and that is not an oversight. What somebody was
+ * charged is printed on their own receipt; what the food cost the kitchen
+ * is the confidential figure, and no column on either table carries it.
+ *
+ */
+export const zCustomerOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    delivery: zCustomerOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    line_count: z.int().gte(0),
+    lines: z.array(zCustomerOrderLine),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * The seller's view of the same row. Built independently of the customer
+ * shape rather than as a superset of it: a wide shape and a narrow one
+ * derived from it by subtraction is how a column added next year quietly
+ * reaches a receipt.
+ *
+ * `lock_version` is here because this is the audience that **writes** — a
+ * screen that could not read the validator could not send the `If-Match`
+ * the three lifecycle actions demand.
+ *
+ */
+export const zKitchenOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    organisation_id: zUuid,
+    customer_account_id: zUuid,
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    delivery: zKitchenOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    created_by: z.uuid().nullable(),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zKitchenOrderLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCustomerOrderEnvelope = z.object({
+    data: z.object({
+        order: zCustomerOrder
+    }),
+    meta: zMeta
+});
+
+export const zKitchenOrderEnvelope = z.object({
+    data: z.object({
+        order: zKitchenOrder
+    }),
+    meta: zMeta
+});
+
+/**
+ * How much a guest token is allowed to do — the entire authorisation model
+ * for the guest journey, in two values. `checkout_draft` is what an
+ * anonymous browser is handed on its first request: enough to build a
+ * basket, price it and choose a slot, none of which creates an obligation
+ * to anybody. `place_order` is what that becomes once a passcode has
+ * proven a contact point.
+ *
+ * The grade is raised only by an act the server witnessed, and the
+ * database refuses the higher value without a `contact_verified_at`.
+ *
+ */
+export const zGuestSessionGrade = z.enum(['checkout_draft', 'place_order']);
+
+/**
+ * What kind of destination a contact point names — deliberately not the
+ * transport. An address has one way to reach it; a number has three, and
+ * which is used is a property of the message.
+ *
+ */
+export const zGuestContactChannel = z.enum(['email', 'phone']);
+
+/**
+ * How a passcode travels. Optional on every request that accepts it: the
+ * server knows which drivers are real in this deployment and falls back
+ * when one is not, so a client that insisted would get a refusal where the
+ * server would have found a route.
+ *
+ */
+export const zGuestOtpDeliveryChannel = z.enum([
+    'email',
+    'sms',
+    'whatsapp'
+]);
+
+/**
+ * The guest's own customer account. A guest **is** a `customer_accounts`
+ * row in one of the three shapes that table has always enforced — not a
+ * new kind of thing — which is why addresses, orders and dietary
+ * declarations all work on one without knowing a guest exists.
+ *
+ * `account_number` is absent: it is confidential, no guest screen needs
+ * it, and the reference somebody quotes on the telephone is the order
+ * number.
+ *
+ */
+export const zGuestCustomerAccount = z.object({
+    id: zUuid,
+    account_type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]),
+    status: z.enum([
+        'provisional',
+        'active',
+        'suspended',
+        'closed'
+    ]),
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    preferred_language_code: z.string().length(2).nullable(),
+    country_code: z.string().length(2).nullable(),
+    guest_expires_at: z.iso.datetime({ offset: true }).nullable(),
+    converted_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * A guest session's own state. **There is no `token` field and there
+ * cannot be one**: the plaintext exists only in the response to
+ * `POST /guest/sessions`, and the digest is a credential derivative that is
+ * never served. The IP and User-Agent fingerprints are absent too — they
+ * exist for abuse investigation, and echoing a person's own pseudonymised
+ * fingerprint back to them helps nobody but whoever gets hold of the
+ * response.
+ *
+ */
+export const zGuestSession = z.object({
+    id: zUuid,
+    grade: zGuestSessionGrade,
+    contact_verified: z.boolean(),
+    contact_verified_at: z.iso.datetime({ offset: true }).nullable(),
+    expires_at: z.iso.datetime({ offset: true }),
+    last_used_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * The one payload in the API that carries a guest credential.
+ */
+export const zStartedGuestSession = z.object({
+    token: z.string(),
+    grade: zGuestSessionGrade,
+    expires_at: z.iso.datetime({ offset: true }),
+    account_expires_at: z.iso.datetime({ offset: true }),
+    customer_account: zGuestCustomerAccount
+});
+
+export const zGuestSessionEnvelope = z.object({
+    data: z.object({
+        session: zGuestSession,
+        customer_account: zGuestCustomerAccount
+    }),
+    meta: zMeta
+});
+
+/**
+ * Every field is optional and the empty body is the normal case. A
+ * required field here would mean a person cannot open a basket until they
+ * have answered a question, which is the friction the guest journey exists
+ * to remove. Both values are presentation hints, not references: an
+ * unrecognised code degrades to the platform default rather than refusing
+ * the session.
+ *
+ */
+export const zStartGuestSessionRequest = z.object({
+    preferred_language_code: z.string().length(2).nullish(),
+    country_code: z.string().length(2).nullish()
+});
+
+export const zRequestGuestContactVerificationRequest = z.object({
+    channel: zGuestContactChannel,
+    value: z.string().max(255),
+    delivery_channel: zGuestOtpDeliveryChannel.optional()
+});
+
+export const zConfirmGuestContactVerificationRequest = z.object({
+    challenge_id: zUuid,
+    code: z.string().max(16)
+});
+
+/**
+ * A passcode in flight. Every field exists because a screen cannot be
+ * built without it: the resend countdown is absolute so a client with a
+ * wrong clock still gets it right, `attempts_remaining` is the difference
+ * between retyping carefully and being locked out without warning, and
+ * `destination_masked` is server-authored because a client-side mask of a
+ * value the client was given would mean the value was given.
+ *
+ */
+export const zGuestOtpChallenge = z.object({
+    challenge_id: zUuid,
+    purpose: z.literal('guest_order'),
+    channel: zGuestOtpDeliveryChannel,
+    destination_masked: z.string(),
+    expires_at: z.iso.datetime({ offset: true }),
+    resend_available_at: z.iso.datetime({ offset: true }),
+    resend_cooldown_seconds: z.int().gte(0),
+    attempts_remaining: z.int().gte(0),
+    resends_remaining: z.int().gte(0),
+    available_channels: z.array(z.object({
+        channel: zGuestOtpDeliveryChannel,
+        simulated: z.boolean()
+    })),
+    simulated: z.boolean(),
+    debug_code: z.string().optional()
+});
+
+export const zGuestOtpChallengeEnvelope = z.object({
+    data: z.object({
+        challenge: zGuestOtpChallenge
+    }),
+    meta: zMeta
+});
+
+/**
+ * The same body as the authenticated `POST /orders`. Nothing about money
+ * and nothing about the seller: the currency, the totals, the organisation
+ * and the channel are all decided at placement from the cart and the
+ * tariff standing at that moment. A body carrying a total would make the
+ * client the authority on what the kitchen charges.
+ *
+ */
+export const zPlaceGuestOrderRequest = z.object({
+    cart_id: zUuid,
+    customer_address_id: zUuid,
+    delivery_window_code: z.string().max(40).nullish(),
+    requested_delivery_date: z.iso.date().nullish()
+});
+
+export const zGuestOrderStatus = z.enum([
+    'placed',
+    'confirmed',
+    'fulfilled',
+    'cancelled'
+]);
+
+/**
+ * Where the food goes, as it stood when the order was placed. The area
+ * name carries one server-chosen language; the free-text parts are the
+ * customer's own address, copied onto the order so a later edit to the
+ * address book cannot rewrite where a delivered order went.
+ *
+ */
+export const zGuestOrderDelivery = z.object({
+    label: z.string().nullable(),
+    line_one: z.string(),
+    line_two: z.string().nullable(),
+    city: z.string().nullable(),
+    area: z.string().nullable(),
+    window_code: z.string().nullable(),
+    requested_date: z.iso.date().nullable()
+});
+
+/**
+ * The frozen allergen statement, exactly as the customer was shown it.
+ * Never re-derived from the catalogue on read — a person told "contains
+ * sesame" must still be told it after the kitchen reformulates.
+ *
+ */
+export const zGuestOrderLineAllergen = z.object({
+    allergen_code: zAllergenCode,
+    containment: z.string()
+});
+
+/**
+ * One article on the order, as it stood the moment the order was placed.
+ * `name` is **one** server-chosen language rather than a pair of columns
+ * (master plan v2 §4.8), and the price-list identifiers behind the amount
+ * are absent: they exist so "why was this the price?" is answerable a year
+ * later and they never leave the server.
+ *
+ */
+export const zGuestOrderLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    name: z.string(),
+    variant_label: z.string().nullable(),
+    quantity: z.string(),
+    unit_price_minor: z.int().gte(0),
+    line_total_minor: z.int().gte(0),
+    currency_code: zCurrencyCode,
+    allergens: z.array(zGuestOrderLineAllergen),
+    pack_summary: z.record(z.string(), z.unknown()).nullable()
+});
+
+/**
+ * A guest's own order. Amounts are integers of minor units with the
+ * currency beside them and are never formatted server-side — `4500` with
+ * `AED`, never `"45.00 AED"` — because a server that formats money has
+ * decided a locale on the client's behalf and made the number unusable for
+ * arithmetic.
+ *
+ * `lock_version` is absent, and so is an `ETag`: a guest has no write
+ * surface on an order, so a validator would be a token for a request
+ * nobody can make. The seller's identifiers are absent too — naming the
+ * kitchen properly means a projection, and that shape already exists on
+ * the marketplace surface.
+ *
+ */
+export const zGuestOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    status: zGuestOrderStatus,
+    currency_code: zCurrencyCode,
+    subtotal_minor: z.int().gte(0),
+    delivery_fee_minor: z.int().gte(0).nullable(),
+    total_minor: z.int().gte(0),
+    payment_method: z.enum(['cash_on_delivery']),
+    delivery: zGuestOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: z.enum([
+        'customer_requested',
+        'kitchen_unable_to_fulfil',
+        'delivery_unavailable',
+        'address_unreachable'
+    ]).nullable(),
+    lines: z.array(zGuestOrderLine)
+});
+
+export const zGuestOrderEnvelope = z.object({
+    data: z.object({
+        order: zGuestOrder
+    }),
+    meta: zMeta.and(z.object({
+        replayed: z.boolean().optional()
+    }))
+});
+
+export const zGuestConversionEnvelope = z.object({
+    data: z.object({
+        customer_account: zGuestCustomerAccount
+    }),
+    meta: zMeta.and(z.object({
+        guest_token_revoked: z.literal(true)
+    }))
+});
+
+export const zRequestGuestDeletionRequest = z.object({
+    channel: zGuestContactChannel,
+    value: z.string().max(255),
+    delivery_channel: zGuestOtpDeliveryChannel.optional()
+});
+
+/**
+ * The address is submitted again rather than carried in a challenge
+ * identifier from step one, because step one has none to give: a nullable
+ * identifier is a boolean in disguise, and the boolean is "this address is
+ * known to us".
+ *
+ */
+export const zConfirmGuestDeletionRequest = z.object({
+    channel: zGuestContactChannel,
+    value: z.string().max(255),
+    code: z.string().max(16)
+});
+
+/**
+ * The same answer whether or not there is anything to delete. Every field
+ * is derived from the request: the mask comes from the value just
+ * submitted, and the two remaining fields come from configuration.
+ *
+ */
+export const zGuestDeletionAcknowledgement = z.object({
+    accepted: z.literal(true),
+    destination_masked: z.string(),
+    verification_required: z.boolean(),
+    expires_in_seconds: z.int().gte(30)
+});
+
+/**
+ * What the purge did — counts only, never identities. An erasure that
+ * recorded what it erased would have rebuilt in one place exactly what it
+ * removed from another.
+ *
+ */
+export const zGuestPurgeReport = z.object({
+    contacts_deleted: z.int().gte(0),
+    addresses_deleted: z.int().gte(0),
+    challenges_deleted: z.int().gte(0),
+    sessions_deleted: z.int().gte(0),
+    suppressions_written: z.int().gte(0),
+    account_anonymised: z.boolean(),
+    orders_retained: z.int().gte(0)
+});
+
+/**
+ * One indistinguishable shape for every refusal — a wrong code, any code
+ * against an unknown address, an expired challenge, a locked-out contact
+ * — and the report only for a caller who has proven they hold the
+ * destination.
+ *
+ */
+export const zGuestDeletionOutcome = z.object({
+    accepted: z.literal(true),
+    purged: z.boolean(),
+    report: zGuestPurgeReport.optional()
+});
+
+/**
+ * What a passcode is being asked for. The vocabulary is complete rather
+ * than grown per phase, because a purpose scopes the one-live-challenge
+ * index and is what a step-up consumer checks before honouring a
+ * verification — a code obtained for a harmless purpose must not be
+ * replayable against a dangerous one.
+ *
+ */
+export const zOtpPurpose = z.enum([
+    'contact_verification',
+    'guest_order',
+    'guest_deletion',
+    'closure_step_up',
+    'payment_details_step_up',
+    'b2b_signatory'
+]);
+
+/**
+ * The purposes that grant an `otp` step-up. Contact verification is
+ * deliberately absent: a code proving somebody holds an address must never
+ * unlock a payment change.
+ *
+ */
+export const zStepUpPurpose = z.enum(['closure_step_up', 'payment_details_step_up']);
+
+/**
+ * How a passcode travels. Distinct from a contact point's `channel`: an
+ * email address has one way to reach it, a phone number has three, and
+ * which is used is a property of the message rather than of the number.
+ *
+ */
+export const zOtpDeliveryChannel = z.enum([
+    'email',
+    'sms',
+    'whatsapp'
+]);
+
+/**
+ * The stored lifecycle of a challenge. Not sufficient on its own — expiry
+ * is a moment rather than an event, so a row stays `pending` past its
+ * window until something writes the transition. Read `is_live` instead.
+ *
+ */
+export const zOtpChallengeState = z.enum([
+    'pending',
+    'verified',
+    'expired',
+    'failed',
+    'superseded'
+]);
+
+export const zOtpAvailableChannel = z.object({
+    channel: zOtpDeliveryChannel,
+    simulated: z.boolean()
+});
+
+/**
+ * What a caller learns when a challenge is issued or resent. Every field
+ * exists because a screen cannot be built without it.
+ *
+ */
+export const zOtpChallengeResult = z.object({
+    challenge_id: zUuid,
+    purpose: zOtpPurpose,
+    channel: zOtpDeliveryChannel,
+    destination_masked: z.string(),
+    expires_at: z.iso.datetime({ offset: true }),
+    resend_available_at: z.iso.datetime({ offset: true }),
+    resend_cooldown_seconds: z.int().gte(0),
+    attempts_remaining: z.int().gte(0),
+    resends_remaining: z.int().gte(0),
+    available_channels: z.array(zOtpAvailableChannel),
+    simulated: z.boolean(),
+    debug_code: z.string().optional()
+});
+
+export const zOtpChallengeEnvelope = z.object({
+    data: z.object({
+        challenge: zOtpChallengeResult
+    }),
+    meta: zMeta
+});
+
+/**
+ * A challenge's state. Carries no passcode and no derivative of one — every
+ * field is drawn from columns that outlive the request.
+ *
+ */
+export const zVerificationChallenge = z.object({
+    challenge_id: zUuid,
+    purpose: zOtpPurpose,
+    channel: zOtpDeliveryChannel,
+    destination_masked: z.string(),
+    status: zOtpChallengeState,
+    is_live: z.boolean(),
+    attempts_remaining: z.int().gte(0),
+    resends_remaining: z.int().gte(0),
+    expires_at: z.iso.datetime({ offset: true }),
+    resend_available_at: z.iso.datetime({ offset: true }).nullish(),
+    last_sent_at: z.iso.datetime({ offset: true }).nullish(),
+    verified_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zVerificationChallengeEnvelope = z.object({
+    data: z.object({
+        challenge: zVerificationChallenge
+    }),
+    meta: zMeta
+});
+
+export const zStepUpConfirmationEnvelope = z.object({
+    data: z.object({
+        confirmed: z.literal(true),
+        method: z.literal('otp'),
+        expires_in_seconds: z.int().gte(1)
+    }),
+    meta: zMeta
+});
+
+export const zSubmitPasscodeRequest = z.object({
+    code: z.string().regex(/^[0-9]{4,10}$/)
+});
+
+/**
+ * `channel` is optional and its absence means "the same way as last time"
+ * rather than "the default for this contact" — somebody who chose WhatsApp
+ * once should not be quietly moved back to SMS by pressing resend.
+ *
+ */
+export const zResendChallengeRequest = z.object({
+    channel: zOtpDeliveryChannel.optional()
+});
+
+/**
+ * No `channel`. A step-up goes to the destination the account has already
+ * proven, and letting the caller pick the transport for a challenge that
+ * unlocks account closure would hand an attacker the one decision the
+ * server should be making.
+ *
+ */
+export const zStepUpChallengeRequest = z.object({
+    purpose: zStepUpPurpose
+});
+
+/**
+ * The challenge is named in the body rather than in the path, unlike every
+ * other verification endpoint: a client that has just been refused with
+ * `auth.step_up_required` holds an identifier and a code, not a resource it
+ * is navigating to.
+ *
+ */
+export const zConfirmStepUpRequest = z.object({
+    challenge_id: zUuid,
+    code: z.string().regex(/^[0-9]{4,10}$/)
+});
+
+/**
+ * The kind of destination a contact point names — deliberately not the
+ * transport. Modelling it as `sms | whatsapp | email` would mean storing
+ * the same number twice and asking a customer to verify it twice.
+ *
+ */
+export const zContactChannel = z.enum(['email', 'phone']);
+
+export const zVerifiedContact = z.object({
+    id: zUuid,
+    channel: zContactChannel,
+    destination_masked: z.string(),
+    is_primary: z.boolean(),
+    is_login_identity: z.boolean(),
+    verified_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zContactVerifiedEnvelope = z.object({
+    data: z.object({
+        verified: z.literal(true),
+        contact: zVerifiedContact
+    }),
+    meta: zMeta
+});
+
+/**
+ * `provisional` is a real state rather than a nicer word for incomplete:
+ * an account in it exists, holds addresses and declarations, and cannot
+ * order — which is what lets onboarding be interrupted and resumed.
+ * `active` is the activation evaluator's verdict made durable; nothing
+ * else writes it. Closure is terminal.
+ *
+ */
+export const zCustomerAccountStatus = z.enum([
+    'provisional',
+    'active',
+    'suspended',
+    'closed'
+]);
+
+/**
+ * One requirement, met or not, in a stable order. Distinct from
+ * `outstanding` because a checklist showing only what is missing loses the
+ * sense of progress that makes people finish it — and because "phone
+ * verification is not required here" is itself something the screen has to
+ * be able to say.
+ *
+ */
+export const zCustomerAccountChecklistItem = z.object({
+    code: z.enum([
+        'account.email_unverified',
+        'account.phone_unverified',
+        'account.no_served_address',
+        'account.dietary_declaration_missing',
+        'account.consents_outstanding'
+    ]),
+    satisfied: z.boolean(),
+    required: z.boolean()
+});
+
+export const zCustomerAccountOutstandingReason = z.object({
+    code: z.string(),
+    context: z.record(z.string(), z.unknown())
+});
+
+export const zCustomerAccount = z.object({
+    id: zUuid,
+    account_number: z.string(),
+    account_type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]),
+    status: zCustomerAccountStatus,
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    display_name: z.string().nullish(),
+    preferred_language_code: z.string().length(2).nullish(),
+    country_code: z.string().length(2).nullish(),
+    is_ready: z.boolean(),
+    outstanding: z.array(zCustomerAccountOutstandingReason),
+    checklist: z.array(zCustomerAccountChecklistItem),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    provisional_expires_at: z.iso.datetime({ offset: true }).nullish(),
+    last_activity_at: z.iso.datetime({ offset: true }).nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerAccountEnvelope = z.object({
+    data: z.object({
+        account: zCustomerAccount
+    }),
+    meta: zMeta
+});
+
+export const zCustomerContact = z.object({
+    id: zUuid,
+    channel: zContactChannel,
+    value: z.string(),
+    label: z.string().nullish(),
+    is_login_identity: z.boolean(),
+    is_primary: z.boolean(),
+    is_verified: z.boolean(),
+    verified_at: z.iso.datetime({ offset: true }).nullish(),
+    source: z.string(),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerContactEnvelope = z.object({
+    data: z.object({
+        contact: zCustomerContact
+    }),
+    meta: zMeta
+});
+
+export const zCustomerContactsEnvelope = z.object({
+    data: z.array(zCustomerContact),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+/**
+ * `is_login_identity` and `verified_at` are absent by construction. The
+ * login mirror is written once, at registration; and a contact one may
+ * declare proven is a contact nobody has proven.
+ *
+ */
+export const zAddCustomerContactRequest = z.object({
+    channel: zContactChannel,
+    value: z.string().max(255),
+    label: z.string().max(60).nullish(),
+    is_primary: z.boolean().nullish()
+});
+
+/**
+ * Only `delivery` is checked against the served areas. An invoice goes
+ * wherever the customer says.
+ *
+ */
+export const zCustomerAddressType = z.enum(['delivery', 'billing']);
+
+export const zCustomerAddress = z.object({
+    id: zUuid,
+    address_type: zCustomerAddressType,
+    delivery_area_id: zUuid,
+    label: z.string().nullish(),
+    line_one: z.string(),
+    line_two: z.string().nullish(),
+    building: z.string().nullish(),
+    floor: z.string().nullish(),
+    apartment: z.string().nullish(),
+    directions: z.string().nullish(),
+    postal_code: z.string().nullish(),
+    contact_point_id: zUuid.nullish(),
+    is_default: z.boolean(),
+    is_deliverable: z.boolean(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerAddressEnvelope = z.object({
+    data: z.object({
+        address: zCustomerAddress
+    }),
+    meta: zMeta
+});
+
+export const zCustomerAddressesEnvelope = z.object({
+    data: z.array(zCustomerAddress),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zAddCustomerAddressRequest = z.object({
+    address_type: zCustomerAddressType,
+    delivery_area_id: zUuid,
+    label: z.string().max(60).nullish(),
+    line_one: z.string().max(255),
+    line_two: z.string().max(255).nullish(),
+    building: z.string().max(120).nullish(),
+    floor: z.string().max(40).nullish(),
+    apartment: z.string().max(40).nullish(),
+    directions: z.string().max(1000).nullish(),
+    postal_code: z.string().max(20).nullish(),
+    contact_point_id: zUuid.nullish(),
+    is_default: z.boolean().nullish()
+});
+
+/**
+ * `address_type` and `is_default` are absent, and both would be quietly
+ * wrong rather than merely unsupported — see the operation description.
+ *
+ */
+export const zUpdateCustomerAddressRequest = z.object({
+    delivery_area_id: zUuid.optional(),
+    label: z.string().max(60).nullish(),
+    line_one: z.string().max(255).optional(),
+    line_two: z.string().max(255).nullish(),
+    building: z.string().max(120).nullish(),
+    floor: z.string().max(40).nullish(),
+    apartment: z.string().max(40).nullish(),
+    directions: z.string().max(1000).nullish(),
+    postal_code: z.string().max(20).nullish(),
+    contact_point_id: zUuid.nullish()
+});
+
+/**
+ * How badly this person reacts. `avoidance` is a preference;
+ * `anaphylaxis` excludes traces, and a kitchen reads the difference.
+ *
+ */
+export const zAllergenSeverity = z.enum([
+    'avoidance',
+    'intolerance',
+    'allergy',
+    'anaphylaxis'
+]);
+
+/**
+ * `forbidden` is frequently a belief rather than a preference, which is
+ * why an exclusion is handled as carefully as an allergy even though
+ * nobody's airway depends on it.
+ *
+ */
+export const zFoodExclusionKind = z.enum(['dislike', 'forbidden']);
+
+/**
+ * Carries no identifier of its own. The set is replaced whole on every
+ * write, so a row id would be a handle onto something that does not
+ * survive the next `PUT`; the allergen code is the identity that matters.
+ *
+ */
+export const zCustomerAllergenDeclaration = z.object({
+    allergen_code: z.string(),
+    severity: zAllergenSeverity,
+    notes: z.string().nullish(),
+    declared_at: z.iso.datetime({ offset: true })
+});
+
+export const zCustomerFoodExclusion = z.object({
+    id: zUuid,
+    kind: zFoodExclusionKind,
+    subject_kind: z.enum([
+        'ingredient',
+        'diet_classification',
+        'free_text'
+    ]),
+    ingredient_id: zUuid.nullish(),
+    diet_classification_id: zUuid.nullish(),
+    free_text: z.string().nullish()
+});
+
+export const zCustomerDietaryProfile = z.object({
+    id: zUuid.nullish(),
+    has_declared: z.boolean(),
+    declared_at: z.iso.datetime({ offset: true }).nullish(),
+    declares_no_allergens: z.boolean(),
+    diet_classification_id: zUuid.nullish(),
+    religious_requirement: z.string().nullish(),
+    notes: z.string().nullish(),
+    allergens: z.array(zCustomerAllergenDeclaration),
+    exclusions: z.array(zCustomerFoodExclusion),
+    lock_version: z.int().gte(0).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zCustomerDietaryProfileEnvelope = z.object({
+    data: z.object({
+        dietary_profile: zCustomerDietaryProfile
+    }),
+    meta: zMeta
+});
+
+export const zReplaceDietaryProfileRequest = z.object({
+    allergens: z.array(z.object({
+        allergen_code: z.string().max(60),
+        severity: zAllergenSeverity.optional(),
+        notes: z.string().max(500).nullish()
+    })).max(60),
+    exclusions: z.array(z.object({
+        kind: zFoodExclusionKind.optional(),
+        ingredient_id: zUuid.nullish(),
+        diet_classification_id: zUuid.nullish(),
+        free_text: z.string().max(200).nullish()
+    })).max(100).optional(),
+    diet_classification_id: zUuid.nullish(),
+    religious_requirement: z.string().max(120).nullish(),
+    notes: z.string().max(2000).nullish()
+});
+
+export const zCustomerConsent = z.object({
+    code: z.string(),
+    version: z.int().gte(1),
+    purpose: z.string(),
+    audience: z.enum(['all', 'd2c']),
+    is_required: z.boolean(),
+    status: z.enum(['granted', 'pending']),
+    display_order: z.int().gte(0)
+});
+
+export const zCustomerConsentsEnvelope = z.object({
+    data: z.array(zCustomerConsent),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+/**
+ * No version. A grant is written against the current version of each
+ * definition, read at the moment of writing — a body that named one could
+ * accept a text that has since been reissued.
+ *
+ */
+export const zGrantConsentsRequest = z.object({
+    codes: z.array(z.string().max(80)).min(1).max(40)
+});
+
+/**
+ * The seven states a B2B application passes through.
+ *
+ * `info_requested` is not a rejection and not a pause: it hands editing
+ * rights back for named sections while the application keeps its place
+ * in the queue, which is what lets a status panel say "we need two
+ * things from you" instead of the same "under review" it showed
+ * yesterday.
+ *
+ * `withdrawn` is the applicant's exit and `declined` is the platform's.
+ * Collapsing them would make "how many did we turn down" unanswerable.
+ *
+ */
+export const zB2bApplicationStatus = z.enum([
+    'draft',
+    'submitted',
+    'in_review',
+    'info_requested',
+    'approved',
+    'declined',
+    'withdrawn'
+]);
+
+/**
+ * The field group a wizard step writes. A section is the unit of
+ * writing: a PATCH names one and carries only its fields, and anything
+ * else is refused with the name of the section that owns it.
+ *
+ * Documents are deliberately **not** a section — they have their own
+ * lifecycle and their own review, and folding them in would put a PATCH
+ * of a text box and an upload of a passport on one code path.
+ *
+ */
+export const zB2bApplicationSection = z.enum([
+    'company',
+    'signatory',
+    'trade_terms',
+    'logistics'
+]);
+
+/**
+ * The four people an applicant company names, one per slot.
+ *
+ * `signatory` overlaps the `signatory_*` fields on the application and
+ * that is not duplication: the fields are the *declaration* about who
+ * can bind the company, and the contact row is where to reach that
+ * person about the paperwork. A company whose chief executive signs and
+ * whose office manager chases the emails has one of each.
+ *
+ */
+export const zB2bApplicationContactRole = z.enum([
+    'primary',
+    'billing',
+    'operations',
+    'signatory'
+]);
+
+/**
+ * How long a corporate buyer has to pay. The same vocabulary appears on
+ * the application (what was *asked for*) and on the agreement (what was
+ * *granted*), because the whole point of the review is to compare them.
+ *
+ * **Recorded, not enforced.** No invoicing exists — PAY1 is
+ * discovery-gated — so nothing in the platform will chase a net-30
+ * balance, and no surface may imply otherwise.
+ *
+ */
+export const zB2bPaymentTerms = z.enum([
+    'prepaid',
+    'net_15',
+    'net_30',
+    'net_60'
+]);
+
+/**
+ * What a document is supposed to prove. Two kinds are required before an
+ * application may be submitted — `commercial_registration` and
+ * `signatory_identification` — because one says the company exists and
+ * the other says the signatory is a real person who can be held to what
+ * they sign. Everything else is asked for when the case calls for it.
+ *
+ * `signed_agreement` is produced by the signing flow and is **not**
+ * accepted from a client: an applicant supplying their own idea of what
+ * they signed is the one document that must never be self-asserted.
+ *
+ * `other` exists because reviewers ask for things nobody anticipated,
+ * and the alternative is an applicant mislabelling a document.
+ *
+ */
+export const zB2bDocumentKind = z.enum([
+    'commercial_registration',
+    'tax_certificate',
+    'trade_licence',
+    'signatory_identification',
+    'authorisation_letter',
+    'proof_of_address',
+    'food_safety_certificate',
+    'insurance_certificate',
+    'signed_agreement',
+    'other'
+]);
+
+/**
+ * A human's verdict on a document. `superseded` is not a verdict anybody
+ * gives — it is what happens to an accepted document when a newer one of
+ * the same kind replaces it, so the earlier decision trail survives a
+ * re-upload.
+ *
+ */
+export const zKycDocumentReviewStatus = z.enum([
+    'pending',
+    'accepted',
+    'rejected',
+    'superseded'
+]);
+
+/**
+ * Why a reviewer turned a document down. A closed vocabulary rather than
+ * free text, because this is the half of a rejection the applicant is
+ * shown and "please re-upload, it was illegible" is actionable in a way
+ * a reviewer's internal note is not.
+ *
+ */
+export const zKycDocumentRejectionReason = z.enum([
+    'unreadable',
+    'wrong_document',
+    'expired',
+    'incomplete',
+    'mismatch',
+    'other'
+]);
+
+/**
+ * Whether anything has looked inside the file for malware. **Every
+ * document B1 stores is `not_scanned`**, and this field exists so that
+ * fact is in the data rather than only in a risk register.
+ *
+ * Sniffing the leading bytes proves a PDF is a PDF; it proves nothing
+ * about what the PDF contains. `clean` and `infected` are declared and
+ * unreachable in this phase, and nothing may present a document as safe
+ * until a scanner fills them in (INT-008).
+ *
+ */
+export const zKycDocumentScanStatus = z.enum([
+    'not_scanned',
+    'clean',
+    'infected'
+]);
+
+/**
+ * `draft → pending_signature → active → suspended ⇄ active →
+ * terminated`.
+ *
+ * The transition that is *not* here is any route back into `draft` once
+ * terms have been put in front of a counterparty. Changing what somebody
+ * was asked to sign, in place, is the failure this vocabulary is shaped
+ * against; the supported move is a new version that supersedes the old.
+ *
+ * `suspended` is reversible and `terminated` is not.
+ *
+ */
+export const zB2bAgreementStatus = z.enum([
+    'draft',
+    'pending_signature',
+    'active',
+    'suspended',
+    'terminated'
+]);
+
+/**
+ * **Derived, never stored.** `accepted_at`, `revoked_at` and
+ * `expires_at` are already on the row, and a status column would be a
+ * fourth copy that has to be kept in step with a clock — expiry being
+ * the first thing to drift.
+ *
+ */
+export const zOrganisationInvitationStatus = z.enum([
+    'live',
+    'accepted',
+    'revoked',
+    'expired'
+]);
+
+/**
+ * A company's request to become a corporate buyer, as the applicant sees
+ * it.
+ *
+ * `completed_sections` is the applicant's own **claim** about their
+ * progress and is never consulted by the submission gate; the server's
+ * definition of complete arrives as `missing_fields` /
+ * `missing_documents` on the refusal. A surface that treated the claim
+ * as the answer would show a green wizard next to a 422.
+ *
+ * `writable_sections` is computed. In `info_requested` it is the
+ * reviewer's narrowing rather than the whole form.
+ *
+ */
+export const zB2bApplication = z.object({
+    id: zUuid,
+    reference: z.string(),
+    status: zB2bApplicationStatus,
+    applicant_user_id: zUuid,
+    legal_name: z.string().nullish(),
+    legal_name_ar: z.string().nullish(),
+    trading_name: z.string().nullish(),
+    business_type: z.string().nullish(),
+    country_code: z.string().length(2).nullish(),
+    commercial_registration_number: z.string().nullish(),
+    tax_registration_number: z.string().nullish(),
+    incorporated_on: z.iso.date().nullish(),
+    website: z.string().nullish(),
+    signatory_name: z.string().nullish(),
+    signatory_title: z.string().nullish(),
+    signatory_email: z.email().nullish(),
+    signatory_phone: z.string().nullish(),
+    requested_payment_terms: zB2bPaymentTerms.nullish(),
+    requested_credit_limit_minor: z.int().gte(0).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    expected_volume_band: z.string().nullish(),
+    expected_order_frequency: z.string().nullish(),
+    product_categories: z.array(z.string()).optional(),
+    preferred_delivery_window: z.string().nullish(),
+    lead_time_days: z.int().gte(0).nullish(),
+    requires_invoice_per_location: z.boolean(),
+    delivery_notes: z.string().nullish(),
+    completed_sections: z.array(zB2bApplicationSection),
+    writable_sections: z.array(zB2bApplicationSection),
+    information_request: z.string().nullish(),
+    information_requested_sections: z.array(zB2bApplicationSection).optional(),
+    information_requested_at: z.iso.datetime({ offset: true }).nullish(),
+    applicant_message: z.string().nullish(),
+    submitted_at: z.iso.datetime({ offset: true }).nullish(),
+    review_started_at: z.iso.datetime({ offset: true }).nullish(),
+    decided_at: z.iso.datetime({ offset: true }).nullish(),
+    withdrawn_at: z.iso.datetime({ offset: true }).nullish(),
+    provisioned_organisation_id: zUuid.nullish(),
+    customer_account_id: zUuid.nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * The reviewer's view: everything the applicant sees, plus the internal
+ * half of the decision. `decision_note` never reaches the applicant —
+ * "we were not comfortable with the credit history" and "we are unable
+ * to approve your application at this time" can both be true, and only
+ * one of them travels.
+ *
+ */
+export const zB2bApplicationReview = zB2bApplication.and(z.object({
+    decision_note: z.string().nullish(),
+    reviewed_by: zUuid.nullish(),
+    duplicate_of_application_id: zUuid.nullish()
+}));
+
+/**
+ * The list row. Deliberately thin: a queue answers "which of these do I
+ * open next", and every confidential field carried in a list is a field
+ * displayed on a screen somebody walks past.
+ *
+ */
+export const zB2bApplicationSummary = z.object({
+    id: zUuid,
+    reference: z.string(),
+    status: zB2bApplicationStatus,
+    legal_name: z.string().nullish(),
+    trading_name: z.string().nullish(),
+    country_code: z.string().nullish(),
+    submitted_at: z.iso.datetime({ offset: true }).nullish(),
+    decided_at: z.iso.datetime({ offset: true }).nullish(),
+    reviewed_by: zUuid.nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * A person the applicant company named. **Transcribed paperwork, not a
+ * verified destination** — nothing here has been proved, which is why
+ * these are not contact points.
+ *
+ */
+export const zB2bApplicationContact = z.object({
+    id: zUuid,
+    role: zB2bApplicationContactRole,
+    name: z.string().max(160),
+    title: z.string().max(120).nullish(),
+    email: z.email().nullish(),
+    phone: z.string().nullish(),
+    notes: z.string().nullish()
+});
+
+/**
+ * Somewhere the company wants food delivered, anchored to the platform gazetteer where the gazetteer covers it.
+ */
+export const zB2bApplicationLocation = z.object({
+    id: zUuid,
+    label: z.string().max(120),
+    delivery_area_id: zUuid.nullish(),
+    address_line1: z.string(),
+    address_line2: z.string().nullish(),
+    city: z.string().nullish(),
+    country_code: z.string().length(2).nullish(),
+    contact_name: z.string().nullish(),
+    contact_phone: z.string().nullish(),
+    delivery_notes: z.string().nullish(),
+    is_primary: z.boolean(),
+    is_billing_address: z.boolean(),
+    expected_headcount: z.int().gte(1).nullish()
+});
+
+/**
+ * An identity, registration or licensing document — **metadata only**.
+ * There is no `url`, no `disk` and no `path` here and there never may
+ * be: the only route to the bytes is a short-lived signed link that
+ * expires and records who asked and why.
+ *
+ * `media_type_mismatch` is stated rather than left for a client to
+ * compute, because the difference between what the uploader claimed and
+ * what the bytes are is evidence.
+ *
+ */
+export const zKycDocument = z.object({
+    id: zUuid,
+    document_kind: zB2bDocumentKind,
+    original_filename: z.string(),
+    mime_type: z.string(),
+    declared_mime_type: z.string().nullish(),
+    media_type_mismatch: z.boolean(),
+    byte_size: z.int().gte(1),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    scan_status: zKycDocumentScanStatus,
+    review_status: zKycDocumentReviewStatus,
+    rejection_reason: zKycDocumentRejectionReason.nullish(),
+    reviewed_at: z.iso.datetime({ offset: true }).nullish(),
+    uploaded_by: zUuid.nullish(),
+    uploaded_at: z.iso.datetime({ offset: true }),
+    expires_on: z.iso.date().nullish(),
+    has_expired: z.boolean()
+});
+
+/**
+ * The platform shape: the same document plus the reviewer's private note
+ * and the retention deadline. `review_note` is internal and stays that
+ * way; `purge_after` is here rather than on the applicant shape because
+ * the retention window is a **placeholder** pending OQ-029, and showing
+ * an applicant a deadline the platform has not decided would present a
+ * guess as a commitment.
+ *
+ */
+export const zKycDocumentReview = zKycDocument.and(z.object({
+    review_note: z.string().nullish(),
+    reviewed_by: zUuid.nullish(),
+    owner_kind: z.enum([
+        'user',
+        'b2b_application',
+        'organisation'
+    ]).optional(),
+    b2b_application_id: zUuid.nullish(),
+    purge_after: z.iso.datetime({ offset: true }).optional()
+}));
+
+/**
+ * A signed, expiring grant against object storage. Handed over as data
+ * rather than as a redirect so a client knows it holds a credential with
+ * a deadline — it can show the expiry, refresh before acting, and
+ * decline to cache it.
+ *
+ */
+export const zKycDocumentDownload = z.object({
+    url: z.url(),
+    expires_at: z.iso.datetime({ offset: true })
+});
+
+/**
+ * One version of the terms between the platform and a corporate buyer.
+ *
+ * The signature block is **evidence**: the digest of the bytes shown,
+ * the typed name, the stated capacity and the consent wording verbatim.
+ * What is absent is anything replayable — the hashed address and user
+ * agent stay server-side, and the passcode challenge is reduced to
+ * `signature_otp_verified`.
+ *
+ * **Never a qualified electronic signature.** This is a record that
+ * somebody clicked, with good evidence about who and when (INT-007
+ * covers real e-sign).
+ *
+ * Money is integers of minor units beside `currency_code`, never
+ * formatted.
+ *
+ */
+export const zB2bAgreement = z.object({
+    id: zUuid,
+    b2b_application_id: zUuid,
+    organisation_id: zUuid.nullish(),
+    version: z.int().gte(1),
+    supersedes_agreement_id: zUuid.nullish(),
+    status: zB2bAgreementStatus,
+    title: z.string(),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).nullish(),
+    notice_period_days: z.int().gte(0).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean(),
+    terms_summary: z.string().nullish(),
+    signature_document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
+    signatory_name: z.string().nullish(),
+    signatory_title: z.string().nullish(),
+    signatory_user_id: zUuid.nullish(),
+    signature_consent_statement: z.string().nullish(),
+    signature_otp_verified: z.boolean(),
+    signed_at: z.iso.datetime({ offset: true }).nullish(),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    suspended_at: z.iso.datetime({ offset: true }).nullish(),
+    terminated_at: z.iso.datetime({ offset: true }).nullish(),
+    termination_reason: z.string().nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * An offer of membership. **There is no `token` field and there never
+ * may be** — the plaintext is delivered once, in the email, and only its
+ * SHA-256 is stored.
+ *
+ */
+export const zOrganisationInvitation = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullish(),
+    email: z.email(),
+    role_code: z.string(),
+    status: zOrganisationInvitationStatus,
+    message: z.string().nullish(),
+    expires_at: z.iso.datetime({ offset: true }),
+    accepted_at: z.iso.datetime({ offset: true }).nullish(),
+    accepted_by_user_id: zUuid.nullish(),
+    revoked_at: z.iso.datetime({ offset: true }).nullish(),
+    revoked_by: zUuid.nullish(),
+    invited_by: zUuid.nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * One thing the caller should know about the figures they are being shown.
+ */
+export const zRecipeRollupWarning = z.object({
+    code: z.enum([
+        'rollup.unknown_ingredient',
+        'nutrition_unavailable',
+        'rollup.missing_facts',
+        'rollup.mixed_cost_currency',
+        'rollup.missing_cost'
+    ]),
+    message: z.string(),
+    ingredient_ids: z.array(zUuid).optional()
+});
+
+/**
+ * One allergen, at one containment, and every line that put it there.
+ * Grouped by `allergen_code` + `containment` and ordered by that pair.
+ *
+ */
+export const zRecipeRollupAllergenSource = z.object({
+    allergen_code: z.string(),
+    containment: z.string(),
+    ingredient_ids: z.array(zUuid).min(1)
+});
+
+/**
+ * What a draft formulation would declare, computed and thrown away.
+ */
+export const zRecipeRollupPreview = z.object({
+    per_recipe: z.null(),
+    per_serving: z.null(),
+    per_100g: z.null(),
+    allergen_sources: z.array(zRecipeRollupAllergenSource),
+    estimated_cost: z.object({
+        amount: z.string(),
+        currency: z.string().length(3)
+    }).nullable(),
+    warnings: z.array(zRecipeRollupWarning).min(1)
+});
+
+export const zPreviewRecipeRollupLine = z.object({
+    ingredient_id: zUuid,
+    quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    unit_id: zUuid.nullish(),
+    unit_cost_amount: z.number().gte(0).lte(1000000000000).nullish(),
+    cost_currency_code: z.string().length(3).nullish()
+});
+
+export const zPreviewRecipeRollupRequest = z.object({
+    recipe_id: zUuid.nullish(),
+    servings: z.number().gt(0).lte(9999),
+    waste_percent: z.number().gte(0).lte(100).nullish(),
+    lines: z.array(zPreviewRecipeRollupLine).max(200)
+});
+
+export const zCatalogueItemAvailabilityDay = z.object({
+    id: zUuid,
+    date: z.iso.date(),
+    is_available: z.boolean(),
+    remaining_portions: z.int().gte(0).nullable(),
+    order_cut_off_at: z.string().regex(/^[0-2][0-9]:[0-5][0-9]$/).nullable()
+});
+
+export const zCatalogueItemAvailabilityDayInput = z.object({
+    date: z.iso.date(),
+    is_available: z.boolean(),
+    remaining: z.int().gte(0).nullish(),
+    order_cut_off_at: z.string().nullish()
+});
+
+export const zReplaceCatalogueItemAvailabilityRequest = z.object({
+    days: z.array(zCatalogueItemAvailabilityDayInput).max(366)
+});
+
+/**
+ * One ticket on the kitchen display rail.
+ */
+export const zKitchenDisplayTicket = z.object({
+    id: zUuid,
+    label: z.string().max(160),
+    status: z.enum([
+        'new',
+        'preparing',
+        'ready'
+    ]),
+    station: z.string().max(64),
+    source_type: z.string().max(48),
+    source_id: zUuid
+});
+
+export const zCreatePosSaleLine = z.object({
+    catalogue_item_id: zUuid,
+    quantity: z.number().gte(0.0001),
+    line_total_minor: z.int().gte(0)
+});
+
+export const zCreatePosSaleRequest = z.object({
+    pos_shift_id: zUuid,
+    payment_method_kind: z.enum(['cash_on_delivery', 'card']),
+    currency_code: zCurrencyCode,
+    lines: z.array(zCreatePosSaleLine).min(1)
+});
+
+/**
+ * A recorded counter sale. Three fields — the lines are not echoed back,
+ * because the caller sent them.
+ *
+ */
+export const zPosTransaction = z.object({
+    id: zUuid,
+    total_minor: z.int().gte(0),
+    payment_method_kind: z.enum(['cash_on_delivery', 'card'])
+});
+
+/**
+ * Where the job is in its life.
+ */
+export const zDeliveryJobStatus = z.enum([
+    'pending',
+    'assigned',
+    'in_transit',
+    'delivered',
+    'failed',
+    'cancelled'
+]);
+
+/**
+ * What the customer would be told. A second axis rather than a finer
+ * `status`, because "assigned but not yet collected" and "collected"
+ * are the same dispatch state and different customer messages.
+ *
+ */
+export const zDeliveryJobTrackingStatus = z.enum([
+    'awaiting_assignment',
+    'picked_up',
+    'en_route',
+    'arrived',
+    'delivered'
+]);
+
+/**
+ * A delivery job as the dispatch board sees it.
+ */
+export const zDeliveryJob = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_user_id: zUuid.nullable()
+});
+
+/**
+ * The same job on the driver's own run sheet. `driver_user_id` is absent
+ * because it would say the same thing on every row.
+ *
+ */
+export const zDriverJob = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus
+});
+
+export const zDeliverDriverJobRequest = z.object({
+    proof_of_delivery_notes: z.string().max(1000).nullish()
+});
+
+/**
+ * How a payment is settled. `invoice` is part of the vocabulary but has
+ * no provider behind it — `POST /payments/intents` accepts it at the
+ * validator and then answers `400 request.invalid`.
+ *
+ */
+export const zPaymentMethodKind = z.enum([
+    'cash_on_delivery',
+    'card',
+    'invoice'
+]);
+
+export const zPaymentIntentStatus = z.enum([
+    'pending',
+    'authorized',
+    'captured',
+    'failed',
+    'cancelled'
+]);
+
+export const zPaymentIntent = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zPaymentIntentStatus,
+    method_kind: zPaymentMethodKind,
+    currency_code: zCurrencyCode,
+    amount_minor: z.int().gte(0),
+    provider: z.string().max(48).nullable(),
+    provider_ref: z.string().max(120).nullable(),
+    authorized_at: z.iso.datetime({ offset: true }).nullable(),
+    captured_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int().gte(0)
+});
+
+export const zPaymentIntentEnvelope = z.object({
+    data: z.object({
+        payment_intent: zPaymentIntent
+    }),
+    meta: zMeta
+});
+
+export const zCreatePaymentIntentRequest = z.object({
+    order_id: zUuid,
+    method_kind: zPaymentMethodKind
+});
+
+export const zRefund = z.object({
+    id: zUuid,
+    payment_intent_id: zUuid,
+    amount_minor: z.int().gte(1),
+    currency_code: zCurrencyCode,
+    status: z.string(),
+    completed_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCreateRefundRequest = z.object({
+    amount_minor: z.int().gte(1)
+});
+
+/**
+ * Whether a programme is currently something quotations may be drafted
+ * against. Extensible: clients must tolerate a value they do not know.
+ *
+ */
+export const zCorporateProgrammeStatus = z.enum([
+    'active',
+    'suspended',
+    'closed'
+]);
+
+/**
+ * The life of one corporate quotation (B5):
+ * `draft → submitted → quoted → accepted | declined | expired`.
+ *
+ * The buyer owns `draft` and `submitted`. The kitchen owns the move out
+ * of `submitted` into `quoted` — naming the prices is the one act
+ * neither the buyer nor the platform performs for them. From `quoted`
+ * the buyer decides again, or the clock runs out and a scheduled sweep
+ * writes `expired` seven days after `quoted_at`.
+ *
+ * **There is deliberately no route back into `draft`.** A buyer who
+ * wants to change a submitted set drafts a fresh quotation; a programme
+ * may hold many, and that costs them nothing.
+ *
+ */
+export const zQuotationStatus = z.enum([
+    'draft',
+    'submitted',
+    'quoted',
+    'accepted',
+    'declined',
+    'expired'
+]);
+
+/**
+ * One corporate programme — a buyer organisation's standing arrangement with one kitchen.
+ */
+export const zCorporateProgramme = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    kitchen_organisation_id: zUuid,
+    b2b_agreement_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    description: z.string().nullable(),
+    status: zCorporateProgrammeStatus,
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCorporateProgrammeEnvelope = z.object({
+    data: z.object({
+        programme: zCorporateProgramme
+    }),
+    meta: zMeta
+});
+
+/**
+ * One line of a quotation — what the buyer asked for, and what the kitchen said it costs.
+ */
+export const zQuotationLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullable(),
+    quantity: z.string(),
+    unit_amount_minor: z.int().gte(0).nullable(),
+    line_total_minor: z.int().gte(0).nullable(),
+    note: z.string().max(255).nullable()
+});
+
+/**
+ * One corporate quotation — a buyer's ask and a kitchen's answer.
+ */
+export const zQuotation = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    corporate_programme_id: zUuid,
+    reference: z.string(),
+    status: zQuotationStatus,
+    currency_code: zCurrencyCode,
+    notes: z.string().max(2000).nullable(),
+    decline_reason: z.string().max(2000).nullable(),
+    submitted_at: z.iso.datetime({ offset: true }).nullable(),
+    quoted_at: z.iso.datetime({ offset: true }).nullable(),
+    expires_at: z.iso.datetime({ offset: true }).nullable(),
+    decided_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int().gte(0),
+    lines: z.array(zQuotationLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zQuotationEnvelope = z.object({
+    data: z.object({
+        quotation: zQuotation
+    }),
+    meta: zMeta
+});
+
+/**
+ * One line as the buyer sends it. **There is no price field**: naming a
+ * price is the kitchen's move, and this shape has nowhere to put one.
+ *
+ */
+export const zQuotationLineInput = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    quantity: z.number().gt(0),
+    note: z.string().max(255).nullish()
+});
+
+export const zCreateQuotationRequest = z.object({
+    notes: z.string().max(2000).nullish(),
+    lines: z.array(zQuotationLineInput).min(1).nullish()
+});
+
+export const zUpdateQuotationRequest = z.object({
+    notes: z.string().max(2000).nullish(),
+    lines: z.array(zQuotationLineInput).nullish()
+});
+
+export const zDeclineQuotationRequest = z.object({
+    reason: z.string().max(2000).nullish()
+});
+
+export const zQuotationPriceInput = z.object({
+    quotation_line_id: zUuid,
+    unit_amount_minor: z.int().gte(0)
+});
+
+export const zQuoteQuotationRequest = z.object({
+    prices: z.array(zQuotationPriceInput).min(1)
+});
+
+/**
+ * One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+ */
+export const zB2bCatalogueItem = z.object({
+    id: zUuid,
+    name: z.string(),
+    item_type: zCatalogueItemType,
+    seller_organisation_id: zUuid,
+    sales_channel_id: zUuid,
+    price: z.object({
+        amount_minor: z.int(),
+        currency_code: zCurrencyCode
+    }).nullable()
+});
+
+/**
+ * The trading account an approval earns. Deliberately thin — the
+ * addresses, dietary profile and consents hanging off a customer account
+ * are somebody else's endpoints, and a fat shape here would make this
+ * the accidental canonical read.
+ *
+ */
+export const zB2bCustomerAccount = z.object({
+    id: zUuid,
+    account_number: z.string(),
+    account_type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]),
+    organisation_id: zUuid.nullish(),
+    status: z.enum([
+        'provisional',
+        'active',
+        'suspended',
+        'closed'
+    ]),
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    display_name: z.string().nullish(),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * The fields of the section named in the path, and **only** those. A key
+ * belonging to another section is refused with the name of the section
+ * that owns it, rather than dropped — silently discarding a field
+ * somebody believed they were saving is how a five-minute bug becomes a
+ * support ticket six weeks later.
+ *
+ * `status`, `completed_sections` and `lock_version` are not accepted:
+ * they are the server's, and `completed_sections` in particular is
+ * written as a *consequence* of a section being saved rather than as a
+ * claim a client may post.
+ *
+ */
+export const zUpdateB2bApplicationSectionRequest = z.object({
+    legal_name: z.string().max(255).nullish(),
+    legal_name_ar: z.string().max(255).nullish(),
+    trading_name: z.string().max(255).nullish(),
+    business_type: z.string().max(80).nullish(),
+    country_code: z.string().length(2).nullish(),
+    commercial_registration_number: z.string().max(80).nullish(),
+    tax_registration_number: z.string().max(80).nullish(),
+    incorporated_on: z.iso.date().nullish(),
+    website: z.string().max(255).nullish(),
+    signatory_name: z.string().max(160).nullish(),
+    signatory_title: z.string().max(120).nullish(),
+    signatory_email: z.email().max(255).nullish(),
+    signatory_phone: z.string().max(32).nullish(),
+    requested_payment_terms: zB2bPaymentTerms.nullish(),
+    requested_credit_limit_minor: z.int().gte(0).nullish(),
+    currency_code: z.string().length(3).nullish(),
+    expected_volume_band: z.string().max(40).nullish(),
+    expected_order_frequency: z.string().max(40).nullish(),
+    product_categories: z.array(z.string().max(80)).max(40).nullish(),
+    preferred_delivery_window: z.string().max(60).nullish(),
+    lead_time_days: z.int().gte(0).lte(365).nullish(),
+    requires_invoice_per_location: z.boolean().optional(),
+    delivery_notes: z.string().max(2000).nullish()
+});
+
+/**
+ * The complete set. `{"contacts": []}` is the payload that says "nobody,
+ * yet" — and is why the property is required-but-possibly-empty rather
+ * than optional.
+ *
+ */
+export const zReplaceB2bApplicationContactsRequest = z.object({
+    contacts: z.array(z.object({
+        role: zB2bApplicationContactRole,
+        name: z.string().max(160),
+        title: z.string().max(120).nullish(),
+        email: z.email().max(255).nullish(),
+        phone: z.string().max(32).nullish(),
+        notes: z.string().max(1000).nullish()
+    })).max(4)
+});
+
+/**
+ * The complete set. `{"locations": []}` is how a company says it has
+ * none yet.
+ *
+ */
+export const zReplaceB2bApplicationLocationsRequest = z.object({
+    locations: z.array(z.object({
+        label: z.string().max(120),
+        delivery_area_id: zUuid.nullish(),
+        address_line1: z.string().max(255),
+        address_line2: z.string().max(255).nullish(),
+        city: z.string().max(120).nullish(),
+        country_code: z.string().length(2).nullish(),
+        contact_name: z.string().max(160).nullish(),
+        contact_phone: z.string().max(32).nullish(),
+        delivery_notes: z.string().max(1000).nullish(),
+        is_primary: z.boolean().nullish(),
+        is_billing_address: z.boolean().nullish(),
+        expected_headcount: z.int().gte(1).lte(100000).nullish()
+    })).max(50)
+});
+
+/**
+ * A `multipart/form-data` body. The size bound is checked before the
+ * bytes are read; **what the file is** is decided by sniffing, not by
+ * the part's `Content-Type` or its filename.
+ *
+ */
+export const zUploadKycDocumentRequest = z.object({
+    file: z.string(),
+    document_kind: zB2bDocumentKind,
+    expires_on: z.iso.date().nullish()
+});
+
+export const zRequestB2bApplicationInformationRequest = z.object({
+    information_request: z.string().max(2000),
+    sections: z.array(zB2bApplicationSection).max(4).nullish()
+});
+
+/**
+ * Both fields optional. An approval is self-explanatory; demanding a sentence would produce "approved" typed four hundred times.
+ */
+export const zApproveB2bApplicationRequest = z.object({
+    internal_note: z.string().max(2000).nullish(),
+    applicant_message: z.string().max(2000).nullish()
+});
+
+/**
+ * `applicant_message` is required, and blank is refused. An unexplained
+ * refusal is not a decision the company can act on.
+ *
+ */
+export const zDeclineB2bApplicationRequest = z.object({
+    applicant_message: z.string().min(1).max(2000),
+    internal_note: z.string().max(2000).nullish()
+});
+
+/**
+ * Every field is evidence. There is no `signature_ip_hash` or
+ * `signature_user_agent_hash` here and there must not be: those are
+ * observations of the request, taken by the server, and a
+ * client-supplied corroboration is not corroboration.
+ *
+ */
+export const zSignB2bAgreementRequest = z.object({
+    challenge_id: zUuid,
+    code: z.string().max(16),
+    signatory_name: z.string().max(160),
+    signatory_title: z.string().max(120),
+    document_sha256: z.string().regex(/^[0-9a-fA-F]{64}$/),
+    consent_statement: z.string().max(2000)
+});
+
+export const zReviewKycDocumentRequest = z.object({
+    verdict: z.enum(['accepted', 'rejected']),
+    rejection_reason: zKycDocumentRejectionReason.nullish(),
+    note: z.string().max(2000).nullish()
+});
+
+export const zCreateOrganisationInvitationRequest = z.object({
+    email: z.email().max(255),
+    role_code: z.string().max(60),
+    branch_id: zUuid.nullish(),
+    message: z.string().max(1000).nullish()
+});
+
+export const zB2bApplicationEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplication
+    }),
+    meta: zMeta
+});
+
+export const zB2bApplicationDetailEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplication,
+        contacts: z.array(zB2bApplicationContact),
+        locations: z.array(zB2bApplicationLocation)
+    }),
+    meta: zMeta
+});
+
+export const zB2bApplicationReviewOnlyEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplicationReview
+    }),
+    meta: zMeta
+});
+
+export const zB2bApplicationReviewEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplicationReview,
+        contacts: z.array(zB2bApplicationContact),
+        locations: z.array(zB2bApplicationLocation),
+        documents: z.array(zKycDocumentReview),
+        missing_documents: z.array(zB2bDocumentKind),
+        duplicate_matches: z.int().gte(0),
+        duplicate_applications: z.array(zB2bApplicationSummary)
+    }),
+    meta: zMeta
+});
+
+export const zKycDocumentEnvelope = z.object({
+    data: z.object({
+        document: zKycDocument
+    }),
+    meta: zMeta
+});
+
+export const zKycDocumentReviewEnvelope = z.object({
+    data: z.object({
+        document: zKycDocumentReview
+    }),
+    meta: zMeta
+});
+
+export const zKycDocumentDownloadEnvelope = z.object({
+    data: z.object({
+        download: zKycDocumentDownload
+    }),
+    meta: zMeta
+});
+
+export const zB2bAgreementEnvelope = z.object({
+    data: z.object({
+        agreement: zB2bAgreement
+    }),
+    meta: zMeta
+});
+
+export const zOrganisationInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zOrganisationInvitation
+    }),
+    meta: zMeta
+});
+
+/**
+ * Derived from the row's own columns, never stored. `pending` is the
+ * platform's `live` under the name a person waiting to accept uses.
+ *
+ * **There is no `superseded`.** Re-inviting an address revokes the
+ * outstanding offer and issues a new token, so a superseded invitation is
+ * a revoked one; a fifth value would name a state the row cannot be in.
+ *
+ */
+export const zPublicInvitationStatus = z.enum([
+    'pending',
+    'accepted',
+    'revoked',
+    'expired'
+]);
+
+/**
+ * An invitation as the person holding the link may see it, before they
+ * have signed in. A deliberately narrower shape than
+ * `OrganisationInvitation`, which serves members already inside the
+ * organisation.
+ *
+ */
+export const zPublicInvitation = z.object({
+    id: zUuid,
+    status: zPublicInvitationStatus,
+    role_code: z.string(),
+    email_masked: z.string(),
+    expires_at: z.iso.datetime({ offset: true }),
+    organisation: z.object({
+        name: z.string(),
+        language_code: z.string()
+    })
+});
+
+export const zPublicInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zPublicInvitation
+    }),
+    meta: zMeta
+});
+
+/**
+ * `membership` and `membership_created` are present and honest. B1
+ * marked the invitation and stopped there; PA1 supplied the membership
+ * write, so both now report what actually happened rather than a
+ * permanent `false`/`null`. The keys existed all along precisely so this
+ * change would not alter the wire shape.
+ *
+ */
+export const zAcceptedInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zOrganisationInvitation,
+        membership: z.object({
+            id: zUuid
+        }).nullable(),
+        membership_created: z.boolean()
+    }),
+    meta: zMeta
+});
+
+/**
+ * What now exists. `agreement` is null when no version is in force —
+ * provisioning does not require a signed agreement, because approval is
+ * the gate and the terms may still be under negotiation.
+ *
+ */
+export const zB2bProvisioningEnvelope = z.object({
+    data: z.object({
+        application: zB2bApplicationReview,
+        organisation: zOrganisation,
+        customer_account: zB2bCustomerAccount,
+        agreement: zB2bAgreement.nullable(),
+        invitations_issued: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
+ * `active` generates; `paused` keeps the balance and stops the cursor;
+ * `cancelled` and `completed` are terminal. A paused subscription has no
+ * `next_delivery_date` at all — nulling the cursor is what takes it out of
+ * the sweep, rather than a status predicate the sweep has to remember.
+ *
+ */
+export const zSubscriptionStatus = z.enum([
+    'active',
+    'paused',
+    'cancelled',
+    'completed'
+]);
+
+/**
+ * Where one delivery day got to. The three `skipped_*` values are kept
+ * apart on purpose: a customer skipping a Tuesday, a day nobody could
+ * assemble a safe meal for, and a day the kitchen could not serve are
+ * three different conversations, and only the first is the customer's
+ * doing.
+ *
+ */
+export const zSubscriptionDeliveryStatus = z.enum([
+    'scheduled',
+    'generated',
+    'skipped_customer',
+    'skipped_no_safe_meal',
+    'skipped_unavailable',
+    'delivered',
+    'cancelled'
+]);
+
+/**
+ * Who chose the meal on a Free Selection day. `customer` picked it before
+ * the cut-off; `kitchen_default` filled the slot because they did not; and
+ * `substituted` means something chosen was unavailable or unsafe and
+ * generation replaced it. Collapsing these into one value would make the
+ * substitution audit unreadable, which is the one audit an allergy
+ * complaint needs most.
+ *
+ */
+export const zMealChoiceSource = z.enum([
+    'customer',
+    'kitchen_default',
+    'substituted'
+]);
+
+/**
+ * `recorded` means the platform has computed what is owed; `settled`
+ * means a human has told it the money changed hands. There is deliberately
+ * no `paid` or `refunded` — the platform has no payment rail, and a status
+ * implying it had one would be the first thing a report believed.
+ *
+ */
+export const zCreditMemoStatus = z.enum(['recorded', 'settled']);
+
+/**
+ * What is left, what was used, and what is coming. **`skipped_days` is
+ * beside them rather than subtracted from them**: a skip costs nothing,
+ * and the number a customer most wants to check is that the two facts are
+ * both true at once.
+ *
+ */
+export const zSubscriptionBalance = z.object({
+    status: zSubscriptionStatus,
+    balance_days_total: z.int(),
+    balance_days_consumed: z.int(),
+    remaining_days: z.int(),
+    per_day_minor: z.int(),
+    currency_code: zCurrencyCode,
+    weekdays: z.array(z.int().gte(1).lte(7)),
+    next_delivery_date: z.iso.date().nullable(),
+    skipped_days: z.int()
+});
+
+/**
+ * The plan, named. One server-chosen language, per §4.8.
+ */
+export const zSubscriptionPlanRef = z.object({
+    id: zUuid,
+    name: z.string(),
+    slug: z.string()
+});
+
+/**
+ * The kitchen that cooks it. `name` is served as the business registered
+ * it, whatever `Accept-Language` says — `organisations.name` is a single
+ * column, and a business name is not translated.
+ *
+ */
+export const zSubscriptionKitchenRef = z.object({
+    id: zUuid,
+    name: z.string()
+});
+
+/**
+ * The matrix cell — the variant of the plan that was bought.
+ */
+export const zSubscriptionConfigurationRef = z.object({
+    id: zUuid,
+    code: z.string(),
+    name: z.string()
+});
+
+/**
+ * The run that was bought. `days` is the duration's own length and is
+ * never `balance_days_total`, which counts delivery days.
+ *
+ */
+export const zSubscriptionDurationRef = z.object({
+    id: zUuid,
+    code: z.string(),
+    kind: z.enum(['one_off', 'fixed_days']),
+    days: z.int().nullable(),
+    name: z.string()
+});
+
+/**
+ * Where it goes, in full, to the person who typed it. A masked address
+ * book is a screen on which nobody can tell which address is which — the
+ * same reason the customer's own address list serves every line.
+ *
+ */
+export const zSubscriptionAddressRef = z.object({
+    id: zUuid,
+    label: z.string().nullable(),
+    line_one: z.string(),
+    line_two: z.string().nullable(),
+    building: z.string().nullish(),
+    floor: z.string().nullish(),
+    apartment: z.string().nullish(),
+    directions: z.string().nullish(),
+    delivery_area_id: zUuid
+});
+
+/**
+ * A customer's own standing arrangement.
+ *
+ * **The captured price is shown in full** — all three columns of it — and
+ * that is a deliberate exception to its `Confidential` classification. The
+ * classification is a statement about *other* readers: what one customer
+ * was grandfathered at is not what the plan costs today, and publishing it
+ * would advertise a price nobody else can have. The person paying it is not
+ * another reader, and showing `captured_unit_price_minor` beside
+ * `effective_day_price_minor` is what makes "why am I paying 1 800 when the
+ * plan says 2 000" answerable on the screen instead of through support.
+ *
+ * **`captured_price_list_id` and `captured_price_list_item_id` are not
+ * served.** The provenance exists so the platform can explain a price years
+ * later; on a customer's own screen it names a kitchen's tariff structure
+ * to the person being charged by it. Nor is `organisation_id`,
+ * `created_by` or `updated_by`.
+ *
+ * **`lock_version` is served, unlike on the customer's order shape**,
+ * because this resource has a customer-facing writer. `If-Match` is
+ * honoured on every write and demanded by none.
+ *
+ * ## The named facts
+ *
+ * The row is a row of identifiers, which is the right shape for a table and
+ * the wrong one for the screen where somebody cancels something. `plan`,
+ * `kitchen`, `configuration`, `duration` and `delivery_address` are the
+ * joins that make it readable, and the only reason they were once absent
+ * was **projection thinness, not confidentiality** — nothing here is
+ * withheld from its owner because it is sensitive. They are gathered in a
+ * fixed number of queries for the whole list, so the unpaginated read did
+ * not become an N+1 in exchange.
+ *
+ * `duration.days` is the run that was bought and is **never**
+ * `balance_days_total`, which counts delivery days: a four-week plan
+ * delivering five weekdays buys twenty of them, not twenty-eight.
+ *
+ * `weekly_price_minor` is the effective per-day price times the number of
+ * delivery weekdays. It is served rather than left to the client because a
+ * client multiplying a price is a second implementation of the rule that
+ * decides what somebody pays.
+ *
+ * The sales channel's **name** is still not served — `SalesChannel` is
+ * classified `Internal`, and which desk a purchase was routed through is
+ * the kitchen's bookkeeping. Nor is `branch_id`, on the terms the customer
+ * order shape states: the kitchen's operating arrangements are not the
+ * customer's business.
+ *
+ */
+export const zSubscription = z.object({
+    id: zUuid,
+    status: zSubscriptionStatus,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    plan_duration_id: zUuid,
+    sales_channel_id: zUuid,
+    currency_code: zCurrencyCode,
+    captured_unit_price_minor: z.int(),
+    captured_discount_percent: z.string().nullable(),
+    effective_day_price_minor: z.int(),
+    captured_at: z.iso.datetime({ offset: true }),
+    weekdays: z.array(z.int().gte(1).lte(7)),
+    delivery_window_code: z.string().nullable(),
+    customer_address_id: zUuid,
+    no_substitutions: z.boolean(),
+    balance_days_total: z.int(),
+    balance_days_consumed: z.int(),
+    remaining_days: z.int(),
+    next_delivery_date: z.iso.date().nullable(),
+    paused_at: z.iso.datetime({ offset: true }).nullish(),
+    resumed_at: z.iso.datetime({ offset: true }).nullish(),
+    pause_count: z.int(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullish(),
+    cancellation_reason: z.string().nullish(),
+    completed_at: z.iso.datetime({ offset: true }).nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish(),
+    plan: zSubscriptionPlanRef.nullish(),
+    kitchen: zSubscriptionKitchenRef.nullish(),
+    configuration: zSubscriptionConfigurationRef.nullish(),
+    duration: zSubscriptionDurationRef.nullish(),
+    delivery_address: zSubscriptionAddressRef.nullish(),
+    starts_on: z.iso.date().nullish(),
+    weekly_price_minor: z.int().optional(),
+    allows_free_selection: z.boolean().optional(),
+    change_cutoff_hours: z.int().optional(),
+    skipped_dates: z.array(z.iso.date()).optional(),
+    chosen_catalogue_item_ids: z.array(zUuid).optional(),
+    balance: zSubscriptionBalance.optional()
+});
+
+export const zSubscriptionEnvelope = z.object({
+    data: z.object({
+        subscription: zSubscription
+    }),
+    meta: zMeta
+});
+
+export const zSubscriptionsEnvelope = z.object({
+    data: z.array(zSubscription),
+    meta: zMeta.and(z.object({
+        count: z.int().optional()
+    }))
+});
+
+/**
+ * What a kitchen owes a customer whose subscription was cancelled early —
+ * a record of an **obligation**, never of a payment.
+ *
+ * `settlement` is stated on the wire rather than left to be inferred from
+ * the status vocabulary. It is the one sentence a customer cancelling most
+ * needs: no money has moved, and somebody will be in touch. A client left
+ * to infer it would eventually render `recorded` as "refunded".
+ *
+ */
+export const zCreditMemo = z.object({
+    id: zUuid,
+    reason: z.string(),
+    unused_days: z.int(),
+    per_day_minor: z.int(),
+    amount_minor: z.int(),
+    currency_code: zCurrencyCode,
+    status: zCreditMemoStatus,
+    settlement: z.enum(['manual']),
+    recorded_at: z.iso.datetime({ offset: true }),
+    settled_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * What fills one slot of one day. `replaced_catalogue_item_id` is what the
+ * choice stands in for when generation substituted it — the customer is
+ * owed the difference between "you chose this" and "we sent this instead".
+ *
+ * `unsafe_allergen_classes` is deliberately **not** served: a list of
+ * allergen classes attached to a named person's delivery is health data,
+ * and what a customer needs from this row is that a substitution happened,
+ * not a restatement of their medical profile.
+ * **`name` is server-derived and there is no request field for it.** The
+ * write sends a `catalogue_item_id` alone, which is the only defensible
+ * arrangement on a surface this close to safety: a caller-supplied label
+ * could disagree with the dish actually recorded, and the screen showing it
+ * would be describing food nobody is going to cook. It is resolved from the
+ * catalogue in the caller's language (§4.8) and is an empty string for an
+ * item since removed — an honest blank rather than a stale name kept alive
+ * by a client.
+ *
+ */
+export const zSubscriptionMealChoice = z.object({
+    slot: z.string(),
+    sequence: z.int(),
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    name: z.string(),
+    source: zMealChoiceSource,
+    replaced_catalogue_item_id: zUuid.nullish(),
+    replaced_name: z.string().nullish()
+});
+
+/**
+ * One delivery day — the row a balance day is spent on.
+ *
+ * **`consumed` is stored, not derived from `status`**, and reading it is
+ * the only correct way to ask whether a day was spent. A client
+ * recomputing it from the status would eventually disagree with the
+ * balance.
+ *
+ */
+export const zSubscriptionDelivery = z.object({
+    id: zUuid,
+    delivery_date: z.iso.date(),
+    delivery_window_code: z.string().nullish(),
+    status: zSubscriptionDeliveryStatus,
+    consumed: z.boolean(),
+    skip_reason: z.string().nullish(),
+    order_id: zUuid.nullish(),
+    generated_at: z.iso.datetime({ offset: true }).nullish(),
+    settled_at: z.iso.datetime({ offset: true }).nullish(),
+    meals: z.array(zSubscriptionMealChoice)
+});
+
+export const zSubscriptionDeliveriesEnvelope = z.object({
+    data: z.array(zSubscriptionDelivery),
+    meta: zMeta.and(z.object({
+        count: z.int(),
+        balance: zSubscriptionBalance
+    }))
+});
+
+export const zSubscriptionSkipEnvelope = z.object({
+    data: z.object({
+        delivery: zSubscriptionDelivery,
+        balance: zSubscriptionBalance
+    }),
+    meta: zMeta
+});
+
+export const zSubscriptionCancellationEnvelope = z.object({
+    data: z.object({
+        subscription: zSubscription,
+        credit_memo: zCreditMemo.nullable()
+    }),
+    meta: zMeta
+});
+
+/**
+ * What a configuration would cost. **A quote and not a hold**: nothing is
+ * reserved, nothing is written, and the number is guaranteed only for as
+ * long as the tariff behind it stands. `POST /subscriptions` re-resolves it
+ * and captures *that* answer.
+ *
+ * All three numbers travel, because the discount is the reason somebody
+ * chose the longer run and a screen showing only the final figure cannot
+ * say what it saved them. `price_list_id` and `price_list_item_id` do not.
+ *
+ * **The three non-price fields are what make this one read instead of
+ * eight.** A configurator needs the price, the days it may deliver on, and
+ * the two rules that decide what it may offer — whether the customer picks
+ * the dishes, and how long before a delivery a change stops being
+ * accepted. Splitting them across separate reads produced the seven-probe
+ * weekday hack this operation exists to delete.
+ *
+ */
+export const zPlanQuote = z.object({
+    currency_code: zCurrencyCode,
+    days: z.int(),
+    list_price_minor: z.int(),
+    discount_percent: z.string().nullable(),
+    per_day_minor: z.int(),
+    total_minor: z.int(),
+    duration_code: z.string().nullable(),
+    duration_kind: z.enum(['one_off', 'fixed_days']).nullable(),
+    available_weekdays: z.array(z.int().gte(1).lte(7)),
+    allows_free_selection: z.boolean(),
+    change_cutoff_hours: z.int()
+});
+
+export const zPlanQuoteEnvelope = z.object({
+    data: z.object({
+        quote: zPlanQuote
+    }),
+    meta: zMeta
+});
+
+/**
+ * One day of the kitchen's forward book. **`basis` is the field that must
+ * never be ignored**: an `actual` day has a delivery row and possibly an
+ * order behind it, and a `projected` one is computed from the weekday
+ * pattern and the remaining balance — a customer who has not yet had the
+ * chance to skip.
+ *
+ * No customer name, no address and no allergen list: a production planner
+ * counts portions per window per day, and every one of those would be
+ * personal data on a screen that does not need it.
+ *
+ */
+export const zSubscriptionScheduleRow = z.object({
+    delivery_date: z.iso.date(),
+    subscription_id: zUuid,
+    customer_account_id: zUuid,
+    branch_id: zUuid.nullish(),
+    delivery_window_code: z.string().nullish(),
+    basis: z.enum(['actual', 'projected']),
+    status: zSubscriptionDeliveryStatus
+});
+
+export const zSubscriptionScheduleEnvelope = z.object({
+    data: z.array(zSubscriptionScheduleRow),
+    meta: zMeta.and(z.object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        count: z.int(),
+        daily_counts: z.record(z.string(), z.int())
+    }))
+});
+
+/**
+ * Checkout-shaped on purpose: the same three coordinates a plan is sold on
+ * — the plan, the configuration cell, the duration — plus everything a
+ * delivery needs.
+ *
+ * **No price field exists.** Every amount is decided by the server at
+ * purchase and captured onto the row; a body that could state a per-day
+ * price would be a client quoting the server its own prices, and the first
+ * thing anybody would do with it is quote a lower one.
+ *
+ */
+export const zCreateSubscriptionRequest = z.object({
+    sales_channel_id: zUuid,
+    branch_id: zUuid.nullish(),
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    plan_duration_id: zUuid,
+    customer_address_id: zUuid,
+    weekdays: z.array(z.int().gte(1).lte(7)).min(1).max(7),
+    delivery_window_code: z.string().max(40).nullish(),
+    no_substitutions: z.boolean().optional(),
+    start_from: z.iso.date().nullish()
+});
+
+export const zSkipSubscriptionDayRequest = z.object({
+    date: z.iso.date()
+});
+
+export const zUpdateSubscriptionAddressRequest = z.object({
+    customer_address_id: zUuid
+});
+
+export const zUpdateSubscriptionWindowRequest = z.object({
+    delivery_window_code: z.string().max(40).nullable()
+});
+
+export const zUpdateSubscriptionWeekdaysRequest = z.object({
+    weekdays: z.array(z.int().gte(1).lte(7)).min(1).max(7)
+});
+
+/**
+ * One day's chosen meals, replaced whole. An **empty `meals` array is a
+ * real payload**: it is a customer saying "I have not chosen; send me the
+ * kitchen's default", and a merge-shaped write could not express it.
+ *
+ */
+export const zReplaceSubscriptionChoicesRequest = z.object({
+    date: z.iso.date(),
+    meals: z.array(z.object({
+        slot: z.string().max(20),
+        sequence: z.int().gte(1).lte(20).nullish(),
+        catalogue_item_id: zUuid,
+        catalogue_item_variant_id: zUuid.nullish()
+    })).max(12)
+});
+
+export const zSubscriptionChoicesEnvelope = z.object({
+    data: z.object({
+        delivery_date: z.iso.date(),
+        meals: z.array(zSubscriptionMealChoice)
+    }),
+    meta: zMeta
+});
+
+export const zCancelSubscriptionRequest = z.object({
+    reason: z.string().max(40).regex(/^[a-z][a-z0-9_]*$/).nullish()
+});
+
+/**
+ * Two values, and they are not degrees of the same thing.
+ * `marketing_opt_out` is a preference change that deletes nothing; `full`
+ * is an erasure. They live on one journey because they are one journey
+ * from the customer's side.
+ *
+ */
+export const zClosureScope = z.enum(['marketing_opt_out', 'full']);
+
+/**
+ * Why somebody is leaving. A fixed vocabulary rather than free text: the
+ * answer is read by machines as often as by people — "how many customers
+ * left because we do not deliver to them any more" is a count, not a
+ * search — and free text is how personal data ends up in a column nobody
+ * classified. `other` is last and deliberately vague: a vocabulary without
+ * an escape hatch makes people pick the nearest wrong answer, which is
+ * indistinguishable from a real signal.
+ *
+ */
+export const zClosureReasonCode = z.enum([
+    'no_longer_needed',
+    'too_expensive',
+    'moving_away',
+    'dietary_needs_unmet',
+    'service_quality',
+    'privacy_concerns',
+    'duplicate_account',
+    'other'
+]);
+
+/**
+ * `requested` is asked but unproven; `verified` is the passcode accepted
+ * and bound to this request; `scheduled` is the grace window running — the
+ * state that exists so "I changed my mind" has somewhere to land.
+ * `completed` and `cancelled` are terminal.
+ *
+ */
+export const zClosureRequestStatus = z.enum([
+    'requested',
+    'verified',
+    'scheduled',
+    'completed',
+    'cancelled'
+]);
+
+/**
+ * **Four values, and two of them are not "fine".** `not_applicable` means
+ * nothing was checked — because no module in this deployment could answer
+ * — and it is never a synonym for `clear`: a closure screen saying "no
+ * outstanding payments" when no payment module exists has not checked
+ * anything, and the customer cannot tell the difference. `advisory` means
+ * something real *was* found and it does not stop the closure; today that
+ * is an unsettled credit memo, which is a debt the kitchen owes the
+ * customer and therefore not something the kitchen may hold their erasure
+ * hostage to.
+ *
+ */
+export const zClosureBlockerStatus = z.enum([
+    'blocking',
+    'clear',
+    'advisory',
+    'not_applicable'
+]);
+
+/**
+ * What one blocker found. **`count` and `reason` are present on every
+ * verdict, including the clear ones**, so a screen rendering "2 open
+ * orders" from `count` and "no subscriptions module is bound" from
+ * `reason` reads the same shape in both cases — which is what stops the
+ * honest answer being the one that needs a special case.
+ *
+ * `reason` is a code, never a sentence: it is rendered in the customer's
+ * language and it goes into audit metadata. The vocabulary is each
+ * blocker's own — `orders_in_flight`, `subscriptions_live`,
+ * `deliveries_upcoming`, `memberships_live`, `signatures_pending`,
+ * `credit_memos_unsettled`, and the `*_module_absent` family.
+ *
+ */
+export const zClosureBlockerVerdict = z.object({
+    code: z.enum([
+        'open_orders',
+        'active_subscriptions',
+        'organisation_memberships',
+        'pending_b2b_signatures',
+        'unsettled_credit_memos',
+        'wallet_balance',
+        'payment_methods'
+    ]),
+    status: zClosureBlockerStatus,
+    count: z.int(),
+    reason: z.string().nullable()
+});
+
+/**
+ * One shape for both scopes and every stage, because the screen behind it
+ * is one screen. A client that had to branch on the response *type* would
+ * be a client that renders the blocked case by accident.
+ *
+ * **The verdicts travel with the acknowledgement rather than behind a
+ * second call.** "Why can I not close my account" is the only question a
+ * refusal raises, and answering it in a separate request is how a screen
+ * ends up saying "you cannot close your account" with no explanation while
+ * the second call is in flight.
+ *
+ * `destination_masked` is server-authored from the contact point and never
+ * echoed from client input: the client is told where the code went, and is
+ * not in a position to be told anything it could have made up.
+ *
+ */
+export const zClosureAcknowledgement = z.object({
+    request_id: zUuid,
+    scope: zClosureScope,
+    status: zClosureRequestStatus,
+    blocked: z.boolean(),
+    blockers: z.array(zClosureBlockerVerdict),
+    verification_required: z.boolean(),
+    destination_masked: z.string().nullish(),
+    expires_in_seconds: z.int().nullish(),
+    scheduled_for: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zClosureAcknowledgementEnvelope = z.object({
+    data: z.object({
+        closure_request: zClosureAcknowledgement
+    }),
+    meta: zMeta
+});
+
+export const zLiveClosureRequestEnvelope = z.object({
+    data: z.object({
+        closure_request: zClosureAcknowledgement.nullable(),
+        blockers: z.array(zClosureBlockerVerdict)
+    }),
+    meta: zMeta
+});
+
+export const zCancelledClosureRequestEnvelope = z.object({
+    data: z.object({
+        closure_request: z.object({
+            request_id: zUuid,
+            scope: zClosureScope,
+            status: zClosureRequestStatus,
+            cancelled_at: z.iso.datetime({ offset: true }).nullish(),
+            cancelled_because: z.string().nullish()
+        })
+    }),
+    meta: zMeta
+});
+
+/**
+ * **`scope` is required and has no default.** A default would have to be
+ * either `marketing_opt_out`, so a client with a bug silently downgrades an
+ * erasure somebody asked for, or `full`, so a client with a bug erases
+ * somebody who asked only to stop being emailed. Neither is a mistake this
+ * endpoint should be able to make on a caller's behalf.
+ *
+ */
+export const zOpenClosureRequestRequest = z.object({
+    reason_code: zClosureReasonCode,
+    reason_note: z.string().max(2000).nullish(),
+    scope: zClosureScope,
+    delivery_channel: zOtpDeliveryChannel.nullish()
+});
+
+export const zVerifyClosureRequestRequest = z.object({
+    code: z.string().min(4).max(12)
+});
+
+/**
+ * Where a wind-up has got to. `revoking` is separate from `completed` on
+ * purpose: revoking every member's access is the step that can partially
+ * fail, and a status collapsing it into the terminal state would make a
+ * half-revoked organisation look finished.
+ *
+ */
+export const zOffboardingStatus = z.enum([
+    'requested',
+    'notice_served',
+    'settlement_pending',
+    'awaiting_signoff',
+    'signed_off',
+    'revoking',
+    'archiving',
+    'completed',
+    'cancelled'
+]);
+
+/**
+ * Four different stories about the same act, and every one of them is what
+ * somebody will read a year later when the company asks why. Required, with
+ * no default: a default would put one of those stories on the record
+ * without anybody choosing it.
+ *
+ */
+export const zOffboardingTrigger = z.enum([
+    'contract_end',
+    'termination',
+    'non_renewal',
+    'client_request'
+]);
+
+/**
+ * `cleared` means every check answered clear or stated why it could not
+ * run; `waived` means somebody with the second permission set an
+ * outstanding position aside and wrote down why. The two are never
+ * collapsed — a waiver recorded as a clearance erases the only difference
+ * a dispute turns on.
+ *
+ */
+export const zSettlementStatus = z.enum([
+    'pending',
+    'cleared',
+    'waived'
+]);
+
+/**
+ * `not_applicable` carries a `reason` and is **not** a green tick: a check
+ * that cannot tell "we looked and found nothing" from "nobody was there to
+ * look" produces a settlement summary that reads as an all-clear when it is
+ * a gap.
+ *
+ */
+export const zSettlementCheckOutcome = z.enum([
+    'clear',
+    'outstanding',
+    'not_applicable'
+]);
+
+export const zSettlementCheck = z.object({
+    check: z.string(),
+    outcome: zSettlementCheckOutcome,
+    reason: z.string().nullish(),
+    detail: z.string().nullish()
+});
+
+/**
+ * A corporate wind-up in progress.
+ *
+ * **`notice_period_days` and `effective_on` are copied onto the row** at
+ * the moment notice is served, never read back through the agreement, so an
+ * amendment signed next week cannot shorten notice already served.
+ *
+ * **The signatory block travels in full** — name, title, the consent
+ * wording accepted, the document digest — because evidence that cannot be
+ * read is not evidence. The two session hashes do **not**: they exist for
+ * corroboration inside the platform, and serving them would put a stable
+ * pseudonymous identifier for a named person onto an API response.
+ *
+ * `allowed_transitions` travels so a wind-up screen renders buttons without
+ * reimplementing the state machine — the one that disagrees after the first
+ * change.
+ *
+ */
+export const zOffboarding = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    b2b_agreement_id: zUuid.nullish(),
+    status: zOffboardingStatus,
+    trigger: zOffboardingTrigger.nullish(),
+    reason: z.string().nullish(),
+    reason_note: z.string().nullish(),
+    requested_by: zUuid.nullish(),
+    requested_at: z.iso.datetime({ offset: true }),
+    notice_period_days: z.int().nullish(),
+    notice_served_at: z.iso.datetime({ offset: true }).nullish(),
+    effective_on: z.iso.date().nullish(),
+    settlement: z.object({
+        status: zSettlementStatus,
+        note: z.string().nullish(),
+        checks: z.array(zSettlementCheck),
+        started_at: z.iso.datetime({ offset: true }).nullish(),
+        resolved_at: z.iso.datetime({ offset: true }).nullish(),
+        waived_by: zUuid.nullish(),
+        waiver_reason: z.string().nullish()
+    }),
+    signoff: z.object({
+        awaiting_since: z.iso.datetime({ offset: true }).nullish(),
+        signed_off_at: z.iso.datetime({ offset: true }).nullish(),
+        signed_off_by: zUuid.nullish(),
+        signatory_name: z.string().nullish(),
+        signatory_title: z.string().nullish(),
+        consent_statement: z.string().nullish(),
+        document_sha256: z.string().nullish()
+    }),
+    revocation: z.object({
+        started_at: z.iso.datetime({ offset: true }).nullish(),
+        completed_at: z.iso.datetime({ offset: true }).nullish(),
+        memberships_revoked: z.int().nullish(),
+        tokens_deleted: z.int().nullish()
+    }),
+    archive: z.object({
+        started_at: z.iso.datetime({ offset: true }).nullish(),
+        summary: z.record(z.string(), z.int()).nullish(),
+        legal_entity_retained: z.boolean().nullish()
+    }),
+    completed_at: z.iso.datetime({ offset: true }).nullish(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullish(),
+    cancelled_by: zUuid.nullish(),
+    cancellation_reason: z.string().nullish(),
+    lock_version: z.int(),
+    allowed_transitions: z.array(zOffboardingStatus)
+});
+
+export const zOffboardingEnvelope = z.object({
+    data: z.object({
+        offboarding: zOffboarding
+    }),
+    meta: zMeta
+});
+
+/**
+ * `expired` is a **state rather than a comparison** against `expires_at`:
+ * expiry here is an act, the transition is what deletes the bytes, and the
+ * status is the record of it having happened. The row survives, because
+ * deleting it would erase the evidence that an export was ever made.
+ *
+ */
+export const zRecordExportStatus = z.enum([
+    'requested',
+    'building',
+    'ready',
+    'delivered',
+    'expired',
+    'failed'
+]);
+
+/**
+ * A company's own records, packaged.
+ *
+ * **No `disk`, no `path` and no permanent URL.** The object key is one half
+ * of a credential, and the only route to the bytes is this operation with
+ * `?purpose=`, which mints a fresh fifteen-minute signature and records who
+ * took a copy. `sha256` does travel — it is what a recipient checks the
+ * download against, and it names nothing.
+ *
+ */
+export const zRecordExport = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    b2b_offboarding_id: zUuid.nullish(),
+    status: zRecordExportStatus,
+    format: z.string(),
+    requested_by: zUuid.nullish(),
+    requested_at: z.iso.datetime({ offset: true }),
+    started_at: z.iso.datetime({ offset: true }).nullish(),
+    completed_at: z.iso.datetime({ offset: true }).nullish(),
+    byte_size: z.int().nullish(),
+    sha256: z.string().nullish(),
+    row_counts: z.record(z.string(), z.int()).nullish(),
+    manifest: z.record(z.string(), z.unknown()).nullish(),
+    expires_at: z.iso.datetime({ offset: true }).nullish(),
+    downloaded_at: z.iso.datetime({ offset: true }).nullish(),
+    download_count: z.int(),
+    purged_at: z.iso.datetime({ offset: true }).nullish(),
+    failure_reason: z.string().nullish(),
+    download_url: z.string().optional(),
+    download_url_expires_at: z.iso.datetime({ offset: true }).optional()
+});
+
+export const zRecordExportEnvelope = z.object({
+    data: z.object({
+        export: zRecordExport
+    }),
+    meta: zMeta
+});
+
+/**
+ * **`organisation_id` is in the body rather than the path**, and the reason
+ * is what the prefix already means: `/platform/b2b` is reached with the
+ * *platform operator's* organisation selected, so a `{organisation}`
+ * segment would be a second organisation in the same request with
+ * completely different meaning. Here they cannot agree — the whole point is
+ * that an operator is acting on somebody else's company — so it goes in the
+ * body where it reads as a subject rather than as a scope.
+ *
+ */
+export const zStartOffboardingRequest = z.object({
+    organisation_id: zUuid,
+    trigger: zOffboardingTrigger,
+    reason_note: z.string().max(2000).nullish(),
+    effective_on: z.iso.date().nullish()
+});
+
+export const zWaiveOffboardingSettlementRequest = z.object({
+    reason: z.string().min(10).max(2000)
+});
+
+/**
+ * **`otp_challenge_id` names a challenge and is not proof.** The server
+ * demands that it exists, carries purpose `b2b_signatory`, has been
+ * *consumed*, and belongs to the person signing — and all four failures
+ * answer identically, so a caller holding somebody else's identifier learns
+ * only that it did not work. There is no `otp_verified` field and there
+ * never will be: a flag a caller can assert records its own claim rather
+ * than an observation.
+ *
+ * `consent_statement` is the exact wording shown on screen, echoed back
+ * rather than looked up server-side, because the evidence has to be what
+ * the person actually read.
+ *
+ */
+export const zSignOffOffboardingRequest = z.object({
+    signatory_name: z.string().max(160),
+    signatory_title: z.string().max(120),
+    consent_statement: z.string().max(2000),
+    document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
+    otp_challenge_id: zUuid
+});
+
+export const zCancelOffboardingRequest = z.object({
+    reason: z.string().min(10).max(2000)
+});
+
+/**
+ * What a kitchen has in its catalogue, in the two shapes an operator
+ * reads it in.
+ *
+ * **The type breakdown counts published rows only.** `meals`, `products`
+ * and `plans` answer "what is this kitchen selling", and a half-written
+ * draft is not an answer to that question. `published` and `draft` beside
+ * them are the **progress pair** and count everything, which is why the
+ * three type counts do not add up to `published` when a kitchen sells
+ * something outside those three types, and why `draft` is never included
+ * in any of them.
+ *
+ */
+export const zPlatformKitchenCatalogueCounts = z.object({
+    meals: z.int().gte(0),
+    products: z.int().gte(0),
+    plans: z.int().gte(0),
+    published: z.int().gte(0),
+    draft: z.int().gte(0)
+});
+
+/**
+ * An **active** membership holding the `organisation_owner` role.
+ * Ownership on this platform has always been a membership with the owner
+ * role assigned to it rather than a column or a flag, so this asks the
+ * same question the permission checker asks. Ended and suspended
+ * memberships are excluded: they are people who *used* to be owners, and
+ * counting them would report an owned kitchen nobody can get into.
+ *
+ */
+export const zPlatformKitchenOwner = z.object({
+    membership_id: zUuid,
+    user_id: zUuid,
+    name: z.string().nullable(),
+    email: z.email(),
+    status: z.string()
+});
+
+/**
+ * One of the kitchen's locations, as the platform console lists them.
+ * Deliberately thin: opening hours, cut-offs and delivery zones are the
+ * kitchen's own operational surface, and an operator console that carried
+ * them would become the accidental canonical read for a workspace it does
+ * not own.
+ *
+ */
+export const zPlatformKitchenBranch = z.object({
+    id: zUuid,
+    name: z.string(),
+    city: z.string().nullable(),
+    country_code: z.string().length(2),
+    timezone: z.string(),
+    status: z.enum(['active', 'closed'])
+});
+
+/**
+ * The queue row — enough to scan a list of kitchens and decide which one
+ * to open.
+ *
+ * Two shapes rather than one with a flag, the rule this platform writes
+ * everywhere: a summary and a detail separated by a boolean argument is
+ * one careless call away from returning every owner's email address on a
+ * screen that only wanted names. So the owner *list* lives on the detail
+ * shape and only `owner_count` appears here.
+ *
+ * This is not the organisation shape a member reads about their own
+ * tenant. That one answers "which organisation am I signed into?" and its
+ * capability list is that member's view of themselves; this answers "what
+ * has the platform got here?" about somebody else's tenant, and the two
+ * are expected to diverge.
+ *
+ */
+export const zPlatformKitchenSummary = z.object({
+    id: zUuid,
+    slug: z.string(),
+    name: z.string(),
+    status: z.enum([
+        'active',
+        'suspended',
+        'pending',
+        'closed'
+    ]),
+    country_code: z.string().length(2),
+    default_currency_code: z.string().length(3),
+    default_language_code: z.string().length(2),
+    branch_count: z.int().gte(0),
+    active_branch_count: z.int().gte(0),
+    owner_count: z.int().gte(0),
+    catalogue: zPlatformKitchenCatalogueCounts,
+    suspended_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zPlatformKitchen = zPlatformKitchenSummary.and(z.object({
+    suspension_reason: z.string().max(500).nullable(),
+    suspended_by: zUuid.nullable(),
+    owners: z.array(zPlatformKitchenOwner),
+    branches: z.array(zPlatformKitchenBranch)
+}));
+
+export const zPlatformKitchenEnvelope = z.object({
+    data: z.object({
+        kitchen: zPlatformKitchen
+    }),
+    meta: zMeta
+});
+
+/**
+ * What the lifecycle actions return. The summary rather than the detail,
+ * because suspending a kitchen is not a reason to re-serve every owner's
+ * email address; a console that needs the full row re-reads it.
+ *
+ */
+export const zPlatformKitchenSummaryEnvelope = z.object({
+    data: z.object({
+        kitchen: zPlatformKitchenSummary
+    }),
+    meta: zMeta
+});
+
+/**
+ * **One request creates four things, in one transaction: the
+ * organisation, one active main branch, the `kitchen_production`
+ * capability, and a `b2c_web` sales channel coded `web-shop`.** All four
+ * or none.
+ *
+ * A kitchen that is only an organisation row is a kitchen whose workspace
+ * refuses on the first screen: the organisation context resolves a
+ * *branch* before the kitchen area will open, the capability is what the
+ * workspace reads to know what it is, and a published meal has to be
+ * available on a channel before a price can resolve or a marketplace
+ * listing can appear. Creating the organisation and leaving an operator
+ * to add the rest afterwards was rejected because it makes the console's
+ * success message a lie for the twenty minutes before somebody notices. A
+ * new kitchen works immediately; it simply has nothing in it yet.
+ *
+ * The wholesale channel is deliberately **not** created. A kitchen that
+ * has never traded with a company does not need a B2B channel sitting
+ * inactive in its list.
+ *
+ * **Both names are required.** `organisations` stores a single `name`, so
+ * the Arabic goes onto the sales channel, which carries both. Collecting
+ * it now is the point: the operator typing the English name knows the
+ * Arabic one, and a screen that asks three weeks later gets a
+ * transliteration.
+ *
+ */
+export const zCreatePlatformKitchenRequest = z.object({
+    name_en: z.string().max(160),
+    name_ar: z.string().max(160),
+    slug: z.string().max(100).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+    country_code: z.string().length(2),
+    default_currency_code: z.string().length(3),
+    default_language_code: z.string().length(2),
+    timezone: z.string().max(64),
+    branch_name: z.string().max(160),
+    city: z.string().max(120).nullish()
+});
+
+/**
+ * One optional field, and it is optional on purpose — see the operation
+ * for why a reason vocabulary would not survive contact with the things
+ * people actually need to write here.
+ *
+ */
+export const zSuspendPlatformKitchenRequest = z.object({
+    reason: z.string().max(500).nullish()
+});
+
+/**
+ * **No `role_code`.** The role is always `organisation_owner` and is not
+ * a caller's choice — that is precisely what separates this from
+ * `POST /organisations/{organisation}/invitations`, which exists for a
+ * member of an organisation to invite anybody to any role inside it.
+ *
+ */
+export const zInvitePlatformKitchenOwnerRequest = z.object({
+    email: z.email().max(160),
+    name: z.string().max(160).nullish(),
+    message: z.string().max(1000).nullish()
+});
+
+export const zPlatformKitchenOwnerInvitationEnvelope = z.object({
+    data: z.object({
+        invitation: zOrganisationInvitation,
+        mailed: z.boolean()
+    }),
+    meta: zMeta
+});
+
+export const zPlatformKitchenOwnerRevocationEnvelope = z.object({
+    data: z.object({
+        membership: z.object({
+            id: zUuid,
+            user_id: zUuid,
+            status: z.string()
+        }),
+        remaining_owners: z.int().gte(0)
+    }),
+    meta: zMeta
 });
 
 /**
@@ -255,6 +6462,428 @@ export const zXClientPlatform = z.enum([
     'ios',
     'android'
 ]);
+
+/**
+ * The `ETag` the resource was last served with. Required on writes to
+ * lock-versioned resources: absent is **428**
+ * `request.precondition_required`, stale is **409** `resource.conflict`
+ * carrying `details.current_lock_version`. `*` is accepted and means
+ * "as long as the resource exists".
+ *
+ */
+export const zIfMatch = z.string();
+
+/**
+ * A client-chosen key that makes this command safe to retry (§4.14). The
+ * same key with the same request body replays the original envelope,
+ * status included, and carries `Idempotency-Replayed: true`. The same key
+ * with a *different* body is **409** `request.idempotency_key_reused` —
+ * the caller has reused a key that already means something else.
+ *
+ * Keys are scoped per endpoint and per caller and are honoured for
+ * twenty-four hours. The client attaches one deliberately; it is never
+ * inferred server-side.
+ *
+ */
+export const zIdempotencyKey = z.string().max(255);
+
+/**
+ * As `Idempotency-Key`, but mandatory. Used where the command creates
+ * records that cannot be un-created — provisioning a tenant — and where
+ * a retry with no key would therefore be unrecoverable rather than
+ * merely wasteful. Absent is **400** `request.invalid`.
+ *
+ */
+export const zIdempotencyKeyRequired = z.string().max(255);
+
+/**
+ * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+ * never construct one. A cursor this endpoint did not issue is
+ * `400 request.invalid`, never a silent restart from the beginning.
+ *
+ */
+export const zCursor = z.string().max(200);
+
+/**
+ * Page size.
+ */
+export const zCursorLimit = z.int().gte(1).lte(100).default(25);
+
+/**
+ * Ask for a numbered page instead of walking the cursor. 1-based.
+ *
+ * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+ * for why offset is safe on these five collections and on nothing else.
+ * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+ * omitting it leaves the keyset behaviour exactly as it was, so a client
+ * that has never heard of `page` is unaffected.
+ *
+ * A page past the last is `400 request.invalid`, not an empty list. Page
+ * 1 of an empty collection is not: that is a legitimate empty answer.
+ *
+ */
+export const zPageNumber = z.int().gte(1);
+
+/**
+ * Page size for a numbered page. A synonym for `limit`, accepted so a
+ * client does not have to change which word it sends when it starts
+ * asking for pages; `per_page` wins if both are present.
+ *
+ */
+export const zPerPage = z.int().gte(1).lte(100).default(25);
+
+/**
+ * The kitchen's identifier or its slug.
+ */
+export const zMarketplaceKitchenPath = z.string().max(160);
+
+/**
+ * The meal's identifier or its slug.
+ */
+export const zMarketplaceMealPath = z.string().max(160);
+
+/**
+ * The subscription plan's identifier or its slug.
+ */
+export const zMarketplacePlanPath = z.string().max(160);
+
+/**
+ * The ingredient identifier.
+ */
+export const zIngredientPath = zUuid;
+
+/**
+ * The canonical allergen class code.
+ */
+export const zAllergenCodePath = zAllergenCode;
+
+/**
+ * The recipe identifier.
+ */
+export const zRecipePath = zUuid;
+
+/**
+ * The version identifier, or its `version_number`. Both are accepted
+ * because both are natural — a client that walked the list holds
+ * identifiers, a human reading a technical sheet holds "version 3" — and
+ * a number cannot be mistaken for a UUID. The version is always resolved
+ * inside the recipe in the path, so one recipe's number can never reach
+ * another's version.
+ *
+ */
+export const zRecipeVersionPath = z.union([
+    zUuid,
+    z.string().regex(/^\d+$/)
+]);
+
+/**
+ * The item identifier, or its `slug`. Both are accepted because both are
+ * natural — a client that walked the list holds identifiers, a
+ * marketplace integration or a support engineer holds
+ * `harissa-paste-250g` — and a slug is unique per organisation and
+ * immutable, so the two answers cannot drift apart.
+ *
+ */
+export const zCatalogueItemPath = z.union([
+    zUuid,
+    z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The channel identifier, or its `code`.
+ */
+export const zSalesChannelPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The price list identifier, or its `code`. Both are accepted for the
+ * reason the sales-channel path gives: a client that walked the list
+ * holds an identifier, an operator or an importer holds
+ * `healthy360-b2b-usd`, and the code is unique per organisation.
+ *
+ */
+export const zPriceListPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The meal combination identifier, or its `code`.
+ */
+export const zPlanCombinationPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The energy band identifier, or its `code`.
+ */
+export const zEnergyBandPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The plan duration identifier, or its `code`.
+ */
+export const zPlanDurationPath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The active branch. Validated against the membership scope: a
+ * branch-scoped membership may only work inside its own branch.
+ *
+ * Required here rather than optional, because the resource *is* one
+ * branch's. An absent header is `400 context.branch_required` — the
+ * endpoint refuses rather than guessing which location the caller meant.
+ *
+ */
+export const zXBranchIdRequired = zUuid;
+
+/**
+ * The delivery zone identifier, or its `code`.
+ */
+export const zDeliveryZonePath = z.union([
+    zUuid,
+    z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The delivery window identifier, or its `code`.
+ */
+export const zDeliveryWindowPath = z.union([
+    zUuid,
+    z.string().max(30).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The basket identifier. An identifier only — a cart has no stable code a
+ * human would hold, and there is nothing to guess at.
+ *
+ */
+export const zCartPath = zUuid;
+
+/**
+ * The basket line identifier.
+ */
+export const zCartItemPath = zUuid;
+
+/**
+ * The order identifier. **Not** the order number, tempting though it is:
+ * the number is printed on a receipt that passes through a courier's
+ * hands, and a URL that accepted it would turn a scrap of paper into an
+ * address. The number is searchable through `GET /catalogue/orders`,
+ * behind the read permission.
+ *
+ */
+export const zOrderPath = zUuid;
+
+/**
+ * The application identifier, or its `reference`. Both are accepted
+ * because both are natural — a client that walked the list holds
+ * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+ * — and a reference cannot be mistaken for a UUID.
+ *
+ */
+export const zB2bApplicationPath = z.union([
+    zUuid,
+    z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+]);
+
+/**
+ * The wizard step being saved. The section is in the path so the server
+ * can refuse a payload that wandered outside it; an unknown value is
+ * `400 request.invalid` with `details.parameter`, not a 404.
+ *
+ */
+export const zB2bApplicationSectionPath = zB2bApplicationSection;
+
+/**
+ * The agreement version's identifier. Always resolved inside the application in the path.
+ */
+export const zB2bAgreementPath = zUuid;
+
+/**
+ * The document identifier.
+ */
+export const zKycDocumentPath = zUuid;
+
+/**
+ * Why the document is being opened, written verbatim onto the access
+ * audit event. Required and non-blank: a document read with no stated
+ * reason is the read an audit trail cannot explain afterwards, and an
+ * optional argument is one every call site eventually omits. Blank or
+ * absent is `400 request.invalid` with `details.parameter`.
+ *
+ */
+export const zKycAccessPurpose = z.string().min(1).max(160);
+
+/**
+ * The ticket identifier. Unlike the catalogue paths this one takes an
+ * identifier only — a rail ticket has no stable key a human would hold.
+ *
+ */
+export const zKitchenDisplayTicketPath = zUuid;
+
+/**
+ * The delivery job identifier. One that is not the caller's own answers
+ * 404, decided before the request body is looked at.
+ *
+ */
+export const zDeliveryJobPath = zUuid;
+
+/**
+ * The payment intent identifier.
+ */
+export const zPaymentIntentPath = zUuid;
+
+/**
+ * The programme identifier. Resolved inside the buyer organisation
+ * `org.context` already validated — another organisation's programme is
+ * `404`, never `403`.
+ *
+ */
+export const zCorporateProgrammePath = zUuid;
+
+/**
+ * The quotation identifier. A malformed value is `404` rather than a
+ * server error: an identifier that cannot exist is a client's typo, not
+ * a database question.
+ *
+ */
+export const zQuotationPath = zUuid;
+
+/**
+ * The article identifier. Unlike the kitchen-facing catalogue paths this
+ * one takes an identifier only, never a slug: a corporate buyer reaches
+ * articles by walking their own agreed list, and a guessable key on a
+ * private catalogue is a way to ask what other kitchens sell.
+ *
+ */
+export const zB2bCatalogueItemPath = zUuid;
+
+/**
+ * Which of the two stored names to serve. `ar` selects the Arabic name;
+ * anything else — including an absent parameter — serves the English
+ * one. A presentation choice made per request rather than a stored
+ * preference, because the same buyer's procurement officer and warehouse
+ * may read in different languages.
+ *
+ */
+export const zB2bCatalogueLanguage = z.enum(['en', 'ar']).default('en');
+
+/**
+ * The organisation identifier. Must match the organisation
+ * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+ * confirming that another tenant exists is not something this API does.
+ *
+ */
+export const zOrganisationPath = zUuid;
+
+/**
+ * The invitation identifier. Always resolved inside the organisation in the path.
+ */
+export const zOrganisationInvitationPath = zUuid;
+
+/**
+ * The single-use token from the invitation email. Never an identifier —
+ * only its SHA-256 is stored, so this value cannot be recovered from the
+ * platform and a lost one is replaced by re-inviting.
+ *
+ */
+export const zOrganisationInvitationTokenPath = z.string().min(32).max(128);
+
+/**
+ * The kitchen's identifier **or its slug**. Both are accepted because an
+ * operator reading a support ticket has the slug in front of them and not
+ * a UUID, and a slug is unique across the platform.
+ *
+ * An organisation that exists but is not a kitchen answers **404**, never
+ * 403: the kitchen console is not the place to confirm the existence of
+ * clinics. A malformed identifier is the same 404 rather than a driver
+ * error, because it is substituted rather than queried.
+ *
+ */
+export const zPlatformKitchenPath = z.union([
+    zUuid,
+    z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+]);
+
+/**
+ * The membership identifier. Always resolved inside the kitchen in the
+ * path; one belonging to another organisation is `404`, never `403`.
+ *
+ */
+export const zPlatformKitchenMembershipPath = zUuid;
+
+/**
+ * The subscription identifier. Always resolved inside the caller's own
+ * customer account: somebody else's is `404 resource.not_found`, never a
+ * 403, because the row carries a delivery address, a weekday pattern and
+ * a price somebody negotiated.
+ *
+ */
+export const zSubscriptionPath = zUuid;
+
+/**
+ * The closure request identifier, always resolved inside the caller's own
+ * identity. Somebody else's is `404 resource.not_found`: the row says that
+ * a named person is leaving and why.
+ *
+ */
+export const zClosureRequestPath = zUuid;
+
+/**
+ * The offboarding identifier. Platform-only; there is no tenant read path.
+ */
+export const zOffboardingPath = zUuid;
+
+/**
+ * The records bundle identifier, always resolved *through* the offboarding
+ * in the path. An export resolved by identifier alone would let a caller
+ * read one company's bundle through another company's wind-up.
+ *
+ */
+export const zRecordExportPath = zUuid;
+
+/**
+ * Why the bundle is being taken, written verbatim onto the access audit
+ * event. **Its presence is what turns a status check into a download**:
+ * without it the operation reads the manifest and nothing is issued; with
+ * it a fifteen-minute signed URL is minted in the envelope and the access
+ * is recorded as a `Confidential` read. Blank is
+ * `400 request.invalid` with `details.parameter` — an access with no
+ * stated reason is the access an audit trail cannot explain afterwards.
+ *
+ */
+export const zRecordExportPurpose = z.string().min(1).max(160);
+
+/**
+ * The first day of the window. Defaults to today.
+ */
+export const zSubscriptionScheduleFrom = z.iso.date();
+
+/**
+ * The last day of the window. Defaults to thirteen days after `from`, and
+ * may be at most **sixty** days after it: the projection is
+ * O(subscriptions x days), so an unbounded window is a request a client can
+ * make that the kitchen cannot afford. Beyond that is
+ * `400 request.invalid` with `details.max_window_days`.
+ *
+ */
+export const zSubscriptionScheduleTo = z.iso.date();
+
+/**
+ * Narrow to one production site. A *narrowing* of a book the caller can
+ * already see, never a widening of one they cannot — which is why it is a
+ * query filter and not `X-Branch-Id`.
+ *
+ */
+export const zSubscriptionScheduleBranch = zUuid;
 
 export const zRegisterUserBody = zRegisterRequest;
 
@@ -694,3 +7323,4263 @@ export const zShowCurrentOrganisationResponse = z.object({
     }),
     meta: zMeta
 });
+
+export const zListIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListIngredientsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
+    query: z.string().max(160).optional(),
+    status: zIngredientStatus.optional(),
+    category: zUuid.optional()
+});
+
+/**
+ * A page of ingredients.
+ */
+export const zListIngredientsResponse = z.object({
+    data: z.array(zAdminIngredient),
+    meta: zPaginatedOrNumberedMeta
+});
+
+export const zCreateIngredientBody = zCreateIngredientRequest;
+
+export const zCreateIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The ingredient was created.
+ */
+export const zCreateIngredientResponse = zIngredientEnvelope;
+
+export const zShowIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowIngredientPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The ingredient.
+ */
+export const zShowIngredientResponse = z.object({
+    data: z.object({
+        ingredient: zAdminIngredient,
+        aliases: z.array(zIngredientAlias)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateIngredientBody = zUpdateIngredientRequest;
+
+export const zUpdateIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateIngredientPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The updated ingredient, with its new validator.
+ */
+export const zUpdateIngredientResponse = zIngredientEnvelope;
+
+export const zArchiveIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveIngredientPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The archived ingredient.
+ */
+export const zArchiveIngredientResponse = zIngredientEnvelope;
+
+export const zListIngredientAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListIngredientAllergensPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The visible allergen mappings.
+ */
+export const zListIngredientAllergensResponse = zIngredientAllergenCollection;
+
+export const zReplaceIngredientAllergensBody = zReplaceIngredientAllergensRequest;
+
+export const zReplaceIngredientAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceIngredientAllergensPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The mappings now visible for this ingredient.
+ */
+export const zReplaceIngredientAllergensResponse = zIngredientAllergenCollection;
+
+export const zListIngredientAliasesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListIngredientAliasesPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The aliases of this ingredient.
+ */
+export const zListIngredientAliasesResponse = z.object({
+    data: z.array(zIngredientAlias),
+    meta: zMeta
+});
+
+export const zAddIngredientAliasBody = z.object({
+    alias: z.string().min(1).max(160),
+    locale: z.enum(['en', 'ar']).nullish()
+});
+
+export const zAddIngredientAliasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAddIngredientAliasPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The alias was added.
+ */
+export const zAddIngredientAliasResponse = z.object({
+    data: z.object({
+        alias: zIngredientAlias
+    }),
+    meta: zMeta
+});
+
+export const zRemoveIngredientAliasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveIngredientAliasPath = z.object({
+    ingredient: zUuid,
+    alias: zUuid
+});
+
+/**
+ * The alias was removed.
+ */
+export const zRemoveIngredientAliasResponse = z.void();
+
+export const zListIngredientCategoriesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every visible category.
+ */
+export const zListIngredientCategoriesResponse = z.object({
+    data: z.array(zIngredientCategory),
+    meta: zMeta
+});
+
+export const zCreateIngredientCategoryBody = z.object({
+    code: z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    name_en: z.string().max(255),
+    name_ar: z.string().max(255).nullish(),
+    parent_id: zUuid.nullish(),
+    display_order: z.int().gte(0).lte(100000).optional()
+});
+
+export const zCreateIngredientCategoryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The category was created.
+ */
+export const zCreateIngredientCategoryResponse = zIngredientCategoryEnvelope;
+
+export const zUpdateIngredientCategoryBody = z.object({
+    name_en: z.string().max(255).optional(),
+    name_ar: z.string().max(255).optional(),
+    parent_id: zUuid.nullish(),
+    display_order: z.int().gte(0).lte(100000).optional(),
+    is_active: z.boolean().optional()
+});
+
+export const zUpdateIngredientCategoryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateIngredientCategoryPath = z.object({
+    category: zUuid
+});
+
+/**
+ * The updated category.
+ */
+export const zUpdateIngredientCategoryResponse = zIngredientCategoryEnvelope;
+
+export const zListRecipesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipesQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
+    query: z.string().max(160).optional(),
+    status: zRecipeStatus.optional(),
+    category: z.string().max(40).optional()
+});
+
+/**
+ * A page of recipes.
+ */
+export const zListRecipesResponse = z.object({
+    data: z.array(zAdminRecipe),
+    meta: zPaginatedOrNumberedMeta
+});
+
+export const zCreateRecipeBody = zCreateRecipeRequest;
+
+export const zCreateRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The recipe and its first draft version.
+ */
+export const zCreateRecipeResponse = z.object({
+    data: z.object({
+        recipe: zAdminRecipe,
+        version: zAdminRecipeVersion
+    }),
+    meta: zMeta
+});
+
+export const zPreviewRecipeRollupBody = zPreviewRecipeRollupRequest;
+
+export const zPreviewRecipeRollupHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The figures the draft would declare. Nothing was written.
+ */
+export const zPreviewRecipeRollupResponse = z.object({
+    data: zRecipeRollupPreview,
+    meta: zMeta
+});
+
+export const zShowRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipePath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The recipe and every version of it.
+ */
+export const zShowRecipeResponse = z.object({
+    data: z.object({
+        recipe: zAdminRecipe,
+        versions: z.array(zAdminRecipeVersion)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateRecipeBody = zUpdateRecipeRequest;
+
+export const zUpdateRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateRecipePath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The updated recipe, with its new validator.
+ */
+export const zUpdateRecipeResponse = zRecipeEnvelope;
+
+export const zArchiveRecipeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveRecipePath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The archived recipe.
+ */
+export const zArchiveRecipeResponse = zRecipeEnvelope;
+
+export const zListRecipeVersionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeVersionsPath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * Every version, oldest first.
+ */
+export const zListRecipeVersionsResponse = z.object({
+    data: z.array(zAdminRecipeVersion),
+    meta: zMeta
+});
+
+export const zCreateRecipeVersionBody = zCreateRecipeVersionRequest;
+
+export const zCreateRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateRecipeVersionPath = z.object({
+    recipe: zUuid
+});
+
+/**
+ * The new draft version.
+ */
+export const zCreateRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zShowRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The whole version.
+ */
+export const zShowRecipeVersionResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        lines: z.array(zRecipeLine),
+        outputs: z.array(zRecipeOutput),
+        steps: z.array(zRecipeStep),
+        allergens: z.array(zRecipeVersionAllergen)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateRecipeVersionBody = zUpdateRecipeVersionRequest;
+
+export const zUpdateRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The updated version.
+ */
+export const zUpdateRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zReplaceRecipeLinesBody = zReplaceRecipeLinesRequest;
+
+export const zReplaceRecipeLinesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipeLinesPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new lines.
+ */
+export const zReplaceRecipeLinesResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        lines: z.array(zRecipeLine)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceRecipeOutputsBody = zReplaceRecipeOutputsRequest;
+
+export const zReplaceRecipeOutputsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipeOutputsPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new outputs.
+ */
+export const zReplaceRecipeOutputsResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        outputs: z.array(zRecipeOutput)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceRecipeStepsBody = zReplaceRecipeStepsRequest;
+
+export const zReplaceRecipeStepsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipeStepsPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new steps.
+ */
+export const zReplaceRecipeStepsResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        steps: z.array(zRecipeStep)
+    }),
+    meta: zMeta
+});
+
+export const zListRecipeVersionAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeVersionAllergensPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The label rows.
+ */
+export const zListRecipeVersionAllergensResponse = z.object({
+    data: z.array(zRecipeVersionAllergen),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        derivation_state: zDerivationState,
+        derived_at: z.iso.datetime({ offset: true }).nullish()
+    }))
+});
+
+export const zShowRecipeVersionReadinessHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipeVersionReadinessPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The verdict, and every reason behind it.
+ */
+export const zShowRecipeVersionReadinessResponse = z.object({
+    data: zPublicationReadiness,
+    meta: zRecipeVersionReadinessMeta
+});
+
+export const zPublishRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPublishRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The published version and the label it froze.
+ */
+export const zPublishRecipeVersionResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        allergens: z.array(zRecipeVersionAllergen)
+    }),
+    meta: zMeta
+});
+
+export const zRetireRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRetireRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The retired version.
+ */
+export const zRetireRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zShowRecipeTechnicalSheetHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecipeTechnicalSheetPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The costed sheet.
+ */
+export const zShowRecipeTechnicalSheetResponse = z.object({
+    data: zTechnicalSheet,
+    meta: zMeta
+});
+
+export const zListRecipeCostSnapshotsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeCostSnapshotsPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+export const zListRecipeCostSnapshotsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of cost snapshots, newest first.
+ */
+export const zListRecipeCostSnapshotsResponse = z.object({
+    data: z.array(zCostSnapshot),
+    meta: zPaginationMeta
+});
+
+export const zCreateRecipeCostSnapshotBody = zCreateCostSnapshotRequest;
+
+export const zCreateRecipeCostSnapshotHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateRecipeCostSnapshotPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The appended snapshot.
+ */
+export const zCreateRecipeCostSnapshotResponse = z.object({
+    data: z.object({
+        snapshot: zCostSnapshot
+    }),
+    meta: zMeta
+});
+
+export const zListAllergenClassesHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The active allergen classes, in display order.
+ */
+export const zListAllergenClassesResponse = z.object({
+    data: z.array(zPublicAllergenClass),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        locale: z.enum(['en', 'ar']).optional()
+    }))
+});
+
+export const zCreateAllergenClassBody = zCreateAllergenClassRequest;
+
+export const zCreateAllergenClassHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The allergen class was created.
+ */
+export const zCreateAllergenClassResponse = zAllergenClassEnvelope;
+
+export const zUpdateAllergenClassBody = zUpdateAllergenClassRequest;
+
+export const zUpdateAllergenClassHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateAllergenClassPath = z.object({
+    code: zAllergenCode
+});
+
+/**
+ * The updated allergen class.
+ */
+export const zUpdateAllergenClassResponse = zAllergenClassEnvelope;
+
+export const zDeactivateAllergenClassHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeactivateAllergenClassPath = z.object({
+    code: zAllergenCode
+});
+
+/**
+ * The withdrawn allergen class.
+ */
+export const zDeactivateAllergenClassResponse = zAllergenClassEnvelope;
+
+export const zListSalesChannelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every sales channel of the organisation.
+ */
+export const zListSalesChannelsResponse = z.object({
+    data: z.array(zAdminSalesChannel),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional()
+    }))
+});
+
+export const zCreateSalesChannelBody = zCreateSalesChannelRequest;
+
+export const zCreateSalesChannelHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The created channel.
+ */
+export const zCreateSalesChannelResponse = zSalesChannelEnvelope;
+
+export const zShowSalesChannelHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowSalesChannelPath = z.object({
+    channel: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The channel.
+ */
+export const zShowSalesChannelResponse = zSalesChannelEnvelope;
+
+export const zUpdateSalesChannelBody = zUpdateSalesChannelRequest;
+
+export const zUpdateSalesChannelHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSalesChannelPath = z.object({
+    channel: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The updated channel.
+ */
+export const zUpdateSalesChannelResponse = zSalesChannelEnvelope;
+
+export const zListCatalogueItemsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListCatalogueItemsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
+    query: z.string().max(160).optional(),
+    status: zCatalogueItemStatus.optional(),
+    item_type: zCatalogueItemType.optional(),
+    product_category_id: zUuid.optional()
+});
+
+/**
+ * A page of catalogue items.
+ */
+export const zListCatalogueItemsResponse = z.object({
+    data: z.array(zAdminCatalogueItem),
+    meta: zPaginatedOrNumberedMeta
+});
+
+export const zCreateCatalogueItemBody = zCreateCatalogueItemRequest;
+
+export const zCreateCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The created draft item.
+ */
+export const zCreateCatalogueItemResponse = zCatalogueItemEnvelope;
+
+export const zShowCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item with its variants, ingredients, diet tags and channels.
+ */
+export const zShowCatalogueItemResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        variants: z.array(zAdminCatalogueItemVariant),
+        ingredients: z.array(zAdminCatalogueItemIngredient),
+        diet_classifications: z.array(z.string().max(40)),
+        channels: z.array(zAdminChannelAssignment)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateCatalogueItemBody = zUpdateCatalogueItemRequest;
+
+export const zUpdateCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The updated item.
+ */
+export const zUpdateCatalogueItemResponse = zCatalogueItemEnvelope;
+
+export const zPublishCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPublishCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The published item and the allergen set its listing will show.
+ */
+export const zPublishCatalogueItemResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        allergens: zDerivedAllergenSet
+    }),
+    meta: zMeta
+});
+
+export const zRetireCatalogueItemBody = zRetireCatalogueItemRequest;
+
+export const zRetireCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRetireCatalogueItemPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The retired item.
+ */
+export const zRetireCatalogueItemResponse = zCatalogueItemEnvelope;
+
+export const zReplaceCatalogueItemVariantsBody = zReplaceCatalogueItemVariantsRequest;
+
+export const zReplaceCatalogueItemVariantsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemVariantsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and **every** variant it now has, including the ones this
+ * call archived — so a client sees what the submission did rather
+ * than what it sent.
+ *
+ */
+export const zReplaceCatalogueItemVariantsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        variants: z.array(zAdminCatalogueItemVariant)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceCatalogueItemIngredientsBody = zReplaceCatalogueItemIngredientsRequest;
+
+export const zReplaceCatalogueItemIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemIngredientsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and its public ingredient list.
+ */
+export const zReplaceCatalogueItemIngredientsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        ingredients: z.array(zAdminCatalogueItemIngredient)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceCatalogueItemDietClassificationsBody = zReplaceCatalogueItemDietClassificationsRequest;
+
+export const zReplaceCatalogueItemDietClassificationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemDietClassificationsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and its diet tags.
+ */
+export const zReplaceCatalogueItemDietClassificationsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        diet_classifications: z.array(z.string().max(40))
+    }),
+    meta: zMeta
+});
+
+export const zReplaceCatalogueItemChannelsBody = zReplaceCatalogueItemChannelsRequest;
+
+export const zReplaceCatalogueItemChannelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemChannelsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and its channel assignments.
+ */
+export const zReplaceCatalogueItemChannelsResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        channels: z.array(zAdminChannelAssignment)
+    }),
+    meta: zMeta
+});
+
+export const zShowCatalogueItemAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCatalogueItemAllergensPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The derived allergen set and the basis it was derived from.
+ */
+export const zShowCatalogueItemAllergensResponse = z.object({
+    data: z.object({
+        allergens: z.array(zDerivedAllergen)
+    }),
+    meta: zDerivedAllergenMeta
+});
+
+export const zReplaceCatalogueItemAvailabilityBody = zReplaceCatalogueItemAvailabilityRequest;
+
+export const zReplaceCatalogueItemAvailabilityHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceCatalogueItemAvailabilityPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item and the calendar it now has, in date order.
+ */
+export const zReplaceCatalogueItemAvailabilityResponse = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        availability_days: z.array(zCatalogueItemAvailabilityDay)
+    }),
+    meta: zMeta
+});
+
+export const zShowCatalogueItemReadinessHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCatalogueItemReadinessPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The verdict, and every reason behind it.
+ */
+export const zShowCatalogueItemReadinessResponse = z.object({
+    data: zPublicationReadiness,
+    meta: zCatalogueItemReadinessMeta
+});
+
+export const zListDietClassificationsHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The active diet classifications, localised.
+ */
+export const zListDietClassificationsResponse = z.object({
+    data: z.array(zPublicDietClassification),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0).optional(),
+        locale: z.enum(['en', 'ar']).optional()
+    }))
+});
+
+export const zListPriceListsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPriceListsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
+    query: z.string().max(160).optional(),
+    status: zPriceListStatus.optional(),
+    customer_scope: zPriceListCustomerScope.optional()
+});
+
+/**
+ * A page of price lists.
+ */
+export const zListPriceListsResponse = z.object({
+    data: z.array(zAdminPriceList),
+    meta: zPaginatedOrNumberedMeta
+});
+
+export const zCreatePriceListBody = zCreatePriceListRequest;
+
+export const zCreatePriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The created draft list.
+ */
+export const zCreatePriceListResponse = zPriceListEnvelope;
+
+export const zShowPriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowPriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The price list, with its channel assignments.
+ */
+export const zShowPriceListResponse = zPriceListDetailEnvelope;
+
+export const zUpdatePriceListBody = zUpdatePriceListRequest;
+
+export const zUpdatePriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The updated list.
+ */
+export const zUpdatePriceListResponse = zPriceListEnvelope;
+
+export const zPublishPriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPublishPriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The activated list.
+ */
+export const zPublishPriceListResponse = zPriceListEnvelope;
+
+export const zArchivePriceListHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchivePriceListPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The archived list.
+ */
+export const zArchivePriceListResponse = zPriceListEnvelope;
+
+export const zListPriceListEntriesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPriceListEntriesPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+export const zListPriceListEntriesQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    include_history: z.enum([
+        '0',
+        '1',
+        'true',
+        'false',
+        'yes',
+        'no'
+    ]).optional()
+});
+
+/**
+ * A page of price rows.
+ */
+export const zListPriceListEntriesResponse = z.object({
+    data: z.array(zAdminPriceListEntry),
+    meta: zPaginationMeta.and(z.object({
+        include_history: z.boolean(),
+        currency_code: zCurrencyCode,
+        entry_counts: zPriceListEntryCounts
+    }))
+});
+
+export const zReplacePriceListEntriesBody = zReplacePriceListEntriesRequest;
+
+export const zReplacePriceListEntriesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePriceListEntriesPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The list and its standing rows after the write.
+ */
+export const zReplacePriceListEntriesResponse = zPriceListEntriesEnvelope;
+
+export const zReplacePriceListChannelsBody = zReplacePriceListChannelsRequest;
+
+export const zReplacePriceListChannelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePriceListChannelsPath = z.object({
+    priceList: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The list and its channel assignments after the write.
+ */
+export const zReplacePriceListChannelsResponse = zPriceListChannelsEnvelope;
+
+export const zListMealCombinationOptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every meal combination of the organisation, active or not.
+ */
+export const zListMealCombinationOptionsResponse = z.object({
+    data: z.array(zMealCombinationOption),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zCreateMealCombinationOptionBody = zCreateMealCombinationOptionRequest;
+
+export const zCreateMealCombinationOptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The combination as stored.
+ */
+export const zCreateMealCombinationOptionResponse = zMealCombinationOptionEnvelope;
+
+export const zUpdateMealCombinationOptionBody = zUpdateMealCombinationOptionRequest;
+
+export const zUpdateMealCombinationOptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateMealCombinationOptionPath = z.object({
+    combination: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The combination after the write.
+ */
+export const zUpdateMealCombinationOptionResponse = zMealCombinationOptionEnvelope;
+
+export const zListEnergyBandsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every energy band of the organisation, active or not.
+ */
+export const zListEnergyBandsResponse = z.object({
+    data: z.array(zEnergyBand),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zCreateEnergyBandBody = zCreateEnergyBandRequest;
+
+export const zCreateEnergyBandHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The band as stored.
+ */
+export const zCreateEnergyBandResponse = zEnergyBandEnvelope;
+
+export const zUpdateEnergyBandBody = zUpdateEnergyBandRequest;
+
+export const zUpdateEnergyBandHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateEnergyBandPath = z.object({
+    band: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The band after the write.
+ */
+export const zUpdateEnergyBandResponse = zEnergyBandEnvelope;
+
+export const zListPlanDurationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every duration of the organisation, active or not.
+ */
+export const zListPlanDurationsResponse = z.object({
+    data: z.array(zPlanDurationOption),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+export const zCreatePlanDurationBody = zCreatePlanDurationRequest;
+
+export const zCreatePlanDurationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The duration as stored.
+ */
+export const zCreatePlanDurationResponse = zPlanDurationEnvelope;
+
+export const zUpdatePlanDurationBody = zUpdatePlanDurationRequest;
+
+export const zUpdatePlanDurationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePlanDurationPath = z.object({
+    duration: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The duration after the write.
+ */
+export const zUpdatePlanDurationResponse = zPlanDurationEnvelope;
+
+export const zShowPlanProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowPlanProfilePath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and its terms, or a null profile.
+ */
+export const zShowPlanProfileResponse = zPlanProfileEnvelope;
+
+export const zPutPlanProfileBody = zPutPlanProfileRequest;
+
+export const zPutPlanProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPutPlanProfilePath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and its terms after the write.
+ */
+export const zPutPlanProfileResponse = zPlanProfileEnvelope;
+
+export const zListPlanVariantsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlanVariantsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and every cell of its matrix.
+ */
+export const zListPlanVariantsResponse = zPlanVariantsEnvelope;
+
+export const zReplacePlanVariantsBody = zReplacePlanVariantsRequest;
+
+export const zReplacePlanVariantsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePlanVariantsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and **every** cell it now has, including the ones this call
+ * archived — so a client sees what the submission did rather than what
+ * it sent.
+ *
+ */
+export const zReplacePlanVariantsResponse = zPlanVariantsEnvelope;
+
+export const zListPlanVariantDurationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlanVariantDurationsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and every duration assignment across its configurations.
+ */
+export const zListPlanVariantDurationsResponse = zPlanVariantDurationsEnvelope;
+
+export const zReplacePlanVariantDurationsBody = zReplacePlanVariantDurationsRequest;
+
+export const zReplacePlanVariantDurationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePlanVariantDurationsPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan and its duration assignments after the write.
+ */
+export const zReplacePlanVariantDurationsResponse = zPlanVariantDurationsEnvelope;
+
+export const zListDeliveryZonesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryZonesQuery = z.object({
+    cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    status: zDeliveryZoneStatus.optional(),
+    branch_id: z.union([
+        zUuid,
+        z.literal('organisation')
+    ]).optional(),
+    query: z.string().max(120).optional()
+});
+
+/**
+ * A page of delivery zones.
+ */
+export const zListDeliveryZonesResponse = zDeliveryZonesEnvelope;
+
+export const zCreateDeliveryZoneBody = zCreateDeliveryZoneRequest;
+
+export const zCreateDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The zone as created.
+ */
+export const zCreateDeliveryZoneResponse = zDeliveryZoneEnvelope;
+
+export const zGetDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetDeliveryZonePath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The delivery zone.
+ */
+export const zGetDeliveryZoneResponse = zDeliveryZoneDetailEnvelope;
+
+export const zUpdateDeliveryZoneBody = zUpdateDeliveryZoneRequest;
+
+export const zUpdateDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateDeliveryZonePath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The zone after the write.
+ */
+export const zUpdateDeliveryZoneResponse = zDeliveryZoneEnvelope;
+
+export const zArchiveDeliveryZoneHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveDeliveryZonePath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The archived zone.
+ */
+export const zArchiveDeliveryZoneResponse = zDeliveryZoneEnvelope;
+
+export const zListDeliveryZoneAreasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryZoneAreasPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The areas this zone covers.
+ */
+export const zListDeliveryZoneAreasResponse = zDeliveryZoneAreasEnvelope;
+
+export const zReplaceDeliveryZoneAreasBody = zReplaceDeliveryZoneAreasRequest;
+
+export const zReplaceDeliveryZoneAreasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceDeliveryZoneAreasPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The areas this zone covers after the write.
+ */
+export const zReplaceDeliveryZoneAreasResponse = zDeliveryZoneAreasEnvelope;
+
+export const zListDeliveryWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every delivery window, active and withdrawn.
+ */
+export const zListDeliveryWindowsResponse = zDeliveryWindowsEnvelope;
+
+export const zCreateDeliveryWindowBody = zCreateDeliveryWindowRequest;
+
+export const zCreateDeliveryWindowHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The window as created.
+ */
+export const zCreateDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
+export const zUpdateDeliveryWindowBody = zUpdateDeliveryWindowRequest;
+
+export const zUpdateDeliveryWindowHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateDeliveryWindowPath = z.object({
+    window: z.union([
+        zUuid,
+        z.string().max(30).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The window after the write.
+ */
+export const zUpdateDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
+export const zGetBranchOperatingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The branch's week, in weekday order.
+ */
+export const zGetBranchOperatingResponse = zBranchOperatingEnvelope;
+
+export const zReplaceBranchOperatingBody = zReplaceBranchOperatingRequest;
+
+export const zReplaceBranchOperatingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The branch's week after the write.
+ */
+export const zReplaceBranchOperatingResponse = zBranchOperatingEnvelope;
+
+export const zListDeliveryAreasHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryAreasQuery = z.object({
+    country_code: z.string().length(2).optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of delivery areas, localised.
+ */
+export const zListDeliveryAreasResponse = zPublicDeliveryAreasEnvelope;
+
+export const zListMarketplaceKitchensHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMarketplaceKitchensQuery = z.object({
+    query: z.string().max(120).optional(),
+    country_code: z.string().length(2).optional(),
+    area: z.string().max(60).optional(),
+    channels: z.string().optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of kitchens.
+ */
+export const zListMarketplaceKitchensResponse = zMarketplaceKitchensEnvelope;
+
+export const zGetMarketplaceKitchenHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMarketplaceKitchenPath = z.object({
+    kitchen: z.string().max(160)
+});
+
+/**
+ * The kitchen.
+ */
+export const zGetMarketplaceKitchenResponse = z.object({
+    data: zMarketplaceKitchen,
+    meta: zMeta
+});
+
+export const zListMarketplaceMealsHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMarketplaceMealsQuery = z.object({
+    query: z.string().max(120).optional(),
+    kitchen_ids: z.string().optional(),
+    item_types: z.string().optional(),
+    diet_classifications: z.string().optional(),
+    exclude_allergens: z.string().optional(),
+    price_max: z.int().gte(0).optional(),
+    available_on: z.iso.date().optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of meals.
+ */
+export const zListMarketplaceMealsResponse = zMarketplaceMealsEnvelope;
+
+export const zGetMarketplaceMealHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMarketplaceMealPath = z.object({
+    meal: z.string().max(160)
+});
+
+/**
+ * The meal.
+ */
+export const zGetMarketplaceMealResponse = z.object({
+    data: zMarketplaceMeal,
+    meta: zMeta
+});
+
+export const zListMarketplaceMealPlansHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMarketplaceMealPlansQuery = z.object({
+    query: z.string().max(120).optional(),
+    kitchen_ids: z.string().optional(),
+    duration: z.string().max(60).optional(),
+    meals_per_day: z.int().gte(1).optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25)
+});
+
+/**
+ * A page of subscription plans.
+ */
+export const zListMarketplaceMealPlansResponse = zMarketplacePlansEnvelope;
+
+export const zGetMarketplaceMealPlanHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMarketplaceMealPlanPath = z.object({
+    plan: z.string().max(160)
+});
+
+/**
+ * The subscription plan.
+ */
+export const zGetMarketplaceMealPlanResponse = z.object({
+    data: zMarketplacePlan,
+    meta: zMeta
+});
+
+export const zOpenCartBody = zOpenCartRequest;
+
+export const zOpenCartHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's open basket on that channel, with its lines.
+ */
+export const zOpenCartResponse = zCartEnvelope;
+
+export const zAddCartItemBody = zAddCartItemRequest;
+
+export const zAddCartItemHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAddCartItemPath = z.object({
+    cart: zUuid
+});
+
+/**
+ * The line, and the basket it now belongs to.
+ */
+export const zAddCartItemResponse = zCartLineEnvelope;
+
+export const zRemoveCartItemHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveCartItemPath = z.object({
+    cart: zUuid,
+    item: zUuid
+});
+
+/**
+ * The line was removed.
+ */
+export const zRemoveCartItemResponse = z.void();
+
+export const zSetCartItemQuantityBody = zSetCartItemQuantityRequest;
+
+export const zSetCartItemQuantityHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetCartItemQuantityPath = z.object({
+    cart: zUuid,
+    item: zUuid
+});
+
+/**
+ * The line at its new quantity, and the basket around it.
+ */
+export const zSetCartItemQuantityResponse = zCartLineEnvelope;
+
+export const zPreviewCheckoutBody = zPreviewCheckoutRequest;
+
+export const zPreviewCheckoutHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * What the basket would cost right now, and what stood in the way of
+ * pricing any part of it completely.
+ *
+ */
+export const zPreviewCheckoutResponse = zCheckoutPreviewEnvelope;
+
+export const zPlaceOrderBody = zPlaceOrderRequest;
+
+export const zPlaceOrderHeaders = z.object({
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The order, with every line at the price it was placed at. A replay
+ * of a request this key already answered returns this same body and
+ * this same status, with `Idempotency-Replayed: true`; the command did
+ * not run a second time.
+ *
+ */
+export const zPlaceOrderResponse = zCustomerOrderEnvelope;
+
+export const zListMyOrdersHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMyOrdersQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of the caller's orders, newest first.
+ */
+export const zListMyOrdersResponse = z.object({
+    data: z.array(zCustomerOrder),
+    meta: zPaginationMeta
+});
+
+export const zShowMyOrderHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowMyOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order as the customer sees it.
+ */
+export const zShowMyOrderResponse = zCustomerOrderEnvelope;
+
+export const zListStockItemsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every stock item.
+ */
+export const zListStockItemsResponse = zStockItemCollection;
+
+export const zListStockLevelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Stock levels, newest stock item first.
+ */
+export const zListStockLevelsResponse = zStockLevelCollection;
+
+export const zCountLowStockLevelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The count of low-stock levels in scope.
+ */
+export const zCountLowStockLevelsResponse = zLowStockCountEnvelope;
+
+export const zSetStockThresholdBody = zSetStockThresholdRequest;
+
+export const zSetStockThresholdHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The threshold was set and the level returned.
+ */
+export const zSetStockThresholdResponse = zStockLevelEnvelope;
+
+export const zRecordStockAdjustmentBody = zStockAdjustmentRequest;
+
+export const zRecordStockAdjustmentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The adjustment was recorded and the level updated.
+ */
+export const zRecordStockAdjustmentResponse = zStockMovementEnvelope;
+
+export const zRecordStockWasteBody = zStockWasteRequest;
+
+export const zRecordStockWasteHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The waste was recorded and the level reduced.
+ */
+export const zRecordStockWasteResponse = zStockMovementEnvelope;
+
+export const zListSuppliersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every supplier, ordered by code.
+ */
+export const zListSuppliersResponse = zSupplierCollection;
+
+export const zCreateSupplierBody = zCreateSupplierRequest;
+
+export const zCreateSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The supplier was created.
+ */
+export const zCreateSupplierResponse = zSupplierEnvelope;
+
+export const zGetProcurementReferenceHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Currencies, the organisation default, and measurement units.
+ */
+export const zGetProcurementReferenceResponse = zProcurementReferenceEnvelope;
+
+export const zListGoodsReceiptsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Recent goods receipts.
+ */
+export const zListGoodsReceiptsResponse = zGoodsReceiptCollection;
+
+export const zCreateGoodsReceiptBody = zPostGoodsReceiptRequest;
+
+export const zCreateGoodsReceiptHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The receipt was posted and inventory updated.
+ */
+export const zCreateGoodsReceiptResponse = zGoodsReceiptEnvelope;
+
+export const zListPurchasesLedgerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPurchasesLedgerQuery = z.object({
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    supplier_id: zUuid.optional(),
+    ingredient_id: zUuid.optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of purchases-ledger lines, newest first.
+ */
+export const zListPurchasesLedgerResponse = zPurchasesLedgerCollection;
+
+export const zGetMonthlyCostReportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetMonthlyCostReportQuery = z.object({
+    from: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
+    to: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
+});
+
+/**
+ * The monthly cost report, newest month first.
+ */
+export const zGetMonthlyCostReportResponse = zMonthlyCostReportCollection;
+
+export const zListConsumptionExceptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListConsumptionExceptionsQuery = z.object({
+    resolved: z.boolean().optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of consumption exceptions, newest first.
+ */
+export const zListConsumptionExceptionsResponse = zConsumptionExceptionCollection;
+
+export const zCountUnresolvedConsumptionExceptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The count of unresolved consumption exceptions in scope.
+ */
+export const zCountUnresolvedConsumptionExceptionsResponse = zConsumptionExceptionCountEnvelope;
+
+export const zResolveConsumptionExceptionBody = zResolveConsumptionExceptionRequest;
+
+export const zResolveConsumptionExceptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResolveConsumptionExceptionPath = z.object({
+    exception: zUuid
+});
+
+/**
+ * The exception, now resolved.
+ */
+export const zResolveConsumptionExceptionResponse = zConsumptionExceptionEnvelope;
+
+export const zRetryConsumptionExceptionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRetryConsumptionExceptionPath = z.object({
+    exception: zUuid
+});
+
+/**
+ * The exception after the retry — resolved, or still open with a refreshed detail.
+ */
+export const zRetryConsumptionExceptionResponse = zConsumptionExceptionEnvelope;
+
+export const zListProductionOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Recent production orders.
+ */
+export const zListProductionOrdersResponse = zProductionOrderCollection;
+
+export const zCreateProductionOrderBody = zCreateProductionOrderRequest;
+
+export const zCreateProductionOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The production order was planned.
+ */
+export const zCreateProductionOrderResponse = zProductionOrderEnvelope;
+
+export const zCompleteProductionOrderBody = zCompleteProductionOrderRequest;
+
+export const zCompleteProductionOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCompleteProductionOrderPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The production order is completed.
+ */
+export const zCompleteProductionOrderResponse = zProductionOrderEnvelope;
+
+export const zListQualityChecksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Recent quality checks.
+ */
+export const zListQualityChecksResponse = zQualityCheckCollection;
+
+export const zCreateQualityCheckBody = zCreateQualityCheckRequest;
+
+export const zCreateQualityCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The quality check was opened.
+ */
+export const zCreateQualityCheckResponse = zQualityCheckEnvelope;
+
+export const zHoldQualityCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zHoldQualityCheckPath = z.object({
+    qualityCheck: zUuid
+});
+
+/**
+ * The check is on hold.
+ */
+export const zHoldQualityCheckResponse = zQualityCheckEnvelope;
+
+export const zReleaseQualityCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReleaseQualityCheckPath = z.object({
+    qualityCheck: zUuid
+});
+
+/**
+ * The check is released.
+ */
+export const zReleaseQualityCheckResponse = zQualityCheckEnvelope;
+
+export const zListKitchenOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListKitchenOrdersQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: zOrderStatus.optional(),
+    requested_delivery_date: z.iso.date().optional(),
+    branch_id: zUuid.optional(),
+    query: z.string().max(60).optional()
+});
+
+/**
+ * A page of the organisation's orders, newest first.
+ */
+export const zListKitchenOrdersResponse = z.object({
+    data: z.array(zKitchenOrder),
+    meta: zPaginationMeta
+});
+
+export const zShowKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order with its lines and its delivery snapshot.
+ */
+export const zShowKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zConfirmKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zConfirmKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The confirmed order, with its new validator.
+ */
+export const zConfirmKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zFulfilKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zFulfilKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The fulfilled order, with its new validator.
+ */
+export const zFulfilKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zCancelKitchenOrderBody = zCancelOrderRequest;
+
+export const zCancelKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The cancelled order, carrying the reason it was cancelled for.
+ */
+export const zCancelKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zStartGuestSessionBody = zStartGuestSessionRequest;
+
+export const zStartGuestSessionHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'X-Client-Platform': z.enum([
+        'web',
+        'ios',
+        'android'
+    ]).optional()
+});
+
+/**
+ * The guest session was opened and the token issued.
+ */
+export const zStartGuestSessionResponse = z.object({
+    data: zStartedGuestSession,
+    meta: zMeta
+});
+
+export const zShowGuestSessionHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The session is live.
+ */
+export const zShowGuestSessionResponse = zGuestSessionEnvelope;
+
+export const zRequestGuestContactVerificationBody = zRequestGuestContactVerificationRequest;
+
+export const zRequestGuestContactVerificationHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * A passcode is on its way.
+ */
+export const zRequestGuestContactVerificationResponse = zGuestOtpChallengeEnvelope;
+
+export const zConfirmGuestContactVerificationBody = zConfirmGuestContactVerificationRequest;
+
+export const zConfirmGuestContactVerificationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The passcode held and the session was promoted.
+ */
+export const zConfirmGuestContactVerificationResponse = zGuestSessionEnvelope;
+
+export const zPlaceGuestOrderBody = zPlaceGuestOrderRequest;
+
+export const zPlaceGuestOrderHeaders = z.object({
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The order was placed. A replay of a request this
+ * `Idempotency-Key` already answered returns this same body and this
+ * same status, with `Idempotency-Replayed: true` to say which it was.
+ *
+ */
+export const zPlaceGuestOrderResponse = zGuestOrderEnvelope;
+
+export const zShowGuestOrderHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowGuestOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order.
+ */
+export const zShowGuestOrderResponse = zGuestOrderEnvelope;
+
+export const zConvertGuestAccountBody = zRegisterRequest;
+
+export const zConvertGuestAccountHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'X-Client-Platform': z.enum([
+        'web',
+        'ios',
+        'android'
+    ]).optional()
+});
+
+/**
+ * The account was created and the guest account converted.
+ */
+export const zConvertGuestAccountResponse = zGuestConversionEnvelope;
+
+export const zRequestGuestDeletionBody = zRequestGuestDeletionRequest;
+
+export const zRequestGuestDeletionHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Accepted. The same body whether or not the address is known to the
+ * platform.
+ *
+ */
+export const zRequestGuestDeletionResponse = z.object({
+    data: zGuestDeletionAcknowledgement,
+    meta: zMeta
+});
+
+export const zConfirmGuestDeletionBody = zConfirmGuestDeletionRequest;
+
+export const zConfirmGuestDeletionHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Accepted. One indistinguishable shape for every refusal; the purge
+ * report only when the passcode held.
+ *
+ */
+export const zConfirmGuestDeletionResponse = z.object({
+    data: zGuestDeletionOutcome,
+    meta: zMeta
+});
+
+export const zIssueEmailVerificationChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The passcode has been queued for delivery.
+ */
+export const zIssueEmailVerificationChallengeResponse = zOtpChallengeEnvelope;
+
+export const zVerifyEmailWithPasscodeBody = zSubmitPasscodeRequest;
+
+export const zVerifyEmailWithPasscodeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The address is now verified.
+ */
+export const zVerifyEmailWithPasscodeResponse = zContactVerifiedEnvelope;
+
+export const zShowVerificationChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowVerificationChallengePath = z.object({
+    challenge: zUuid
+});
+
+/**
+ * The challenge.
+ */
+export const zShowVerificationChallengeResponse = zVerificationChallengeEnvelope;
+
+export const zVerifyChallengeBody = zSubmitPasscodeRequest;
+
+export const zVerifyChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zVerifyChallengePath = z.object({
+    challenge: zUuid
+});
+
+/**
+ * The passcode was correct and the destination is proven.
+ */
+export const zVerifyChallengeResponse = zContactVerifiedEnvelope;
+
+export const zResendChallengeBody = zResendChallengeRequest;
+
+export const zResendChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResendChallengePath = z.object({
+    challenge: zUuid
+});
+
+/**
+ * A fresh passcode has been queued for delivery.
+ */
+export const zResendChallengeResponse = zOtpChallengeEnvelope;
+
+export const zIssueStepUpChallengeBody = zStepUpChallengeRequest;
+
+export const zIssueStepUpChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The step-up passcode has been queued for delivery.
+ */
+export const zIssueStepUpChallengeResponse = zOtpChallengeEnvelope;
+
+export const zConfirmStepUpBody = zConfirmStepUpRequest;
+
+export const zConfirmStepUpHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The step-up is confirmed for this credential.
+ */
+export const zConfirmStepUpResponse = zStepUpConfirmationEnvelope;
+
+export const zShowCustomerAccountHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The customer account.
+ */
+export const zShowCustomerAccountResponse = zCustomerAccountEnvelope;
+
+export const zOpenCustomerAccountHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The account already existed; its current state is returned.
+ */
+export const zOpenCustomerAccountResponse = zCustomerAccountEnvelope;
+
+export const zListMyContactsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's live contact points.
+ */
+export const zListMyContactsResponse = zCustomerContactsEnvelope;
+
+export const zAddMyContactBody = zAddCustomerContactRequest;
+
+export const zAddMyContactHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The contact point was recorded.
+ */
+export const zAddMyContactResponse = zCustomerContactEnvelope;
+
+export const zRemoveMyContactHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveMyContactPath = z.object({
+    contact: zUuid
+});
+
+/**
+ * The contact point was retired.
+ */
+export const zRemoveMyContactResponse = z.void();
+
+export const zMakeContactPrimaryHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMakeContactPrimaryPath = z.object({
+    contact: zUuid
+});
+
+/**
+ * The contact point is now primary for its channel.
+ */
+export const zMakeContactPrimaryResponse = zCustomerContactEnvelope;
+
+export const zListMyAddressesHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's addresses, defaults first within each type.
+ */
+export const zListMyAddressesResponse = zCustomerAddressesEnvelope;
+
+export const zAddMyAddressBody = zAddCustomerAddressRequest;
+
+export const zAddMyAddressHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The address was added.
+ */
+export const zAddMyAddressResponse = zCustomerAddressEnvelope;
+
+export const zRemoveMyAddressHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveMyAddressPath = z.object({
+    address: zUuid
+});
+
+/**
+ * The address was removed.
+ */
+export const zRemoveMyAddressResponse = z.void();
+
+export const zUpdateMyAddressBody = zUpdateCustomerAddressRequest;
+
+export const zUpdateMyAddressHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateMyAddressPath = z.object({
+    address: zUuid
+});
+
+/**
+ * The address as it now stands.
+ */
+export const zUpdateMyAddressResponse = zCustomerAddressEnvelope;
+
+export const zMakeAddressDefaultHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMakeAddressDefaultPath = z.object({
+    address: zUuid
+});
+
+/**
+ * The address is now the default for its type.
+ */
+export const zMakeAddressDefaultResponse = zCustomerAddressEnvelope;
+
+export const zShowMyDietaryProfileHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The dietary profile, declared or not.
+ */
+export const zShowMyDietaryProfileResponse = zCustomerDietaryProfileEnvelope;
+
+export const zReplaceMyDietaryProfileBody = zReplaceDietaryProfileRequest;
+
+export const zReplaceMyDietaryProfileHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The declaration as it now stands.
+ */
+export const zReplaceMyDietaryProfileResponse = zCustomerDietaryProfileEnvelope;
+
+export const zListMyConsentsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every consumer consent text and whether the caller holds it.
+ */
+export const zListMyConsentsResponse = zCustomerConsentsEnvelope;
+
+export const zGrantMyConsentsBody = zGrantConsentsRequest;
+
+export const zGrantMyConsentsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's consent position after the grant.
+ */
+export const zGrantMyConsentsResponse = zCustomerConsentsEnvelope;
+
+export const zWithdrawMyConsentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zWithdrawMyConsentPath = z.object({
+    code: z.string().max(80)
+});
+
+/**
+ * The consent is withdrawn, or was never held.
+ */
+export const zWithdrawMyConsentResponse = z.void();
+
+export const zListKitchenDisplayTicketsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Up to 100 open tickets, oldest first.
+ */
+export const zListKitchenDisplayTicketsResponse = z.object({
+    data: z.object({
+        tickets: z.array(zKitchenDisplayTicket).max(100)
+    }),
+    meta: zMeta
+});
+
+export const zBumpKitchenDisplayTicketHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zBumpKitchenDisplayTicketPath = z.object({
+    ticket: zUuid
+});
+
+/**
+ * The ticket, bumped.
+ */
+export const zBumpKitchenDisplayTicketResponse = z.object({
+    data: z.object({
+        ticket: z.object({
+            id: zUuid,
+            status: z.string()
+        })
+    }),
+    meta: zMeta
+});
+
+export const zCreatePosSaleBody = zCreatePosSaleRequest;
+
+export const zCreatePosSaleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The recorded transaction — its identifier, the computed total and
+ * how it was paid. The lines are not echoed back; the caller sent
+ * them.
+ *
+ */
+export const zCreatePosSaleResponse = z.object({
+    data: z.object({
+        pos_transaction: zPosTransaction
+    }),
+    meta: zMeta
+});
+
+export const zListDeliveryJobsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Up to 50 delivery jobs, newest first.
+ */
+export const zListDeliveryJobsResponse = z.object({
+    data: z.object({
+        delivery_jobs: z.array(zDeliveryJob).max(50)
+    }),
+    meta: zMeta
+});
+
+export const zListDriverJobsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's live jobs, oldest first. Empty when there is nothing to run.
+ */
+export const zListDriverJobsResponse = z.object({
+    data: z.object({
+        jobs: z.array(zDriverJob)
+    }),
+    meta: zMeta
+});
+
+export const zDeliverDriverJobBody = zDeliverDriverJobRequest;
+
+export const zDeliverDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeliverDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, delivered.
+ */
+export const zDeliverDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: z.string()
+        })
+    }),
+    meta: zMeta
+});
+
+export const zCreatePaymentIntentBody = zCreatePaymentIntentRequest;
+
+export const zCreatePaymentIntentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The authorised intent.
+ */
+export const zCreatePaymentIntentResponse = zPaymentIntentEnvelope;
+
+export const zCapturePaymentIntentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCapturePaymentIntentPath = z.object({
+    paymentIntent: zUuid
+});
+
+/**
+ * The captured intent.
+ */
+export const zCapturePaymentIntentResponse = zPaymentIntentEnvelope;
+
+export const zCreateRefundBody = zCreateRefundRequest;
+
+export const zCreateRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateRefundPath = z.object({
+    paymentIntent: zUuid
+});
+
+/**
+ * The refund, already completed.
+ */
+export const zCreateRefundResponse = z.object({
+    data: z.object({
+        refund: zRefund
+    }),
+    meta: zMeta
+});
+
+export const zListB2bCatalogueItemsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListB2bCatalogueItemsQuery = z.object({
+    language: z.enum(['en', 'ar']).optional().default('en')
+});
+
+/**
+ * The articles this buyer may order today, with their agreed prices.
+ */
+export const zListB2bCatalogueItemsResponse = z.object({
+    data: z.object({
+        items: z.array(zB2bCatalogueItem)
+    }),
+    meta: zMeta
+});
+
+export const zShowB2bCatalogueItemHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowB2bCatalogueItemPath = z.object({
+    item: zUuid
+});
+
+export const zShowB2bCatalogueItemQuery = z.object({
+    language: z.enum(['en', 'ar']).optional().default('en')
+});
+
+/**
+ * The article and its agreed price.
+ */
+export const zShowB2bCatalogueItemResponse = z.object({
+    data: z.object({
+        item: zB2bCatalogueItem
+    }),
+    meta: zMeta
+});
+
+export const zListCorporateProgrammesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The buyer organisation's programmes.
+ */
+export const zListCorporateProgrammesResponse = z.object({
+    data: z.array(zCorporateProgramme),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zShowCorporateProgrammeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowCorporateProgrammePath = z.object({
+    programme: zUuid
+});
+
+/**
+ * The programme.
+ */
+export const zShowCorporateProgrammeResponse = zCorporateProgrammeEnvelope;
+
+export const zListQuotationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListQuotationsPath = z.object({
+    programme: zUuid
+});
+
+/**
+ * The programme's quotations, newest first, without their lines.
+ */
+export const zListQuotationsResponse = z.object({
+    data: z.array(zQuotation),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zCreateQuotationBody = zCreateQuotationRequest;
+
+export const zCreateQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateQuotationPath = z.object({
+    programme: zUuid
+});
+
+/**
+ * The new draft.
+ */
+export const zCreateQuotationResponse = zQuotationEnvelope;
+
+export const zShowQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quotation and its lines.
+ */
+export const zShowQuotationResponse = zQuotationEnvelope;
+
+export const zUpdateQuotationBody = zUpdateQuotationRequest;
+
+export const zUpdateQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quotation after the write.
+ */
+export const zUpdateQuotationResponse = zQuotationEnvelope;
+
+export const zSubmitQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSubmitQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The submitted quotation.
+ */
+export const zSubmitQuotationResponse = zQuotationEnvelope;
+
+export const zAcceptQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAcceptQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The accepted quotation.
+ */
+export const zAcceptQuotationResponse = zQuotationEnvelope;
+
+export const zDeclineQuotationBody = zDeclineQuotationRequest;
+
+export const zDeclineQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeclineQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The declined quotation.
+ */
+export const zDeclineQuotationResponse = zQuotationEnvelope;
+
+export const zListKitchenQuotationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The quotations submitted to this kitchen, newest first, without their lines.
+ */
+export const zListKitchenQuotationsResponse = z.object({
+    data: z.array(zQuotation),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
+export const zShowKitchenQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowKitchenQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quotation and its lines.
+ */
+export const zShowKitchenQuotationResponse = zQuotationEnvelope;
+
+export const zQuoteKitchenQuotationBody = zQuoteQuotationRequest;
+
+export const zQuoteKitchenQuotationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zQuoteKitchenQuotationPath = z.object({
+    quotation: zUuid
+});
+
+/**
+ * The quoted quotation, with every line priced.
+ */
+export const zQuoteKitchenQuotationResponse = zQuotationEnvelope;
+
+export const zListB2bApplicationsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListB2bApplicationsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of the caller's applications.
+ */
+export const zListB2bApplicationsResponse = z.object({
+    data: z.array(zB2bApplicationSummary),
+    meta: zPaginationMeta
+});
+
+export const zCreateB2bApplicationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The new draft.
+ */
+export const zCreateB2bApplicationResponse = zB2bApplicationEnvelope;
+
+export const zShowB2bApplicationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The application, its contacts and its locations.
+ */
+export const zShowB2bApplicationResponse = zB2bApplicationDetailEnvelope;
+
+export const zUpdateB2bApplicationSectionBody = zUpdateB2bApplicationSectionRequest;
+
+export const zUpdateB2bApplicationSectionHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateB2bApplicationSectionPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    section: zB2bApplicationSection
+});
+
+/**
+ * The application after the write.
+ */
+export const zUpdateB2bApplicationSectionResponse = zB2bApplicationEnvelope;
+
+export const zReplaceB2bApplicationContactsBody = zReplaceB2bApplicationContactsRequest;
+
+export const zReplaceB2bApplicationContactsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceB2bApplicationContactsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The stored contacts, as normalised.
+ */
+export const zReplaceB2bApplicationContactsResponse = z.object({
+    data: z.object({
+        contacts: z.array(zB2bApplicationContact)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceB2bApplicationLocationsBody = zReplaceB2bApplicationLocationsRequest;
+
+export const zReplaceB2bApplicationLocationsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceB2bApplicationLocationsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The stored locations, as normalised.
+ */
+export const zReplaceB2bApplicationLocationsResponse = z.object({
+    data: z.object({
+        locations: z.array(zB2bApplicationLocation)
+    }),
+    meta: zMeta
+});
+
+export const zListKycDocumentsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListKycDocumentsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * Every document filed against this application.
+ */
+export const zListKycDocumentsResponse = z.object({
+    data: z.array(zKycDocument),
+    meta: zMeta
+});
+
+export const zUploadKycDocumentBody = zUploadKycDocumentRequest;
+
+export const zUploadKycDocumentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUploadKycDocumentPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The stored document's metadata.
+ */
+export const zUploadKycDocumentResponse = zKycDocumentEnvelope;
+
+export const zDownloadKycDocumentHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDownloadKycDocumentPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    document: zUuid
+});
+
+export const zDownloadKycDocumentQuery = z.object({
+    purpose: z.string().min(1).max(160)
+});
+
+/**
+ * A short-lived signed URL and when it stops working.
+ */
+export const zDownloadKycDocumentResponse = zKycDocumentDownloadEnvelope;
+
+export const zSubmitB2bApplicationHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSubmitB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The submitted application.
+ */
+export const zSubmitB2bApplicationResponse = zB2bApplicationEnvelope;
+
+export const zWithdrawB2bApplicationHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zWithdrawB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The withdrawn application.
+ */
+export const zWithdrawB2bApplicationResponse = zB2bApplicationEnvelope;
+
+export const zListB2bAgreementsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListB2bAgreementsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * Every agreement version, newest first.
+ */
+export const zListB2bAgreementsResponse = z.object({
+    data: z.array(zB2bAgreement),
+    meta: zMeta
+});
+
+export const zShowB2bAgreementHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowB2bAgreementPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    agreement: zUuid
+});
+
+/**
+ * The agreement version.
+ */
+export const zShowB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zCreateB2bSignatureChallengeHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateB2bSignatureChallengePath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    agreement: zUuid
+});
+
+/**
+ * The challenge, with a masked destination, a resend countdown and
+ * an attempts counter. `debug_code` appears only in local and
+ * testing environments with code exposure switched on.
+ *
+ */
+export const zCreateB2bSignatureChallengeResponse = zOtpChallengeEnvelope;
+
+export const zSignB2bAgreementBody = zSignB2bAgreementRequest;
+
+export const zSignB2bAgreementHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignB2bAgreementPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    agreement: zUuid
+});
+
+/**
+ * The agreement, now active.
+ */
+export const zSignB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zListPlatformB2bApplicationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformB2bApplicationsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: zB2bApplicationStatus.optional(),
+    query: z.string().max(160).optional()
+});
+
+/**
+ * A page of the review queue.
+ */
+export const zListPlatformB2bApplicationsResponse = z.object({
+    data: z.array(zB2bApplicationSummary),
+    meta: zPaginationMeta
+});
+
+export const zShowPlatformB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowPlatformB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The application, its people, its pack and its duplicates.
+ */
+export const zShowPlatformB2bApplicationResponse = zB2bApplicationReviewEnvelope;
+
+export const zClaimB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zClaimB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The claimed application.
+ */
+export const zClaimB2bApplicationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zRequestB2bApplicationInformationBody = zRequestB2bApplicationInformationRequest;
+
+export const zRequestB2bApplicationInformationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRequestB2bApplicationInformationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The application, now awaiting the applicant.
+ */
+export const zRequestB2bApplicationInformationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zApproveB2bApplicationBody = zApproveB2bApplicationRequest;
+
+export const zApproveB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zApproveB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The approved application.
+ */
+export const zApproveB2bApplicationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zDeclineB2bApplicationBody = zDeclineB2bApplicationRequest;
+
+export const zDeclineB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeclineB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The declined application.
+ */
+export const zDeclineB2bApplicationResponse = zB2bApplicationReviewOnlyEnvelope;
+
+export const zProvisionB2bApplicationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zProvisionB2bApplicationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * What now exists.
+ */
+export const zProvisionB2bApplicationResponse = zB2bProvisioningEnvelope;
+
+export const zDownloadPlatformKycDocumentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDownloadPlatformKycDocumentPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    document: zUuid
+});
+
+export const zDownloadPlatformKycDocumentQuery = z.object({
+    purpose: z.string().min(1).max(160)
+});
+
+/**
+ * A short-lived signed URL and when it stops working.
+ */
+export const zDownloadPlatformKycDocumentResponse = zKycDocumentDownloadEnvelope;
+
+export const zReviewKycDocumentBody = zReviewKycDocumentRequest;
+
+export const zReviewKycDocumentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReviewKycDocumentPath = z.object({
+    document: zUuid
+});
+
+/**
+ * The reviewed document, with the internal note.
+ */
+export const zReviewKycDocumentResponse = zKycDocumentReviewEnvelope;
+
+export const zListOrganisationInvitationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListOrganisationInvitationsPath = z.object({
+    organisation: zUuid
+});
+
+export const zListOrganisationInvitationsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: zOrganisationInvitationStatus.optional()
+});
+
+/**
+ * A page of invitations.
+ */
+export const zListOrganisationInvitationsResponse = z.object({
+    data: z.array(zOrganisationInvitation),
+    meta: zPaginationMeta
+});
+
+export const zCreateOrganisationInvitationBody = zCreateOrganisationInvitationRequest;
+
+export const zCreateOrganisationInvitationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateOrganisationInvitationPath = z.object({
+    organisation: zUuid
+});
+
+/**
+ * The invitation — without its token.
+ */
+export const zCreateOrganisationInvitationResponse = zOrganisationInvitationEnvelope;
+
+export const zRevokeOrganisationInvitationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevokeOrganisationInvitationPath = z.object({
+    organisation: zUuid,
+    invitation: zUuid
+});
+
+/**
+ * The offer is withdrawn. No body, per the envelope's documented exception.
+ */
+export const zRevokeOrganisationInvitationResponse = z.void();
+
+export const zShowInvitationByTokenHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowInvitationByTokenPath = z.object({
+    token: z.string().min(32).max(128)
+});
+
+/**
+ * The invitation's own facts, with the address masked.
+ */
+export const zShowInvitationByTokenResponse = zPublicInvitationEnvelope;
+
+export const zAcceptOrganisationInvitationHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAcceptOrganisationInvitationPath = z.object({
+    token: z.string().min(32).max(128)
+});
+
+/**
+ * The accepted invitation, and an honest statement of what it granted.
+ */
+export const zAcceptOrganisationInvitationResponse = zAcceptedInvitationEnvelope;
+
+export const zListPlatformKitchensHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformKitchensQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional(),
+    status: z.enum([
+        'active',
+        'suspended',
+        'pending',
+        'closed'
+    ]).optional(),
+    query: z.string().max(160).optional()
+});
+
+/**
+ * A page of kitchens, newest first.
+ */
+export const zListPlatformKitchensResponse = z.object({
+    data: z.array(zPlatformKitchenSummary),
+    meta: zPaginationMeta
+});
+
+export const zCreatePlatformKitchenBody = zCreatePlatformKitchenRequest;
+
+export const zCreatePlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The new kitchen, in full, with its validator.
+ */
+export const zCreatePlatformKitchenResponse = zPlatformKitchenEnvelope;
+
+export const zGetPlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetPlatformKitchenPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The kitchen, its owners and its branches.
+ */
+export const zGetPlatformKitchenResponse = zPlatformKitchenEnvelope;
+
+export const zSuspendPlatformKitchenBody = zSuspendPlatformKitchenRequest;
+
+export const zSuspendPlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSuspendPlatformKitchenPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The suspended kitchen, and its new validator.
+ */
+export const zSuspendPlatformKitchenResponse = zPlatformKitchenSummaryEnvelope;
+
+export const zReactivatePlatformKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReactivatePlatformKitchenPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The kitchen, trading again, with its new validator.
+ */
+export const zReactivatePlatformKitchenResponse = zPlatformKitchenSummaryEnvelope;
+
+export const zInvitePlatformKitchenOwnerBody = zInvitePlatformKitchenOwnerRequest;
+
+export const zInvitePlatformKitchenOwnerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zInvitePlatformKitchenOwnerPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The invitation — without its token — and whether the mail was sent.
+ */
+export const zInvitePlatformKitchenOwnerResponse = zPlatformKitchenOwnerInvitationEnvelope;
+
+export const zRevokePlatformKitchenOwnerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevokePlatformKitchenOwnerPath = z.object({
+    organisation: z.union([
+        zUuid,
+        z.string().max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ]),
+    membership: zUuid
+});
+
+/**
+ * The ended membership, and how many owners this kitchen has left.
+ */
+export const zRevokePlatformKitchenOwnerResponse = zPlatformKitchenOwnerRevocationEnvelope;
+
+export const zCreateSubscriptionBody = zCreateSubscriptionRequest;
+
+export const zCreateSubscriptionHeaders = z.object({
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The subscription, with its captured price and its opening balance.
+ */
+export const zCreateSubscriptionResponse = zSubscriptionEnvelope;
+
+export const zQuoteSubscriptionHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zQuoteSubscriptionQuery = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid,
+    plan_duration_days: z.int().gte(1).lte(400)
+});
+
+/**
+ * The current quote for this configuration on this run.
+ */
+export const zQuoteSubscriptionResponse = zPlanQuoteEnvelope;
+
+export const zListMySubscriptionsHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Every subscription the caller holds, live ones first.
+ */
+export const zListMySubscriptionsResponse = zSubscriptionsEnvelope;
+
+export const zShowMySubscriptionHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowMySubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription and its balance.
+ */
+export const zShowMySubscriptionResponse = zSubscriptionEnvelope;
+
+export const zPauseSubscriptionHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPauseSubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The paused subscription and its untouched balance.
+ */
+export const zPauseSubscriptionResponse = zSubscriptionEnvelope;
+
+export const zResumeSubscriptionHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResumeSubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The resumed subscription, with the recomputed next delivery date.
+ */
+export const zResumeSubscriptionResponse = zSubscriptionEnvelope;
+
+export const zCancelSubscriptionBody = zCancelSubscriptionRequest;
+
+export const zCancelSubscriptionHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelSubscriptionPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The cancelled subscription and the credit memo, or null when nothing is owed.
+ */
+export const zCancelSubscriptionResponse = zSubscriptionCancellationEnvelope;
+
+export const zSkipSubscriptionDayBody = zSkipSubscriptionDayRequest;
+
+export const zSkipSubscriptionDayHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSkipSubscriptionDayPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The skipped day, and the unchanged balance beside it.
+ */
+export const zSkipSubscriptionDayResponse = zSubscriptionSkipEnvelope;
+
+export const zUpdateSubscriptionAddressBody = zUpdateSubscriptionAddressRequest;
+
+export const zUpdateSubscriptionAddressHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSubscriptionAddressPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription, now delivering to the named address.
+ */
+export const zUpdateSubscriptionAddressResponse = zSubscriptionEnvelope;
+
+export const zUpdateSubscriptionWindowBody = zUpdateSubscriptionWindowRequest;
+
+export const zUpdateSubscriptionWindowHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSubscriptionWindowPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription, with its new delivery window.
+ */
+export const zUpdateSubscriptionWindowResponse = zSubscriptionEnvelope;
+
+export const zUpdateSubscriptionWeekdaysBody = zUpdateSubscriptionWeekdaysRequest;
+
+export const zUpdateSubscriptionWeekdaysHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSubscriptionWeekdaysPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The subscription, with the new weekday set and the recomputed next delivery date.
+ */
+export const zUpdateSubscriptionWeekdaysResponse = zSubscriptionEnvelope;
+
+export const zReplaceSubscriptionChoicesBody = zReplaceSubscriptionChoicesRequest;
+
+export const zReplaceSubscriptionChoicesHeaders = z.object({
+    'If-Match': z.string(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceSubscriptionChoicesPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The day's chosen meals as recorded.
+ */
+export const zReplaceSubscriptionChoicesResponse = zSubscriptionChoicesEnvelope;
+
+export const zListSubscriptionDeliveriesHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSubscriptionDeliveriesPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * Every delivery day this subscription has, newest first, with the balance in `meta`.
+ */
+export const zListSubscriptionDeliveriesResponse = zSubscriptionDeliveriesEnvelope;
+
+export const zListSubscriptionScheduleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSubscriptionScheduleQuery = z.object({
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The window's deliveries, actual and projected, with the daily counts in `meta`.
+ */
+export const zListSubscriptionScheduleResponse = zSubscriptionScheduleEnvelope;
+
+export const zOpenClosureRequestBody = zOpenClosureRequestRequest;
+
+export const zOpenClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * A marketing opt-out, already completed.
+ */
+export const zOpenClosureRequestResponse = zClosureAcknowledgementEnvelope;
+
+export const zShowLiveClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The live request if there is one, and the freshly evaluated blockers either way.
+ */
+export const zShowLiveClosureRequestResponse = zLiveClosureRequestEnvelope;
+
+export const zVerifyClosureRequestBody = zVerifyClosureRequestRequest;
+
+export const zVerifyClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zVerifyClosureRequestPath = z.object({
+    closureRequest: zUuid
+});
+
+/**
+ * The proven request — scheduled, or still verified and blocked.
+ */
+export const zVerifyClosureRequestResponse = zClosureAcknowledgementEnvelope;
+
+export const zCancelClosureRequestHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelClosureRequestPath = z.object({
+    closureRequest: zUuid
+});
+
+/**
+ * The cancelled request.
+ */
+export const zCancelClosureRequestResponse = zCancelledClosureRequestEnvelope;
+
+export const zOpenClosureRequestForCustomerBody = zOpenClosureRequestRequest;
+
+export const zOpenClosureRequestForCustomerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zOpenClosureRequestForCustomerPath = z.object({
+    account: zUuid
+});
+
+/**
+ * A marketing opt-out, already completed.
+ */
+export const zOpenClosureRequestForCustomerResponse = zClosureAcknowledgementEnvelope;
+
+export const zStartOffboardingBody = zStartOffboardingRequest;
+
+export const zStartOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The wind-up, at `notice_served`, with its computed effective date.
+ */
+export const zStartOffboardingResponse = zOffboardingEnvelope;
+
+export const zShowOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up in full.
+ */
+export const zShowOffboardingResponse = zOffboardingEnvelope;
+
+export const zRunOffboardingSettlementChecksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRunOffboardingSettlementChecksPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up with the assessment recorded, moved to `awaiting_signoff` if everything was clear.
+ */
+export const zRunOffboardingSettlementChecksResponse = zOffboardingEnvelope;
+
+export const zWaiveOffboardingSettlementBody = zWaiveOffboardingSettlementRequest;
+
+export const zWaiveOffboardingSettlementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zWaiveOffboardingSettlementPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up, settlement waived, at `awaiting_signoff`.
+ */
+export const zWaiveOffboardingSettlementResponse = zOffboardingEnvelope;
+
+export const zIssueOffboardingSignoffChallengeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zIssueOffboardingSignoffChallengePath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The challenge, with a masked destination and a countdown. Never the code.
+ */
+export const zIssueOffboardingSignoffChallengeResponse = zOtpChallengeEnvelope;
+
+export const zSignOffOffboardingBody = zSignOffOffboardingRequest;
+
+export const zSignOffOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignOffOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up, signed off, with the evidence recorded.
+ */
+export const zSignOffOffboardingResponse = zOffboardingEnvelope;
+
+export const zRevokeOffboardingAccessHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevokeOffboardingAccessPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The wind-up at `revoking`. The work is queued.
+ */
+export const zRevokeOffboardingAccessResponse = zOffboardingEnvelope;
+
+export const zArchiveOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The completed wind-up, with the purge summary.
+ */
+export const zArchiveOffboardingResponse = zOffboardingEnvelope;
+
+export const zCancelOffboardingBody = zCancelOffboardingRequest;
+
+export const zCancelOffboardingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelOffboardingPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The cancelled wind-up, with the reason on the row.
+ */
+export const zCancelOffboardingResponse = zOffboardingEnvelope;
+
+export const zRequestRecordExportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRequestRecordExportPath = z.object({
+    offboarding: zUuid
+});
+
+/**
+ * The bundle request. Building is queued.
+ */
+export const zRequestRecordExportResponse = zRecordExportEnvelope;
+
+export const zShowRecordExportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowRecordExportPath = z.object({
+    offboarding: zUuid,
+    export: zUuid
+});
+
+export const zShowRecordExportQuery = z.object({
+    purpose: z.string().min(1).max(160).optional()
+});
+
+/**
+ * The bundle, with a signed download URL when a purpose was stated.
+ */
+export const zShowRecordExportResponse = zRecordExportEnvelope;

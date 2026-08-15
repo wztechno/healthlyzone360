@@ -34,6 +34,12 @@ class EnsureEmailIsVerified
             throw new ApiException(ErrorCode::AuthUnauthenticated);
         }
 
+        // A signed verification link may have updated the row while the
+        // cookie session still holds the pre-verification model in memory.
+        if ($user->email_verified_at === null) {
+            $user->refresh();
+        }
+
         if (! $user->hasVerifiedEmail()) {
             throw new ApiException(ErrorCode::AuthEmailUnverified);
         }

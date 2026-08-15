@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Support\Api;
 
-use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
@@ -49,7 +49,10 @@ final class ApiExceptionRenderer
     private function toApiError(Throwable $e): ApiError
     {
         return match (true) {
-            $e instanceof ApiException => $e->toApiError(),
+            // `ApiException` implements this too, so one arm covers both the
+            // deliberate API failure and a domain refusal that has declared
+            // its own wire shape (see the interface).
+            $e instanceof ProvidesApiError => $e->toApiError(),
             $e instanceof ValidationException => ApiError::make(
                 ErrorCode::ValidationFailed,
                 details: ['fields' => $e->errors()],

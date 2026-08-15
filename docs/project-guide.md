@@ -1,7 +1,7 @@
 # Healthy360 — Project Guide
 
 What was built across the two delivery prompts, what state the project is in, and exactly how to
-run everything on a local machine. Written 2026-07-31, current as of commit `c77967c`.
+run everything on a local machine. Written 2026-07-31, updated 2026-08-05 for real kitchen commerce.
 
 ---
 
@@ -19,10 +19,16 @@ The project was delivered in two sequenced prompts:
 | **1 — Platform foundation** | Laravel 13 API + PostgreSQL row-level security + Expo universal app, with a working end-to-end vertical slice (register → verify e-mail → pick organisation → pick branch → permissions → workspace) proven against the real API | **Complete** — 175 backend tests, acceptance suite 7/7 against the live stack |
 | **2 — Reference research + UI prototype** | 18 evidence-classified research documents on two reference products, plus a full mock-first UI prototype (~83 routes: marketplace, onboarding, nutrition, virtual dietitian, planner, commerce, B2B, professional) and six **proposed** (not implemented) API contract drafts | **Complete** — 254/254 e2e + 38/38 visual baselines; no backend domain code written |
 
-The critical honesty rule that governs everything: **the prototype is a presentation of proposed
-behaviour, not an implemented product.** Every prototype screen runs against an in-memory mock
-world behind a repository boundary; the real API implements only the foundation (auth, tenancy,
-devices, context). `apps/api` is byte-identical between the end of Prompt 1 (`b70c80a`) and today.
+The critical honesty rule that governs everything, in its post-D-087 form: **there is no mock
+mode.** The mock implementation was deleted on 2026-08-11/12 (ADR-0013, D-087); every build
+talks to the Laravel API, screens are tested against declared stub worlds, and every Playwright
+project runs the api export against the seeded Docker stack. Kitchen catalogue, marketplace,
+cart/checkout (COD), subscriptions, kitchen ops, and B2B programmes/quotations are wired.
+Surfaces with no backend (planner, nutrition, recipes/grocery, virtual dietitian, dietitian
+directory and review queue, partner supply, POS, driver, patient/clinic/insurance workspaces)
+are **hidden** by `apps/universal/src/features/availability.ts` — no entry points, direct URLs
+redirect — with `api/prototype-repositories.ts` still rejecting nameably underneath as the
+dead-man's switch.
 
 ---
 
@@ -32,7 +38,8 @@ devices, context). `apps/api` is byte-identical between the end of Prompt 1 (`b7
 
 - **Backend**: Laravel 13.23 on PHP 8.4, structured as a modular monolith (InterNACHI Modular,
   namespace `Healthy360\`) at `apps/api`. PostgreSQL 18, Redis 8, Horizon for queues (runs in the
-  Linux container only), Garage as local S3-compatible storage, Mailpit for mail testing.
+  Linux container only), Garage as local S3-compatible storage. Outgoing mail uses the `log`
+  mailer in dev (written to `apps/api/storage/logs/laravel.log`) and Brevo for real delivery.
 - **Frontend**: one Expo SDK 57 universal app (`apps/universal`) — React Native 0.86 / React 19.2
   / TypeScript 6 — targeting web, iOS and Android from a single codebase, with NativeWind 4
   (Tailwind-style utilities) and Expo Router file-based routing.
@@ -79,10 +86,11 @@ rows even with raw SQL through the app role).
 
 ### 2.5 Frontend foundation
 
-- **Repository boundary**: screens talk to hooks, hooks talk to repository interfaces, and each
-  interface has two implementations — `mock` (a deterministic in-memory world with scenarios,
-  latency simulation and localStorage persistence) and `api` (the generated client). A build is
-  pinned to one mode via `EXPO_PUBLIC_DATA_MODE`.
+- **Repository boundary**: screens talk to hooks, hooks talk to repository interfaces, and the
+  one implementation is `api` (the generated client). The full 21-repository / 238-method
+  surface is recorded as data in `packages/api-client/src/contracts/repository-surface.ts`,
+  compile-checked against the contracts and runtime-checked against the api bundle. (The former
+  `mock` implementation was deleted — ADR-0013.)
 - **Design system** (`packages/design-system` over `design-tokens`): primitives, forms, overlays,
   navigation, status components, app shells — all direction-aware (RTL via logical utilities
   only; `rtl:`/`ltr:` variants are lint-banned), theme-aware (light/dark) and axe-clean, with a
@@ -93,11 +101,12 @@ rows even with raw SQL through the app role).
 - **Foundation screens**: the full auth journey, organisation/branch pickers, workspace selector,
   profile, devices (with step-up), consent, forbidden/not-found, all with loading/empty/error
   states.
-- **Verification**: jest + React Native Testing Library for screens (against the real mock
-  repositories, not stubbed hooks), Vitest for packages, Playwright for web e2e in three
-  projects (LTR, RTL, axe accessibility), and a separate 7-test **acceptance suite** that runs
-  the real registration→workspace journey against the live Docker stack, fetching the
-  verification e-mail from Mailpit.
+- **Verification**: jest + React Native Testing Library for screens — each suite declares its
+  session and repository answers through `src/testing/stub-screen.tsx` (unstubbed calls fail
+  loudly, never silently) — Vitest for packages, and Playwright for web e2e where **every**
+  project (LTR, RTL, axe, visual, and the single-worker `web-write` mutation project) runs the
+  api export against the seeded Docker stack, reading verification e-mail from the API log (the
+  dev `log` mailer).
 
 ### 2.6 Documentation and CI
 
@@ -167,7 +176,7 @@ integration is designed as documentation only under `docs/architecture/integrati
   and builder (submission is a **real** store mutation); partner commitments and supply
   schedule; dietitian review queue, review detail and client plan.
 
-### 3.4 The guard invariants (what keeps the prototype honest)
+### 3.4 The guard invariants (what kept the prototype honest — historical; the mock world and its gates were retired by ADR-0013/D-087)
 
 - **No dead controls**: every control either genuinely mutates the mock world, or is an explicit
   `usePrototypeAction` that shows "Not built yet — nothing was changed" plus (dev builds only)
@@ -184,9 +193,10 @@ integration is designed as documentation only under `docs/architecture/integrati
 ### 3.5 The verification layer
 
 - Playwright projects: `web-ltr`, `web-rtl` (a real Arabic build), `a11y` (axe, zero
-  serious/critical), plus **visual regression** (`visual`, `visual-rtl`, `visual-dark`) with 38
-  committed baselines that are authoritative **only** from the pinned
-  `mcr.microsoft.com/playwright:v1.62.0-noble` container (host runs skip by design).
+  serious/critical) and `web-write` (the mutating journeys, one worker). There is **no**
+  screenshot-baseline project: pixel comparison was retired (D-088) because the baselines were
+  authoritative from one pinned container only, went stale on every change to the seeded world, and
+  cost more to re-shoot than the regressions they caught.
 - A responsive spec asserting structure at all seven mandated viewports (320→1440 px): no
   horizontal overflow, navigation switches form, ≥44 px touch targets, grid-vs-agenda planner.
 - Reduced-motion, prototype-action and no-external-request sweeps; export byte budgets in CI.
@@ -213,14 +223,14 @@ apps/universal/               Expo SDK 57 universal app (web + iOS + Android)
                               virtual-dietitian, planner, commerce, business, professional
   src/data/                   TanStack Query hooks + query-key registry
   src/prototype/              The honest prototype-action mechanism
-  e2e/specs/                  Playwright: *.ltr / *.rtl / *.a11y / *.visual* + sweeps
-  e2e/acceptance/             The 7-test live-API acceptance suite
+  e2e/specs/                  Playwright: *.ltr / *.rtl / *.a11y / *.visual* / *.write —
+                              all against the api export + the seeded Docker stack
 packages/
   domain-types/               Branded IDs, closed unions, Money (integer minor units)
   permissions/                The pure 7-gate permission kernel
   nutrition/                  Facts contracts + MockNutritionTargetEngine (cited formulae)
-  api-client/                 Repository contracts; mock/ (foundation) + mock/prototype/
-                              (fixture world); api/ (generated client + prototype stubs)
+  api-client/                 Repository contracts + surface table; api/ (generated client
+                              + the prototype.not_implemented stubs for unbuilt families)
   design-tokens/  design-system/  i18n/
 docs/
   architecture/               10 architecture docs, 12 ADRs, integrations, notes
@@ -265,7 +275,7 @@ bash scripts/setup.sh
 
 This does, in order: check Docker → create `apps/api/.env` from the example → host
 `composer install` → `docker compose up -d --build --wait` (Postgres on **55432**, Redis, api +
-nginx, queue/Horizon, Mailpit, Garage) → a second `composer install` **inside** the container
+nginx, queue/Horizon, Garage) → a second `composer install` **inside** the container
 (the container has its own vendor volume, because Windows junctions in the host vendor don't
 resolve in Linux binds) → object-storage init → app key → migrate + seed as the migrator role.
 
@@ -274,7 +284,7 @@ You now have:
 | Service | Address |
 | --- | --- |
 | API through nginx | <http://localhost:8080> (health check: `/up`) |
-| Mailpit (all outgoing mail lands here) | <http://localhost:8025> |
+| Outgoing mail (dev) | logged to `apps/api/storage/logs/laravel.log` |
 | PostgreSQL 18 | `localhost:55432`, db `healthy360` (app role: `healthy360_app`) |
 | Redis 8 | `localhost:6379` |
 | Garage S3 | <http://localhost:3900> |
@@ -299,57 +309,35 @@ corepack enable
 If `pnpm --version` already answers, skip corepack entirely. Ignore pnpm's "update available"
 banner — the repo pins `pnpm@11.15.1` through the `packageManager` field.
 
-### 5.3 Run the app in MOCK mode (the Prompt 2 prototype — no backend needed)
+### 5.3 Mock mode — removed
 
-This is the mode that showcases everything from Prompt 2:
+There is no mock mode any more (ADR-0013, D-087). `EXPO_PUBLIC_DATA_MODE` is gone; every run
+is §5.4 against the live backend. The seeded demo world now carries what the fixture world used
+to showcase: six photographed kitchens, eight published plans and the forty-meal catalogue.
 
-```powershell
-# Windows PowerShell (env vars are set with $env:, not VAR=value prefixes)
-cd apps/universal
-$env:EXPO_PUBLIC_DATA_MODE='mock'; $env:APP_MODE='all-dev'; npx expo start --web --clear
-```
-
-```bash
-# Git Bash / WSL / macOS / Linux
-cd apps/universal
-EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo start --web --clear
-```
-
-- Opens on <http://localhost:8081>. **Always pass `--clear`** — Metro inlines `EXPO_PUBLIC_*`
-  variables at build time and caches them, so a stale cache silently serves the wrong mode.
-- A development banner shows the active mock **scenario**; switch worlds from its picker
-  (e.g. `consumer-prototype`, `consumer-onboarding`, `multi-org-dietitian`). Switching clears
-  the session.
-- Demo accounts (password is always `password`):
-  - `layla.haddad@cedarclinic.example` — multi-organisation dietitian (foundation journey:
-    organisation picker → branch picker → workspace).
-  - `nour.saleh@example.com` — the consumer (planner, nutrition, Virtual Dietitian, commerce).
-- Tour of the prototype: start signed-out on `/` (marketplace) → `/discover`, `/kitchens`,
-  `/meals`, `/plans`, `/tools/calorie-calculator` → sign in as the consumer → `/customer`
-  (home), `/customer/onboarding/1`, `/customer/nutrition`, `/customer/virtual-dietitian`,
-  `/customer/planner`, `/customer/cart`, `/customer/subscriptions` → corporate/partner/dietitian
-  workspaces for the B2B and professional surfaces. `/showcase` is the design-system gallery.
-- Arabic/RTL: switch the locale from the banner/profile; the whole app mirrors.
-- Native: `npx expo start --clear` with the same env, then press `a`/`i` or scan with Expo Go.
-
-### 5.4 Run the app in API mode (the implemented foundation, against the live backend)
+### 5.4 Run the app (against the live backend)
 
 ```powershell
 # Windows PowerShell — stack must be up (5.1)
 cd apps/universal
-$env:EXPO_PUBLIC_DATA_MODE='api'; $env:EXPO_PUBLIC_API_URL='http://localhost:8080'; $env:APP_MODE='all-dev'; npx expo start --web --clear
+$env:EXPO_PUBLIC_API_URL='http://localhost:8080'; $env:APP_MODE='all-dev'; npx expo start --web --clear
 ```
 
 ```bash
 # Git Bash / WSL / macOS / Linux — stack must be up (5.1)
 cd apps/universal
-EXPO_PUBLIC_DATA_MODE=api EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo start --web --clear
+EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo start --web --clear
 ```
 
-In api mode only the foundation is real: registration (verification e-mail appears in Mailpit at
-<http://localhost:8025>), sign-in, organisation/branch/workspace, profile, devices with step-up
-revocation, consent. Every Prompt 2 repository method answers `prototype.not_implemented` — by
-design (the contracts are proposals, not implementations).
+Real end to end: registration (verification e-mail is written to the API log,
+`apps/api/storage/logs/laravel.log`), sign-in (incl. the seeded 2FA account
+`two-factor@cedar.test`, TOTP secret `DemoTenantSeeder::DEMO_TOTP_SECRET`),
+organisation/branch/workspace, profile, devices with step-up revocation, consent, the
+six-kitchen marketplace with its forty meals and eight plans, cart/checkout (COD),
+subscriptions, the whole kitchen workspace (catalogue, recipes, pricing, delivery, plans,
+orders, KDS, inventory/ops), and B2B programmes/quotations. The families with no backend are
+hidden from the UI entirely (§1); their repository methods still answer
+`prototype.not_implemented` if reached by code.
 
 ### 5.5 Run the test suites
 
@@ -369,47 +357,32 @@ pnpm run i18n:check
 pnpm run gen:api:check
 ```
 
-End-to-end (mock world — export once, then run; the config serves `dist/` on port 4173):
+End-to-end (against the seeded live stack — export the api artefact once, then run; the config
+serves `dist-api/` on port 4173):
 
 ```powershell
-# Windows PowerShell
+# Windows PowerShell — stack must be up and seeded (5.1)
 cd apps/universal
-$env:EXPO_PUBLIC_DATA_MODE='mock'; $env:APP_MODE='all-dev'; npx expo export -p web --clear
-npx playwright test                                 # 254 tests; 38 visual skip on the host
-npx playwright test e2e/specs/planner.ltr.spec.ts   # one file while iterating
+$env:EXPO_PUBLIC_API_URL='http://localhost:8080'; $env:APP_MODE='all-dev'; npx expo export -p web --output-dir dist-api --clear
+npx playwright test --project=web-ltr --project=web-rtl --project=a11y   # read-only projects, parallel
+npx playwright test --project=web-write --workers=1                      # mutating specs, single worker
+npx playwright test e2e/specs/catalogue.ltr.spec.ts                      # one file while iterating
 ```
 
 ```bash
 # Git Bash / WSL / macOS / Linux
 cd apps/universal
-EXPO_PUBLIC_DATA_MODE=mock APP_MODE=all-dev npx expo export -p web --clear
-npx playwright test
+EXPO_PUBLIC_API_URL=http://localhost:8080 APP_MODE=all-dev npx expo export -p web --output-dir dist-api --clear
+npx playwright test --project=web-ltr --project=web-rtl --project=a11y
+npx playwright test --project=web-write --workers=1
 ```
 
-Acceptance (the live-API proof — stack must be up):
+Set `E2E_RESET_DB=1` on the playwright invocation to `migrate:fresh --seed` first (the global
+setup refuses unless `apps/api/.env` says `APP_ENV=local|testing`).
 
-```powershell
-# Windows PowerShell
-cd apps/api; php artisan migrate:fresh --database=pgsql_migrations --seed --force
-cd ../universal
-$env:EXPO_PUBLIC_DATA_MODE='api'; $env:APP_MODE='all-dev'; pnpm run build:web:api
-pnpm run e2e:acceptance                             # 7 tests against http://localhost:8080
-```
-
-```bash
-# Git Bash / WSL / macOS / Linux
-cd apps/api && php artisan migrate:fresh --database=pgsql_migrations --seed --force
-cd ../universal
-EXPO_PUBLIC_DATA_MODE=api APP_MODE=all-dev pnpm run build:web:api
-pnpm run e2e:acceptance
-```
-
-Visual regression (Docker required; run from **PowerShell at the repo root** — see 5.7):
-
-```bash
-pnpm -w run e2e:visual            # compare against the 38 committed baselines
-pnpm -w run e2e:visual:update     # re-capture baselines (only after intentional UI changes)
-```
+The former standalone acceptance suite is folded into the write specs above (`*.write.spec.ts`
+under `e2e/specs/` — registration, devices, workspace incl. the seeded 2FA account, commerce);
+`pnpm run e2e:write` is its successor and there is no separate `e2e:acceptance` config.
 
 Export budget check: `cd apps/universal && pnpm run budget:export`.
 
@@ -428,8 +401,6 @@ docker compose up -d --wait        # daily start (setup is one-time)
 | App behaves like the wrong data mode | Metro cached the inlined env. Re-run any `expo start`/`export` **with `--clear`**. |
 | Queue/api container crash-loops after host `composer install` | Host vendor contains Windows junctions Linux can't resolve. Run `docker compose exec -T api composer install`, then `docker compose restart queue nginx`. |
 | Docker engine won't start from a script | `com.docker.service` needs an elevated (UAC) first start — launch Docker Desktop interactively once. |
-| `e2e:visual` fails with a mangled `C:\c\...` path | Don't run the visual scripts from Git Bash with `MSYS_NO_PATHCONV`; use PowerShell at the repo root: `pnpm -w run e2e:visual`. |
-| Visual tests "skipped" locally | By design (D-031): baselines are only valid from the pinned Linux container; the scripts above run it for you. |
 | Acceptance devices tests fail on the first run after a fresh reseed | Observed once; passed on re-run and in isolation — consistent with login throttling across rapid same-account sign-ins. Re-run before investigating. |
 | Migrations fail with permission errors | You ran them as the runtime role. Always migrate via the migrator connection: `php artisan migrate --database=pgsql_migrations`. |
 | `VAR=value command` → "not recognized as the name of a cmdlet" | That is bash syntax and you are in PowerShell. Use the PowerShell variants above: `$env:VAR='value'; command`. |
@@ -437,12 +408,35 @@ docker compose up -d --wait        # daily start (setup is one-time)
 
 ---
 
-## 6. Where to read more
+## 6. Still deferred (honest absences)
+
+These stay out of the primary product path until their modules graduate. Nav hides or labels them
+`planned`; API-mode screens must not invent behaviour.
+
+| Surface | Why deferred |
+| --- | --- |
+| Planner / MealPlanning (N1) | No meal-plan backend; consumption tracking OQ-017 |
+| Nutrition targets as authoritative clinical data | Engine is prototype-labelled; N1 owns a real source |
+| Virtual Dietitian | No VD session API |
+| Dietitian public directory | Marketplace dietitians stay `planned` |
+| Clinical / patient intake | CL1 not started |
+| Partner supply commitments / schedule | B9 — no supplier resource; API mode shows deferred empty |
+| Quotation PDF / document export | B8 — status only in v1 |
+| Full purchase-order UI | O2 receipts-only |
+| Production task UI | O5 |
+| Live card PSP | Sandbox/COD only |
+| SMS / WhatsApp OTP production provider | Log drivers only (A-011) |
+| Malware scan for new KYC uploads | OQ-035 still open |
+
+---
+
+## 7. Where to read more
 
 - `docs/architecture/00-executive-summary.md` — start here for architecture.
 - `docs/architecture/adr/` — the twelve ADRs (RLS, tenancy, auth, spec-first API, ...).
-- `docs/requirements/completion-report.md` — Prompt 1 completion report.
+- `docs/requirements/foundation-completion-report.md` — Prompt 1 (Phase 1 foundation) completion report.
 - `docs/requirements/prompt2-completion-report.md` — Prompt 2, all fourteen mandated sections.
 - `docs/reference-research/` — the research corpus (00 scope → 17 recommendations).
 - `docs/api/proposed/` — the draft contracts the backend phase would implement.
-- `docs/registers/` — decisions (D-001–033), open questions (OQ-001–028), risks, assumptions.
+- `docs/registers/` — decisions (D-001–086), open questions, risks, assumptions.
+- `apps/universal/e2e/acceptance/` — real-API Playwright acceptance (after `build:web:api`).

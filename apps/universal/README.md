@@ -22,24 +22,24 @@ POS, KDS and driver stay prototypes until their hardware and offline requirement
 (plan §16), so `eas.json` gives them `*-preview` profiles only and `app.config.ts` refuses to
 configure them with `APP_ENV=production`.
 
-## Mock data cannot ship
+## There is no mock data
 
-`app.config.ts` throws when `APP_ENV=production` and `EXPO_PUBLIC_DATA_MODE` is anything other than
-`api`. This is gate #1 of the two required by plan §18 — it fails the *configuration* step, so no
-production artefact can be produced at all. Prove it:
-
-```bash
-APP_ENV=production EXPO_PUBLIC_DATA_MODE=mock pnpm --filter universal exec expo config
-# → Refusing to configure a production build with mock data.
-```
-
-Gate #2 is a runtime assertion inside the repository factory, added with the repositories in 5b.
+The mock implementation was deleted (ADR-0013, D-087): every build talks to the Laravel API, and
+`EXPO_PUBLIC_DATA_MODE` no longer exists. The guard that survives is in the repository factory —
+a production build refuses to boot without a real `EXPO_PUBLIC_API_URL`
+(`MissingApiBaseUrlError` in `packages/api-client/src/registry.ts`), so a production artefact can
+never quietly fall back to `localhost`. Features without a backend are hidden from users by
+`src/features/availability.ts`; their repository methods reject with `prototype.not_implemented`
+if code ever reaches them.
 
 ## Commands
 
+Copy `.env.example` to `.env` once (already done for local clones that create `.env`). The app
+reads `EXPO_PUBLIC_API_URL` from it (the committed default points at the local stack).
+
 ```bash
-pnpm --filter universal dev            # expo start
-pnpm --filter universal build:web      # expo export -p web
+pnpm --filter universal dev            # expo start (reads apps/universal/.env)
+pnpm --filter universal build:web      # expo export -p web into dist-api (the only artefact)
 pnpm --filter universal test           # jest-expo render tests
 pnpm --filter universal typecheck
 pnpm --filter universal lint

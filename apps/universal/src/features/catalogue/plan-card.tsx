@@ -3,7 +3,6 @@ import {
     Button,
     Card,
     Checkbox,
-    Chip,
     Inline,
     Rating,
     Stack,
@@ -14,7 +13,8 @@ import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
 import { EntityImage } from '../../media/entity-image.tsx';
-import { formatMoney } from '../marketplace/format.ts';
+import { PlanDurationSelector } from './plan-duration-selector.tsx';
+import { PlanPrice } from './plan-price.tsx';
 
 /**
  * A subscription plan in the catalogue.
@@ -22,21 +22,23 @@ import { formatMoney } from '../marketplace/format.ts';
  * ## Why the card is not itself pressable
  *
  * Every other card on the marketplace is one big button, and that is right for a kitchen or a meal:
- * one target, one destination. A plan card carries a *second* control — the comparison checkbox —
- * and a checkbox nested inside a button is unreachable by keyboard on the web, ambiguous to a
- * screen reader, and on touch it means the person who wanted to tick "compare" opens the plan
- * instead. So the card is a plain grouping element with two named controls inside it.
+ * one target, one destination. A plan card carries *three* controls — the comparison checkbox, the
+ * commitment picker and the open action — and a checkbox nested inside a button is unreachable by
+ * keyboard on the web, ambiguous to a screen reader, and on touch it opens the plan when the person
+ * meant to tick "compare". So the card is a plain grouping element with named controls inside it.
  *
- * ## The two price units
+ * ## The reading order
  *
- * Both the weekly figure and its daily equivalent are shown, with the weekly one primary. Doc 17,
- * SUB-09 records the reference product switching units between catalogue and detail, which makes
- * the same plan look cheaper in one place than the other; showing both everywhere removes the
- * possibility rather than relying on care.
+ * Who cooked it, what it is called, what it is for, how well it is rated — then the two things a
+ * person actually decides between, kept visually apart: the *calorie bands* it is built around, and
+ * the *commitment* and its discount. The price closes the card because it is the last question, and
+ * it is shown in both units at once so the same plan can never look cheaper here than on its page.
  */
 export interface PlanCardProps {
     readonly plan: SubscriptionPlan;
     readonly onOpen: () => void;
+    /** The kitchen's name, resolved by the screen — plans carry only a `kitchenId`. */
+    readonly kitchenName?: string | undefined;
     /** Omit to render the card without a comparison control (the diet page does). */
     readonly comparison?:
         | {
@@ -49,24 +51,18 @@ export interface PlanCardProps {
     readonly testID?: string | undefined;
 }
 
-/** Days in a week — the divisor behind the "per day" figure, named rather than inline. */
-const DAYS_PER_WEEK = 7;
-
-export function PlanCard({ plan, onOpen, comparison, testID }: PlanCardProps) {
+export function PlanCard({ plan, onOpen, kitchenName, comparison, testID }: PlanCardProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const resolvedTestID = testID ?? `plan-card-${plan.slug}`;
 
-    const cheapest = plan.variants.reduce<SubscriptionPlan['variants'][number] | null>(
-        (lowest, variant) =>
-            lowest === null || variant.pricePerWeek.amount < lowest.pricePerWeek.amount
-                ? variant
-                : lowest,
-        null,
-    );
-
     return (
-        <Card testID={resolvedTestID} padding="none" tone="raised">
+        <Card
+            testID={resolvedTestID}
+            padding="none"
+            tone="raised"
+            className="self-stretch overflow-hidden hover:shadow-elevation-2"
+        >
             <EntityImage
                 testID={`${resolvedTestID}-image`}
                 assetId={plan.imagePlaceholderId}
@@ -76,91 +72,78 @@ export function PlanCard({ plan, onOpen, comparison, testID }: PlanCardProps) {
                 aspect="wide"
             />
 
-            <Stack space="sm" className="p-4">
-                <Text variant="bodyStrong">{plan.name}</Text>
-                <Text tone="secondary" variant="caption" numberOfLines={3}>
-                    {plan.summary}
-                </Text>
-
-                {plan.rating === null ? null : (
-                    <Rating
-                        testID={`${resolvedTestID}-rating`}
-                        label={t('catalogue:plans.ratingLabel', { plan: plan.name })}
-                        value={plan.rating}
-                        count={plan.ratingCount}
-                        size="sm"
-                    />
-                )}
-
-                <Inline space="xs" wrap testID={`${resolvedTestID}-bands`}>
-                    {plan.variants.map((variant) => (
-                        <Badge
-                            key={variant.id}
-                            tone="neutral"
-                            label={t('catalogue:plans.energyBand', {
-                                min: formatter.formatNumber(variant.energyRange.min),
-                                max: formatter.formatNumber(variant.energyRange.max),
-                            })}
-                        />
-                    ))}
-                </Inline>
-
-                <Inline space="xs" wrap>
-                    {plan.durations.map((option) => (
-                        <Chip
-                            key={option.duration}
-                            tone={option.discountPercent > 0 ? 'brand' : 'neutral'}
-                            label={
-                                option.discountPercent > 0
-                                    ? t('catalogue:compare.durationOption', {
-                                          duration: t(
-                                              `catalogue:compare.duration.${option.duration}`,
-                                          ),
-                                          discount: formatter.formatNumber(option.discountPercent),
-                                      })
-                                    : t(`catalogue:compare.duration.${option.duration}`)
-                            }
-                        />
-                    ))}
-                </Inline>
-
-                {cheapest === null ? null : (
-                    <Stack space="none">
-                        <Text testID={`${resolvedTestID}-price`} variant="bodyStrong">
-                            {t('catalogue:plans.fromPrice', {
-                                price: formatMoney(formatter, cheapest.pricePerWeek),
-                            })}
-                        </Text>
+            <Stack space="md" className="flex-1 p-4">
+                <Stack space="xs">
+                    {kitchenName === undefined ? null : (
                         <Text tone="secondary" variant="caption">
-                            {t('catalogue:plans.perDayPrice', {
-                                price: formatMoney(formatter, {
-                                    amount: Math.round(
-                                        cheapest.pricePerWeek.amount / DAYS_PER_WEEK,
-                                    ),
-                                    currency: cheapest.pricePerWeek.currency,
-                                }),
-                            })}
+                            {t('catalogue:plans.byKitchen', { kitchen: kitchenName })}
                         </Text>
+                    )}
+                    <Text variant="bodyStrong" className="text-lg leading-snug">
+                        {plan.name}
+                    </Text>
+                    <Text tone="secondary" variant="caption" numberOfLines={2}>
+                        {plan.summary}
+                    </Text>
+                    {plan.rating === null ? null : (
+                        <Rating
+                            testID={`${resolvedTestID}-rating`}
+                            label={t('catalogue:plans.ratingLabel', { plan: plan.name })}
+                            value={plan.rating}
+                            count={plan.ratingCount}
+                            size="sm"
+                        />
+                    )}
+                </Stack>
+
+                <Stack space="xs" className="border-t border-stroke-subtle pt-3">
+                    <Text variant="label" tone="secondary">
+                        {t('catalogue:plans.bandsLabel')}
+                    </Text>
+                    <Inline space="xs" wrap testID={`${resolvedTestID}-bands`}>
+                        {plan.variants.map((variant) => (
+                            <Badge
+                                key={variant.id}
+                                tone="neutral"
+                                label={t('catalogue:plans.energyBand', {
+                                    min: formatter.formatNumber(variant.energyRange.min),
+                                    max: formatter.formatNumber(variant.energyRange.max),
+                                })}
+                            />
+                        ))}
+                    </Inline>
+                </Stack>
+
+                <PlanDurationSelector plan={plan} testID={`${resolvedTestID}-duration`} />
+
+                {/* The commercial block sits apart from the nutrition above it, and grows to the
+                    bottom so every card's price and actions line up on a shared baseline. */}
+                <Stack space="sm" className="mt-auto border-t border-stroke-subtle pt-3">
+                    <PlanPrice plan={plan} testID={`${resolvedTestID}-price`} />
+
+                    <Stack space="sm">
+                        {comparison === undefined ? null : (
+                            <Checkbox
+                                testID={`${resolvedTestID}-compare`}
+                                id={`${resolvedTestID}-compare`}
+                                label={t('catalogue:plans.compareLabel')}
+                                checked={comparison.selected}
+                                disabled={comparison.disabled}
+                                onChange={comparison.onChange}
+                            />
+                        )}
+                        <Button
+                            testID={`${resolvedTestID}-open`}
+                            variant="primary"
+                            block
+                            label={t('catalogue:plans.viewPlan')}
+                            accessibilityLabel={t('catalogue:plans.viewPlanNamed', {
+                                plan: plan.name,
+                            })}
+                            onPress={onOpen}
+                        />
                     </Stack>
-                )}
-
-                {comparison === undefined ? null : (
-                    <Checkbox
-                        testID={`${resolvedTestID}-compare`}
-                        id={`${resolvedTestID}-compare`}
-                        label={t('catalogue:plans.compareLabel')}
-                        checked={comparison.selected}
-                        disabled={comparison.disabled}
-                        onChange={comparison.onChange}
-                    />
-                )}
-
-                <Button
-                    testID={`${resolvedTestID}-open`}
-                    variant="secondary"
-                    label={t('catalogue:compare.openPlan', { plan: plan.name })}
-                    onPress={onOpen}
-                />
+                </Stack>
             </Stack>
         </Card>
     );

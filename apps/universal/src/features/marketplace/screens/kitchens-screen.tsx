@@ -1,4 +1,4 @@
-import { Breadcrumbs, Button, Heading, Stack, Text } from '@healthy360/design-system';
+import { Button, Stack } from '@healthy360/design-system';
 import type { KitchenFilter } from '@healthy360/api-client/contracts';
 import type { SalesChannel } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
@@ -7,9 +7,19 @@ import { useTranslation } from 'react-i18next';
 
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { FilterBar, useMarketplaceFilters } from '../filter-bar.tsx';
+import { PageHero } from '../../../ui/page-hero.tsx';
 import { CardGrid, CardGridItem } from '../section-header.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
 import { QueryStates } from '../query-states.tsx';
+
+/**
+ * Consumer listing channel switches a public kitchen directory may require.
+ *
+ * Maps to `MarketplaceChannels::listingKinds` (`b2c_web` → `b2c`, plus
+ * `marketplace`). Filtering only for `marketplace` hides kitchens that sell
+ * solely through their own web shop — Verdant's demo channel is exactly that.
+ */
+const LISTING_CHANNELS: readonly SalesChannel[] = ['b2c', 'marketplace'];
 
 /** Cuisines offered as filters. Fixed rather than derived, so the control does not reflow per page. */
 const CUISINES: readonly string[] = [
@@ -28,10 +38,9 @@ const GROUP_KEYS = ['cuisine', 'channel'] as const;
 /**
  * The kitchen directory.
  *
- * Every kitchen shown here is configured for the marketplace channel. That filter is not a
- * convenience: two of the six fixture kitchens sell only wholesale or only over a counter, and
- * listing them to a household would advertise something that cannot be bought. Privacy and honesty
- * by construction rather than by copy.
+ * Every kitchen shown here runs at least one consumer listing channel (`b2c`
+ * and/or `marketplace`). Extra chips narrow further; they never replace that
+ * baseline.
  */
 export function KitchensScreen() {
     const { t } = useTranslation();
@@ -44,8 +53,7 @@ export function KitchensScreen() {
         const cuisines = selected['cuisine'] ?? [];
         const channels = (selected['channel'] ?? []) as readonly SalesChannel[];
         return {
-            // `marketplace` is always required; the chips add to it rather than replacing it.
-            channels: ['marketplace', ...channels],
+            channels: [...LISTING_CHANNELS, ...channels],
             ...(searchTerm === '' ? {} : { query: searchTerm }),
             ...(cuisines.length === 0 ? {} : { cuisines }),
         };
@@ -56,9 +64,14 @@ export function KitchensScreen() {
 
     return (
         <Stack space="lg" testID="kitchens-screen">
-            <Breadcrumbs
-                testID="kitchens-breadcrumbs"
-                items={[
+            {/*
+             * Rule 3: a browse surface opens with weight. The breadcrumbs move inside the band and
+             * the heading becomes the display face on the canopy, so the page says what it is
+             * before it says how to filter it.
+             */}
+            <PageHero
+                testID="kitchens"
+                breadcrumbs={[
                     {
                         key: 'home',
                         label: t('marketplace:nav.home'),
@@ -66,16 +79,14 @@ export function KitchensScreen() {
                             router.push('/');
                         },
                     },
-                    { key: 'kitchens', label: t('marketplace:nav.kitchens') },
+                    {
+                        key: 'kitchens',
+                        label: t('marketplace:nav.kitchens'),
+                    },
                 ]}
+                title={t('marketplace:kitchens.title')}
+                subtitle={t('marketplace:kitchens.subtitle')}
             />
-
-            <Stack space="xs">
-                <Heading level={1} testID="kitchens-title">
-                    {t('marketplace:kitchens.title')}
-                </Heading>
-                <Text tone="secondary">{t('marketplace:kitchens.subtitle')}</Text>
-            </Stack>
 
             <FilterBar
                 testID="kitchens-filter"
@@ -119,7 +130,7 @@ export function KitchensScreen() {
             >
                 <CardGrid testID="kitchens-grid">
                     {kitchens.map((kitchen) => (
-                        <CardGridItem key={kitchen.id}>
+                        <CardGridItem key={String(kitchen.id)}>
                             <KitchenCard
                                 kitchen={kitchen}
                                 onPress={() => {

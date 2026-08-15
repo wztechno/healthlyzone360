@@ -17,7 +17,7 @@ export const spacing: Readonly<Record<`${SpacingStep}`, number>> = Object.fromEn
     SPACING_STEPS.map((step) => [String(step), step * SPACING_BASE]),
 ) as Record<`${SpacingStep}`, number>;
 
-export const RADIUS_NAMES = ['none', 'xs', 'sm', 'md', 'lg', 'xl', '2xl', 'full'] as const;
+export const RADIUS_NAMES = ['none', 'xs', 'sm', 'md', 'lg', 'panel', 'xl', '2xl', 'full'] as const;
 export type RadiusName = (typeof RADIUS_NAMES)[number];
 
 export const radius: Readonly<Record<RadiusName, number>> = {
@@ -26,6 +26,21 @@ export const radius: Readonly<Record<RadiusName, number>> = {
     sm: 4,
     md: 8,
     lg: 12,
+    /**
+     * Panels, trays and editor frames — the boxes that *hold* content rather than being content.
+     *
+     * Named rather than sized because the scale has no free t-shirt slot between `lg` and `xl`,
+     * and renumbering the whole ramp to open one would move every corner in the product to buy a
+     * name. It is emitted exactly like its neighbours (`--h360-radius-panel`, `rounded-panel`), so
+     * it is one entry in one scale rather than a second convention beside it.
+     *
+     * 14, deliberately below the 16 of a content card: a panel that holds cards should not be
+     * rounder than the cards inside it. It replaces both an ad-hoc `rounded-[14px]` that had spread
+     * to seven call sites and a `rounded-2xl` (24) that had become the loosest corner in the
+     * product — on the densest screens, which is where it read worst. The product owner rejected 20
+     * for that same reason; 24 was never argued for at all.
+     */
+    panel: 14,
     xl: 16,
     '2xl': 24,
     // Large enough to fully round any control the design system ships.

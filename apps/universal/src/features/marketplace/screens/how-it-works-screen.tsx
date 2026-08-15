@@ -3,6 +3,7 @@ import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { isFeatureAvailable } from '../../availability.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { SectionHeader } from '../section-header.tsx';
@@ -106,14 +107,16 @@ export function HowItWorksScreen() {
                             router.push('/kitchens');
                         }}
                     />
-                    <Button
-                        testID="how-it-works-dietitians"
-                        variant="secondary"
-                        label={t('marketplace:howItWorks.meetDietitians')}
-                        onPress={() => {
-                            router.push('/dietitians');
-                        }}
-                    />
+                    {isFeatureAvailable('dietitianDirectory') ? (
+                        <Button
+                            testID="how-it-works-dietitians"
+                            variant="secondary"
+                            label={t('marketplace:howItWorks.meetDietitians')}
+                            onPress={() => {
+                                router.push('/dietitians');
+                            }}
+                        />
+                    ) : null}
                     <Button
                         testID="how-it-works-register"
                         variant="ghost"

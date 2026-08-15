@@ -36,6 +36,13 @@ import { SUPPLY_HORIZON_DAYS, supplyDates } from '../format.ts';
  * inverted here relative to the commitments screen: one card per date, every line due on it, and the
  * quantity beside each. No prices — see the commitments screen for why that is a decision rather
  * than an omission.
+ *
+ * ## Unreachable while `partnerSupply` is unavailable
+ *
+ * Schedule is derived from commitments, and there is no partner commitments API. The whole
+ * `partner` area is therefore hidden by `src/features/availability.ts` and `AreaShell` redirects out
+ * of it, so this screen has no visitor to show a deferred empty state to — the branch that rendered
+ * one is gone rather than left as a comparison that can only ever be false.
  */
 
 /** How many supply days each line contributes. Four weeks of a five-day line is twenty. */
@@ -140,7 +147,7 @@ export function PartnerScheduleScreen() {
             <Inline space="sm" wrap>
                 <Button
                     testID="partner-schedule-back"
-                    variant="secondary"
+                    variant="quiet"
                     label={t('business:schedule.back')}
                     onPress={() => {
                         router.push('/partner' as never);

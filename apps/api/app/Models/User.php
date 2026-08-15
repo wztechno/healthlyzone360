@@ -6,6 +6,9 @@ namespace App\Models;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
+use Healthy360\Identity\Enums\ContactChannel;
+use Healthy360\Identity\Enums\UserStatus;
+use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Identity\Models\UserDevice;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Models\OrganisationMembership;
@@ -36,6 +39,9 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $id
  * @property string $email
  * @property CarbonImmutable|null $email_verified_at
+ * @property UserStatus $status
+ * @property CarbonImmutable|null $closed_at
+ * @property CarbonImmutable|null $anonymised_at
  * @property string $password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
@@ -46,6 +52,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read UserProfile|null $profile
  * @property-read Collection<int, UserDevice> $devices
  * @property-read Collection<int, OrganisationMembership> $memberships
+ * @property-read Collection<int, ContactPoint> $contactPoints
  */
 #[Fillable(['email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -67,6 +74,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'status' => UserStatus::class,
+            'closed_at' => 'datetime',
+            'anonymised_at' => 'datetime',
         ];
     }
 
@@ -92,5 +102,35 @@ class User extends Authenticatable implements MustVerifyEmail
     public function memberships(): HasMany
     {
         return $this->hasMany(OrganisationMembership::class);
+    }
+
+    /**
+     * Every destination this person can be reached at.
+     *
+     * @return HasMany<ContactPoint, $this>
+     */
+    public function contactPoints(): HasMany
+    {
+        return $this->hasMany(ContactPoint::class);
+    }
+
+    /**
+     * The contact point mirroring `email` — the single row that must agree
+     * with the login identity (master plan v2 §4.10).
+     *
+     * A relation rather than a query helper because the drift check, the
+     * verification listener and the account surface all need the same row, and
+     * three lookups keyed on three predicates is how the mirror silently stops
+     * being one. `contact_points_login_identity_unique` guarantees there is at
+     * most one, so `HasOne` is a statement about the schema rather than an
+     * assumption.
+     *
+     * @return HasOne<ContactPoint, $this>
+     */
+    public function loginContact(): HasOne
+    {
+        return $this->hasOne(ContactPoint::class)
+            ->where('is_login_identity', true)
+            ->where('channel', ContactChannel::Email);
     }
 }

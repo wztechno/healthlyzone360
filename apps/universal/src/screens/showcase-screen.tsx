@@ -16,14 +16,17 @@ import {
     Card,
     Checkbox,
     Chip,
+    Collapse,
     DateField,
     Dialog,
     Drawer,
     EmptyState,
     ErrorState,
     FadeIn,
+    FileUploadField,
     FilterChip,
     Heading,
+    ICON_GLYPHS,
     Icon,
     IconButton,
     ImagePlaceholder,
@@ -33,7 +36,9 @@ import {
     NUTRITION_LEVELS,
     NumberStepper,
     OfflineIndicator,
+    OtpInput,
     PageTransition,
+    Pagination,
     PasswordInput,
     Popover,
     ProgressRing,
@@ -53,11 +58,17 @@ import {
     useAnimatedNumber,
     useToast,
 } from '@healthy360/design-system';
-import type { RangeValue, TableColumn } from '@healthy360/design-system';
+import type { IconName, RangeValue, TableColumn } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'nativewind';
+import { Text as RNText, View } from 'react-native';
+
+import { EntityImage, MediaChip } from '../media/entity-image.tsx';
+import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
+import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
+import { PageHero } from '../ui/page-hero.tsx';
 
 interface SectionProps {
     readonly id: string;
@@ -86,6 +97,17 @@ const NUTRIENT_ROWS: readonly NutrientRow[] = [
     { key: 'carbohydrate', name: 'Carbohydrate', amount: '210 g', target: '240 g' },
     { key: 'fibre', name: 'Fibre', amount: '22 g', target: '30 g' },
 ];
+
+/**
+ * The sortable table story sorts its own rows, because {@link Table} deliberately does not: it
+ * reports the intent and the owner of the data decides what "sorted" means.
+ */
+const NUTRIENT_SORT_KEYS = ['name', 'amount', 'target'] as const;
+type NutrientSortKey = (typeof NUTRIENT_SORT_KEYS)[number];
+
+function isNutrientSortKey(value: string): value is NutrientSortKey {
+    return (NUTRIENT_SORT_KEYS as readonly string[]).includes(value);
+}
 
 /** Rendered inside the motion section so the animated figure has something to travel towards. */
 function AnimatedFigure({ value }: { readonly value: number }) {
@@ -117,8 +139,13 @@ export function ShowcaseScreen() {
     const [sheetOpen, setSheetOpen] = useState(false);
     const [checked, setChecked] = useState(false);
     const [selected, setSelected] = useState<string | null>(null);
+    const [filtered, setFiltered] = useState<string | null>(null);
+    const [sortKey, setSortKey] = useState<NutrientSortKey>('name');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [text, setText] = useState('');
+    const [otp, setOtp] = useState('');
     const [tab, setTab] = useState('overview');
+    const [showcasePage, setShowcasePage] = useState(18);
     const [segment, setSegment] = useState('overview');
     const [portion, setPortion] = useState<number | null>(2);
     const [range, setRange] = useState<RangeValue>({ min: 300, max: 700 });
@@ -129,6 +156,13 @@ export function ShowcaseScreen() {
     const options = [1, 2, 3].map((index) => ({
         value: `option-${index}`,
         label: t('designSystem:showcase.sampleOption', { index }),
+    }));
+
+    /** Long enough that filtering it is worth doing, which is the point of the story. */
+    const manyOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((index) => ({
+        value: `filtered-option-${index}`,
+        label: t('designSystem:showcase.sampleOption', { index }),
+        description: t('designSystem:showcase.sampleHint'),
     }));
 
     const tabs = [
@@ -161,6 +195,8 @@ export function ShowcaseScreen() {
             key: 'amount',
             header: t('designSystem:showcase.tableColumnAmount'),
             numeric: true,
+            // The one figure a reader compares down the column, so it carries the display face.
+            primary: true,
             render: (row) => <Text align="end">{row.amount}</Text>,
         },
         {
@@ -170,6 +206,16 @@ export function ShowcaseScreen() {
             render: (row) => <Text align="end">{row.target}</Text>,
         },
     ];
+
+    const sortableColumns: readonly TableColumn<NutrientRow>[] = columns.map((column) => ({
+        ...column,
+        sortable: true,
+    }));
+
+    const sortedNutrientRows = [...NUTRIENT_ROWS].sort((left, right) => {
+        const comparison = left[sortKey].localeCompare(right[sortKey], locale, { numeric: true });
+        return sortDirection === 'asc' ? comparison : -comparison;
+    });
 
     return (
         <PageTransition testID="showcase-page">
@@ -267,6 +313,48 @@ export function ShowcaseScreen() {
                             onPress={() => undefined}
                         />
                     </Inline>
+                    {/*
+                     * The emphasis order the shells now use, shown as a row so it can be judged as
+                     * one. The thing to check is that the eye lands on Basket and not on Sign out
+                     * — the inversion is the point, and it is only visible in company.
+                     */}
+                    <Inline space="xs" align="center">
+                        <Button
+                            testID="showcase-emphasis-locale"
+                            size="sm"
+                            variant="ghost"
+                            label="العربية"
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID="showcase-emphasis-my-home"
+                            size="sm"
+                            variant="ghost"
+                            label="My home"
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID="showcase-emphasis-basket"
+                            size="sm"
+                            variant="primary"
+                            label="Basket"
+                            iconEnd={
+                                <View className="rounded-full bg-surface-raised px-2 py-0.5">
+                                    <RNText className="text-xs font-bold text-surface-brand">
+                                        3
+                                    </RNText>
+                                </View>
+                            }
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID="showcase-emphasis-sign-out"
+                            size="sm"
+                            variant="quiet"
+                            label="Sign out"
+                            onPress={() => undefined}
+                        />
+                    </Inline>
                 </Section>
 
                 <Section id="forms" title={t('designSystem:showcase.sections.forms')}>
@@ -294,6 +382,37 @@ export function ShowcaseScreen() {
                         value=""
                         onChangeText={() => undefined}
                     />
+                    {/*
+                     * One field, not six boxes: platform autofill hands a one-time code to a single
+                     * control, and six labelled controls read as six things to do. Shown live so
+                     * the Arabic pass proves an Arabic-Indic code arrives as ASCII digits.
+                     */}
+                    <OtpInput
+                        testID="showcase-otp"
+                        id="showcase-otp"
+                        label={t('auth:otp.codeLabel')}
+                        hint={t('auth:otp.codeHint')}
+                        value={otp}
+                        length={6}
+                        onChangeText={setOtp}
+                    />
+                    {/*
+                     * One picker on both platforms, an indeterminate spinner rather than a fake
+                     * progress bar, and the size cap quoted from the component's own constant.
+                     * Shown attached so the summary row and its remove control are in the visual
+                     * baseline; the picker itself opens a system dialog, which is why the showcase
+                     * does not press it.
+                     */}
+                    <FileUploadField
+                        testID="showcase-file-upload"
+                        id="showcase-file-upload"
+                        label={t('b2bApplication:documents.kinds.commercial_registration')}
+                        hint={t('b2bApplication:documents.description')}
+                        required
+                        attachment={{ name: 'commercial-registration.pdf', size: 248310 }}
+                        onPick={() => undefined}
+                        onRemove={() => undefined}
+                    />
                     <Checkbox
                         testID="showcase-checkbox"
                         id="showcase-checkbox"
@@ -308,6 +427,16 @@ export function ShowcaseScreen() {
                         options={options}
                         value={selected}
                         onChange={setSelected}
+                    />
+                    <Select
+                        testID="showcase-select-searchable"
+                        id="showcase-select-searchable"
+                        label={t('designSystem:showcase.searchableSelectLabel')}
+                        hint={t('designSystem:showcase.sampleHint')}
+                        options={manyOptions}
+                        value={filtered}
+                        onChange={setFiltered}
+                        searchable
                     />
                 </Section>
 
@@ -334,6 +463,17 @@ export function ShowcaseScreen() {
                             },
                         ]}
                     />
+                    {/*
+                     * Thirty-six pages, so the window and both gaps are visible at once — a
+                     * five-page example would render every page and show none of the behaviour
+                     * that makes this component worth having.
+                     */}
+                    <Pagination
+                        testID="showcase-pagination"
+                        page={showcasePage}
+                        totalPages={36}
+                        onPageChange={setShowcasePage}
+                    />
                     <Tabs
                         testID="showcase-tabs"
                         label={t('designSystem:showcase.tabsLabel')}
@@ -359,6 +499,71 @@ export function ShowcaseScreen() {
                 </Section>
 
                 <Section id="filters" title={t('designSystem:showcase.sections.filters')}>
+                    {/*
+                     * The one-row toolbar. What to check: every control shares a baseline, the
+                     * count states a total rather than just a shown-count, and each active chip
+                     * removes the filter it names without opening the panel.
+                     */}
+                    <ToolbarRow
+                        testID="showcase-toolbar"
+                        filtersLabel="Filters (2)"
+                        filtersActive={2}
+                        filtersExpanded={filterOn}
+                        filtersPanelId="showcase-toolbar-panel"
+                        onToggleFilters={() => {
+                            setFilterOn((open) => !open);
+                        }}
+                        activeFilters={[
+                            {
+                                key: 'vegan',
+                                label: 'Vegan',
+                                removeLabel: 'Remove filter: Vegan',
+                                onRemove: () => undefined,
+                            },
+                            {
+                                key: 'kitchen',
+                                label: 'Verdant Kitchen',
+                                removeLabel: 'Remove filter: Verdant Kitchen',
+                                onRemove: () => undefined,
+                            },
+                        ]}
+                        onClearAll={() => undefined}
+                        clearAllLabel="Clear filters"
+                        resultSummary="Showing 6 of 40 matching meals"
+                        sort={
+                            <Select
+                                testID="showcase-toolbar-sort"
+                                id="showcase-toolbar-sort"
+                                label="Order by"
+                                value={selected ?? 'option-1'}
+                                options={options}
+                                onChange={setSelected}
+                                className="min-w-[200px]"
+                            />
+                        }
+                    />
+                    {/*
+                     * A real panel, not just a toggle. `aria-controls` has to name an element that
+                     * exists — axe reports a dangling reference as critical — and a disclosure
+                     * demo that discloses nothing is not demonstrating the disclosure anyway.
+                     */}
+                    <Collapse
+                        open={filterOn}
+                        nativeID="showcase-toolbar-panel"
+                        testID="showcase-toolbar-panel"
+                    >
+                        <Inline space="xs" wrap>
+                            {['Vegan', 'High protein', 'Under 500 kcal'].map((label) => (
+                                <FilterChip
+                                    key={label}
+                                    testID={`showcase-toolbar-panel-${label}`}
+                                    label={label}
+                                    selected={label !== 'Under 500 kcal'}
+                                    onChange={() => undefined}
+                                />
+                            ))}
+                        </Inline>
+                    </Collapse>
                     <Inline space="sm">
                         <Chip
                             testID="showcase-chip"
@@ -446,6 +651,64 @@ export function ShowcaseScreen() {
                     />
                 </Section>
 
+                <Section id="hero" title="Page hero">
+                    {/*
+                     * The canopy band, with the scrim that makes it legible. What to check: the
+                     * title and subtitle stay readable all the way across, including over the
+                     * bright end of the sweep on the trailing side, where the bare 0.62 alpha
+                     * floor does not hold on its own.
+                     */}
+                    <PageHero
+                        testID="showcase-page-hero"
+                        breadcrumbs={[
+                            { key: 'home', label: 'Home', onPress: () => undefined },
+                            { key: 'meals', label: 'Meals' },
+                        ]}
+                        title="Meals"
+                        subtitle="Every dish on the marketplace, filterable by kitchen, diet, allergen and six numeric axes."
+                        chips={['40 meals', '6 kitchens', 'Nutrition on every card']}
+                        trailing={
+                            <View className="flex-row items-center gap-2 rounded-xl bg-surface-raised p-1.5 ps-4 shadow-elevation-3">
+                                <Text tone="secondary" className="flex-1">
+                                    Search meals
+                                </Text>
+                                <Button
+                                    testID="showcase-hero-search"
+                                    size="sm"
+                                    label="Search"
+                                    onPress={() => undefined}
+                                />
+                            </View>
+                        }
+                    />
+                </Section>
+
+                <Section id="ai" title="AI surfaces">
+                    {/*
+                     * The only two places violet means something. What to check: both say "AI
+                     * dietitian" in words as well as in colour — origin is never carried by
+                     * colour alone — and white stays legible across both sweeps without the
+                     * scrim the canopy band needs, because violet is the lightest stop either
+                     * gradient passes through.
+                     */}
+                    <AiBand
+                        testID="showcase-ai-band"
+                        title="Ask the AI dietitian"
+                        body="Describe how you eat and it will suggest a target and a week, with every step of the arithmetic shown."
+                        actionLabel="Start a session"
+                        onAction={() => undefined}
+                    />
+                    <View className="w-full max-w-[340px]">
+                        <AiRailCard
+                            testID="showcase-ai-rail"
+                            title="Ask the AI dietitian"
+                            body="A suggestion, labelled as one. A registered dietitian can review it and override anything."
+                            actionLabel="Start a session"
+                            onAction={() => undefined}
+                        />
+                    </View>
+                </Section>
+
                 <Section id="content" title={t('designSystem:showcase.sections.content')}>
                     <Inline space="sm">
                         {CARD_TONES.map((tone) => (
@@ -459,6 +722,75 @@ export function ShowcaseScreen() {
                             </Card>
                         ))}
                     </Inline>
+                    {/*
+                     * The pinned footer, shown the only way it can be judged: a row of cards whose
+                     * bodies are deliberately different lengths. The three prices must sit on one
+                     * line. If they go ragged, the card is not filling its cell — the classes on
+                     * the cells below mirror `CardGridItem` so this behaves as the real grid does.
+                     */}
+                    <View className="flex-row flex-wrap gap-4">
+                        {[
+                            {
+                                key: 'short',
+                                name: 'Garden Bowl',
+                                body: 'Two lines of description.',
+                                price: '$14',
+                            },
+                            {
+                                key: 'long',
+                                name: 'Slow-Braised Lamb',
+                                body: 'A much longer description that wraps onto several lines, so this card would otherwise be the tallest in the row and drag its price down with it.',
+                                price: '$26',
+                            },
+                            {
+                                key: 'none',
+                                name: 'Sparkling Water',
+                                body: '',
+                                price: '$3',
+                            },
+                        ].map((item) => (
+                            <View
+                                key={item.key}
+                                className="min-w-[200px] flex-1 grow basis-[220px]"
+                            >
+                                <Card
+                                    testID={`showcase-card-baseline-${item.key}`}
+                                    padding="none"
+                                    tone="raised"
+                                    interactive
+                                    onPress={() => undefined}
+                                    accessibilityLabel={item.name}
+                                    footer={
+                                        <View className="border-t border-stroke-subtle px-4 pb-4 pt-3">
+                                            <RNText
+                                                testID={`showcase-card-baseline-${item.key}-price`}
+                                                className="font-display text-2xl text-surface-brand text-start"
+                                            >
+                                                {item.price}
+                                            </RNText>
+                                        </View>
+                                    }
+                                >
+                                    <EntityImage
+                                        testID={`showcase-card-baseline-${item.key}-media`}
+                                        seed={`showcase-card-${item.key}`}
+                                        label={item.name}
+                                        aspect="card"
+                                        flush
+                                        overlayStart={<MediaChip label="Verdant Kitchen" />}
+                                    />
+                                    <Stack space="xs" className="px-4 pt-4">
+                                        <RNText className="font-display text-lg text-content-primary text-start">
+                                            {item.name}
+                                        </RNText>
+                                        <Text tone="secondary" variant="caption">
+                                            {item.body}
+                                        </Text>
+                                    </Stack>
+                                </Card>
+                            </View>
+                        ))}
+                    </View>
                     <ListItem
                         testID="showcase-list-item"
                         title="Cedar Clinic"
@@ -510,6 +842,26 @@ export function ShowcaseScreen() {
                             body={t('designSystem:showcase.calloutBody')}
                         />
                     ))}
+                    {/*
+                     * Every glyph in the vocabulary, iterated from the exported constant so a new
+                     * one cannot be added without appearing here. Names are shown beside the marks
+                     * because the point of review is whether the glyph reads as its name — a
+                     * basket that reads as a bin is a defect this page is supposed to catch.
+                     */}
+                    <Inline space="sm" wrap testID="showcase-icons">
+                        {Object.keys(ICON_GLYPHS).map((name) => (
+                            <View
+                                key={name}
+                                testID={`showcase-icon-${name}`}
+                                className="min-w-[92px] flex-row items-center gap-2 rounded-lg border border-stroke-subtle px-3 py-2"
+                            >
+                                <Icon name={name as IconName} />
+                                <Text variant="caption" tone="secondary">
+                                    {name}
+                                </Text>
+                            </View>
+                        ))}
+                    </Inline>
                     <Accordion
                         testID="showcase-accordion"
                         defaultExpandedKeys={['one']}
@@ -535,6 +887,31 @@ export function ShowcaseScreen() {
                         columns={columns}
                         rows={NUTRIENT_ROWS}
                         rowKey={(row) => row.key}
+                    />
+                    <Table
+                        testID="showcase-table-sortable"
+                        caption={t('designSystem:showcase.tableSortableCaption')}
+                        columns={sortableColumns}
+                        rows={sortedNutrientRows}
+                        rowKey={(row) => row.key}
+                        sortKey={sortKey}
+                        sortDirection={sortDirection}
+                        onSortChange={(key, direction) => {
+                            if (isNutrientSortKey(key)) setSortKey(key);
+                            setSortDirection(direction);
+                        }}
+                        rowAction={{
+                            header: t('designSystem:showcase.tableActionHeader'),
+                            render: (row) => (
+                                <Button
+                                    testID={`showcase-table-action-${row.key}`}
+                                    size="sm"
+                                    variant="ghost"
+                                    label={t('designSystem:showcase.tableActionLabel')}
+                                    onPress={() => undefined}
+                                />
+                            ),
+                        }}
                     />
                     <Inline space="lg">
                         <ProgressRing
@@ -689,7 +1066,7 @@ export function ShowcaseScreen() {
                             <>
                                 <Button
                                     testID="showcase-dialog-cancel"
-                                    variant="secondary"
+                                    variant="quiet"
                                     label={t('common:action.cancel')}
                                     onPress={() => {
                                         setDialogOpen(false);

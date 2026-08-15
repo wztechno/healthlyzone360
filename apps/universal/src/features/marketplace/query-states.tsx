@@ -1,4 +1,5 @@
 import { Card, EmptyState, ErrorState, Skeleton, Stack } from '@healthy360/design-system';
+import type { ApiFailureCode } from '@healthy360/api-client';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -19,19 +20,26 @@ import { toFailure } from '../../data/hooks.ts';
  *   reader's eyes when it lands.
  * * **Error before empty.** A failed request has no items, so checking emptiness first would report
  *   "no kitchens match" for what is actually a network failure — the most misleading message the
- *   screen could show.
+ *   screen could show. Callers may opt specific codes into the empty branch via
+ *   `treatFailuresAsEmpty` when the failure *means* "this surface is not live yet" rather than
+ *   "something broke".
  */
 export interface QueryStatesProps {
     readonly query: Pick<
         UseQueryResult<unknown>,
         'isPending' | 'isFetching' | 'error' | 'refetch' | 'data'
     >;
-    /** Evaluated only once data has arrived. */
+    /** Evaluated only once data has arrived (or a soft-failed code was treated as empty). */
     readonly isEmpty: boolean;
     readonly emptyTitle: string;
     readonly emptyBody?: string | undefined;
     /** Rendered under the empty state — "clear the filters", "browse everything". */
     readonly emptyActions?: ReactNode | undefined;
+    /**
+     * Failure codes that should render as empty rather than as an error. Used for deferred product
+     * surfaces that still answer `prototype.not_implemented` on the API client.
+     */
+    readonly treatFailuresAsEmpty?: readonly ApiFailureCode[] | undefined;
     readonly skeletonCount?: number | undefined;
     readonly testID: string;
     readonly children: ReactNode;
@@ -43,6 +51,7 @@ export function QueryStates({
     emptyTitle,
     emptyBody,
     emptyActions,
+    treatFailuresAsEmpty,
     skeletonCount = 3,
     testID,
     children,
@@ -67,7 +76,12 @@ export function QueryStates({
     }
 
     const failure = toFailure(query.error);
-    if (failure !== null) {
+    const softEmpty =
+        failure !== null &&
+        treatFailuresAsEmpty !== undefined &&
+        (treatFailuresAsEmpty as readonly string[]).includes(failure.code);
+
+    if (failure !== null && !softEmpty) {
         return (
             <ErrorState
                 testID={`${testID}-error`}
@@ -80,7 +94,7 @@ export function QueryStates({
         );
     }
 
-    if (isEmpty) {
+    if (isEmpty || softEmpty) {
         return (
             <EmptyState
                 testID={`${testID}-empty`}

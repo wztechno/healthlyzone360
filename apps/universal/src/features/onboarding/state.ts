@@ -115,7 +115,7 @@ export interface OnboardingAnswers {
 }
 
 /** The currency the budget step collects in. AED, as the launch markets' anchor currency. */
-export const BUDGET_CURRENCY = 'AED' as const;
+export const BUDGET_CURRENCY = 'USD' as const;
 
 export const INITIAL_ANSWERS: OnboardingAnswers = {
     introductionAcknowledged: false,

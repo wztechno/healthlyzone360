@@ -68,14 +68,14 @@ describe('permittedNavigation', () => {
 
     it('includes the showcase only for a platform administrator', () => {
         const keys = permittedNavigation(
-            hydrated(['device.manage_own', 'platform.access_admin']),
+            hydrated(['device.manage_own', 'organisation.manage_platform']),
         ).map((item) => item.key);
         expect(keys).toEqual(['workspace', 'profile', 'devices', 'showcase']);
     });
 
     it('drops an item whose area is not in the build family, even with the permission', () => {
         const keys = permittedNavigation(
-            hydrated(['device.manage_own', 'platform.access_admin'], 'staff'),
+            hydrated(['device.manage_own', 'organisation.manage_platform'], 'staff'),
         ).map((item) => item.key);
         // `platform-admin` is not compiled into the staff family.
         expect(keys).not.toContain('showcase');
@@ -87,13 +87,34 @@ describe('availableWorkspaceAreas', () => {
         const areas = availableWorkspaceAreas(hydrated([])).map((option) => option.area);
 
         // No permission → everything except the permission-gated platform-admin area.
-        expect(areas).toContain('clinic');
         expect(areas).toContain('kitchen');
+        expect(areas).toContain('corporate');
         expect(areas).not.toContain('platform-admin');
     });
 
+    /**
+     * The second filter: an area whose feature has no backend is not a destination, however
+     * entitled the person is. See `src/features/availability.ts`.
+     */
+    it('drops the areas whose feature has no backend, permission notwithstanding', () => {
+        const areas = availableWorkspaceAreas(hydrated(['organisation.manage_platform'])).map(
+            (option) => option.area,
+        );
+
+        for (const area of [
+            'dietitian',
+            'clinic',
+            'insurance',
+            'patient',
+            'partner',
+            'pos',
+            'driver',
+        ])
+            expect(areas).not.toContain(area);
+    });
+
     it('adds platform-admin once the permission is present', () => {
-        const areas = availableWorkspaceAreas(hydrated(['platform.access_admin'])).map(
+        const areas = availableWorkspaceAreas(hydrated(['organisation.manage_platform'])).map(
             (option) => option.area,
         );
         expect(areas).toContain('platform-admin');
@@ -120,10 +141,9 @@ describe('availableWorkspaceAreas', () => {
             emailVerified: true,
             organisation: undefined,
         });
-        expect(availableWorkspaceAreas(state).map((option) => option.area)).toEqual([
-            'customer',
-            'patient',
-        ]);
+        // `patient` is compiled into the customer family and would pass the gate; it has no
+        // backend, so it is not offered.
+        expect(availableWorkspaceAreas(state).map((option) => option.area)).toEqual(['customer']);
     });
 
     it('never offers an area outside the build family', () => {
@@ -133,7 +153,7 @@ describe('availableWorkspaceAreas', () => {
     });
 
     it('every option is marked available — refused destinations are dropped, not greyed out', () => {
-        for (const option of availableWorkspaceAreas(hydrated(['platform.access_admin']))) {
+        for (const option of availableWorkspaceAreas(hydrated(['organisation.manage_platform']))) {
             expect(option.available).toBe(true);
         }
     });

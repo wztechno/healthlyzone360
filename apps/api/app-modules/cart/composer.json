@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/cart",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Cart\\": "src/",
+			"Healthy360\\Cart\\Tests\\": "tests/",
+			"Healthy360\\Cart\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Cart\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Cart\\Providers\\CartServiceProvider"
+			]
+		}
+	}
+}

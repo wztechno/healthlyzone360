@@ -1,0 +1,17 @@
+{
+	"name": "healthy360/procurement",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Procurement\\": "src/",
+			"Healthy360\\Procurement\\Tests\\": "tests/"
+		}
+	},
+	"extra": {
+		"laravel": {
+			"providers": ["Healthy360\\Procurement\\Providers\\ProcurementServiceProvider"]
+		}
+	}
+}

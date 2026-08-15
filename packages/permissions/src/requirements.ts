@@ -109,10 +109,24 @@ export const ROUTE_REQUIREMENTS: Readonly<Record<RouteArea, RouteRequirement>> =
     corporate: { area: 'corporate', ...AUTHENTICATED_ORG_AREA },
     insurance: { area: 'insurance', ...AUTHENTICATED_ORG_AREA },
 
+    /**
+     * The only area whose baseline carries a permission — and PA1 changed *which* one.
+     *
+     * It used to name `platform.access_admin`, a code that existed nowhere but this file. That was
+     * defensible while the area held one screen, the design-system showcase, and the gate's only
+     * job was keeping tenants out of it. It stopped being defensible the moment the area became a
+     * real console: a baseline naming a permission the backend never issues is a baseline that
+     * refuses everybody in `api` mode, including the platform operator it was written for.
+     *
+     * `organisation.manage_platform` is the code `PermissionRegistry::platformPermissions()`
+     * registers and the code the seven `/platform/organisations/kitchens` routes are gated on, so
+     * the sidebar, the route guard and the server now answer the same question the same way. The
+     * server remains the boundary; this only stops the client offering a door that would slam.
+     */
     'platform-admin': {
         area: 'platform-admin',
         ...AUTHENTICATED_ORG_AREA,
-        allOf: ['platform.access_admin'],
+        allOf: ['organisation.manage_platform'],
     },
 };
 

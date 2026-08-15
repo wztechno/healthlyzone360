@@ -1,0 +1,64 @@
+{
+    "title": "You have been invited",
+    "loading": "Opening your invitation…",
+    "invite": {
+        "heading": "Join {{organisation}}",
+        "body": "{{organisation}} has invited you to join their workspace on Healthy360.",
+        "roleLabel": "Role",
+        "sentToLabel": "Sent to",
+        "expiresLabel": "Expires",
+        "expiresInDays_one": "Expires in {{count}} day.",
+        "expiresInDays_other": "Expires in {{count}} days.",
+        "expiresToday": "Expires today.",
+        "role": {
+            "kitchen_owner": "Kitchen owner",
+            "kitchen_manager": "Kitchen manager",
+            "commercial_manager": "Commercial manager",
+            "organisation_owner": "Organisation owner",
+            "unknown": "{{code}}"
+        }
+    },
+    "signedOut": {
+        "title": "Sign in to accept",
+        "body": "Accepting has to be attributable to a person, so we need you signed in first. Use the address this invitation was sent to.",
+        "signIn": "Sign in",
+        "register": "Create an account",
+        "returnHint": "We will bring you straight back here."
+    },
+    "unverified": {
+        "title": "Confirm your email address first",
+        "body": "Your address has not been confirmed yet. Confirm it and come back to this link to accept.",
+        "verify": "Confirm my email address"
+    },
+    "mismatch": {
+        "title": "This invitation is for somebody else",
+        "body": "You are signed in as {{current}}, and this invitation was sent to {{invited}}. Sign in as that person to accept it.",
+        "switch": "Sign out and switch account"
+    },
+    "accept": {
+        "action": "Accept invitation",
+        "pending": "Accepting…"
+    },
+    "accepted": {
+        "title": "You are in",
+        "body": "You have joined {{organisation}}. Your new workspace is ready.",
+        "openWorkspace": "Open the kitchen workspace",
+        "alreadyTitle": "This invitation has already been accepted",
+        "alreadyBody": "Nothing more to do here. If the workspace is not showing up, sign out and back in.",
+        "noMembershipTitle": "Accepted, but not yet active",
+        "noMembershipBody": "We recorded your acceptance, but the membership was not created. Ask whoever invited you to check."
+    },
+    "expired": {
+        "title": "This invitation has expired",
+        "body": "It lapsed on {{date}}. Ask {{organisation}} to send you a new one — re-inviting always issues a fresh link."
+    },
+    "revoked": {
+        "title": "This invitation was withdrawn",
+        "body": "{{organisation}} withdrew it, or replaced it with a newer one. Check your inbox for a more recent message before asking for another."
+    },
+    "notFound": {
+        "title": "This link does not work",
+        "body": "It may have been mistyped, or the invitation may be long gone. Ask whoever invited you to send a new one.",
+        "retry": "Try again"
+    }
+}

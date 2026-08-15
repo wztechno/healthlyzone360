@@ -19,7 +19,7 @@ import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
 import { RangeFilter, isInvertedRange } from './range-filter.tsx';
 import { Select } from './select.tsx';
-import { TextInputField } from './text-input.tsx';
+import { TextInputField, inputFrameClassName } from './text-input.tsx';
 
 describe('FormField', () => {
     it('links label, hint and error to the control with one describedby chain', async () => {
@@ -148,6 +148,28 @@ describe('TextInputField', () => {
     it('is not editable when disabled', async () => {
         await renderWithI18n(<TextInputField testID="email" label="Email" disabled />);
         expect(screen.getByTestId('email-input').props.editable).toBe(false);
+    });
+
+    /*
+     * A disabled field's *value* still has to be readable.
+     *
+     * This is the one that bit: the disabled frame carried `opacity-60`, which dimmed the value
+     * along with the chrome and put the text at 3.97:1 against its own background — under the 4.5
+     * floor, on a field somebody opened the record to read. React Native Web renders a disabled
+     * `TextInput` as `readonly` rather than `disabled`, so the contrast exemption for inactive
+     * controls never applied to it either.
+     *
+     * Asserted on the class string because that is what NativeWind compiles: Metro's CSS pipeline
+     * does not run under Jest, so the utilities arrive at the node untouched and are the honest
+     * thing to check. The token pairs are covered separately in `colour.test.ts` — and passed
+     * throughout, which is exactly why a token test could not have caught this.
+     */
+    it('signals disabled with tokens rather than by dimming the value', async () => {
+        await renderWithI18n(<TextInputField testID="email" label="Email" disabled />);
+
+        const frame = inputFrameClassName({ invalid: false, focused: false, disabled: true });
+        expect(frame).toContain('bg-surface-sunken');
+        expect(frame).not.toMatch(/\bopacity-/);
     });
 
     it('renders Arabic labels without a physical utility', async () => {
@@ -390,6 +412,203 @@ describe('Select', () => {
             'ar',
         );
         assertSubtreeIsLogical(screen.getByTestId('org'));
+    });
+
+    describe('searchable', () => {
+        /** The prop is additive: without it the dialog is exactly the dialog it always was. */
+        it('adds nothing at all unless asked for', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+
+            expect(screen.queryByTestId('org-search')).toBeNull();
+            expect(screen.queryByTestId('org-search-status')).toBeNull();
+            expect(screen.queryByTestId('org-no-results')).toBeNull();
+        });
+
+        it('keeps the radio group rather than becoming a combobox', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+
+            expect(screen.getByTestId('org-option-cedar').props.accessibilityRole).toBe('radio');
+            // A real `<label for>` on the web, which is what axe resolves the name from.
+            expect(screen.getByTestId('org-search-label')).toHaveTextContent('Filter the options');
+        });
+
+        it('narrows the list to a case-insensitive match on the label', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'VERD');
+
+            expect(screen.getByTestId('org-option-verdant')).toBeTruthy();
+            expect(screen.queryByTestId('org-option-cedar')).toBeNull();
+            expect(screen.queryByTestId('org-no-results')).toBeNull();
+        });
+
+        it('matches the description as well, because that is text the reader can see', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'quoz');
+
+            expect(screen.getByTestId('org-option-verdant')).toBeTruthy();
+            expect(screen.queryByTestId('org-option-closed')).toBeNull();
+        });
+
+        /** A list that silently shrinks is a list a screen reader user never learns about. */
+        it('announces the remaining count in a polite live region', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+
+            // Mounted *before* anything changes, which is the only way a live region announces.
+            const status = screen.getByTestId('org-search-status');
+            expect(status.props['aria-live']).toBe('polite');
+            expect(status.props.role).toBe('status');
+
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'cl');
+            expect(screen.getByTestId('org-search-status')).toHaveTextContent('2 matching options');
+
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'cedar');
+            expect(screen.getByTestId('org-search-status')).toHaveTextContent('1 matching option');
+        });
+
+        it('shows a translated line instead of an empty box when nothing matches', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'zzzz');
+
+            expect(screen.queryByTestId('org-option-cedar')).toBeNull();
+            expect(screen.getByTestId('org-no-results')).toHaveTextContent(
+                'No option matches your search.',
+            );
+            expect(screen.getByTestId('org-search-status')).toHaveTextContent(
+                'No option matches your search.',
+            );
+        });
+
+        it('reopens unfiltered, so a stale search cannot hide an option', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'verdant');
+            expect(screen.queryByTestId('org-option-cedar')).toBeNull();
+
+            await fireEvent.press(screen.getByTestId('org-close'));
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+
+            expect(screen.getByTestId('org-search-input').props.value).toBe('');
+            expect(screen.getByTestId('org-option-cedar')).toBeTruthy();
+        });
+
+        it('still reports the chosen value from a filtered list', async () => {
+            const onChange = jest.fn();
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={onChange}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'verd');
+            await fireEvent.press(screen.getByTestId('org-option-verdant'));
+
+            expect(onChange).toHaveBeenCalledWith('verdant');
+        });
+
+        it('translates the filter and its empty result', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="المؤسسة"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+                'ar',
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            expect(screen.getByTestId('org-search-label')).toHaveTextContent('تصفية الخيارات');
+
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'zzzz');
+            expect(screen.getByTestId('org-no-results')).toHaveTextContent(
+                'لا يوجد خيار يطابق بحثك.',
+            );
+            assertSubtreeIsLogical(screen.getByTestId('org-list'));
+        });
     });
 });
 

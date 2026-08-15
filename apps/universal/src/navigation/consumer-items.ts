@@ -1,3 +1,4 @@
+import { isPathAvailable } from '../features/availability.ts';
 import type { NavigationDescriptor } from './items.ts';
 
 /**
@@ -9,33 +10,20 @@ import type { NavigationDescriptor } from './items.ts';
  * with no per-destination permission, so there is nothing to filter *by permission*. What there is
  * to filter by is **existence**.
  *
- * ## `planned` destinations, and why they are shown rather than hidden
+ * ## Destinations without a backend are hidden, not marked
  *
- * Six of these eight screens are built by later waves. Three options were available:
+ * They used to be shown, marked with a "planned" suffix, and answered with a prototype notice naming
+ * the endpoint they were waiting on — the visible-but-locked pattern. That was the right call while
+ * the whole application was a prototype over synthetic data and a reviewer needed to see the shape
+ * of the product. It is the wrong call now that the rest of the app talks to a real API: a person
+ * using the product cannot tell "coming later" from "broken", and every marked entry is a control
+ * that costs a tap to learn nothing.
  *
- * 1. link to them anyway — a link that lands on "not found" is a dead control, which the prompt
- *    forbids and which no amount of "it will exist later" excuses;
- * 2. hide them until they exist — the information architecture then arrives in fragments, and
- *    nobody reviewing the prototype can see what the product actually is;
- * 3. show them, mark them, and answer a press with a real explanation.
- *
- * The third is what the reference research recommends independently: doc 17, MKT-04 endorses a
- * **visible-but-locked** pattern — "show the capability, show its current value, state exactly what
- * unlocks it" — and names `usePrototypeAction()` as the place to reuse it. So a `planned` entry is
- * rendered, is focusable, carries a visible marker in its label, and answers a press with the
- * prototype notice naming the endpoint it is waiting for.
- *
- * A later wave flips one `status` field and deletes the `contract` line. Nothing else moves.
+ * So the table stays complete — it is still the description of what the product is — and the two
+ * exported functions filter it through `../features/availability.ts`. A feature key flips to `true`
+ * and its destination reappears; nothing else moves.
  */
-export type ConsumerDestinationStatus = 'available' | 'planned';
-
 export interface ConsumerNavigationDescriptor extends NavigationDescriptor {
-    readonly status: ConsumerDestinationStatus;
-    /**
-     * Proposed endpoint or wave the destination is waiting on. Present exactly when `status` is
-     * `planned`; shown in development builds by the prototype notice.
-     */
-    readonly contract?: string | undefined;
     /**
      * Marks the entry whose label carries a live count. Only the cart has one, and it is a named
      * flag rather than a number on the descriptor because the count is data, not configuration.
@@ -49,19 +37,14 @@ export interface ConsumerNavigationDescriptor extends NavigationDescriptor {
  * `discover` deliberately points out of the customer area and into the public marketplace. That is
  * the intended shape: browsing is the same surface for everybody, and giving signed-in people a
  * second, parallel catalogue is how two catalogues drift apart.
- *
- * Icon choices are constrained by the design system's glyph vocabulary, which has no cart, no home
- * and no plate. The closest honest glyph is used in each case and the gap is recorded in the wave
- * report rather than solved by smuggling a new glyph into the design system from here.
  */
 export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
     {
         key: 'home',
         labelKey: 'marketplace:consumer.nav.home',
         href: '/customer',
-        icon: 'organisation',
+        icon: 'home',
         area: 'customer',
-        status: 'available',
     },
     {
         key: 'discover',
@@ -69,7 +52,6 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/discover',
         icon: 'search',
         area: 'public',
-        status: 'available',
     },
     {
         key: 'planner',
@@ -77,23 +59,20 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/customer/planner',
         icon: 'calendar',
         area: 'customer',
-        status: 'available',
     },
     {
         key: 'nutrition',
         labelKey: 'marketplace:consumer.nav.nutrition',
         href: '/customer/nutrition',
-        icon: 'success',
+        icon: 'leaf',
         area: 'customer',
-        status: 'available',
     },
     {
         key: 'virtual-dietitian',
         labelKey: 'marketplace:consumer.nav.virtualDietitian',
         href: '/customer/virtual-dietitian',
-        icon: 'info',
+        icon: 'sparkle',
         area: 'customer',
-        status: 'available',
     },
     {
         key: 'subscriptions',
@@ -101,15 +80,13 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/customer/subscriptions',
         icon: 'refresh',
         area: 'customer',
-        status: 'available',
     },
     {
         key: 'cart',
         labelKey: 'marketplace:consumer.nav.cart',
         href: '/customer/cart',
-        icon: 'plus',
+        icon: 'basket',
         area: 'customer',
-        status: 'available',
         badge: 'cart',
     },
     {
@@ -118,17 +95,10 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/profile',
         icon: 'user',
         area: 'auth',
-        status: 'available',
     },
 ];
 
-/**
- * The public marketplace's top-level destinations.
- *
- * Same table. Every entry here now resolves: `meals` and `plans` were `planned` until the catalogue
- * wave built `/meals` and `/plans`, and flipping one `status` field was the whole handoff — which is
- * what the `planned` mechanism was designed to cost.
- */
+/** The public marketplace's top-level destinations. */
 export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
     {
         key: 'discover',
@@ -136,7 +106,6 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/discover',
         icon: 'search',
         area: 'public',
-        status: 'available',
     },
     {
         key: 'kitchens',
@@ -144,15 +113,13 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/kitchens',
         icon: 'organisation',
         area: 'public',
-        status: 'available',
     },
     {
         key: 'meals',
         labelKey: 'marketplace:nav.meals',
         href: '/meals',
-        icon: 'dot',
+        icon: 'plate',
         area: 'public',
-        status: 'available',
     },
     {
         key: 'plans',
@@ -160,7 +127,6 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/plans',
         icon: 'calendar',
         area: 'public',
-        status: 'available',
     },
     {
         key: 'dietitians',
@@ -168,7 +134,6 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/dietitians',
         icon: 'user',
         area: 'public',
-        status: 'available',
     },
     {
         key: 'how-it-works',
@@ -176,7 +141,6 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/how-it-works',
         icon: 'info',
         area: 'public',
-        status: 'available',
     },
     {
         key: 'for-business',
@@ -184,13 +148,15 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/for-business',
         icon: 'branch',
         area: 'public',
-        status: 'available',
     },
 ];
 
-/** Destinations that genuinely resolve today. Used by the tests that assert no link is dead. */
-export function availableDestinations(
-    descriptors: readonly ConsumerNavigationDescriptor[],
-): readonly ConsumerNavigationDescriptor[] {
-    return descriptors.filter((item) => item.status === 'available');
+/** The consumer destinations that resolve today. */
+export function consumerNavigation(): readonly ConsumerNavigationDescriptor[] {
+    return CONSUMER_NAVIGATION.filter((item) => isPathAvailable(item.href));
+}
+
+/** The public destinations that resolve today. */
+export function marketplaceNavigation(): readonly ConsumerNavigationDescriptor[] {
+    return MARKETPLACE_NAVIGATION.filter((item) => isPathAvailable(item.href));
 }

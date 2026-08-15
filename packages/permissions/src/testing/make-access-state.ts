@@ -62,6 +62,9 @@ export function makeAccessState(overrides: AccessStateOverrides = {}): AccessSta
         emailVerified: true,
         organisation: undefined,
         branch: undefined,
+        // Default true so "no organisation *context*" fixtures still mean "go pick one",
+        // not "pure consumer". Tests for consumers with no memberships set this false.
+        hasActiveMembership: true,
         ...rest,
         permissions: new Set(permissions ?? []),
         entitlements: new Set(entitlements ?? []),

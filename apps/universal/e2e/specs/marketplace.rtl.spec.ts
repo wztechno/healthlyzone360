@@ -1,11 +1,21 @@
 import { expect, test } from '@playwright/test';
 
+import { APP_URL, probeStack, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
+
 const ARABIC_SCRIPT = /[؀-ۿ]/;
 
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
 test.beforeEach(async ({ context }) => {
+    skipUnlessStackIsUp(stack);
     // The pre-hydration script in +html.tsx reads this cookie before any styles apply, so the
     // document is RTL from the first paint — no left-to-right flash on the marketplace either.
-    await context.addCookies([{ name: 'h360_locale', value: 'ar', url: 'http://localhost:4173' }]);
+    await context.addCookies([{ name: 'h360_locale', value: 'ar', url: APP_URL }]);
 });
 
 test.describe('public marketplace (ar, RTL)', () => {
@@ -32,7 +42,7 @@ test.describe('public marketplace (ar, RTL)', () => {
             ARABIC_SCRIPT,
         );
         await expect(page.getByTestId('kitchens-grid')).toBeVisible();
-        // Kitchen names are fixture data in Latin script; the card still has to lay out in RTL.
+        // Kitchen names are tenant data in Latin script; the card still has to lay out in RTL.
         await expect(page.getByTestId('kitchen-card-verdant-kitchen')).toContainText(
             'Verdant Kitchen',
         );

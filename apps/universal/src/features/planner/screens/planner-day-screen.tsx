@@ -145,7 +145,7 @@ export function PlannerDayScreen({ date }: PlannerDayScreenProps) {
             <Inline space="sm" wrap testID="planner-day-navigation">
                 <Button
                     testID="planner-day-back-to-week"
-                    variant="secondary"
+                    variant="quiet"
                     size="sm"
                     label={t('planner:day.backToWeek')}
                     onPress={() => {
@@ -281,7 +281,7 @@ export function PlannerDayScreen({ date }: PlannerDayScreenProps) {
                     <>
                         <Button
                             testID="planner-day-regenerate-cancel"
-                            variant="secondary"
+                            variant="quiet"
                             label={t('planner:common.cancel')}
                             onPress={() => {
                                 setConfirmRegenerate(false);

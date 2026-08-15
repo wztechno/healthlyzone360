@@ -11,43 +11,43 @@ module.exports = {
     "extend": {
       "colors": {
         "brand": {
-          "50": "#eef8ee",
-          "100": "#d6eed7",
-          "200": "#aeddb1",
-          "300": "#7fc486",
-          "400": "#4fa65a",
-          "500": "#3a8a46",
-          "600": "#2d6f39",
-          "700": "#26592f",
-          "800": "#204627",
-          "900": "#1a3922",
-          "950": "#0c1f12"
+          "50": "#f2fcf4",
+          "100": "#dcf7e1",
+          "200": "#bbedc6",
+          "300": "#8ad79b",
+          "400": "#49b264",
+          "500": "#16a34a",
+          "600": "#158043",
+          "700": "#146a3a",
+          "800": "#11532e",
+          "900": "#0d3d23",
+          "950": "#07160e"
         },
-        "clay": {
-          "50": "#fdf4ef",
-          "100": "#fbe3d6",
-          "200": "#f5c6ac",
-          "300": "#eea07b",
-          "400": "#e5774a",
-          "500": "#d65c2c",
-          "600": "#bd481f",
-          "700": "#99391b",
-          "800": "#7c301a",
-          "900": "#662a1a",
-          "950": "#38130a"
+        "violet": {
+          "50": "#f5f3ff",
+          "100": "#ede9fe",
+          "200": "#ddd6fe",
+          "300": "#c4b5fd",
+          "400": "#a78bfa",
+          "500": "#8b5cf6",
+          "600": "#7c3aed",
+          "700": "#6d28d9",
+          "800": "#5b21b6",
+          "900": "#4c1d95",
+          "950": "#2e1065"
         },
         "neutral": {
-          "50": "#f9f8f4",
-          "100": "#f0efe9",
-          "200": "#e3e2d9",
-          "300": "#cdccc0",
-          "400": "#a6a698",
-          "500": "#7f7f72",
-          "600": "#64655a",
-          "700": "#4d4e45",
-          "800": "#383a33",
-          "900": "#262822",
-          "950": "#161712"
+          "50": "#f8fafc",
+          "100": "#f1f5f9",
+          "200": "#e2e8f0",
+          "300": "#cbd5e1",
+          "400": "#94a3b8",
+          "500": "#6b7280",
+          "600": "#4b5563",
+          "700": "#374151",
+          "800": "#1f2937",
+          "900": "#111827",
+          "950": "#030712"
         },
         "surface": {
           "base": "rgb(var(--h360-color-surface-base) / <alpha-value>)",
@@ -56,7 +56,10 @@ module.exports = {
           "inverse": "rgb(var(--h360-color-surface-inverse) / <alpha-value>)",
           "brand": "rgb(var(--h360-color-brand-surface) / <alpha-value>)",
           "brand-subtle": "rgb(var(--h360-color-brand-surface-subtle) / <alpha-value>)",
-          "accent": "rgb(var(--h360-color-accent-surface) / <alpha-value>)"
+          "accent": "rgb(var(--h360-color-accent-surface) / <alpha-value>)",
+          "accent-subtle": "rgb(var(--h360-color-accent-subtle) / <alpha-value>)",
+          "canopy": "rgb(var(--h360-color-surface-canopy) / <alpha-value>)",
+          "canopy-deep": "rgb(var(--h360-color-surface-canopy-deep) / <alpha-value>)"
         },
         "content": {
           "primary": "rgb(var(--h360-color-text-primary) / <alpha-value>)",
@@ -65,7 +68,10 @@ module.exports = {
           "inverse": "rgb(var(--h360-color-text-inverse) / <alpha-value>)",
           "on-brand": "rgb(var(--h360-color-text-on-brand) / <alpha-value>)",
           "on-brand-subtle": "rgb(var(--h360-color-on-brand-surface-subtle) / <alpha-value>)",
-          "on-accent": "rgb(var(--h360-color-on-accent-surface) / <alpha-value>)"
+          "on-accent": "rgb(var(--h360-color-on-accent-surface) / <alpha-value>)",
+          "on-accent-subtle": "rgb(var(--h360-color-on-accent-subtle) / <alpha-value>)",
+          "on-canopy": "rgb(var(--h360-color-on-canopy) / <alpha-value>)",
+          "on-canopy-muted": "rgb(var(--h360-color-on-canopy-muted) / <alpha-value>)"
         },
         "stroke": {
           "subtle": "rgb(var(--h360-color-border-subtle) / <alpha-value>)",
@@ -74,6 +80,7 @@ module.exports = {
           "focus": "rgb(var(--h360-color-focus-ring) / <alpha-value>)"
         },
         "overlay": "var(--h360-color-overlay)",
+        "rating": "rgb(var(--h360-color-rating-star) / <alpha-value>)",
         "success": {
           "subtle": "rgb(var(--h360-color-success-subtle) / <alpha-value>)",
           "on-subtle": "rgb(var(--h360-color-success-on-subtle) / <alpha-value>)",
@@ -148,6 +155,7 @@ module.exports = {
         "sm": "4px",
         "DEFAULT": "8px",
         "lg": "12px",
+        "panel": "14px",
         "xl": "16px",
         "2xl": "24px",
         "full": "9999px"
@@ -174,6 +182,17 @@ module.exports = {
           "'Noto Sans Arabic'",
           "'Segoe UI'",
           "Tahoma",
+          "sans-serif"
+        ],
+        "display": [
+          "SpaceGrotesk_700Bold",
+          "'Space Grotesk'",
+          "'IBM Plex Sans Arabic'",
+          "'Inter'",
+          "system-ui",
+          "-apple-system",
+          "'Segoe UI'",
+          "Roboto",
           "sans-serif"
         ]
       },
@@ -244,7 +263,8 @@ module.exports = {
       "letterSpacing": {
         "tight": "-0.4px",
         "normal": "0px",
-        "wide": "0.4px"
+        "wide": "0.4px",
+        "display": "-0.02em"
       },
       "screens": {
         "sm": "480px",
@@ -267,7 +287,9 @@ module.exports = {
         "elevation-2": "0 2px 4px -1px rgb(23 21 20 / 0.08), 0 1px 2px -1px rgb(23 21 20 / 0.05)",
         "elevation-3": "0 4px 8px -2px rgb(23 21 20 / 0.10), 0 2px 4px -2px rgb(23 21 20 / 0.06)",
         "elevation-4": "0 8px 16px -4px rgb(23 21 20 / 0.12), 0 4px 8px -4px rgb(23 21 20 / 0.07)",
-        "elevation-5": "0 16px 32px -8px rgb(23 21 20 / 0.16), 0 8px 16px -8px rgb(23 21 20 / 0.08)"
+        "elevation-5": "0 16px 32px -8px rgb(23 21 20 / 0.16), 0 8px 16px -8px rgb(23 21 20 / 0.08)",
+        "elevation-card": "0 1px 2px rgb(23 21 20 / 0.05), 0 14px 30px -18px rgb(11 59 38 / 0.35)",
+        "elevation-card-hover": "0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)"
       },
       "transitionDuration": {
         "instant": "0ms",

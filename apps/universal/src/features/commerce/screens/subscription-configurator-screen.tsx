@@ -9,7 +9,11 @@ import {
     Stepper,
     Text,
 } from '@healthy360/design-system';
-import type { MarketplaceMeal, Subscription } from '@healthy360/api-client/contracts';
+import type {
+    MarketplaceMeal,
+    Subscription,
+    CustomerAddress,
+} from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { AllergenCode, PlanVariantId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -24,6 +28,7 @@ import {
     useCreateSubscriptionMutation,
     useSubscriptionPreviewQuery,
 } from '../../../data/commerce-hooks.ts';
+import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useCurrentTargetsQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -120,6 +125,15 @@ export function SubscriptionConfiguratorScreen({
     const [step, setStep] = useState<ConfiguratorStep>('plan');
     const [showIssues, setShowIssues] = useState(false);
     const [created, setCreated] = useState<Subscription | null>(null);
+    const [addressId, setAddressId] = useState<string | null>(null);
+
+    const addresses = useAddressesQuery();
+    // Memoised rather than `?? []` inline: the fallback allocates a fresh array on every render,
+    // which would change the identity of every `useMemo` below that depends on this list.
+    const addressList = useMemo<readonly CustomerAddress[]>(
+        () => addresses.data ?? [],
+        [addresses.data],
+    );
 
     /**
      * ## Defaults are derived, edits are held
@@ -219,10 +233,14 @@ export function SubscriptionConfiguratorScreen({
         [state, validationTranslate],
     );
 
-    const areaStatus = useMemo(
-        () => deliveryAreaStatus(kitchen.data, state?.address.area ?? ''),
-        [kitchen.data, state?.address.area],
-    );
+    const areaStatus = useMemo(() => {
+        const selected = addressList.find((entry) => entry.id === addressId);
+        // A saved address carries the server's own answer, computed against the published zone
+        // coverage — authoritative over any client-side comparison of area strings, whose
+        // granularities (gazetteer rows vs a zone's display label) need not match textually.
+        if (selected !== undefined) return selected.isDeliverable ? 'served' : 'unserved';
+        return deliveryAreaStatus(kitchen.data, state?.address.area ?? '');
+    }, [addressId, addressList, kitchen.data, state?.address.area]);
 
     const areas = useMemo(() => servedAreas(kitchen.data), [kitchen.data]);
 
@@ -238,10 +256,11 @@ export function SubscriptionConfiguratorScreen({
             plan: item,
             allowedWeekdays,
             areaStatus,
+            hasSavedAddress: addressId !== null,
             earliestStartDate: earliestStartDate(),
             translate: (key: string) => validationTranslate(key),
         };
-    }, [allowedWeekdays, areaStatus, item, validationTranslate]);
+    }, [addressId, allowedWeekdays, areaStatus, item, validationTranslate]);
 
     const issues =
         state === null || context === null ? [] : validateConfiguratorStep(step, state, context);
@@ -292,10 +311,14 @@ export function SubscriptionConfiguratorScreen({
             return;
         }
         create.mutate(
-            { configuration: request, acknowledgedTerms: state.termsAcknowledged },
+            {
+                configuration: request,
+                acknowledgedTerms: state.termsAcknowledged,
+                ...(addressId === null ? {} : { addressId }),
+            },
             { onSuccess: setCreated },
         );
-    }, [context, create, item, state]);
+    }, [addressId, context, create, item, state]);
 
     /* ── render ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -415,6 +438,10 @@ export function SubscriptionConfiguratorScreen({
                                 addressErrors={addressErrors}
                                 storedAllergens={storedAllergens}
                                 showIssues={showIssues}
+                                savedAddresses={addressList}
+                                addressId={addressId}
+                                addressesPending={addresses.isPending}
+                                onAddressIdChange={setAddressId}
                             />
                         ) : null}
 
@@ -485,7 +512,7 @@ export function SubscriptionConfiguratorScreen({
                         <Inline space="sm" wrap testID="configurator-navigation">
                             <Button
                                 testID="configurator-back"
-                                variant="secondary"
+                                variant="quiet"
                                 label={t('commerce:configurator.back')}
                                 disabled={previousConfiguratorStep(step) === null}
                                 onPress={onBack}

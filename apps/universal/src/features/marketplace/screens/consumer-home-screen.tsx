@@ -5,48 +5,37 @@ import {
     Card,
     Heading,
     Inline,
-    ListItem,
-    MeterBar,
     Stack,
     Text,
 } from '@healthy360/design-system';
-import { readNutritionLevels } from '@healthy360/nutrition';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useMeQuery } from '../../../data/hooks.ts';
-import {
-    useConsumerDayQuery,
-    useCurrentTargetsQuery,
-    useSubscriptionsQuery,
-} from '../../../data/marketplace-hooks.ts';
-import { PrototypeButton } from '../../../prototype/prototype-notice.tsx';
+import { useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { clearResumeIntent, useResumeIntent } from '../resume-intent.ts';
 import { formatMoney } from '../format.ts';
 import { QueryStates } from '../query-states.tsx';
 
-/** The nutrients the snapshot shows, in the order a person reads them. */
-const SNAPSHOT_NUTRIENTS: readonly string[] = ['energy', 'protein', 'carbohydrate', 'fat', 'fibre'];
-
 /**
  * The signed-in consumer's home.
  *
- * Four questions, in the order somebody actually asks them: what am I eating next, how does that
- * sit against my target, is anything being delivered, and where was I.
+ * Three things, in the order somebody actually asks for them: who am I, where was I, and what is
+ * being delivered.
  *
- * ## The onboarding branch is a state, not an error
+ * ## What used to be here, and why it is not
  *
- * `getCurrentTargets()` answering `null` is the whole `consumer-onboarding` world: no target, an
- * empty planner, nothing to review. That is a designed screen — a single clear invitation — rather
- * than a home page full of empty cards, because a person on their first day should be told what to
- * do next and not shown five things that are all zero.
+ * This page carried a today-at-a-glance card, a nutrition snapshot, an onboarding invitation and a
+ * violet band advertising the virtual dietitian. All four read the planner and nutrition contracts,
+ * which the API does not implement (`src/features/availability.ts`), so all four rendered the same
+ * empty state dressed four different ways — and the band's only action was a link into an area the
+ * customer layout now redirects out of. A home page whose top half is placeholder is worse than a
+ * short one, so the sections are gone rather than emptied. They come back with their endpoints; the
+ * screens behind them were never deleted.
  *
- * ## Every figure carries its caveat
- *
- * The snapshot meters read synthetic data through a prototype calculator. The disclaimer is on the
- * screen for the same reason it is on every other screen that shows a number.
+ * Every figure still carries its caveat — the disclaimer stays for the subscription price.
  */
 export function ConsumerHomeScreen() {
     const { t } = useTranslation();
@@ -54,22 +43,8 @@ export function ConsumerHomeScreen() {
     const formatter = useFormatter();
 
     const me = useMeQuery();
-    const targets = useCurrentTargetsQuery(true);
-    const day = useConsumerDayQuery(true);
     const subscriptions = useSubscriptionsQuery(true);
     const resume = useResumeIntent();
-
-    const hasTarget = targets.data != null;
-    const onboardingPending = targets.data === null && !targets.isPending;
-
-    const summary = day.data?.day.summary;
-    const dayTargets = day.data?.day.targets ?? [];
-    const readings =
-        summary === undefined || dayTargets.length === 0
-            ? []
-            : readNutritionLevels(summary.planned, dayTargets).filter((reading) =>
-                  SNAPSHOT_NUTRIENTS.includes(reading.nutrientId),
-              );
 
     const activeSubscription = (subscriptions.data?.items ?? []).find(
         (subscription) => subscription.state !== 'cancelled',
@@ -120,126 +95,6 @@ export function ConsumerHomeScreen() {
                     }
                 />
             )}
-
-            {onboardingPending ? (
-                <Card padding="lg" tone="brand" testID="consumer-onboarding-cta">
-                    <Stack space="sm">
-                        <Heading level={2}>{t('marketplace:consumer.onboarding.title')}</Heading>
-                        <Text tone="secondary">{t('marketplace:consumer.onboarding.body')}</Text>
-                        <PrototypeButton
-                            label={t('marketplace:consumer.onboarding.start')}
-                            contract="POST /api/v1/nutrition/calculate-targets"
-                            variant="primary"
-                        />
-                    </Stack>
-                </Card>
-            ) : null}
-
-            <Stack space="sm" testID="consumer-today">
-                <Heading level={2}>{t('marketplace:consumer.today.title')}</Heading>
-                <QueryStates
-                    query={day}
-                    isEmpty={day.data === null || (day.data?.day.entries.length ?? 0) === 0}
-                    emptyTitle={t('marketplace:consumer.today.emptyTitle')}
-                    emptyBody={t('marketplace:consumer.today.emptyBody')}
-                    skeletonCount={1}
-                    testID="today-card"
-                >
-                    {day.data == null ? null : (
-                        <Card padding="md" tone="raised" testID="today-card-content">
-                            <Stack space="sm">
-                                <Inline space="xs" align="center" wrap>
-                                    <Text variant="label">
-                                        {day.data.isToday
-                                            ? t('marketplace:consumer.today.forToday')
-                                            : t('marketplace:consumer.today.forDate', {
-                                                  date: formatter.formatDate(
-                                                      `${day.data.day.date}T12:00:00.000Z`,
-                                                      {
-                                                          weekday: 'long',
-                                                          day: 'numeric',
-                                                          month: 'long',
-                                                      },
-                                                  ),
-                                              })}
-                                    </Text>
-                                    {summary?.estimatedCost == null ? null : (
-                                        <Badge
-                                            testID="today-card-cost"
-                                            tone="neutral"
-                                            label={formatMoney(formatter, summary.estimatedCost)}
-                                        />
-                                    )}
-                                </Inline>
-
-                                <Stack space="xs" testID="today-card-entries">
-                                    {day.data.day.entries.map((entry) => (
-                                        <ListItem
-                                            key={entry.id}
-                                            testID={`today-entry-${String(entry.id)}`}
-                                            title={entry.label}
-                                            description={t(
-                                                `marketplace:mealTypes.${entry.mealType}`,
-                                            )}
-                                            trailing={
-                                                entry.locked ? (
-                                                    <Badge
-                                                        tone="info"
-                                                        label={t(
-                                                            'marketplace:consumer.today.locked',
-                                                        )}
-                                                    />
-                                                ) : undefined
-                                            }
-                                        />
-                                    ))}
-                                </Stack>
-
-                                <PrototypeButton
-                                    label={t('marketplace:consumer.today.openPlanner')}
-                                    contract="GET /api/v1/meal-plans/{plan}"
-                                    showBadge={false}
-                                    size="sm"
-                                />
-                            </Stack>
-                        </Card>
-                    )}
-                </QueryStates>
-            </Stack>
-
-            <Stack space="sm" testID="consumer-nutrition">
-                <Heading level={2}>{t('marketplace:consumer.nutrition.title')}</Heading>
-                <QueryStates
-                    query={targets}
-                    isEmpty={!hasTarget || readings.length === 0}
-                    emptyTitle={t('marketplace:consumer.nutrition.emptyTitle')}
-                    emptyBody={t('marketplace:consumer.nutrition.emptyBody')}
-                    skeletonCount={1}
-                    testID="nutrition-snapshot"
-                >
-                    <Card padding="md" tone="raised" testID="nutrition-snapshot-content">
-                        <Stack space="sm">
-                            {readings.map((reading) => (
-                                <MeterBar
-                                    key={reading.nutrientId}
-                                    testID={`nutrition-meter-${reading.nutrientId}`}
-                                    label={t(`marketplace:nutrients.${reading.nutrientId}`)}
-                                    value={Math.round(reading.value)}
-                                    target={Math.round(reading.target)}
-                                    level={reading.level}
-                                    levelLabel={t(`marketplace:levels.${reading.level}`)}
-                                />
-                            ))}
-                            <PrototypeButton
-                                label={t('marketplace:consumer.nutrition.whyThisTarget')}
-                                contract="GET /api/v1/nutrition/targets/current"
-                                showBadge={false}
-                                size="sm"
-                            />
-                        </Stack>
-                    </Card>
-                </QueryStates>
-            </Stack>
 
             <Stack space="sm" testID="consumer-subscription">
                 <Heading level={2}>{t('marketplace:consumer.subscription.title')}</Heading>
@@ -296,11 +151,22 @@ export function ConsumerHomeScreen() {
                                         ),
                                     })}
                                 </Text>
-                                <PrototypeButton
-                                    label={t('marketplace:consumer.subscription.manage')}
-                                    contract="GET /api/v1/subscriptions/{subscription}"
-                                    showBadge={false}
+                                {/*
+                                 * A real navigation, not a prototype notice: subscriptions are one
+                                 * of the contracts the API does implement, and
+                                 * `/customer/subscriptions/{id}` is the screen that manages this
+                                 * exact record.
+                                 */}
+                                <Button
+                                    testID="consumer-subscription-manage"
+                                    variant="secondary"
                                     size="sm"
+                                    label={t('marketplace:consumer.subscription.manage')}
+                                    onPress={() => {
+                                        router.push(
+                                            `/customer/subscriptions/${String(activeSubscription.id)}` as never,
+                                        );
+                                    }}
                                 />
                             </Stack>
                         </Card>

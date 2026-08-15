@@ -1,0 +1,2379 @@
+{
+    "categories": [
+        {
+            "code": "herbs-spices",
+            "name_en": "Herbs & spices",
+            "parent_code": null,
+            "display_order": 1
+        },
+        {
+            "code": "herbs-spices-spices",
+            "name_en": "Spices",
+            "parent_code": "herbs-spices",
+            "display_order": 2
+        },
+        {
+            "code": "nuts-seeds",
+            "name_en": "Nuts & seeds",
+            "parent_code": null,
+            "display_order": 3
+        },
+        {
+            "code": "nuts-seeds-tree-nuts",
+            "name_en": "Tree nuts",
+            "parent_code": "nuts-seeds",
+            "display_order": 4
+        },
+        {
+            "code": "vegetables-other",
+            "name_en": "Vegetables & other",
+            "parent_code": null,
+            "display_order": 5
+        },
+        {
+            "code": "vegetables-other-condiments-vinegars",
+            "name_en": "Condiments / vinegars",
+            "parent_code": "vegetables-other",
+            "display_order": 6
+        },
+        {
+            "code": "fruits",
+            "name_en": "Fruits",
+            "parent_code": null,
+            "display_order": 7
+        },
+        {
+            "code": "fruits-pome-fruit",
+            "name_en": "Pome fruit",
+            "parent_code": "fruits",
+            "display_order": 8
+        },
+        {
+            "code": "fruits-stone-fruit",
+            "name_en": "Stone fruit",
+            "parent_code": "fruits",
+            "display_order": 9
+        },
+        {
+            "code": "vegetables-other-other-vegetable",
+            "name_en": "Other vegetable",
+            "parent_code": "vegetables-other",
+            "display_order": 10
+        },
+        {
+            "code": "fruits-tropical-fruit",
+            "name_en": "Tropical fruit",
+            "parent_code": "fruits",
+            "display_order": 11
+        },
+        {
+            "code": "herbs-spices-herbs",
+            "name_en": "Herbs",
+            "parent_code": "herbs-spices",
+            "display_order": 12
+        },
+        {
+            "code": "legumes",
+            "name_en": "Legumes",
+            "parent_code": null,
+            "display_order": 13
+        },
+        {
+            "code": "legumes-legumes",
+            "name_en": "Legumes",
+            "parent_code": "legumes",
+            "display_order": 14
+        },
+        {
+            "code": "vegetables-other-root-tuber",
+            "name_en": "Root & tuber",
+            "parent_code": "vegetables-other",
+            "display_order": 15
+        },
+        {
+            "code": "vegetables-other-nightshade",
+            "name_en": "Nightshade",
+            "parent_code": "vegetables-other",
+            "display_order": 16
+        },
+        {
+            "code": "fruits-berries",
+            "name_en": "Berries",
+            "parent_code": "fruits",
+            "display_order": 17
+        },
+        {
+            "code": "vegetables-other-cruciferous",
+            "name_en": "Cruciferous",
+            "parent_code": "vegetables-other",
+            "display_order": 18
+        },
+        {
+            "code": "vegetables-other-leafy-greens",
+            "name_en": "Leafy greens",
+            "parent_code": "vegetables-other",
+            "display_order": 19
+        },
+        {
+            "code": "vegetables-other-wheat-based",
+            "name_en": "Wheat-based",
+            "parent_code": "vegetables-other",
+            "display_order": 20
+        },
+        {
+            "code": "seafood",
+            "name_en": "Seafood",
+            "parent_code": null,
+            "display_order": 21
+        },
+        {
+            "code": "seafood-molluscs",
+            "name_en": "Molluscs",
+            "parent_code": "seafood",
+            "display_order": 22
+        },
+        {
+            "code": "nuts-seeds-seeds",
+            "name_en": "Seeds",
+            "parent_code": "nuts-seeds",
+            "display_order": 23
+        },
+        {
+            "code": "protein",
+            "name_en": "Protein",
+            "parent_code": null,
+            "display_order": 24
+        },
+        {
+            "code": "protein-poultry",
+            "name_en": "Poultry",
+            "parent_code": "protein",
+            "display_order": 25
+        },
+        {
+            "code": "sweeteners-condiments",
+            "name_en": "Sweeteners & condiments",
+            "parent_code": null,
+            "display_order": 26
+        },
+        {
+            "code": "sweeteners-condiments-sweeteners",
+            "name_en": "Sweeteners",
+            "parent_code": "sweeteners-condiments",
+            "display_order": 27
+        },
+        {
+            "code": "fruits-citrus",
+            "name_en": "Citrus",
+            "parent_code": "fruits",
+            "display_order": 28
+        },
+        {
+            "code": "vegetables-other-tropical-fruit",
+            "name_en": "Tropical fruit",
+            "parent_code": "vegetables-other",
+            "display_order": 29
+        },
+        {
+            "code": "grains-starches",
+            "name_en": "Grains & starches",
+            "parent_code": null,
+            "display_order": 30
+        },
+        {
+            "code": "grains-starches-wheat-based",
+            "name_en": "Wheat-based",
+            "parent_code": "grains-starches",
+            "display_order": 31
+        },
+        {
+            "code": "seafood-crustaceans",
+            "name_en": "Crustaceans",
+            "parent_code": "seafood",
+            "display_order": 32
+        },
+        {
+            "code": "vegetables-other-gourd-squash",
+            "name_en": "Gourd / squash",
+            "parent_code": "vegetables-other",
+            "display_order": 33
+        },
+        {
+            "code": "fruits-dried-fruit",
+            "name_en": "Dried fruit",
+            "parent_code": "fruits",
+            "display_order": 34
+        },
+        {
+            "code": "protein-egg",
+            "name_en": "Egg",
+            "parent_code": "protein",
+            "display_order": 35
+        },
+        {
+            "code": "protein-prepared-other",
+            "name_en": "Prepared / other",
+            "parent_code": "protein",
+            "display_order": 36
+        },
+        {
+            "code": "legumes-other-vegetable",
+            "name_en": "Other vegetable",
+            "parent_code": "legumes",
+            "display_order": 37
+        },
+        {
+            "code": "seafood-fish",
+            "name_en": "Fish",
+            "parent_code": "seafood",
+            "display_order": 38
+        },
+        {
+            "code": "vegetables-other-allium",
+            "name_en": "Allium",
+            "parent_code": "vegetables-other",
+            "display_order": 39
+        },
+        {
+            "code": "vegetables-other-other-grains",
+            "name_en": "Other grains",
+            "parent_code": "vegetables-other",
+            "display_order": 40
+        },
+        {
+            "code": "fruits-other-fruit",
+            "name_en": "Other fruit",
+            "parent_code": "fruits",
+            "display_order": 41
+        },
+        {
+            "code": "vegetables-other-prepared-other",
+            "name_en": "Prepared / other",
+            "parent_code": "vegetables-other",
+            "display_order": 42
+        },
+        {
+            "code": "dairy",
+            "name_en": "Dairy",
+            "parent_code": null,
+            "display_order": 43
+        },
+        {
+            "code": "dairy-cheese",
+            "name_en": "Cheese",
+            "parent_code": "dairy",
+            "display_order": 44
+        },
+        {
+            "code": "dairy-cultured-dairy",
+            "name_en": "Cultured dairy",
+            "parent_code": "dairy",
+            "display_order": 45
+        },
+        {
+            "code": "dairy-milk-cream",
+            "name_en": "Milk & cream",
+            "parent_code": "dairy",
+            "display_order": 46
+        },
+        {
+            "code": "fruits-melon",
+            "name_en": "Melon",
+            "parent_code": "fruits",
+            "display_order": 47
+        },
+        {
+            "code": "vegetables-other-fungi",
+            "name_en": "Fungi",
+            "parent_code": "vegetables-other",
+            "display_order": 48
+        },
+        {
+            "code": "grains-starches-other-grains",
+            "name_en": "Other grains",
+            "parent_code": "grains-starches",
+            "display_order": 49
+        },
+        {
+            "code": "oils-fats",
+            "name_en": "Oils & fats",
+            "parent_code": null,
+            "display_order": 50
+        },
+        {
+            "code": "oils-fats-oils",
+            "name_en": "Oils",
+            "parent_code": "oils-fats",
+            "display_order": 51
+        },
+        {
+            "code": "vegetables-other-flavouring-extract",
+            "name_en": "Flavouring / extract",
+            "parent_code": "vegetables-other",
+            "display_order": 52
+        },
+        {
+            "code": "vegetables-other-herbs",
+            "name_en": "Herbs",
+            "parent_code": "vegetables-other",
+            "display_order": 53
+        },
+        {
+            "code": "nuts-seeds-peanuts-legume",
+            "name_en": "Peanuts (legume)",
+            "parent_code": "nuts-seeds",
+            "display_order": 54
+        },
+        {
+            "code": "grains-starches-rice-rice-based",
+            "name_en": "Rice & rice-based",
+            "parent_code": "grains-starches",
+            "display_order": 55
+        },
+        {
+            "code": "vegetables-other-rice-rice-based",
+            "name_en": "Rice & rice-based",
+            "parent_code": "vegetables-other",
+            "display_order": 56
+        },
+        {
+            "code": "herbs-spices-seasoning",
+            "name_en": "Seasoning",
+            "parent_code": "herbs-spices",
+            "display_order": 57
+        },
+        {
+            "code": "protein-legumes",
+            "name_en": "Legumes",
+            "parent_code": "protein",
+            "display_order": 58
+        },
+        {
+            "code": "oils-fats-seeds",
+            "name_en": "Seeds",
+            "parent_code": "oils-fats",
+            "display_order": 59
+        },
+        {
+            "code": "beverages-tea",
+            "name_en": "Beverages / tea",
+            "parent_code": null,
+            "display_order": 60
+        },
+        {
+            "code": "beverages-tea-tea-infusions",
+            "name_en": "Tea & infusions",
+            "parent_code": "beverages-tea",
+            "display_order": 61
+        },
+        {
+            "code": "protein-plant-protein",
+            "name_en": "Plant protein",
+            "parent_code": "protein",
+            "display_order": 62
+        }
+    ],
+    "ingredients": [
+        {
+            "source_ref": "IG-001",
+            "slug": "allspice",
+            "name_en": "Allspice",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-002",
+            "slug": "almond-milk",
+            "name_en": "Almond milk",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-003",
+            "slug": "almonds",
+            "name_en": "Almonds",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-004",
+            "slug": "anise",
+            "name_en": "Anise",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-005",
+            "slug": "apple-cider-vinegar",
+            "name_en": "Apple Cider Vinegar",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-condiments-vinegars",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-006",
+            "slug": "apple-green",
+            "name_en": "Apple Green",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-pome-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-007",
+            "slug": "apple-red",
+            "name_en": "Apple Red",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-pome-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-008",
+            "slug": "apricot",
+            "name_en": "Apricot",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-stone-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-009",
+            "slug": "artichoke",
+            "name_en": "Artichoke",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-010",
+            "slug": "asparagus",
+            "name_en": "Asparagus",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-011",
+            "slug": "avocado",
+            "name_en": "Avocado",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-tropical-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-012",
+            "slug": "baby-okra",
+            "name_en": "Baby Okra",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-013",
+            "slug": "balsamic-vinegar",
+            "name_en": "Balsamic Vinegar",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-condiments-vinegars",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-014",
+            "slug": "bananas",
+            "name_en": "Bananas",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-tropical-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-015",
+            "slug": "basil",
+            "name_en": "Basil",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-herbs",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-016",
+            "slug": "bay-leaves",
+            "name_en": "Bay Leaves",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-herbs",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-017",
+            "slug": "bean",
+            "name_en": "Bean",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-legumes",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-018",
+            "slug": "beetroot",
+            "name_en": "Beetroot",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-019",
+            "slug": "bell-pepper",
+            "name_en": "Bell Pepper",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-nightshade",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-020",
+            "slug": "berries",
+            "name_en": "Berries",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-berries",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-021",
+            "slug": "black-pepper",
+            "name_en": "Black Pepper",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-022",
+            "slug": "blackberry",
+            "name_en": "Blackberry",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-berries",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-023",
+            "slug": "broccoli",
+            "name_en": "Broccoli",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-cruciferous",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-024",
+            "slug": "brussels-sprouts",
+            "name_en": "Brussels sprouts",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-025",
+            "slug": "burghul-bulgur",
+            "name_en": "Burghul (Bulgur)",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-wheat-based",
+            "allergens": [],
+            "verification_status": "requires_review",
+            "notes": "Source sheet 2 records allergen class \"None\" while the source allergen key (sheet 5) lists burghul under Cereals/Gluten. Seeded as recorded and flagged for review; do not publish a label from this row until a human decides.",
+            "source_allergen_class": "None"
+        },
+        {
+            "source_ref": "IG-026",
+            "slug": "cabbage",
+            "name_en": "Cabbage",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-027",
+            "slug": "calamari",
+            "name_en": "Calamari",
+            "category_code": "seafood",
+            "subcategory_code": "seafood-molluscs",
+            "allergens": [
+                {
+                    "allergen_code": "mollusc"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-028",
+            "slug": "cardamom",
+            "name_en": "Cardamom",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-029",
+            "slug": "carrot",
+            "name_en": "Carrot",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-030",
+            "slug": "carroway",
+            "name_en": "Carroway",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-031",
+            "slug": "cashew",
+            "name_en": "Cashew",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-032",
+            "slug": "cauliflower",
+            "name_en": "Cauliflower",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-cruciferous",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-033",
+            "slug": "celery",
+            "name_en": "Celery",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": [
+                {
+                    "allergen_code": "celery"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-034",
+            "slug": "chard",
+            "name_en": "Chard",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-035",
+            "slug": "cherries",
+            "name_en": "Cherries",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-stone-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-036",
+            "slug": "cherry-tomato",
+            "name_en": "Cherry tomato",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-nightshade",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-037",
+            "slug": "chestnuts",
+            "name_en": "Chestnuts",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-038",
+            "slug": "chia-seeds",
+            "name_en": "Chia Seeds",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-seeds",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-039",
+            "slug": "chicken",
+            "name_en": "Chicken",
+            "category_code": "protein",
+            "subcategory_code": "protein-poultry",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-040",
+            "slug": "chicken-liver",
+            "name_en": "Chicken Liver",
+            "category_code": "protein",
+            "subcategory_code": "protein-poultry",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-041",
+            "slug": "chickpeas",
+            "name_en": "Chickpeas",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-legumes",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-042",
+            "slug": "chocolate",
+            "name_en": "Chocolate",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-043",
+            "slug": "cinnamon",
+            "name_en": "Cinnamon",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-044",
+            "slug": "clementines",
+            "name_en": "Clementines",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-citrus",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-045",
+            "slug": "clove",
+            "name_en": "Clove",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-046",
+            "slug": "coconut-milk",
+            "name_en": "Coconut milk",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-tropical-fruit",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut",
+                    "market_scope": "us_only"
+                }
+            ],
+            "source_note": "* coconut: US allergen, not EU"
+        },
+        {
+            "source_ref": "IG-047",
+            "slug": "coconut-sugar",
+            "name_en": "Coconut Sugar",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut",
+                    "market_scope": "us_only"
+                }
+            ],
+            "source_note": "* coconut: US allergen, not EU"
+        },
+        {
+            "source_ref": "IG-048",
+            "slug": "coconut-water",
+            "name_en": "Coconut water",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-tropical-fruit",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut",
+                    "market_scope": "us_only"
+                }
+            ],
+            "source_note": "* coconut: US allergen, not EU"
+        },
+        {
+            "source_ref": "IG-049",
+            "slug": "coconuts",
+            "name_en": "Coconuts",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-tropical-fruit",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut",
+                    "market_scope": "us_only"
+                }
+            ],
+            "source_note": "* coconut: US allergen, not EU"
+        },
+        {
+            "source_ref": "IG-050",
+            "slug": "coriander",
+            "name_en": "Coriander",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-herbs",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-051",
+            "slug": "couscous",
+            "name_en": "Couscous",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-052",
+            "slug": "crab",
+            "name_en": "Crab",
+            "category_code": "seafood",
+            "subcategory_code": "seafood-crustaceans",
+            "allergens": [
+                {
+                    "allergen_code": "crustaceans"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-053",
+            "slug": "cranberries",
+            "name_en": "Cranberries",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-berries",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-054",
+            "slug": "cromb",
+            "name_en": "Cromb",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-055",
+            "slug": "cucumber",
+            "name_en": "Cucumber",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-gourd-squash",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-056",
+            "slug": "cumin",
+            "name_en": "Cumin",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-057",
+            "slug": "curry",
+            "name_en": "Curry",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-058",
+            "slug": "dandelion",
+            "name_en": "Dandelion",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-059",
+            "slug": "dates",
+            "name_en": "Dates",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-dried-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-060",
+            "slug": "dried-fruits",
+            "name_en": "Dried fruits",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-dried-fruit",
+            "allergens": [
+                {
+                    "allergen_code": "sulphites",
+                    "containment": "may_contain",
+                    "verification_status": "requires_supplier_confirmation",
+                    "evidence": "verify per supplier"
+                }
+            ],
+            "source_note": "~ possible — verify per supplier"
+        },
+        {
+            "source_ref": "IG-061",
+            "slug": "dried-tomato",
+            "name_en": "Dried tomato",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-nightshade",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-062",
+            "slug": "edamame",
+            "name_en": "Edamame",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-legumes",
+            "allergens": [
+                {
+                    "allergen_code": "soy"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-063",
+            "slug": "eggplant",
+            "name_en": "Eggplant",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-nightshade",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-064",
+            "slug": "eggs",
+            "name_en": "Eggs",
+            "category_code": "protein",
+            "subcategory_code": "protein-egg",
+            "allergens": [
+                {
+                    "allergen_code": "egg"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-065",
+            "slug": "endive",
+            "name_en": "Endive",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-066",
+            "slug": "fajita",
+            "name_en": "Fajita",
+            "category_code": "protein",
+            "subcategory_code": "protein-prepared-other",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-067",
+            "slug": "fava-beans",
+            "name_en": "Fava Beans",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-other-vegetable",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-068",
+            "slug": "fish",
+            "name_en": "Fish",
+            "category_code": "seafood",
+            "subcategory_code": "seafood-fish",
+            "allergens": [
+                {
+                    "allergen_code": "fish"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-069",
+            "slug": "fish-filet",
+            "name_en": "Fish Filet",
+            "category_code": "seafood",
+            "subcategory_code": "seafood-fish",
+            "allergens": [
+                {
+                    "allergen_code": "fish"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-070",
+            "slug": "flaxseed",
+            "name_en": "Flaxseed",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-seeds",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-071",
+            "slug": "freekeh",
+            "name_en": "Freekeh",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-072",
+            "slug": "garam-masala",
+            "name_en": "Garam Masala",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-073",
+            "slug": "garlic",
+            "name_en": "Garlic",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-allium",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-074",
+            "slug": "ginger",
+            "name_en": "Ginger",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-075",
+            "slug": "gluten",
+            "name_en": "Gluten",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-076",
+            "slug": "gluten-free-flour",
+            "name_en": "Gluten free flour",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-grains",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-077",
+            "slug": "gogi-berries",
+            "name_en": "Gogi berries",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-berries",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-078",
+            "slug": "granola",
+            "name_en": "Granola",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-079",
+            "slug": "grapefruit",
+            "name_en": "Grapefruit",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-citrus",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-080",
+            "slug": "grapes",
+            "name_en": "Grapes",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-other-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-081",
+            "slug": "green-beans",
+            "name_en": "Green beans",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-legumes",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-082",
+            "slug": "green-plums",
+            "name_en": "Green Plums",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-stone-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-083",
+            "slug": "guacamole",
+            "name_en": "Guacamole",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-prepared-other",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-084",
+            "slug": "halloumi",
+            "name_en": "Halloumi",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cheese",
+            "allergens": [
+                {
+                    "allergen_code": "milk"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-085",
+            "slug": "hazelnuts",
+            "name_en": "Hazelnuts",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-086",
+            "slug": "hendbeh",
+            "name_en": "Hendbeh",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-087",
+            "slug": "herbes-de-provence",
+            "name_en": "Herbes De Provence",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-088",
+            "slug": "honey",
+            "name_en": "Honey",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-089",
+            "slug": "hummus-tahini",
+            "name_en": "Hummus tahini",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-prepared-other",
+            "allergens": [
+                {
+                    "allergen_code": "sesame"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-090",
+            "slug": "iceberg",
+            "name_en": "Iceberg",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-091",
+            "slug": "jam",
+            "name_en": "Jam",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-092",
+            "slug": "kale",
+            "name_en": "Kale",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-093",
+            "slug": "keshek",
+            "name_en": "Keshek",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cultured-dairy",
+            "allergens": [
+                {
+                    "allergen_code": "milk"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-094",
+            "slug": "kishk",
+            "name_en": "Kishk",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cultured-dairy",
+            "allergens": [
+                {
+                    "allergen_code": "milk"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-095",
+            "slug": "kiwi",
+            "name_en": "Kiwi",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-tropical-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-096",
+            "slug": "labneh",
+            "name_en": "Labneh",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cultured-dairy",
+            "allergens": [
+                {
+                    "allergen_code": "milk"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-097",
+            "slug": "lemon",
+            "name_en": "Lemon",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-citrus",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-098",
+            "slug": "lentil",
+            "name_en": "Lentil",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-legumes",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-099",
+            "slug": "lettuce",
+            "name_en": "Lettuce",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-100",
+            "slug": "loquat",
+            "name_en": "Loquat",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-pome-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-101",
+            "slug": "lupin",
+            "name_en": "Lupin",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-legumes",
+            "allergens": [
+                {
+                    "allergen_code": "lupin"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-102",
+            "slug": "makdous",
+            "name_en": "Makdous",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": [
+                {
+                    "allergen_code": "sulphites",
+                    "containment": "may_contain",
+                    "verification_status": "requires_supplier_confirmation",
+                    "evidence": "verify per supplier"
+                }
+            ],
+            "source_note": "~ possible — verify per supplier"
+        },
+        {
+            "source_ref": "IG-103",
+            "slug": "mandarine-orange",
+            "name_en": "Mandarine Orange",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-citrus",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-104",
+            "slug": "mango",
+            "name_en": "Mango",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-tropical-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-105",
+            "slug": "margarine",
+            "name_en": "Margarine",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-milk-cream",
+            "allergens": [
+                {
+                    "allergen_code": "milk"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-106",
+            "slug": "masala-spices",
+            "name_en": "Masala Spices",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-107",
+            "slug": "melon",
+            "name_en": "Melon",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-melon",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-108",
+            "slug": "mint",
+            "name_en": "Mint",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-herbs",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-109",
+            "slug": "mixed-berries",
+            "name_en": "Mixed berries",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-berries",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-110",
+            "slug": "mloukhiyeh",
+            "name_en": "Mloukhiyeh",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-111",
+            "slug": "molasses",
+            "name_en": "Molasses",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": [
+                {
+                    "allergen_code": "sulphites",
+                    "containment": "may_contain",
+                    "verification_status": "requires_supplier_confirmation",
+                    "evidence": "verify per supplier"
+                }
+            ],
+            "source_note": "~ possible — verify per supplier"
+        },
+        {
+            "source_ref": "IG-112",
+            "slug": "moughrabiyeh",
+            "name_en": "Moughrabiyeh",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-113",
+            "slug": "mushroom",
+            "name_en": "Mushroom",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-fungi",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-114",
+            "slug": "mustard",
+            "name_en": "Mustard",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-condiments-vinegars",
+            "allergens": [
+                {
+                    "allergen_code": "mustard"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-115",
+            "slug": "noodles",
+            "name_en": "Noodles",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-116",
+            "slug": "nuts",
+            "name_en": "Nuts",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-117",
+            "slug": "oats",
+            "name_en": "Oats",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-other-grains",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-118",
+            "slug": "oil",
+            "name_en": "Oil",
+            "category_code": "oils-fats",
+            "subcategory_code": "oils-fats-oils",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-119",
+            "slug": "olive-oil",
+            "name_en": "Olive Oil",
+            "category_code": "oils-fats",
+            "subcategory_code": "oils-fats-oils",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-120",
+            "slug": "olives",
+            "name_en": "Olives",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-121",
+            "slug": "onions",
+            "name_en": "Onions",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-allium",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-122",
+            "slug": "orange",
+            "name_en": "Orange",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-citrus",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-123",
+            "slug": "orange-blossom-water",
+            "name_en": "Orange blossom water",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-flavouring-extract",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-124",
+            "slug": "oregano",
+            "name_en": "Oregano",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-herbs",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-125",
+            "slug": "palmito",
+            "name_en": "Palmito",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-126",
+            "slug": "papaya",
+            "name_en": "Papaya",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-tropical-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-127",
+            "slug": "paprika",
+            "name_en": "Paprika",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-128",
+            "slug": "parsley",
+            "name_en": "Parsley",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-herbs",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-129",
+            "slug": "passion-fruit",
+            "name_en": "Passion Fruit",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-tropical-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-130",
+            "slug": "pasta",
+            "name_en": "Pasta",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-131",
+            "slug": "peach",
+            "name_en": "Peach",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-stone-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-132",
+            "slug": "peanut-butter",
+            "name_en": "Peanut Butter",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-peanuts-legume",
+            "allergens": [
+                {
+                    "allergen_code": "peanut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-133",
+            "slug": "peanuts",
+            "name_en": "Peanuts",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-peanuts-legume",
+            "allergens": [
+                {
+                    "allergen_code": "peanut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-134",
+            "slug": "pear",
+            "name_en": "Pear",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-pome-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-135",
+            "slug": "peas",
+            "name_en": "Peas",
+            "category_code": "legumes",
+            "subcategory_code": "legumes-legumes",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-136",
+            "slug": "pepper",
+            "name_en": "Pepper",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-137",
+            "slug": "persimmon",
+            "name_en": "Persimmon",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-pome-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-138",
+            "slug": "pickles",
+            "name_en": "Pickles",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": [
+                {
+                    "allergen_code": "sulphites",
+                    "containment": "may_contain",
+                    "verification_status": "requires_supplier_confirmation",
+                    "evidence": "verify per supplier"
+                }
+            ],
+            "source_note": "~ possible — verify per supplier"
+        },
+        {
+            "source_ref": "IG-139",
+            "slug": "pine-nuts",
+            "name_en": "Pine Nuts",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-140",
+            "slug": "pineapple",
+            "name_en": "Pineapple",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-tropical-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-141",
+            "slug": "pineapple-jam",
+            "name_en": "Pineapple Jam",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-142",
+            "slug": "pistachio",
+            "name_en": "Pistachio",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-143",
+            "slug": "pita-bread",
+            "name_en": "Pita bread",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-wheat-based",
+            "allergens": [],
+            "verification_status": "requires_review",
+            "notes": "Source sheet 2 records allergen class \"None\" while the source allergen key (sheet 5) lists bread under Cereals/Gluten. Seeded as recorded and flagged for review; do not publish a label from this row until a human decides.",
+            "source_allergen_class": "None"
+        },
+        {
+            "source_ref": "IG-144",
+            "slug": "plum",
+            "name_en": "Plum",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-stone-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-145",
+            "slug": "pomegranate",
+            "name_en": "Pomegranate",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-other-fruit",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-146",
+            "slug": "pomegranate-molasses",
+            "name_en": "Pomegranate molasses",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": [
+                {
+                    "allergen_code": "sulphites",
+                    "containment": "may_contain",
+                    "verification_status": "requires_supplier_confirmation",
+                    "evidence": "verify per supplier"
+                }
+            ],
+            "source_note": "~ possible — verify per supplier"
+        },
+        {
+            "source_ref": "IG-147",
+            "slug": "pomelo",
+            "name_en": "Pomelo",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-citrus",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-148",
+            "slug": "portobello-mushroom",
+            "name_en": "Portobello Mushroom",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-fungi",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-149",
+            "slug": "potato",
+            "name_en": "Potato",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-150",
+            "slug": "prune",
+            "name_en": "Prune",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-dried-fruit",
+            "allergens": [
+                {
+                    "allergen_code": "sulphites",
+                    "containment": "may_contain",
+                    "verification_status": "requires_supplier_confirmation",
+                    "evidence": "verify per supplier"
+                }
+            ],
+            "source_note": "~ possible — verify per supplier"
+        },
+        {
+            "source_ref": "IG-151",
+            "slug": "pumpkin",
+            "name_en": "Pumpkin",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-152",
+            "slug": "pumpkin-seeds",
+            "name_en": "Pumpkin seeds",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-seeds",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-153",
+            "slug": "purple-potato",
+            "name_en": "Purple Potato",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-154",
+            "slug": "purslane",
+            "name_en": "Purslane",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-155",
+            "slug": "quail-egg",
+            "name_en": "Quail Egg",
+            "category_code": "protein",
+            "subcategory_code": "protein-egg",
+            "allergens": [
+                {
+                    "allergen_code": "egg"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-156",
+            "slug": "quinoa",
+            "name_en": "Quinoa",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-other-grains",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-157",
+            "slug": "radish",
+            "name_en": "Radish",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-158",
+            "slug": "raisins",
+            "name_en": "Raisins",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-dried-fruit",
+            "allergens": [
+                {
+                    "allergen_code": "sulphites",
+                    "containment": "may_contain",
+                    "verification_status": "requires_supplier_confirmation",
+                    "evidence": "verify per supplier"
+                }
+            ],
+            "source_note": "~ possible — verify per supplier"
+        },
+        {
+            "source_ref": "IG-159",
+            "slug": "raspberry",
+            "name_en": "Raspberry",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-berries",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-160",
+            "slug": "ravioli",
+            "name_en": "Ravioli",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-163",
+            "slug": "red-bell-pepper",
+            "name_en": "Red Bell Pepper",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-nightshade",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-164",
+            "slug": "red-cabbage",
+            "name_en": "Red cabbage",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-165",
+            "slug": "rice",
+            "name_en": "Rice",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-rice-rice-based",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-166",
+            "slug": "rice-cake",
+            "name_en": "Rice Cake",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-rice-rice-based",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-167",
+            "slug": "rice-keshek",
+            "name_en": "Rice keshek",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cultured-dairy",
+            "allergens": [
+                {
+                    "allergen_code": "milk"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-168",
+            "slug": "rice-milk",
+            "name_en": "Rice milk",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-rice-rice-based",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-169",
+            "slug": "rice-noodles",
+            "name_en": "Rice noodles",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-rice-rice-based",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-170",
+            "slug": "rice-paper",
+            "name_en": "Rice paper",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-rice-rice-based",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-171",
+            "slug": "rice-pasta",
+            "name_en": "Rice Pasta",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-rice-rice-based",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-172",
+            "slug": "rice-powder",
+            "name_en": "Rice Powder",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-other-vegetable",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-173",
+            "slug": "roca",
+            "name_en": "Roca",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-174",
+            "slug": "roll",
+            "name_en": "Roll",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-175",
+            "slug": "rose-water",
+            "name_en": "Rose water",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-flavouring-extract",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-176",
+            "slug": "saffron",
+            "name_en": "Saffron",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-177",
+            "slug": "salmon",
+            "name_en": "Salmon",
+            "category_code": "seafood",
+            "subcategory_code": "seafood-fish",
+            "allergens": [
+                {
+                    "allergen_code": "fish"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-178",
+            "slug": "salt",
+            "name_en": "Salt",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-seasoning",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-179",
+            "slug": "sesame",
+            "name_en": "Sesame",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-seeds",
+            "allergens": [
+                {
+                    "allergen_code": "sesame"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-180",
+            "slug": "shanklish",
+            "name_en": "Shanklish",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cheese",
+            "allergens": [
+                {
+                    "allergen_code": "milk"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-181",
+            "slug": "shrimps",
+            "name_en": "Shrimps",
+            "category_code": "seafood",
+            "subcategory_code": "seafood-crustaceans",
+            "allergens": [
+                {
+                    "allergen_code": "crustaceans"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-182",
+            "slug": "soya-meat",
+            "name_en": "Soya meat",
+            "category_code": "protein",
+            "subcategory_code": "protein-legumes",
+            "allergens": [
+                {
+                    "allergen_code": "soy"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-183",
+            "slug": "soya-sauce",
+            "name_en": "Soya sauce",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-condiments-vinegars",
+            "allergens": [
+                {
+                    "allergen_code": "soy"
+                },
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-184",
+            "slug": "spinach",
+            "name_en": "Spinach",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-185",
+            "slug": "strawberry",
+            "name_en": "Strawberry",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-berries",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-186",
+            "slug": "strawberry-jam",
+            "name_en": "Strawberry Jam",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-187",
+            "slug": "sumac",
+            "name_en": "Sumac",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-188",
+            "slug": "sunflower-oil",
+            "name_en": "Sunflower oil",
+            "category_code": "oils-fats",
+            "subcategory_code": "oils-fats-oils",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-189",
+            "slug": "sunflower-seeds",
+            "name_en": "Sunflower seeds",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-seeds",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-190",
+            "slug": "sushi-nori",
+            "name_en": "Sushi nori",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-rice-rice-based",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-191",
+            "slug": "sweet-potato",
+            "name_en": "Sweet Potato",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-192",
+            "slug": "tahini",
+            "name_en": "Tahini",
+            "category_code": "oils-fats",
+            "subcategory_code": "oils-fats-seeds",
+            "allergens": [
+                {
+                    "allergen_code": "sesame"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-193",
+            "slug": "taro-root",
+            "name_en": "Taro root",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-root-tuber",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-194",
+            "slug": "tea",
+            "name_en": "Tea",
+            "category_code": "beverages-tea",
+            "subcategory_code": "beverages-tea-tea-infusions",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-195",
+            "slug": "tea-anise",
+            "name_en": "Tea Anise",
+            "category_code": "beverages-tea",
+            "subcategory_code": "beverages-tea-tea-infusions",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-196",
+            "slug": "tea-chamomile",
+            "name_en": "Tea Chamomile",
+            "category_code": "beverages-tea",
+            "subcategory_code": "beverages-tea-tea-infusions",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-197",
+            "slug": "tea-ginger",
+            "name_en": "Tea Ginger",
+            "category_code": "beverages-tea",
+            "subcategory_code": "beverages-tea-tea-infusions",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-198",
+            "slug": "tea-peppermint",
+            "name_en": "Tea Peppermint",
+            "category_code": "beverages-tea",
+            "subcategory_code": "beverages-tea-tea-infusions",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-199",
+            "slug": "tofu",
+            "name_en": "Tofu",
+            "category_code": "protein",
+            "subcategory_code": "protein-plant-protein",
+            "allergens": [
+                {
+                    "allergen_code": "soy"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-200",
+            "slug": "tomato",
+            "name_en": "Tomato",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-nightshade",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-201",
+            "slug": "tuna",
+            "name_en": "Tuna",
+            "category_code": "seafood",
+            "subcategory_code": "seafood-fish",
+            "allergens": [
+                {
+                    "allergen_code": "fish"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-202",
+            "slug": "turkey",
+            "name_en": "Turkey",
+            "category_code": "protein",
+            "subcategory_code": "protein-poultry",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-203",
+            "slug": "turkey-bacon",
+            "name_en": "Turkey bacon",
+            "category_code": "protein",
+            "subcategory_code": "protein-poultry",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-204",
+            "slug": "turmeric",
+            "name_en": "Turmeric",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-205",
+            "slug": "vanilla",
+            "name_en": "Vanilla",
+            "category_code": "sweeteners-condiments",
+            "subcategory_code": "sweeteners-condiments-sweeteners",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-206",
+            "slug": "vine-leaves",
+            "name_en": "Vine leaves",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-leafy-greens",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-207",
+            "slug": "vinegar",
+            "name_en": "Vinegar",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-condiments-vinegars",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-208",
+            "slug": "walnuts",
+            "name_en": "Walnuts",
+            "category_code": "nuts-seeds",
+            "subcategory_code": "nuts-seeds-tree-nuts",
+            "allergens": [
+                {
+                    "allergen_code": "tree_nut"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-209",
+            "slug": "watermelon",
+            "name_en": "Watermelon",
+            "category_code": "fruits",
+            "subcategory_code": "fruits-melon",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-210",
+            "slug": "wheat",
+            "name_en": "Wheat",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-211",
+            "slug": "white-pepper",
+            "name_en": "White pepper",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-spices",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-212",
+            "slug": "wrap",
+            "name_en": "Wrap",
+            "category_code": "grains-starches",
+            "subcategory_code": "grains-starches-wheat-based",
+            "allergens": [
+                {
+                    "allergen_code": "gluten"
+                }
+            ]
+        },
+        {
+            "source_ref": "IG-213",
+            "slug": "yeast",
+            "name_en": "Yeast",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-flavouring-extract",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-214",
+            "slug": "zaatar",
+            "name_en": "Zaatar",
+            "category_code": "herbs-spices",
+            "subcategory_code": "herbs-spices-herbs",
+            "allergens": []
+        },
+        {
+            "source_ref": "IG-215",
+            "slug": "zucchini",
+            "name_en": "Zucchini",
+            "category_code": "vegetables-other",
+            "subcategory_code": "vegetables-other-gourd-squash",
+            "allergens": []
+        }
+    ],
+    "aliases": [
+        {
+            "ingredient_source_ref": "IG-073",
+            "alias": "Garlic",
+            "source_ref": "IG-161"
+        },
+        {
+            "ingredient_source_ref": "IG-121",
+            "alias": "Onions",
+            "source_ref": "IG-162"
+        }
+    ]
+}

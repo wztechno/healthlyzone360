@@ -10,7 +10,7 @@
  * No dependency is used on purpose. A test harness that needs its own web framework installed is a
  * second thing that can break, and `node:http` is entirely sufficient here.
  *
- * Usage: node e2e/static-server.mjs [--root dist] [--port 4173]
+ * Usage: node e2e/static-server.mjs [--root dist-api] [--port 4173]
  */
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -24,7 +24,9 @@ function argValue(name, fallback) {
     return index === -1 ? fallback : (args[index + 1] ?? fallback);
 }
 
-const ROOT = resolve(process.cwd(), argValue('root', 'dist'));
+// `dist-api` is the only artefact since the mock removal (ADR-0013): both build scripts write it,
+// and defaulting anywhere else once served a pre-migration mock build to a confused developer.
+const ROOT = resolve(process.cwd(), argValue('root', 'dist-api'));
 const PORT = Number.parseInt(argValue('port', '4173'), 10);
 
 const CONTENT_TYPES = {

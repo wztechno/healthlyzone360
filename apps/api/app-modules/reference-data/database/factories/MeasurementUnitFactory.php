@@ -19,6 +19,8 @@ class MeasurementUnitFactory extends Factory
     {
         return [
             'code' => fake()->unique()->lexify('????'),
+            'dimension' => 'mass',
+            'base_ratio' => '1',
             'unit_system' => fake()->randomElement(['metric', 'imperial', 'clinical']),
             'name_en' => fake()->word(),
             'name_ar' => 'وحدة '.fake()->word(),

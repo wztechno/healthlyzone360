@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 import { Text as RNText, useWindowDimensions } from 'react-native';
 
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
@@ -109,6 +109,50 @@ describe('Table — wide', () => {
         );
     });
 
+    it('draws column headers as demoted, tracked capitals rather than body text', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+            />,
+        );
+
+        // A header labels its column; it must not compete with the figures beneath it. The role is
+        // `content-disabled` — one of the two greys §1.3 permits — not a grey invented here.
+        const header = screen.getByTestId('nutrients-columnheader-name').props.className;
+        expect(header).toContain('uppercase');
+        expect(header).toContain('tracking-widest');
+        expect(header).toContain('text-content-disabled');
+        expect(header).not.toContain('text-content-secondary');
+    });
+
+    it('sets the primary numeric column in the display face, and only that one', async () => {
+        const withPrimary = columns.map((column) =>
+            column.key === 'amount' ? { ...column, primary: true } : column,
+        );
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={withPrimary}
+                rows={rows}
+                rowKey={(row) => row.key}
+            />,
+        );
+
+        const key = rows[0]!.key;
+        expect(screen.getByTestId(`nutrients-cell-${key}-amount`).props.className).toContain(
+            'font-display',
+        );
+        // Two "most important" numbers is none, so the treatment must not leak to its neighbours.
+        expect(screen.getByTestId(`nutrients-cell-${key}-target`).props.className).not.toContain(
+            'font-display',
+        );
+    });
+
     it('shows a translated empty message instead of an empty table', async () => {
         await renderWithI18n(
             <Table
@@ -124,6 +168,222 @@ describe('Table — wide', () => {
         expect(screen.getByTestId('nutrients-empty')).toHaveTextContent(
             'There is nothing to show here yet.',
         );
+    });
+});
+
+describe('Table — sorting', () => {
+    /** `name` stays unsortable on purpose: it is what proves `aria-sort` is omitted, not "none". */
+    const sortableColumns: readonly TableColumn<NutrientRow>[] = columns.map((column) =>
+        column.key === 'name' ? column : { ...column, sortable: true },
+    );
+
+    it('puts the state on the header and omits it where there is nothing to sort', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.getByTestId('nutrients-columnheader-amount').props['aria-sort']).toBe(
+            'descending',
+        );
+        expect(screen.getByTestId('nutrients-columnheader-target').props['aria-sort']).toBe('none');
+        // Not "none" — a column that cannot be sorted must carry no `aria-sort` at all.
+        expect(
+            screen.getByTestId('nutrients-columnheader-name').props['aria-sort'],
+        ).toBeUndefined();
+        expect(screen.queryByTestId('nutrients-sort-name')).toBeNull();
+    });
+
+    it('names the sort control and reads it as a button', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="asc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        const button = screen.getByTestId('nutrients-sort-amount');
+        expect(button.props.accessibilityRole).toBe('button');
+        expect(button.props.accessibilityLabel).toBe('Sort by Amount');
+        // Native has no `aria-sort`, so the state has to reach it some other way.
+        expect(button.props.accessibilityHint).toBe('Sorted ascending');
+        expect(screen.getByTestId('nutrients-sort-target').props.accessibilityHint).toBeUndefined();
+    });
+
+    it('toggles the direction when the active column is pressed again', async () => {
+        const onSortChange = jest.fn();
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="asc"
+                onSortChange={onSortChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('nutrients-sort-amount'));
+        expect(onSortChange).toHaveBeenCalledWith('amount', 'desc');
+    });
+
+    it('starts a newly chosen column ascending', async () => {
+        const onSortChange = jest.fn();
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={onSortChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('nutrients-sort-target'));
+        expect(onSortChange).toHaveBeenCalledWith('target', 'asc');
+    });
+
+    /** Fully controlled: the table reports intent and renders whatever the caller hands back. */
+    it('never reorders the rows itself', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        const order = screen
+            .getAllByTestId(/^nutrients-row-/)
+            .map((node) => node.props.testID as string);
+        expect(order).toEqual(['nutrients-row-protein', 'nutrients-row-fibre']);
+    });
+
+    it('translates the sort control', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="القيم الغذائية"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="desc"
+                onSortChange={jest.fn()}
+            />,
+            'ar',
+        );
+
+        expect(screen.getByTestId('nutrients-sort-amount').props.accessibilityLabel).toBe(
+            'الترتيب حسب Amount',
+        );
+        expect(screen.getByTestId('nutrients-sort-amount').props.accessibilityHint).toBe(
+            'مرتَّب تنازليًا',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('nutrients'));
+    });
+
+    /** A card list has no column headers, so there is nothing to press and nothing to draw. */
+    it('offers no sorting affordance in the stacked presentation', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={sortableColumns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                sortKey="amount"
+                sortDirection="asc"
+                onSortChange={jest.fn()}
+            />,
+        );
+
+        expect(screen.queryByTestId('nutrients-sort-amount')).toBeNull();
+        expect(screen.getByTestId('nutrients-card-protein')).toBeTruthy();
+    });
+});
+
+describe('Table — row action', () => {
+    const rowAction = {
+        header: 'Actions',
+        render: (row: NutrientRow) => <RNText testID={`action-${row.key}`}>View</RNText>,
+    };
+
+    it('is a trailing cell above md, and is counted in the column count', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                rowAction={rowAction}
+            />,
+        );
+
+        expect(screen.getByTestId('nutrients-table').props['aria-colcount']).toBe(4);
+        expect(screen.getByTestId('nutrients-columnheader-action').props.role).toBe('columnheader');
+        expect(screen.getByTestId('nutrients-columnheader-action')).toHaveTextContent('Actions');
+        expect(screen.getByTestId('nutrients-cell-protein-action').props.role).toBe('cell');
+        expect(screen.getByTestId('action-protein')).toHaveTextContent('View');
+    });
+
+    it('leaves the column count alone when there is no action', async () => {
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+            />,
+        );
+
+        expect(screen.getByTestId('nutrients-table').props['aria-colcount']).toBe(3);
+        expect(screen.queryByTestId('nutrients-columnheader-action')).toBeNull();
+    });
+
+    it('becomes a footer inside each card below md', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <Table
+                testID="nutrients"
+                caption="Nutrition per serving"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                rowAction={rowAction}
+            />,
+        );
+
+        expect(screen.queryByTestId('nutrients-table')).toBeNull();
+        expect(screen.getByTestId('nutrients-card-protein-action')).toBeTruthy();
+        expect(screen.getByTestId('action-fibre')).toHaveTextContent('View');
     });
 });
 
@@ -276,6 +536,49 @@ describe('ProgressRing', () => {
         expect(screen.getByTestId('rtl-sector-1').props.style).toMatchObject({
             transform: [{ rotate: '-15deg' }],
         });
+    });
+
+    /*
+     * The defect this pins: four lines of prose were centred inside the ring, in a box the width of
+     * the ring's *square* rather than its *hole*, so "Outside the published range" laid out across
+     * the ticks on both sides and the panel read as one thing printed over another.
+     *
+     * Two separate guarantees, because either alone would let it back:
+     *  - the circle holds the figure and nothing else, so nothing prose-length is in there at all;
+     *  - the figure is bounded by the clear space inside the ring, so even it cannot reach a tick.
+     */
+    it('keeps prose out of the circle and bounds the figure to its clear space', async () => {
+        await renderWithI18n(
+            <ProgressRing
+                testID="energy"
+                label="Energy"
+                value={1000}
+                target={2100}
+                level="moderate"
+                caption="of your energy target"
+                levelLabel="Outside the published range"
+            />,
+        );
+
+        const circle = screen.getByTestId('energy-sector-0').parent;
+        const inside = (id: string) => {
+            let node = screen.getByTestId(id).parent;
+            while (node !== null) {
+                if (node === circle) return true;
+                node = node.parent;
+            }
+            return false;
+        };
+
+        expect(inside('energy-value')).toBe(true);
+        expect(inside('energy-caption')).toBe(false);
+        expect(inside('energy-level')).toBe(false);
+        expect(inside('energy-pattern')).toBe(false);
+
+        // `md` is 96 across with an 8 tick at each edge, so the hole is 80 — and the figure is
+        // given less than that rather than the full square it used to spread across.
+        const width = screen.getByTestId('energy-value').props.style.maxWidth as number;
+        expect(width).toBeLessThan(96 - 8 * 2);
     });
 
     it('carries the nutrition pattern as well as the tone', async () => {

@@ -27,6 +27,16 @@ export interface NavigationItem {
     readonly label: string;
     readonly icon?: IconName | undefined;
     readonly active?: boolean | undefined;
+    /**
+     * Heading this item sits under in the sidebar. Items sharing a group are drawn together under
+     * one heading, in caller order; items with no group come first, unheaded. A workspace with
+     * twenty destinations is a list nobody scans — "Workbench, Catalogue, Commercial, Operations"
+     * is what turns it back into four short ones.
+     *
+     * Only the sidebar honours it. The drawer, the rail and the bottom tabs are too narrow or too
+     * short for headings to buy anything.
+     */
+    readonly group?: string | undefined;
     readonly onPress: () => void;
     readonly testID?: string | undefined;
 }
@@ -212,7 +222,7 @@ export function AppShell({
         <View
             testID={testID === undefined ? undefined : `${testID}-topbar`}
             role="banner"
-            className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2"
+            className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
         >
             {variant === 'workspace' && !wideEnoughForSidebar && navigation.length > 0 ? (
                 <IconButton
@@ -238,70 +248,136 @@ export function AppShell({
         </View>
     );
 
-    const navigationList = (compact: boolean) => (
-        <View
-            testID={testID === undefined ? undefined : `${testID}-navigation`}
-            role="navigation"
-            aria-label={t('designSystem:shell.primaryNavigation')}
-            className="flex-col gap-1 p-2"
-        >
-            {navigation.map((item) => (
-                <Pressable
-                    key={item.key}
-                    testID={item.testID}
-                    role="link"
-                    accessibilityRole="link"
-                    accessibilityLabel={item.label}
-                    accessibilityState={{ selected: item.active === true }}
-                    aria-current={item.active === true ? 'page' : undefined}
-                    focusable
-                    onPress={() => {
-                        setDrawerOpen(false);
-                        item.onPress();
-                    }}
-                    className={cx(
-                        'min-h-touch flex-row items-center gap-2 rounded-lg px-3 py-2',
-                        compact ? 'justify-center' : null,
-                        item.active === true ? 'bg-surface-brand-subtle' : 'bg-transparent',
-                    )}
-                >
-                    {item.icon === undefined ? null : (
-                        <Icon
-                            name={item.icon}
-                            className={
-                                item.active === true
-                                    ? 'text-content-on-brand-subtle'
-                                    : 'text-content-secondary'
-                            }
-                        />
-                    )}
-                    {compact ? null : (
-                        <RNText
-                            numberOfLines={1}
-                            className={cx(
-                                'flex-1 text-sm text-start',
-                                item.active === true
-                                    ? 'text-content-on-brand-subtle font-medium'
-                                    : 'text-content-primary',
-                            )}
-                        >
-                            {item.label}
-                        </RNText>
-                    )}
-                </Pressable>
-            ))}
-        </View>
-    );
+    /**
+     * The navigation list, in one of two tones.
+     *
+     * `canopy` is the sidebar: a deep forest panel that reads as chrome rather than as content, so
+     * the eye goes to the page and not to the menu. `surface` is the drawer, which is a light
+     * overlay with its own light title bar — canopy items inside it would be mint-on-white.
+     *
+     * Both alphas clear the §1.3 floor: text on the canopy must be at least 0.62 opaque
+     * (`rgba(220,252,231,0.62)` is 5.42:1; 0.45 is 3.60:1 and fails). Items sit at 80 and headings
+     * at 65, which is the documented 0.74–0.78 band and the floor plus a little air.
+     */
+    const navigationList = (compact: boolean, tone: 'canopy' | 'surface' = 'surface') => {
+        const onCanopy = tone === 'canopy';
+
+        const renderItem = (item: NavigationItem) => (
+            <Pressable
+                key={item.key}
+                testID={item.testID}
+                role="link"
+                accessibilityRole="link"
+                accessibilityLabel={item.label}
+                accessibilityState={{ selected: item.active === true }}
+                aria-current={item.active === true ? 'page' : undefined}
+                focusable
+                onPress={() => {
+                    setDrawerOpen(false);
+                    item.onPress();
+                }}
+                className={cx(
+                    'min-h-touch flex-row items-center gap-2 rounded-lg px-3 py-2',
+                    compact ? 'justify-center' : null,
+                    item.active !== true
+                        ? 'bg-transparent'
+                        : // A filled `surface-brand` pill, not `brand-500`: this carries 14px
+                          // white text, and white on brand-500 is 3.05:1 (§1.3).
+                          onCanopy
+                          ? 'bg-surface-brand'
+                          : 'bg-surface-brand-subtle',
+                )}
+            >
+                {item.icon === undefined ? null : (
+                    <Icon
+                        name={item.icon}
+                        className={
+                            item.active === true
+                                ? onCanopy
+                                    ? 'text-content-on-brand'
+                                    : 'text-content-on-brand-subtle'
+                                : onCanopy
+                                  ? 'text-content-on-canopy-muted/80'
+                                  : 'text-content-secondary'
+                        }
+                    />
+                )}
+                {compact ? null : (
+                    <RNText
+                        numberOfLines={1}
+                        className={cx(
+                            'flex-1 text-sm text-start',
+                            item.active === true
+                                ? onCanopy
+                                    ? 'text-content-on-brand font-bold'
+                                    : 'text-content-on-brand-subtle font-medium'
+                                : onCanopy
+                                  ? 'text-content-on-canopy-muted/80'
+                                  : 'text-content-primary',
+                        )}
+                    >
+                        {item.label}
+                    </RNText>
+                )}
+            </Pressable>
+        );
+
+        // Grouped by first appearance rather than by sorting, so the caller's order survives and a
+        // group split across the table stays split rather than being silently reassembled.
+        const ungrouped = navigation.filter((item) => item.group === undefined);
+        const groups: string[] = [];
+        for (const item of navigation) {
+            if (item.group !== undefined && !groups.includes(item.group)) groups.push(item.group);
+        }
+        const showGroups = !compact && groups.length > 0;
+
+        return (
+            <View
+                testID={testID === undefined ? undefined : `${testID}-navigation`}
+                role="navigation"
+                aria-label={t('designSystem:shell.primaryNavigation')}
+                className="flex-col gap-1 p-2"
+            >
+                {(showGroups ? ungrouped : navigation).map(renderItem)}
+                {!showGroups
+                    ? null
+                    : groups.map((group) => (
+                          <View key={group} className="flex-col gap-1">
+                              <RNText
+                                  testID={
+                                      testID === undefined
+                                          ? undefined
+                                          : `${testID}-navigation-group-${group}`
+                                  }
+                                  // A heading, not a label: it names the section that follows, and
+                                  // a screen reader should be able to jump between them.
+                                  accessibilityRole="header"
+                                  aria-level={2}
+                                  className={cx(
+                                      'px-3 pb-1 pt-3 text-xs font-bold uppercase tracking-widest text-start',
+                                      onCanopy
+                                          ? 'text-content-on-canopy-muted/65'
+                                          : 'text-content-secondary',
+                                  )}
+                              >
+                                  {group}
+                              </RNText>
+                              {navigation.filter((item) => item.group === group).map(renderItem)}
+                          </View>
+                      ))}
+            </View>
+        );
+    };
 
     const sidebar = (
         <View
             testID={testID === undefined ? undefined : `${testID}-sidebar`}
             className={cx(
-                'h-full border-e border-stroke-subtle bg-surface-raised',
+                'h-full bg-surface-canopy',
                 variant === 'rail' ? 'w-[88px]' : 'w-[260px]',
             )}
         >
-            {navigationList(variant === 'rail')}
+            {navigationList(variant === 'rail', 'canopy')}
         </View>
     );
 
@@ -332,7 +408,7 @@ export function AppShell({
                 <View
                     testID={testID === undefined ? undefined : `${testID}-topbar`}
                     role="banner"
-                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2"
+                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
                 >
                     {!wideEnoughForTopNav && navigation.length > 0 ? (
                         <IconButton
@@ -355,7 +431,13 @@ export function AppShell({
                         {title ?? t('common:app.name')}
                     </RNText>
 
-                    <View className="flex-1 flex-row items-center">
+                    {/*
+                     * `self-stretch` on the wrapper, not just on the row inside it. The top bar
+                     * centres its children, so without this the wrapper is only as tall as its
+                     * own content (28px) and every stretch below it inherits that ceiling — the
+                     * active underline then floats mid-bar instead of sitting on its edge.
+                     */}
+                    <View className="flex-1 flex-row items-stretch self-stretch">
                         {showTopNav ? (
                             <View
                                 testID={testID === undefined ? undefined : `${testID}-navigation`}
@@ -365,7 +447,19 @@ export function AppShell({
                                 // flex-shrink: 0, so without it the row renders at max-content
                                 // width and overflows the document at 768-1023px instead of
                                 // wrapping (flex-wrap only engages once the box can be narrowed).
-                                className="flex-row flex-wrap items-center gap-1 shrink"
+                                //
+                                // `-my-2` cancels the bar's own vertical padding for this row
+                                // only, so a stretched item's bottom edge *is* the bar's bottom
+                                // edge — which is where the active underline has to sit. The
+                                // padding comes back on each item, so the touch target is unchanged.
+                                //
+                                // `content-stretch` is the other half and is easy to miss:
+                                // react-native-web defaults `align-content` to `flex-start`, so
+                                // with `flex-wrap` on, a single line sits at its natural height and
+                                // `items-stretch` has nothing to stretch into. When the row *does*
+                                // wrap, each line stretches to its own height and the underline
+                                // tracks the active item's line, which is what it should do.
+                                className="-my-2 flex-row flex-wrap content-stretch items-stretch gap-1 shrink"
                             >
                                 {navigation.map((item) => (
                                     <Pressable
@@ -378,19 +472,14 @@ export function AppShell({
                                         aria-current={item.active === true ? 'page' : undefined}
                                         focusable
                                         onPress={item.onPress}
-                                        className={cx(
-                                            'min-h-touch flex-row items-center gap-2 rounded-lg px-3 py-2',
-                                            item.active === true
-                                                ? 'bg-surface-brand-subtle'
-                                                : 'bg-transparent',
-                                        )}
+                                        className="relative min-h-touch flex-row items-center justify-center gap-2 bg-transparent px-3 py-2"
                                     >
                                         {item.icon === undefined ? null : (
                                             <Icon
                                                 name={item.icon}
                                                 className={
                                                     item.active === true
-                                                        ? 'text-content-on-brand-subtle'
+                                                        ? 'text-surface-brand'
                                                         : 'text-content-secondary'
                                                 }
                                             />
@@ -400,12 +489,39 @@ export function AppShell({
                                             className={cx(
                                                 'text-sm text-start',
                                                 item.active === true
-                                                    ? 'text-content-on-brand-subtle font-medium'
+                                                    ? 'text-surface-brand font-bold'
                                                     : 'text-content-primary',
                                             )}
                                         >
                                             {item.label}
                                         </RNText>
+                                        {/*
+                                         * A bar rather than a filled pill. A pill in a top bar
+                                         * reads as a button among links; an underline on the bar's
+                                         * edge reads as "you are here", which is what it means.
+                                         * brand-500 is legal here because it carries no text — it
+                                         * is a graphic, and §1.3 keeps brand-500 for exactly this.
+                                         */}
+                                        {item.active === true ? (
+                                            <View
+                                                // Named off the *shell*, not off the item. The
+                                                // responsive suite enumerates controls with
+                                                // `[data-testid^="marketplace-nav-"]` and checks
+                                                // each one is touch-sized; an item-derived name put
+                                                // this 2px decoration in that set. Exactly one item
+                                                // is ever active, so one handle is enough.
+                                                testID={
+                                                    testID === undefined
+                                                        ? undefined
+                                                        : `${testID}-nav-active-bar`
+                                                }
+                                                aria-hidden
+                                                accessibilityElementsHidden
+                                                importantForAccessibility="no-hide-descendants"
+                                                // eslint-disable-next-line no-restricted-syntax -- §1.3 keeps brand-500 for underline bars precisely: this View carries no text, so the 3.05:1 that rules it out as a text surface does not apply. The rule cannot see that, so it is waived here rather than weakened everywhere.
+                                                className="absolute bottom-0 start-0 end-0 h-0.5 bg-brand-500"
+                                            />
+                                        ) : null}
                                     </Pressable>
                                 ))}
                             </View>
@@ -419,14 +535,43 @@ export function AppShell({
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     role="main"
                     className="flex-1"
-                    contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                    // A measure, not a stretch. Past ~1150px a catalogue row grows to five and six
+                    // cards and the eye loses the start of the next line; the gutters are wider
+                    // here than in a workspace because there is no sidebar taking the same space.
+                    contentContainerClassName={cx(
+                        'flex-grow gap-4 p-4 md:px-10 lg:px-11',
+                        contentClassName,
+                    )}
                 >
-                    {children}
+                    {/*
+                     * `self-stretch` then capped, not `self-center`. `align-self: center` makes
+                     * the box shrink to its own content in the cross axis, which collapsed the
+                     * whole catalogue column to 237px and stacked a forty-card grid one card
+                     * wide. Stretch fills the container, `max-w` caps it, and the auto inline
+                     * margins centre what is left over.
+                     *
+                     * `w-full` is what keeps that stretch honest below the cap. React Native
+                     * defaults `flexShrink` to 0, so without an explicit width this box takes its
+                     * own max-content size whenever that exceeds the space available — 405px
+                     * against a 343px content box on a 375px phone — and since `body` sets
+                     * `overflow-x: hidden`, the excess is not scrollable but simply cut off. Every
+                     * page in the shell lost its right edge on any viewport under ~437px.
+                     * `width: 100%` resolves against the parent's content box, so the box now
+                     * tracks the space it is given and `max-w` still caps it on wide screens.
+                     */}
+                    <View className="mx-auto w-full max-w-[1152px] flex-col gap-4 self-stretch">
+                        {children}
+                    </View>
                     {footer === undefined ? null : (
                         <View
                             testID={testID === undefined ? undefined : `${testID}-footer`}
                             role="contentinfo"
-                            className="border-t border-stroke-subtle pt-4"
+                            // Bled back out through the content gutters so the band reaches both
+                            // page edges. The negative margins mirror the padding above exactly —
+                            // a footer inset by 44px reads as a misplaced card rather than as the
+                            // end of the page. No rule above it either: a hairline between the
+                            // page and a dark band draws a line on an edge that is already there.
+                            className="-mx-4 -mb-4 self-stretch md:-mx-10 lg:-mx-11"
                         >
                             {footer}
                         </View>
@@ -454,7 +599,10 @@ export function AppShell({
                         testID={testID === undefined ? undefined : `${testID}-content`}
                         role="main"
                         className="flex-1"
-                        contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                        contentContainerClassName={cx(
+                            'flex-grow gap-4 p-4 lg:p-7',
+                            contentClassName,
+                        )}
                     >
                         {children}
                         {footer}
@@ -482,7 +630,7 @@ export function AppShell({
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     role="main"
                     className="flex-1"
-                    contentContainerClassName={cx('flex-grow p-4 gap-4', contentClassName)}
+                    contentContainerClassName={cx('flex-grow gap-4 p-4 lg:p-7', contentClassName)}
                 >
                     {children}
                     {footer}

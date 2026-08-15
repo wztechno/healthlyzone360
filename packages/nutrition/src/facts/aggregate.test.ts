@@ -412,6 +412,17 @@ describe('roundFacts', () => {
     });
 });
 
+/*
+ * The fixture money is deliberately **not** the demo currency.
+ *
+ * Everything under test here carries a currency through arithmetic; nothing converts one. Writing
+ * the fixtures in the same currency the seed data happens to use would let a function that quietly
+ * hardcoded that currency pass anyway, which is the one bug these assertions exist to catch.
+ *
+ * That is not hypothetical: `7d84ca5` ("default demo currency to USD") swept `currency: 'AED'` to
+ * `'USD'` across this file and reached the expectations without reaching the `money(…, 'AED')`
+ * inputs that produce them. Five tests asserted that adding two AED amounts yields USD.
+ */
 describe('meal, day and week roll-up', () => {
     const recipe = recipeNutritionFromIngredients({
         recipeId: RecipeId.unsafe('recipe-chicken-rice'),

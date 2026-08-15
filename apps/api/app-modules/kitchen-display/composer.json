@@ -1,0 +1,17 @@
+{
+	"name": "healthy360/kitchen-display",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\KitchenDisplay\\": "src/",
+			"Healthy360\\KitchenDisplay\\Tests\\": "tests/"
+		}
+	},
+	"extra": {
+		"laravel": {
+			"providers": ["Healthy360\\KitchenDisplay\\Providers\\KitchenDisplayServiceProvider"]
+		}
+	}
+}

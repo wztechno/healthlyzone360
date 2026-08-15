@@ -1,7 +1,13 @@
-import { ELEVATION_LEVELS, elevation } from '../elevation.ts';
+import { ELEVATION_LEVELS, NAMED_ELEVATIONS, elevation, namedElevation } from '../elevation.ts';
 import { breakpoints, focusRing, MIN_TOUCH_TARGET, radius, spacing } from '../layout.ts';
 import { DURATION_NAMES, durations, easings, reducedDurations } from '../motion.ts';
-import { FONT_SIZE_NAMES, fontFamilies, fontSizes, lineHeights } from '../typography.ts';
+import {
+    FONT_SIZE_NAMES,
+    displayLetterSpacing,
+    fontFamilies,
+    fontSizes,
+    lineHeights,
+} from '../typography.ts';
 import { CSS_VARIABLE_PREFIX, GENERATED_BANNER, kebab, themeColourVariables } from './shared.ts';
 
 function declarations(entries: ReadonlyArray<readonly [string, string]>, indent = '  '): string {
@@ -42,8 +48,12 @@ export function renderTokensCss(): string {
     }
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-latin`, fontFamilies.latin.stack]);
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-arabic`, fontFamilies.arabic.stack]);
+    staticTokens.push([`${CSS_VARIABLE_PREFIX}-tracking-display`, displayLetterSpacing]);
     for (const level of ELEVATION_LEVELS) {
         staticTokens.push([`${CSS_VARIABLE_PREFIX}-elevation-${level}`, elevation[level].web]);
+    }
+    for (const name of NAMED_ELEVATIONS) {
+        staticTokens.push([`${CSS_VARIABLE_PREFIX}-elevation-${name}`, namedElevation[name].web]);
     }
     for (const name of DURATION_NAMES) {
         staticTokens.push([`${CSS_VARIABLE_PREFIX}-duration-${name}`, `${durations[name]}ms`]);

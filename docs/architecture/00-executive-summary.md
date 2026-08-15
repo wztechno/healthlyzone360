@@ -43,7 +43,7 @@ The foundation is built and proven before any business module (Kitchen, Nutritio
 
 The phase is complete only when this workflow operates against the real Laravel API on web **and** native development builds — not against mocks.
 
-Eleven foundation modules are implemented (Support, ReferenceData, Localisation, Identity, Organisations, Tenancy, AccessControl, Features, Consent, Audit, PlatformAdministration — see `02-module-boundaries.md`). Roughly 26 future modules are recorded in a module registry as documentation only: no empty directories, no speculative classes, no premature tables.
+Eleven platform modules are `active` (Support, ReferenceData, Localisation, Identity, Organisations, Tenancy, AccessControl, Features, Consent, Audit, PlatformAdministration — see `02-module-boundaries.md` for the status vocabulary). A further 28 modules are recorded in the module registry as `planned`, meaning documentation only: no empty directories, no speculative classes, no premature tables.
 
 ## Explicitly deferred
 
@@ -60,7 +60,7 @@ The foundation is complete only when **all** of the following are true:
 | Repository & infrastructure | Installs from a clean clone; Docker services start; Laravel boots against PostgreSQL and Redis; migrations and seeders succeed |
 | Authentication | A user can register and log in; email-verification behaviour exists; web cookie authentication works; native token authentication works |
 | Tenancy & access | A user can select an organisation and branch; `/api/v1/me` returns memberships, context, permissions and entitlements; cross-organisation access tests pass; representative RLS tests pass |
-| Contract & frontend | The generated TypeScript client matches OpenAPI; the Expo web application works; a native development build works; English and Arabic layouts work; mock mode cannot enter production |
+| Contract & frontend | The generated TypeScript client matches OpenAPI; the Expo web application works; a native development build works; English and Arabic layouts work; a production build refuses to boot without a real API base URL (the client is api-only — ADR-0013) |
 | Quality & honesty | Required CI checks pass; documentation reflects implementation; deferred functionality is identified honestly |
 
 The foundation must never be declared complete while a mandatory gate is failing.
@@ -70,7 +70,7 @@ The foundation must never be declared complete while a mandatory gate is failing
 | Document | Contents |
 | --- | --- |
 | `01-system-context-and-containers.md` | C4 context and containers; modular-monolith decision |
-| `02-module-boundaries.md` | The 11 foundation modules, module system, future-module registry rule |
+| `02-module-boundaries.md` | Module status vocabulary, the 11 active platform modules, module system, planned-module registry rule |
 | `03-identity-tenancy-and-access.md` | Global identity, organisation model, tenancy context, RBAC, RLS |
 | `04-data-and-api-architecture.md` | Identifiers, foundation tables, API principles, OpenAPI tooling |
 | `05`–`09` | Frontend, security/audit, deployment, testing, future roadmap (authored separately) |

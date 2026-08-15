@@ -1,5 +1,6 @@
 import {
     Badge,
+    Button,
     Card,
     EmptyState,
     ErrorState,
@@ -15,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { appConfig } from '../config.ts';
 import { toFailure, useSetContextMutation } from '../data/hooks.ts';
 import { selectableMemberships } from '../session/machine.ts';
 import { useSession } from '../session/session-provider.tsx';
@@ -38,8 +40,9 @@ const STATUS_TONE: Readonly<
  *   active membership is applied automatically and the user never sees this screen.
  * * **Non-active memberships are listed but not selectable.** A pending invitation is information
  *   the user needs ("why can I not see my clinic?"); hiding it makes the answer unavailable.
- * * **No organisation is not an error.** Consumers hold a global identity (decision D1), so an
- *   empty list gets an explanation, not a failure.
+ * * **No organisation is not an error for consumers.** In `customer` / `all-dev`, a person with
+ *   no memberships is a pure consumer and is redirected to `/customer` without a dead-end empty
+ *   state. Staff builds still explain the empty list (they need an invite).
  */
 export function OrganisationPickerScreen() {
     const { t } = useTranslation();
@@ -47,10 +50,14 @@ export function OrganisationPickerScreen() {
     const { me } = useSession();
     const setContext = useSetContextMutation();
     const autoSelected = useRef(false);
+    const consumerRedirected = useRef(false);
 
     const memberships = me?.memberships ?? [];
     const selectable = selectableMemberships(memberships);
     const failure = toFailure(setContext.error);
+    const consumerWithoutOrg =
+        memberships.length === 0 &&
+        (appConfig.appMode === 'customer' || appConfig.appMode === 'all-dev');
 
     const choose = (membership: Membership) => {
         setContext.mutate(
@@ -62,6 +69,12 @@ export function OrganisationPickerScreen() {
             },
         );
     };
+
+    useEffect(() => {
+        if (!consumerWithoutOrg || me === null || consumerRedirected.current) return;
+        consumerRedirected.current = true;
+        router.replace('/customer');
+    }, [consumerWithoutOrg, me, router]);
 
     useEffect(() => {
         const only = selectable.length === 1 ? selectable[0] : undefined;
@@ -81,6 +94,19 @@ export function OrganisationPickerScreen() {
         );
     }
 
+    if (consumerWithoutOrg) {
+        return (
+            <Stack testID="organisation-picker-screen" space="md">
+                <Spinner
+                    testID="organisation-picker-consumer-redirect"
+                    size="large"
+                    showLabel
+                    label={t('auth:organisationPicker.emptyAction')}
+                />
+            </Stack>
+        );
+    }
+
     if (memberships.length === 0) {
         return (
             <Stack testID="organisation-picker-screen" space="lg">
@@ -88,6 +114,16 @@ export function OrganisationPickerScreen() {
                     testID="organisation-picker-empty"
                     title={t('auth:organisationPicker.empty')}
                     body={t('auth:organisationPicker.emptyBody')}
+                    actions={
+                        <Button
+                            testID="organisation-picker-continue-personal"
+                            variant="primary"
+                            label={t('auth:organisationPicker.emptyAction')}
+                            onPress={() => {
+                                router.replace('/customer');
+                            }}
+                        />
+                    }
                 />
             </Stack>
         );

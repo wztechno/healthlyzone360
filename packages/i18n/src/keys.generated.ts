@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 2779 keys across 14 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5279 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -44,8 +44,6 @@ export interface NamespaceKeys {
     | 'forbidden.signInAgain'
     | 'forbidden.switchOrganisation'
     | 'forbidden.title'
-    | 'mockMode.badge'
-    | 'mockMode.description'
     | 'notFound.body'
     | 'notFound.home'
     | 'notFound.title'
@@ -57,6 +55,248 @@ export interface NamespaceKeys {
     | 'workspaceSelector.open'
     | 'workspaceSelector.subtitle'
     | 'workspaceSelector.title';
+  readonly "account":
+    | 'addresses.add'
+    | 'addresses.areaHint'
+    | 'addresses.areaLabel'
+    | 'addresses.areaPlaceholder'
+    | 'addresses.backToList'
+    | 'addresses.buildingLabel'
+    | 'addresses.coverageBody'
+    | 'addresses.coverageTitle'
+    | 'addresses.default'
+    | 'addresses.edit'
+    | 'addresses.empty'
+    | 'addresses.emptyBody'
+    | 'addresses.floorLabel'
+    | 'addresses.labelLabel'
+    | 'addresses.labelPlaceholder'
+    | 'addresses.line1Label'
+    | 'addresses.line2Label'
+    | 'addresses.makeDefault'
+    | 'addresses.missingBody'
+    | 'addresses.missingTitle'
+    | 'addresses.noAreasBody'
+    | 'addresses.noAreasTitle'
+    | 'addresses.notesHint'
+    | 'addresses.notesLabel'
+    | 'addresses.partSeparator'
+    | 'addresses.remove'
+    | 'addresses.removeBody'
+    | 'addresses.removeTitle'
+    | 'addresses.requiredField'
+    | 'addresses.save'
+    | 'addresses.subtitle'
+    | 'addresses.title'
+    | 'checklist.blocked'
+    | 'checklist.canActivate'
+    | 'checklist.cannotActivate'
+    | 'checklist.done'
+    | 'checklist.optional'
+    | 'checklist.outstanding'
+    | 'checklist.required'
+    | 'checklist.review'
+    | 'checklist.start'
+    | 'checklist.steps.add_address.body'
+    | 'checklist.steps.add_address.title'
+    | 'checklist.steps.consents.body'
+    | 'checklist.steps.consents.title'
+    | 'checklist.steps.dietary_profile.body'
+    | 'checklist.steps.dietary_profile.title'
+    | 'checklist.steps.verify_email.body'
+    | 'checklist.steps.verify_email.title'
+    | 'checklist.steps.verify_phone.body'
+    | 'checklist.steps.verify_phone.title'
+    | 'checklist.subtitle'
+    | 'checklist.title'
+    | 'checklist.todo'
+    | 'closure.acknowledge'
+    | 'closure.back'
+    | 'closure.blockedBody'
+    | 'closure.blockedTitle'
+    | 'closure.blockerStatuses.advisory'
+    | 'closure.blockerStatuses.blocking'
+    | 'closure.blockerStatuses.clear'
+    | 'closure.blockerStatuses.not_applicable'
+    | 'closure.blockers.active_subscriptions'
+    | 'closure.blockers.open_orders'
+    | 'closure.blockers.organisation_memberships'
+    | 'closure.blockers.payment_methods'
+    | 'closure.blockers.pending_b2b_signatures'
+    | 'closure.blockers.unsettled_credit_memos'
+    | 'closure.blockers.wallet_balance'
+    | 'closure.checksTitle'
+    | 'closure.closedBody'
+    | 'closure.closedTitle'
+    | 'closure.failedTitle'
+    | 'closure.finish'
+    | 'closure.irreversibleBody'
+    | 'closure.irreversibleTitle'
+    | 'closure.next'
+    | 'closure.noChallenge'
+    | 'closure.noteHint'
+    | 'closure.noteLabel'
+    | 'closure.optOutConfirm'
+    | 'closure.optOutDoneBody'
+    | 'closure.optOutDoneTitle'
+    | 'closure.reasonHint'
+    | 'closure.reasonLabel'
+    | 'closure.reasons.dietary_needs_unmet'
+    | 'closure.reasons.duplicate_account'
+    | 'closure.reasons.moving_away'
+    | 'closure.reasons.no_longer_needed'
+    | 'closure.reasons.other'
+    | 'closure.reasons.privacy_concerns'
+    | 'closure.reasons.service_quality'
+    | 'closure.reasons.too_expensive'
+    | 'closure.reasonsWhy.b2b_module_absent'
+    | 'closure.reasonsWhy.credit_memos_unsettled'
+    | 'closure.reasonsWhy.deliveries_upcoming'
+    | 'closure.reasonsWhy.memberships_live'
+    | 'closure.reasonsWhy.no_payment_module'
+    | 'closure.reasonsWhy.no_wallet_module'
+    | 'closure.reasonsWhy.orders_in_flight'
+    | 'closure.reasonsWhy.orders_module_absent'
+    | 'closure.reasonsWhy.organisations_module_absent'
+    | 'closure.reasonsWhy.signatures_pending'
+    | 'closure.reasonsWhy.subscriptions_live'
+    | 'closure.reasonsWhy.subscriptions_module_absent'
+    | 'closure.resolve'
+    | 'closure.retained.closure_tombstone'
+    | 'closure.retained.contact_suppression'
+    | 'closure.retained.credit_memos'
+    | 'closure.retained.orders_anonymised'
+    | 'closure.retainedTitle'
+    | 'closure.scopeExplainer.full.body'
+    | 'closure.scopeExplainer.full.title'
+    | 'closure.scopeExplainer.marketing_opt_out.body'
+    | 'closure.scopeExplainer.marketing_opt_out.title'
+    | 'closure.scopeLabel'
+    | 'closure.scopes.full'
+    | 'closure.scopes.marketing_opt_out'
+    | 'closure.signedOutNote'
+    | 'closure.startClosure'
+    | 'closure.stepperLabel'
+    | 'closure.steps.checks'
+    | 'closure.steps.done'
+    | 'closure.steps.reason'
+    | 'closure.steps.scope'
+    | 'closure.steps.verify'
+    | 'closure.subtitle'
+    | 'closure.title'
+    | 'closure.verifyFailed'
+    | 'consents.ageGate'
+    | 'consents.ageGateTitle'
+    | 'consents.ageTitle'
+    | 'consents.allRequiredDone'
+    | 'consents.empty'
+    | 'consents.emptyBody'
+    | 'consents.grant'
+    | 'consents.grantedOn'
+    | 'consents.optional'
+    | 'consents.outstanding'
+    | 'consents.reconsentBody'
+    | 'consents.reconsentTitle'
+    | 'consents.required'
+    | 'consents.requiredNote'
+    | 'consents.status.granted'
+    | 'consents.status.never'
+    | 'consents.status.reconsent'
+    | 'consents.status.withdrawn'
+    | 'consents.subtitle'
+    | 'consents.title'
+    | 'consents.version'
+    | 'consents.withdraw'
+    | 'consents.withdrawnOn'
+    | 'contacts.add'
+    | 'contacts.addEmail'
+    | 'contacts.addPhone'
+    | 'contacts.emailLabel'
+    | 'contacts.empty'
+    | 'contacts.emptyBody'
+    | 'contacts.loginEmail'
+    | 'contacts.loginEmailNote'
+    | 'contacts.makePrimary'
+    | 'contacts.phoneLabel'
+    | 'contacts.primary'
+    | 'contacts.remove'
+    | 'contacts.removeBody'
+    | 'contacts.removeTitle'
+    | 'contacts.subtitle'
+    | 'contacts.title'
+    | 'contacts.unverified'
+    | 'contacts.verified'
+    | 'contacts.verify'
+    | 'dietary.addAllergen'
+    | 'dietary.allergenLabel'
+    | 'dietary.allergensEmpty'
+    | 'dietary.allergensTitle'
+    | 'dietary.dietsEmpty'
+    | 'dietary.dietsSubtitle'
+    | 'dietary.dietsTitle'
+    | 'dietary.disclaimerContext'
+    | 'dietary.exclusionsSubtitle'
+    | 'dietary.exclusionsTitle'
+    | 'dietary.hasAllergies.no'
+    | 'dietary.hasAllergies.yes'
+    | 'dietary.hasAllergiesLabel'
+    | 'dietary.noneBody'
+    | 'dietary.noteLabel'
+    | 'dietary.save'
+    | 'dietary.saved'
+    | 'dietary.severity.allergy'
+    | 'dietary.severity.avoidance'
+    | 'dietary.severity.intolerance'
+    | 'dietary.severityFor'
+    | 'dietary.severityHint'
+    | 'dietary.severityLabel'
+    | 'dietary.storeOfRecord'
+    | 'dietary.subtitle'
+    | 'dietary.title'
+    | 'dietary.unanswered'
+    | 'lifecycle.active'
+    | 'lifecycle.closed'
+    | 'lifecycle.closing'
+    | 'lifecycle.provisional'
+    | 'lifecycle.suspended'
+    | 'marketing.note'
+    | 'marketing.saveFailed'
+    | 'marketing.subtitle'
+    | 'marketing.title'
+    | 'phone.addNumber'
+    | 'phone.backToAccount'
+    | 'phone.countries.AE'
+    | 'phone.countries.BH'
+    | 'phone.countries.EG'
+    | 'phone.countries.GB'
+    | 'phone.countries.JO'
+    | 'phone.countries.KW'
+    | 'phone.countries.LB'
+    | 'phone.countries.OM'
+    | 'phone.countries.QA'
+    | 'phone.countries.SA'
+    | 'phone.countryHint'
+    | 'phone.countryLabel'
+    | 'phone.duplicateBody'
+    | 'phone.duplicateTitle'
+    | 'phone.errors.empty'
+    | 'phone.errors.tooLong'
+    | 'phone.errors.tooShort'
+    | 'phone.formTitle'
+    | 'phone.noNumberBody'
+    | 'phone.noNumberTitle'
+    | 'phone.numberHint'
+    | 'phone.numberLabel'
+    | 'phone.otpFallback'
+    | 'phone.pendingBody'
+    | 'phone.sendCode'
+    | 'phone.submit'
+    | 'phone.subtitle'
+    | 'phone.title'
+    | 'phone.verifiedBody'
+    | 'phone.verifiedTitle'
+    | 'subtitle'
+    | 'title';
   readonly "auth":
     | 'branchPicker.empty'
     | 'branchPicker.groupLabel'
@@ -111,6 +351,7 @@ export interface NamespaceKeys {
     | 'login.twoFactor.useRecovery'
     | 'organisationPicker.branchCount'
     | 'organisationPicker.empty'
+    | 'organisationPicker.emptyAction'
     | 'organisationPicker.emptyBody'
     | 'organisationPicker.noBranches'
     | 'organisationPicker.onlyOne'
@@ -120,6 +361,30 @@ export interface NamespaceKeys {
     | 'organisationPicker.subtitle'
     | 'organisationPicker.suspended'
     | 'organisationPicker.title'
+    | 'otp.attemptsRemaining'
+    | 'otp.body'
+    | 'otp.channelSimulated'
+    | 'otp.channelSwitch'
+    | 'otp.channels.email'
+    | 'otp.channels.sms'
+    | 'otp.channels.whatsapp'
+    | 'otp.codeHint'
+    | 'otp.codeLabel'
+    | 'otp.errors.channelUnavailable'
+    | 'otp.errors.cooldown'
+    | 'otp.errors.expired'
+    | 'otp.errors.invalid'
+    | 'otp.errors.locked'
+    | 'otp.expiredBody'
+    | 'otp.expiredTitle'
+    | 'otp.lockedBody'
+    | 'otp.lockedTitle'
+    | 'otp.resend'
+    | 'otp.resendIn'
+    | 'otp.resent'
+    | 'otp.sendVia'
+    | 'otp.submit'
+    | 'otp.title'
     | 'profile.account'
     | 'profile.branch'
     | 'profile.consents'
@@ -191,6 +456,309 @@ export interface NamespaceKeys {
     | 'workspace.switchBranch'
     | 'workspace.switchOrganisation'
     | 'workspace.title';
+  readonly "b2bApplication":
+    | 'agreement.authority'
+    | 'agreement.autoRenews'
+    | 'agreement.changedBody'
+    | 'agreement.changedTitle'
+    | 'agreement.creditLimit'
+    | 'agreement.days'
+    | 'agreement.documentTitle'
+    | 'agreement.download'
+    | 'agreement.honestyBody'
+    | 'agreement.honestyTitle'
+    | 'agreement.leadTime'
+    | 'agreement.minimumOrder'
+    | 'agreement.noInvoicingYet'
+    | 'agreement.notSet'
+    | 'agreement.noticePeriod'
+    | 'agreement.otpNotVerified'
+    | 'agreement.paymentTerms'
+    | 'agreement.sign'
+    | 'agreement.signTitle'
+    | 'agreement.signatoryTitle'
+    | 'agreement.signedOn'
+    | 'agreement.signing'
+    | 'agreement.startsOn'
+    | 'agreement.summaryTitle'
+    | 'agreement.termsTitle'
+    | 'agreement.title'
+    | 'agreement.typedName'
+    | 'agreement.typedNameHint'
+    | 'agreement.verified'
+    | 'agreement.verifyBody'
+    | 'agreement.verifyFirst'
+    | 'agreement.verifyTitle'
+    | 'agreement.version'
+    | 'businessTypes.cafe'
+    | 'businessTypes.catering'
+    | 'businessTypes.corporate_office'
+    | 'businessTypes.gym'
+    | 'businessTypes.hospital'
+    | 'businessTypes.hotel'
+    | 'businessTypes.other'
+    | 'businessTypes.restaurant'
+    | 'businessTypes.retail'
+    | 'businessTypes.school'
+    | 'deliveryWindows.afternoon'
+    | 'deliveryWindows.early_morning'
+    | 'deliveryWindows.evening'
+    | 'deliveryWindows.morning'
+    | 'documents.description'
+    | 'documents.download'
+    | 'documents.downloadHint'
+    | 'documents.kinds.authorisation_letter'
+    | 'documents.kinds.commercial_registration'
+    | 'documents.kinds.food_safety_certificate'
+    | 'documents.kinds.insurance_certificate'
+    | 'documents.kinds.other'
+    | 'documents.kinds.proof_of_address'
+    | 'documents.kinds.signatory_identification'
+    | 'documents.kinds.signed_agreement'
+    | 'documents.kinds.tax_certificate'
+    | 'documents.kinds.trade_licence'
+    | 'documents.missing'
+    | 'documents.optional'
+    | 'documents.rejection.expired'
+    | 'documents.rejection.incomplete'
+    | 'documents.rejection.mismatch'
+    | 'documents.rejection.other'
+    | 'documents.rejection.unreadable'
+    | 'documents.rejection.wrong_document'
+    | 'documents.required'
+    | 'documents.reviewStatus.accepted'
+    | 'documents.reviewStatus.pending'
+    | 'documents.reviewStatus.rejected'
+    | 'documents.reviewStatus.superseded'
+    | 'documents.scan.clean'
+    | 'documents.scan.infected'
+    | 'documents.scan.not_scanned'
+    | 'documents.scan.pending'
+    | 'documents.scanNotice'
+    | 'documents.title'
+    | 'documents.unreadableOnDevice'
+    | 'documents.uploadFailed'
+    | 'documents.uploaded'
+    | 'entry.body'
+    | 'entry.needIdentity'
+    | 'entry.needRegistration'
+    | 'entry.needTerms'
+    | 'entry.resume'
+    | 'entry.resumeBody'
+    | 'entry.start'
+    | 'entry.title'
+    | 'entry.viewStatus'
+    | 'entry.whatYouNeed'
+    | 'errors.loadFailed'
+    | 'errors.notEditable'
+    | 'errors.notFound'
+    | 'errors.sectionRefused'
+    | 'fields.businessType'
+    | 'fields.commercialRegistrationNumber'
+    | 'fields.countryCode'
+    | 'fields.currencyCode'
+    | 'fields.deliveryNotes'
+    | 'fields.expectedOrderFrequency'
+    | 'fields.expectedVolumeBand'
+    | 'fields.incorporatedOn'
+    | 'fields.leadTimeDays'
+    | 'fields.legalName'
+    | 'fields.legalNameAr'
+    | 'fields.preferredDeliveryWindow'
+    | 'fields.productCategories'
+    | 'fields.requestedCreditLimitMinor'
+    | 'fields.requestedPaymentTerms'
+    | 'fields.requiresInvoicePerLocation'
+    | 'fields.signatoryEmail'
+    | 'fields.signatoryName'
+    | 'fields.signatoryPhone'
+    | 'fields.signatoryTitle'
+    | 'fields.taxRegistrationNumber'
+    | 'fields.tradingName'
+    | 'fields.website'
+    | 'hints.deliveryNotes'
+    | 'hints.leadTimeDays'
+    | 'hints.legalName'
+    | 'hints.requestedCreditLimitMinor'
+    | 'hints.signatoryTitle'
+    | 'hints.taxRegistrationNumber'
+    | 'hints.tradingName'
+    | 'orderFrequencies.ad_hoc'
+    | 'orderFrequencies.daily'
+    | 'orderFrequencies.fortnightly'
+    | 'orderFrequencies.monthly'
+    | 'orderFrequencies.weekdays'
+    | 'orderFrequencies.weekly'
+    | 'paymentTerms.net_15'
+    | 'paymentTerms.net_30'
+    | 'paymentTerms.net_60'
+    | 'paymentTerms.prepaid'
+    | 'productCategories.beverages'
+    | 'productCategories.bulk_catering'
+    | 'productCategories.ingredients'
+    | 'productCategories.meal_plans'
+    | 'productCategories.meals'
+    | 'productCategories.snacks'
+    | 'provisioning.body'
+    | 'provisioning.doneBody'
+    | 'provisioning.doneTitle'
+    | 'provisioning.goToWorkspace'
+    | 'provisioning.stepBlocked'
+    | 'provisioning.stepDone'
+    | 'provisioning.stepWaiting'
+    | 'provisioning.steps.commercial_terms'
+    | 'provisioning.steps.customer_account'
+    | 'provisioning.steps.delivery_locations'
+    | 'provisioning.steps.organisation'
+    | 'provisioning.steps.team_invitations'
+    | 'provisioning.title'
+    | 'reference'
+    | 'review.blockedBody'
+    | 'review.blockedDocuments'
+    | 'review.blockedSection'
+    | 'review.blockedTitle'
+    | 'review.body'
+    | 'review.edit'
+    | 'review.submit'
+    | 'review.submitting'
+    | 'review.title'
+    | 'review.withdraw'
+    | 'review.withdrawConfirm'
+    | 'sections.company.description'
+    | 'sections.company.title'
+    | 'sections.logistics.description'
+    | 'sections.logistics.title'
+    | 'sections.signatory.description'
+    | 'sections.signatory.title'
+    | 'sections.trade_terms.description'
+    | 'sections.trade_terms.title'
+    | 'status.agreement_pending.body'
+    | 'status.agreement_pending.label'
+    | 'status.agreement_signed.body'
+    | 'status.agreement_signed.label'
+    | 'status.approved.body'
+    | 'status.approved.label'
+    | 'status.declined.body'
+    | 'status.declined.label'
+    | 'status.draft.body'
+    | 'status.draft.label'
+    | 'status.goToDocuments'
+    | 'status.goToSection'
+    | 'status.in_review.body'
+    | 'status.in_review.label'
+    | 'status.info_requested.body'
+    | 'status.info_requested.label'
+    | 'status.messageFromUs'
+    | 'status.provisioned.body'
+    | 'status.provisioned.label'
+    | 'status.provisioning.body'
+    | 'status.provisioning.label'
+    | 'status.requestAskedOn'
+    | 'status.requestResolved'
+    | 'status.reviewerRequests'
+    | 'status.reviewerRequestsTitle'
+    | 'status.submitted.body'
+    | 'status.submitted.label'
+    | 'status.title'
+    | 'status.updated'
+    | 'status.withdrawn.body'
+    | 'status.withdrawn.label'
+    | 'subtitle'
+    | 'title'
+    | 'validation.currency'
+    | 'validation.date'
+    | 'validation.email'
+    | 'validation.format'
+    | 'validation.invalid'
+    | 'validation.phone'
+    | 'validation.required'
+    | 'validation.tooLong'
+    | 'validation.url'
+    | 'volumeBands.from_200_to_500'
+    | 'volumeBands.from_500_to_2000'
+    | 'volumeBands.from_50_to_200'
+    | 'volumeBands.over_2000'
+    | 'volumeBands.under_50'
+    | 'windDown.authorityLabel'
+    | 'windDown.cancelledBody'
+    | 'windDown.checks.credit_balance'
+    | 'windDown.checks.open_orders'
+    | 'windDown.checks.outstanding_invoices'
+    | 'windDown.checks.security_deposit'
+    | 'windDown.consentTitle'
+    | 'windDown.effectiveOn'
+    | 'windDown.failedTitle'
+    | 'windDown.nameLabel'
+    | 'windDown.noEffectiveDate'
+    | 'windDown.noneBody'
+    | 'windDown.noneTitle'
+    | 'windDown.noticePeriod'
+    | 'windDown.outcomes.clear'
+    | 'windDown.outcomes.not_applicable'
+    | 'windDown.outcomes.outstanding'
+    | 'windDown.platformNote'
+    | 'windDown.readOnly.archiving'
+    | 'windDown.readOnly.cancelled'
+    | 'windDown.readOnly.completed'
+    | 'windDown.readOnly.notice_served'
+    | 'windDown.readOnly.revoking'
+    | 'windDown.readOnly.settlement_pending'
+    | 'windDown.readOnly.signed_off'
+    | 'windDown.readOnlyBody'
+    | 'windDown.readOnlyTitle'
+    | 'windDown.reasons.invoicing_module_absent'
+    | 'windDown.reasons.orders_module_absent'
+    | 'windDown.requestCode'
+    | 'windDown.runChecks'
+    | 'windDown.runChecksNote'
+    | 'windDown.settlement.caption'
+    | 'windDown.settlement.columns.check'
+    | 'windDown.settlement.columns.outcome'
+    | 'windDown.settlement.columns.reason'
+    | 'windDown.settlement.notRun'
+    | 'windDown.settlement.title'
+    | 'windDown.settlementStatuses.cleared'
+    | 'windDown.settlementStatuses.pending'
+    | 'windDown.settlementStatuses.waived'
+    | 'windDown.signedBy'
+    | 'windDown.signoffFailed'
+    | 'windDown.signoffTitle'
+    | 'windDown.stageAhead'
+    | 'windDown.stageDone'
+    | 'windDown.stageNow'
+    | 'windDown.statuses.archiving'
+    | 'windDown.statuses.awaiting_signoff'
+    | 'windDown.statuses.cancelled'
+    | 'windDown.statuses.completed'
+    | 'windDown.statuses.notice_served'
+    | 'windDown.statuses.requested'
+    | 'windDown.statuses.revoking'
+    | 'windDown.statuses.settlement_pending'
+    | 'windDown.statuses.signed_off'
+    | 'windDown.subtitle'
+    | 'windDown.timelineTitle'
+    | 'windDown.title'
+    | 'windDown.titleLabel'
+    | 'windDown.triggers.client_request'
+    | 'windDown.triggers.contract_end'
+    | 'windDown.triggers.non_renewal'
+    | 'windDown.triggers.termination'
+    | 'wizard.back'
+    | 'wizard.complete'
+    | 'wizard.conflictBody'
+    | 'wizard.conflictTitle'
+    | 'wizard.incomplete'
+    | 'wizard.locked'
+    | 'wizard.lockedByRequest'
+    | 'wizard.markComplete'
+    | 'wizard.next'
+    | 'wizard.outstanding'
+    | 'wizard.reload'
+    | 'wizard.save'
+    | 'wizard.saveFailed'
+    | 'wizard.saved'
+    | 'wizard.saving'
+    | 'wizard.stepPosition';
   readonly "business":
     | 'builder.back'
     | 'builder.contactEmail'
@@ -230,6 +798,8 @@ export interface NamespaceKeys {
     | 'builder.valueNote'
     | 'builder.valueTitle'
     | 'builder.valueTotal'
+    | 'catalogue.addToCart'
+    | 'catalogue.addedToCart'
     | 'catalogue.back'
     | 'catalogue.buildQuotation'
     | 'catalogue.clearFilters'
@@ -246,6 +816,7 @@ export interface NamespaceKeys {
     | 'catalogue.notFoundBody'
     | 'catalogue.notFoundTitle'
     | 'catalogue.open'
+    | 'catalogue.placeOrder'
     | 'catalogue.privacyBody'
     | 'catalogue.privacyTitle'
     | 'catalogue.programmeLoading'
@@ -279,12 +850,15 @@ export interface NamespaceKeys {
     | 'dashboard.quotationsTitle'
     | 'dashboard.sourceNote'
     | 'dashboard.title'
+    | 'item.addToCart'
+    | 'item.addedToCart'
     | 'item.back'
     | 'item.eligibilityBody'
     | 'item.eligibilityTitle'
     | 'item.noTiers'
     | 'item.notFoundBody'
     | 'item.notFoundTitle'
+    | 'item.placeOrder'
     | 'item.quote'
     | 'item.recurringOrder'
     | 'item.tierBetween'
@@ -301,6 +875,8 @@ export interface NamespaceKeys {
     | 'partner.allKitchens'
     | 'partner.body'
     | 'partner.clearKitchen'
+    | 'partner.deferredBody'
+    | 'partner.deferredTitle'
     | 'partner.emptyBody'
     | 'partner.emptyTitle'
     | 'partner.kitchenFilter'
@@ -337,6 +913,7 @@ export interface NamespaceKeys {
     | 'quotations.back'
     | 'quotations.body'
     | 'quotations.clearFilter'
+    | 'quotations.decline'
     | 'quotations.emptyBody'
     | 'quotations.emptyFilteredBody'
     | 'quotations.emptyFilteredTitle'
@@ -358,6 +935,8 @@ export interface NamespaceKeys {
     | 'quotations.total'
     | 'schedule.back'
     | 'schedule.body'
+    | 'schedule.deferredBody'
+    | 'schedule.deferredTitle'
     | 'schedule.derivationBody'
     | 'schedule.derivationTitle'
     | 'schedule.emptyBody'
@@ -447,6 +1026,7 @@ export interface NamespaceKeys {
     | 'filters.protein'
     | 'filters.rangesHint'
     | 'filters.rangesTitle'
+    | 'filters.removeFilter'
     | 'filters.unitGrams'
     | 'filters.unitKcal'
     | 'filters.unitMinutes'
@@ -529,6 +1109,8 @@ export interface NamespaceKeys {
     | 'meals.allLoaded'
     | 'meals.emptyBody'
     | 'meals.emptyTitle'
+    | 'meals.filters'
+    | 'meals.filtersActive'
     | 'meals.loadMore'
     | 'meals.loadingMore'
     | 'meals.searchLabel'
@@ -590,24 +1172,68 @@ export interface NamespaceKeys {
     | 'plan.variantLabel'
     | 'plan.variantsBody'
     | 'plan.variantsTitle'
+    | 'plans.bandsLabel'
+    | 'plans.byKitchen'
+    | 'plans.calorie.higher'
+    | 'plans.calorie.lighter'
+    | 'plans.calorie.moderate'
+    | 'plans.calorieFilter'
     | 'plans.categoryAll'
     | 'plans.categoryLabel'
+    | 'plans.compareClear'
+    | 'plans.compareEmpty'
     | 'plans.compareFull'
     | 'plans.compareHint'
     | 'plans.compareLabel'
     | 'plans.compareOpen'
+    | 'plans.compareRemove'
     | 'plans.compareSelected'
+    | 'plans.compareTitle'
+    | 'plans.compareTrayLabel'
+    | 'plans.ctaBody'
+    | 'plans.ctaPrimary'
+    | 'plans.ctaSecondary'
+    | 'plans.ctaTitle'
+    | 'plans.durationNoDiscount'
+    | 'plans.durationSaves'
+    | 'plans.durationShort.12w'
+    | 'plans.durationShort.1w'
+    | 'plans.durationShort.2w'
+    | 'plans.durationShort.4w'
+    | 'plans.durationTotal'
     | 'plans.durations'
+    | 'plans.durationsFor'
+    | 'plans.durationsLabel'
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyBand'
+    | 'plans.eyebrow'
     | 'plans.fromPrice'
+    | 'plans.heroHowItWorks'
+    | 'plans.heroSpeakToDietitian'
+    | 'plans.kitchenCount'
+    | 'plans.kitchenFilter'
     | 'plans.mealsPerDay'
     | 'plans.mealsPerDayNoSnacks'
+    | 'plans.methodologyTitle'
     | 'plans.perDayPrice'
+    | 'plans.perWeekSuffix'
+    | 'plans.priceFrom'
     | 'plans.ratingLabel'
+    | 'plans.resultSummary'
+    | 'plans.searchLabel'
+    | 'plans.searchPlaceholder'
+    | 'plans.sort.priceLowHigh'
+    | 'plans.sort.ratingHighLow'
+    | 'plans.sort.recommended'
+    | 'plans.sortLabel'
     | 'plans.subtitle'
     | 'plans.title'
+    | 'plans.trust.flexible'
+    | 'plans.trust.kitchens'
+    | 'plans.trust.reviewed'
+    | 'plans.viewPlan'
+    | 'plans.viewPlanNamed'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -724,6 +1350,25 @@ export interface NamespaceKeys {
     | 'address.line2'
     | 'address.line2Hint'
     | 'address.notStored'
+    | 'balance.cutOffNote'
+    | 'balance.perDay'
+    | 'balance.remaining'
+    | 'balance.skipped'
+    | 'balance.title'
+    | 'balance.used'
+    | 'cancel.body'
+    | 'cancel.confirm'
+    | 'cancel.consequenceBody'
+    | 'cancel.consequenceTitle'
+    | 'cancel.doneMemo'
+    | 'cancel.doneNoMemo'
+    | 'cancel.doneTitle'
+    | 'cancel.estimate'
+    | 'cancel.keep'
+    | 'cancel.manualSettlement'
+    | 'cancel.noRefund'
+    | 'cancel.open'
+    | 'cancel.title'
     | 'cart.allergenBody'
     | 'cart.allergenTitle'
     | 'cart.body'
@@ -731,6 +1376,7 @@ export interface NamespaceKeys {
     | 'cart.checkout'
     | 'cart.count'
     | 'cart.delivery'
+    | 'cart.deliveryAtPlacement'
     | 'cart.deliveryFree'
     | 'cart.emptyBody'
     | 'cart.emptyTitle'
@@ -746,6 +1392,7 @@ export interface NamespaceKeys {
     | 'cart.unitPrice'
     | 'cart.updateFailedTitle'
     | 'cart.viewMeal'
+    | 'checkout.addAddress'
     | 'checkout.addressBody'
     | 'checkout.addressTitle'
     | 'checkout.body'
@@ -756,25 +1403,41 @@ export interface NamespaceKeys {
     | 'checkout.edit'
     | 'checkout.emptyBody'
     | 'checkout.emptyTitle'
+    | 'checkout.noAddressBody'
+    | 'checkout.noAddressTitle'
+    | 'checkout.paymentNoticeBody'
+    | 'checkout.paymentNoticeTitle'
+    | 'checkout.placeFailedTitle'
     | 'checkout.placeOrder'
     | 'checkout.placeOrderHint'
     | 'checkout.priceAfterReview'
     | 'checkout.priceBeforeReview'
-    | 'checkout.prototypeNotice'
     | 'checkout.review'
     | 'checkout.slotTitle'
     | 'checkout.slotWindow'
     | 'checkout.successBody'
     | 'checkout.successCart'
+    | 'checkout.successCodBody'
+    | 'checkout.successCodTitle'
     | 'checkout.successPriceCaption'
-    | 'checkout.successPrototypeBody'
-    | 'checkout.successPrototypeTitle'
     | 'checkout.successSubscriptions'
     | 'checkout.successSummaryTitle'
     | 'checkout.successTitle'
     | 'checkout.summaryTitle'
     | 'checkout.title'
+    | 'choices.body'
+    | 'choices.bodyDated'
+    | 'choices.confirm'
+    | 'choices.cutOffBody'
+    | 'choices.cutOffTitle'
+    | 'choices.open'
+    | 'choices.selectLabel'
+    | 'choices.sources.customer'
+    | 'choices.sources.kitchen_default'
+    | 'choices.sources.substituted'
+    | 'choices.title'
     | 'common.cancel'
+    | 'common.close'
     | 'common.listSeparator'
     | 'common.noPayment'
     | 'configurator.allergyDisclaimerContext'
@@ -910,6 +1573,23 @@ export interface NamespaceKeys {
     | 'configurator.summary.window'
     | 'configurator.summary.windowValue'
     | 'configurator.title'
+    | 'deliveries.caption'
+    | 'deliveries.columns.consumed'
+    | 'deliveries.columns.date'
+    | 'deliveries.columns.status'
+    | 'deliveries.consumedNo'
+    | 'deliveries.consumedYes'
+    | 'deliveries.count'
+    | 'deliveries.empty'
+    | 'deliveries.skipNote'
+    | 'deliveries.statuses.cancelled'
+    | 'deliveries.statuses.delivered'
+    | 'deliveries.statuses.generated'
+    | 'deliveries.statuses.scheduled'
+    | 'deliveries.statuses.skipped_customer'
+    | 'deliveries.statuses.skipped_no_safe_meal'
+    | 'deliveries.statuses.skipped_unavailable'
+    | 'deliveries.title'
     | 'durations.12w'
     | 'durations.1w'
     | 'durations.2w'
@@ -1015,7 +1695,15 @@ export interface NamespaceKeys {
     | 'warnings.subscription_no_delivery_days'
     | 'warnings.subscription_unknown_slot'
     | 'warnings.title'
-    | 'warnings.unknown';
+    | 'warnings.unknown'
+    | 'weekdays.body'
+    | 'weekdays.chooseOne'
+    | 'weekdays.confirm'
+    | 'weekdays.cutOffBody'
+    | 'weekdays.cutOffTitle'
+    | 'weekdays.loading'
+    | 'weekdays.open'
+    | 'weekdays.title';
   readonly "common":
     | 'action.back'
     | 'action.cancel'
@@ -1036,11 +1724,6 @@ export interface NamespaceKeys {
     | 'action.signUp'
     | 'app.name'
     | 'app.tagline'
-    | 'dev.mockBadge'
-    | 'dev.mockDescription'
-    | 'dev.mockScenario'
-    | 'dev.switchScenario'
-    | 'dev.switchScenarioHint'
     | 'direction.ltr'
     | 'direction.rtl'
     | 'locale.arabic'
@@ -1083,8 +1766,17 @@ export interface NamespaceKeys {
     | 'dateField.year'
     | 'emptyState.prototypeBadge'
     | 'emptyState.prototypeBody'
+    | 'fileUpload.choose'
+    | 'fileUpload.limits'
+    | 'fileUpload.remove'
+    | 'fileUpload.replace'
+    | 'fileUpload.uploading'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
+    | 'pagination.label'
+    | 'pagination.next'
+    | 'pagination.page'
+    | 'pagination.previous'
     | 'passwordInput.hide'
     | 'passwordInput.show'
     | 'rangeFilter.inverted'
@@ -1092,7 +1784,11 @@ export interface NamespaceKeys {
     | 'rangeFilter.min'
     | 'rating.count'
     | 'rating.summary'
+    | 'select.noResults'
     | 'select.placeholder'
+    | 'select.searchLabel'
+    | 'select.searchPlaceholder'
+    | 'select.searchResults'
     | 'shell.openNavigation'
     | 'shell.primaryNavigation'
     | 'shell.skipToContent'
@@ -1139,6 +1835,7 @@ export interface NamespaceKeys {
     | 'showcase.sampleHint'
     | 'showcase.sampleLabel'
     | 'showcase.sampleOption'
+    | 'showcase.searchableSelectLabel'
     | 'showcase.sections.actions'
     | 'showcase.sections.content'
     | 'showcase.sections.data'
@@ -1158,10 +1855,13 @@ export interface NamespaceKeys {
     | 'showcase.tabDelivery'
     | 'showcase.tabNutrition'
     | 'showcase.tabOverview'
+    | 'showcase.tableActionHeader'
+    | 'showcase.tableActionLabel'
     | 'showcase.tableCaption'
     | 'showcase.tableColumnAmount'
     | 'showcase.tableColumnName'
     | 'showcase.tableColumnTarget'
+    | 'showcase.tableSortableCaption'
     | 'showcase.tabsLabel'
     | 'showcase.title'
     | 'showcase.toastMessage'
@@ -1187,20 +1887,49 @@ export interface NamespaceKeys {
     | 'spike.typography.description'
     | 'stepper.progress'
     | 'swatch.contrast'
-    | 'table.empty';
+    | 'table.empty'
+    | 'table.sortBy'
+    | 'table.sortedAscending'
+    | 'table.sortedDescending';
   readonly "errors":
+    | 'failure.account_verification_required'
+    | 'failure.address_area_not_served'
     | 'failure.auth_email_unverified'
     | 'failure.auth_invalid_credentials'
     | 'failure.auth_step_up_required'
     | 'failure.auth_two_factor_required'
     | 'failure.auth_unauthenticated'
+    | 'failure.authz_permission_denied'
+    | 'failure.b2b_application_state_invalid'
+    | 'failure.b2b_documents_incomplete'
+    | 'failure.b2b_quotation_state_invalid'
+    | 'failure.b2b_signatory_required'
+    | 'failure.cart_line_refused'
+    | 'failure.closure_refused'
+    | 'failure.contact_already_in_use'
     | 'failure.context_branch_out_of_scope'
     | 'failure.context_organisation_forbidden'
     | 'failure.context_organisation_required'
+    | 'failure.guest_session_invalid'
     | 'failure.network'
+    | 'failure.offboarding_refused'
+    | 'failure.offboarding_settlement_outstanding'
+    | 'failure.order_placement_refused'
+    | 'failure.otp_attempts_exceeded'
+    | 'failure.otp_channel_unavailable'
+    | 'failure.otp_cooldown_active'
+    | 'failure.otp_expired'
+    | 'failure.otp_invalid'
     | 'failure.prototype_not_implemented'
     | 'failure.rate_limit_exceeded'
+    | 'failure.record_export_unavailable'
+    | 'failure.request_idempotency_key_reused'
+    | 'failure.request_precondition_required'
+    | 'failure.resource_conflict'
+    | 'failure.resource_not_found'
     | 'failure.server'
+    | 'failure.subscription_change_refused'
+    | 'failure.subscription_refused'
     | 'failure.validation_failed'
     | 'generic.body'
     | 'generic.reference'
@@ -1215,6 +1944,30 @@ export interface NamespaceKeys {
     | 'network.offline'
     | 'network.timeout'
     | 'network.unreachable'
+    | 'orderRefusal.account_not_active'
+    | 'orderRefusal.account_not_ready'
+    | 'orderRefusal.address_not_deliverable'
+    | 'orderRefusal.address_not_owned'
+    | 'orderRefusal.agreement_required'
+    | 'orderRefusal.area_not_served'
+    | 'orderRefusal.cart_empty'
+    | 'orderRefusal.cart_not_open'
+    | 'orderRefusal.channel_not_trading'
+    | 'orderRefusal.channel_unavailable'
+    | 'orderRefusal.channel_unknown'
+    | 'orderRefusal.closed'
+    | 'orderRefusal.currency_mismatch'
+    | 'orderRefusal.cut_off_passed'
+    | 'orderRefusal.date_in_the_past'
+    | 'orderRefusal.guest_not_verified'
+    | 'orderRefusal.item_not_published'
+    | 'orderRefusal.item_unknown'
+    | 'orderRefusal.minimum_order_not_met'
+    | 'orderRefusal.mixed_delivery_dates'
+    | 'orderRefusal.unpriced'
+    | 'orderRefusal.variant_not_active'
+    | 'orderRefusal.variant_unknown'
+    | 'orderRefusal.zone_suspended'
     | 'validation.accept_privacy'
     | 'validation.accept_terms'
     | 'validation.email'
@@ -1224,6 +1977,1636 @@ export interface NamespaceKeys {
     | 'validation.password_min_length'
     | 'validation.password_mismatch'
     | 'validation.required';
+  readonly "guest":
+    | 'address.back'
+    | 'address.continue'
+    | 'address.date'
+    | 'address.outOfZoneAreas'
+    | 'address.outOfZoneBody'
+    | 'address.outOfZoneBrowse'
+    | 'address.outOfZoneTitle'
+    | 'address.slot'
+    | 'address.subtitle'
+    | 'address.title'
+    | 'contact.channel'
+    | 'contact.channelEmail'
+    | 'contact.channelSms'
+    | 'contact.channelWhatsapp'
+    | 'contact.continue'
+    | 'contact.email'
+    | 'contact.emailHint'
+    | 'contact.errors.contactRequired'
+    | 'contact.errors.emailInvalid'
+    | 'contact.errors.mobileInvalid'
+    | 'contact.errors.nameRequired'
+    | 'contact.fullName'
+    | 'contact.fullNameHint'
+    | 'contact.mobile'
+    | 'contact.mobileHint'
+    | 'contact.subtitle'
+    | 'contact.title'
+    | 'convert.body'
+    | 'convert.declined'
+    | 'convert.doneBody'
+    | 'convert.doneTitle'
+    | 'convert.fullName'
+    | 'convert.marketing'
+    | 'convert.marketingHint'
+    | 'convert.noThanks'
+    | 'convert.password'
+    | 'convert.passwordHint'
+    | 'convert.submit'
+    | 'convert.title'
+    | 'convert.verifiedNote'
+    | 'deletion.cancel'
+    | 'deletion.code'
+    | 'deletion.confirm'
+    | 'deletion.confirmAcknowledge'
+    | 'deletion.confirmBody'
+    | 'deletion.confirmTitle'
+    | 'deletion.doneBody'
+    | 'deletion.doneTitle'
+    | 'deletion.email'
+    | 'deletion.emailHint'
+    | 'deletion.invalidCode'
+    | 'deletion.mobile'
+    | 'deletion.mobileHint'
+    | 'deletion.request'
+    | 'deletion.sentBody'
+    | 'deletion.sentTitle'
+    | 'deletion.subtitle'
+    | 'deletion.suppressionNote'
+    | 'deletion.title'
+    | 'entry.body'
+    | 'entry.continueAsGuest'
+    | 'entry.signIn'
+    | 'entry.title'
+    | 'order.deliveringTo'
+    | 'order.lines'
+    | 'order.notFoundBody'
+    | 'order.notFoundTitle'
+    | 'order.payment'
+    | 'order.reference'
+    | 'order.slot'
+    | 'order.state'
+    | 'order.states.cancelled'
+    | 'order.states.confirmed'
+    | 'order.states.delivered'
+    | 'order.states.out_for_delivery'
+    | 'order.states.placed'
+    | 'order.states.preparing'
+    | 'order.subtitle'
+    | 'order.title'
+    | 'order.total'
+    | 'review.back'
+    | 'review.cashOnDelivery'
+    | 'review.cashOnDeliveryNote'
+    | 'review.contact'
+    | 'review.deliveringTo'
+    | 'review.marketingHint'
+    | 'review.marketingLabel'
+    | 'review.payment'
+    | 'review.place'
+    | 'review.slot'
+    | 'review.subtitle'
+    | 'review.title'
+    | 'review.unverified'
+    | 'session.expiredBody'
+    | 'session.expiredTitle'
+    | 'session.restart'
+    | 'steps.address'
+    | 'steps.contact'
+    | 'steps.review'
+    | 'steps.verify'
+    | 'subtitle'
+    | 'title'
+    | 'verify.back'
+    | 'verify.confirmed'
+    | 'verify.otpFallback'
+    | 'verify.subtitle'
+    | 'verify.title';
+  readonly "invitations":
+    | 'accept.action'
+    | 'accept.pending'
+    | 'accepted.alreadyBody'
+    | 'accepted.alreadyTitle'
+    | 'accepted.body'
+    | 'accepted.noMembershipBody'
+    | 'accepted.noMembershipTitle'
+    | 'accepted.openWorkspace'
+    | 'accepted.title'
+    | 'expired.body'
+    | 'expired.title'
+    | 'invite.body'
+    | 'invite.expiresInDays'
+    | 'invite.expiresLabel'
+    | 'invite.expiresToday'
+    | 'invite.heading'
+    | 'invite.role.commercial_manager'
+    | 'invite.role.kitchen_manager'
+    | 'invite.role.kitchen_owner'
+    | 'invite.role.organisation_owner'
+    | 'invite.role.unknown'
+    | 'invite.roleLabel'
+    | 'invite.sentToLabel'
+    | 'loading'
+    | 'mismatch.body'
+    | 'mismatch.switch'
+    | 'mismatch.title'
+    | 'notFound.body'
+    | 'notFound.retry'
+    | 'notFound.title'
+    | 'revoked.body'
+    | 'revoked.title'
+    | 'signedOut.body'
+    | 'signedOut.register'
+    | 'signedOut.returnHint'
+    | 'signedOut.signIn'
+    | 'signedOut.title'
+    | 'title'
+    | 'unverified.body'
+    | 'unverified.title'
+    | 'unverified.verify';
+  readonly "kitchen":
+    | 'a11y.aliasAdded'
+    | 'a11y.listUpdated'
+    | 'a11y.mappingAdded'
+    | 'a11y.mappingRemoved'
+    | 'aliases.add'
+    | 'aliases.count'
+    | 'aliases.description'
+    | 'aliases.duplicate'
+    | 'aliases.empty'
+    | 'aliases.inputLabel'
+    | 'aliases.inputPlaceholder'
+    | 'aliases.remove'
+    | 'aliases.removedToast'
+    | 'aliases.title'
+    | 'allergens.addRow'
+    | 'allergens.chooseClass'
+    | 'allergens.classLabel'
+    | 'allergens.classPlaceholder'
+    | 'allergens.classesError'
+    | 'allergens.containmentLabel'
+    | 'allergens.description'
+    | 'allergens.duplicateClass'
+    | 'allergens.empty'
+    | 'allergens.emptyHint'
+    | 'allergens.evidenceHint'
+    | 'allergens.evidenceLabel'
+    | 'allergens.marketScopeAll'
+    | 'allergens.marketScopeHint'
+    | 'allergens.marketScopeLabel'
+    | 'allergens.platformBaseline'
+    | 'allergens.platformBaselineHint'
+    | 'allergens.quarantineBody'
+    | 'allergens.quarantineTitle'
+    | 'allergens.remove'
+    | 'allergens.rowTitle'
+    | 'allergens.safetyBody'
+    | 'allergens.safetyTitle'
+    | 'allergens.save'
+    | 'allergens.saveBlocked'
+    | 'allergens.saveError'
+    | 'allergens.savedToast'
+    | 'allergens.title'
+    | 'allergens.upgradeOnlyContainment'
+    | 'allergens.upgradeOnlyVerification'
+    | 'allergens.verificationLabel'
+    | 'analytics.charts.channelVolume'
+    | 'analytics.charts.channels.aLaCarte'
+    | 'analytics.charts.channels.b2b'
+    | 'analytics.charts.channels.pos'
+    | 'analytics.charts.channels.staff'
+    | 'analytics.charts.channels.subscription'
+    | 'analytics.charts.productionTrend'
+    | 'analytics.charts.statusCenter'
+    | 'analytics.charts.statusMix'
+    | 'analytics.filters.dateRange'
+    | 'analytics.filters.segment'
+    | 'analytics.kpi.onTime'
+    | 'analytics.kpi.prep'
+    | 'analytics.kpi.produced'
+    | 'analytics.kpi.review'
+    | 'analytics.ranges.30d'
+    | 'analytics.ranges.7d'
+    | 'analytics.ranges.90d'
+    | 'analytics.ranges.ytd'
+    | 'analytics.sampleBadge'
+    | 'analytics.segments.all'
+    | 'analytics.segments.delivery'
+    | 'analytics.segments.meals'
+    | 'analytics.segments.recipes'
+    | 'analytics.segments.stock'
+    | 'analytics.status.all'
+    | 'analytics.status.blocked'
+    | 'analytics.status.onTrack'
+    | 'analytics.status.watch'
+    | 'analytics.subtitle'
+    | 'analytics.table.avgMinutes'
+    | 'analytics.table.caption'
+    | 'analytics.table.completion'
+    | 'analytics.table.empty'
+    | 'analytics.table.name'
+    | 'analytics.table.search'
+    | 'analytics.table.searchPlaceholder'
+    | 'analytics.table.segment'
+    | 'analytics.table.status'
+    | 'analytics.table.statusFilter'
+    | 'analytics.table.subtitle'
+    | 'analytics.table.title'
+    | 'analytics.table.updated'
+    | 'analytics.table.volume'
+    | 'analytics.theme.dark'
+    | 'analytics.theme.light'
+    | 'analytics.title'
+    | 'analytics.trend.down'
+    | 'analytics.trend.flat'
+    | 'analytics.trend.up'
+    | 'areas.groupLabel'
+    | 'areas.inactive'
+    | 'areas.matchCount'
+    | 'areas.moreHidden'
+    | 'areas.noMatches'
+    | 'areas.noParent'
+    | 'areas.save'
+    | 'areas.saveError'
+    | 'areas.savedToast'
+    | 'areas.searchHint'
+    | 'areas.searchLabel'
+    | 'areas.searchPlaceholder'
+    | 'areas.selectedLabel'
+    | 'areas.selectedNone'
+    | 'areas.truncatedBody'
+    | 'areas.truncatedTitle'
+    | 'areas.unknownArea'
+    | 'availability.addDay'
+    | 'availability.availableLabel'
+    | 'availability.closed'
+    | 'availability.createFirst'
+    | 'availability.cutOffHint'
+    | 'availability.cutOffInvalid'
+    | 'availability.cutOffLabel'
+    | 'availability.dateDuplicate'
+    | 'availability.dateLabel'
+    | 'availability.dateRequired'
+    | 'availability.dayRemoved'
+    | 'availability.empty'
+    | 'availability.explainerBody'
+    | 'availability.explainerTitle'
+    | 'availability.newDay'
+    | 'availability.remainingHint'
+    | 'availability.remainingInvalid'
+    | 'availability.remainingLabel'
+    | 'availability.save'
+    | 'availability.saveError'
+    | 'availability.savedToast'
+    | 'availability.sectionTitle'
+    | 'bilingual.arabicHint'
+    | 'bilingual.arabicLabel'
+    | 'bilingual.copyFromEnglish'
+    | 'bilingual.englishHint'
+    | 'bilingual.englishLabel'
+    | 'bilingual.missingArabic'
+    | 'bilingual.missingArabicHint'
+    | 'branchHours.allClosedBody'
+    | 'branchHours.allClosedTitle'
+    | 'branchHours.backToHub'
+    | 'branchHours.branchBadge'
+    | 'branchHours.branchUnknown'
+    | 'branchHours.closedBadge'
+    | 'branchHours.closedLabel'
+    | 'branchHours.closedNote'
+    | 'branchHours.closesBeforeOpens'
+    | 'branchHours.closesInvalid'
+    | 'branchHours.closesLabel'
+    | 'branchHours.contextNote'
+    | 'branchHours.copiedAnnouncement'
+    | 'branchHours.copyToOpenDays'
+    | 'branchHours.cutOffAfterCloses'
+    | 'branchHours.cutOffDayCount'
+    | 'branchHours.cutOffHint'
+    | 'branchHours.cutOffInvalid'
+    | 'branchHours.cutOffLabel'
+    | 'branchHours.cutOffNone'
+    | 'branchHours.loadErrorTitle'
+    | 'branchHours.noBranchBody'
+    | 'branchHours.noBranchTitle'
+    | 'branchHours.openDayCount'
+    | 'branchHours.opensInvalid'
+    | 'branchHours.opensLabel'
+    | 'branchHours.save'
+    | 'branchHours.saveError'
+    | 'branchHours.savedToast'
+    | 'branchHours.sectionContext'
+    | 'branchHours.sectionWeek'
+    | 'branchHours.timeZoneBadge'
+    | 'branchHours.title'
+    | 'branchHours.titleFor'
+    | 'branchHours.weekIntro'
+    | 'channels.createFirst'
+    | 'channels.fromHint'
+    | 'channels.fromLabel'
+    | 'channels.save'
+    | 'channels.saveError'
+    | 'channels.savedToast'
+    | 'channels.sectionHint'
+    | 'channels.sectionTitle'
+    | 'channels.untilHint'
+    | 'channels.untilLabel'
+    | 'classes.count'
+    | 'classes.emptyBody'
+    | 'classes.emptyTitle'
+    | 'classes.errorTitle'
+    | 'classes.governanceBody'
+    | 'classes.governanceTitle'
+    | 'classes.inactive'
+    | 'classes.marketsLabel'
+    | 'classes.noMarkets'
+    | 'classes.referenceLabel'
+    | 'classes.severe'
+    | 'classes.subtitle'
+    | 'classes.thresholdAny'
+    | 'classes.thresholdLabel'
+    | 'classes.thresholdValue'
+    | 'classes.title'
+    | 'common.add'
+    | 'common.back'
+    | 'common.cancel'
+    | 'common.discard'
+    | 'common.listSeparator'
+    | 'common.notRecorded'
+    | 'common.optional'
+    | 'common.remove'
+    | 'common.save'
+    | 'common.saveDraft'
+    | 'common.saving'
+    | 'common.undo'
+    | 'conflict.body'
+    | 'conflict.keepEditing'
+    | 'conflict.reload'
+    | 'conflict.title'
+    | 'containment.contains'
+    | 'containment.mayContain'
+    | 'editor.archive'
+    | 'editor.archiveBody'
+    | 'editor.archiveConfirm'
+    | 'editor.archiveTitle'
+    | 'editor.backToList'
+    | 'editor.categoryRequired'
+    | 'editor.createTitle'
+    | 'editor.createdToast'
+    | 'editor.editTitle'
+    | 'editor.lastUpdated'
+    | 'editor.lastUpdatedBy'
+    | 'editor.lastUpdatedBySeed'
+    | 'editor.loadErrorTitle'
+    | 'editor.nameRequired'
+    | 'editor.neverSaved'
+    | 'editor.notFoundBody'
+    | 'editor.notFoundTitle'
+    | 'editor.platformLibraryBody'
+    | 'editor.platformLibraryTitle'
+    | 'editor.saveError'
+    | 'editor.savedToast'
+    | 'editor.sectionAliases'
+    | 'editor.sectionAllergens'
+    | 'editor.sectionClassification'
+    | 'editor.sectionDetails'
+    | 'editor.sectionNotes'
+    | 'editor.unsaved'
+    | 'families.allergenClasses.description'
+    | 'families.allergenClasses.name'
+    | 'families.analytics.description'
+    | 'families.analytics.name'
+    | 'families.branchOperating.description'
+    | 'families.branchOperating.name'
+    | 'families.consumptionExceptions.description'
+    | 'families.consumptionExceptions.name'
+    | 'families.costReport.description'
+    | 'families.costReport.name'
+    | 'families.deliveryZones.description'
+    | 'families.deliveryZones.name'
+    | 'families.ingredients.description'
+    | 'families.ingredients.name'
+    | 'families.meals.description'
+    | 'families.meals.name'
+    | 'families.orders.description'
+    | 'families.orders.name'
+    | 'families.plans.description'
+    | 'families.plans.name'
+    | 'families.priceLists.description'
+    | 'families.priceLists.name'
+    | 'families.procurement.description'
+    | 'families.procurement.name'
+    | 'families.production.description'
+    | 'families.production.name'
+    | 'families.products.description'
+    | 'families.products.name'
+    | 'families.purchases.description'
+    | 'families.purchases.name'
+    | 'families.qc.description'
+    | 'families.qc.name'
+    | 'families.quotations.description'
+    | 'families.quotations.name'
+    | 'families.recipes.description'
+    | 'families.recipes.name'
+    | 'families.review.description'
+    | 'families.review.name'
+    | 'families.stock.description'
+    | 'families.stock.name'
+    | 'fields.category'
+    | 'fields.categoryHint'
+    | 'fields.categoryPlaceholder'
+    | 'fields.name'
+    | 'fields.notes'
+    | 'fields.notesHint'
+    | 'fields.reference'
+    | 'fields.referenceHint'
+    | 'fields.unit'
+    | 'fields.unitHint'
+    | 'hub.countUnavailable'
+    | 'hub.draftCount'
+    | 'hub.emptyBody'
+    | 'hub.emptyTitle'
+    | 'hub.errorTitle'
+    | 'hub.insightTag'
+    | 'hub.itemCount'
+    | 'hub.kpi.consumptionExceptions'
+    | 'hub.kpi.deliveryZones'
+    | 'hub.kpi.drafts'
+    | 'hub.kpi.lowStock'
+    | 'hub.kpi.needsReview'
+    | 'hub.kpi.publishedMeals'
+    | 'hub.open'
+    | 'hub.openReview'
+    | 'hub.publishedCount'
+    | 'hub.quarantineCount'
+    | 'hub.referenceOnly'
+    | 'hub.subtitle'
+    | 'hub.title'
+    | 'kds.column.done'
+    | 'kds.column.incoming'
+    | 'kds.column.preparing'
+    | 'kds.columnEmpty.done'
+    | 'kds.columnEmpty.incoming'
+    | 'kds.columnEmpty.preparing'
+    | 'kds.conflictBody'
+    | 'kds.conflictRefresh'
+    | 'kds.conflictTitle'
+    | 'kds.deliveryOn'
+    | 'kds.deliveryOnAt'
+    | 'kds.deliveryUnknown'
+    | 'kds.emptyBody'
+    | 'kds.emptyTitle'
+    | 'kds.lastUpdated'
+    | 'kds.lineSummary'
+    | 'kds.loadErrorTitle'
+    | 'kds.noBranchBody'
+    | 'kds.noBranchTitle'
+    | 'kds.placedAgo'
+    | 'kds.ready'
+    | 'kds.start'
+    | 'kds.subtitle'
+    | 'kds.title'
+    | 'list.actionHeader'
+    | 'list.allLoaded'
+    | 'list.archive'
+    | 'list.archiveFailed'
+    | 'list.archivedToast'
+    | 'list.caption'
+    | 'list.columnAllergens'
+    | 'list.columnCategory'
+    | 'list.columnName'
+    | 'list.columnStatus'
+    | 'list.columnUpdated'
+    | 'list.emptyBody'
+    | 'list.emptyTitle'
+    | 'list.filteredEmptyBody'
+    | 'list.filteredEmptyTitle'
+    | 'list.loadMore'
+    | 'list.loadingMore'
+    | 'list.missingArabic'
+    | 'list.missingArabicHint'
+    | 'list.noAllergens'
+    | 'list.noCategory'
+    | 'list.open'
+    | 'list.subtitle'
+    | 'list.title'
+    | 'list.updatedBy'
+    | 'list.updatedBySeed'
+    | 'meals.allergensLabel'
+    | 'meals.allergensNoProvenance'
+    | 'meals.allergensNone'
+    | 'meals.allergensProvenance'
+    | 'meals.backToList'
+    | 'meals.blockDescription'
+    | 'meals.blockMealTypes'
+    | 'meals.blockName'
+    | 'meals.blockUnsaved'
+    | 'meals.caption'
+    | 'meals.channelsLabel'
+    | 'meals.channelsReadOnly'
+    | 'meals.columnAllergens'
+    | 'meals.columnChannels'
+    | 'meals.columnName'
+    | 'meals.confidential'
+    | 'meals.confidentialHint'
+    | 'meals.create'
+    | 'meals.createTitle'
+    | 'meals.createdToast'
+    | 'meals.descriptionLabel'
+    | 'meals.dietsHint'
+    | 'meals.dietsLabel'
+    | 'meals.editTitle'
+    | 'meals.emptyBody'
+    | 'meals.emptyTitle'
+    | 'meals.filteredEmptyBody'
+    | 'meals.filteredEmptyTitle'
+    | 'meals.loadErrorTitle'
+    | 'meals.marginUnknown'
+    | 'meals.marginValue'
+    | 'meals.mealTypesLabel'
+    | 'meals.nameRequired'
+    | 'meals.noChannels'
+    | 'meals.notFoundBody'
+    | 'meals.notFoundTitle'
+    | 'meals.openRecipe'
+    | 'meals.portionHint'
+    | 'meals.portionInvalid'
+    | 'meals.portionLabel'
+    | 'meals.publishAllergensNone'
+    | 'meals.publishAllergensTitle'
+    | 'meals.publishBlockedTitle'
+    | 'meals.publishBody'
+    | 'meals.publishConsequence'
+    | 'meals.publishTitle'
+    | 'meals.publishedBody'
+    | 'meals.publishedTitle'
+    | 'meals.publishedToast'
+    | 'meals.recipeHint'
+    | 'meals.recipeLabel'
+    | 'meals.recipeNone'
+    | 'meals.resultCount'
+    | 'meals.retire'
+    | 'meals.retireBody'
+    | 'meals.retireConfirm'
+    | 'meals.retireConsequence'
+    | 'meals.retireFailed'
+    | 'meals.retireTitle'
+    | 'meals.retiredBody'
+    | 'meals.retiredTitle'
+    | 'meals.retiredToast'
+    | 'meals.sectionDetails'
+    | 'meals.sectionMargin'
+    | 'meals.sectionRecipe'
+    | 'meals.subtitle'
+    | 'meals.title'
+    | 'meals.typeFilterAll'
+    | 'meals.typeFilterLabel'
+    | 'meals.viewPublic'
+    | 'meals.visibleToConsumers'
+    | 'nav.groups.catalogue'
+    | 'nav.groups.commercial'
+    | 'nav.groups.operations'
+    | 'nav.groups.workbench'
+    | 'nav.overview'
+    | 'nav.railTitle'
+    | 'ops.costReport.caption'
+    | 'ops.costReport.chartCogs'
+    | 'ops.costReport.chartCogsMix'
+    | 'ops.costReport.chartRevenueMix'
+    | 'ops.costReport.chartRevenueTrend'
+    | 'ops.costReport.cogsMixCenter'
+    | 'ops.costReport.columnCogs'
+    | 'ops.costReport.columnMargin'
+    | 'ops.costReport.columnMarginPercent'
+    | 'ops.costReport.columnMonth'
+    | 'ops.costReport.columnRevenue'
+    | 'ops.costReport.columnSpend'
+    | 'ops.costReport.currencyLabel'
+    | 'ops.costReport.dataQualityBody'
+    | 'ops.costReport.dataQualityTitle'
+    | 'ops.costReport.emptyBody'
+    | 'ops.costReport.emptyTitle'
+    | 'ops.costReport.filterFrom'
+    | 'ops.costReport.filterTo'
+    | 'ops.costReport.flagged'
+    | 'ops.costReport.mixCenter'
+    | 'ops.costReport.mixMeal'
+    | 'ops.costReport.mixOther'
+    | 'ops.costReport.mixProduct'
+    | 'ops.costReport.subtitle'
+    | 'ops.costReport.tileCogs'
+    | 'ops.costReport.tileMargin'
+    | 'ops.costReport.tileRevenue'
+    | 'ops.costReport.tileSpend'
+    | 'ops.costReport.title'
+    | 'ops.exceptions.clearBadge'
+    | 'ops.exceptions.columnBranch'
+    | 'ops.exceptions.columnOrder'
+    | 'ops.exceptions.columnRaised'
+    | 'ops.exceptions.columnReason'
+    | 'ops.exceptions.columnStatus'
+    | 'ops.exceptions.emptyBody'
+    | 'ops.exceptions.emptyTitle'
+    | 'ops.exceptions.filterAll'
+    | 'ops.exceptions.filterFrom'
+    | 'ops.exceptions.filterResolved'
+    | 'ops.exceptions.filterStatus'
+    | 'ops.exceptions.filterUnresolved'
+    | 'ops.exceptions.nextPage'
+    | 'ops.exceptions.openBadge'
+    | 'ops.exceptions.reasons.insufficient_stock'
+    | 'ops.exceptions.reasons.no_branch'
+    | 'ops.exceptions.reasons.no_catalogue_item'
+    | 'ops.exceptions.reasons.no_ingredient_cost'
+    | 'ops.exceptions.reasons.no_ingredient_link'
+    | 'ops.exceptions.reasons.no_recipe_version'
+    | 'ops.exceptions.reasons.no_stock_item'
+    | 'ops.exceptions.reasons.no_stock_unit'
+    | 'ops.exceptions.reasons.no_yield_piece_count'
+    | 'ops.exceptions.reasons.unit_conversion_unsupported'
+    | 'ops.exceptions.reasons.unquantified_recipe_line'
+    | 'ops.exceptions.resolve'
+    | 'ops.exceptions.resolvedBadge'
+    | 'ops.exceptions.retry'
+    | 'ops.exceptions.subtitle'
+    | 'ops.exceptions.title'
+    | 'ops.exceptions.unknownItem'
+    | 'ops.exceptions.unknownOrder'
+    | 'ops.exceptions.unresolvedCount'
+    | 'ops.ledger.allSuppliers'
+    | 'ops.ledger.columnDate'
+    | 'ops.ledger.columnItem'
+    | 'ops.ledger.columnLineTotal'
+    | 'ops.ledger.columnSupplier'
+    | 'ops.ledger.columnUnitPrice'
+    | 'ops.ledger.emptyBody'
+    | 'ops.ledger.emptyTitle'
+    | 'ops.ledger.filterFrom'
+    | 'ops.ledger.filterSupplier'
+    | 'ops.ledger.filterTo'
+    | 'ops.ledger.nextPage'
+    | 'ops.ledger.noSupplier'
+    | 'ops.ledger.subtitle'
+    | 'ops.ledger.title'
+    | 'ops.metricUnavailable'
+    | 'ops.orders.allLoaded'
+    | 'ops.orders.cancel'
+    | 'ops.orders.cancelBody'
+    | 'ops.orders.cancelConfirm'
+    | 'ops.orders.cancelDismiss'
+    | 'ops.orders.cancelReasonLabel'
+    | 'ops.orders.cancelTitle'
+    | 'ops.orders.cancellationHeading'
+    | 'ops.orders.cancellationReason'
+    | 'ops.orders.cancelledAt'
+    | 'ops.orders.cancelledToast'
+    | 'ops.orders.caption'
+    | 'ops.orders.clearFilters'
+    | 'ops.orders.columnActions'
+    | 'ops.orders.columnDelivery'
+    | 'ops.orders.columnItems'
+    | 'ops.orders.columnNumber'
+    | 'ops.orders.columnPlaced'
+    | 'ops.orders.columnStatus'
+    | 'ops.orders.columnTotal'
+    | 'ops.orders.confirm'
+    | 'ops.orders.confirmedAt'
+    | 'ops.orders.confirmedToast'
+    | 'ops.orders.conflictBody'
+    | 'ops.orders.conflictRefresh'
+    | 'ops.orders.conflictTitle'
+    | 'ops.orders.deliveryAddress'
+    | 'ops.orders.deliveryArea'
+    | 'ops.orders.deliveryDate'
+    | 'ops.orders.deliveryFee'
+    | 'ops.orders.deliveryHeading'
+    | 'ops.orders.deliveryWindow'
+    | 'ops.orders.deliveryZone'
+    | 'ops.orders.detailLoadErrorTitle'
+    | 'ops.orders.detailTitle'
+    | 'ops.orders.emptyBody'
+    | 'ops.orders.emptyTitle'
+    | 'ops.orders.filterAll'
+    | 'ops.orders.filteredEmptyBody'
+    | 'ops.orders.filteredEmptyTitle'
+    | 'ops.orders.fulfil'
+    | 'ops.orders.fulfilledAt'
+    | 'ops.orders.fulfilledToast'
+    | 'ops.orders.lineQuantity'
+    | 'ops.orders.lineTotal'
+    | 'ops.orders.lineUnitPrice'
+    | 'ops.orders.linesHeading'
+    | 'ops.orders.loadErrorTitle'
+    | 'ops.orders.loadMore'
+    | 'ops.orders.loadingMore'
+    | 'ops.orders.metrics.awaiting'
+    | 'ops.orders.metrics.confirmed'
+    | 'ops.orders.metrics.loaded'
+    | 'ops.orders.noAllergens'
+    | 'ops.orders.noDeliveryFee'
+    | 'ops.orders.open'
+    | 'ops.orders.placedAt'
+    | 'ops.orders.reason.addressUnreachable'
+    | 'ops.orders.reason.customerRequested'
+    | 'ops.orders.reason.deliveryUnavailable'
+    | 'ops.orders.reason.kitchenUnableToFulfil'
+    | 'ops.orders.saveFailed'
+    | 'ops.orders.searchHint'
+    | 'ops.orders.searchLabel'
+    | 'ops.orders.status.cancelled'
+    | 'ops.orders.status.confirmed'
+    | 'ops.orders.status.fulfilled'
+    | 'ops.orders.status.placed'
+    | 'ops.orders.statusFilterLabel'
+    | 'ops.orders.subtitle'
+    | 'ops.orders.subtotal'
+    | 'ops.orders.timelineHeading'
+    | 'ops.orders.title'
+    | 'ops.orders.total'
+    | 'ops.orders.totalsHeading'
+    | 'ops.procurement.addLine'
+    | 'ops.procurement.columnLines'
+    | 'ops.procurement.columnReceivedAt'
+    | 'ops.procurement.columnSupplier'
+    | 'ops.procurement.columnTotal'
+    | 'ops.procurement.costsRedacted'
+    | 'ops.procurement.emptyBody'
+    | 'ops.procurement.emptyTitle'
+    | 'ops.procurement.fieldDocumentRef'
+    | 'ops.procurement.fieldLineItem'
+    | 'ops.procurement.fieldLineQuantity'
+    | 'ops.procurement.fieldLineUnit'
+    | 'ops.procurement.fieldLineUnitPrice'
+    | 'ops.procurement.fieldSupplier'
+    | 'ops.procurement.fieldSupplierCode'
+    | 'ops.procurement.fieldSupplierEmail'
+    | 'ops.procurement.fieldSupplierName'
+    | 'ops.procurement.fieldSupplierPhone'
+    | 'ops.procurement.metrics.lines'
+    | 'ops.procurement.metrics.receipts'
+    | 'ops.procurement.metrics.suppliers'
+    | 'ops.procurement.newSupplier'
+    | 'ops.procurement.newSupplierFailed'
+    | 'ops.procurement.newSupplierTitle'
+    | 'ops.procurement.noSupplier'
+    | 'ops.procurement.noSuppliers'
+    | 'ops.procurement.notYetReceived'
+    | 'ops.procurement.postFailed'
+    | 'ops.procurement.postReceipt'
+    | 'ops.procurement.postTitle'
+    | 'ops.procurement.postedToast'
+    | 'ops.procurement.receiptsTitle'
+    | 'ops.procurement.removeLine'
+    | 'ops.procurement.subtitle'
+    | 'ops.procurement.supplierCreatedToast'
+    | 'ops.procurement.suppliersTitle'
+    | 'ops.procurement.title'
+    | 'ops.production.columnActions'
+    | 'ops.production.columnId'
+    | 'ops.production.columnStatus'
+    | 'ops.production.complete'
+    | 'ops.production.completedToast'
+    | 'ops.production.create'
+    | 'ops.production.createFailed'
+    | 'ops.production.createSubmit'
+    | 'ops.production.createTitle'
+    | 'ops.production.createdToast'
+    | 'ops.production.emptyBody'
+    | 'ops.production.emptyTitle'
+    | 'ops.production.loadErrorBody'
+    | 'ops.production.loadErrorTitle'
+    | 'ops.production.metrics.batches'
+    | 'ops.production.metrics.inProgress'
+    | 'ops.production.metrics.yield'
+    | 'ops.production.noBranchBody'
+    | 'ops.production.noBranchTitle'
+    | 'ops.production.ordersHeading'
+    | 'ops.production.status.cancelled'
+    | 'ops.production.status.completed'
+    | 'ops.production.status.inProgress'
+    | 'ops.production.status.planned'
+    | 'ops.production.subtitle'
+    | 'ops.production.title'
+    | 'ops.production.versionHint'
+    | 'ops.production.versionLabel'
+    | 'ops.qc.checksHeading'
+    | 'ops.qc.columnActions'
+    | 'ops.qc.columnStatus'
+    | 'ops.qc.columnSubject'
+    | 'ops.qc.create'
+    | 'ops.qc.createFailed'
+    | 'ops.qc.createSubmit'
+    | 'ops.qc.createTitle'
+    | 'ops.qc.createdToast'
+    | 'ops.qc.emptyBody'
+    | 'ops.qc.emptyTitle'
+    | 'ops.qc.heldToast'
+    | 'ops.qc.hold'
+    | 'ops.qc.loadErrorBody'
+    | 'ops.qc.loadErrorTitle'
+    | 'ops.qc.metrics.holds'
+    | 'ops.qc.metrics.openChecks'
+    | 'ops.qc.metrics.releases'
+    | 'ops.qc.release'
+    | 'ops.qc.releasedToast'
+    | 'ops.qc.status.hold'
+    | 'ops.qc.status.passed'
+    | 'ops.qc.status.pending'
+    | 'ops.qc.status.released'
+    | 'ops.qc.subject.goodsReceipt'
+    | 'ops.qc.subject.productionOrder'
+    | 'ops.qc.subjectIdHint'
+    | 'ops.qc.subjectIdLabel'
+    | 'ops.qc.subjectTypeLabel'
+    | 'ops.qc.subtitle'
+    | 'ops.qc.title'
+    | 'ops.quotations.caption'
+    | 'ops.quotations.clearFilter'
+    | 'ops.quotations.columnActions'
+    | 'ops.quotations.columnCurrency'
+    | 'ops.quotations.columnReference'
+    | 'ops.quotations.columnStatus'
+    | 'ops.quotations.columnSubmitted'
+    | 'ops.quotations.conflictBody'
+    | 'ops.quotations.conflictRefresh'
+    | 'ops.quotations.conflictTitle'
+    | 'ops.quotations.currency'
+    | 'ops.quotations.decidedAt'
+    | 'ops.quotations.declineHeading'
+    | 'ops.quotations.detailLoadErrorTitle'
+    | 'ops.quotations.detailTitle'
+    | 'ops.quotations.emptyBody'
+    | 'ops.quotations.emptyTitle'
+    | 'ops.quotations.expiresAt'
+    | 'ops.quotations.filter.all'
+    | 'ops.quotations.filter.awaiting'
+    | 'ops.quotations.filter.closed'
+    | 'ops.quotations.filter.quoted'
+    | 'ops.quotations.filterLabel'
+    | 'ops.quotations.filteredEmptyBody'
+    | 'ops.quotations.filteredEmptyTitle'
+    | 'ops.quotations.guidanceBody'
+    | 'ops.quotations.guidanceTitle'
+    | 'ops.quotations.lineColumn'
+    | 'ops.quotations.lineNotPriced'
+    | 'ops.quotations.linePriceHint'
+    | 'ops.quotations.linePriceInvalid'
+    | 'ops.quotations.linePriceLabel'
+    | 'ops.quotations.lineQuantity'
+    | 'ops.quotations.lineTotal'
+    | 'ops.quotations.lineUnitPrice'
+    | 'ops.quotations.lineUnnamed'
+    | 'ops.quotations.linesHeading'
+    | 'ops.quotations.loadErrorTitle'
+    | 'ops.quotations.metrics.awaiting'
+    | 'ops.quotations.metrics.loaded'
+    | 'ops.quotations.metrics.quoted'
+    | 'ops.quotations.noLines'
+    | 'ops.quotations.noNotes'
+    | 'ops.quotations.notPricedYet'
+    | 'ops.quotations.notes'
+    | 'ops.quotations.open'
+    | 'ops.quotations.price'
+    | 'ops.quotations.programme'
+    | 'ops.quotations.quotedAt'
+    | 'ops.quotations.quotedToast'
+    | 'ops.quotations.requestHeading'
+    | 'ops.quotations.send'
+    | 'ops.quotations.staleBody'
+    | 'ops.quotations.staleTitle'
+    | 'ops.quotations.status.accepted'
+    | 'ops.quotations.status.declined'
+    | 'ops.quotations.status.expired'
+    | 'ops.quotations.status.quoted'
+    | 'ops.quotations.status.submitted'
+    | 'ops.quotations.submittedAt'
+    | 'ops.quotations.subtitle'
+    | 'ops.quotations.timelineHeading'
+    | 'ops.quotations.title'
+    | 'ops.quotations.total'
+    | 'ops.quotations.totalsHeading'
+    | 'ops.readyForApi'
+    | 'ops.stock.adjust'
+    | 'ops.stock.adjustHint'
+    | 'ops.stock.adjustTitle'
+    | 'ops.stock.adjustedToast'
+    | 'ops.stock.columnActions'
+    | 'ops.stock.columnHeld'
+    | 'ops.stock.columnItem'
+    | 'ops.stock.columnQuantity'
+    | 'ops.stock.columnThreshold'
+    | 'ops.stock.columnUnit'
+    | 'ops.stock.direction'
+    | 'ops.stock.directionDecrease'
+    | 'ops.stock.directionIncrease'
+    | 'ops.stock.emptyBody'
+    | 'ops.stock.emptyShelf'
+    | 'ops.stock.emptyTitle'
+    | 'ops.stock.fieldAdjustQuantity'
+    | 'ops.stock.fieldParLevel'
+    | 'ops.stock.fieldParLevelHint'
+    | 'ops.stock.fieldThreshold'
+    | 'ops.stock.fieldThresholdHint'
+    | 'ops.stock.fieldWasteQuantity'
+    | 'ops.stock.inStockBadge'
+    | 'ops.stock.ingredientsEmptyBody'
+    | 'ops.stock.ingredientsEmptyTitle'
+    | 'ops.stock.ingredientsHint'
+    | 'ops.stock.ingredientsTitle'
+    | 'ops.stock.levelsTitle'
+    | 'ops.stock.lowBadge'
+    | 'ops.stock.lowStockCount'
+    | 'ops.stock.metrics.ingredients'
+    | 'ops.stock.metrics.levels'
+    | 'ops.stock.metrics.lowStock'
+    | 'ops.stock.metrics.outOfStock'
+    | 'ops.stock.metrics.products'
+    | 'ops.stock.neverStocked'
+    | 'ops.stock.noLevels'
+    | 'ops.stock.noThreshold'
+    | 'ops.stock.productsEmptyBody'
+    | 'ops.stock.productsEmptyTitle'
+    | 'ops.stock.productsHint'
+    | 'ops.stock.productsTitle'
+    | 'ops.stock.subtitle'
+    | 'ops.stock.threshold'
+    | 'ops.stock.thresholdClearedToast'
+    | 'ops.stock.thresholdSetToast'
+    | 'ops.stock.thresholdTitle'
+    | 'ops.stock.title'
+    | 'ops.stock.waste'
+    | 'ops.stock.wasteTitle'
+    | 'ops.stock.wastedToast'
+    | 'plans.addCombination'
+    | 'plans.addDuration'
+    | 'plans.backToList'
+    | 'plans.bandAddAction'
+    | 'plans.bandAddBody'
+    | 'plans.bandAddIncomplete'
+    | 'plans.bandAddReady'
+    | 'plans.bandAddTitle'
+    | 'plans.bandRange'
+    | 'plans.blockDurations'
+    | 'plans.blockInconsistentDurations'
+    | 'plans.blockName'
+    | 'plans.blockNoConfirmedPrice'
+    | 'plans.blockSummary'
+    | 'plans.blockUnsaved'
+    | 'plans.blockVariants'
+    | 'plans.caption'
+    | 'plans.categoriesHint'
+    | 'plans.categoriesLabel'
+    | 'plans.categoriesNone'
+    | 'plans.categoryAddAction'
+    | 'plans.categoryAddHint'
+    | 'plans.categoryAddLabel'
+    | 'plans.cellLabel'
+    | 'plans.cellNotSold'
+    | 'plans.cellRemoved'
+    | 'plans.cellSold'
+    | 'plans.cellVariantCount'
+    | 'plans.columnDurations'
+    | 'plans.columnName'
+    | 'plans.columnPrices'
+    | 'plans.columnVariants'
+    | 'plans.combinationAvailableHint'
+    | 'plans.combinationAvailableLabel'
+    | 'plans.combinationCodeDuplicate'
+    | 'plans.combinationCodeHint'
+    | 'plans.combinationCodeLabel'
+    | 'plans.combinationCodeRequired'
+    | 'plans.combinationCount'
+    | 'plans.combinationLabelLabel'
+    | 'plans.combinationLabelRequired'
+    | 'plans.combinationNumber'
+    | 'plans.combinationRemoved'
+    | 'plans.combinationUnavailable'
+    | 'plans.combinationsEmpty'
+    | 'plans.combinationsHelp'
+    | 'plans.combinationsSavedToast'
+    | 'plans.confirmedPriceCount'
+    | 'plans.coordinateHint'
+    | 'plans.coverage'
+    | 'plans.create'
+    | 'plans.createFirst'
+    | 'plans.createTitle'
+    | 'plans.createdToast'
+    | 'plans.cutOffHint'
+    | 'plans.cutOffLabel'
+    | 'plans.cutOffRequired'
+    | 'plans.cutOffUnit'
+    | 'plans.dayCount'
+    | 'plans.dayCountList'
+    | 'plans.daysAbsentHint'
+    | 'plans.daysHint'
+    | 'plans.daysLabel'
+    | 'plans.daysRequired'
+    | 'plans.daysUnit'
+    | 'plans.descriptionLabel'
+    | 'plans.dietsLabel'
+    | 'plans.discountHint'
+    | 'plans.discountInvalid'
+    | 'plans.discountLabel'
+    | 'plans.discountNotSet'
+    | 'plans.discountNotSetExplainer'
+    | 'plans.discountSetExplainer'
+    | 'plans.discountUnit'
+    | 'plans.discountValue'
+    | 'plans.discountZeroExplainer'
+    | 'plans.durationCount'
+    | 'plans.durationDuplicate'
+    | 'plans.durationNumber'
+    | 'plans.durationRemoved'
+    | 'plans.durationsEmpty'
+    | 'plans.durationsHelp'
+    | 'plans.durationsSaveError'
+    | 'plans.durationsSavedToast'
+    | 'plans.editTitle'
+    | 'plans.emptyBody'
+    | 'plans.emptyTitle'
+    | 'plans.energyMaxLabel'
+    | 'plans.energyMinLabel'
+    | 'plans.energyRequired'
+    | 'plans.energyReversed'
+    | 'plans.energyUnit'
+    | 'plans.filteredEmptyBody'
+    | 'plans.filteredEmptyTitle'
+    | 'plans.inactiveCount'
+    | 'plans.inconsistentDurationCount'
+    | 'plans.kindFixedDays'
+    | 'plans.kindLabel'
+    | 'plans.kindOneOff'
+    | 'plans.loadErrorTitle'
+    | 'plans.matrixCaption'
+    | 'plans.matrixEmpty'
+    | 'plans.matrixHelp'
+    | 'plans.matrixRowHeader'
+    | 'plans.matrixSaveError'
+    | 'plans.mealsPerDayLabel'
+    | 'plans.nameRequired'
+    | 'plans.newVariantName'
+    | 'plans.noDurations'
+    | 'plans.noFixedDurations'
+    | 'plans.noVariants'
+    | 'plans.notFoundBody'
+    | 'plans.notFoundTitle'
+    | 'plans.oneOffCount'
+    | 'plans.openPriceLists'
+    | 'plans.placeholderPriceCount'
+    | 'plans.pricesHelp'
+    | 'plans.pricesPending'
+    | 'plans.publishBlockedTitle'
+    | 'plans.publishBody'
+    | 'plans.publishConsequence'
+    | 'plans.publishPricesBody'
+    | 'plans.publishPricesTitle'
+    | 'plans.publishRefusedPriceTitle'
+    | 'plans.publishTitle'
+    | 'plans.publishedBody'
+    | 'plans.publishedTitle'
+    | 'plans.publishedToast'
+    | 'plans.resultCount'
+    | 'plans.retire'
+    | 'plans.retireBody'
+    | 'plans.retireConfirm'
+    | 'plans.retireConsequence'
+    | 'plans.retireTitle'
+    | 'plans.retiredBody'
+    | 'plans.retiredTitle'
+    | 'plans.retiredToast'
+    | 'plans.rowUndeclared'
+    | 'plans.saveCombinations'
+    | 'plans.saveDurations'
+    | 'plans.saveVariants'
+    | 'plans.sectionCombinations'
+    | 'plans.sectionDetails'
+    | 'plans.sectionDurations'
+    | 'plans.sectionMatrix'
+    | 'plans.sectionPrices'
+    | 'plans.servingsRequired'
+    | 'plans.servingsSummary'
+    | 'plans.snacksPerDayLabel'
+    | 'plans.subtitle'
+    | 'plans.summaryLabel'
+    | 'plans.title'
+    | 'plans.undecidedDiscountCount'
+    | 'plans.unnamedCombination'
+    | 'plans.unnamedDuration'
+    | 'plans.unnamedVariant'
+    | 'plans.unpricedCount'
+    | 'plans.variantActive'
+    | 'plans.variantActiveHint'
+    | 'plans.variantActiveLabel'
+    | 'plans.variantCount'
+    | 'plans.variantInactive'
+    | 'plans.variantNameLabel'
+    | 'plans.variantNameRequired'
+    | 'plans.variantNumber'
+    | 'plans.variantRemoved'
+    | 'plans.variantsEmpty'
+    | 'plans.variantsHelp'
+    | 'plans.variantsSavedToast'
+    | 'plans.variantsTitle'
+    | 'plans.viewPublic'
+    | 'plans.weekdaysHint'
+    | 'plans.weekdaysLabel'
+    | 'priceLists.addEntry'
+    | 'priceLists.agreementBadge'
+    | 'priceLists.amountDisabledHint'
+    | 'priceLists.amountHint'
+    | 'priceLists.amountInvalid'
+    | 'priceLists.amountLabel'
+    | 'priceLists.amountRequired'
+    | 'priceLists.backToList'
+    | 'priceLists.badgeConfirmed'
+    | 'priceLists.badgeDaily'
+    | 'priceLists.badgePending'
+    | 'priceLists.blockInconsistent'
+    | 'priceLists.blockNoEntries'
+    | 'priceLists.blockUnsaved'
+    | 'priceLists.caption'
+    | 'priceLists.channelsLabel'
+    | 'priceLists.columnChannels'
+    | 'priceLists.columnCurrency'
+    | 'priceLists.columnEntries'
+    | 'priceLists.columnName'
+    | 'priceLists.confidentialBody'
+    | 'priceLists.confidentialTitle'
+    | 'priceLists.confirmedCount'
+    | 'priceLists.currencyLabel'
+    | 'priceLists.datesReversed'
+    | 'priceLists.effectiveFromLabel'
+    | 'priceLists.effectiveUntilHint'
+    | 'priceLists.effectiveUntilLabel'
+    | 'priceLists.emptyBody'
+    | 'priceLists.emptyTitle'
+    | 'priceLists.entriesEmpty'
+    | 'priceLists.entriesHelp'
+    | 'priceLists.entriesTitle'
+    | 'priceLists.entryCount'
+    | 'priceLists.entryNumber'
+    | 'priceLists.entryRemoved'
+    | 'priceLists.factsTitle'
+    | 'priceLists.filteredEmptyBody'
+    | 'priceLists.filteredEmptyTitle'
+    | 'priceLists.inconsistentCount'
+    | 'priceLists.itemDuplicate'
+    | 'priceLists.itemHint'
+    | 'priceLists.itemLabel'
+    | 'priceLists.itemPlaceholder'
+    | 'priceLists.itemRequired'
+    | 'priceLists.kindMeal'
+    | 'priceLists.kindPlan'
+    | 'priceLists.kindProduct'
+    | 'priceLists.loadErrorTitle'
+    | 'priceLists.marketCount'
+    | 'priceLists.marketPricedExplainer'
+    | 'priceLists.noChannels'
+    | 'priceLists.noEntries'
+    | 'priceLists.notFoundBody'
+    | 'priceLists.notFoundTitle'
+    | 'priceLists.noteHint'
+    | 'priceLists.noteLabel'
+    | 'priceLists.packHint'
+    | 'priceLists.packLabel'
+    | 'priceLists.placeholderCount'
+    | 'priceLists.placeholderExplainer'
+    | 'priceLists.publishBlockedTitle'
+    | 'priceLists.publishBody'
+    | 'priceLists.publishConsequence'
+    | 'priceLists.publishExcludedBody'
+    | 'priceLists.publishExcludedTitle'
+    | 'priceLists.publishRefusedEntries'
+    | 'priceLists.publishTitle'
+    | 'priceLists.publishedBody'
+    | 'priceLists.publishedTitle'
+    | 'priceLists.publishedToast'
+    | 'priceLists.readOnlyNote'
+    | 'priceLists.resultCount'
+    | 'priceLists.saveEntries'
+    | 'priceLists.saveFailedTitle'
+    | 'priceLists.savedToast'
+    | 'priceLists.statusLabel'
+    | 'priceLists.subtitle'
+    | 'priceLists.title'
+    | 'priceLists.unknownItem'
+    | 'priceLists.unnamedEntry'
+    | 'priceLists.variantHint'
+    | 'priceLists.variantLabel'
+    | 'priceLists.variantPlaceholder'
+    | 'priceLists.wholePlan'
+    | 'priceStatus.confirmed'
+    | 'priceStatus.marketPriced'
+    | 'priceStatus.placeholder'
+    | 'products.addPack'
+    | 'products.archiveBody'
+    | 'products.archiveConfirm'
+    | 'products.archiveConsequence'
+    | 'products.archiveFailed'
+    | 'products.archiveTitle'
+    | 'products.archivedBody'
+    | 'products.archivedTitle'
+    | 'products.archivedToast'
+    | 'products.assortedHint'
+    | 'products.assortedLabel'
+    | 'products.assortedShort'
+    | 'products.backToList'
+    | 'products.caption'
+    | 'products.categoryFilterAll'
+    | 'products.categoryFilterLabel'
+    | 'products.categoryHint'
+    | 'products.columnCategory'
+    | 'products.columnChannels'
+    | 'products.columnName'
+    | 'products.columnPacks'
+    | 'products.create'
+    | 'products.createTitle'
+    | 'products.createdToast'
+    | 'products.dataQualityBody'
+    | 'products.dataQualityCount'
+    | 'products.dataQualityTitle'
+    | 'products.defaultPack'
+    | 'products.descriptionLabel'
+    | 'products.dietsLabel'
+    | 'products.dietsNone'
+    | 'products.dietsProvenance'
+    | 'products.editTitle'
+    | 'products.emptyBody'
+    | 'products.emptyTitle'
+    | 'products.filteredEmptyBody'
+    | 'products.filteredEmptyTitle'
+    | 'products.loadErrorTitle'
+    | 'products.marketPricedHint'
+    | 'products.marketPricedLabel'
+    | 'products.marketPricedShort'
+    | 'products.nameRequired'
+    | 'products.noChannels'
+    | 'products.noPacks'
+    | 'products.notFoundBody'
+    | 'products.notFoundTitle'
+    | 'products.openRecipe'
+    | 'products.packCodeDuplicate'
+    | 'products.packCodeHint'
+    | 'products.packCodeLabel'
+    | 'products.packCodeRequired'
+    | 'products.packCount'
+    | 'products.packLabel'
+    | 'products.packMeasure'
+    | 'products.packNumber'
+    | 'products.packQuantityInvalid'
+    | 'products.packQuantityLabel'
+    | 'products.packRemoved'
+    | 'products.packUnitLabel'
+    | 'products.packsEmpty'
+    | 'products.packsHint'
+    | 'products.productCount'
+    | 'products.quarantineBody'
+    | 'products.quarantineTitle'
+    | 'products.recipeHint'
+    | 'products.recipeLabel'
+    | 'products.recipeNone'
+    | 'products.recipeNoneHint'
+    | 'products.resultCount'
+    | 'products.sectionDetails'
+    | 'products.sectionPacks'
+    | 'products.sectionRecipe'
+    | 'products.subtitle'
+    | 'products.title'
+    | 'products.unitsPerPackHint'
+    | 'products.unitsPerPackInvalid'
+    | 'products.unitsPerPackLabel'
+    | 'products.unnamedPack'
+    | 'publish.action'
+    | 'publish.allergenRow'
+    | 'publish.allergenRowsNone'
+    | 'publish.allergenRowsTitle'
+    | 'publish.blockDescription'
+    | 'publish.blockIngredientState'
+    | 'publish.blockName'
+    | 'publish.blockNoLines'
+    | 'publish.blockUnsaved'
+    | 'publish.blockedTitle'
+    | 'publish.body'
+    | 'publish.confirm'
+    | 'publish.consequence'
+    | 'publish.failedTitle'
+    | 'publish.publishedToast'
+    | 'publish.quarantineBody'
+    | 'publish.quarantineTitle'
+    | 'publish.title'
+    | 'publish.unmappedBody'
+    | 'publish.unmappedTitle'
+    | 'recipes.addLine'
+    | 'recipes.addOutput'
+    | 'recipes.addStep'
+    | 'recipes.archive'
+    | 'recipes.archiveBody'
+    | 'recipes.archiveConfirm'
+    | 'recipes.archiveFailed'
+    | 'recipes.archiveTitle'
+    | 'recipes.archivedToast'
+    | 'recipes.backToCurrentVersion'
+    | 'recipes.backToList'
+    | 'recipes.caption'
+    | 'recipes.columnAllergens'
+    | 'recipes.columnName'
+    | 'recipes.columnVersion'
+    | 'recipes.completenessOutstanding'
+    | 'recipes.completenessReady'
+    | 'recipes.confidential'
+    | 'recipes.confidentialHint'
+    | 'recipes.create'
+    | 'recipes.createHintBody'
+    | 'recipes.createHintTitle'
+    | 'recipes.createTitle'
+    | 'recipes.createdToast'
+    | 'recipes.currentVersion'
+    | 'recipes.descriptionLabel'
+    | 'recipes.draftOpenedToast'
+    | 'recipes.emptyBody'
+    | 'recipes.emptyTitle'
+    | 'recipes.filteredEmptyBody'
+    | 'recipes.filteredEmptyTitle'
+    | 'recipes.immutableBody'
+    | 'recipes.immutableTitle'
+    | 'recipes.kitchenFilterAll'
+    | 'recipes.kitchenFilterLabel'
+    | 'recipes.lineCount'
+    | 'recipes.lineIngredient'
+    | 'recipes.lineIngredientPlaceholder'
+    | 'recipes.lineNote'
+    | 'recipes.lineNoteHint'
+    | 'recipes.lineNumber'
+    | 'recipes.lineQuantity'
+    | 'recipes.lineQuantityHint'
+    | 'recipes.lineRemoved'
+    | 'recipes.lineUnit'
+    | 'recipes.lineUnitUnknownDimension'
+    | 'recipes.linesDescription'
+    | 'recipes.linesEmpty'
+    | 'recipes.loadErrorTitle'
+    | 'recipes.markOptional'
+    | 'recipes.markRequired'
+    | 'recipes.nameRequired'
+    | 'recipes.newDraft'
+    | 'recipes.newDraftFromVersion'
+    | 'recipes.noAllergens'
+    | 'recipes.notFoundBody'
+    | 'recipes.notFoundTitle'
+    | 'recipes.open'
+    | 'recipes.optional'
+    | 'recipes.outputCount'
+    | 'recipes.outputIngredient'
+    | 'recipes.outputNumber'
+    | 'recipes.outputsEmpty'
+    | 'recipes.outputsExplainerBody'
+    | 'recipes.outputsExplainerTitle'
+    | 'recipes.primaryOutput'
+    | 'recipes.primaryOutputHint'
+    | 'recipes.primaryOutputLabel'
+    | 'recipes.primaryOutputPlaceholder'
+    | 'recipes.primaryOutputRequired'
+    | 'recipes.quarantined'
+    | 'recipes.recipeCount'
+    | 'recipes.resultCount'
+    | 'recipes.retire'
+    | 'recipes.saveErrorTitle'
+    | 'recipes.saveFailed'
+    | 'recipes.savedToast'
+    | 'recipes.sectionDetails'
+    | 'recipes.sectionLines'
+    | 'recipes.sectionOutputs'
+    | 'recipes.sectionSteps'
+    | 'recipes.sectionVersions'
+    | 'recipes.sectionYield'
+    | 'recipes.stepCount'
+    | 'recipes.stepInstruction'
+    | 'recipes.stepMinutes'
+    | 'recipes.stepMinutesHint'
+    | 'recipes.stepNumber'
+    | 'recipes.stepRemoved'
+    | 'recipes.stepsDescription'
+    | 'recipes.stepsEmpty'
+    | 'recipes.subtitle'
+    | 'recipes.title'
+    | 'recipes.unnamedLine'
+    | 'recipes.unnamedOutput'
+    | 'recipes.versionCount'
+    | 'recipes.versionNumber'
+    | 'recipes.versionSelect'
+    | 'recipes.versionSelected'
+    | 'recipes.versionUnavailableBody'
+    | 'recipes.versionUnavailableTitle'
+    | 'recipes.versionsDescription'
+    | 'recipes.wastePercent'
+    | 'recipes.wastePercentHint'
+    | 'recipes.yieldDescription'
+    | 'recipes.yieldPieces'
+    | 'recipes.yieldPiecesHint'
+    | 'recipes.yieldQuantity'
+    | 'recipes.yieldRequired'
+    | 'recipes.yieldUnit'
+    | 'review.blockedCount'
+    | 'review.clearBadge'
+    | 'review.clearBody'
+    | 'review.clearTitle'
+    | 'review.errorTitle'
+    | 'review.notChecked'
+    | 'review.open'
+    | 'review.reasonDataQuality'
+    | 'review.reasonDerivationStale'
+    | 'review.reasonInconsistentPrices'
+    | 'review.reasonMissingTranslation'
+    | 'review.reasonQuarantined'
+    | 'review.reasonUnverifiedAllergens'
+    | 'review.scope'
+    | 'review.sectionCount'
+    | 'review.subtitle'
+    | 'review.summaryBlocked'
+    | 'review.summaryTitle'
+    | 'review.summaryUnblocked'
+    | 'review.title'
+    | 'review.truncatedBody'
+    | 'review.truncatedTitle'
+    | 'review.updatedBy'
+    | 'review.updatedBySeed'
+    | 'review.waitingCount'
+    | 'rollup.allergenFrom'
+    | 'rollup.allergenNoSources'
+    | 'rollup.allergenProvenanceHint'
+    | 'rollup.allergensNone'
+    | 'rollup.allergensTitle'
+    | 'rollup.confidential'
+    | 'rollup.costHint'
+    | 'rollup.costPerServing'
+    | 'rollup.costTitle'
+    | 'rollup.costTotal'
+    | 'rollup.costUnknown'
+    | 'rollup.description'
+    | 'rollup.empty'
+    | 'rollup.errorTitle'
+    | 'rollup.factsTitle'
+    | 'rollup.refreshing'
+    | 'rollup.staleErrorTitle'
+    | 'rollup.title'
+    | 'rollup.unsavedNotice'
+    | 'rollup.warningLines'
+    | 'rollup.warningMissingCost'
+    | 'rollup.warningMissingFacts'
+    | 'rollup.warningUnconvertibleUnit'
+    | 'rollup.warningUnknownIngredient'
+    | 'rollup.warningsNone'
+    | 'rollup.warningsTitle'
+    | 'rows.moveDown'
+    | 'rows.moveUp'
+    | 'rows.movedAnnouncement'
+    | 'rows.remove'
+    | 'status.all'
+    | 'status.draft'
+    | 'status.label'
+    | 'status.operational.active'
+    | 'status.operational.archived'
+    | 'status.operational.inactive'
+    | 'status.published'
+    | 'status.retired'
+    | 'status.reviewRequired'
+    | 'time.formatHint'
+    | 'time.placeholder'
+    | 'title'
+    | 'toolbar.categoryAll'
+    | 'toolbar.categoryLabel'
+    | 'toolbar.clearFilters'
+    | 'toolbar.create'
+    | 'toolbar.resultCount'
+    | 'toolbar.searchLabel'
+    | 'toolbar.searchPlaceholder'
+    | 'toolbar.statusLabel'
+    | 'units.cup'
+    | 'units.dimensionCount'
+    | 'units.dimensionMass'
+    | 'units.dimensionServing'
+    | 'units.dimensionVolume'
+    | 'units.g'
+    | 'units.kg'
+    | 'units.l'
+    | 'units.ml'
+    | 'units.piece'
+    | 'units.portion'
+    | 'units.slice'
+    | 'units.tbsp'
+    | 'units.tsp'
+    | 'unsaved.body'
+    | 'unsaved.browserPrompt'
+    | 'unsaved.discard'
+    | 'unsaved.keepEditing'
+    | 'unsaved.title'
+    | 'verification.laboratoryTested'
+    | 'verification.operatorConfirmed'
+    | 'verification.supplierDeclared'
+    | 'verification.unverified'
+    | 'windows.activeHint'
+    | 'windows.activeLabel'
+    | 'windows.add'
+    | 'windows.capacityHint'
+    | 'windows.capacityInvalid'
+    | 'windows.capacityLabel'
+    | 'windows.capacityUncapped'
+    | 'windows.count'
+    | 'windows.coveredDayCount'
+    | 'windows.endBeforeStart'
+    | 'windows.endInvalid'
+    | 'windows.endsLabel'
+    | 'windows.inactiveBadge'
+    | 'windows.labelField'
+    | 'windows.labelRequired'
+    | 'windows.none'
+    | 'windows.removed'
+    | 'windows.rowTitle'
+    | 'windows.save'
+    | 'windows.saveError'
+    | 'windows.savedToast'
+    | 'windows.startInvalid'
+    | 'windows.startsLabel'
+    | 'windows.weekdaysHint'
+    | 'windows.weekdaysLabel'
+    | 'windows.weekdaysRequired'
+    | 'zones.amountInvalid'
+    | 'zones.archiveAreaCount'
+    | 'zones.archiveBody'
+    | 'zones.archiveBranchCount'
+    | 'zones.archiveConfirm'
+    | 'zones.archiveConsequence'
+    | 'zones.archiveTitle'
+    | 'zones.archiveWindowCount'
+    | 'zones.archivedBody'
+    | 'zones.archivedTitle'
+    | 'zones.archivedToast'
+    | 'zones.areaCount'
+    | 'zones.areasIntro'
+    | 'zones.backToList'
+    | 'zones.branchCount'
+    | 'zones.branchesLabel'
+    | 'zones.branchesReadOnly'
+    | 'zones.caption'
+    | 'zones.columnAreas'
+    | 'zones.columnCharges'
+    | 'zones.columnEstimated'
+    | 'zones.columnName'
+    | 'zones.columnWindows'
+    | 'zones.create'
+    | 'zones.createFirst'
+    | 'zones.createTitle'
+    | 'zones.createdToast'
+    | 'zones.currencyCreateHint'
+    | 'zones.currencyFixedHint'
+    | 'zones.currencyLabel'
+    | 'zones.editTitle'
+    | 'zones.emptyBody'
+    | 'zones.emptyTitle'
+    | 'zones.estimatedHint'
+    | 'zones.estimatedLabel'
+    | 'zones.estimatedMinutes'
+    | 'zones.estimatedNone'
+    | 'zones.estimatedUnit'
+    | 'zones.feeHint'
+    | 'zones.feeLabel'
+    | 'zones.feeStateAmount'
+    | 'zones.feeStateUnset'
+    | 'zones.feeStateZero'
+    | 'zones.feeValue'
+    | 'zones.filteredEmptyBody'
+    | 'zones.filteredEmptyTitle'
+    | 'zones.freeDelivery'
+    | 'zones.inactiveAreaCount'
+    | 'zones.loadErrorTitle'
+    | 'zones.minimumHint'
+    | 'zones.minimumLabel'
+    | 'zones.minimumStateAmount'
+    | 'zones.minimumStateUnset'
+    | 'zones.minimumStateZero'
+    | 'zones.minimumValue'
+    | 'zones.nameRequired'
+    | 'zones.noActiveWindows'
+    | 'zones.noAreas'
+    | 'zones.noEstimate'
+    | 'zones.noFeeRecorded'
+    | 'zones.noMinimum'
+    | 'zones.noMinimumRecorded'
+    | 'zones.noWindows'
+    | 'zones.notFoundBody'
+    | 'zones.notFoundTitle'
+    | 'zones.resultCount'
+    | 'zones.sectionAreas'
+    | 'zones.sectionDetails'
+    | 'zones.sectionWindows'
+    | 'zones.subtitle'
+    | 'zones.title'
+    | 'zones.uncoveredDayCount'
+    | 'zones.windowCount'
+    | 'zones.windowsIntro';
   readonly "marketplace":
     | 'allergens.celery'
     | 'allergens.crustaceans'
@@ -1351,6 +3734,7 @@ export interface NamespaceKeys {
     | 'filters.clear'
     | 'filters.cuisine'
     | 'filters.howToGetIt'
+    | 'filters.itemType'
     | 'filters.mealType'
     | 'filters.resultCount'
     | 'filters.specialism'
@@ -1395,6 +3779,8 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'itemTypes.meal'
+    | 'itemTypes.product'
     | 'kitchen.branchArea'
     | 'kitchen.branchesTitle'
     | 'kitchen.closedOn'
@@ -1419,6 +3805,7 @@ export interface NamespaceKeys {
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
     | 'kitchens.imageLabel'
+    | 'kitchens.noPublishedZone'
     | 'kitchens.notRatedYet'
     | 'kitchens.ratingLabel'
     | 'kitchens.searchLabel'
@@ -1457,6 +3844,7 @@ export interface NamespaceKeys {
     | 'mealTypes.snack'
     | 'medicalDisclaimer.body'
     | 'medicalDisclaimer.title'
+    | 'menu.allLoaded'
     | 'menu.allergensTitle'
     | 'menu.cardLabel'
     | 'menu.containsAllergens'
@@ -1466,11 +3854,18 @@ export interface NamespaceKeys {
     | 'menu.fullDetailsBody'
     | 'menu.fullDetailsTitle'
     | 'menu.imageLabel'
+    | 'menu.loadMore'
+    | 'menu.loadingMore'
     | 'menu.noDeclaredAllergens'
+    | 'menu.openMeal'
     | 'menu.perServing'
     | 'menu.preparationMinutes'
     | 'menu.searchLabel'
     | 'menu.searchPlaceholder'
+    | 'menu.stats.carbohydrate'
+    | 'menu.stats.energy'
+    | 'menu.stats.fat'
+    | 'menu.stats.protein'
     | 'menu.subtitle'
     | 'menu.title'
     | 'menu.titleFor'
@@ -1481,6 +3876,7 @@ export interface NamespaceKeys {
     | 'nav.howItWorks'
     | 'nav.kitchens'
     | 'nav.meals'
+    | 'nav.myHome'
     | 'nav.plannedNotice'
     | 'nav.plannedSuffix'
     | 'nav.plans'
@@ -2342,6 +4738,116 @@ export interface NamespaceKeys {
     | 'week.title'
     | 'week.warningsBody'
     | 'week.warningsTitle';
+  readonly "platformAdmin":
+    | 'create.branchNameHint'
+    | 'create.branchNameLabel'
+    | 'create.cityLabel'
+    | 'create.countryLabel'
+    | 'create.created'
+    | 'create.currencyLabel'
+    | 'create.languageLabel'
+    | 'create.nameLabel'
+    | 'create.ownerNext'
+    | 'create.slugHint'
+    | 'create.slugLabel'
+    | 'create.submit'
+    | 'create.submitting'
+    | 'create.subtitle'
+    | 'create.timezoneLabel'
+    | 'create.title'
+    | 'detail.backToList'
+    | 'detail.branchColumn.city'
+    | 'detail.branchColumn.name'
+    | 'detail.branchColumn.status'
+    | 'detail.branchColumn.timezone'
+    | 'detail.branchStatus.active'
+    | 'detail.branchStatus.closed'
+    | 'detail.branchesTitle'
+    | 'detail.catalogueDraft'
+    | 'detail.catalogueMeals'
+    | 'detail.cataloguePlans'
+    | 'detail.catalogueProducts'
+    | 'detail.cataloguePublished'
+    | 'detail.catalogueTitle'
+    | 'detail.errorTitle'
+    | 'detail.noCity'
+    | 'detail.notFound'
+    | 'detail.suspendedNoReason'
+    | 'detail.suspendedOn'
+    | 'detail.suspendedTitle'
+    | 'invite.emailLabel'
+    | 'invite.emailPlaceholder'
+    | 'invite.messageHint'
+    | 'invite.messageLabel'
+    | 'invite.nameHint'
+    | 'invite.nameLabel'
+    | 'invite.sent'
+    | 'invite.sentNotMailed'
+    | 'invite.submit'
+    | 'invite.submitting'
+    | 'invite.subtitle'
+    | 'invite.supersedes'
+    | 'invite.title'
+    | 'kitchens.branchCount'
+    | 'kitchens.column.branches'
+    | 'kitchens.column.catalogue'
+    | 'kitchens.column.kitchen'
+    | 'kitchens.column.owners'
+    | 'kitchens.column.status'
+    | 'kitchens.create'
+    | 'kitchens.emptyBody'
+    | 'kitchens.emptyTitle'
+    | 'kitchens.errorTitle'
+    | 'kitchens.loadMore'
+    | 'kitchens.noOwner'
+    | 'kitchens.open'
+    | 'kitchens.ownerCount'
+    | 'kitchens.publishedCount'
+    | 'kitchens.searchLabel'
+    | 'kitchens.searchPlaceholder'
+    | 'kitchens.statusAny'
+    | 'kitchens.statusLabel'
+    | 'kitchens.subtitle'
+    | 'kitchens.title'
+    | 'lifecycle.closedNote'
+    | 'lifecycle.reactivate'
+    | 'lifecycle.reactivateBody'
+    | 'lifecycle.reactivateConfirm'
+    | 'lifecycle.reactivateTitle'
+    | 'lifecycle.reactivated'
+    | 'lifecycle.reactivating'
+    | 'lifecycle.suspend'
+    | 'lifecycle.suspendBody'
+    | 'lifecycle.suspendConfirm'
+    | 'lifecycle.suspendReasonHint'
+    | 'lifecycle.suspendReasonLabel'
+    | 'lifecycle.suspendTitle'
+    | 'lifecycle.suspended'
+    | 'lifecycle.suspending'
+    | 'nav.kitchens'
+    | 'nav.showcase'
+    | 'owners.column.email'
+    | 'owners.column.person'
+    | 'owners.column.status'
+    | 'owners.emptyBody'
+    | 'owners.emptyTitle'
+    | 'owners.remaining'
+    | 'owners.revoke'
+    | 'owners.revokeBody'
+    | 'owners.revokeConfirm'
+    | 'owners.revokeLastWarning'
+    | 'owners.revokeTitle'
+    | 'owners.revoked'
+    | 'owners.revokedLast'
+    | 'owners.revoking'
+    | 'owners.subtitle'
+    | 'owners.title'
+    | 'owners.unnamed'
+    | 'status.active'
+    | 'status.closed'
+    | 'status.pending'
+    | 'status.suspended'
+    | 'title';
   readonly "professional":
     | 'common.cancel'
     | 'common.listSeparator'
@@ -2847,8 +5353,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:forbidden.signInAgain',
   'access:forbidden.switchOrganisation',
   'access:forbidden.title',
-  'access:mockMode.badge',
-  'access:mockMode.description',
   'access:notFound.body',
   'access:notFound.home',
   'access:notFound.title',
@@ -2860,6 +5364,247 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:workspaceSelector.open',
   'access:workspaceSelector.subtitle',
   'access:workspaceSelector.title',
+  'account:addresses.add',
+  'account:addresses.areaHint',
+  'account:addresses.areaLabel',
+  'account:addresses.areaPlaceholder',
+  'account:addresses.backToList',
+  'account:addresses.buildingLabel',
+  'account:addresses.coverageBody',
+  'account:addresses.coverageTitle',
+  'account:addresses.default',
+  'account:addresses.edit',
+  'account:addresses.empty',
+  'account:addresses.emptyBody',
+  'account:addresses.floorLabel',
+  'account:addresses.labelLabel',
+  'account:addresses.labelPlaceholder',
+  'account:addresses.line1Label',
+  'account:addresses.line2Label',
+  'account:addresses.makeDefault',
+  'account:addresses.missingBody',
+  'account:addresses.missingTitle',
+  'account:addresses.noAreasBody',
+  'account:addresses.noAreasTitle',
+  'account:addresses.notesHint',
+  'account:addresses.notesLabel',
+  'account:addresses.partSeparator',
+  'account:addresses.remove',
+  'account:addresses.removeBody',
+  'account:addresses.removeTitle',
+  'account:addresses.requiredField',
+  'account:addresses.save',
+  'account:addresses.subtitle',
+  'account:addresses.title',
+  'account:checklist.blocked',
+  'account:checklist.canActivate',
+  'account:checklist.cannotActivate',
+  'account:checklist.done',
+  'account:checklist.optional',
+  'account:checklist.outstanding',
+  'account:checklist.required',
+  'account:checklist.review',
+  'account:checklist.start',
+  'account:checklist.steps.add_address.body',
+  'account:checklist.steps.add_address.title',
+  'account:checklist.steps.consents.body',
+  'account:checklist.steps.consents.title',
+  'account:checklist.steps.dietary_profile.body',
+  'account:checklist.steps.dietary_profile.title',
+  'account:checklist.steps.verify_email.body',
+  'account:checklist.steps.verify_email.title',
+  'account:checklist.steps.verify_phone.body',
+  'account:checklist.steps.verify_phone.title',
+  'account:checklist.subtitle',
+  'account:checklist.title',
+  'account:checklist.todo',
+  'account:closure.acknowledge',
+  'account:closure.back',
+  'account:closure.blockedBody',
+  'account:closure.blockedTitle',
+  'account:closure.blockerStatuses.advisory',
+  'account:closure.blockerStatuses.blocking',
+  'account:closure.blockerStatuses.clear',
+  'account:closure.blockerStatuses.not_applicable',
+  'account:closure.blockers.active_subscriptions',
+  'account:closure.blockers.open_orders',
+  'account:closure.blockers.organisation_memberships',
+  'account:closure.blockers.payment_methods',
+  'account:closure.blockers.pending_b2b_signatures',
+  'account:closure.blockers.unsettled_credit_memos',
+  'account:closure.blockers.wallet_balance',
+  'account:closure.checksTitle',
+  'account:closure.closedBody',
+  'account:closure.closedTitle',
+  'account:closure.failedTitle',
+  'account:closure.finish',
+  'account:closure.irreversibleBody',
+  'account:closure.irreversibleTitle',
+  'account:closure.next',
+  'account:closure.noChallenge',
+  'account:closure.noteHint',
+  'account:closure.noteLabel',
+  'account:closure.optOutConfirm',
+  'account:closure.optOutDoneBody',
+  'account:closure.optOutDoneTitle',
+  'account:closure.reasonHint',
+  'account:closure.reasonLabel',
+  'account:closure.reasons.dietary_needs_unmet',
+  'account:closure.reasons.duplicate_account',
+  'account:closure.reasons.moving_away',
+  'account:closure.reasons.no_longer_needed',
+  'account:closure.reasons.other',
+  'account:closure.reasons.privacy_concerns',
+  'account:closure.reasons.service_quality',
+  'account:closure.reasons.too_expensive',
+  'account:closure.reasonsWhy.b2b_module_absent',
+  'account:closure.reasonsWhy.credit_memos_unsettled',
+  'account:closure.reasonsWhy.deliveries_upcoming',
+  'account:closure.reasonsWhy.memberships_live',
+  'account:closure.reasonsWhy.no_payment_module',
+  'account:closure.reasonsWhy.no_wallet_module',
+  'account:closure.reasonsWhy.orders_in_flight',
+  'account:closure.reasonsWhy.orders_module_absent',
+  'account:closure.reasonsWhy.organisations_module_absent',
+  'account:closure.reasonsWhy.signatures_pending',
+  'account:closure.reasonsWhy.subscriptions_live',
+  'account:closure.reasonsWhy.subscriptions_module_absent',
+  'account:closure.resolve',
+  'account:closure.retained.closure_tombstone',
+  'account:closure.retained.contact_suppression',
+  'account:closure.retained.credit_memos',
+  'account:closure.retained.orders_anonymised',
+  'account:closure.retainedTitle',
+  'account:closure.scopeExplainer.full.body',
+  'account:closure.scopeExplainer.full.title',
+  'account:closure.scopeExplainer.marketing_opt_out.body',
+  'account:closure.scopeExplainer.marketing_opt_out.title',
+  'account:closure.scopeLabel',
+  'account:closure.scopes.full',
+  'account:closure.scopes.marketing_opt_out',
+  'account:closure.signedOutNote',
+  'account:closure.startClosure',
+  'account:closure.stepperLabel',
+  'account:closure.steps.checks',
+  'account:closure.steps.done',
+  'account:closure.steps.reason',
+  'account:closure.steps.scope',
+  'account:closure.steps.verify',
+  'account:closure.subtitle',
+  'account:closure.title',
+  'account:closure.verifyFailed',
+  'account:consents.ageGate',
+  'account:consents.ageGateTitle',
+  'account:consents.ageTitle',
+  'account:consents.allRequiredDone',
+  'account:consents.empty',
+  'account:consents.emptyBody',
+  'account:consents.grant',
+  'account:consents.grantedOn',
+  'account:consents.optional',
+  'account:consents.outstanding',
+  'account:consents.reconsentBody',
+  'account:consents.reconsentTitle',
+  'account:consents.required',
+  'account:consents.requiredNote',
+  'account:consents.status.granted',
+  'account:consents.status.never',
+  'account:consents.status.reconsent',
+  'account:consents.status.withdrawn',
+  'account:consents.subtitle',
+  'account:consents.title',
+  'account:consents.version',
+  'account:consents.withdraw',
+  'account:consents.withdrawnOn',
+  'account:contacts.add',
+  'account:contacts.addEmail',
+  'account:contacts.addPhone',
+  'account:contacts.emailLabel',
+  'account:contacts.empty',
+  'account:contacts.emptyBody',
+  'account:contacts.loginEmail',
+  'account:contacts.loginEmailNote',
+  'account:contacts.makePrimary',
+  'account:contacts.phoneLabel',
+  'account:contacts.primary',
+  'account:contacts.remove',
+  'account:contacts.removeBody',
+  'account:contacts.removeTitle',
+  'account:contacts.subtitle',
+  'account:contacts.title',
+  'account:contacts.unverified',
+  'account:contacts.verified',
+  'account:contacts.verify',
+  'account:dietary.addAllergen',
+  'account:dietary.allergenLabel',
+  'account:dietary.allergensEmpty',
+  'account:dietary.allergensTitle',
+  'account:dietary.dietsEmpty',
+  'account:dietary.dietsSubtitle',
+  'account:dietary.dietsTitle',
+  'account:dietary.disclaimerContext',
+  'account:dietary.exclusionsSubtitle',
+  'account:dietary.exclusionsTitle',
+  'account:dietary.hasAllergies.no',
+  'account:dietary.hasAllergies.yes',
+  'account:dietary.hasAllergiesLabel',
+  'account:dietary.noneBody',
+  'account:dietary.noteLabel',
+  'account:dietary.save',
+  'account:dietary.saved',
+  'account:dietary.severity.allergy',
+  'account:dietary.severity.avoidance',
+  'account:dietary.severity.intolerance',
+  'account:dietary.severityFor',
+  'account:dietary.severityHint',
+  'account:dietary.severityLabel',
+  'account:dietary.storeOfRecord',
+  'account:dietary.subtitle',
+  'account:dietary.title',
+  'account:dietary.unanswered',
+  'account:lifecycle.active',
+  'account:lifecycle.closed',
+  'account:lifecycle.closing',
+  'account:lifecycle.provisional',
+  'account:lifecycle.suspended',
+  'account:marketing.note',
+  'account:marketing.saveFailed',
+  'account:marketing.subtitle',
+  'account:marketing.title',
+  'account:phone.addNumber',
+  'account:phone.backToAccount',
+  'account:phone.countries.AE',
+  'account:phone.countries.BH',
+  'account:phone.countries.EG',
+  'account:phone.countries.GB',
+  'account:phone.countries.JO',
+  'account:phone.countries.KW',
+  'account:phone.countries.LB',
+  'account:phone.countries.OM',
+  'account:phone.countries.QA',
+  'account:phone.countries.SA',
+  'account:phone.countryHint',
+  'account:phone.countryLabel',
+  'account:phone.duplicateBody',
+  'account:phone.duplicateTitle',
+  'account:phone.errors.empty',
+  'account:phone.errors.tooLong',
+  'account:phone.errors.tooShort',
+  'account:phone.formTitle',
+  'account:phone.noNumberBody',
+  'account:phone.noNumberTitle',
+  'account:phone.numberHint',
+  'account:phone.numberLabel',
+  'account:phone.otpFallback',
+  'account:phone.pendingBody',
+  'account:phone.sendCode',
+  'account:phone.submit',
+  'account:phone.subtitle',
+  'account:phone.title',
+  'account:phone.verifiedBody',
+  'account:phone.verifiedTitle',
+  'account:subtitle',
+  'account:title',
   'auth:branchPicker.empty',
   'auth:branchPicker.groupLabel',
   'auth:branchPicker.onlyOne',
@@ -2913,6 +5658,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.twoFactor.useRecovery',
   'auth:organisationPicker.branchCount',
   'auth:organisationPicker.empty',
+  'auth:organisationPicker.emptyAction',
   'auth:organisationPicker.emptyBody',
   'auth:organisationPicker.noBranches',
   'auth:organisationPicker.onlyOne',
@@ -2922,6 +5668,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:organisationPicker.subtitle',
   'auth:organisationPicker.suspended',
   'auth:organisationPicker.title',
+  'auth:otp.attemptsRemaining',
+  'auth:otp.body',
+  'auth:otp.channelSimulated',
+  'auth:otp.channelSwitch',
+  'auth:otp.channels.email',
+  'auth:otp.channels.sms',
+  'auth:otp.channels.whatsapp',
+  'auth:otp.codeHint',
+  'auth:otp.codeLabel',
+  'auth:otp.errors.channelUnavailable',
+  'auth:otp.errors.cooldown',
+  'auth:otp.errors.expired',
+  'auth:otp.errors.invalid',
+  'auth:otp.errors.locked',
+  'auth:otp.expiredBody',
+  'auth:otp.expiredTitle',
+  'auth:otp.lockedBody',
+  'auth:otp.lockedTitle',
+  'auth:otp.resend',
+  'auth:otp.resendIn',
+  'auth:otp.resent',
+  'auth:otp.sendVia',
+  'auth:otp.submit',
+  'auth:otp.title',
   'auth:profile.account',
   'auth:profile.branch',
   'auth:profile.consents',
@@ -2993,6 +5763,308 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:workspace.switchBranch',
   'auth:workspace.switchOrganisation',
   'auth:workspace.title',
+  'b2bApplication:agreement.authority',
+  'b2bApplication:agreement.autoRenews',
+  'b2bApplication:agreement.changedBody',
+  'b2bApplication:agreement.changedTitle',
+  'b2bApplication:agreement.creditLimit',
+  'b2bApplication:agreement.days',
+  'b2bApplication:agreement.documentTitle',
+  'b2bApplication:agreement.download',
+  'b2bApplication:agreement.honestyBody',
+  'b2bApplication:agreement.honestyTitle',
+  'b2bApplication:agreement.leadTime',
+  'b2bApplication:agreement.minimumOrder',
+  'b2bApplication:agreement.noInvoicingYet',
+  'b2bApplication:agreement.notSet',
+  'b2bApplication:agreement.noticePeriod',
+  'b2bApplication:agreement.otpNotVerified',
+  'b2bApplication:agreement.paymentTerms',
+  'b2bApplication:agreement.sign',
+  'b2bApplication:agreement.signTitle',
+  'b2bApplication:agreement.signatoryTitle',
+  'b2bApplication:agreement.signedOn',
+  'b2bApplication:agreement.signing',
+  'b2bApplication:agreement.startsOn',
+  'b2bApplication:agreement.summaryTitle',
+  'b2bApplication:agreement.termsTitle',
+  'b2bApplication:agreement.title',
+  'b2bApplication:agreement.typedName',
+  'b2bApplication:agreement.typedNameHint',
+  'b2bApplication:agreement.verified',
+  'b2bApplication:agreement.verifyBody',
+  'b2bApplication:agreement.verifyFirst',
+  'b2bApplication:agreement.verifyTitle',
+  'b2bApplication:agreement.version',
+  'b2bApplication:businessTypes.cafe',
+  'b2bApplication:businessTypes.catering',
+  'b2bApplication:businessTypes.corporate_office',
+  'b2bApplication:businessTypes.gym',
+  'b2bApplication:businessTypes.hospital',
+  'b2bApplication:businessTypes.hotel',
+  'b2bApplication:businessTypes.other',
+  'b2bApplication:businessTypes.restaurant',
+  'b2bApplication:businessTypes.retail',
+  'b2bApplication:businessTypes.school',
+  'b2bApplication:deliveryWindows.afternoon',
+  'b2bApplication:deliveryWindows.early_morning',
+  'b2bApplication:deliveryWindows.evening',
+  'b2bApplication:deliveryWindows.morning',
+  'b2bApplication:documents.description',
+  'b2bApplication:documents.download',
+  'b2bApplication:documents.downloadHint',
+  'b2bApplication:documents.kinds.authorisation_letter',
+  'b2bApplication:documents.kinds.commercial_registration',
+  'b2bApplication:documents.kinds.food_safety_certificate',
+  'b2bApplication:documents.kinds.insurance_certificate',
+  'b2bApplication:documents.kinds.other',
+  'b2bApplication:documents.kinds.proof_of_address',
+  'b2bApplication:documents.kinds.signatory_identification',
+  'b2bApplication:documents.kinds.signed_agreement',
+  'b2bApplication:documents.kinds.tax_certificate',
+  'b2bApplication:documents.kinds.trade_licence',
+  'b2bApplication:documents.missing',
+  'b2bApplication:documents.optional',
+  'b2bApplication:documents.rejection.expired',
+  'b2bApplication:documents.rejection.incomplete',
+  'b2bApplication:documents.rejection.mismatch',
+  'b2bApplication:documents.rejection.other',
+  'b2bApplication:documents.rejection.unreadable',
+  'b2bApplication:documents.rejection.wrong_document',
+  'b2bApplication:documents.required',
+  'b2bApplication:documents.reviewStatus.accepted',
+  'b2bApplication:documents.reviewStatus.pending',
+  'b2bApplication:documents.reviewStatus.rejected',
+  'b2bApplication:documents.reviewStatus.superseded',
+  'b2bApplication:documents.scan.clean',
+  'b2bApplication:documents.scan.infected',
+  'b2bApplication:documents.scan.not_scanned',
+  'b2bApplication:documents.scan.pending',
+  'b2bApplication:documents.scanNotice',
+  'b2bApplication:documents.title',
+  'b2bApplication:documents.unreadableOnDevice',
+  'b2bApplication:documents.uploadFailed',
+  'b2bApplication:documents.uploaded',
+  'b2bApplication:entry.body',
+  'b2bApplication:entry.needIdentity',
+  'b2bApplication:entry.needRegistration',
+  'b2bApplication:entry.needTerms',
+  'b2bApplication:entry.resume',
+  'b2bApplication:entry.resumeBody',
+  'b2bApplication:entry.start',
+  'b2bApplication:entry.title',
+  'b2bApplication:entry.viewStatus',
+  'b2bApplication:entry.whatYouNeed',
+  'b2bApplication:errors.loadFailed',
+  'b2bApplication:errors.notEditable',
+  'b2bApplication:errors.notFound',
+  'b2bApplication:errors.sectionRefused',
+  'b2bApplication:fields.businessType',
+  'b2bApplication:fields.commercialRegistrationNumber',
+  'b2bApplication:fields.countryCode',
+  'b2bApplication:fields.currencyCode',
+  'b2bApplication:fields.deliveryNotes',
+  'b2bApplication:fields.expectedOrderFrequency',
+  'b2bApplication:fields.expectedVolumeBand',
+  'b2bApplication:fields.incorporatedOn',
+  'b2bApplication:fields.leadTimeDays',
+  'b2bApplication:fields.legalName',
+  'b2bApplication:fields.legalNameAr',
+  'b2bApplication:fields.preferredDeliveryWindow',
+  'b2bApplication:fields.productCategories',
+  'b2bApplication:fields.requestedCreditLimitMinor',
+  'b2bApplication:fields.requestedPaymentTerms',
+  'b2bApplication:fields.requiresInvoicePerLocation',
+  'b2bApplication:fields.signatoryEmail',
+  'b2bApplication:fields.signatoryName',
+  'b2bApplication:fields.signatoryPhone',
+  'b2bApplication:fields.signatoryTitle',
+  'b2bApplication:fields.taxRegistrationNumber',
+  'b2bApplication:fields.tradingName',
+  'b2bApplication:fields.website',
+  'b2bApplication:hints.deliveryNotes',
+  'b2bApplication:hints.leadTimeDays',
+  'b2bApplication:hints.legalName',
+  'b2bApplication:hints.requestedCreditLimitMinor',
+  'b2bApplication:hints.signatoryTitle',
+  'b2bApplication:hints.taxRegistrationNumber',
+  'b2bApplication:hints.tradingName',
+  'b2bApplication:orderFrequencies.ad_hoc',
+  'b2bApplication:orderFrequencies.daily',
+  'b2bApplication:orderFrequencies.fortnightly',
+  'b2bApplication:orderFrequencies.monthly',
+  'b2bApplication:orderFrequencies.weekdays',
+  'b2bApplication:orderFrequencies.weekly',
+  'b2bApplication:paymentTerms.net_15',
+  'b2bApplication:paymentTerms.net_30',
+  'b2bApplication:paymentTerms.net_60',
+  'b2bApplication:paymentTerms.prepaid',
+  'b2bApplication:productCategories.beverages',
+  'b2bApplication:productCategories.bulk_catering',
+  'b2bApplication:productCategories.ingredients',
+  'b2bApplication:productCategories.meal_plans',
+  'b2bApplication:productCategories.meals',
+  'b2bApplication:productCategories.snacks',
+  'b2bApplication:provisioning.body',
+  'b2bApplication:provisioning.doneBody',
+  'b2bApplication:provisioning.doneTitle',
+  'b2bApplication:provisioning.goToWorkspace',
+  'b2bApplication:provisioning.stepBlocked',
+  'b2bApplication:provisioning.stepDone',
+  'b2bApplication:provisioning.stepWaiting',
+  'b2bApplication:provisioning.steps.commercial_terms',
+  'b2bApplication:provisioning.steps.customer_account',
+  'b2bApplication:provisioning.steps.delivery_locations',
+  'b2bApplication:provisioning.steps.organisation',
+  'b2bApplication:provisioning.steps.team_invitations',
+  'b2bApplication:provisioning.title',
+  'b2bApplication:reference',
+  'b2bApplication:review.blockedBody',
+  'b2bApplication:review.blockedDocuments',
+  'b2bApplication:review.blockedSection',
+  'b2bApplication:review.blockedTitle',
+  'b2bApplication:review.body',
+  'b2bApplication:review.edit',
+  'b2bApplication:review.submit',
+  'b2bApplication:review.submitting',
+  'b2bApplication:review.title',
+  'b2bApplication:review.withdraw',
+  'b2bApplication:review.withdrawConfirm',
+  'b2bApplication:sections.company.description',
+  'b2bApplication:sections.company.title',
+  'b2bApplication:sections.logistics.description',
+  'b2bApplication:sections.logistics.title',
+  'b2bApplication:sections.signatory.description',
+  'b2bApplication:sections.signatory.title',
+  'b2bApplication:sections.trade_terms.description',
+  'b2bApplication:sections.trade_terms.title',
+  'b2bApplication:status.agreement_pending.body',
+  'b2bApplication:status.agreement_pending.label',
+  'b2bApplication:status.agreement_signed.body',
+  'b2bApplication:status.agreement_signed.label',
+  'b2bApplication:status.approved.body',
+  'b2bApplication:status.approved.label',
+  'b2bApplication:status.declined.body',
+  'b2bApplication:status.declined.label',
+  'b2bApplication:status.draft.body',
+  'b2bApplication:status.draft.label',
+  'b2bApplication:status.goToDocuments',
+  'b2bApplication:status.goToSection',
+  'b2bApplication:status.in_review.body',
+  'b2bApplication:status.in_review.label',
+  'b2bApplication:status.info_requested.body',
+  'b2bApplication:status.info_requested.label',
+  'b2bApplication:status.messageFromUs',
+  'b2bApplication:status.provisioned.body',
+  'b2bApplication:status.provisioned.label',
+  'b2bApplication:status.provisioning.body',
+  'b2bApplication:status.provisioning.label',
+  'b2bApplication:status.requestAskedOn',
+  'b2bApplication:status.requestResolved',
+  'b2bApplication:status.reviewerRequests',
+  'b2bApplication:status.reviewerRequestsTitle',
+  'b2bApplication:status.submitted.body',
+  'b2bApplication:status.submitted.label',
+  'b2bApplication:status.title',
+  'b2bApplication:status.updated',
+  'b2bApplication:status.withdrawn.body',
+  'b2bApplication:status.withdrawn.label',
+  'b2bApplication:subtitle',
+  'b2bApplication:title',
+  'b2bApplication:validation.currency',
+  'b2bApplication:validation.date',
+  'b2bApplication:validation.email',
+  'b2bApplication:validation.format',
+  'b2bApplication:validation.invalid',
+  'b2bApplication:validation.phone',
+  'b2bApplication:validation.required',
+  'b2bApplication:validation.tooLong',
+  'b2bApplication:validation.url',
+  'b2bApplication:volumeBands.from_200_to_500',
+  'b2bApplication:volumeBands.from_500_to_2000',
+  'b2bApplication:volumeBands.from_50_to_200',
+  'b2bApplication:volumeBands.over_2000',
+  'b2bApplication:volumeBands.under_50',
+  'b2bApplication:windDown.authorityLabel',
+  'b2bApplication:windDown.cancelledBody',
+  'b2bApplication:windDown.checks.credit_balance',
+  'b2bApplication:windDown.checks.open_orders',
+  'b2bApplication:windDown.checks.outstanding_invoices',
+  'b2bApplication:windDown.checks.security_deposit',
+  'b2bApplication:windDown.consentTitle',
+  'b2bApplication:windDown.effectiveOn',
+  'b2bApplication:windDown.failedTitle',
+  'b2bApplication:windDown.nameLabel',
+  'b2bApplication:windDown.noEffectiveDate',
+  'b2bApplication:windDown.noneBody',
+  'b2bApplication:windDown.noneTitle',
+  'b2bApplication:windDown.noticePeriod',
+  'b2bApplication:windDown.outcomes.clear',
+  'b2bApplication:windDown.outcomes.not_applicable',
+  'b2bApplication:windDown.outcomes.outstanding',
+  'b2bApplication:windDown.platformNote',
+  'b2bApplication:windDown.readOnly.archiving',
+  'b2bApplication:windDown.readOnly.cancelled',
+  'b2bApplication:windDown.readOnly.completed',
+  'b2bApplication:windDown.readOnly.notice_served',
+  'b2bApplication:windDown.readOnly.revoking',
+  'b2bApplication:windDown.readOnly.settlement_pending',
+  'b2bApplication:windDown.readOnly.signed_off',
+  'b2bApplication:windDown.readOnlyBody',
+  'b2bApplication:windDown.readOnlyTitle',
+  'b2bApplication:windDown.reasons.invoicing_module_absent',
+  'b2bApplication:windDown.reasons.orders_module_absent',
+  'b2bApplication:windDown.requestCode',
+  'b2bApplication:windDown.runChecks',
+  'b2bApplication:windDown.runChecksNote',
+  'b2bApplication:windDown.settlement.caption',
+  'b2bApplication:windDown.settlement.columns.check',
+  'b2bApplication:windDown.settlement.columns.outcome',
+  'b2bApplication:windDown.settlement.columns.reason',
+  'b2bApplication:windDown.settlement.notRun',
+  'b2bApplication:windDown.settlement.title',
+  'b2bApplication:windDown.settlementStatuses.cleared',
+  'b2bApplication:windDown.settlementStatuses.pending',
+  'b2bApplication:windDown.settlementStatuses.waived',
+  'b2bApplication:windDown.signedBy',
+  'b2bApplication:windDown.signoffFailed',
+  'b2bApplication:windDown.signoffTitle',
+  'b2bApplication:windDown.stageAhead',
+  'b2bApplication:windDown.stageDone',
+  'b2bApplication:windDown.stageNow',
+  'b2bApplication:windDown.statuses.archiving',
+  'b2bApplication:windDown.statuses.awaiting_signoff',
+  'b2bApplication:windDown.statuses.cancelled',
+  'b2bApplication:windDown.statuses.completed',
+  'b2bApplication:windDown.statuses.notice_served',
+  'b2bApplication:windDown.statuses.requested',
+  'b2bApplication:windDown.statuses.revoking',
+  'b2bApplication:windDown.statuses.settlement_pending',
+  'b2bApplication:windDown.statuses.signed_off',
+  'b2bApplication:windDown.subtitle',
+  'b2bApplication:windDown.timelineTitle',
+  'b2bApplication:windDown.title',
+  'b2bApplication:windDown.titleLabel',
+  'b2bApplication:windDown.triggers.client_request',
+  'b2bApplication:windDown.triggers.contract_end',
+  'b2bApplication:windDown.triggers.non_renewal',
+  'b2bApplication:windDown.triggers.termination',
+  'b2bApplication:wizard.back',
+  'b2bApplication:wizard.complete',
+  'b2bApplication:wizard.conflictBody',
+  'b2bApplication:wizard.conflictTitle',
+  'b2bApplication:wizard.incomplete',
+  'b2bApplication:wizard.locked',
+  'b2bApplication:wizard.lockedByRequest',
+  'b2bApplication:wizard.markComplete',
+  'b2bApplication:wizard.next',
+  'b2bApplication:wizard.outstanding',
+  'b2bApplication:wizard.reload',
+  'b2bApplication:wizard.save',
+  'b2bApplication:wizard.saveFailed',
+  'b2bApplication:wizard.saved',
+  'b2bApplication:wizard.saving',
+  'b2bApplication:wizard.stepPosition',
   'business:builder.back',
   'business:builder.contactEmail',
   'business:builder.contactName',
@@ -3031,6 +6103,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.valueNote',
   'business:builder.valueTitle',
   'business:builder.valueTotal',
+  'business:catalogue.addToCart',
+  'business:catalogue.addedToCart',
   'business:catalogue.back',
   'business:catalogue.buildQuotation',
   'business:catalogue.clearFilters',
@@ -3047,6 +6121,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.notFoundBody',
   'business:catalogue.notFoundTitle',
   'business:catalogue.open',
+  'business:catalogue.placeOrder',
   'business:catalogue.privacyBody',
   'business:catalogue.privacyTitle',
   'business:catalogue.programmeLoading',
@@ -3080,12 +6155,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:dashboard.quotationsTitle',
   'business:dashboard.sourceNote',
   'business:dashboard.title',
+  'business:item.addToCart',
+  'business:item.addedToCart',
   'business:item.back',
   'business:item.eligibilityBody',
   'business:item.eligibilityTitle',
   'business:item.noTiers',
   'business:item.notFoundBody',
   'business:item.notFoundTitle',
+  'business:item.placeOrder',
   'business:item.quote',
   'business:item.recurringOrder',
   'business:item.tierBetween',
@@ -3102,6 +6180,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:partner.allKitchens',
   'business:partner.body',
   'business:partner.clearKitchen',
+  'business:partner.deferredBody',
+  'business:partner.deferredTitle',
   'business:partner.emptyBody',
   'business:partner.emptyTitle',
   'business:partner.kitchenFilter',
@@ -3138,6 +6218,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.back',
   'business:quotations.body',
   'business:quotations.clearFilter',
+  'business:quotations.decline',
   'business:quotations.emptyBody',
   'business:quotations.emptyFilteredBody',
   'business:quotations.emptyFilteredTitle',
@@ -3159,6 +6240,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.total',
   'business:schedule.back',
   'business:schedule.body',
+  'business:schedule.deferredBody',
+  'business:schedule.deferredTitle',
   'business:schedule.derivationBody',
   'business:schedule.derivationTitle',
   'business:schedule.emptyBody',
@@ -3247,6 +6330,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.protein',
   'catalogue:filters.rangesHint',
   'catalogue:filters.rangesTitle',
+  'catalogue:filters.removeFilter',
   'catalogue:filters.unitGrams',
   'catalogue:filters.unitKcal',
   'catalogue:filters.unitMinutes',
@@ -3329,6 +6413,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.allLoaded',
   'catalogue:meals.emptyBody',
   'catalogue:meals.emptyTitle',
+  'catalogue:meals.filters',
+  'catalogue:meals.filtersActive',
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
   'catalogue:meals.searchLabel',
@@ -3390,24 +6476,68 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.variantLabel',
   'catalogue:plan.variantsBody',
   'catalogue:plan.variantsTitle',
+  'catalogue:plans.bandsLabel',
+  'catalogue:plans.byKitchen',
+  'catalogue:plans.calorie.higher',
+  'catalogue:plans.calorie.lighter',
+  'catalogue:plans.calorie.moderate',
+  'catalogue:plans.calorieFilter',
   'catalogue:plans.categoryAll',
   'catalogue:plans.categoryLabel',
+  'catalogue:plans.compareClear',
+  'catalogue:plans.compareEmpty',
   'catalogue:plans.compareFull',
   'catalogue:plans.compareHint',
   'catalogue:plans.compareLabel',
   'catalogue:plans.compareOpen',
+  'catalogue:plans.compareRemove',
   'catalogue:plans.compareSelected',
+  'catalogue:plans.compareTitle',
+  'catalogue:plans.compareTrayLabel',
+  'catalogue:plans.ctaBody',
+  'catalogue:plans.ctaPrimary',
+  'catalogue:plans.ctaSecondary',
+  'catalogue:plans.ctaTitle',
+  'catalogue:plans.durationNoDiscount',
+  'catalogue:plans.durationSaves',
+  'catalogue:plans.durationShort.12w',
+  'catalogue:plans.durationShort.1w',
+  'catalogue:plans.durationShort.2w',
+  'catalogue:plans.durationShort.4w',
+  'catalogue:plans.durationTotal',
   'catalogue:plans.durations',
+  'catalogue:plans.durationsFor',
+  'catalogue:plans.durationsLabel',
   'catalogue:plans.emptyBody',
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
+  'catalogue:plans.eyebrow',
   'catalogue:plans.fromPrice',
+  'catalogue:plans.heroHowItWorks',
+  'catalogue:plans.heroSpeakToDietitian',
+  'catalogue:plans.kitchenCount',
+  'catalogue:plans.kitchenFilter',
   'catalogue:plans.mealsPerDay',
   'catalogue:plans.mealsPerDayNoSnacks',
+  'catalogue:plans.methodologyTitle',
   'catalogue:plans.perDayPrice',
+  'catalogue:plans.perWeekSuffix',
+  'catalogue:plans.priceFrom',
   'catalogue:plans.ratingLabel',
+  'catalogue:plans.resultSummary',
+  'catalogue:plans.searchLabel',
+  'catalogue:plans.searchPlaceholder',
+  'catalogue:plans.sort.priceLowHigh',
+  'catalogue:plans.sort.ratingHighLow',
+  'catalogue:plans.sort.recommended',
+  'catalogue:plans.sortLabel',
   'catalogue:plans.subtitle',
   'catalogue:plans.title',
+  'catalogue:plans.trust.flexible',
+  'catalogue:plans.trust.kitchens',
+  'catalogue:plans.trust.reviewed',
+  'catalogue:plans.viewPlan',
+  'catalogue:plans.viewPlanNamed',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',
@@ -3523,6 +6653,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:address.line2',
   'commerce:address.line2Hint',
   'commerce:address.notStored',
+  'commerce:balance.cutOffNote',
+  'commerce:balance.perDay',
+  'commerce:balance.remaining',
+  'commerce:balance.skipped',
+  'commerce:balance.title',
+  'commerce:balance.used',
+  'commerce:cancel.body',
+  'commerce:cancel.confirm',
+  'commerce:cancel.consequenceBody',
+  'commerce:cancel.consequenceTitle',
+  'commerce:cancel.doneMemo',
+  'commerce:cancel.doneNoMemo',
+  'commerce:cancel.doneTitle',
+  'commerce:cancel.estimate',
+  'commerce:cancel.keep',
+  'commerce:cancel.manualSettlement',
+  'commerce:cancel.noRefund',
+  'commerce:cancel.open',
+  'commerce:cancel.title',
   'commerce:cart.allergenBody',
   'commerce:cart.allergenTitle',
   'commerce:cart.body',
@@ -3530,6 +6679,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.checkout',
   'commerce:cart.count',
   'commerce:cart.delivery',
+  'commerce:cart.deliveryAtPlacement',
   'commerce:cart.deliveryFree',
   'commerce:cart.emptyBody',
   'commerce:cart.emptyTitle',
@@ -3545,6 +6695,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.unitPrice',
   'commerce:cart.updateFailedTitle',
   'commerce:cart.viewMeal',
+  'commerce:checkout.addAddress',
   'commerce:checkout.addressBody',
   'commerce:checkout.addressTitle',
   'commerce:checkout.body',
@@ -3555,25 +6706,41 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.edit',
   'commerce:checkout.emptyBody',
   'commerce:checkout.emptyTitle',
+  'commerce:checkout.noAddressBody',
+  'commerce:checkout.noAddressTitle',
+  'commerce:checkout.paymentNoticeBody',
+  'commerce:checkout.paymentNoticeTitle',
+  'commerce:checkout.placeFailedTitle',
   'commerce:checkout.placeOrder',
   'commerce:checkout.placeOrderHint',
   'commerce:checkout.priceAfterReview',
   'commerce:checkout.priceBeforeReview',
-  'commerce:checkout.prototypeNotice',
   'commerce:checkout.review',
   'commerce:checkout.slotTitle',
   'commerce:checkout.slotWindow',
   'commerce:checkout.successBody',
   'commerce:checkout.successCart',
+  'commerce:checkout.successCodBody',
+  'commerce:checkout.successCodTitle',
   'commerce:checkout.successPriceCaption',
-  'commerce:checkout.successPrototypeBody',
-  'commerce:checkout.successPrototypeTitle',
   'commerce:checkout.successSubscriptions',
   'commerce:checkout.successSummaryTitle',
   'commerce:checkout.successTitle',
   'commerce:checkout.summaryTitle',
   'commerce:checkout.title',
+  'commerce:choices.body',
+  'commerce:choices.bodyDated',
+  'commerce:choices.confirm',
+  'commerce:choices.cutOffBody',
+  'commerce:choices.cutOffTitle',
+  'commerce:choices.open',
+  'commerce:choices.selectLabel',
+  'commerce:choices.sources.customer',
+  'commerce:choices.sources.kitchen_default',
+  'commerce:choices.sources.substituted',
+  'commerce:choices.title',
   'commerce:common.cancel',
+  'commerce:common.close',
   'commerce:common.listSeparator',
   'commerce:common.noPayment',
   'commerce:configurator.allergyDisclaimerContext',
@@ -3709,6 +6876,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.summary.window',
   'commerce:configurator.summary.windowValue',
   'commerce:configurator.title',
+  'commerce:deliveries.caption',
+  'commerce:deliveries.columns.consumed',
+  'commerce:deliveries.columns.date',
+  'commerce:deliveries.columns.status',
+  'commerce:deliveries.consumedNo',
+  'commerce:deliveries.consumedYes',
+  'commerce:deliveries.count',
+  'commerce:deliveries.empty',
+  'commerce:deliveries.skipNote',
+  'commerce:deliveries.statuses.cancelled',
+  'commerce:deliveries.statuses.delivered',
+  'commerce:deliveries.statuses.generated',
+  'commerce:deliveries.statuses.scheduled',
+  'commerce:deliveries.statuses.skipped_customer',
+  'commerce:deliveries.statuses.skipped_no_safe_meal',
+  'commerce:deliveries.statuses.skipped_unavailable',
+  'commerce:deliveries.title',
   'commerce:durations.12w',
   'commerce:durations.1w',
   'commerce:durations.2w',
@@ -3815,6 +6999,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:warnings.subscription_unknown_slot',
   'commerce:warnings.title',
   'commerce:warnings.unknown',
+  'commerce:weekdays.body',
+  'commerce:weekdays.chooseOne',
+  'commerce:weekdays.confirm',
+  'commerce:weekdays.cutOffBody',
+  'commerce:weekdays.cutOffTitle',
+  'commerce:weekdays.loading',
+  'commerce:weekdays.open',
+  'commerce:weekdays.title',
   'common:action.back',
   'common:action.cancel',
   'common:action.change',
@@ -3834,11 +7026,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.signUp',
   'common:app.name',
   'common:app.tagline',
-  'common:dev.mockBadge',
-  'common:dev.mockDescription',
-  'common:dev.mockScenario',
-  'common:dev.switchScenario',
-  'common:dev.switchScenarioHint',
   'common:direction.ltr',
   'common:direction.rtl',
   'common:locale.arabic',
@@ -3880,8 +7067,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:dateField.year',
   'designSystem:emptyState.prototypeBadge',
   'designSystem:emptyState.prototypeBody',
+  'designSystem:fileUpload.choose',
+  'designSystem:fileUpload.limits',
+  'designSystem:fileUpload.remove',
+  'designSystem:fileUpload.replace',
+  'designSystem:fileUpload.uploading',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',
+  'designSystem:pagination.label',
+  'designSystem:pagination.next',
+  'designSystem:pagination.page',
+  'designSystem:pagination.previous',
   'designSystem:passwordInput.hide',
   'designSystem:passwordInput.show',
   'designSystem:rangeFilter.inverted',
@@ -3889,7 +7085,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:rangeFilter.min',
   'designSystem:rating.count',
   'designSystem:rating.summary',
+  'designSystem:select.noResults',
   'designSystem:select.placeholder',
+  'designSystem:select.searchLabel',
+  'designSystem:select.searchPlaceholder',
+  'designSystem:select.searchResults',
   'designSystem:shell.openNavigation',
   'designSystem:shell.primaryNavigation',
   'designSystem:shell.skipToContent',
@@ -3936,6 +7136,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.sampleHint',
   'designSystem:showcase.sampleLabel',
   'designSystem:showcase.sampleOption',
+  'designSystem:showcase.searchableSelectLabel',
   'designSystem:showcase.sections.actions',
   'designSystem:showcase.sections.content',
   'designSystem:showcase.sections.data',
@@ -3955,10 +7156,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.tabDelivery',
   'designSystem:showcase.tabNutrition',
   'designSystem:showcase.tabOverview',
+  'designSystem:showcase.tableActionHeader',
+  'designSystem:showcase.tableActionLabel',
   'designSystem:showcase.tableCaption',
   'designSystem:showcase.tableColumnAmount',
   'designSystem:showcase.tableColumnName',
   'designSystem:showcase.tableColumnTarget',
+  'designSystem:showcase.tableSortableCaption',
   'designSystem:showcase.tabsLabel',
   'designSystem:showcase.title',
   'designSystem:showcase.toastMessage',
@@ -3985,18 +7189,47 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:stepper.progress',
   'designSystem:swatch.contrast',
   'designSystem:table.empty',
+  'designSystem:table.sortBy',
+  'designSystem:table.sortedAscending',
+  'designSystem:table.sortedDescending',
+  'errors:failure.account_verification_required',
+  'errors:failure.address_area_not_served',
   'errors:failure.auth_email_unverified',
   'errors:failure.auth_invalid_credentials',
   'errors:failure.auth_step_up_required',
   'errors:failure.auth_two_factor_required',
   'errors:failure.auth_unauthenticated',
+  'errors:failure.authz_permission_denied',
+  'errors:failure.b2b_application_state_invalid',
+  'errors:failure.b2b_documents_incomplete',
+  'errors:failure.b2b_quotation_state_invalid',
+  'errors:failure.b2b_signatory_required',
+  'errors:failure.cart_line_refused',
+  'errors:failure.closure_refused',
+  'errors:failure.contact_already_in_use',
   'errors:failure.context_branch_out_of_scope',
   'errors:failure.context_organisation_forbidden',
   'errors:failure.context_organisation_required',
+  'errors:failure.guest_session_invalid',
   'errors:failure.network',
+  'errors:failure.offboarding_refused',
+  'errors:failure.offboarding_settlement_outstanding',
+  'errors:failure.order_placement_refused',
+  'errors:failure.otp_attempts_exceeded',
+  'errors:failure.otp_channel_unavailable',
+  'errors:failure.otp_cooldown_active',
+  'errors:failure.otp_expired',
+  'errors:failure.otp_invalid',
   'errors:failure.prototype_not_implemented',
   'errors:failure.rate_limit_exceeded',
+  'errors:failure.record_export_unavailable',
+  'errors:failure.request_idempotency_key_reused',
+  'errors:failure.request_precondition_required',
+  'errors:failure.resource_conflict',
+  'errors:failure.resource_not_found',
   'errors:failure.server',
+  'errors:failure.subscription_change_refused',
+  'errors:failure.subscription_refused',
   'errors:failure.validation_failed',
   'errors:generic.body',
   'errors:generic.reference',
@@ -4011,6 +7244,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:network.offline',
   'errors:network.timeout',
   'errors:network.unreachable',
+  'errors:orderRefusal.account_not_active',
+  'errors:orderRefusal.account_not_ready',
+  'errors:orderRefusal.address_not_deliverable',
+  'errors:orderRefusal.address_not_owned',
+  'errors:orderRefusal.agreement_required',
+  'errors:orderRefusal.area_not_served',
+  'errors:orderRefusal.cart_empty',
+  'errors:orderRefusal.cart_not_open',
+  'errors:orderRefusal.channel_not_trading',
+  'errors:orderRefusal.channel_unavailable',
+  'errors:orderRefusal.channel_unknown',
+  'errors:orderRefusal.closed',
+  'errors:orderRefusal.currency_mismatch',
+  'errors:orderRefusal.cut_off_passed',
+  'errors:orderRefusal.date_in_the_past',
+  'errors:orderRefusal.guest_not_verified',
+  'errors:orderRefusal.item_not_published',
+  'errors:orderRefusal.item_unknown',
+  'errors:orderRefusal.minimum_order_not_met',
+  'errors:orderRefusal.mixed_delivery_dates',
+  'errors:orderRefusal.unpriced',
+  'errors:orderRefusal.variant_not_active',
+  'errors:orderRefusal.variant_unknown',
+  'errors:orderRefusal.zone_suspended',
   'errors:validation.accept_privacy',
   'errors:validation.accept_terms',
   'errors:validation.email',
@@ -4020,6 +7277,1633 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
+  'guest:address.back',
+  'guest:address.continue',
+  'guest:address.date',
+  'guest:address.outOfZoneAreas',
+  'guest:address.outOfZoneBody',
+  'guest:address.outOfZoneBrowse',
+  'guest:address.outOfZoneTitle',
+  'guest:address.slot',
+  'guest:address.subtitle',
+  'guest:address.title',
+  'guest:contact.channel',
+  'guest:contact.channelEmail',
+  'guest:contact.channelSms',
+  'guest:contact.channelWhatsapp',
+  'guest:contact.continue',
+  'guest:contact.email',
+  'guest:contact.emailHint',
+  'guest:contact.errors.contactRequired',
+  'guest:contact.errors.emailInvalid',
+  'guest:contact.errors.mobileInvalid',
+  'guest:contact.errors.nameRequired',
+  'guest:contact.fullName',
+  'guest:contact.fullNameHint',
+  'guest:contact.mobile',
+  'guest:contact.mobileHint',
+  'guest:contact.subtitle',
+  'guest:contact.title',
+  'guest:convert.body',
+  'guest:convert.declined',
+  'guest:convert.doneBody',
+  'guest:convert.doneTitle',
+  'guest:convert.fullName',
+  'guest:convert.marketing',
+  'guest:convert.marketingHint',
+  'guest:convert.noThanks',
+  'guest:convert.password',
+  'guest:convert.passwordHint',
+  'guest:convert.submit',
+  'guest:convert.title',
+  'guest:convert.verifiedNote',
+  'guest:deletion.cancel',
+  'guest:deletion.code',
+  'guest:deletion.confirm',
+  'guest:deletion.confirmAcknowledge',
+  'guest:deletion.confirmBody',
+  'guest:deletion.confirmTitle',
+  'guest:deletion.doneBody',
+  'guest:deletion.doneTitle',
+  'guest:deletion.email',
+  'guest:deletion.emailHint',
+  'guest:deletion.invalidCode',
+  'guest:deletion.mobile',
+  'guest:deletion.mobileHint',
+  'guest:deletion.request',
+  'guest:deletion.sentBody',
+  'guest:deletion.sentTitle',
+  'guest:deletion.subtitle',
+  'guest:deletion.suppressionNote',
+  'guest:deletion.title',
+  'guest:entry.body',
+  'guest:entry.continueAsGuest',
+  'guest:entry.signIn',
+  'guest:entry.title',
+  'guest:order.deliveringTo',
+  'guest:order.lines',
+  'guest:order.notFoundBody',
+  'guest:order.notFoundTitle',
+  'guest:order.payment',
+  'guest:order.reference',
+  'guest:order.slot',
+  'guest:order.state',
+  'guest:order.states.cancelled',
+  'guest:order.states.confirmed',
+  'guest:order.states.delivered',
+  'guest:order.states.out_for_delivery',
+  'guest:order.states.placed',
+  'guest:order.states.preparing',
+  'guest:order.subtitle',
+  'guest:order.title',
+  'guest:order.total',
+  'guest:review.back',
+  'guest:review.cashOnDelivery',
+  'guest:review.cashOnDeliveryNote',
+  'guest:review.contact',
+  'guest:review.deliveringTo',
+  'guest:review.marketingHint',
+  'guest:review.marketingLabel',
+  'guest:review.payment',
+  'guest:review.place',
+  'guest:review.slot',
+  'guest:review.subtitle',
+  'guest:review.title',
+  'guest:review.unverified',
+  'guest:session.expiredBody',
+  'guest:session.expiredTitle',
+  'guest:session.restart',
+  'guest:steps.address',
+  'guest:steps.contact',
+  'guest:steps.review',
+  'guest:steps.verify',
+  'guest:subtitle',
+  'guest:title',
+  'guest:verify.back',
+  'guest:verify.confirmed',
+  'guest:verify.otpFallback',
+  'guest:verify.subtitle',
+  'guest:verify.title',
+  'invitations:accept.action',
+  'invitations:accept.pending',
+  'invitations:accepted.alreadyBody',
+  'invitations:accepted.alreadyTitle',
+  'invitations:accepted.body',
+  'invitations:accepted.noMembershipBody',
+  'invitations:accepted.noMembershipTitle',
+  'invitations:accepted.openWorkspace',
+  'invitations:accepted.title',
+  'invitations:expired.body',
+  'invitations:expired.title',
+  'invitations:invite.body',
+  'invitations:invite.expiresInDays',
+  'invitations:invite.expiresLabel',
+  'invitations:invite.expiresToday',
+  'invitations:invite.heading',
+  'invitations:invite.role.commercial_manager',
+  'invitations:invite.role.kitchen_manager',
+  'invitations:invite.role.kitchen_owner',
+  'invitations:invite.role.organisation_owner',
+  'invitations:invite.role.unknown',
+  'invitations:invite.roleLabel',
+  'invitations:invite.sentToLabel',
+  'invitations:loading',
+  'invitations:mismatch.body',
+  'invitations:mismatch.switch',
+  'invitations:mismatch.title',
+  'invitations:notFound.body',
+  'invitations:notFound.retry',
+  'invitations:notFound.title',
+  'invitations:revoked.body',
+  'invitations:revoked.title',
+  'invitations:signedOut.body',
+  'invitations:signedOut.register',
+  'invitations:signedOut.returnHint',
+  'invitations:signedOut.signIn',
+  'invitations:signedOut.title',
+  'invitations:title',
+  'invitations:unverified.body',
+  'invitations:unverified.title',
+  'invitations:unverified.verify',
+  'kitchen:a11y.aliasAdded',
+  'kitchen:a11y.listUpdated',
+  'kitchen:a11y.mappingAdded',
+  'kitchen:a11y.mappingRemoved',
+  'kitchen:aliases.add',
+  'kitchen:aliases.count',
+  'kitchen:aliases.description',
+  'kitchen:aliases.duplicate',
+  'kitchen:aliases.empty',
+  'kitchen:aliases.inputLabel',
+  'kitchen:aliases.inputPlaceholder',
+  'kitchen:aliases.remove',
+  'kitchen:aliases.removedToast',
+  'kitchen:aliases.title',
+  'kitchen:allergens.addRow',
+  'kitchen:allergens.chooseClass',
+  'kitchen:allergens.classLabel',
+  'kitchen:allergens.classPlaceholder',
+  'kitchen:allergens.classesError',
+  'kitchen:allergens.containmentLabel',
+  'kitchen:allergens.description',
+  'kitchen:allergens.duplicateClass',
+  'kitchen:allergens.empty',
+  'kitchen:allergens.emptyHint',
+  'kitchen:allergens.evidenceHint',
+  'kitchen:allergens.evidenceLabel',
+  'kitchen:allergens.marketScopeAll',
+  'kitchen:allergens.marketScopeHint',
+  'kitchen:allergens.marketScopeLabel',
+  'kitchen:allergens.platformBaseline',
+  'kitchen:allergens.platformBaselineHint',
+  'kitchen:allergens.quarantineBody',
+  'kitchen:allergens.quarantineTitle',
+  'kitchen:allergens.remove',
+  'kitchen:allergens.rowTitle',
+  'kitchen:allergens.safetyBody',
+  'kitchen:allergens.safetyTitle',
+  'kitchen:allergens.save',
+  'kitchen:allergens.saveBlocked',
+  'kitchen:allergens.saveError',
+  'kitchen:allergens.savedToast',
+  'kitchen:allergens.title',
+  'kitchen:allergens.upgradeOnlyContainment',
+  'kitchen:allergens.upgradeOnlyVerification',
+  'kitchen:allergens.verificationLabel',
+  'kitchen:analytics.charts.channelVolume',
+  'kitchen:analytics.charts.channels.aLaCarte',
+  'kitchen:analytics.charts.channels.b2b',
+  'kitchen:analytics.charts.channels.pos',
+  'kitchen:analytics.charts.channels.staff',
+  'kitchen:analytics.charts.channels.subscription',
+  'kitchen:analytics.charts.productionTrend',
+  'kitchen:analytics.charts.statusCenter',
+  'kitchen:analytics.charts.statusMix',
+  'kitchen:analytics.filters.dateRange',
+  'kitchen:analytics.filters.segment',
+  'kitchen:analytics.kpi.onTime',
+  'kitchen:analytics.kpi.prep',
+  'kitchen:analytics.kpi.produced',
+  'kitchen:analytics.kpi.review',
+  'kitchen:analytics.ranges.30d',
+  'kitchen:analytics.ranges.7d',
+  'kitchen:analytics.ranges.90d',
+  'kitchen:analytics.ranges.ytd',
+  'kitchen:analytics.sampleBadge',
+  'kitchen:analytics.segments.all',
+  'kitchen:analytics.segments.delivery',
+  'kitchen:analytics.segments.meals',
+  'kitchen:analytics.segments.recipes',
+  'kitchen:analytics.segments.stock',
+  'kitchen:analytics.status.all',
+  'kitchen:analytics.status.blocked',
+  'kitchen:analytics.status.onTrack',
+  'kitchen:analytics.status.watch',
+  'kitchen:analytics.subtitle',
+  'kitchen:analytics.table.avgMinutes',
+  'kitchen:analytics.table.caption',
+  'kitchen:analytics.table.completion',
+  'kitchen:analytics.table.empty',
+  'kitchen:analytics.table.name',
+  'kitchen:analytics.table.search',
+  'kitchen:analytics.table.searchPlaceholder',
+  'kitchen:analytics.table.segment',
+  'kitchen:analytics.table.status',
+  'kitchen:analytics.table.statusFilter',
+  'kitchen:analytics.table.subtitle',
+  'kitchen:analytics.table.title',
+  'kitchen:analytics.table.updated',
+  'kitchen:analytics.table.volume',
+  'kitchen:analytics.theme.dark',
+  'kitchen:analytics.theme.light',
+  'kitchen:analytics.title',
+  'kitchen:analytics.trend.down',
+  'kitchen:analytics.trend.flat',
+  'kitchen:analytics.trend.up',
+  'kitchen:areas.groupLabel',
+  'kitchen:areas.inactive',
+  'kitchen:areas.matchCount',
+  'kitchen:areas.moreHidden',
+  'kitchen:areas.noMatches',
+  'kitchen:areas.noParent',
+  'kitchen:areas.save',
+  'kitchen:areas.saveError',
+  'kitchen:areas.savedToast',
+  'kitchen:areas.searchHint',
+  'kitchen:areas.searchLabel',
+  'kitchen:areas.searchPlaceholder',
+  'kitchen:areas.selectedLabel',
+  'kitchen:areas.selectedNone',
+  'kitchen:areas.truncatedBody',
+  'kitchen:areas.truncatedTitle',
+  'kitchen:areas.unknownArea',
+  'kitchen:availability.addDay',
+  'kitchen:availability.availableLabel',
+  'kitchen:availability.closed',
+  'kitchen:availability.createFirst',
+  'kitchen:availability.cutOffHint',
+  'kitchen:availability.cutOffInvalid',
+  'kitchen:availability.cutOffLabel',
+  'kitchen:availability.dateDuplicate',
+  'kitchen:availability.dateLabel',
+  'kitchen:availability.dateRequired',
+  'kitchen:availability.dayRemoved',
+  'kitchen:availability.empty',
+  'kitchen:availability.explainerBody',
+  'kitchen:availability.explainerTitle',
+  'kitchen:availability.newDay',
+  'kitchen:availability.remainingHint',
+  'kitchen:availability.remainingInvalid',
+  'kitchen:availability.remainingLabel',
+  'kitchen:availability.save',
+  'kitchen:availability.saveError',
+  'kitchen:availability.savedToast',
+  'kitchen:availability.sectionTitle',
+  'kitchen:bilingual.arabicHint',
+  'kitchen:bilingual.arabicLabel',
+  'kitchen:bilingual.copyFromEnglish',
+  'kitchen:bilingual.englishHint',
+  'kitchen:bilingual.englishLabel',
+  'kitchen:bilingual.missingArabic',
+  'kitchen:bilingual.missingArabicHint',
+  'kitchen:branchHours.allClosedBody',
+  'kitchen:branchHours.allClosedTitle',
+  'kitchen:branchHours.backToHub',
+  'kitchen:branchHours.branchBadge',
+  'kitchen:branchHours.branchUnknown',
+  'kitchen:branchHours.closedBadge',
+  'kitchen:branchHours.closedLabel',
+  'kitchen:branchHours.closedNote',
+  'kitchen:branchHours.closesBeforeOpens',
+  'kitchen:branchHours.closesInvalid',
+  'kitchen:branchHours.closesLabel',
+  'kitchen:branchHours.contextNote',
+  'kitchen:branchHours.copiedAnnouncement',
+  'kitchen:branchHours.copyToOpenDays',
+  'kitchen:branchHours.cutOffAfterCloses',
+  'kitchen:branchHours.cutOffDayCount',
+  'kitchen:branchHours.cutOffHint',
+  'kitchen:branchHours.cutOffInvalid',
+  'kitchen:branchHours.cutOffLabel',
+  'kitchen:branchHours.cutOffNone',
+  'kitchen:branchHours.loadErrorTitle',
+  'kitchen:branchHours.noBranchBody',
+  'kitchen:branchHours.noBranchTitle',
+  'kitchen:branchHours.openDayCount',
+  'kitchen:branchHours.opensInvalid',
+  'kitchen:branchHours.opensLabel',
+  'kitchen:branchHours.save',
+  'kitchen:branchHours.saveError',
+  'kitchen:branchHours.savedToast',
+  'kitchen:branchHours.sectionContext',
+  'kitchen:branchHours.sectionWeek',
+  'kitchen:branchHours.timeZoneBadge',
+  'kitchen:branchHours.title',
+  'kitchen:branchHours.titleFor',
+  'kitchen:branchHours.weekIntro',
+  'kitchen:channels.createFirst',
+  'kitchen:channels.fromHint',
+  'kitchen:channels.fromLabel',
+  'kitchen:channels.save',
+  'kitchen:channels.saveError',
+  'kitchen:channels.savedToast',
+  'kitchen:channels.sectionHint',
+  'kitchen:channels.sectionTitle',
+  'kitchen:channels.untilHint',
+  'kitchen:channels.untilLabel',
+  'kitchen:classes.count',
+  'kitchen:classes.emptyBody',
+  'kitchen:classes.emptyTitle',
+  'kitchen:classes.errorTitle',
+  'kitchen:classes.governanceBody',
+  'kitchen:classes.governanceTitle',
+  'kitchen:classes.inactive',
+  'kitchen:classes.marketsLabel',
+  'kitchen:classes.noMarkets',
+  'kitchen:classes.referenceLabel',
+  'kitchen:classes.severe',
+  'kitchen:classes.subtitle',
+  'kitchen:classes.thresholdAny',
+  'kitchen:classes.thresholdLabel',
+  'kitchen:classes.thresholdValue',
+  'kitchen:classes.title',
+  'kitchen:common.add',
+  'kitchen:common.back',
+  'kitchen:common.cancel',
+  'kitchen:common.discard',
+  'kitchen:common.listSeparator',
+  'kitchen:common.notRecorded',
+  'kitchen:common.optional',
+  'kitchen:common.remove',
+  'kitchen:common.save',
+  'kitchen:common.saveDraft',
+  'kitchen:common.saving',
+  'kitchen:common.undo',
+  'kitchen:conflict.body',
+  'kitchen:conflict.keepEditing',
+  'kitchen:conflict.reload',
+  'kitchen:conflict.title',
+  'kitchen:containment.contains',
+  'kitchen:containment.mayContain',
+  'kitchen:editor.archive',
+  'kitchen:editor.archiveBody',
+  'kitchen:editor.archiveConfirm',
+  'kitchen:editor.archiveTitle',
+  'kitchen:editor.backToList',
+  'kitchen:editor.categoryRequired',
+  'kitchen:editor.createTitle',
+  'kitchen:editor.createdToast',
+  'kitchen:editor.editTitle',
+  'kitchen:editor.lastUpdated',
+  'kitchen:editor.lastUpdatedBy',
+  'kitchen:editor.lastUpdatedBySeed',
+  'kitchen:editor.loadErrorTitle',
+  'kitchen:editor.nameRequired',
+  'kitchen:editor.neverSaved',
+  'kitchen:editor.notFoundBody',
+  'kitchen:editor.notFoundTitle',
+  'kitchen:editor.platformLibraryBody',
+  'kitchen:editor.platformLibraryTitle',
+  'kitchen:editor.saveError',
+  'kitchen:editor.savedToast',
+  'kitchen:editor.sectionAliases',
+  'kitchen:editor.sectionAllergens',
+  'kitchen:editor.sectionClassification',
+  'kitchen:editor.sectionDetails',
+  'kitchen:editor.sectionNotes',
+  'kitchen:editor.unsaved',
+  'kitchen:families.allergenClasses.description',
+  'kitchen:families.allergenClasses.name',
+  'kitchen:families.analytics.description',
+  'kitchen:families.analytics.name',
+  'kitchen:families.branchOperating.description',
+  'kitchen:families.branchOperating.name',
+  'kitchen:families.consumptionExceptions.description',
+  'kitchen:families.consumptionExceptions.name',
+  'kitchen:families.costReport.description',
+  'kitchen:families.costReport.name',
+  'kitchen:families.deliveryZones.description',
+  'kitchen:families.deliveryZones.name',
+  'kitchen:families.ingredients.description',
+  'kitchen:families.ingredients.name',
+  'kitchen:families.meals.description',
+  'kitchen:families.meals.name',
+  'kitchen:families.orders.description',
+  'kitchen:families.orders.name',
+  'kitchen:families.plans.description',
+  'kitchen:families.plans.name',
+  'kitchen:families.priceLists.description',
+  'kitchen:families.priceLists.name',
+  'kitchen:families.procurement.description',
+  'kitchen:families.procurement.name',
+  'kitchen:families.production.description',
+  'kitchen:families.production.name',
+  'kitchen:families.products.description',
+  'kitchen:families.products.name',
+  'kitchen:families.purchases.description',
+  'kitchen:families.purchases.name',
+  'kitchen:families.qc.description',
+  'kitchen:families.qc.name',
+  'kitchen:families.quotations.description',
+  'kitchen:families.quotations.name',
+  'kitchen:families.recipes.description',
+  'kitchen:families.recipes.name',
+  'kitchen:families.review.description',
+  'kitchen:families.review.name',
+  'kitchen:families.stock.description',
+  'kitchen:families.stock.name',
+  'kitchen:fields.category',
+  'kitchen:fields.categoryHint',
+  'kitchen:fields.categoryPlaceholder',
+  'kitchen:fields.name',
+  'kitchen:fields.notes',
+  'kitchen:fields.notesHint',
+  'kitchen:fields.reference',
+  'kitchen:fields.referenceHint',
+  'kitchen:fields.unit',
+  'kitchen:fields.unitHint',
+  'kitchen:hub.countUnavailable',
+  'kitchen:hub.draftCount',
+  'kitchen:hub.emptyBody',
+  'kitchen:hub.emptyTitle',
+  'kitchen:hub.errorTitle',
+  'kitchen:hub.insightTag',
+  'kitchen:hub.itemCount',
+  'kitchen:hub.kpi.consumptionExceptions',
+  'kitchen:hub.kpi.deliveryZones',
+  'kitchen:hub.kpi.drafts',
+  'kitchen:hub.kpi.lowStock',
+  'kitchen:hub.kpi.needsReview',
+  'kitchen:hub.kpi.publishedMeals',
+  'kitchen:hub.open',
+  'kitchen:hub.openReview',
+  'kitchen:hub.publishedCount',
+  'kitchen:hub.quarantineCount',
+  'kitchen:hub.referenceOnly',
+  'kitchen:hub.subtitle',
+  'kitchen:hub.title',
+  'kitchen:kds.column.done',
+  'kitchen:kds.column.incoming',
+  'kitchen:kds.column.preparing',
+  'kitchen:kds.columnEmpty.done',
+  'kitchen:kds.columnEmpty.incoming',
+  'kitchen:kds.columnEmpty.preparing',
+  'kitchen:kds.conflictBody',
+  'kitchen:kds.conflictRefresh',
+  'kitchen:kds.conflictTitle',
+  'kitchen:kds.deliveryOn',
+  'kitchen:kds.deliveryOnAt',
+  'kitchen:kds.deliveryUnknown',
+  'kitchen:kds.emptyBody',
+  'kitchen:kds.emptyTitle',
+  'kitchen:kds.lastUpdated',
+  'kitchen:kds.lineSummary',
+  'kitchen:kds.loadErrorTitle',
+  'kitchen:kds.noBranchBody',
+  'kitchen:kds.noBranchTitle',
+  'kitchen:kds.placedAgo',
+  'kitchen:kds.ready',
+  'kitchen:kds.start',
+  'kitchen:kds.subtitle',
+  'kitchen:kds.title',
+  'kitchen:list.actionHeader',
+  'kitchen:list.allLoaded',
+  'kitchen:list.archive',
+  'kitchen:list.archiveFailed',
+  'kitchen:list.archivedToast',
+  'kitchen:list.caption',
+  'kitchen:list.columnAllergens',
+  'kitchen:list.columnCategory',
+  'kitchen:list.columnName',
+  'kitchen:list.columnStatus',
+  'kitchen:list.columnUpdated',
+  'kitchen:list.emptyBody',
+  'kitchen:list.emptyTitle',
+  'kitchen:list.filteredEmptyBody',
+  'kitchen:list.filteredEmptyTitle',
+  'kitchen:list.loadMore',
+  'kitchen:list.loadingMore',
+  'kitchen:list.missingArabic',
+  'kitchen:list.missingArabicHint',
+  'kitchen:list.noAllergens',
+  'kitchen:list.noCategory',
+  'kitchen:list.open',
+  'kitchen:list.subtitle',
+  'kitchen:list.title',
+  'kitchen:list.updatedBy',
+  'kitchen:list.updatedBySeed',
+  'kitchen:meals.allergensLabel',
+  'kitchen:meals.allergensNoProvenance',
+  'kitchen:meals.allergensNone',
+  'kitchen:meals.allergensProvenance',
+  'kitchen:meals.backToList',
+  'kitchen:meals.blockDescription',
+  'kitchen:meals.blockMealTypes',
+  'kitchen:meals.blockName',
+  'kitchen:meals.blockUnsaved',
+  'kitchen:meals.caption',
+  'kitchen:meals.channelsLabel',
+  'kitchen:meals.channelsReadOnly',
+  'kitchen:meals.columnAllergens',
+  'kitchen:meals.columnChannels',
+  'kitchen:meals.columnName',
+  'kitchen:meals.confidential',
+  'kitchen:meals.confidentialHint',
+  'kitchen:meals.create',
+  'kitchen:meals.createTitle',
+  'kitchen:meals.createdToast',
+  'kitchen:meals.descriptionLabel',
+  'kitchen:meals.dietsHint',
+  'kitchen:meals.dietsLabel',
+  'kitchen:meals.editTitle',
+  'kitchen:meals.emptyBody',
+  'kitchen:meals.emptyTitle',
+  'kitchen:meals.filteredEmptyBody',
+  'kitchen:meals.filteredEmptyTitle',
+  'kitchen:meals.loadErrorTitle',
+  'kitchen:meals.marginUnknown',
+  'kitchen:meals.marginValue',
+  'kitchen:meals.mealTypesLabel',
+  'kitchen:meals.nameRequired',
+  'kitchen:meals.noChannels',
+  'kitchen:meals.notFoundBody',
+  'kitchen:meals.notFoundTitle',
+  'kitchen:meals.openRecipe',
+  'kitchen:meals.portionHint',
+  'kitchen:meals.portionInvalid',
+  'kitchen:meals.portionLabel',
+  'kitchen:meals.publishAllergensNone',
+  'kitchen:meals.publishAllergensTitle',
+  'kitchen:meals.publishBlockedTitle',
+  'kitchen:meals.publishBody',
+  'kitchen:meals.publishConsequence',
+  'kitchen:meals.publishTitle',
+  'kitchen:meals.publishedBody',
+  'kitchen:meals.publishedTitle',
+  'kitchen:meals.publishedToast',
+  'kitchen:meals.recipeHint',
+  'kitchen:meals.recipeLabel',
+  'kitchen:meals.recipeNone',
+  'kitchen:meals.resultCount',
+  'kitchen:meals.retire',
+  'kitchen:meals.retireBody',
+  'kitchen:meals.retireConfirm',
+  'kitchen:meals.retireConsequence',
+  'kitchen:meals.retireFailed',
+  'kitchen:meals.retireTitle',
+  'kitchen:meals.retiredBody',
+  'kitchen:meals.retiredTitle',
+  'kitchen:meals.retiredToast',
+  'kitchen:meals.sectionDetails',
+  'kitchen:meals.sectionMargin',
+  'kitchen:meals.sectionRecipe',
+  'kitchen:meals.subtitle',
+  'kitchen:meals.title',
+  'kitchen:meals.typeFilterAll',
+  'kitchen:meals.typeFilterLabel',
+  'kitchen:meals.viewPublic',
+  'kitchen:meals.visibleToConsumers',
+  'kitchen:nav.groups.catalogue',
+  'kitchen:nav.groups.commercial',
+  'kitchen:nav.groups.operations',
+  'kitchen:nav.groups.workbench',
+  'kitchen:nav.overview',
+  'kitchen:nav.railTitle',
+  'kitchen:ops.costReport.caption',
+  'kitchen:ops.costReport.chartCogs',
+  'kitchen:ops.costReport.chartCogsMix',
+  'kitchen:ops.costReport.chartRevenueMix',
+  'kitchen:ops.costReport.chartRevenueTrend',
+  'kitchen:ops.costReport.cogsMixCenter',
+  'kitchen:ops.costReport.columnCogs',
+  'kitchen:ops.costReport.columnMargin',
+  'kitchen:ops.costReport.columnMarginPercent',
+  'kitchen:ops.costReport.columnMonth',
+  'kitchen:ops.costReport.columnRevenue',
+  'kitchen:ops.costReport.columnSpend',
+  'kitchen:ops.costReport.currencyLabel',
+  'kitchen:ops.costReport.dataQualityBody',
+  'kitchen:ops.costReport.dataQualityTitle',
+  'kitchen:ops.costReport.emptyBody',
+  'kitchen:ops.costReport.emptyTitle',
+  'kitchen:ops.costReport.filterFrom',
+  'kitchen:ops.costReport.filterTo',
+  'kitchen:ops.costReport.flagged',
+  'kitchen:ops.costReport.mixCenter',
+  'kitchen:ops.costReport.mixMeal',
+  'kitchen:ops.costReport.mixOther',
+  'kitchen:ops.costReport.mixProduct',
+  'kitchen:ops.costReport.subtitle',
+  'kitchen:ops.costReport.tileCogs',
+  'kitchen:ops.costReport.tileMargin',
+  'kitchen:ops.costReport.tileRevenue',
+  'kitchen:ops.costReport.tileSpend',
+  'kitchen:ops.costReport.title',
+  'kitchen:ops.exceptions.clearBadge',
+  'kitchen:ops.exceptions.columnBranch',
+  'kitchen:ops.exceptions.columnOrder',
+  'kitchen:ops.exceptions.columnRaised',
+  'kitchen:ops.exceptions.columnReason',
+  'kitchen:ops.exceptions.columnStatus',
+  'kitchen:ops.exceptions.emptyBody',
+  'kitchen:ops.exceptions.emptyTitle',
+  'kitchen:ops.exceptions.filterAll',
+  'kitchen:ops.exceptions.filterFrom',
+  'kitchen:ops.exceptions.filterResolved',
+  'kitchen:ops.exceptions.filterStatus',
+  'kitchen:ops.exceptions.filterUnresolved',
+  'kitchen:ops.exceptions.nextPage',
+  'kitchen:ops.exceptions.openBadge',
+  'kitchen:ops.exceptions.reasons.insufficient_stock',
+  'kitchen:ops.exceptions.reasons.no_branch',
+  'kitchen:ops.exceptions.reasons.no_catalogue_item',
+  'kitchen:ops.exceptions.reasons.no_ingredient_cost',
+  'kitchen:ops.exceptions.reasons.no_ingredient_link',
+  'kitchen:ops.exceptions.reasons.no_recipe_version',
+  'kitchen:ops.exceptions.reasons.no_stock_item',
+  'kitchen:ops.exceptions.reasons.no_stock_unit',
+  'kitchen:ops.exceptions.reasons.no_yield_piece_count',
+  'kitchen:ops.exceptions.reasons.unit_conversion_unsupported',
+  'kitchen:ops.exceptions.reasons.unquantified_recipe_line',
+  'kitchen:ops.exceptions.resolve',
+  'kitchen:ops.exceptions.resolvedBadge',
+  'kitchen:ops.exceptions.retry',
+  'kitchen:ops.exceptions.subtitle',
+  'kitchen:ops.exceptions.title',
+  'kitchen:ops.exceptions.unknownItem',
+  'kitchen:ops.exceptions.unknownOrder',
+  'kitchen:ops.exceptions.unresolvedCount',
+  'kitchen:ops.ledger.allSuppliers',
+  'kitchen:ops.ledger.columnDate',
+  'kitchen:ops.ledger.columnItem',
+  'kitchen:ops.ledger.columnLineTotal',
+  'kitchen:ops.ledger.columnSupplier',
+  'kitchen:ops.ledger.columnUnitPrice',
+  'kitchen:ops.ledger.emptyBody',
+  'kitchen:ops.ledger.emptyTitle',
+  'kitchen:ops.ledger.filterFrom',
+  'kitchen:ops.ledger.filterSupplier',
+  'kitchen:ops.ledger.filterTo',
+  'kitchen:ops.ledger.nextPage',
+  'kitchen:ops.ledger.noSupplier',
+  'kitchen:ops.ledger.subtitle',
+  'kitchen:ops.ledger.title',
+  'kitchen:ops.metricUnavailable',
+  'kitchen:ops.orders.allLoaded',
+  'kitchen:ops.orders.cancel',
+  'kitchen:ops.orders.cancelBody',
+  'kitchen:ops.orders.cancelConfirm',
+  'kitchen:ops.orders.cancelDismiss',
+  'kitchen:ops.orders.cancelReasonLabel',
+  'kitchen:ops.orders.cancelTitle',
+  'kitchen:ops.orders.cancellationHeading',
+  'kitchen:ops.orders.cancellationReason',
+  'kitchen:ops.orders.cancelledAt',
+  'kitchen:ops.orders.cancelledToast',
+  'kitchen:ops.orders.caption',
+  'kitchen:ops.orders.clearFilters',
+  'kitchen:ops.orders.columnActions',
+  'kitchen:ops.orders.columnDelivery',
+  'kitchen:ops.orders.columnItems',
+  'kitchen:ops.orders.columnNumber',
+  'kitchen:ops.orders.columnPlaced',
+  'kitchen:ops.orders.columnStatus',
+  'kitchen:ops.orders.columnTotal',
+  'kitchen:ops.orders.confirm',
+  'kitchen:ops.orders.confirmedAt',
+  'kitchen:ops.orders.confirmedToast',
+  'kitchen:ops.orders.conflictBody',
+  'kitchen:ops.orders.conflictRefresh',
+  'kitchen:ops.orders.conflictTitle',
+  'kitchen:ops.orders.deliveryAddress',
+  'kitchen:ops.orders.deliveryArea',
+  'kitchen:ops.orders.deliveryDate',
+  'kitchen:ops.orders.deliveryFee',
+  'kitchen:ops.orders.deliveryHeading',
+  'kitchen:ops.orders.deliveryWindow',
+  'kitchen:ops.orders.deliveryZone',
+  'kitchen:ops.orders.detailLoadErrorTitle',
+  'kitchen:ops.orders.detailTitle',
+  'kitchen:ops.orders.emptyBody',
+  'kitchen:ops.orders.emptyTitle',
+  'kitchen:ops.orders.filterAll',
+  'kitchen:ops.orders.filteredEmptyBody',
+  'kitchen:ops.orders.filteredEmptyTitle',
+  'kitchen:ops.orders.fulfil',
+  'kitchen:ops.orders.fulfilledAt',
+  'kitchen:ops.orders.fulfilledToast',
+  'kitchen:ops.orders.lineQuantity',
+  'kitchen:ops.orders.lineTotal',
+  'kitchen:ops.orders.lineUnitPrice',
+  'kitchen:ops.orders.linesHeading',
+  'kitchen:ops.orders.loadErrorTitle',
+  'kitchen:ops.orders.loadMore',
+  'kitchen:ops.orders.loadingMore',
+  'kitchen:ops.orders.metrics.awaiting',
+  'kitchen:ops.orders.metrics.confirmed',
+  'kitchen:ops.orders.metrics.loaded',
+  'kitchen:ops.orders.noAllergens',
+  'kitchen:ops.orders.noDeliveryFee',
+  'kitchen:ops.orders.open',
+  'kitchen:ops.orders.placedAt',
+  'kitchen:ops.orders.reason.addressUnreachable',
+  'kitchen:ops.orders.reason.customerRequested',
+  'kitchen:ops.orders.reason.deliveryUnavailable',
+  'kitchen:ops.orders.reason.kitchenUnableToFulfil',
+  'kitchen:ops.orders.saveFailed',
+  'kitchen:ops.orders.searchHint',
+  'kitchen:ops.orders.searchLabel',
+  'kitchen:ops.orders.status.cancelled',
+  'kitchen:ops.orders.status.confirmed',
+  'kitchen:ops.orders.status.fulfilled',
+  'kitchen:ops.orders.status.placed',
+  'kitchen:ops.orders.statusFilterLabel',
+  'kitchen:ops.orders.subtitle',
+  'kitchen:ops.orders.subtotal',
+  'kitchen:ops.orders.timelineHeading',
+  'kitchen:ops.orders.title',
+  'kitchen:ops.orders.total',
+  'kitchen:ops.orders.totalsHeading',
+  'kitchen:ops.procurement.addLine',
+  'kitchen:ops.procurement.columnLines',
+  'kitchen:ops.procurement.columnReceivedAt',
+  'kitchen:ops.procurement.columnSupplier',
+  'kitchen:ops.procurement.columnTotal',
+  'kitchen:ops.procurement.costsRedacted',
+  'kitchen:ops.procurement.emptyBody',
+  'kitchen:ops.procurement.emptyTitle',
+  'kitchen:ops.procurement.fieldDocumentRef',
+  'kitchen:ops.procurement.fieldLineItem',
+  'kitchen:ops.procurement.fieldLineQuantity',
+  'kitchen:ops.procurement.fieldLineUnit',
+  'kitchen:ops.procurement.fieldLineUnitPrice',
+  'kitchen:ops.procurement.fieldSupplier',
+  'kitchen:ops.procurement.fieldSupplierCode',
+  'kitchen:ops.procurement.fieldSupplierEmail',
+  'kitchen:ops.procurement.fieldSupplierName',
+  'kitchen:ops.procurement.fieldSupplierPhone',
+  'kitchen:ops.procurement.metrics.lines',
+  'kitchen:ops.procurement.metrics.receipts',
+  'kitchen:ops.procurement.metrics.suppliers',
+  'kitchen:ops.procurement.newSupplier',
+  'kitchen:ops.procurement.newSupplierFailed',
+  'kitchen:ops.procurement.newSupplierTitle',
+  'kitchen:ops.procurement.noSupplier',
+  'kitchen:ops.procurement.noSuppliers',
+  'kitchen:ops.procurement.notYetReceived',
+  'kitchen:ops.procurement.postFailed',
+  'kitchen:ops.procurement.postReceipt',
+  'kitchen:ops.procurement.postTitle',
+  'kitchen:ops.procurement.postedToast',
+  'kitchen:ops.procurement.receiptsTitle',
+  'kitchen:ops.procurement.removeLine',
+  'kitchen:ops.procurement.subtitle',
+  'kitchen:ops.procurement.supplierCreatedToast',
+  'kitchen:ops.procurement.suppliersTitle',
+  'kitchen:ops.procurement.title',
+  'kitchen:ops.production.columnActions',
+  'kitchen:ops.production.columnId',
+  'kitchen:ops.production.columnStatus',
+  'kitchen:ops.production.complete',
+  'kitchen:ops.production.completedToast',
+  'kitchen:ops.production.create',
+  'kitchen:ops.production.createFailed',
+  'kitchen:ops.production.createSubmit',
+  'kitchen:ops.production.createTitle',
+  'kitchen:ops.production.createdToast',
+  'kitchen:ops.production.emptyBody',
+  'kitchen:ops.production.emptyTitle',
+  'kitchen:ops.production.loadErrorBody',
+  'kitchen:ops.production.loadErrorTitle',
+  'kitchen:ops.production.metrics.batches',
+  'kitchen:ops.production.metrics.inProgress',
+  'kitchen:ops.production.metrics.yield',
+  'kitchen:ops.production.noBranchBody',
+  'kitchen:ops.production.noBranchTitle',
+  'kitchen:ops.production.ordersHeading',
+  'kitchen:ops.production.status.cancelled',
+  'kitchen:ops.production.status.completed',
+  'kitchen:ops.production.status.inProgress',
+  'kitchen:ops.production.status.planned',
+  'kitchen:ops.production.subtitle',
+  'kitchen:ops.production.title',
+  'kitchen:ops.production.versionHint',
+  'kitchen:ops.production.versionLabel',
+  'kitchen:ops.qc.checksHeading',
+  'kitchen:ops.qc.columnActions',
+  'kitchen:ops.qc.columnStatus',
+  'kitchen:ops.qc.columnSubject',
+  'kitchen:ops.qc.create',
+  'kitchen:ops.qc.createFailed',
+  'kitchen:ops.qc.createSubmit',
+  'kitchen:ops.qc.createTitle',
+  'kitchen:ops.qc.createdToast',
+  'kitchen:ops.qc.emptyBody',
+  'kitchen:ops.qc.emptyTitle',
+  'kitchen:ops.qc.heldToast',
+  'kitchen:ops.qc.hold',
+  'kitchen:ops.qc.loadErrorBody',
+  'kitchen:ops.qc.loadErrorTitle',
+  'kitchen:ops.qc.metrics.holds',
+  'kitchen:ops.qc.metrics.openChecks',
+  'kitchen:ops.qc.metrics.releases',
+  'kitchen:ops.qc.release',
+  'kitchen:ops.qc.releasedToast',
+  'kitchen:ops.qc.status.hold',
+  'kitchen:ops.qc.status.passed',
+  'kitchen:ops.qc.status.pending',
+  'kitchen:ops.qc.status.released',
+  'kitchen:ops.qc.subject.goodsReceipt',
+  'kitchen:ops.qc.subject.productionOrder',
+  'kitchen:ops.qc.subjectIdHint',
+  'kitchen:ops.qc.subjectIdLabel',
+  'kitchen:ops.qc.subjectTypeLabel',
+  'kitchen:ops.qc.subtitle',
+  'kitchen:ops.qc.title',
+  'kitchen:ops.quotations.caption',
+  'kitchen:ops.quotations.clearFilter',
+  'kitchen:ops.quotations.columnActions',
+  'kitchen:ops.quotations.columnCurrency',
+  'kitchen:ops.quotations.columnReference',
+  'kitchen:ops.quotations.columnStatus',
+  'kitchen:ops.quotations.columnSubmitted',
+  'kitchen:ops.quotations.conflictBody',
+  'kitchen:ops.quotations.conflictRefresh',
+  'kitchen:ops.quotations.conflictTitle',
+  'kitchen:ops.quotations.currency',
+  'kitchen:ops.quotations.decidedAt',
+  'kitchen:ops.quotations.declineHeading',
+  'kitchen:ops.quotations.detailLoadErrorTitle',
+  'kitchen:ops.quotations.detailTitle',
+  'kitchen:ops.quotations.emptyBody',
+  'kitchen:ops.quotations.emptyTitle',
+  'kitchen:ops.quotations.expiresAt',
+  'kitchen:ops.quotations.filter.all',
+  'kitchen:ops.quotations.filter.awaiting',
+  'kitchen:ops.quotations.filter.closed',
+  'kitchen:ops.quotations.filter.quoted',
+  'kitchen:ops.quotations.filterLabel',
+  'kitchen:ops.quotations.filteredEmptyBody',
+  'kitchen:ops.quotations.filteredEmptyTitle',
+  'kitchen:ops.quotations.guidanceBody',
+  'kitchen:ops.quotations.guidanceTitle',
+  'kitchen:ops.quotations.lineColumn',
+  'kitchen:ops.quotations.lineNotPriced',
+  'kitchen:ops.quotations.linePriceHint',
+  'kitchen:ops.quotations.linePriceInvalid',
+  'kitchen:ops.quotations.linePriceLabel',
+  'kitchen:ops.quotations.lineQuantity',
+  'kitchen:ops.quotations.lineTotal',
+  'kitchen:ops.quotations.lineUnitPrice',
+  'kitchen:ops.quotations.lineUnnamed',
+  'kitchen:ops.quotations.linesHeading',
+  'kitchen:ops.quotations.loadErrorTitle',
+  'kitchen:ops.quotations.metrics.awaiting',
+  'kitchen:ops.quotations.metrics.loaded',
+  'kitchen:ops.quotations.metrics.quoted',
+  'kitchen:ops.quotations.noLines',
+  'kitchen:ops.quotations.noNotes',
+  'kitchen:ops.quotations.notPricedYet',
+  'kitchen:ops.quotations.notes',
+  'kitchen:ops.quotations.open',
+  'kitchen:ops.quotations.price',
+  'kitchen:ops.quotations.programme',
+  'kitchen:ops.quotations.quotedAt',
+  'kitchen:ops.quotations.quotedToast',
+  'kitchen:ops.quotations.requestHeading',
+  'kitchen:ops.quotations.send',
+  'kitchen:ops.quotations.staleBody',
+  'kitchen:ops.quotations.staleTitle',
+  'kitchen:ops.quotations.status.accepted',
+  'kitchen:ops.quotations.status.declined',
+  'kitchen:ops.quotations.status.expired',
+  'kitchen:ops.quotations.status.quoted',
+  'kitchen:ops.quotations.status.submitted',
+  'kitchen:ops.quotations.submittedAt',
+  'kitchen:ops.quotations.subtitle',
+  'kitchen:ops.quotations.timelineHeading',
+  'kitchen:ops.quotations.title',
+  'kitchen:ops.quotations.total',
+  'kitchen:ops.quotations.totalsHeading',
+  'kitchen:ops.readyForApi',
+  'kitchen:ops.stock.adjust',
+  'kitchen:ops.stock.adjustHint',
+  'kitchen:ops.stock.adjustTitle',
+  'kitchen:ops.stock.adjustedToast',
+  'kitchen:ops.stock.columnActions',
+  'kitchen:ops.stock.columnHeld',
+  'kitchen:ops.stock.columnItem',
+  'kitchen:ops.stock.columnQuantity',
+  'kitchen:ops.stock.columnThreshold',
+  'kitchen:ops.stock.columnUnit',
+  'kitchen:ops.stock.direction',
+  'kitchen:ops.stock.directionDecrease',
+  'kitchen:ops.stock.directionIncrease',
+  'kitchen:ops.stock.emptyBody',
+  'kitchen:ops.stock.emptyShelf',
+  'kitchen:ops.stock.emptyTitle',
+  'kitchen:ops.stock.fieldAdjustQuantity',
+  'kitchen:ops.stock.fieldParLevel',
+  'kitchen:ops.stock.fieldParLevelHint',
+  'kitchen:ops.stock.fieldThreshold',
+  'kitchen:ops.stock.fieldThresholdHint',
+  'kitchen:ops.stock.fieldWasteQuantity',
+  'kitchen:ops.stock.inStockBadge',
+  'kitchen:ops.stock.ingredientsEmptyBody',
+  'kitchen:ops.stock.ingredientsEmptyTitle',
+  'kitchen:ops.stock.ingredientsHint',
+  'kitchen:ops.stock.ingredientsTitle',
+  'kitchen:ops.stock.levelsTitle',
+  'kitchen:ops.stock.lowBadge',
+  'kitchen:ops.stock.lowStockCount',
+  'kitchen:ops.stock.metrics.ingredients',
+  'kitchen:ops.stock.metrics.levels',
+  'kitchen:ops.stock.metrics.lowStock',
+  'kitchen:ops.stock.metrics.outOfStock',
+  'kitchen:ops.stock.metrics.products',
+  'kitchen:ops.stock.neverStocked',
+  'kitchen:ops.stock.noLevels',
+  'kitchen:ops.stock.noThreshold',
+  'kitchen:ops.stock.productsEmptyBody',
+  'kitchen:ops.stock.productsEmptyTitle',
+  'kitchen:ops.stock.productsHint',
+  'kitchen:ops.stock.productsTitle',
+  'kitchen:ops.stock.subtitle',
+  'kitchen:ops.stock.threshold',
+  'kitchen:ops.stock.thresholdClearedToast',
+  'kitchen:ops.stock.thresholdSetToast',
+  'kitchen:ops.stock.thresholdTitle',
+  'kitchen:ops.stock.title',
+  'kitchen:ops.stock.waste',
+  'kitchen:ops.stock.wasteTitle',
+  'kitchen:ops.stock.wastedToast',
+  'kitchen:plans.addCombination',
+  'kitchen:plans.addDuration',
+  'kitchen:plans.backToList',
+  'kitchen:plans.bandAddAction',
+  'kitchen:plans.bandAddBody',
+  'kitchen:plans.bandAddIncomplete',
+  'kitchen:plans.bandAddReady',
+  'kitchen:plans.bandAddTitle',
+  'kitchen:plans.bandRange',
+  'kitchen:plans.blockDurations',
+  'kitchen:plans.blockInconsistentDurations',
+  'kitchen:plans.blockName',
+  'kitchen:plans.blockNoConfirmedPrice',
+  'kitchen:plans.blockSummary',
+  'kitchen:plans.blockUnsaved',
+  'kitchen:plans.blockVariants',
+  'kitchen:plans.caption',
+  'kitchen:plans.categoriesHint',
+  'kitchen:plans.categoriesLabel',
+  'kitchen:plans.categoriesNone',
+  'kitchen:plans.categoryAddAction',
+  'kitchen:plans.categoryAddHint',
+  'kitchen:plans.categoryAddLabel',
+  'kitchen:plans.cellLabel',
+  'kitchen:plans.cellNotSold',
+  'kitchen:plans.cellRemoved',
+  'kitchen:plans.cellSold',
+  'kitchen:plans.cellVariantCount',
+  'kitchen:plans.columnDurations',
+  'kitchen:plans.columnName',
+  'kitchen:plans.columnPrices',
+  'kitchen:plans.columnVariants',
+  'kitchen:plans.combinationAvailableHint',
+  'kitchen:plans.combinationAvailableLabel',
+  'kitchen:plans.combinationCodeDuplicate',
+  'kitchen:plans.combinationCodeHint',
+  'kitchen:plans.combinationCodeLabel',
+  'kitchen:plans.combinationCodeRequired',
+  'kitchen:plans.combinationCount',
+  'kitchen:plans.combinationLabelLabel',
+  'kitchen:plans.combinationLabelRequired',
+  'kitchen:plans.combinationNumber',
+  'kitchen:plans.combinationRemoved',
+  'kitchen:plans.combinationUnavailable',
+  'kitchen:plans.combinationsEmpty',
+  'kitchen:plans.combinationsHelp',
+  'kitchen:plans.combinationsSavedToast',
+  'kitchen:plans.confirmedPriceCount',
+  'kitchen:plans.coordinateHint',
+  'kitchen:plans.coverage',
+  'kitchen:plans.create',
+  'kitchen:plans.createFirst',
+  'kitchen:plans.createTitle',
+  'kitchen:plans.createdToast',
+  'kitchen:plans.cutOffHint',
+  'kitchen:plans.cutOffLabel',
+  'kitchen:plans.cutOffRequired',
+  'kitchen:plans.cutOffUnit',
+  'kitchen:plans.dayCount',
+  'kitchen:plans.dayCountList',
+  'kitchen:plans.daysAbsentHint',
+  'kitchen:plans.daysHint',
+  'kitchen:plans.daysLabel',
+  'kitchen:plans.daysRequired',
+  'kitchen:plans.daysUnit',
+  'kitchen:plans.descriptionLabel',
+  'kitchen:plans.dietsLabel',
+  'kitchen:plans.discountHint',
+  'kitchen:plans.discountInvalid',
+  'kitchen:plans.discountLabel',
+  'kitchen:plans.discountNotSet',
+  'kitchen:plans.discountNotSetExplainer',
+  'kitchen:plans.discountSetExplainer',
+  'kitchen:plans.discountUnit',
+  'kitchen:plans.discountValue',
+  'kitchen:plans.discountZeroExplainer',
+  'kitchen:plans.durationCount',
+  'kitchen:plans.durationDuplicate',
+  'kitchen:plans.durationNumber',
+  'kitchen:plans.durationRemoved',
+  'kitchen:plans.durationsEmpty',
+  'kitchen:plans.durationsHelp',
+  'kitchen:plans.durationsSaveError',
+  'kitchen:plans.durationsSavedToast',
+  'kitchen:plans.editTitle',
+  'kitchen:plans.emptyBody',
+  'kitchen:plans.emptyTitle',
+  'kitchen:plans.energyMaxLabel',
+  'kitchen:plans.energyMinLabel',
+  'kitchen:plans.energyRequired',
+  'kitchen:plans.energyReversed',
+  'kitchen:plans.energyUnit',
+  'kitchen:plans.filteredEmptyBody',
+  'kitchen:plans.filteredEmptyTitle',
+  'kitchen:plans.inactiveCount',
+  'kitchen:plans.inconsistentDurationCount',
+  'kitchen:plans.kindFixedDays',
+  'kitchen:plans.kindLabel',
+  'kitchen:plans.kindOneOff',
+  'kitchen:plans.loadErrorTitle',
+  'kitchen:plans.matrixCaption',
+  'kitchen:plans.matrixEmpty',
+  'kitchen:plans.matrixHelp',
+  'kitchen:plans.matrixRowHeader',
+  'kitchen:plans.matrixSaveError',
+  'kitchen:plans.mealsPerDayLabel',
+  'kitchen:plans.nameRequired',
+  'kitchen:plans.newVariantName',
+  'kitchen:plans.noDurations',
+  'kitchen:plans.noFixedDurations',
+  'kitchen:plans.noVariants',
+  'kitchen:plans.notFoundBody',
+  'kitchen:plans.notFoundTitle',
+  'kitchen:plans.oneOffCount',
+  'kitchen:plans.openPriceLists',
+  'kitchen:plans.placeholderPriceCount',
+  'kitchen:plans.pricesHelp',
+  'kitchen:plans.pricesPending',
+  'kitchen:plans.publishBlockedTitle',
+  'kitchen:plans.publishBody',
+  'kitchen:plans.publishConsequence',
+  'kitchen:plans.publishPricesBody',
+  'kitchen:plans.publishPricesTitle',
+  'kitchen:plans.publishRefusedPriceTitle',
+  'kitchen:plans.publishTitle',
+  'kitchen:plans.publishedBody',
+  'kitchen:plans.publishedTitle',
+  'kitchen:plans.publishedToast',
+  'kitchen:plans.resultCount',
+  'kitchen:plans.retire',
+  'kitchen:plans.retireBody',
+  'kitchen:plans.retireConfirm',
+  'kitchen:plans.retireConsequence',
+  'kitchen:plans.retireTitle',
+  'kitchen:plans.retiredBody',
+  'kitchen:plans.retiredTitle',
+  'kitchen:plans.retiredToast',
+  'kitchen:plans.rowUndeclared',
+  'kitchen:plans.saveCombinations',
+  'kitchen:plans.saveDurations',
+  'kitchen:plans.saveVariants',
+  'kitchen:plans.sectionCombinations',
+  'kitchen:plans.sectionDetails',
+  'kitchen:plans.sectionDurations',
+  'kitchen:plans.sectionMatrix',
+  'kitchen:plans.sectionPrices',
+  'kitchen:plans.servingsRequired',
+  'kitchen:plans.servingsSummary',
+  'kitchen:plans.snacksPerDayLabel',
+  'kitchen:plans.subtitle',
+  'kitchen:plans.summaryLabel',
+  'kitchen:plans.title',
+  'kitchen:plans.undecidedDiscountCount',
+  'kitchen:plans.unnamedCombination',
+  'kitchen:plans.unnamedDuration',
+  'kitchen:plans.unnamedVariant',
+  'kitchen:plans.unpricedCount',
+  'kitchen:plans.variantActive',
+  'kitchen:plans.variantActiveHint',
+  'kitchen:plans.variantActiveLabel',
+  'kitchen:plans.variantCount',
+  'kitchen:plans.variantInactive',
+  'kitchen:plans.variantNameLabel',
+  'kitchen:plans.variantNameRequired',
+  'kitchen:plans.variantNumber',
+  'kitchen:plans.variantRemoved',
+  'kitchen:plans.variantsEmpty',
+  'kitchen:plans.variantsHelp',
+  'kitchen:plans.variantsSavedToast',
+  'kitchen:plans.variantsTitle',
+  'kitchen:plans.viewPublic',
+  'kitchen:plans.weekdaysHint',
+  'kitchen:plans.weekdaysLabel',
+  'kitchen:priceLists.addEntry',
+  'kitchen:priceLists.agreementBadge',
+  'kitchen:priceLists.amountDisabledHint',
+  'kitchen:priceLists.amountHint',
+  'kitchen:priceLists.amountInvalid',
+  'kitchen:priceLists.amountLabel',
+  'kitchen:priceLists.amountRequired',
+  'kitchen:priceLists.backToList',
+  'kitchen:priceLists.badgeConfirmed',
+  'kitchen:priceLists.badgeDaily',
+  'kitchen:priceLists.badgePending',
+  'kitchen:priceLists.blockInconsistent',
+  'kitchen:priceLists.blockNoEntries',
+  'kitchen:priceLists.blockUnsaved',
+  'kitchen:priceLists.caption',
+  'kitchen:priceLists.channelsLabel',
+  'kitchen:priceLists.columnChannels',
+  'kitchen:priceLists.columnCurrency',
+  'kitchen:priceLists.columnEntries',
+  'kitchen:priceLists.columnName',
+  'kitchen:priceLists.confidentialBody',
+  'kitchen:priceLists.confidentialTitle',
+  'kitchen:priceLists.confirmedCount',
+  'kitchen:priceLists.currencyLabel',
+  'kitchen:priceLists.datesReversed',
+  'kitchen:priceLists.effectiveFromLabel',
+  'kitchen:priceLists.effectiveUntilHint',
+  'kitchen:priceLists.effectiveUntilLabel',
+  'kitchen:priceLists.emptyBody',
+  'kitchen:priceLists.emptyTitle',
+  'kitchen:priceLists.entriesEmpty',
+  'kitchen:priceLists.entriesHelp',
+  'kitchen:priceLists.entriesTitle',
+  'kitchen:priceLists.entryCount',
+  'kitchen:priceLists.entryNumber',
+  'kitchen:priceLists.entryRemoved',
+  'kitchen:priceLists.factsTitle',
+  'kitchen:priceLists.filteredEmptyBody',
+  'kitchen:priceLists.filteredEmptyTitle',
+  'kitchen:priceLists.inconsistentCount',
+  'kitchen:priceLists.itemDuplicate',
+  'kitchen:priceLists.itemHint',
+  'kitchen:priceLists.itemLabel',
+  'kitchen:priceLists.itemPlaceholder',
+  'kitchen:priceLists.itemRequired',
+  'kitchen:priceLists.kindMeal',
+  'kitchen:priceLists.kindPlan',
+  'kitchen:priceLists.kindProduct',
+  'kitchen:priceLists.loadErrorTitle',
+  'kitchen:priceLists.marketCount',
+  'kitchen:priceLists.marketPricedExplainer',
+  'kitchen:priceLists.noChannels',
+  'kitchen:priceLists.noEntries',
+  'kitchen:priceLists.notFoundBody',
+  'kitchen:priceLists.notFoundTitle',
+  'kitchen:priceLists.noteHint',
+  'kitchen:priceLists.noteLabel',
+  'kitchen:priceLists.packHint',
+  'kitchen:priceLists.packLabel',
+  'kitchen:priceLists.placeholderCount',
+  'kitchen:priceLists.placeholderExplainer',
+  'kitchen:priceLists.publishBlockedTitle',
+  'kitchen:priceLists.publishBody',
+  'kitchen:priceLists.publishConsequence',
+  'kitchen:priceLists.publishExcludedBody',
+  'kitchen:priceLists.publishExcludedTitle',
+  'kitchen:priceLists.publishRefusedEntries',
+  'kitchen:priceLists.publishTitle',
+  'kitchen:priceLists.publishedBody',
+  'kitchen:priceLists.publishedTitle',
+  'kitchen:priceLists.publishedToast',
+  'kitchen:priceLists.readOnlyNote',
+  'kitchen:priceLists.resultCount',
+  'kitchen:priceLists.saveEntries',
+  'kitchen:priceLists.saveFailedTitle',
+  'kitchen:priceLists.savedToast',
+  'kitchen:priceLists.statusLabel',
+  'kitchen:priceLists.subtitle',
+  'kitchen:priceLists.title',
+  'kitchen:priceLists.unknownItem',
+  'kitchen:priceLists.unnamedEntry',
+  'kitchen:priceLists.variantHint',
+  'kitchen:priceLists.variantLabel',
+  'kitchen:priceLists.variantPlaceholder',
+  'kitchen:priceLists.wholePlan',
+  'kitchen:priceStatus.confirmed',
+  'kitchen:priceStatus.marketPriced',
+  'kitchen:priceStatus.placeholder',
+  'kitchen:products.addPack',
+  'kitchen:products.archiveBody',
+  'kitchen:products.archiveConfirm',
+  'kitchen:products.archiveConsequence',
+  'kitchen:products.archiveFailed',
+  'kitchen:products.archiveTitle',
+  'kitchen:products.archivedBody',
+  'kitchen:products.archivedTitle',
+  'kitchen:products.archivedToast',
+  'kitchen:products.assortedHint',
+  'kitchen:products.assortedLabel',
+  'kitchen:products.assortedShort',
+  'kitchen:products.backToList',
+  'kitchen:products.caption',
+  'kitchen:products.categoryFilterAll',
+  'kitchen:products.categoryFilterLabel',
+  'kitchen:products.categoryHint',
+  'kitchen:products.columnCategory',
+  'kitchen:products.columnChannels',
+  'kitchen:products.columnName',
+  'kitchen:products.columnPacks',
+  'kitchen:products.create',
+  'kitchen:products.createTitle',
+  'kitchen:products.createdToast',
+  'kitchen:products.dataQualityBody',
+  'kitchen:products.dataQualityCount',
+  'kitchen:products.dataQualityTitle',
+  'kitchen:products.defaultPack',
+  'kitchen:products.descriptionLabel',
+  'kitchen:products.dietsLabel',
+  'kitchen:products.dietsNone',
+  'kitchen:products.dietsProvenance',
+  'kitchen:products.editTitle',
+  'kitchen:products.emptyBody',
+  'kitchen:products.emptyTitle',
+  'kitchen:products.filteredEmptyBody',
+  'kitchen:products.filteredEmptyTitle',
+  'kitchen:products.loadErrorTitle',
+  'kitchen:products.marketPricedHint',
+  'kitchen:products.marketPricedLabel',
+  'kitchen:products.marketPricedShort',
+  'kitchen:products.nameRequired',
+  'kitchen:products.noChannels',
+  'kitchen:products.noPacks',
+  'kitchen:products.notFoundBody',
+  'kitchen:products.notFoundTitle',
+  'kitchen:products.openRecipe',
+  'kitchen:products.packCodeDuplicate',
+  'kitchen:products.packCodeHint',
+  'kitchen:products.packCodeLabel',
+  'kitchen:products.packCodeRequired',
+  'kitchen:products.packCount',
+  'kitchen:products.packLabel',
+  'kitchen:products.packMeasure',
+  'kitchen:products.packNumber',
+  'kitchen:products.packQuantityInvalid',
+  'kitchen:products.packQuantityLabel',
+  'kitchen:products.packRemoved',
+  'kitchen:products.packUnitLabel',
+  'kitchen:products.packsEmpty',
+  'kitchen:products.packsHint',
+  'kitchen:products.productCount',
+  'kitchen:products.quarantineBody',
+  'kitchen:products.quarantineTitle',
+  'kitchen:products.recipeHint',
+  'kitchen:products.recipeLabel',
+  'kitchen:products.recipeNone',
+  'kitchen:products.recipeNoneHint',
+  'kitchen:products.resultCount',
+  'kitchen:products.sectionDetails',
+  'kitchen:products.sectionPacks',
+  'kitchen:products.sectionRecipe',
+  'kitchen:products.subtitle',
+  'kitchen:products.title',
+  'kitchen:products.unitsPerPackHint',
+  'kitchen:products.unitsPerPackInvalid',
+  'kitchen:products.unitsPerPackLabel',
+  'kitchen:products.unnamedPack',
+  'kitchen:publish.action',
+  'kitchen:publish.allergenRow',
+  'kitchen:publish.allergenRowsNone',
+  'kitchen:publish.allergenRowsTitle',
+  'kitchen:publish.blockDescription',
+  'kitchen:publish.blockIngredientState',
+  'kitchen:publish.blockName',
+  'kitchen:publish.blockNoLines',
+  'kitchen:publish.blockUnsaved',
+  'kitchen:publish.blockedTitle',
+  'kitchen:publish.body',
+  'kitchen:publish.confirm',
+  'kitchen:publish.consequence',
+  'kitchen:publish.failedTitle',
+  'kitchen:publish.publishedToast',
+  'kitchen:publish.quarantineBody',
+  'kitchen:publish.quarantineTitle',
+  'kitchen:publish.title',
+  'kitchen:publish.unmappedBody',
+  'kitchen:publish.unmappedTitle',
+  'kitchen:recipes.addLine',
+  'kitchen:recipes.addOutput',
+  'kitchen:recipes.addStep',
+  'kitchen:recipes.archive',
+  'kitchen:recipes.archiveBody',
+  'kitchen:recipes.archiveConfirm',
+  'kitchen:recipes.archiveFailed',
+  'kitchen:recipes.archiveTitle',
+  'kitchen:recipes.archivedToast',
+  'kitchen:recipes.backToCurrentVersion',
+  'kitchen:recipes.backToList',
+  'kitchen:recipes.caption',
+  'kitchen:recipes.columnAllergens',
+  'kitchen:recipes.columnName',
+  'kitchen:recipes.columnVersion',
+  'kitchen:recipes.completenessOutstanding',
+  'kitchen:recipes.completenessReady',
+  'kitchen:recipes.confidential',
+  'kitchen:recipes.confidentialHint',
+  'kitchen:recipes.create',
+  'kitchen:recipes.createHintBody',
+  'kitchen:recipes.createHintTitle',
+  'kitchen:recipes.createTitle',
+  'kitchen:recipes.createdToast',
+  'kitchen:recipes.currentVersion',
+  'kitchen:recipes.descriptionLabel',
+  'kitchen:recipes.draftOpenedToast',
+  'kitchen:recipes.emptyBody',
+  'kitchen:recipes.emptyTitle',
+  'kitchen:recipes.filteredEmptyBody',
+  'kitchen:recipes.filteredEmptyTitle',
+  'kitchen:recipes.immutableBody',
+  'kitchen:recipes.immutableTitle',
+  'kitchen:recipes.kitchenFilterAll',
+  'kitchen:recipes.kitchenFilterLabel',
+  'kitchen:recipes.lineCount',
+  'kitchen:recipes.lineIngredient',
+  'kitchen:recipes.lineIngredientPlaceholder',
+  'kitchen:recipes.lineNote',
+  'kitchen:recipes.lineNoteHint',
+  'kitchen:recipes.lineNumber',
+  'kitchen:recipes.lineQuantity',
+  'kitchen:recipes.lineQuantityHint',
+  'kitchen:recipes.lineRemoved',
+  'kitchen:recipes.lineUnit',
+  'kitchen:recipes.lineUnitUnknownDimension',
+  'kitchen:recipes.linesDescription',
+  'kitchen:recipes.linesEmpty',
+  'kitchen:recipes.loadErrorTitle',
+  'kitchen:recipes.markOptional',
+  'kitchen:recipes.markRequired',
+  'kitchen:recipes.nameRequired',
+  'kitchen:recipes.newDraft',
+  'kitchen:recipes.newDraftFromVersion',
+  'kitchen:recipes.noAllergens',
+  'kitchen:recipes.notFoundBody',
+  'kitchen:recipes.notFoundTitle',
+  'kitchen:recipes.open',
+  'kitchen:recipes.optional',
+  'kitchen:recipes.outputCount',
+  'kitchen:recipes.outputIngredient',
+  'kitchen:recipes.outputNumber',
+  'kitchen:recipes.outputsEmpty',
+  'kitchen:recipes.outputsExplainerBody',
+  'kitchen:recipes.outputsExplainerTitle',
+  'kitchen:recipes.primaryOutput',
+  'kitchen:recipes.primaryOutputHint',
+  'kitchen:recipes.primaryOutputLabel',
+  'kitchen:recipes.primaryOutputPlaceholder',
+  'kitchen:recipes.primaryOutputRequired',
+  'kitchen:recipes.quarantined',
+  'kitchen:recipes.recipeCount',
+  'kitchen:recipes.resultCount',
+  'kitchen:recipes.retire',
+  'kitchen:recipes.saveErrorTitle',
+  'kitchen:recipes.saveFailed',
+  'kitchen:recipes.savedToast',
+  'kitchen:recipes.sectionDetails',
+  'kitchen:recipes.sectionLines',
+  'kitchen:recipes.sectionOutputs',
+  'kitchen:recipes.sectionSteps',
+  'kitchen:recipes.sectionVersions',
+  'kitchen:recipes.sectionYield',
+  'kitchen:recipes.stepCount',
+  'kitchen:recipes.stepInstruction',
+  'kitchen:recipes.stepMinutes',
+  'kitchen:recipes.stepMinutesHint',
+  'kitchen:recipes.stepNumber',
+  'kitchen:recipes.stepRemoved',
+  'kitchen:recipes.stepsDescription',
+  'kitchen:recipes.stepsEmpty',
+  'kitchen:recipes.subtitle',
+  'kitchen:recipes.title',
+  'kitchen:recipes.unnamedLine',
+  'kitchen:recipes.unnamedOutput',
+  'kitchen:recipes.versionCount',
+  'kitchen:recipes.versionNumber',
+  'kitchen:recipes.versionSelect',
+  'kitchen:recipes.versionSelected',
+  'kitchen:recipes.versionUnavailableBody',
+  'kitchen:recipes.versionUnavailableTitle',
+  'kitchen:recipes.versionsDescription',
+  'kitchen:recipes.wastePercent',
+  'kitchen:recipes.wastePercentHint',
+  'kitchen:recipes.yieldDescription',
+  'kitchen:recipes.yieldPieces',
+  'kitchen:recipes.yieldPiecesHint',
+  'kitchen:recipes.yieldQuantity',
+  'kitchen:recipes.yieldRequired',
+  'kitchen:recipes.yieldUnit',
+  'kitchen:review.blockedCount',
+  'kitchen:review.clearBadge',
+  'kitchen:review.clearBody',
+  'kitchen:review.clearTitle',
+  'kitchen:review.errorTitle',
+  'kitchen:review.notChecked',
+  'kitchen:review.open',
+  'kitchen:review.reasonDataQuality',
+  'kitchen:review.reasonDerivationStale',
+  'kitchen:review.reasonInconsistentPrices',
+  'kitchen:review.reasonMissingTranslation',
+  'kitchen:review.reasonQuarantined',
+  'kitchen:review.reasonUnverifiedAllergens',
+  'kitchen:review.scope',
+  'kitchen:review.sectionCount',
+  'kitchen:review.subtitle',
+  'kitchen:review.summaryBlocked',
+  'kitchen:review.summaryTitle',
+  'kitchen:review.summaryUnblocked',
+  'kitchen:review.title',
+  'kitchen:review.truncatedBody',
+  'kitchen:review.truncatedTitle',
+  'kitchen:review.updatedBy',
+  'kitchen:review.updatedBySeed',
+  'kitchen:review.waitingCount',
+  'kitchen:rollup.allergenFrom',
+  'kitchen:rollup.allergenNoSources',
+  'kitchen:rollup.allergenProvenanceHint',
+  'kitchen:rollup.allergensNone',
+  'kitchen:rollup.allergensTitle',
+  'kitchen:rollup.confidential',
+  'kitchen:rollup.costHint',
+  'kitchen:rollup.costPerServing',
+  'kitchen:rollup.costTitle',
+  'kitchen:rollup.costTotal',
+  'kitchen:rollup.costUnknown',
+  'kitchen:rollup.description',
+  'kitchen:rollup.empty',
+  'kitchen:rollup.errorTitle',
+  'kitchen:rollup.factsTitle',
+  'kitchen:rollup.refreshing',
+  'kitchen:rollup.staleErrorTitle',
+  'kitchen:rollup.title',
+  'kitchen:rollup.unsavedNotice',
+  'kitchen:rollup.warningLines',
+  'kitchen:rollup.warningMissingCost',
+  'kitchen:rollup.warningMissingFacts',
+  'kitchen:rollup.warningUnconvertibleUnit',
+  'kitchen:rollup.warningUnknownIngredient',
+  'kitchen:rollup.warningsNone',
+  'kitchen:rollup.warningsTitle',
+  'kitchen:rows.moveDown',
+  'kitchen:rows.moveUp',
+  'kitchen:rows.movedAnnouncement',
+  'kitchen:rows.remove',
+  'kitchen:status.all',
+  'kitchen:status.draft',
+  'kitchen:status.label',
+  'kitchen:status.operational.active',
+  'kitchen:status.operational.archived',
+  'kitchen:status.operational.inactive',
+  'kitchen:status.published',
+  'kitchen:status.retired',
+  'kitchen:status.reviewRequired',
+  'kitchen:time.formatHint',
+  'kitchen:time.placeholder',
+  'kitchen:title',
+  'kitchen:toolbar.categoryAll',
+  'kitchen:toolbar.categoryLabel',
+  'kitchen:toolbar.clearFilters',
+  'kitchen:toolbar.create',
+  'kitchen:toolbar.resultCount',
+  'kitchen:toolbar.searchLabel',
+  'kitchen:toolbar.searchPlaceholder',
+  'kitchen:toolbar.statusLabel',
+  'kitchen:units.cup',
+  'kitchen:units.dimensionCount',
+  'kitchen:units.dimensionMass',
+  'kitchen:units.dimensionServing',
+  'kitchen:units.dimensionVolume',
+  'kitchen:units.g',
+  'kitchen:units.kg',
+  'kitchen:units.l',
+  'kitchen:units.ml',
+  'kitchen:units.piece',
+  'kitchen:units.portion',
+  'kitchen:units.slice',
+  'kitchen:units.tbsp',
+  'kitchen:units.tsp',
+  'kitchen:unsaved.body',
+  'kitchen:unsaved.browserPrompt',
+  'kitchen:unsaved.discard',
+  'kitchen:unsaved.keepEditing',
+  'kitchen:unsaved.title',
+  'kitchen:verification.laboratoryTested',
+  'kitchen:verification.operatorConfirmed',
+  'kitchen:verification.supplierDeclared',
+  'kitchen:verification.unverified',
+  'kitchen:windows.activeHint',
+  'kitchen:windows.activeLabel',
+  'kitchen:windows.add',
+  'kitchen:windows.capacityHint',
+  'kitchen:windows.capacityInvalid',
+  'kitchen:windows.capacityLabel',
+  'kitchen:windows.capacityUncapped',
+  'kitchen:windows.count',
+  'kitchen:windows.coveredDayCount',
+  'kitchen:windows.endBeforeStart',
+  'kitchen:windows.endInvalid',
+  'kitchen:windows.endsLabel',
+  'kitchen:windows.inactiveBadge',
+  'kitchen:windows.labelField',
+  'kitchen:windows.labelRequired',
+  'kitchen:windows.none',
+  'kitchen:windows.removed',
+  'kitchen:windows.rowTitle',
+  'kitchen:windows.save',
+  'kitchen:windows.saveError',
+  'kitchen:windows.savedToast',
+  'kitchen:windows.startInvalid',
+  'kitchen:windows.startsLabel',
+  'kitchen:windows.weekdaysHint',
+  'kitchen:windows.weekdaysLabel',
+  'kitchen:windows.weekdaysRequired',
+  'kitchen:zones.amountInvalid',
+  'kitchen:zones.archiveAreaCount',
+  'kitchen:zones.archiveBody',
+  'kitchen:zones.archiveBranchCount',
+  'kitchen:zones.archiveConfirm',
+  'kitchen:zones.archiveConsequence',
+  'kitchen:zones.archiveTitle',
+  'kitchen:zones.archiveWindowCount',
+  'kitchen:zones.archivedBody',
+  'kitchen:zones.archivedTitle',
+  'kitchen:zones.archivedToast',
+  'kitchen:zones.areaCount',
+  'kitchen:zones.areasIntro',
+  'kitchen:zones.backToList',
+  'kitchen:zones.branchCount',
+  'kitchen:zones.branchesLabel',
+  'kitchen:zones.branchesReadOnly',
+  'kitchen:zones.caption',
+  'kitchen:zones.columnAreas',
+  'kitchen:zones.columnCharges',
+  'kitchen:zones.columnEstimated',
+  'kitchen:zones.columnName',
+  'kitchen:zones.columnWindows',
+  'kitchen:zones.create',
+  'kitchen:zones.createFirst',
+  'kitchen:zones.createTitle',
+  'kitchen:zones.createdToast',
+  'kitchen:zones.currencyCreateHint',
+  'kitchen:zones.currencyFixedHint',
+  'kitchen:zones.currencyLabel',
+  'kitchen:zones.editTitle',
+  'kitchen:zones.emptyBody',
+  'kitchen:zones.emptyTitle',
+  'kitchen:zones.estimatedHint',
+  'kitchen:zones.estimatedLabel',
+  'kitchen:zones.estimatedMinutes',
+  'kitchen:zones.estimatedNone',
+  'kitchen:zones.estimatedUnit',
+  'kitchen:zones.feeHint',
+  'kitchen:zones.feeLabel',
+  'kitchen:zones.feeStateAmount',
+  'kitchen:zones.feeStateUnset',
+  'kitchen:zones.feeStateZero',
+  'kitchen:zones.feeValue',
+  'kitchen:zones.filteredEmptyBody',
+  'kitchen:zones.filteredEmptyTitle',
+  'kitchen:zones.freeDelivery',
+  'kitchen:zones.inactiveAreaCount',
+  'kitchen:zones.loadErrorTitle',
+  'kitchen:zones.minimumHint',
+  'kitchen:zones.minimumLabel',
+  'kitchen:zones.minimumStateAmount',
+  'kitchen:zones.minimumStateUnset',
+  'kitchen:zones.minimumStateZero',
+  'kitchen:zones.minimumValue',
+  'kitchen:zones.nameRequired',
+  'kitchen:zones.noActiveWindows',
+  'kitchen:zones.noAreas',
+  'kitchen:zones.noEstimate',
+  'kitchen:zones.noFeeRecorded',
+  'kitchen:zones.noMinimum',
+  'kitchen:zones.noMinimumRecorded',
+  'kitchen:zones.noWindows',
+  'kitchen:zones.notFoundBody',
+  'kitchen:zones.notFoundTitle',
+  'kitchen:zones.resultCount',
+  'kitchen:zones.sectionAreas',
+  'kitchen:zones.sectionDetails',
+  'kitchen:zones.sectionWindows',
+  'kitchen:zones.subtitle',
+  'kitchen:zones.title',
+  'kitchen:zones.uncoveredDayCount',
+  'kitchen:zones.windowCount',
+  'kitchen:zones.windowsIntro',
   'marketplace:allergens.celery',
   'marketplace:allergens.crustaceans',
   'marketplace:allergens.egg',
@@ -4146,6 +9030,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:filters.clear',
   'marketplace:filters.cuisine',
   'marketplace:filters.howToGetIt',
+  'marketplace:filters.itemType',
   'marketplace:filters.mealType',
   'marketplace:filters.resultCount',
   'marketplace:filters.specialism',
@@ -4190,6 +9075,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:itemTypes.meal',
+  'marketplace:itemTypes.product',
   'marketplace:kitchen.branchArea',
   'marketplace:kitchen.branchesTitle',
   'marketplace:kitchen.closedOn',
@@ -4214,6 +9101,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
   'marketplace:kitchens.imageLabel',
+  'marketplace:kitchens.noPublishedZone',
   'marketplace:kitchens.notRatedYet',
   'marketplace:kitchens.ratingLabel',
   'marketplace:kitchens.searchLabel',
@@ -4252,6 +9140,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:mealTypes.snack',
   'marketplace:medicalDisclaimer.body',
   'marketplace:medicalDisclaimer.title',
+  'marketplace:menu.allLoaded',
   'marketplace:menu.allergensTitle',
   'marketplace:menu.cardLabel',
   'marketplace:menu.containsAllergens',
@@ -4261,11 +9150,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.fullDetailsBody',
   'marketplace:menu.fullDetailsTitle',
   'marketplace:menu.imageLabel',
+  'marketplace:menu.loadMore',
+  'marketplace:menu.loadingMore',
   'marketplace:menu.noDeclaredAllergens',
+  'marketplace:menu.openMeal',
   'marketplace:menu.perServing',
   'marketplace:menu.preparationMinutes',
   'marketplace:menu.searchLabel',
   'marketplace:menu.searchPlaceholder',
+  'marketplace:menu.stats.carbohydrate',
+  'marketplace:menu.stats.energy',
+  'marketplace:menu.stats.fat',
+  'marketplace:menu.stats.protein',
   'marketplace:menu.subtitle',
   'marketplace:menu.title',
   'marketplace:menu.titleFor',
@@ -4276,6 +9172,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.howItWorks',
   'marketplace:nav.kitchens',
   'marketplace:nav.meals',
+  'marketplace:nav.myHome',
   'marketplace:nav.plannedNotice',
   'marketplace:nav.plannedSuffix',
   'marketplace:nav.plans',
@@ -5134,6 +10031,115 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:week.title',
   'planner:week.warningsBody',
   'planner:week.warningsTitle',
+  'platformAdmin:create.branchNameHint',
+  'platformAdmin:create.branchNameLabel',
+  'platformAdmin:create.cityLabel',
+  'platformAdmin:create.countryLabel',
+  'platformAdmin:create.created',
+  'platformAdmin:create.currencyLabel',
+  'platformAdmin:create.languageLabel',
+  'platformAdmin:create.nameLabel',
+  'platformAdmin:create.ownerNext',
+  'platformAdmin:create.slugHint',
+  'platformAdmin:create.slugLabel',
+  'platformAdmin:create.submit',
+  'platformAdmin:create.submitting',
+  'platformAdmin:create.subtitle',
+  'platformAdmin:create.timezoneLabel',
+  'platformAdmin:create.title',
+  'platformAdmin:detail.backToList',
+  'platformAdmin:detail.branchColumn.city',
+  'platformAdmin:detail.branchColumn.name',
+  'platformAdmin:detail.branchColumn.status',
+  'platformAdmin:detail.branchColumn.timezone',
+  'platformAdmin:detail.branchStatus.active',
+  'platformAdmin:detail.branchStatus.closed',
+  'platformAdmin:detail.branchesTitle',
+  'platformAdmin:detail.catalogueDraft',
+  'platformAdmin:detail.catalogueMeals',
+  'platformAdmin:detail.cataloguePlans',
+  'platformAdmin:detail.catalogueProducts',
+  'platformAdmin:detail.cataloguePublished',
+  'platformAdmin:detail.catalogueTitle',
+  'platformAdmin:detail.errorTitle',
+  'platformAdmin:detail.noCity',
+  'platformAdmin:detail.notFound',
+  'platformAdmin:detail.suspendedNoReason',
+  'platformAdmin:detail.suspendedOn',
+  'platformAdmin:detail.suspendedTitle',
+  'platformAdmin:invite.emailLabel',
+  'platformAdmin:invite.emailPlaceholder',
+  'platformAdmin:invite.messageHint',
+  'platformAdmin:invite.messageLabel',
+  'platformAdmin:invite.nameHint',
+  'platformAdmin:invite.nameLabel',
+  'platformAdmin:invite.sent',
+  'platformAdmin:invite.sentNotMailed',
+  'platformAdmin:invite.submit',
+  'platformAdmin:invite.submitting',
+  'platformAdmin:invite.subtitle',
+  'platformAdmin:invite.supersedes',
+  'platformAdmin:invite.title',
+  'platformAdmin:kitchens.branchCount',
+  'platformAdmin:kitchens.column.branches',
+  'platformAdmin:kitchens.column.catalogue',
+  'platformAdmin:kitchens.column.kitchen',
+  'platformAdmin:kitchens.column.owners',
+  'platformAdmin:kitchens.column.status',
+  'platformAdmin:kitchens.create',
+  'platformAdmin:kitchens.emptyBody',
+  'platformAdmin:kitchens.emptyTitle',
+  'platformAdmin:kitchens.errorTitle',
+  'platformAdmin:kitchens.loadMore',
+  'platformAdmin:kitchens.noOwner',
+  'platformAdmin:kitchens.open',
+  'platformAdmin:kitchens.ownerCount',
+  'platformAdmin:kitchens.publishedCount',
+  'platformAdmin:kitchens.searchLabel',
+  'platformAdmin:kitchens.searchPlaceholder',
+  'platformAdmin:kitchens.statusAny',
+  'platformAdmin:kitchens.statusLabel',
+  'platformAdmin:kitchens.subtitle',
+  'platformAdmin:kitchens.title',
+  'platformAdmin:lifecycle.closedNote',
+  'platformAdmin:lifecycle.reactivate',
+  'platformAdmin:lifecycle.reactivateBody',
+  'platformAdmin:lifecycle.reactivateConfirm',
+  'platformAdmin:lifecycle.reactivateTitle',
+  'platformAdmin:lifecycle.reactivated',
+  'platformAdmin:lifecycle.reactivating',
+  'platformAdmin:lifecycle.suspend',
+  'platformAdmin:lifecycle.suspendBody',
+  'platformAdmin:lifecycle.suspendConfirm',
+  'platformAdmin:lifecycle.suspendReasonHint',
+  'platformAdmin:lifecycle.suspendReasonLabel',
+  'platformAdmin:lifecycle.suspendTitle',
+  'platformAdmin:lifecycle.suspended',
+  'platformAdmin:lifecycle.suspending',
+  'platformAdmin:nav.kitchens',
+  'platformAdmin:nav.showcase',
+  'platformAdmin:owners.column.email',
+  'platformAdmin:owners.column.person',
+  'platformAdmin:owners.column.status',
+  'platformAdmin:owners.emptyBody',
+  'platformAdmin:owners.emptyTitle',
+  'platformAdmin:owners.remaining',
+  'platformAdmin:owners.revoke',
+  'platformAdmin:owners.revokeBody',
+  'platformAdmin:owners.revokeConfirm',
+  'platformAdmin:owners.revokeLastWarning',
+  'platformAdmin:owners.revokeTitle',
+  'platformAdmin:owners.revoked',
+  'platformAdmin:owners.revokedLast',
+  'platformAdmin:owners.revoking',
+  'platformAdmin:owners.subtitle',
+  'platformAdmin:owners.title',
+  'platformAdmin:owners.unnamed',
+  'platformAdmin:status.active',
+  'platformAdmin:status.closed',
+  'platformAdmin:status.pending',
+  'platformAdmin:status.suspended',
+  'platformAdmin:title',
   'professional:common.cancel',
   'professional:common.listSeparator',
   'professional:plan.announceNote',

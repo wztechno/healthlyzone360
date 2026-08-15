@@ -1,6 +1,6 @@
 import { isRateLimitFailure } from '@healthy360/api-client';
 import { Badge, Button, Card, Heading, Inline, Stack, Text } from '@healthy360/design-system';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,6 +23,7 @@ import { useSession } from '../session/session-provider.tsx';
 export function VerifyEmailScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const { verified: verifiedFromLink } = useLocalSearchParams<{ verified?: string }>();
     const { me, refetch } = useSession();
 
     const resend = useResendVerificationMutation();
@@ -32,6 +33,38 @@ export function VerifyEmailScreen() {
     const [cooldown, setCooldown] = useState(0);
     const [notice, setNotice] = useState<string | null>(null);
     const [stillPending, setStillPending] = useState(false);
+
+    const onRecheck = useCallback(() => {
+        setNotice(null);
+        recheck.mutate(undefined, {
+            onSuccess: (status) => {
+                if (status.verified) {
+                    refetch();
+                    return;
+                }
+                setStillPending(true);
+            },
+        });
+    }, [recheck, refetch]);
+
+    /*
+     * Following the signed link in a mail client lands on the API, which redirects here with
+     * `verified=1` after marking the address. Re-read `/me` so the screen flips without making the
+     * person paste a code.
+     *
+     * Scheduled after paint rather than run in the effect body. `onRecheck` clears the notice and
+     * starts a mutation, and doing that synchronously during commit is a cascading render — the
+     * screen would paint, immediately re-render with the notice cleared, and only then show the
+     * pending state. One tick later it paints once and then updates, which is also the order a
+     * person perceives as "it checked".
+     */
+    useEffect(() => {
+        if (verifiedFromLink !== '1') return undefined;
+        const timer = setTimeout(onRecheck, 0);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [verifiedFromLink, onRecheck]);
 
     useEffect(() => {
         if (cooldown <= 0) return;
@@ -64,19 +97,6 @@ export function VerifyEmailScreen() {
             },
         });
     }, [resend, t]);
-
-    const onRecheck = useCallback(() => {
-        setNotice(null);
-        recheck.mutate(undefined, {
-            onSuccess: (status) => {
-                if (status.verified) {
-                    refetch();
-                    return;
-                }
-                setStillPending(true);
-            },
-        });
-    }, [recheck, refetch]);
 
     if (verified) {
         return (

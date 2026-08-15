@@ -77,7 +77,7 @@ export function ClientPlanScreen({ clientId, planId, weekStart }: ClientPlanScre
     const backAction = (
         <Button
             testID="client-plan-back"
-            variant="secondary"
+            variant="quiet"
             label={t('professional:plan.back')}
             onPress={() => {
                 router.push('/dietitian' as never);

@@ -1,4 +1,4 @@
-import { asApiFailure } from '@healthy360/api-client';
+import { apiFailure, asApiFailure } from '@healthy360/api-client';
 import type {
     ApiFailure,
     EmailVerificationStatus,
@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 
+import { appGuestTokenStore } from '../session/guest-storage.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 import { queryKeys } from './query-keys.ts';
 
@@ -43,8 +44,21 @@ export function useSessionToken(): string | null {
  * screen's `error` is always an `ApiFailure | null` and never a bare `Error`.
  */
 
+/**
+ * An error a hook settled with, as the shape every error surface in the app renders.
+ *
+ * The fallback is the whole point of the function. `asApiFailure` answers `null` for anything
+ * that is not an `ApiError` or a bare failure — a `TypeError` from a mapper, a bug in a hook, a
+ * rejection from an `onSuccess` effect — and a screen reading that `null` renders *nothing at
+ * all*: the editor kept its "Unsaved changes" heading, the alert region stayed empty, and a
+ * write that failed was indistinguishable from a button nobody pressed. Projecting the
+ * uninterpretable onto `server` is the rule `mapErrorEnvelope` already follows for a response it
+ * cannot parse, and the message is left to the fallback rather than to the exception's text,
+ * which is written for a stack trace and not for a person.
+ */
 export function toFailure(error: unknown): ApiFailure | null {
-    return error === null || error === undefined ? null : asApiFailure(error);
+    if (error === null || error === undefined) return null;
+    return asApiFailure(error) ?? apiFailure('server');
 }
 
 // ── queries ─────────────────────────────────────────────────────────────────────────────────────
@@ -103,6 +117,12 @@ export function useLoginMutation(): UseMutationResult<LoginResult, unknown, Logi
         onSuccess: async (result) => {
             // A two-factor challenge is not a session yet; refetching `me` would 401.
             if (result.status === 'authenticated') {
+                // Signing in ends the guest identity (plan Phase G1). Two credentials for one
+                // person is one credential too many: the guest token would keep resolving, and the
+                // cached guest session would keep a name, a contact and a delivery address on a
+                // device whose owner is now a signed-in account holder with a real one.
+                appGuestTokenStore.clear();
+                queryClient.removeQueries({ queryKey: queryKeys.guest.all() });
                 await queryClient.invalidateQueries({ queryKey: queryKeys.me() });
             }
         },

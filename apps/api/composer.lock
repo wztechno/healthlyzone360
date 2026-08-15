@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a1b4a2c330f7cc0eda7f8d857cbb833f",
+    "content-hash": "c79be617a004421176d295ff5d2281ad",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2008,6 +2008,38 @@
             }
         },
         {
+            "name": "healthy360/allergens",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/allergens",
+                "reference": "eb830f6e6108f2c6fbf079120fd02e1696470b0e"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Allergens\\Providers\\AllergensServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Allergens\\": "src/",
+                    "Healthy360\\Allergens\\Tests\\": "tests/",
+                    "Healthy360\\Allergens\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Allergens\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/audit",
             "version": "1.0",
             "dist": {
@@ -2040,6 +2072,102 @@
             }
         },
         {
+            "name": "healthy360/b2b",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/b2b",
+                "reference": "9433ae6c40ed9828cccb19280f198816f7c970b0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\B2b\\Providers\\B2bServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\B2b\\": "src/",
+                    "Healthy360\\B2b\\Tests\\": "tests/",
+                    "Healthy360\\B2b\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\B2b\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/cart",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/cart",
+                "reference": "e5de308be548277c2d43b075dbe5c887ca74c25d"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Cart\\Providers\\CartServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Cart\\": "src/",
+                    "Healthy360\\Cart\\Tests\\": "tests/",
+                    "Healthy360\\Cart\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Cart\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/catalogues",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/catalogues",
+                "reference": "bfcaf77fecfd93b2d3b9179810f237c2ecab9d66"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Catalogues\\Providers\\CataloguesServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Catalogues\\": "src/",
+                    "Healthy360\\Catalogues\\Tests\\": "tests/",
+                    "Healthy360\\Catalogues\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Catalogues\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/consent",
             "version": "1.0",
             "dist": {
@@ -2061,6 +2189,70 @@
                     "Healthy360\\Consent\\Tests\\": "tests/",
                     "Healthy360\\Consent\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Consent\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/customers",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/customers",
+                "reference": "e2a8dbbb41827a60e0fd8a605908f7a1a5da7b82"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Customers\\Providers\\CustomersServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Customers\\": "src/",
+                    "Healthy360\\Customers\\Tests\\": "tests/",
+                    "Healthy360\\Customers\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Customers\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/delivery",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/delivery",
+                "reference": "b3edca5342f1172f07af3da4359ecdf5747f097f"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Delivery\\Providers\\DeliveryServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Delivery\\": "src/",
+                    "Healthy360\\Delivery\\Tests\\": "tests/",
+                    "Healthy360\\Delivery\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Delivery\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [
@@ -2136,6 +2328,163 @@
             }
         },
         {
+            "name": "healthy360/ingredients",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/ingredients",
+                "reference": "443a91cf79619522d8a0dea48dd3ebcec800bfd5"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Ingredients\\Providers\\IngredientsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Ingredients\\": "src/",
+                    "Healthy360\\Ingredients\\Tests\\": "tests/",
+                    "Healthy360\\Ingredients\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Ingredients\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/inventory",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/inventory",
+                "reference": "bac0c938e32fa01d13502d6b183e350f93d2f285"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Inventory\\Providers\\InventoryServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Inventory\\": "src/",
+                    "Healthy360\\Inventory\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Stock levels and movement ledger without valuation.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/kitchen-display",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/kitchen-display",
+                "reference": "1c0a3d67a50daa14518dfbce3e9beee69989fa68"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\KitchenDisplay\\Providers\\KitchenDisplayServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\KitchenDisplay\\": "src/",
+                    "Healthy360\\KitchenDisplay\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/kitchens",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/kitchens",
+                "reference": "51400e861d5f90da86ba4a5baf169b06b3b2faae"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Kitchens\\Providers\\KitchensServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Kitchens\\": "src/",
+                    "Healthy360\\Kitchens\\Tests\\": "tests/",
+                    "Healthy360\\Kitchens\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Kitchens\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/orders",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/orders",
+                "reference": "96a124d25bfc96c17b723de96938a73c0a3cd349"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Orders\\Providers\\OrdersServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Orders\\": "src/",
+                    "Healthy360\\Orders\\Tests\\": "tests/",
+                    "Healthy360\\Orders\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Orders\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/organisations",
             "version": "1.0",
             "dist": {
@@ -2168,6 +2517,254 @@
             }
         },
         {
+            "name": "healthy360/payments",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/payments",
+                "reference": "ca0d70a29cd7caa3a185e749b6cd01b92ee86f0a"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Payments\\Providers\\PaymentsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Payments\\": "src/",
+                    "Healthy360\\Payments\\Tests\\": "tests/",
+                    "Healthy360\\Payments\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Payments\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Payment intents, method records and refunds — pluggable providers, no PAN storage.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/platform-administration",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/platform-administration",
+                "reference": "2a0df33ed869ad2f58a9631860c11879ed92e58d"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\PlatformAdministration\\Providers\\PlatformAdministrationServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\PlatformAdministration\\": "src/",
+                    "Healthy360\\PlatformAdministration\\Tests\\": "tests/",
+                    "Healthy360\\PlatformAdministration\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\PlatformAdministration\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/pos",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/pos",
+                "reference": "110738835a31b9393af79d15e39f8a06000cb297"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\POS\\Providers\\PosServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\POS\\": "src/",
+                    "Healthy360\\POS\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/pricing",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/pricing",
+                "reference": "cd076076be97ec74b69eedb545d5bcfab2a4c5ed"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Pricing\\Providers\\PricingServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Pricing\\": "src/",
+                    "Healthy360\\Pricing\\Tests\\": "tests/",
+                    "Healthy360\\Pricing\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Pricing\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/procurement",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/procurement",
+                "reference": "b83836d4b60de87794ec2caf18431a4b197b2a4c"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Procurement\\Providers\\ProcurementServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Procurement\\": "src/",
+                    "Healthy360\\Procurement\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/production",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/production",
+                "reference": "6be6c2a1cb471d792037d3d90f94d790d277bc02"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Production\\Providers\\ProductionServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Production\\": "src/",
+                    "Healthy360\\Production\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/quality-control",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/quality-control",
+                "reference": "e8f2514772a89ec203e0d9aa52b4707874ffd72a"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\QualityControl\\Providers\\QualityControlServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\QualityControl\\": "src/",
+                    "Healthy360\\QualityControl\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/recipes",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/recipes",
+                "reference": "2c7d27384cc1991aff299d2cac3038d6df9ca5aa"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Recipes\\Providers\\RecipesServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Recipes\\": "src/",
+                    "Healthy360\\Recipes\\Tests\\": "tests/",
+                    "Healthy360\\Recipes\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "healthy360/reference-data",
             "version": "1.0",
             "dist": {
@@ -2189,6 +2786,38 @@
                     "Healthy360\\ReferenceData\\Tests\\": "tests/",
                     "Healthy360\\ReferenceData\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\ReferenceData\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/subscriptions",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/subscriptions",
+                "reference": "478f7189300fbcea3a191f93f499a21ca8f6350f"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Subscriptions\\Providers\\SubscriptionsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Subscriptions\\": "src/",
+                    "Healthy360\\Subscriptions\\Tests\\": "tests/",
+                    "Healthy360\\Subscriptions\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Subscriptions\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [
@@ -2253,6 +2882,38 @@
                     "Healthy360\\Tenancy\\Tests\\": "tests/",
                     "Healthy360\\Tenancy\\Database\\Factories\\": "database/factories/",
                     "Healthy360\\Tenancy\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "healthy360/verification",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/verification",
+                "reference": "bad447c3043004a90820c893dad23cd9f8f7314b"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\Verification\\Providers\\VerificationServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\Verification\\": "src/",
+                    "Healthy360\\Verification\\Tests\\": "tests/",
+                    "Healthy360\\Verification\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\Verification\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [
@@ -6003,6 +6664,76 @@
             "time": "2026-07-16T10:28:45+00:00"
         },
         {
+            "name": "symfony/brevo-mailer",
+            "version": "v8.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/brevo-mailer.git",
+                "reference": "3ff512ea263d1c52be95cf68fb846ac82fd013e1"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/brevo-mailer/zipball/3ff512ea263d1c52be95cf68fb846ac82fd013e1",
+                "reference": "3ff512ea263d1c52be95cf68fb846ac82fd013e1",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.4.1",
+                "symfony/mailer": "^7.4|^8.0"
+            },
+            "require-dev": {
+                "symfony/http-client": "^7.4|^8.0",
+                "symfony/webhook": "^7.4|^8.0"
+            },
+            "type": "symfony-mailer-bridge",
+            "autoload": {
+                "psr-4": {
+                    "Symfony\\Component\\Mailer\\Bridge\\Brevo\\": ""
+                },
+                "exclude-from-classmap": [
+                    "/Tests/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Pierre Tanguy",
+                    "homepage": "https://github.com/petanguy"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "https://symfony.com/contributors"
+                }
+            ],
+            "description": "Symfony Brevo Mailer Bridge",
+            "homepage": "https://symfony.com",
+            "support": {
+                "source": "https://github.com/symfony/brevo-mailer/tree/v8.1.0"
+            },
+            "funding": [
+                {
+                    "url": "https://symfony.com/sponsor",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
+                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
+                    "type": "tidelift"
+                }
+            ],
+            "time": "2026-05-29T05:06:50+00:00"
+        },
+        {
             "name": "symfony/clock",
             "version": "v8.1.0",
             "source": {
@@ -6704,6 +7435,185 @@
                 }
             ],
             "time": "2026-06-27T09:05:56+00:00"
+        },
+        {
+            "name": "symfony/http-client",
+            "version": "v8.1.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/http-client.git",
+                "reference": "ae15c8c6f5c4f4adbe7da2a2d69b349eb6e407dd"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/http-client/zipball/ae15c8c6f5c4f4adbe7da2a2d69b349eb6e407dd",
+                "reference": "ae15c8c6f5c4f4adbe7da2a2d69b349eb6e407dd",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.4.1",
+                "psr/log": "^1|^2|^3",
+                "symfony/deprecation-contracts": "^2.5|^3.0",
+                "symfony/http-client-contracts": "^3.7",
+                "symfony/service-contracts": "^2.5|^3"
+            },
+            "conflict": {
+                "amphp/amp": "<3",
+                "php-http/discovery": "<1.15"
+            },
+            "provide": {
+                "php-http/async-client-implementation": "*",
+                "php-http/client-implementation": "*",
+                "psr/http-client-implementation": "1.0",
+                "symfony/http-client-implementation": "3.0"
+            },
+            "require-dev": {
+                "amphp/http-client": "^5.3.2",
+                "amphp/http-tunnel": "^2.0",
+                "guzzlehttp/guzzle": "^7.10",
+                "nyholm/psr7": "^1.0",
+                "php-http/httplug": "^1.0|^2.0",
+                "psr/http-client": "^1.0",
+                "symfony/cache": "^7.4|^8.0",
+                "symfony/dependency-injection": "^7.4|^8.0",
+                "symfony/http-kernel": "^7.4|^8.0",
+                "symfony/messenger": "^7.4|^8.0",
+                "symfony/process": "^7.4|^8.0",
+                "symfony/rate-limiter": "^7.4|^8.0",
+                "symfony/stopwatch": "^7.4|^8.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Symfony\\Component\\HttpClient\\": ""
+                },
+                "exclude-from-classmap": [
+                    "/Tests/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nicolas Grekas",
+                    "email": "p@tchwork.com"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "https://symfony.com/contributors"
+                }
+            ],
+            "description": "Provides powerful methods to fetch HTTP resources synchronously or asynchronously",
+            "homepage": "https://symfony.com",
+            "keywords": [
+                "http"
+            ],
+            "support": {
+                "source": "https://github.com/symfony/http-client/tree/v8.1.3"
+            },
+            "funding": [
+                {
+                    "url": "https://symfony.com/sponsor",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
+                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
+                    "type": "tidelift"
+                }
+            ],
+            "time": "2026-07-29T16:43:23+00:00"
+        },
+        {
+            "name": "symfony/http-client-contracts",
+            "version": "v3.7.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/http-client-contracts.git",
+                "reference": "41fc42d276aeff21192465331ebbab7d83a743c0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/http-client-contracts/zipball/41fc42d276aeff21192465331ebbab7d83a743c0",
+                "reference": "41fc42d276aeff21192465331ebbab7d83a743c0",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "type": "library",
+            "extra": {
+                "thanks": {
+                    "url": "https://github.com/symfony/contracts",
+                    "name": "symfony/contracts"
+                },
+                "branch-alias": {
+                    "dev-main": "3.7-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Symfony\\Contracts\\HttpClient\\": ""
+                },
+                "exclude-from-classmap": [
+                    "/Test/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nicolas Grekas",
+                    "email": "p@tchwork.com"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "https://symfony.com/contributors"
+                }
+            ],
+            "description": "Generic abstractions related to HTTP clients",
+            "homepage": "https://symfony.com",
+            "keywords": [
+                "abstractions",
+                "contracts",
+                "decoupling",
+                "interfaces",
+                "interoperability",
+                "standards"
+            ],
+            "support": {
+                "source": "https://github.com/symfony/http-client-contracts/tree/v3.7.1"
+            },
+            "funding": [
+                {
+                    "url": "https://symfony.com/sponsor",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
+                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
+                    "type": "tidelift"
+                }
+            ],
+            "time": "2026-06-05T06:23:12+00:00"
         },
         {
             "name": "symfony/http-foundation",

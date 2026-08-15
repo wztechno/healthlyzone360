@@ -35,13 +35,12 @@ import { catalogueKindKey, quotationStateKey } from '../format.ts';
  * list of exceptions. The screen says so in its own copy, so the omission reads as a decision rather
  * than as missing data.
  *
- * ## Commitments are derived from quotations, because that is what the contract publishes
+ * ## Unreachable while `partnerSupply` is unavailable
  *
- * `BusinessRepository` has no supplier-side resource at all: no orders, no production schedule, no
- * fulfilment. What it does have is quotations, whose lines carry a catalogue item and a quantity,
- * and catalogue items, which carry the lead time and delivery weekdays. So a commitment here is
- * exactly that join, and nothing is invented on top of it. A real backend should publish
- * `GET /api/v1/partner/commitments`; the wave report records the gap.
+ * There is no `GET /api/v1/partner/commitments`, so `src/features/availability.ts` hides the whole
+ * `partner` area and `AreaShell` redirects out of it. The deferred empty state this screen used to
+ * render for API builds had no audience left, and the `repositories.kind !== 'mock'` test behind it
+ * would be an always-false comparison once the mock repositories go.
  */
 
 export function PartnerCommitmentsScreen() {

@@ -1,17 +1,13 @@
 import { createRepositories } from '@healthy360/api-client';
-import type {
-    ClientPlatform,
-    MockScenarioName,
-    Repositories,
-    SessionTokenStore,
-} from '@healthy360/api-client';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { ClientPlatform, Repositories, SessionTokenStore } from '@healthy360/api-client';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Platform } from 'react-native';
 
 import { appConfig } from '../config.ts';
 import { i18n } from '../i18n.ts';
-import { createKeyValueStore, createSessionTokenStore } from '../session/storage.ts';
+import { appGuestTokenStore } from '../session/guest-storage.ts';
+import { createSessionTokenStore } from '../session/storage.ts';
 
 /** `X-Client-Platform`, and the platform recorded against the device on `POST /auth/token`. */
 const CLIENT_PLATFORM: ClientPlatform =
@@ -28,17 +24,13 @@ export interface RepositoryContextValue {
     /** `null` until the factory resolves. Every consumer must handle that. */
     readonly repositories: Repositories | null;
     readonly tokenStore: SessionTokenStore;
-    /** Fatal construction error — the mock-in-production guard, or a missing API base URL. */
+    /** Fatal construction error — a missing API base URL in production. */
     readonly error: Error | null;
-    readonly scenario: MockScenarioName;
-    /** Development only: rebuilds the repositories against a different mock world. */
-    readonly setScenario: (next: MockScenarioName) => void;
 }
 
 const RepositoryContext = createContext<RepositoryContextValue | null>(null);
 
 interface BuiltRepositories {
-    readonly scenario: MockScenarioName;
     readonly repositories: Repositories | null;
     readonly error: Error | null;
 }
@@ -48,47 +40,33 @@ export interface RepositoryProviderProps {
     /** Test seam: inject repositories directly and skip the factory entirely. */
     readonly repositories?: Repositories | undefined;
     readonly tokenStore?: SessionTokenStore | undefined;
-    readonly initialScenario?: MockScenarioName | undefined;
 }
 
 /**
  * Builds the repository bundle once and hands it to the tree.
  *
- * The factory is asynchronous because the mock implementation is behind a dynamic import, which is
- * what keeps the entire fixture world out of the initial chunk. Construction failure is *not*
- * swallowed: `createRepositories` throwing `MockDataInProductionError` is mock-cannot-ship gate #2
- * (plan §18), and the application must show that rather than quietly fall back to something.
+ * The factory is asynchronous because the API layer is behind a dynamic import, which keeps its
+ * transport and mappers off the entry chunk's critical path. Construction failure is *not*
+ * swallowed: `createRepositories` throwing `MissingApiBaseUrlError` in production is the surviving
+ * boot guard, and the application must show that rather than quietly fall back to something.
  */
 export function AppRepositoryProvider({
     children,
     repositories: injected,
     tokenStore: injectedTokenStore,
-    initialScenario,
 }: RepositoryProviderProps) {
     const tokenStore = useMemo(
         () => injectedTokenStore ?? createSessionTokenStore(),
         [injectedTokenStore],
     );
 
-    const [scenario, setScenario] = useState<MockScenarioName>(
-        initialScenario ?? appConfig.mockScenario,
-    );
-
-    /**
-     * The built bundle is stored *together with the scenario it was built for*, and staleness is
-     * derived during render rather than cleared by a `setState` inside the effect. Resetting in the
-     * effect body would render one frame with the previous world's repositories still in place, and
-     * it is precisely the cascading-render pattern `react-hooks/set-state-in-effect` rejects.
-     */
     const [built, setBuilt] = useState<BuiltRepositories>(() => ({
-        scenario: initialScenario ?? appConfig.mockScenario,
         repositories: injected ?? null,
         error: null,
     }));
 
-    const fresh = built.scenario === scenario;
-    const repositories = injected ?? (fresh ? built.repositories : null);
-    const error = fresh ? built.error : null;
+    const repositories = injected ?? built.repositories;
+    const error = built.error;
 
     useEffect(() => {
         if (injected !== undefined) return;
@@ -96,11 +74,13 @@ export function AppRepositoryProvider({
         let cancelled = false;
 
         void createRepositories({
-            dataMode: appConfig.dataMode,
             appEnv: appConfig.appEnv,
-            scenario,
             tokenStore,
-            keyValueStorage: createKeyValueStore(),
+            // Supplied rather than left to the factory's memory fallback, because the guest
+            // repository *writes* this token and `data/guest-hooks.ts` subscribes to it. Two stores
+            // would be two answers to "is there a guest session", and the checkout would never see
+            // the one it had just started.
+            guestTokenStore: appGuestTokenStore,
             baseUrl: appConfig.apiUrl,
             appMode: appConfig.appMode,
             clientVersion: appConfig.clientVersion,
@@ -110,12 +90,11 @@ export function AppRepositoryProvider({
             locale: () => i18n.resolvedLanguage ?? i18n.language,
         })
             .then((created) => {
-                if (!cancelled) setBuilt({ scenario, repositories: created, error: null });
+                if (!cancelled) setBuilt({ repositories: created, error: null });
             })
             .catch((caught: unknown) => {
                 if (cancelled) return;
                 setBuilt({
-                    scenario,
                     repositories: null,
                     error: caught instanceof Error ? caught : new Error(String(caught)),
                 });
@@ -124,20 +103,11 @@ export function AppRepositoryProvider({
         return () => {
             cancelled = true;
         };
-    }, [injected, scenario, tokenStore]);
-
-    const changeScenario = useCallback(
-        (next: MockScenarioName) => {
-            // Switching worlds invalidates the session that belonged to the old one.
-            tokenStore.clear();
-            setScenario(next);
-        },
-        [tokenStore],
-    );
+    }, [injected, tokenStore]);
 
     const value = useMemo<RepositoryContextValue>(
-        () => ({ repositories, tokenStore, error, scenario, setScenario: changeScenario }),
-        [repositories, tokenStore, error, scenario, changeScenario],
+        () => ({ repositories, tokenStore, error }),
+        [repositories, tokenStore, error],
     );
 
     return <RepositoryContext.Provider value={value}>{children}</RepositoryContext.Provider>;

@@ -111,13 +111,19 @@ export function Avatar({ name, seed, size = 'md', className, testID }: AvatarPro
     );
 }
 
-export const IMAGE_PLACEHOLDER_ASPECTS = ['square', 'wide', 'tall'] as const;
+export const IMAGE_PLACEHOLDER_ASPECTS = ['square', 'wide', 'tall', 'card'] as const;
 export type ImagePlaceholderAspect = (typeof IMAGE_PLACEHOLDER_ASPECTS)[number];
 
+/**
+ * `card` is 4:3 rather than `wide`'s 16:9, and it is a separate aspect rather than a change to
+ * `wide`: a card in a grid wants a taller crop so the dish fills the frame, while a detail page
+ * still wants the cinematic 16:9. Redefining `wide` would have moved both.
+ */
 const ASPECT_CLASS: Readonly<Record<ImagePlaceholderAspect, string>> = {
     square: 'aspect-square',
     wide: 'aspect-video',
     tall: 'aspect-[3/4]',
+    card: 'aspect-[4/3]',
 };
 
 /** Pattern glyphs, chosen by hash. Purely typographic — no asset, no network, no licence. */
@@ -129,6 +135,13 @@ export interface ImagePlaceholderProps {
     /** Accessible description of the missing image. */
     readonly label: string;
     readonly aspect?: ImagePlaceholderAspect | undefined;
+    /**
+     * Drops the placeholder's own corner radius, for media sitting flush inside a clipped card.
+     * A prop rather than a `className` override because class order in a merged string does not
+     * decide which rule wins — CSS specificity does, and `rounded-none` after `rounded-lg` is a
+     * coin toss.
+     */
+    readonly flush?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -145,6 +158,7 @@ export function ImagePlaceholder({
     seed,
     label,
     aspect = 'wide',
+    flush = false,
     className,
     testID,
 }: ImagePlaceholderProps) {
@@ -160,7 +174,8 @@ export function ImagePlaceholder({
             accessibilityLabel={label}
             aria-label={label}
             className={cx(
-                'w-full items-center justify-center overflow-hidden rounded-lg',
+                'w-full items-center justify-center overflow-hidden',
+                flush ? null : 'rounded-lg',
                 ASPECT_CLASS[aspect],
                 identity.surface,
                 className,

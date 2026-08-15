@@ -1,83 +1,143 @@
 # Healthy360 module registry (machine-readable)
 #
-# Consumed by architecture tests. Rules (plan §6):
-#   - Only modules with status "foundation" may have code, migrations or routes.
-#   - Modules with status "planned" MUST NOT have directories, classes or migrations.
+# Consumed by the architecture test
+# (apps/api/app-modules/support/tests/ModuleRegistryTest.php).
+#
+# Status vocabulary (master plan v2 §4.1):
+#   - planned     — documented intent only. No directory, no classes, no
+#                   migrations, no routes.
+#   - foundation  — schema and internal management exist; the customer-facing
+#                   lifecycle may still be incomplete. Code is allowed.
+#   - active      — the declared capability is complete through an approved API
+#                   or UI surface. Code is allowed.
+#   - deprecated  — superseded; still present, no new consumers.
+#   - retired     — withdrawn; the entry survives so the name is never reused.
+#
+# Rules (plan §6, master plan v2 §4.1):
+#   - Only modules with status "foundation" or "active" may have code,
+#     migrations or routes. Modules with status "planned" MUST NOT have
+#     directories, classes or migrations.
+#   - "active" permits code, it does not require it: Localisation is a
+#     registry-only entry whose declared capability is the entry itself, and it
+#     stays registry-only. PlatformAdministration was the second such entry
+#     until PA1, whose note said a platform surface "arrives with the phase
+#     that needs it"; that phase arrived and the directory with it.
+#   - A status change and the architecture test that enforces it land in the
+#     same commit, always.
 #   - depends_on for planned modules is indicative future coupling, reviewed at
 #     that module's design time; it is not a licence to import anything today.
+#     A module that may hold code never depends on one that may not.
 #   - Kitchen and commercial permissions remain registry proposals until their
 #     modules are implemented (plan §10).
+#
+# The graduation bar — what `foundation` still owes before it may become
+# `active` (reviewed 2026-08-03, reconciliation sweep):
+#
+#   `active` is a claim that the module's **declared capability is complete
+#   through an approved API or UI surface**. It is not a reward for finishing a
+#   phase, and it is not implied by the schema being done. Fourteen modules
+#   reached `foundation` across P0→B2 and **none of them graduated**, because
+#   two conditions hold across the whole family and each module has its own on
+#   top:
+#
+#     1. The universal app cannot yet run *every* capability against the real API.
+#        Kitchen catalogue, marketplace, cart/checkout, subscriptions, kitchen
+#        ops and B2B programmes/quotations are wired; residual stubs are listed
+#        on risk R-030. A capability nobody can reach through an approved
+#        surface is not complete through one.
+#     2. Several declared capabilities are gated on decisions nobody has taken
+#        — a real SMS provider (A-011), real plan prices (A-013, R-031),
+#        supplier allergen confirmation (A-014, R-019), a payment module.
+#
+#   Per module, the specific bar is written in the comment above its entry.
+#   When in doubt the answer is `foundation`: an over-claimed status is the one
+#   kind of registry error the architecture test cannot catch.
 
 version: 1
-updated: "2026-07-30"
+updated: "2026-08-05"
 
 modules:
-  # ── Implemented foundation modules (phase 1) ──────────────────────────────
+  # ── Active platform modules (phase 1) ─────────────────────────────────────
   - name: Support
-    status: foundation
+    status: active
     phase: 1
     description: Cross-cutting primitives — UUIDv7 identifier service, base classes, shared contracts; also the InterNACHI Modular spike module.
     depends_on: []
 
   - name: ReferenceData
-    status: foundation
+    status: active
     phase: 1
     description: Countries, currencies, languages and measurement units with ISO-code keys; launch-market activation flags.
     depends_on: [Support]
 
+  # Registry-only entry — the declared capability is the entry itself; locale
+  # negotiation ships inside the application. No module directory, by design.
   - name: Localisation
-    status: foundation
+    status: active
     phase: 1
     description: Locale resolution, translation infrastructure, direction (RTL/LTR) and numbering-system configuration.
     depends_on: [Support, ReferenceData]
 
   - name: Identity
-    status: foundation
+    status: active
     phase: 1
     description: Users, profiles, devices; registration, verification, credentials, 2FA and session/device management via Fortify + Sanctum.
     depends_on: [Support, ReferenceData]
 
   - name: Organisations
-    status: foundation
+    status: active
     phase: 1
     description: Organisation types, organisations, capabilities, branches and memberships.
     depends_on: [Support, ReferenceData, Identity]
 
   - name: Tenancy
-    status: foundation
+    status: active
     phase: 1
     description: Organisation/branch context middleware, context validation, query scoping and (incrementally) RLS session context.
     depends_on: [Support, Organisations]
 
   - name: AccessControl
-    status: foundation
+    status: active
     phase: 1
     description: Roles, permissions, membership-role assignment, permission calculation and caching with version-counter invalidation.
     depends_on: [Support, Organisations, Tenancy]
 
   - name: Features
-    status: foundation
+    status: active
     phase: 1
     description: Feature definitions, per-organisation entitlements and subscription scaffolding; entitlement checks separate from RBAC.
     depends_on: [Support, Organisations]
 
   - name: Consent
-    status: foundation
+    status: active
     phase: 1
     description: Consent definitions (versioned) and consent grants; evaluated separately from RBAC with distinct denial reasons.
     depends_on: [Support, Identity, Organisations]
 
   - name: Audit
-    status: foundation
+    status: active
     phase: 1
     description: Append-only audit logs, correlation IDs, redaction processor, data-classification enum, purpose-of-use capture, idempotency keys.
     depends_on: [Support, Identity, Tenancy]
 
+  # PA1: the surface arrived, exactly as this entry said it would. The module
+  # directory now exists and holds the kitchen-tenant console — list, create,
+  # invite and revoke owners, suspend and reactivate.
+  #
+  # It could not have gone into Organisations, and the reason is structural
+  # rather than stylistic: the console writes `organisation_memberships` *and*
+  # `membership_roles`, and reuses `organisation_invitations`. Those belong to
+  # AccessControl and B2B, both of which depend on Organisations, so hosting the
+  # console there would have run two edges backwards and made this graph cyclic.
+  # A console composes capabilities other modules own, which means it sits above
+  # them — which is what this entry has always described.
+  #
+  # `B2B` is the one edge PA1 added to the set phase 1 wrote down.
   - name: PlatformAdministration
-    status: foundation
+    status: active
     phase: 1
-    description: Platform-level administration surface (tenant lifecycle, reference-data management); no broadly privileged runtime DB role.
-    depends_on: [Support, Organisations, AccessControl, Features, Audit]
+    description: Platform-level administration surface (kitchen tenant lifecycle, owner invitations, suspension; reference-data management); no broadly privileged runtime DB role.
+    depends_on: [Support, Organisations, AccessControl, Features, Audit, B2B, Catalogues, Identity, Tenancy]
 
   # ── Planned modules (documented only — no code, no directories) ───────────
   - name: Nutrition
@@ -85,90 +145,398 @@ modules:
     description: Nutritional facts, macro/micronutrient values, calorie and energy calculations with stated basis and limitations.
     depends_on: [Ingredients, ReferenceData]
 
+  # ── Kitchen catalogue foundation (phase K1) ───────────────────────────────
+  #
+  # Dependency amendment (K1.1): the edge between these two used to run
+  # Allergens → Ingredients. It now runs the other way. The allergen classes
+  # are a standalone regulatory vocabulary that knows nothing about
+  # ingredients; it is the ingredient-to-allergen mapping — an attribute of an
+  # ingredient, written only by ingredient services — that needs the
+  # vocabulary. Declaring both directions would be a cycle, and this is the
+  # direction the code actually takes.
+  #
+  # Graduation bar (Ingredients): the management API is served and the
+  # api-mode client still rejects every call on it (R-030), so no operator can
+  # reach this capability through an approved surface. Additionally the 73
+  # DEC1 determinations are `requires_supplier_confirmation` (A-014), which is
+  # the module's own data telling it the mapping work is unfinished.
   - name: Ingredients
-    status: planned
-    description: Ingredient master database, categories, units and portion/quantity conversion.
-    depends_on: [ReferenceData]
+    status: foundation
+    phase: 2
+    description: Ingredient master database (platform library plus tenant rows), categories, aliases, allergen mappings, designation resolution.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Allergens]
 
+  # Graduation bar (Allergens): the public class list is served and switched,
+  # which is most of the declared capability. What is missing is the
+  # governance half — per-market applicability and thresholds are columns
+  # nobody administers through a surface (OQ-037), and the platform-library
+  # write path has no stated review rule (OQ-047). Arabic display names are
+  # partly English fallbacks pending review (OQ-033).
   - name: Allergens
-    status: planned
-    description: Allergen identification, dietary classifications and special-instruction flags.
-    depends_on: [Ingredients]
+    status: foundation
+    phase: 2
+    description: Canonical allergen classes (code-keyed regulatory identities), market applicability and thresholds, platform governance and the public class list.
+    depends_on: [Support, Tenancy, Audit]
 
+  # Nutrition edge dropped (master plan v2 §5): no nutrition data exists in the
+  # Phase-1 sources, so recipes cannot depend on it. The edge returns with N1.
+  #
+  # Flipped to `foundation` by K1.2: recipes, versions, lines, outputs, steps
+  # and frozen allergen labels exist, with the publication lifecycle
+  # (draft | review_required | published | retired) and its quarantine gate.
+  # Costing is deliberately absent — the cost columns exist on the lines and
+  # no surface reads them until K1.3 introduces `recipe.view_costs_organisation`.
+  #
+  # Graduation bar (Recipes): costing landed in K1.3 and the whole editor is
+  # served, but the api-mode client rejects all of it (R-030). Two imported
+  # facts also stand against a completeness claim — the duplicate Caesar Sauce
+  # has two draft versions and no answer (OQ-041), and 29 indicative sauce and
+  # dressing drafts hold prose instead of quantities by design (D-057), so a
+  # large part of the recipe library is structurally unpublishable.
   - name: Recipes
-    status: planned
-    description: Recipe creation, versioning, costing and nutrition-label generation.
-    depends_on: [Ingredients, Allergens, Nutrition]
+    status: foundation
+    phase: 2
+    description: Recipes and their versions — lines, outputs, steps, frozen allergen labels, publication lifecycle with quarantine, and derivation state.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens]
 
   - name: MealPlanning
     status: planned
     description: Meal plans, daily/weekly schedules, substitution rules, dietitian approval and consumption-versus-target comparison.
     depends_on: [Recipes, Nutrition, ClinicalRecords]
 
+  # Flipped to `foundation` by K1.7 — the gap reviewer point 19 exposed. The
+  # draft wire contract already carried opening hours and an order cut-off
+  # while this module stayed `planned`, which is a public surface with no
+  # schema under it. `branch_opening_hours` is that schema: one row per
+  # weekday per branch, a closed day stored as a row rather than an absence,
+  # and a nullable cut-off that only an open day may carry.
+  #
+  # The Recipes edge is dropped. It was indicative coupling for the menus and
+  # kitchen-instruction capability this module does not yet have; today it
+  # owns branch operating data and touches no formulation, so the declared
+  # dependency would be a licence to import something nothing imports. It
+  # returns with the slice that builds menus. Tenancy, AccessControl, Audit
+  # and Support are added because the code actually uses them — the
+  # organisation scope, the permission gate, the audit event and the base
+  # model.
+  #
+  # K1.8 widens the edges — and Recipes comes back, with company. This module
+  # gains the private Healthy360 kitchen workbook importer (`kitchen:import-workbook`, master
+  # plan v2 §4.11), the one piece of code whose whole job is to stand a kitchen
+  # up from a workbook: an organisation, a branch, channels, price lists and a
+  # catalogue, then ingredients, recipes, costed versions, listings, plans and
+  # a delivery zone. It therefore legitimately writes across the whole K1
+  # family, and the declaration says so rather than leaving six undeclared
+  # imports behind a comment about branch hours.
+  #
+  # Kitchens is the only K1 module that could host it. Catalogues cannot:
+  # Pricing depends on Catalogues, so a Catalogues → Pricing edge would close a
+  # cycle the architecture test rejects. Nothing that may hold code depends on
+  # Kitchens, so widening it here stays acyclic — and the importer is
+  # kitchen-onboarding work, which is what this module is for.
+  #
+  # Graduation bar (Kitchens): this entry's own description names what is
+  # absent — menus, approved meal-plan receipt and kitchen instructions. The
+  # branch operating data is served and unreachable from api-mode (R-030), and
+  # the importer is a console command with no surface at all. F1 is where the
+  # rest of a kitchen's capability lives.
   - name: Kitchens
-    status: planned
-    description: Kitchen/branch operational setup, menus, approved meal-plan receipt and kitchen instructions.
-    depends_on: [Organisations, Recipes]
+    status: foundation
+    phase: 2
+    description: Branch operating data — opening hours per weekday and order cut-offs — and the private Healthy360 kitchen workbook importer that stands a kitchen up from its own workbook. Menus, approved meal-plan receipt and kitchen instructions are still to come.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes, Catalogues, Pricing, Delivery]
 
+  # INV1.2 widens the edges. The auto-deduction path answers the orders module's
+  # `OrderStockConsumption` port, so it reads an order and its lines (Orders),
+  # explodes a meal into its published recipe version's lines (Recipes),
+  # branches on `catalogue_items.item_type` and reuses
+  # `DerivedAllergenService::publishedVersion()` (Catalogues), and converts
+  # recipe-line units into stock units (ReferenceData). Four new edges, all
+  # pointing *away* from Inventory:
+  #
+  #   - **Orders** is the load-bearing one, and it is the new direction on
+  #     purpose. Orders declares the port and binds a null default; Inventory
+  #     answers it and binds the real implementation from `boot()`. Orders gains
+  #     no edge to Inventory — it never learns inventory exists — so the seam
+  #     stays acyclic. (Verified: nothing on Orders' own dependency chain —
+  #     Catalogues, Pricing, Delivery, Customers, Kitchens, Cart — reaches back
+  #     to Inventory.)
+  #   - **Catalogues** and **Recipes** are the item→recipe resolution reused
+  #     rather than reimplemented a fourth time. Neither depends on Inventory.
+  #   - **ReferenceData** is `UnitConversionService` and `MeasurementUnit`,
+  #     which the consume path uses to cross a recipe-line unit into a stock
+  #     unit; it depends only on Support.
+  #
+  # Procurement and Production already depend on Inventory; none of the four new
+  # targets is on their far side, so the graph stays acyclic.
   - name: Inventory
-    status: planned
-    description: Stock levels, availability and waste monitoring; stock valuation deferred with it.
-    depends_on: [Ingredients, Kitchens]
+    status: foundation
+    phase: 2
+    description: Stock items, per-branch stock levels and an append-only movement ledger (adjust, waste, receipt, consume, yield), plus each ingredient's weighted moving-average cost and its cost-event ledger (INV1.1); auto-deduction on order confirm with COGS valued on the consume movement and reversal on cancel (INV1.2), branching on catalogue item type and recording an exception rather than guessing when a line's consumption cannot be resolved.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Kitchens, Recipes, Catalogues, Orders]
 
+  # INV1.4 adds the monthly cost report here rather than in Inventory, and the
+  # reason is the graph: Procurement already depends on Inventory, so hosting the
+  # report in Inventory would need an Inventory → Procurement edge — a cycle. The
+  # report owns the spend side already (goods receipt lines), reads the COGS and
+  # waste side through the Inventory edge it already has, and gains two new edges,
+  # both pointing away and both acyclic:
+  #   - **Orders** for the selling side — order totals and their lines, so revenue
+  #     sits beside COGS and splits meal-versus-product. Orders never learns
+  #     Procurement exists (its chain — Catalogues, Pricing, Delivery, Customers,
+  #     Kitchens, Cart — does not reach back), so the edge stays acyclic.
+  #   - **Catalogues** for `catalogue_items.item_type`, the one place the
+  #     meal-versus-product distinction is recorded. Catalogues does not depend on
+  #     Procurement.
   - name: Procurement
-    status: planned
-    description: Purchasing, supplier management and ingredient-requirement planning.
-    depends_on: [Inventory]
+    status: foundation
+    phase: 2
+    description: Suppliers, purchase orders and goods receipts that post quantity and cost into the inventory ledger, blending each priced purchase into an ingredient's weighted moving-average cost; and the monthly cost report reconciling purchasing spend and COGS against selling revenue per month and currency (INV1.4).
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Inventory, Orders, Catalogues]
 
   - name: Production
-    status: planned
-    description: Production scheduling, batch preparation, portion control, task allocation and escalation of delays or shortages.
-    depends_on: [Kitchens, Inventory, Recipes]
+    status: foundation
+    phase: 2
+    description: Production orders from recipe versions, tasks, and consume/yield movements into inventory.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes]
 
   - name: QualityControl
-    status: planned
-    description: Food-safety checkpoints, quality checks, labelling and packaging verification.
-    depends_on: [Production, Allergens]
+    status: foundation
+    phase: 2
+    description: Quality checks on goods receipts and production batches with hold and release.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Production, Allergens]
 
+  # Flipped to `foundation` by M1, with the scope narrowed to what actually
+  # exists: the anonymous, read-only consumer view of the catalogue — kitchens
+  # with their branches, delivery zones and operating weeks; published meals
+  # with their derived allergens, resolved price and ordering calendar;
+  # published subscription plans. Partner onboarding, due diligence,
+  # suspension/termination and partner dashboards are *not* built and are no
+  # longer claimed by this description; they belong to a later phase.
+  #
+  # **A registry-only entry, deliberately.** There is no `app-modules/marketplace`
+  # directory and M1 did not create one. Reading a kitchen means reading an
+  # organisation, its branches, its zones, its catalogue items and their prices
+  # together, and `Kitchens` is the only module whose dependency edges already
+  # permit all five. A sixth module would have needed edges to every one of
+  # them to serve projections of rows it does not own. `Localisation` and
+  # `PlatformAdministration` are registry-only entries for the same class of
+  # reason, and the architecture test permits code without requiring it.
+  #
+  # The public read surface therefore lives in `Kitchens`
+  # (`Http/Controllers/Public*`, `Presenters/Marketplace*`,
+  # `Services/Marketplace*`), which is also where the codebase already puts a
+  # public projection: beside the module that owns the data.
+  #
+  # Graduation bar (Marketplace): this is the closest of the fourteen. The
+  # anonymous read surface is complete, switched and running against the real
+  # backend — kitchens, meals, reference reads, and since DEC1 the plans page
+  # too. It stays `foundation` for two reasons and they are both honest:
+  # dietitians and diet categories are still fixture-backed with no backend of
+  # any kind (master plan v2 §3 #14), so the consumer *view of the catalogue*
+  # is not whole; and the plan prices it publishes are owner approximations
+  # (A-013, R-031). It graduates when the dietitian directory has a backend or
+  # the description drops the claim, and when the prices are real.
   - name: Marketplace
-    status: planned
-    description: Partner onboarding, due diligence, listings, suspension/termination and partner dashboards.
-    depends_on: [Organisations, Catalogues]
+    status: foundation
+    phase: 3
+    description: The anonymous, read-only consumer view of the catalogue — kitchens with their branches, delivery zones and operating weeks, published meals with derived allergens, resolved consumer price and a fourteen-day ordering calendar, and published subscription plans. Read capability only; no listing lifecycle, partner onboarding or dashboards exist. Served from the Kitchens module (registry-only entry).
+    depends_on: [Organisations, Catalogues, Pricing, Delivery, Kitchens]
 
+  # Flipped to `foundation` by K1.4: catalogue items (product | meal |
+  # subscription_plan), their variants and pack variants, the representative
+  # ingredient set, the diet-classification pivot, sales channels and
+  # per-channel availability, with the §4.7 sellable publication lifecycle
+  # (draft | review_required | published | retired) and a minimal readiness
+  # gate. Prices are deliberately absent — nothing here carries an amount, a
+  # margin or a currency; that whole surface is K1.5's Pricing module.
+  #
+  # Graduation bar (Catalogues): the management surface is served and rejected
+  # by the api-mode client (R-030). The plan half also carries an inert
+  # capability — energy-band price scaling is implemented and no imported
+  # configuration attaches a band to exercise it (OQ-046) — and a capability
+  # nothing exercises has not been proven complete.
   - name: Catalogues
-    status: planned
-    description: Product and service listings with availability and configuration.
-    depends_on: [Organisations]
+    status: foundation
+    phase: 2
+    description: Catalogue items (products, meals and subscription plans), variants and pack variants, representative ingredients, diet classifications, sales channels and per-channel availability, plus the commercial definition of a subscription — meal combinations, energy bands, durations, plan profiles, the configuration matrix and its duration assignments — all under the sellable publication lifecycle.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes]
 
+  # Flipped to `foundation` by K1.5: price lists (the currency lives on the
+  # list, so a total is a sum of comparable numbers by construction),
+  # effective-dated price rows with supersession rather than update-in-place,
+  # and channel assignments with a consulted-in-order priority. The honest
+  # badge — confirmed | placeholder | market_priced, with a CHECK tying the
+  # amount to it — arrives here too, and `price_list_items` is the first
+  # catalogue-family table to take a PostgreSQL policy of its own.
+  #
+  # Commission structures and premium listings are Marketplace's, not this
+  # module's; the description narrows to what the code actually is.
+  #
+  # Graduation bar (Pricing): effective-dated supersession works and is proven
+  # by 74 real rows being superseded rather than updated (D-075). It stays
+  # `foundation` because the price-list administration — the surface an owner
+  # is expected to correct those approximations through — is served and
+  # unreachable from api-mode (R-030), so the honest statement is that the
+  # correction path exists in the API and not in anybody's hands.
   - name: Pricing
-    status: planned
-    description: Price lists, currencies, commission structures and premium listings.
-    depends_on: [Catalogues, ReferenceData]
+    status: foundation
+    phase: 2
+    description: Price lists with a single currency each, effective-dated price rows with supersession and honest confirmed/placeholder/market-priced statuses, channel assignments and effective-price resolution.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Catalogues]
 
+  # Flipped to `foundation` by J1: customer accounts in their three
+  # CHECK-enforced shapes (b2c | b2b | guest) with the provisional → active
+  # lifecycle, addresses anchored to the platform delivery gazetteer rather
+  # than to free text, and the dietary cluster — profile, allergen
+  # declarations, food exclusions — carrying the special-category
+  # classification and its purpose-of-use reader.
+  #
+  # `contact_points` is deliberately **not** here. It lives in Identity,
+  # because the login mirror it maintains is a fact about `users.email`
+  # (master plan v2 §4.10) and a contact belonging to an identity outlives
+  # every customer account that identity holds.
+  #
+  # Three edges join the P0 declaration, and each one is an import the
+  # architecture test can see. **Audit**: the lifecycle, the address book and
+  # the dietary reader all record events, and the last of those is the
+  # purpose-of-use path special-category data requires. **Verification**: the
+  # phone-verification policy asks the channel registry whether any real
+  # channel can reach a phone, which is what keeps gate A-011 honest — a
+  # configuration flag alone could demand a verification the deployment cannot
+  # perform. **Delivery**: `AreaServiceLookup` is declared here and satisfied
+  # by an adapter over `ZoneResolver`, because a customer's address must be
+  # somewhere a kitchen actually goes. The edge runs Customers → Delivery and
+  # not the reverse; delivery knows nothing about customers, which is what
+  # keeps the graph acyclic.
+  #
+  # G1 and J2 have since landed inside this module — the guest journey (guest
+  # accounts, capability-token sessions, deletion requests, suppression
+  # hashes) and the closure journey (reason and scope vocabularies, the
+  # blocker registry, OTP step-up, scheduled closure, anonymisation and
+  # hash-only tombstones). The description below says so; it used to promise
+  # them.
+  #
+  # Two edges are added by the 2026-08-03 sweep because the code holds the
+  # imports and the registry did not say so: **AccessControl**
+  # (`AccountAnonymiser` bumps `PermissionCache` when it ends a membership)
+  # and **Ingredients** (`CustomerFoodExclusion` belongs to an `Ingredient`).
+  # Neither closes a cycle.
+  #
+  # **One edge is real and deliberately absent.** `Closure\Blockers\
+  # OpenOrdersBlocker` type-hints `Healthy360\Orders\Contracts\OpenOrderQuery`,
+  # so this module depends on Orders at compile time — and Orders declares
+  # Customers, so declaring the truth would close a cycle and fail
+  # `ModuleRegistryTest`. The interface points the wrong way: a consumer should
+  # declare what it needs and the provider implement it, which is exactly what
+  # the same provider does correctly for `OrderAnonymisation` (declared here,
+  # bound by Orders). Recorded as risk R-029 rather than declared, so a reader
+  # finds a stated choice instead of an omission.
+  #
+  # Graduation bar (Customers): activation still cannot require a phone in
+  # production because no SMS provider exists (A-011), so the declared
+  # lifecycle runs in its degraded, email-only form by design. The staff-facing
+  # read of the special-category dietary cluster has no surface. Retention and
+  # purge windows are configuration placeholders awaiting legal sign-off
+  # (OQ-029, OQ-030, OQ-002).
+  - name: Customers
+    status: foundation
+    phase: 2
+    description: Customer accounts in their consumer, corporate and guest shapes with the provisional-to-active lifecycle and its server-authoritative activation evaluator, addresses anchored to the platform delivery gazetteer, the dietary cluster — profile, allergen declarations and food exclusions — held as special-category data, the guest journey (capability-token sessions, guest checkout, conversion without re-keying, expiry and OTP-verified erasure) and the closure journey (reason and scope vocabularies, a blocker registry over real modules, OTP step-up, scheduled closure, anonymisation and hash-only tombstones).
+    depends_on: [Support, Identity, Organisations, Tenancy, ReferenceData, Consent, Audit, AccessControl, Verification, Delivery, Allergens, Ingredients]
+
+  # Flipped to `foundation` by J1: the OTP framework — challenges with peppered
+  # code hashes, a five-minute window, three attempts counted before the
+  # comparison under a row lock, a 45-second resend cooldown, and a
+  # cross-channel lockout that outlives the challenge it protects — plus the
+  # channel drivers behind an interface. Mail is the only one that really
+  # delivers; SMS and WhatsApp are log drivers flagged `simulated`, and the
+  # registry refuses to offer a simulated channel outside local and testing
+  # (master plan v2 §3 #16, OQ-008).
+  #
+  # ReferenceData joins the declared dependencies because a message's text
+  # direction is read from `languages.direction` rather than from a second list
+  # of right-to-left codes maintained in the mail layer.
+  #
+  # Step-up verification for closure, payment details and B2B signatures is
+  # reserved in the purpose vocabulary and issued by nobody yet: those journeys
+  # are J2's, PAY1's and B1's.
+  #
+  # All six purposes have consumers now — contact verification, guest
+  # ordering, guest deletion, closure step-up, B2B signing and B2 sign-off —
+  # so `isIssuable()` opened to all of them and `grantsStepUp()` narrowed to
+  # the two that may stamp a step-up (D-064).
+  #
+  # Graduation bar (Verification): the module's declared capability *names*
+  # SMS and WhatsApp, and both are log drivers. Until a provider is selected
+  # and its deliverability measured (A-011, INT-005, INT-006), two thirds of
+  # the declared channel capability is simulated, and a status of `active`
+  # would be the single most misleading row in this file.
+  - name: Verification
+    status: foundation
+    phase: 2
+    description: One-time-passcode challenges and their channel drivers — email real, SMS and WhatsApp simulated behind the same interface until a provider is selected — with peppered code hashes, concurrency-safe verification, resend cooldowns and cross-channel lockout, plus the contact-verification journey and the email verification message that carries a link and a code together.
+    depends_on: [Support, Identity, ReferenceData, Audit]
+
+  # Verification and Identity join the declared edges in the integration wave,
+  # and the reason is a security property rather than a convenience.
+  # `AgreementService::sign()` now demands a *consumed* `b2b_signatory` passcode
+  # belonging to the person signing, so B2B has to be able to read a challenge;
+  # and the signatory's destination is recorded as a contact point, which is
+  # Identity's single write path. Both edges run B2B → the other module and
+  # neither runs back, so the graph stays acyclic.
   - name: B2B
-    status: planned
-    description: Corporate wellness and insurer arrangements — enrolment, eligibility validation, corporate/insurer billing.
-    depends_on: [Organisations, Catalogues, Pricing, Consent]
+    status: foundation
+    description: Corporate wellness and insurer arrangements — applications and their KYC pack, versioned agreements signed against a verified one-time passcode, provisioning an approved application into a real organisation and trading account, and organisation invitations. Offboarding and record export arrive with B2.
+    depends_on: [Support, Identity, Organisations, AccessControl, Tenancy, Audit, Catalogues, Pricing, Consent, Customers, Verification]
 
   - name: Cart
-    status: planned
-    description: Basket, address validation and checkout preparation.
-    depends_on: [Catalogues, Pricing]
+    status: foundation
+    phase: 2
+    description: Persisted single-kitchen baskets — one open cart per customer per channel, lines validated on the way in by a server-side price probe that refuses unpublished, unoffered, unpriced and cross-currency articles, and a daily sweep that closes stale baskets without deleting them. Holds no amount of any kind; the probe establishes orderability and its price is deliberately discarded.
+    depends_on: [Support, Organisations, Tenancy, Audit, Catalogues, Pricing, Customers]
 
   - name: Orders
-    status: planned
-    description: Order capture, status tracking and fulfilment orchestration across kitchens and delivery.
-    depends_on: [Cart, Kitchens]
+    status: foundation
+    phase: 2
+    description: Order capture — placement that reprices every line authoritatively, snapshots the commercial half of each article and the delivery address, resolves the zone fee and the branch cut-off, and refuses in one answer carrying every reason; the placed/confirmed/fulfilled/cancelled state machine; service-level idempotency over the shared key table; cash on delivery only, with no payment column of any kind. Fulfilment orchestration and delivery operations arrive with F1.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Kitchens, Cart]
 
+  # Flipped to `foundation` by S1, with the scope narrowed to what the approved
+  # semantics actually build (docs/s1-subscription-semantics-proposal.md): a
+  # customer subscription as a consumable balance of delivery days, the 24-hour
+  # change window, incremental one-delivery-ahead order generation, the absolute
+  # allergen gate on substitution, grandfathered per-day pricing, and a credit
+  # memo recorded for manual settlement on cancellation. Trials, upgrades,
+  # downgrades and B2B recurring arrangements are **not** built and are no
+  # longer claimed by this description.
+  #
+  # The declared edges are the imports the architecture test can see, and both
+  # of the P0 edges are gone. **Payments** because it is `planned` and a module
+  # that may hold code may not depend on one that may not — S1 moves no money by
+  # construction, which is what `credit_memos` records. **Features** because
+  # nothing here reads an entitlement; a subscription is a purchase, not a
+  # feature flag, and declaring the edge would be a licence to import something
+  # nothing imports.
+  #
+  # Orders is the load-bearing new edge: generation places a real order through
+  # `OrderPlacementService::placeComposed()`, and reads `CheckoutEligibility`
+  # and `SellerContext` rather than restating either. Cart joins it because
+  # `LineProbe` is the single definition of "orderable" and both the plan check
+  # and the substitution search ask it. The edges all run
+  # Subscriptions → the other module and none runs back, so the graph stays
+  # acyclic — nothing that may hold code depends on Subscriptions.
   - name: Subscriptions
-    status: planned
-    description: Consumer and partner subscription lifecycles, trials, upgrades and downgrades.
-    depends_on: [Features, Payments]
+    status: foundation
+    phase: 3
+    description: Customer subscriptions as a consumable balance of delivery days — weekday selection, the plan's own 24-hour change window over skip, pause, resume, address and window changes, incremental order generation one delivery ahead with a grandfathered per-day price, an absolute allergen gate on automatic substitution, a schedule projection for kitchen demand, renewal at exhaustion, and cancellation with the unused balance recorded as a credit memo for manual settlement. No money movement, no trials, no upgrades or downgrades, and no B2B recurring orders.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Cart, Orders]
 
   - name: Payments
-    status: planned
-    description: Payment-gateway integration, invoices, refunds; per-market provider selection.
-    depends_on: [Orders, Pricing]
+    status: foundation
+    phase: 2
+    description: Payment intents keyed by order_id (never PAN on orders), pluggable PaymentProvider with COD first-class, sandbox card provider, refunds; settlement lookup for B2B offboarding.
+    depends_on: [Support, Organisations, Tenancy, Audit, Orders, Pricing]
 
   - name: Accounting
     status: planned
@@ -176,19 +544,42 @@ modules:
     depends_on: [Payments, Subscriptions]
 
   - name: POS
-    status: planned
-    description: Point-of-sale transactions for kitchen/clinic counters; offline requirements need a separate threat model (ADR-0012).
-    depends_on: [Catalogues, Pricing, Payments]
+    status: foundation
+    phase: 2
+    description: Online-only point-of-sale — registers, shifts and transactions with COD or sandbox card (ADR-0012 offline deferred).
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Catalogues, Pricing, Payments]
 
   - name: KitchenDisplay
-    status: planned
-    description: KDS ticket flow for production stations; shell/prototype build mode until hardware known.
-    depends_on: [Production, Orders]
+    status: foundation
+    phase: 2
+    description: KDS tickets from orders and production with bump states; online-only MVP.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Production, Orders]
 
+  # Orders edge dropped (master plan v2 §5): delivery zones, areas and windows
+  # are configuration that precedes any delivery job, and K1.7 builds them
+  # before Orders exists. The Orders edge returns with F1's delivery operations.
+  #
+  # Flipped to `foundation` by K1.7: the two-level geography (the platform
+  # `delivery_areas` gazetteer, which lives in ReferenceData because a place is
+  # nobody's tenant data, and each kitchen's `delivery_zones` over it), the
+  # one-area-one-zone-per-branch rule with `ZoneResolver` deciding that a
+  # branch claim beats the organisation-wide one, and the named delivery
+  # windows a checkout picks from. Provider integration, driver allocation,
+  # tracking and proof of delivery are F1's and are absent by design — nothing
+  # here dispatches anything.
+  #
+  # Support, Tenancy, AccessControl and Audit join the declared dependencies
+  # because the code uses them: the base model and API envelope, the
+  # organisation scope, the permission gate and the audit trail. The P0 entry
+  # named only [Organisations, ReferenceData], which described the domain
+  # coupling rather than the platform primitives every module of this kind
+  # imports; the amendment makes the declaration match the imports the
+  # architecture test checks.
   - name: Delivery
-    status: planned
-    description: Delivery zones, provider integration, driver allocation, tracking, proof of delivery and failed-delivery handling.
-    depends_on: [Orders]
+    status: foundation
+    phase: 2
+    description: Delivery geography and slots — kitchen delivery zones over the platform area gazetteer, one zone per area per branch with branch-over-organisation resolution, named delivery windows, and F1 in-house delivery jobs (driver assignment, tracking, proof of delivery). Third-party logistics deferred.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit]
 
   - name: ClinicalRecords
     status: planned

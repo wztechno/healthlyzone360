@@ -28,11 +28,8 @@ import { contractPriceTestId, quotationStateKey } from '../format.ts';
  *
  * ## The programme list is a contract gap, and the screen says so
  *
- * `BusinessRepository` has `getCorporateProgramme(programmeId)` and nothing that *lists* them, so
- * the programmes below are the ones the quotation history mentions (`data/business-hooks.ts`
- * explains the derivation). A programme with no quotation against it is therefore invisible here.
- * That is stated on the screen rather than hidden, because a buyer who cannot find their programme
- * needs to know it is the prototype's limitation and not their account's.
+ * `BusinessRepository` has `listCorporateProgrammes()` and `getCorporateProgramme(programmeId)`.
+ * The list below is the organisation's buyer programmes from the API (or mock store).
  *
  * ## Prices are allowed here, and only here
  *

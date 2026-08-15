@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted — 2026-07-30.
+Superseded by [ADR-0013](0013-api-only-repositories-and-feature-availability.md) — 2026-08-11.
+The repository boundary this record created survives; the mock implementation and its four gates
+do not. Accepted — 2026-07-30.
 
 ## Context
 

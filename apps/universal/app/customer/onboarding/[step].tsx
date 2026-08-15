@@ -1,11 +1,11 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 
-import { OnboardingScreen } from '../../../src/features/onboarding/onboarding-screen.tsx';
 import {
     FIRST_ONBOARDING_STEP,
     isOnboardingStepSlug,
     onboardingStepPath,
 } from '../../../src/features/onboarding/steps.ts';
+import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /**
  * `/customer/onboarding/{step}` — one step of the wizard, addressed by its slug.
@@ -16,10 +16,19 @@ import {
  * beginning. Everything else, including whether they are allowed to *be* on that step yet, belongs
  * to the screen, which is the thing that can see the answers.
  *
+ * `steps.ts` stays a static import while the screen is lazy: the slug check happens before anything
+ * is rendered, so making it wait on a chunk would turn a bad bookmark into a spinner.
+ *
  * No `generateStaticParams`: pre-rendering twenty-two pages would bake the step list into the
  * export, and the static server already falls back to the application shell for extension-less
  * paths, so a deep link resolves client-side.
  */
+const OnboardingScreen = lazyScreen(
+    'onboarding-loading',
+    async () =>
+        (await import('../../../src/features/onboarding/onboarding-screen.tsx')).OnboardingScreen,
+);
+
 export default function OnboardingStepRoute() {
     const { step } = useLocalSearchParams<{ step?: string }>();
 

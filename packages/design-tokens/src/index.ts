@@ -5,8 +5,8 @@ export {
     SEMANTIC_ROLES,
     THEMES,
     brand,
-    clay,
     neutral,
+    violet,
     nutritionDark,
     nutritionLight,
     pureBlack,
@@ -48,6 +48,7 @@ export {
     DISPLAY_SIZE_THRESHOLD,
     FONT_SIZE_NAMES,
     SCRIPTS,
+    displayLetterSpacing,
     displayLineHeightMultipliers,
     fontFamilies,
     fontSizes,
@@ -81,8 +82,21 @@ export {
 } from './layout.ts';
 export type { BreakpointName, RadiusName, SpacingStep, ZIndexName } from './layout.ts';
 
-export { ELEVATION_LEVELS, elevation, elevationRoles } from './elevation.ts';
-export type { ElevationLevel, ElevationRole, ElevationToken, NativeShadow } from './elevation.ts';
+export {
+    ELEVATION_LEVELS,
+    NAMED_ELEVATIONS,
+    elevation,
+    elevationRoles,
+    namedElevation,
+} from './elevation.ts';
+export type {
+    ElevationLevel,
+    ElevationRole,
+    ElevationToken,
+    NamedElevationName,
+    NamedElevationToken,
+    NativeShadow,
+} from './elevation.ts';
 
 export {
     DURATION_NAMES,

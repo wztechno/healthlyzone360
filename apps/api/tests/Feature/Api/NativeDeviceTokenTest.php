@@ -7,6 +7,7 @@ use Healthy360\Identity\Models\PersonalAccessToken;
 use Healthy360\Identity\Models\UserDevice;
 use Healthy360\Organisations\Models\Organisation;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -219,4 +220,48 @@ it('records that a bearer credential was used, at most once per interval', funct
     $this->withToken($token)->getJson('/api/v1/me')->assertOk();
 
     expect(UserDevice::query()->whereKey($deviceId)->sole()->last_seen_at)->toBeNull();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Expo web: Origin without CSRF
+|--------------------------------------------------------------------------
+|
+| The browser sends Origin on cross-origin fetches. Without the bearer-client
+| gate in EnsureFrontendRequestsAreStateful, Sanctum would demand a CSRF
+| token the Expo transport never obtains (credentials: omit, POST /auth/token).
+|
+*/
+
+it('exchanges credentials when Origin and X-Client-Platform are both sent', function (): void {
+    $this->postJson('/api/v1/auth/token', [
+        'email' => 'owner@cedar.test',
+        'password' => 'password',
+        'device_name' => 'Healthy360 web',
+        'platform' => 'web',
+    ], [
+        'Origin' => 'http://localhost:8081',
+        'X-Client-Platform' => 'web',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.device.platform', 'web');
+});
+
+it('registers when Origin and X-Client-Platform are both sent', function (): void {
+    Notification::fake();
+
+    $this->postJson('/api/v1/auth/register', [
+        'email' => 'expo-web@example.test',
+        'password' => 'correct-horse-battery-staple',
+        'password_confirmation' => 'correct-horse-battery-staple',
+        'given_name' => 'Expo',
+        'family_name' => 'Web',
+        'accepts_terms' => true,
+        'accepts_privacy' => true,
+    ], [
+        'Origin' => 'http://localhost:8081',
+        'X-Client-Platform' => 'web',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.user.email', 'expo-web@example.test');
 });

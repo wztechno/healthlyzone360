@@ -1,6 +1,7 @@
 import { Avatar, ImagePlaceholder } from '@healthy360/design-system';
 import type { AvatarSize } from '@healthy360/design-system';
-import { Image, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { Image, Text as RNText, View } from 'react-native';
 import type { ImageRequireSource } from 'react-native';
 
 import { IMAGE_ASSETS } from './image-manifest.generated.ts';
@@ -23,13 +24,22 @@ import { IMAGE_ASSETS } from './image-manifest.generated.ts';
 
 const cx = (...parts: Array<string | undefined | false>): string => parts.filter(Boolean).join(' ');
 
-export type EntityImageAspect = 'square' | 'wide' | 'tall';
+/**
+ * Note that `aspect` and `variant` are different questions and neither implies the other. `variant`
+ * picks which *file* to load (`card` ≈640w, `detail` ≈1280w); `aspect` picks the shape of the frame
+ * it is drawn in. A card at `variant="card"` usually wants `aspect="card"`, but a 4:3 crop of the
+ * detail-resolution file is a perfectly sensible thing to ask for.
+ */
+export type EntityImageAspect = 'square' | 'wide' | 'tall' | 'card';
 export type EntityImageVariant = 'card' | 'detail';
 
 const ASPECT_CLASS: Readonly<Record<EntityImageAspect, string>> = {
     square: 'aspect-square',
     wide: 'aspect-video',
     tall: 'aspect-[3/4]',
+    // 4:3 for a grid card — a taller crop so the dish fills the frame. `wide` stays 16:9 for the
+    // detail page, which is why this is a new aspect rather than a redefinition of that one.
+    card: 'aspect-[4/3]',
 };
 
 const AVATAR_SIZE_CLASS: Readonly<Record<AvatarSize, string>> = {
@@ -50,6 +60,12 @@ const AVATAR_SIZE_CLASS: Readonly<Record<AvatarSize, string>> = {
  * values are the dish photo base name (the recipe key).
  */
 const DISH_FOR_MEAL: Readonly<Record<string, string>> = {
+    // The API demonstration menu is separate from the 40-meal prototype world
+    // below.  These use the same locally bundled, credited Unsplash assets at
+    // the card/detail dimensions, so API mode remains fully offline.
+    'grilled-chicken-freekeh': 'herbed-chicken-freekeh',
+    'mezze-plate': 'charred-aubergine-chickpea',
+    'red-lentil-soup': 'spiced-lentil-pumpkin-stew',
     'verdant-herb-garden-bowl': 'herbed-chicken-freekeh',
     'riverstone-training-freekeh': 'herbed-chicken-freekeh',
     'saffron-tahini-salmon-tray': 'lemon-tahini-salmon',
@@ -150,6 +166,19 @@ export interface EntityImageProps {
      * from assistive technology (WCAG H67) rather than announced twice. Used by the marketing slots.
      */
     readonly decorative?: boolean | undefined;
+    /**
+     * Drops the image's own 12px radius, for media sitting flush inside a clipped card. Without it
+     * a 12px image floats inside a 16px card and the corners visibly disagree.
+     *
+     * A prop rather than a `className="rounded-none"` override, because the local {@link cx} is a
+     * plain join: the last class in the string does not win, the more specific CSS rule does, and
+     * between two same-specificity utilities that is stylesheet order rather than call-site order.
+     */
+    readonly flush?: boolean | undefined;
+    /** Top-leading overlay — a kitchen name, a verified mark. Rendered over either branch. */
+    readonly overlayStart?: ReactNode | undefined;
+    /** Bottom-trailing overlay — a price tag, a duration. */
+    readonly overlayEnd?: ReactNode | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -169,30 +198,59 @@ export function EntityImage({
     label,
     aspect = 'wide',
     decorative = false,
+    flush = false,
+    overlayStart,
+    overlayEnd,
     className,
     testID,
 }: EntityImageProps) {
     const resolved = source !== undefined ? source : resolveEntityImage(assetId, variant);
+    const hasOverlay = overlayStart !== undefined || overlayEnd !== undefined;
+
+    // Overlays are positioned against a wrapper that both branches share, so a chip does not
+    // vanish the moment a fixture has no photograph and falls back to the generated pattern.
+    // Without overlays there is no wrapper at all — an extra View per image, on a grid of forty,
+    // for nothing.
+    const withOverlays = (media: ReactNode) =>
+        hasOverlay ? (
+            <View className="relative w-full">
+                {media}
+                {overlayStart === undefined ? null : (
+                    <View className="absolute start-2 top-2 flex-row">{overlayStart}</View>
+                )}
+                {overlayEnd === undefined ? null : (
+                    <View className="absolute bottom-2 end-2 flex-row">{overlayEnd}</View>
+                )}
+            </View>
+        ) : (
+            media
+        );
 
     if (resolved === null || resolved === undefined) {
-        return (
+        return withOverlays(
             <ImagePlaceholder
                 testID={testID}
                 seed={seed}
                 label={label}
                 aspect={aspect}
+                flush={flush}
                 className={className}
-            />
+            />,
         );
     }
 
-    return (
+    return withOverlays(
         <View
             testID={testID}
             aria-hidden={decorative}
             accessibilityElementsHidden={decorative}
             importantForAccessibility={decorative ? 'no-hide-descendants' : undefined}
-            className={cx('w-full overflow-hidden rounded-lg', ASPECT_CLASS[aspect], className)}
+            className={cx(
+                'w-full overflow-hidden',
+                !flush && 'rounded-lg',
+                ASPECT_CLASS[aspect],
+                className,
+            )}
         >
             <Image
                 accessibilityLabel={decorative ? undefined : label}
@@ -201,6 +259,36 @@ export function EntityImage({
                 resizeMode="cover"
                 style={{ width: '100%', height: '100%' }}
             />
+        </View>,
+    );
+}
+
+export interface MediaChipProps {
+    readonly label: string;
+    readonly testID?: string | undefined;
+}
+
+/**
+ * A label that sits on top of photography — a kitchen name, a verified mark.
+ *
+ * The fill is the canopy at 80% rather than a neutral scrim, and it is deliberately near-opaque:
+ * a chip over an unknown photograph cannot rely on the image behind it for contrast, and the worst
+ * case here (the chip over a pure-white photo) still puts white text at 6.9:1. A lighter wash would
+ * be legible over the dish photographs currently in the manifest and illegible over the next batch.
+ *
+ *
+ * RNText throughout, never the design system's `Text`.
+ *
+ * `Text` emits its own variant and tone classes ahead of a caller's `className`, and which colour
+ * actually wins is decided by stylesheet order rather than by the order they appear in the
+ * attribute. This chip shipped as `text-content-primary` on the canopy — 2.13:1, which the axe
+ * suite caught — despite asking for `text-content-on-canopy` right there in its className.
+ * Anything that states its own colour on a dark surface says so with a plain RNText.
+ */
+export function MediaChip({ label, testID }: MediaChipProps) {
+    return (
+        <View testID={testID} className="rounded-full bg-surface-canopy/80 px-3 py-1">
+            <RNText className="text-xs font-bold text-content-on-canopy">{label}</RNText>
         </View>
     );
 }

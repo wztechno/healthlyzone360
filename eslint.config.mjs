@@ -31,25 +31,62 @@ const RTL_MESSAGE =
 const VARIANT_MESSAGE =
     'NativeWind 4 `rtl:` / `ltr:` variants do not work on native. Use logical utilities instead of direction variants.';
 
+/**
+ * Healthy360 colour policy (design handoff §1.3).
+ *
+ * Three bans, all of which were violated during design work and none of which a contrast checker
+ * catches on its own — axe measures a rendered pair, so it never sees the *rule*.
+ *
+ * What this cannot do: ESLint has no idea how large the text on a surface is, so it cannot express
+ * "`brand-500` may fill a surface carrying text at 18.66px bold or above". The ban is therefore
+ * blanket, and the legitimate large-text and graphic cases take an `eslint-disable-next-line` with
+ * a reason. The *ratio* half of §1.3 is enforced separately, over the token pairs themselves, in
+ * `packages/design-tokens/src/colour.test.ts`.
+ *
+ * As with the RTL pattern above: no `/` and no `[` or `]` anywhere in these patterns — esquery's
+ * attribute-regex grammar terminates at the first unescaped one of either, and the failure is a
+ * silently non-matching selector rather than an error.
+ */
+const BRAND_500_SURFACE_CLASS = '(^|\\s)(?:[a-z0-9-]+:)*(?:bg|text)-brand-[45]00($|\\s)';
+
+const BRAND_500_MESSAGE =
+    'White on brand-500 (#16A34A) is 3.05:1 — legal for graphics and large text, illegal below 18.66px bold (handoff §1.3). Use `surface-brand` / `content-on-brand` (#157043, ~6.5:1) for anything carrying small text. brand-500 stays on borders, focus rings, underline bars, meter fills, dots and chart strokes.';
+
+const INVENTED_GREY_CLASS = '(^|\\s)(?:[a-z0-9-]+:)*[a-z-]+-neutral-[0-9]{2,3}($|\\s)';
+
+const GREY_MESSAGE =
+    'Never invent a grey (handoff §1.3). Secondary text is `content-secondary`; anything demoted further is `content-disabled`. Surfaces are `surface-base` / `surface-raised` / `surface-sunken` — the neutral ramp is cool slate and reads as dirt on the mint page.';
+
+// `-.#` rather than `-\\[#`: the bracket is matched by `.` so the pattern carries no literal
+// bracket of its own. See the esquery note above.
+const ARBITRARY_COLOUR_CLASS =
+    '(^|\\s)(?:[a-z0-9-]+:)*(?:bg|text|border|fill|stroke|ring|shadow|decoration|placeholder|caret|accent|outline|from|via|to)-.#[0-9a-fA-F]{3,8}';
+
+const ARBITRARY_COLOUR_MESSAGE =
+    'Arbitrary colour literals bypass the token set and the dark theme with it. Use a token utility (`bg-surface-canopy`, `text-content-secondary`, `border-stroke-subtle`); if the colour you need has no token, add one in `packages/design-tokens/src` rather than inlining the hex.';
+
+/** Class-string rules applied to both `className` and `class` attributes, in both quoting forms. */
+const CLASS_STRING_RULES = [
+    { pattern: PHYSICAL_DIRECTION_CLASS, message: RTL_MESSAGE },
+    { pattern: DIRECTION_VARIANT_CLASS, message: VARIANT_MESSAGE },
+    { pattern: BRAND_500_SURFACE_CLASS, message: BRAND_500_MESSAGE },
+    { pattern: INVENTED_GREY_CLASS, message: GREY_MESSAGE },
+    { pattern: ARBITRARY_COLOUR_CLASS, message: ARBITRARY_COLOUR_MESSAGE },
+];
+
 /** Selectors that catch class strings written directly in JSX attributes. */
-const classNameAttributeSelectors = ['className', 'class'].flatMap((attribute) => [
-    {
-        selector: `JSXAttribute[name.name='${attribute}'] Literal[value=/${PHYSICAL_DIRECTION_CLASS}/]`,
-        message: RTL_MESSAGE,
-    },
-    {
-        selector: `JSXAttribute[name.name='${attribute}'] TemplateElement[value.raw=/${PHYSICAL_DIRECTION_CLASS}/]`,
-        message: RTL_MESSAGE,
-    },
-    {
-        selector: `JSXAttribute[name.name='${attribute}'] Literal[value=/${DIRECTION_VARIANT_CLASS}/]`,
-        message: VARIANT_MESSAGE,
-    },
-    {
-        selector: `JSXAttribute[name.name='${attribute}'] TemplateElement[value.raw=/${DIRECTION_VARIANT_CLASS}/]`,
-        message: VARIANT_MESSAGE,
-    },
-]);
+const classNameAttributeSelectors = ['className', 'class'].flatMap((attribute) =>
+    CLASS_STRING_RULES.flatMap(({ pattern, message }) => [
+        {
+            selector: `JSXAttribute[name.name='${attribute}'] Literal[value=/${pattern}/]`,
+            message,
+        },
+        {
+            selector: `JSXAttribute[name.name='${attribute}'] TemplateElement[value.raw=/${pattern}/]`,
+            message,
+        },
+    ]),
+);
 
 /**
  * Generated-code containment (plan §15: "Generated code may only be imported through the API
@@ -247,10 +284,11 @@ export default tseslint.config(
         },
     },
 
-    // Prompt 2 guard invariants (plan §5), orchestrator-owned.
+    // Guard invariants, orchestrator-owned.
     //
-    // 1. Screens never import fixtures: the mock world (including the prototype fixture world)
-    //    is reachable only through repositories. Tests and the app's own test harness are exempt.
+    // 1. No screen reaches into a `mock` folder: the fixture world was deleted (ADR-0013) and
+    //    this rule is what keeps a resurrected one — or a stray test double parked under `mock/`
+    //    — out of app code. Data flows through the repository hooks; tests use src/testing.
     // 2. No dead controls: an empty onPress body is a dead button by construction. Real handlers
     //    call a hook, a mutation or usePrototypeAction() — never nothing.
     {
@@ -268,13 +306,9 @@ export default tseslint.config(
                     patterns: [
                         ...restrictedImports.patterns,
                         {
-                            group: [
-                                '**/mock/**',
-                                '@healthy360/api-client/mock',
-                                '@healthy360/api-client/mock/**',
-                            ],
+                            group: ['**/mock/**'],
                             message:
-                                'Screens must not import fixtures or the mock world directly (plan §5). Go through the repository hooks; tests use src/testing helpers.',
+                                'App code must not import from a mock folder — the fixture world is deleted (ADR-0013). Go through the repository hooks; tests use src/testing helpers.',
                         },
                     ],
                 },

@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/platform-administration",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\PlatformAdministration\\": "src/",
+			"Healthy360\\PlatformAdministration\\Tests\\": "tests/",
+			"Healthy360\\PlatformAdministration\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\PlatformAdministration\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\PlatformAdministration\\Providers\\PlatformAdministrationServiceProvider"
+			]
+		}
+	}
+}

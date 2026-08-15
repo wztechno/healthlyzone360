@@ -80,6 +80,18 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
         for (const surface of ['surfaceBase', 'surfaceRaised', 'surfaceSunken'] as const) {
             pairs.push([theme, `textPrimary/${surface}`, c.textPrimary, c[surface]]);
             pairs.push([theme, `textSecondary/${surface}`, c.textSecondary, c[surface]]);
+            // `textDisabled` is not only for disabled controls — it is the demoted-text role, and
+            // the Table's column headers use it at 12px. So it carries real prose and owes the
+            // normal-text ratio, not the 3:1 a genuinely inert control could get away with.
+            pairs.push([theme, `textDisabled/${surface}`, c.textDisabled, c[surface]]);
+        }
+        // Neutral body text also lands on the semantic *subtle* panels — a danger callout with a
+        // secondary-tone line, a forbidden page painted on danger-subtle — so those pairs are part
+        // of the budget too. A secondary token light enough to clear only the surfaces is not enough.
+        for (const role of SEMANTIC_ROLES) {
+            const subtle = themes[theme].semantic[role].subtle;
+            pairs.push([theme, `textPrimary/${role}-subtle`, c.textPrimary, subtle]);
+            pairs.push([theme, `textSecondary/${role}-subtle`, c.textSecondary, subtle]);
         }
         pairs.push([theme, 'textInverse/surfaceInverse', c.textInverse, c.surfaceInverse]);
         pairs.push([theme, 'textOnBrand/brandSurface', c.textOnBrand, c.brandSurface]);
@@ -90,11 +102,91 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
             c.brandSurfaceSubtle,
         ]);
         pairs.push([theme, 'onAccentSurface/accentSurface', c.onAccentSurface, c.accentSurface]);
+        pairs.push([theme, 'onAccentSubtle/accentSubtle', c.onAccentSubtle, c.accentSubtle]);
+        pairs.push([theme, 'onCanopy/surfaceCanopy', c.onCanopy, c.surfaceCanopy]);
+        pairs.push([theme, 'onCanopyMuted/surfaceCanopy', c.onCanopyMuted, c.surfaceCanopy]);
+        // The hero's title sits on the gradient, which passes through `surfaceCanopyDeep` on its
+        // way to the far stop — so the band's foregrounds owe AA against that stop too, not only
+        // against the flat colour at the near end.
+        pairs.push([theme, 'onCanopy/surfaceCanopyDeep', c.onCanopy, c.surfaceCanopyDeep]);
+        pairs.push([theme, 'onCanopyMuted/surfaceCanopyDeep', c.onCanopyMuted, c.surfaceCanopyDeep]);
     }
 
     it.each(pairs)('%s %s', (_theme, _label, foreground, background) => {
         const ratio = contrastRatio(foreground, background);
         expect(ratio, `only ${formatContrast(ratio)}`).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    });
+});
+
+/**
+ * The canopy alpha floor.
+ *
+ * Text on the canopy band is drawn at partial opacity, which no automated checker measures — axe
+ * reads the declared colour, not the composite. This got written too faint three times during the
+ * design work, so the floor is pinned here in *both* directions: 0.62 must pass and 0.45 must fail.
+ * If a future palette change makes 0.45 legible the second assertion breaks on purpose, because the
+ * rule that ships in the guidance would then be wrong.
+ */
+describe('canopy text alpha floor', () => {
+    /** Composites a foreground at `alpha` over an opaque background — what the eye actually sees. */
+    const flatten = (foreground: string, background: string, alpha: number): string => {
+        const fg = hexToRgb(foreground);
+        const bg = hexToRgb(background);
+        const mix = (f: number, b: number) => Math.round(f * alpha + b * (1 - alpha));
+        return `#${[mix(fg.r, bg.r), mix(fg.g, bg.g), mix(fg.b, bg.b)]
+            .map((channel) => channel.toString(16).padStart(2, '0'))
+            .join('')}`;
+    };
+
+    const MINIMUM_ALPHA = 0.62;
+
+    it.each([...THEMES])('%s: onCanopyMuted clears AA at the 0.62 floor', (theme) => {
+        const c = themes[theme].colours;
+        const ratio = contrastRatio(
+            flatten(c.onCanopyMuted, c.surfaceCanopy, MINIMUM_ALPHA),
+            c.surfaceCanopy,
+        );
+        expect(ratio, `only ${formatContrast(ratio)}`).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    });
+
+    /**
+     * The floor holds against the *flat* canopy only.
+     *
+     * `surfaceCanopy` is the footer's fill and the dark end of the hero gradient, and 0.62 clears AA
+     * on it at 5.42:1. It does not clear AA further along the gradient: over `surfaceCanopyDeep` the
+     * same text is 4.43:1, and over the bright far stop it is worse again. That is not a token bug —
+     * it is why a gradient band must carry a scrim rather than trusting the alpha, exactly as
+     * `apps/universal/src/ui/brand-gradient.tsx` already does and says.
+     *
+     * Pinned in the failing direction on purpose. If the deep stop is ever darkened far enough for
+     * bare 0.62 text to pass, this breaks and the scrim requirement gets revisited deliberately
+     * instead of quietly becoming dead weight.
+     */
+    it('does not hold over the gradient — which is why the hero band is scrimmed', () => {
+        const c = themes.light.colours;
+        const ratio = contrastRatio(
+            flatten(c.onCanopyMuted, c.surfaceCanopyDeep, MINIMUM_ALPHA),
+            c.surfaceCanopyDeep,
+        );
+        expect(ratio, `${formatContrast(ratio)} — still short of AA`).toBeLessThan(
+            WCAG_AA_NORMAL_TEXT,
+        );
+    });
+
+    it.each([...THEMES])('%s: 0.45 fails, which is why the floor exists', (theme) => {
+        const c = themes[theme].colours;
+        const band = c.surfaceCanopy;
+        expect(contrastRatio(flatten(c.onCanopyMuted, band, 0.45), band)).toBeLessThan(
+            WCAG_AA_NORMAL_TEXT,
+        );
+    });
+
+    it('places the documented navigation and body opacities above the floor', () => {
+        // Nav items sit at 0.74–0.78 and body copy at 0.82–0.86; both are headroom above 0.62, and
+        // the floor is what a new usage must not go below.
+        for (const alpha of [0.74, 0.82]) {
+            expect(alpha).toBeGreaterThan(MINIMUM_ALPHA);
+        }
     });
 });
 
@@ -237,10 +329,7 @@ describe('theme completeness', () => {
     });
 
     it('inverts overall lightness between themes', () => {
-        // The light canvas is a deliberately fresh *sage* tint rather than white (so a page reads
-        // alive, not a flat white sheet), so the floor is 0.7 — still unambiguously light against
-        // the dark theme's < 0.05, which is the inversion this check exists to guard.
-        expect(relativeLuminance(themes.light.colours.surfaceBase)).toBeGreaterThan(0.7);
+        expect(relativeLuminance(themes.light.colours.surfaceBase)).toBeGreaterThan(0.8);
         expect(relativeLuminance(themes.dark.colours.surfaceBase)).toBeLessThan(0.05);
     });
 });

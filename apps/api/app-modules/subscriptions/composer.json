@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/subscriptions",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Subscriptions\\": "src/",
+			"Healthy360\\Subscriptions\\Tests\\": "tests/",
+			"Healthy360\\Subscriptions\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Subscriptions\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Subscriptions\\Providers\\SubscriptionsServiceProvider"
+			]
+		}
+	}
+}

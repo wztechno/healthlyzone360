@@ -1,0 +1,134 @@
+{
+    "title": "Checkout as a guest",
+    "subtitle": "No account needed. We ask for a name, somewhere to deliver, and one way to reach you if something changes.",
+    "steps": {
+        "contact": "Your details",
+        "address": "Delivery",
+        "verify": "Confirm",
+        "review": "Review"
+    },
+    "entry": {
+        "title": "How would you like to continue?",
+        "body": "You can order without an account. If you already have one, signing in keeps your addresses and past orders together.",
+        "continueAsGuest": "Continue as a guest",
+        "signIn": "Sign in instead"
+    },
+    "contact": {
+        "title": "How can we reach you?",
+        "subtitle": "One of these is enough. We use it to confirm the order and to tell you if a delivery is running late.",
+        "fullName": "Full name",
+        "fullNameHint": "The name the driver will ask for.",
+        "email": "Email address",
+        "emailHint": "Leave blank if you would rather use a mobile number.",
+        "mobile": "Mobile number",
+        "mobileHint": "Include the country code, for example +971 50 123 4567.",
+        "channel": "Send the confirmation code by",
+        "channelEmail": "Email",
+        "channelSms": "SMS",
+        "channelWhatsapp": "WhatsApp",
+        "continue": "Continue to delivery",
+        "errors": {
+            "nameRequired": "Enter the name the driver should ask for.",
+            "contactRequired": "Enter an email address or a mobile number — either one is enough.",
+            "emailInvalid": "That does not look like an email address.",
+            "mobileInvalid": "Enter the number with its country code, starting with +."
+        }
+    },
+    "address": {
+        "title": "Where are we delivering?",
+        "subtitle": "Nothing here is saved to an account, because there is no account. It is used for this order only.",
+        "slot": "Delivery time",
+        "date": "Delivery date",
+        "continue": "Continue",
+        "back": "Back",
+        "outOfZoneTitle": "This kitchen does not deliver to {{area}}",
+        "outOfZoneBody": "We would rather say so now than take an order we cannot fulfil. Change the area, or choose a kitchen that delivers to you.",
+        "outOfZoneAreas": "Delivers to: {{areas}}",
+        "outOfZoneBrowse": "Find a kitchen that delivers here"
+    },
+    "verify": {
+        "title": "Confirm your contact",
+        "subtitle": "We sent a code to {{destination}}. Entering it lets us place the order — an order we cannot confirm is a promise made to a typo.",
+        "otpFallback": "We could not check that code just now. Try again in a moment.",
+        "back": "Change my details",
+        "confirmed": "Contact confirmed"
+    },
+    "review": {
+        "title": "Check the order",
+        "subtitle": "Nothing is charged now. You pay the driver when the food arrives.",
+        "deliveringTo": "Delivering to",
+        "contact": "We will contact you on",
+        "slot": "Arriving",
+        "payment": "Payment",
+        "cashOnDelivery": "Cash on delivery",
+        "cashOnDeliveryNote": "Guest orders are cash on delivery. We do not take card details from anyone without an account.",
+        "marketingLabel": "Send me offers and new menus",
+        "marketingHint": "Off unless you turn it on. Leaving it alone means no.",
+        "place": "Place order",
+        "back": "Back",
+        "unverified": "Confirm your contact before placing the order."
+    },
+    "session": {
+        "expiredTitle": "Your checkout timed out",
+        "expiredBody": "Guest checkouts do not last long, which is deliberate on a shared device. Your basket is still here — enter your details again to carry on.",
+        "restart": "Start again"
+    },
+    "order": {
+        "title": "Order placed",
+        "subtitle": "The kitchen has it. Keep this reference — it is how you find this order later.",
+        "reference": "Order reference",
+        "state": "Status",
+        "total": "Total to pay on delivery",
+        "deliveringTo": "Delivering to",
+        "slot": "Arriving",
+        "payment": "Payment",
+        "lines_one": "{{count}} item",
+        "lines_other": "{{count}} items",
+        "notFoundTitle": "We could not find that order",
+        "notFoundBody": "Check the reference. Guest orders are also removed once their retention window ends, so a very old reference may no longer exist.",
+        "states": {
+            "placed": "Placed",
+            "confirmed": "Confirmed by the kitchen",
+            "preparing": "Being prepared",
+            "out_for_delivery": "Out for delivery",
+            "delivered": "Delivered",
+            "cancelled": "Cancelled"
+        }
+    },
+    "convert": {
+        "title": "Keep this order in an account?",
+        "body": "We already have everything an account needs. Choose a password and this order moves across with it — or carry on without one, which is a real choice and not a delay.",
+        "fullName": "Full name",
+        "password": "Choose a password",
+        "passwordHint": "At least 8 characters.",
+        "marketing": "Send me offers and new menus",
+        "marketingHint": "Asked again because your checkout answer was about one order, not a standing account.",
+        "submit": "Create my account",
+        "noThanks": "No thanks, continue as a guest",
+        "verifiedNote": "Your contact is already confirmed, so there is no second code to enter.",
+        "doneTitle": "Account created",
+        "doneBody": "You are signed in, and this order is on your account.",
+        "declined": "No problem. Your order is unchanged and we have not created anything."
+    },
+    "deletion": {
+        "title": "Delete my data",
+        "subtitle": "Tell us the email address or mobile number you ordered with, and we will remove what we hold against it.",
+        "email": "Email address",
+        "emailHint": "The one you used when ordering.",
+        "mobile": "Mobile number",
+        "mobileHint": "Include the country code.",
+        "request": "Send me a confirmation code",
+        "sentTitle": "Check {{destination}}",
+        "sentBody": "If we hold anything for that address, a code is on its way. We do not say either way — telling you whether an address is known to us would be telling anyone who asked.",
+        "code": "Confirmation code",
+        "confirmTitle": "This cannot be undone",
+        "confirmBody": "Your contact details, delivery addresses, dietary information and guest orders are erased. There is no copy to restore from and no way to reverse it.",
+        "confirmAcknowledge": "I understand this is permanent",
+        "confirm": "Delete everything",
+        "cancel": "Cancel",
+        "doneTitle": "Deleted",
+        "doneBody": "Everything we held against that address is gone.",
+        "suppressionNote": "One record is kept on purpose: a one-way fingerprint of the address, so that \"never contact me again\" outlives the deletion of everything else. It cannot be read back or used to reach you.",
+        "invalidCode": "That code is not right. A code will also fail if we hold nothing for the address you gave."
+    }
+}

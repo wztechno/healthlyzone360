@@ -50,7 +50,9 @@ export function DateField({
                     className={cx(
                         'flex-row items-center gap-2 rounded-lg border bg-surface-base px-3 min-h-touch',
                         error === undefined ? 'border-stroke' : 'border-danger-border',
-                        disabled ? 'bg-surface-sunken opacity-60' : null,
+                        // Not an opacity — see `inputFrameClassName`: dimming the frame dims
+                        // the date along with it, below the contrast floor.
+                        disabled ? 'bg-surface-sunken border-stroke-subtle' : null,
                     )}
                 >
                     <input
@@ -76,7 +78,7 @@ export function DateField({
                                 withinBounds(next, min, max) ? next : clampIso(next, min, max),
                             );
                         }}
-                        className="h-11 flex-1 border-0 bg-transparent text-base text-content-primary"
+                        className="h-11 flex-1 border-0 bg-transparent text-base text-content-primary outline-none"
                     />
                 </View>
             )}

@@ -11,6 +11,7 @@ use Healthy360\AccessControl\Services\PermissionCache;
 use Healthy360\AccessControl\Services\PermissionChecker;
 use Healthy360\Consent\Services\ConsentLedger;
 use Healthy360\Features\Services\FeatureEntitlementChecker;
+use Healthy360\Identity\Contracts\ProgrammeMembershipLookup;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\Organisation;
@@ -41,6 +42,7 @@ final class UserContextHydrator
         private readonly FeatureEntitlementChecker $entitlements,
         private readonly ConsentLedger $consents,
         private readonly OrganisationPresenter $organisations,
+        private readonly ProgrammeMembershipLookup $programmes,
     ) {}
 
     /**
@@ -194,6 +196,10 @@ final class UserContextHydrator
             'membership_id' => (string) $membership->getKey(),
             'permissions' => $this->checker->calculatedPermissions($user, $membership, $this->tenant),
             'entitlements' => $this->entitlements->entitledCodes((string) $membership->organisation_id),
+            // B2. Every membership of the organisation shares this list (B7:
+            // org-shared server drafts) — there is no per-user grant to
+            // filter by, so "membership" here means "this org is the buyer".
+            'corporate_programmes' => $this->programmes->activeProgrammesFor((string) $membership->organisation_id),
         ];
     }
 

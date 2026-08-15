@@ -17,6 +17,7 @@ import type {
     PlanVariant,
     SubscriptionPlan,
     SubscriptionPreview,
+    CustomerAddress,
 } from '@healthy360/api-client/contracts';
 import type { AllergenCode, DietClassification, MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -482,6 +483,10 @@ export interface DeliveryStepProps {
     readonly addressErrors: AddressErrors;
     readonly storedAllergens: readonly AllergenCode[];
     readonly showIssues: boolean;
+    readonly savedAddresses?: readonly CustomerAddress[] | undefined;
+    readonly addressId?: string | null | undefined;
+    readonly addressesPending?: boolean | undefined;
+    readonly onAddressIdChange?: ((id: string | null) => void) | undefined;
 }
 
 export function DeliveryStep({
@@ -495,6 +500,10 @@ export function DeliveryStep({
     addressErrors,
     storedAllergens,
     showIssues,
+    savedAddresses,
+    addressId,
+    addressesPending,
+    onAddressIdChange,
 }: DeliveryStepProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -602,12 +611,43 @@ export function DeliveryStep({
 
             <Stack space="sm" testID="configurator-address">
                 <Text variant="label">{t('commerce:configurator.delivery.addressTitle')}</Text>
-                <AddressForm
-                    testID="configurator-address-form"
-                    values={state.address}
-                    errors={showIssues ? addressErrors : {}}
-                    onChange={onAddressField}
-                />
+                {savedAddresses === undefined || savedAddresses.length === 0 ? (
+                    <AddressForm
+                        testID="configurator-address-form"
+                        values={state.address}
+                        errors={showIssues ? addressErrors : {}}
+                        onChange={onAddressField}
+                    />
+                ) : (
+                    <Select
+                        testID="configurator-address-picker"
+                        label={t('commerce:configurator.delivery.addressTitle')}
+                        value={addressId ?? null}
+                        onChange={(next) => {
+                            onAddressIdChange?.(next);
+                        }}
+                        options={savedAddresses.map((entry) => ({
+                            value: entry.id,
+                            label: [entry.label, entry.line1, entry.areaName]
+                                .filter((part) => part.trim() !== '')
+                                .join(' · '),
+                        }))}
+                        placeholder={t('commerce:configurator.delivery.addressTitle')}
+                    />
+                )}
+                {addressesPending === true ? (
+                    <Text tone="secondary" variant="caption">
+                        {t('commerce:configurator.delivery.weekdaysLoading')}
+                    </Text>
+                ) : null}
+                {showIssues &&
+                addressId === null &&
+                savedAddresses !== undefined &&
+                savedAddresses.length > 0 ? (
+                    <Text tone="danger" variant="caption" testID="configurator-address-error">
+                        {t('commerce:validation.required')}
+                    </Text>
+                ) : null}
             </Stack>
 
             {/*

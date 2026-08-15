@@ -66,6 +66,88 @@ describe('Card', () => {
         );
         assertSubtreeIsLogical(screen.getByTestId('logical'));
     });
+
+    it('fills its cell and pushes the footer down when it has one', async () => {
+        await renderWithI18n(
+            <Card testID="footed" footer={<Text>Price</Text>}>
+                <Text>Body</Text>
+            </Card>,
+        );
+
+        // `self-stretch` + `flex-1` body + `mt-auto` footer is the whole mechanism behind a row of
+        // cards sharing one price baseline. Prefer stretch over `h-full`: percentage height against
+        // a flex-grown ScrollView content container expands to the viewport on Yoga. Any one of the
+        // three missing and the footers go ragged.
+        expect(screen.getByTestId('footed').props.className).toMatch(/self-stretch/);
+        expect(screen.getByTestId('footed-body').props.className).toMatch(/flex-1/);
+        expect(screen.getByTestId('footed-footer').props.className).toMatch(/mt-auto/);
+    });
+
+    it('drops the sibling gap when a footer is present, and keeps it otherwise', async () => {
+        // Otherwise the footer sits a gap *plus* the free space away from the body.
+        await renderWithI18n(
+            <Card testID="footed" footer={<Text>Price</Text>}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('footed').props.className).not.toMatch(/(^|\s)gap-3(\s|$)/);
+
+        await renderWithI18n(
+            <Card testID="plain-gap">
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('plain-gap').props.className).toMatch(/(^|\s)gap-3(\s|$)/);
+    });
+
+    it('clips only when the padding is none, so a padded card can still show a Popover', async () => {
+        await renderWithI18n(
+            <Card testID="media" padding="none">
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('media').props.className).toMatch(/overflow-hidden/);
+
+        await renderWithI18n(
+            <Card testID="padded" padding="lg">
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('padded').props.className).not.toMatch(/overflow-hidden/);
+    });
+
+    it('lifts on hover only when asked, and drives the timing from a duration token', async () => {
+        // Not implied by `onPress`: `plan-card.tsx` is pressable in parts and must not lift as one.
+        await renderWithI18n(
+            <Card testID="lift" interactive onPress={() => {}}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        const lifted = screen.getByTestId('lift').props.className;
+        expect(lifted).toMatch(/hover:-translate-y-1/);
+        expect(lifted).toMatch(/hover:shadow-elevation-card-hover/);
+        // A literal duration would keep animating for a reader who asked it not to; the tokens are
+        // what `prefers-reduced-motion` zeroes.
+        expect(lifted).toMatch(/duration-normal/);
+
+        await renderWithI18n(
+            <Card testID="still" onPress={() => {}}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('still').props.className).not.toMatch(/hover:/);
+    });
+
+    it('keeps the footer inside the pressable target when the card is one', async () => {
+        const onPress = jest.fn();
+        await renderWithI18n(
+            <Card testID="pressable-footed" onPress={onPress} footer={<Text>Price</Text>}>
+                <Text>Body</Text>
+            </Card>,
+        );
+        expect(screen.getByTestId('pressable-footed')).toHaveTextContent(/Price/);
+        expect(screen.getByTestId('pressable-footed').props.accessibilityRole).toBe('button');
+    });
 });
 
 describe('ListItem', () => {
@@ -494,6 +576,28 @@ describe('ImagePlaceholder', () => {
     it('hides its generated pattern from assistive technology', async () => {
         await renderWithI18n(<ImagePlaceholder testID="ph" seed="meal-01" label="Meal" />);
         expect(screen.getByTestId('ph-pattern').props['aria-hidden']).toBe(true);
+    });
+
+    it('offers a 4:3 card aspect without disturbing the 16:9 one', async () => {
+        // Separate aspects on purpose: a grid card wants the taller crop, a detail page still wants
+        // the cinematic frame. Redefining `wide` would have moved both.
+        await renderWithI18n(
+            <ImagePlaceholder testID="card-aspect" seed="meal-01" label="Meal" aspect="card" />,
+        );
+        expect(screen.getByTestId('card-aspect').props.className).toContain('aspect-[4/3]');
+
+        await renderWithI18n(
+            <ImagePlaceholder testID="wide-aspect" seed="meal-01" label="Meal" aspect="wide" />,
+        );
+        expect(screen.getByTestId('wide-aspect').props.className).toContain('aspect-video');
+    });
+
+    it('drops its own radius when flush, so media meets a clipped card corner cleanly', async () => {
+        await renderWithI18n(<ImagePlaceholder testID="flush" seed="meal-01" label="Meal" flush />);
+        expect(screen.getByTestId('flush').props.className).not.toMatch(/rounded-lg/);
+
+        await renderWithI18n(<ImagePlaceholder testID="round" seed="meal-01" label="Meal" />);
+        expect(screen.getByTestId('round').props.className).toMatch(/rounded-lg/);
     });
 
     it('varies the pattern across seeds so a grid does not look repetitive', async () => {

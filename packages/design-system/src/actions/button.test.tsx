@@ -29,6 +29,42 @@ describe('Button', () => {
         expect(screen.getByTestId(`v-${variant}`).props.className).toMatch(/bg-|border/);
     });
 
+    it('gives quiet a border, so a demoted control does not read as disabled', async () => {
+        // Borderless was rejected during design: a bare text control in a row of filled and
+        // outlined buttons looks switched off. The border says "still a button", the secondary
+        // label says "not the one you came for".
+        await renderWithI18n(
+            <Button testID="quiet" label="Sign out" variant="quiet" onPress={jest.fn()} />,
+        );
+        const classes = screen.getByTestId('quiet').props.className;
+
+        expect(classes).toContain('border-stroke-subtle');
+        expect(classes).not.toContain('border-transparent');
+        expect(classes).toContain('bg-surface-raised');
+        expect(classes).not.toContain('opacity-50');
+    });
+
+    it('never lets quiet outrank the primary it sits beside', async () => {
+        await renderWithI18n(
+            <>
+                <Button testID="p" label="Basket" variant="primary" onPress={jest.fn()} />
+                <Button testID="q" label="Sign out" variant="quiet" onPress={jest.fn()} />
+            </>,
+        );
+        // The whole point of the emphasis inversion: the primary carries the brand fill and the
+        // quiet one carries a neutral surface. If these ever match, §8's "no screen where Sign out
+        // is the highest-emphasis control" has quietly stopped being true.
+        expect(screen.getByTestId('p').props.className).toContain('bg-surface-brand');
+        expect(screen.getByTestId('q').props.className).not.toContain('bg-surface-brand');
+    });
+
+    it('darkens the primary on hover rather than lightening it', async () => {
+        // brand-500 cannot legally carry small white text (§1.3), so the only direction available
+        // from `surface-brand` is towards the canopy.
+        await renderWithI18n(<Button testID="hov" label="Basket" onPress={jest.fn()} />);
+        expect(screen.getByTestId('hov').props.className).toContain('hover:bg-surface-canopy');
+    });
+
     it.each(BUTTON_SIZES)('keeps the %s size above the 44px touch minimum', async (size) => {
         await renderWithI18n(
             <Button testID={`s-${size}`} label="Label" size={size} onPress={jest.fn()} />,

@@ -1,0 +1,17 @@
+{
+	"name": "healthy360/production",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Production\\": "src/",
+			"Healthy360\\Production\\Tests\\": "tests/"
+		}
+	},
+	"extra": {
+		"laravel": {
+			"providers": ["Healthy360\\Production\\Providers\\ProductionServiceProvider"]
+		}
+	}
+}

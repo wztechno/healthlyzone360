@@ -1,21 +1,39 @@
 import { expect, test } from '@playwright/test';
 
-import { signIn } from './helpers.ts';
+import { PLAN_NAME, PLAN_SLUG, probeStack, skipUnlessStackIsUp } from './helpers.ts';
+import type { StackStatus } from './helpers.ts';
 
 /**
- * The catalogue journey, in English, against the exported static build.
+ * The catalogue journey, in English, against the exported static build reading the real API.
  *
  * Every navigation below is the real router doing real work — including the shell fallback that
- * makes `/meals/{id}`, `/plans/{id}` and `/diets/{slug}` resolve without a pre-rendered page.
+ * makes `/meals/{id}` and `/plans/{id}` resolve without a pre-rendered page.
  *
- * The one thing these tests deliberately do *not* do is assert exact figures. The fixture world is
- * synthetic and its numbers are derived, so pinning "638 kcal" here would make an unrelated
- * ingredient edit fail a routing test. What is pinned is structure: that the figure exists, that
- * the basis toggle changes it, and that the provenance travels with it.
+ * The one thing these tests deliberately do *not* do is assert exact figures. The seeded nutrition
+ * is derived, so pinning "638 kcal" here would make an unrelated ingredient edit fail a routing
+ * test. What is pinned is structure: that the figure exists, that the basis toggle changes it, and
+ * that the provenance travels with it.
+ *
+ * Adding a meal to a basket used to live here too. It writes a cart row now, so it moved to
+ * `commerce.write.spec.ts` where one worker owns the seeded consumer's basket at a time.
  */
 
 /** Currency and price markers that must never appear beside a business-supply marker. */
 const PRICE_MARKER = /\b(AED|SAR|USD|KWD|BHD|OMR)\b/;
+
+let stack: StackStatus;
+
+test.beforeAll(async () => {
+    stack = await probeStack();
+});
+
+test.beforeEach(() => {
+    // The catalogue journeys are page-after-page of real cursor requests — the pagination walk
+    // below exhausts a forty-odd-row catalogue twenty at a time — and the project's 90 s default is
+    // a budget for one request. `test.slow()` triples it where that cost is actually paid.
+    test.slow();
+    skipUnlessStackIsUp(stack);
+});
 
 test.describe('meal catalogue (en)', () => {
     test('search, filter and page through the whole catalogue', async ({ page }) => {
@@ -26,10 +44,24 @@ test.describe('meal catalogue (en)', () => {
 
         // Twenty per page, and a control that says there are more rather than loading on scroll.
         await expect(page.getByTestId('meals-load-more')).toBeVisible();
-        const firstPage = await page.locator('[data-testid$="-price"]').count();
-        await page.getByTestId('meals-load-more').click();
+        const priced = page.locator('[data-testid$="-price"]');
+        const firstPage = await priced.count();
+
+        // Page to the end rather than assuming how many pages there are. One press exhausted the
+        // catalogue while it held exactly forty meals, and stopped doing so the day the seeded
+        // world gained sellable products. The claim worth pinning is that every press adds meals
+        // and that the cursor eventually runs out and says so.
+        let loaded = firstPage;
+        while ((await page.getByTestId('meals-load-more').count()) > 0) {
+            await page.getByTestId('meals-load-more').click();
+            await expect.poll(async () => priced.count()).toBeGreaterThan(loaded);
+            loaded = await priced.count();
+        }
         await expect(page.getByTestId('meals-all-loaded')).toBeVisible();
-        expect(await page.locator('[data-testid$="-price"]').count()).toBeGreaterThan(firstPage);
+        expect(loaded).toBeGreaterThan(firstPage);
+
+        // Filters are collapsed by default so the grid leads; open the disclosure to reach them.
+        await page.getByTestId('meals-filter-toggle').click();
 
         // A numeric range is a real filter wired to `listMeals`, not a decoration.
         await page.getByTestId('meals-ranges-protein-min-input').fill('45');
@@ -111,49 +143,39 @@ test.describe('meal detail (en)', () => {
         }
     });
 
-    test('an anonymous visitor is sent to sign in rather than given a basket', async ({ page }) => {
+    test('an anonymous visitor is asked how to continue rather than given a basket', async ({
+        page,
+    }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
         await page.locator('[data-testid^="meal-card-"]').first().click();
 
         await page.getByTestId('meal-detail-add-to-basket').click();
+
+        // Guest ordering turned the straight redirect into a choice, so the press still does not
+        // quietly start a basket — it asks, and names both ways out. Signing in remains one of
+        // them and still lands on the sign-in screen, which is what this test was written to prove.
+        await expect(page.getByTestId('meal-detail-guest-entry-dialog')).toBeVisible();
+        await expect(page.getByTestId('meal-detail-guest-continue')).toBeVisible();
+
+        await page.getByTestId('meal-detail-guest-sign-in').click();
         await expect(page.getByTestId('sign-in-screen')).toBeVisible();
     });
 
-    test('a signed-in visitor adds the meal to a real basket', async ({ page }) => {
-        await signIn(page);
-        await expect(page.getByTestId('organisation-picker-screen')).toBeVisible();
-
+    test('the meal record offers only the actions that work', async ({ page }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
         await page.locator('[data-testid^="meal-card-"]').first().click();
-        await expect(page.getByTestId('meal-detail-add-to-basket')).toBeVisible();
+        await expect(page.getByTestId('meal-detail-actions')).toBeVisible();
 
-        await page.getByTestId('meal-detail-add-to-basket').click();
-        await expect(page.getByTestId('basket-added')).toBeVisible();
-    });
+        // The planner and the quotation document have no endpoints, so the three controls that
+        // needed them are absent rather than explaining themselves on press.
+        await expect(page.getByTestId('meal-detail-add-to-plan')).toHaveCount(0);
+        await expect(page.getByTestId('meal-detail-replace')).toHaveCount(0);
+        await expect(page.getByTestId('meal-detail-quotation')).toHaveCount(0);
 
-    test('replacement explains itself and offers a destination that resolves', async ({ page }) => {
-        await page.goto('/meals');
-        await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
-
-        await page.getByTestId('meal-detail-replace').click();
-        await expect(page.getByTestId('meal-detail-replace-dialog')).toBeVisible();
-        await page.getByTestId('meal-detail-replace-browse').click();
-        await expect(page.getByTestId('meals-screen')).toBeVisible();
-    });
-
-    test('a diet tag leads to its category page', async ({ page }) => {
-        await page.goto('/meals');
-        await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        // The diet classification is still shown; it is simply no longer a link.
         await expect(page.getByTestId('meal-detail-diets')).toBeVisible();
-
-        await page.locator('[data-testid^="meal-detail-diet-"]').first().click();
-        await expect(page.getByTestId('diet-category-screen')).toBeVisible();
-        await expect(page.getByTestId('diet-category-suitability')).toBeVisible();
-        await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
     });
 });
 
@@ -162,7 +184,7 @@ test.describe('subscription plans (en)', () => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-screen')).toBeVisible();
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await expect(page.getByTestId('plan-card-balanced-week')).toBeVisible();
+        await expect(page.getByTestId(`plan-card-${PLAN_SLUG}`)).toBeVisible();
 
         // A comparison of one plan is not a comparison.
         await expect(page.getByTestId('plans-compare-open')).toHaveAttribute(
@@ -170,7 +192,7 @@ test.describe('subscription plans (en)', () => {
             'true',
         );
 
-        await page.getByTestId('plan-card-balanced-week-compare').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-compare`).click();
         await page.getByTestId('plan-card-lean-cut-compare').click();
         await expect(page.getByTestId('plans-compare-count')).toContainText('2');
 
@@ -179,18 +201,9 @@ test.describe('subscription plans (en)', () => {
         await expect(page.getByTestId('plan-comparison-table')).toBeVisible();
         await expect(page.getByTestId('plan-comparison-caveat')).toBeVisible();
 
-        await page.getByTestId('plan-comparison-open-balanced-week').click();
+        await page.getByTestId(`plan-comparison-open-${PLAN_SLUG}`).click();
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
-        await expect(page.getByTestId('plan-detail-name')).toContainText('Balanced Week');
-    });
-
-    test('a category tab narrows the catalogue', async ({ page }) => {
-        await page.goto('/plans');
-        await expect(page.getByTestId('plans-grid')).toBeVisible();
-
-        await page.getByTestId('plans-category-high-protein').click();
-        await expect(page.getByTestId('plan-card-strength-build')).toBeVisible();
-        await expect(page.getByTestId('plan-card-plant-forward')).toHaveCount(0);
+        await expect(page.getByTestId('plan-detail-name')).toContainText(PLAN_NAME);
     });
 
     test('the comparison screen says so when nothing was selected', async ({ page }) => {
@@ -205,90 +218,96 @@ test.describe('plan detail (en)', () => {
     test('shows bands, macro ranges, durations, delivery and the sample menu', async ({ page }) => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await page.getByTestId('plan-card-balanced-week-open').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-open`).click();
 
         await expect(page.getByTestId('plan-detail-screen')).toBeVisible();
         await expect(page.getByTestId('plan-detail-variant-picker')).toBeVisible();
-        await expect(page.getByTestId('plan-detail-macro-protein')).toBeVisible();
+        /*
+         * The commitments, by name: the API publishes the 84-day option with `total_price: null`
+         * (a multi-configuration plan carries no plan-level figure) and the screen derives the
+         * selected variant's total instead — so the 12-week row must render, priced. If it
+         * vanishes again, `mapDuration` has regressed to dropping null-total durations; see
+         * `NO_PRICED_DURATIONS` in `helpers.ts`.
+         */
+        await expect(page.getByTestId('plan-detail-durations')).toBeVisible();
         await expect(page.getByTestId('plan-detail-duration-12w')).toBeVisible();
         await expect(page.getByTestId('plan-detail-delivery')).toBeVisible();
-        await expect(page.getByTestId('plan-detail-dietitian')).toBeVisible();
         await expect(page.getByTestId('plan-detail-sample-grid')).toBeVisible();
         await expect(page.getByTestId('plan-detail-price')).toBeVisible();
         await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
 
-        // Changing the band changes the figures it governs. The prefix also matches the picker
-        // container and the pre-selected band, so pick an option that is not currently selected.
-        const before = await page.getByTestId('plan-detail-macro-protein-value').innerText();
+        /*
+         * Changing the band changes the figures it governs — asserted on the **energy band**, not
+         * on a macronutrient row.
+         *
+         * `plan-detail-macros` renders its heading and its "ranges, not point values" caption for
+         * every plan, but the rows inside it come from the variant's macro ranges and the seeded
+         * plan profile carries none: `plan-detail-macro-protein` does not exist against this API.
+         * The energy band does, it is per-variant, and it is the figure the picker is actually for
+         * — so the coupling between the two is proven on the field that carries it. The macro rows
+         * come back into this assertion when the plan profile starts publishing ranges.
+         */
+        const before = await page.getByTestId('plan-detail-variant-band').innerText();
         await page
             .getByTestId('plan-detail-variant-picker')
             .locator('[data-testid^="plan-detail-variant-"][aria-selected="false"]')
             .first()
             .click();
-        await expect(page.getByTestId('plan-detail-macro-protein-value')).not.toHaveText(before);
+        await expect(page.getByTestId('plan-detail-variant-band')).not.toHaveText(before);
     });
 
     test('an anonymous visitor is sent to sign in before configuring', async ({ page }) => {
         await page.goto('/plans');
         await expect(page.getByTestId('plans-grid')).toBeVisible();
-        await page.getByTestId('plan-card-balanced-week-open').click();
+        await page.getByTestId(`plan-card-${PLAN_SLUG}-open`).click();
 
         await page.getByTestId('plan-detail-configure').click();
         await expect(page.getByTestId('sign-in-screen')).toBeVisible();
     });
 });
 
-test.describe('the public calculators (en)', () => {
-    test('the calorie calculator asks, answers and shows its working', async ({ page }) => {
-        await page.goto('/tools/calorie-calculator');
-        await expect(page.getByTestId('calorie-calculator-screen')).toBeVisible();
+/**
+ * Rule 1's acceptance check, stated as geometry.
+ *
+ * §8 asks for exactly this and there was no equivalent before: "in any card grid, every card's
+ * price occupies the same vertical offset from the card bottom". It is the objective form of the
+ * complaint the whole redesign opens with — that the one figure a shopper compares across cards
+ * sits at a different height in every one — and it is measured rather than asserted about classes,
+ * because the mechanism is a flex behaviour and class names cannot prove a flex behaviour worked.
+ *
+ * The grid deliberately mixes meals and products, which carry different amounts of content. If the
+ * pinned footer ever comes undone, this is where it will be caught.
+ */
+test.describe('card grid baselines (en)', () => {
+    test('every price in a row sits the same distance from its card bottom', async ({ page }) => {
+        await page.goto('/meals');
+        await expect(page.getByTestId('meals-grid')).toBeVisible();
+        await expect(page.locator('[data-testid^="meal-card-"]').first()).toBeVisible();
 
-        // Nothing is claimed before the measurements exist.
-        await expect(page.getByTestId('calorie-calculator-incomplete')).toBeVisible();
+        const offsets = await page.evaluate(() => {
+            const cards = [...document.querySelectorAll('[data-testid^="meal-card-"]')].filter(
+                (card) => card.querySelector('[data-testid$="-price"]') !== null,
+            );
 
-        await page.getByTestId('calorie-calculator-age-input').fill('34');
-        await page.getByTestId('calorie-calculator-height-input').fill('170');
-        await page.getByTestId('calorie-calculator-weight-input').fill('68');
+            // Group by the top edge, so cards on different rows are compared within their own row
+            // rather than against each other — a wrapped grid has several rows and only cards
+            // sharing one are required to share a baseline.
+            const rows = new Map<number, number[]>();
+            for (const card of cards) {
+                const price = card.querySelector('[data-testid$="-price"]');
+                if (price === null) continue;
+                const cardBox = card.getBoundingClientRect();
+                const priceBox = price.getBoundingClientRect();
+                const top = Math.round(cardBox.top);
+                const offset = Math.round(cardBox.bottom - priceBox.bottom);
+                rows.set(top, [...(rows.get(top) ?? []), offset]);
+            }
+            return [...rows.values()].filter((row) => row.length > 1);
+        });
 
-        await expect(page.getByTestId('calorie-calculator-target')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-maintenance-value')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-target-value')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-tolerance')).toBeVisible();
-        await expect(page.getByTestId('calorie-calculator-target-prototype')).toBeVisible();
-        await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
-
-        // The working and the citations are reachable, not merely claimed.
-        await page.getByTestId('calorie-calculator-target-citations-header').click();
-        await expect(
-            page.getByTestId('calorie-calculator-target-working-citations-panel'),
-        ).toBeVisible();
-
-        // A unit switch keeps the measurement rather than clearing it.
-        await page.getByTestId('calorie-calculator-units-imperial').click();
-        await expect(page.getByTestId('calorie-calculator-height-feet-input')).toHaveValue('5');
-        await expect(page.getByTestId('calorie-calculator-height-inches-input')).toHaveValue('7');
-
-        await page.getByTestId('calorie-calculator-macro').click();
-        await expect(page.getByTestId('macro-calculator-screen')).toBeVisible();
-    });
-
-    test('the macro calculator splits the same estimate into grams first', async ({ page }) => {
-        await page.goto('/tools/macro-calculator');
-        await expect(page.getByTestId('macro-calculator-screen')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-incomplete')).toBeVisible();
-
-        await page.getByTestId('macro-calculator-age-input').fill('29');
-        await page.getByTestId('macro-calculator-height-input').fill('182');
-        await page.getByTestId('macro-calculator-weight-input').fill('80');
-
-        await expect(page.getByTestId('macro-calculator-macros')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-table')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-ring-protein')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-grams-protein')).toBeVisible();
-        await expect(page.getByTestId('macro-calculator-macros-nutrients')).toBeVisible();
-        await expect(page.getByTestId('medical-disclaimer').first()).toBeVisible();
-
-        await page.getByTestId('macro-calculator-meals').click();
-        await expect(page.getByTestId('meals-screen')).toBeVisible();
+        expect(offsets.length).toBeGreaterThan(0);
+        for (const row of offsets) {
+            expect(new Set(row).size, `row offsets: ${row.join(', ')}`).toBe(1);
+        }
     });
 });

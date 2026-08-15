@@ -14,8 +14,11 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useQuotationsQuery } from '../../../data/business-hooks.ts';
-import { PrototypeButton } from '../../../prototype/index.ts';
+import {
+    useAcceptQuotationMutation,
+    useDeclineQuotationMutation,
+    useQuotationsQuery,
+} from '../../../data/business-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { contractPriceTestId, quotationStateKey } from '../format.ts';
@@ -30,12 +33,12 @@ import { contractPriceTestId, quotationStateKey } from '../format.ts';
  * line, and a `quoted` one renders the figures. That distinction is the whole state machine made
  * visible: the prototype never invents a total for something nobody has priced.
  *
- * ## Accepting, declining and exporting are genuine gaps
+ * ## Accept and decline are real; PDF export is not offered
  *
- * `BusinessRepository` publishes `requestQuotation` and `listQuotations` and nothing else. There is
- * no accept, no decline and no export, so those three are `PrototypeButton`s naming the endpoints
- * they are waiting on. Raising a quotation, which the contract *does* support, is a real mutation on
- * the builder screen and is deliberately not routed through the same mechanism.
+ * `acceptQuotation` / `declineQuotation` hit `POST /b2b/quotations/{id}/accept|decline`. There is no
+ * document endpoint, so `quotationExport` is unavailable (`src/features/availability.ts`) and the
+ * download control is absent — a button that could only ever explain its own absence is worse than
+ * no button.
  */
 
 const FILTERS = ['all', 'open', 'quoted', 'closed'] as const;
@@ -58,7 +61,10 @@ export function QuotationsScreen() {
     const request: QuotationFilter = states.length === 0 ? {} : { states };
 
     const quotations = useQuotationsQuery(request);
+    const accept = useAcceptQuotationMutation();
+    const decline = useDeclineQuotationMutation();
     const items: readonly Quotation[] = quotations.data?.items ?? [];
+    const deciding = accept.isPending || decline.isPending;
 
     return (
         <Stack space="lg" testID="quotations-screen">
@@ -246,16 +252,29 @@ export function QuotationsScreen() {
                                     )}
 
                                     <Inline space="sm" wrap>
-                                        <PrototypeButton
-                                            label={t('business:quotations.accept')}
-                                            contract={`POST /api/v1/business/quotations/${quotation.reference}/accept`}
-                                            showBadge={false}
-                                        />
-                                        <PrototypeButton
-                                            label={t('business:quotations.export')}
-                                            contract={`GET /api/v1/business/quotations/${quotation.reference}/document`}
-                                            showBadge={false}
-                                        />
+                                        {quotation.state === 'quoted' ? (
+                                            <>
+                                                <Button
+                                                    testID={`${testId}-accept`}
+                                                    label={t('business:quotations.accept')}
+                                                    disabled={deciding}
+                                                    onPress={() => {
+                                                        accept.mutate(quotation.id);
+                                                    }}
+                                                />
+                                                <Button
+                                                    testID={`${testId}-decline`}
+                                                    variant="secondary"
+                                                    label={t('business:quotations.decline')}
+                                                    disabled={deciding}
+                                                    onPress={() => {
+                                                        decline.mutate({
+                                                            quotationId: quotation.id,
+                                                        });
+                                                    }}
+                                                />
+                                            </>
+                                        ) : null}
                                     </Inline>
                                 </Stack>
                             </Card>
@@ -267,7 +286,7 @@ export function QuotationsScreen() {
             <Inline space="sm" wrap>
                 <Button
                     testID="quotations-back"
-                    variant="secondary"
+                    variant="quiet"
                     label={t('business:quotations.back')}
                     onPress={() => {
                         router.push('/corporate' as never);

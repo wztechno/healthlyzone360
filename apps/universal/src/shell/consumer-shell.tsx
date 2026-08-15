@@ -1,19 +1,17 @@
-import { AppShell, Button, Inline, OfflineIndicator } from '@healthy360/design-system';
+import { AppShell, Button, Icon, Inline, OfflineIndicator } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Gate } from '../access/gate.tsx';
 import { useCartQuery } from '../data/marketplace-hooks.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
-import { DevBanner } from '../dev/dev-banner.tsx';
-import { CONSUMER_NAVIGATION } from '../navigation/consumer-items.ts';
+import { consumerNavigation } from '../navigation/consumer-items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
-import { usePrototypeAction } from '../prototype/prototype-action.ts';
 
 /**
  * The signed-in consumer chrome.
@@ -26,8 +24,8 @@ import { usePrototypeAction } from '../prototype/prototype-action.ts';
  *
  * The customer area is authenticated-and-verified for every screen in it and carries no
  * per-destination permission, so unlike `AreaShell` there is nothing here to filter by. What is
- * filtered instead is *existence*: see `../navigation/consumer-items.ts` for why destinations a
- * later wave owns are shown, marked and explained rather than hidden or linked into a 404.
+ * filtered instead is *existence*: `consumerNavigation()` drops the destinations whose feature has
+ * no backend yet, so this list never offers a screen the area layout would redirect away from.
  */
 export interface ConsumerShellProps {
     readonly children: ReactNode;
@@ -42,7 +40,6 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
     const { locale, setLocale } = useLocale();
     const { state: connectivity } = useOnlineStatus();
     const logout = useLogoutMutation();
-    const runPrototypeAction = usePrototypeAction();
 
     /**
      * The cart count.
@@ -58,9 +55,9 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
 
     const navigation = useMemo<readonly NavigationItem[]>(
         () =>
-            CONSUMER_NAVIGATION.map((item) => {
+            consumerNavigation().map((item) => {
                 const base = t(item.labelKey);
-                const withCount =
+                const label =
                     item.badge === 'cart' && cartCount > 0
                         ? // `items`, not `count`: `count` is i18next's pluralisation trigger and
                           // this string is a label with a number in it, not a plural form.
@@ -72,37 +69,32 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
 
                 return {
                     key: item.key,
-                    label:
-                        item.status === 'available'
-                            ? withCount
-                            : t('marketplace:nav.plannedSuffix', { label: withCount }),
+                    label,
                     icon: item.icon,
                     active: pathname === item.href,
                     testID: `consumer-nav-${item.key}`,
                     onPress: () => {
-                        if (item.status === 'available') {
-                            router.push(item.href as never);
-                            return;
-                        }
-                        runPrototypeAction({
-                            contract: item.contract ?? item.href,
-                            message: t('marketplace:nav.plannedNotice', { label: base }),
-                        });
+                        router.push(item.href as never);
                     },
                 };
             }),
-        [cartCount, pathname, router, runPrototypeAction, t],
+        [cartCount, pathname, router, t],
     );
 
     const banner = (
         <View>
-            <DevBanner />
             <OfflineIndicator testID="offline-indicator" state={connectivity} />
         </View>
     );
 
+    const cartLabel = t('marketplace:consumer.nav.cart');
+    const basketLabel =
+        cartCount > 0
+            ? t('marketplace:consumer.nav.cartWithCount', { label: cartLabel, items: cartCount })
+            : cartLabel;
+
     const topbarEnd = (
-        <Inline space="xs" wrap={false}>
+        <Inline space="xs" wrap className="shrink">
             <Button
                 testID="locale-toggle"
                 size="sm"
@@ -112,10 +104,38 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
                     void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
                 }}
             />
+            {/*
+             * The basket, which this shell did not have. Rule 4 gives the customer area's primary
+             * slot to the revenue action, and until now the only way to the basket from a customer
+             * screen was the navigation list — which is under the thumb on a phone but a long way
+             * from the eye on a desktop, where the sidebar is a column of eight.
+             */}
+            <Button
+                testID="consumer-basket"
+                size="sm"
+                variant="primary"
+                label={basketLabel}
+                iconStart={<Icon name="basket" />}
+                iconEnd={
+                    cartCount === 0 ? undefined : (
+                        <View
+                            testID="consumer-basket-count"
+                            className="min-w-[20px] items-center justify-center rounded-full bg-surface-raised px-1.5"
+                        >
+                            <RNText className="text-xs font-bold text-surface-brand">
+                                {String(cartCount)}
+                            </RNText>
+                        </View>
+                    )
+                }
+                onPress={() => {
+                    router.push('/customer/cart' as never);
+                }}
+            />
             <Button
                 testID="sign-out"
                 size="sm"
-                variant="secondary"
+                variant="quiet"
                 label={t('common:action.signOut')}
                 loading={logout.isPending}
                 onPress={() => {

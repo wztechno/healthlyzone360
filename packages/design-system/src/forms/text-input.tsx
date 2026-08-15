@@ -44,9 +44,30 @@ export function inputFrameClassName(options: {
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.
         options.focused ? 'border-stroke-focus border-focus' : null,
-        options.disabled ? 'bg-surface-sunken opacity-60' : null,
+        // Recessed fill and a lighter border — deliberately *not* an opacity.
+        //
+        // `opacity-60` here dimmed the value along with the frame, which put the text at 3.97:1
+        // against its own background: below the 4.5 floor, on a value the reader opened the record
+        // to read. A platform-library ingredient's name is the clearest case — it cannot be edited
+        // and it still has to be legible.
+        //
+        // Nor is this a rule axe is being fussy about. React Native Web renders a disabled
+        // `TextInput` as `readonly`, not `disabled`, so the contrast exemption for inactive
+        // controls does not apply to it — and that is the correct outcome, because a readonly
+        // field's content is still content.
+        options.disabled ? 'bg-surface-sunken border-stroke-subtle' : null,
     );
 }
+
+/**
+ * Styles for the native control *inside* {@link inputFrameClassName}.
+ *
+ * On web, `TextInput` becomes a real `<input>` and the UA stylesheet draws its own border and
+ * focus outline. Leaving those on produces a black rectangle nested inside the green frame ring —
+ * the frame already owns focus indication, so the inner control must be borderless and transparent.
+ */
+export const inputControlClassName =
+    'flex-1 border-0 bg-transparent text-base text-content-primary outline-none';
 
 export function TextInputField({
     label,
@@ -88,7 +109,7 @@ export function TextInputField({
                         {...control}
                         testID={testID === undefined ? undefined : `${testID}-input`}
                         editable={!disabled}
-                        className="flex-1 text-base text-content-primary"
+                        className={inputControlClassName}
                         // neutral.600: placeholder text is still text to WCAG - neutral.500 sits
                         // just below the 4.5:1 AA threshold on the base surface (axe caught it).
                         placeholderTextColor={neutral[600]}

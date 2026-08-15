@@ -152,11 +152,24 @@ export interface ProgressRingProps {
     readonly level?: NutritionLevel | undefined;
     readonly levelLabel?: string | undefined;
     readonly valueText?: string | undefined;
-    /** Short caption under the figure inside the ring, e.g. "kcal". */
+    /** Caption under the ring, e.g. "of your energy target". */
     readonly caption?: string | undefined;
     readonly size?: ProgressRingSize | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
+}
+
+/**
+ * How wide the figure inside the ring may be.
+ *
+ * The square that holds the ticks is `diameter` across, but the *clear* space inside the ring is
+ * narrower by a tick at each edge. Text laid out against the square rather than against the circle
+ * is what put "Outside the published range" on top of the ticks; bounding it here means nothing
+ * inside can reach them however long it gets.
+ */
+function innerWidth(size: ProgressRingSize): number {
+    const { diameter, tick } = RING_GEOMETRY[size];
+    return diameter - tick * 2 - 4;
 }
 
 /**
@@ -171,6 +184,23 @@ export interface ProgressRingProps {
  * **The sweep direction follows the text direction.** In Arabic the ring fills anticlockwise: a
  * meter that fills "forwards" must fill the way the reader reads, and the sign of the rotation is
  * the only thing that changes.
+ *
+ * ## Only the percentage sits inside the circle
+ *
+ * Everything else — the caption, the level's name, its pattern mark — is stacked underneath, where
+ * a column has real width to wrap into.
+ *
+ * This is not a preference. `caption` was documented as short and was prose at every call site that
+ * used it ("Target against maintenance", "of your energy target"), and `levelLabel` is a sentence by
+ * construction ("Outside the published range"). Four such lines were being centred in a box the
+ * width of the ring's *square*, which is wider than the ring's *hole* — so the text laid out over
+ * the ticks on both sides and the panel read as one thing printed on top of another.
+ *
+ * The rules above are unaffected: the figure is still always visible, and the pattern mark still
+ * sits with the fill it qualifies, one line below it rather than one line under the number.
+ *
+ * A consequence worth knowing: the component is no longer a fixed square. It is `diameter` wide and
+ * as tall as the ring plus whatever it was given to say.
  */
 export function ProgressRing({
     label,
@@ -205,80 +235,95 @@ export function ProgressRing({
             aria-valuenow={value}
             aria-valuetext={figures}
             accessibilityValue={{ min: 0, max: target, now: value, text: figures }}
-            className={cx('items-center justify-center', className)}
-            style={{ width: geometry.diameter, height: geometry.diameter }}
+            className={cx('items-center gap-1', className)}
         >
-            {Array.from({ length: RING_TICKS }, (_unused, index) => (
-                <View
-                    key={index}
-                    testID={testID === undefined ? undefined : `${testID}-sector-${String(index)}`}
-                    aria-hidden
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    className="absolute inset-0 items-center"
-                    style={{
-                        transform: [{ rotate: `${String(sign * index * (360 / RING_TICKS))}deg` }],
-                    }}
-                >
+            <View
+                className="items-center justify-center"
+                style={{ width: geometry.diameter, height: geometry.diameter }}
+            >
+                {Array.from({ length: RING_TICKS }, (_unused, index) => (
                     <View
+                        key={index}
                         testID={
-                            testID === undefined
-                                ? undefined
-                                : `${testID}-tick-${String(index)}-${index < filled ? 'on' : 'off'}`
+                            testID === undefined ? undefined : `${testID}-sector-${String(index)}`
                         }
-                        className={cx(
-                            index < filled
-                                ? level === undefined
-                                    ? 'bg-surface-brand'
-                                    : NUTRITION_SURFACE_CLASS[level]
-                                : 'bg-surface-sunken',
-                        )}
+                        aria-hidden
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                        className="absolute inset-0 items-center"
                         style={{
-                            width: Math.round(geometry.tick / 2),
-                            height: geometry.tick,
-                            borderRadius: geometry.tick,
+                            transform: [
+                                { rotate: `${String(sign * index * (360 / RING_TICKS))}deg` },
+                            ],
                         }}
-                    />
-                </View>
-            ))}
+                    >
+                        <View
+                            testID={
+                                testID === undefined
+                                    ? undefined
+                                    : `${testID}-tick-${String(index)}-${index < filled ? 'on' : 'off'}`
+                            }
+                            className={cx(
+                                index < filled
+                                    ? level === undefined
+                                        ? 'bg-surface-brand'
+                                        : NUTRITION_SURFACE_CLASS[level]
+                                    : 'bg-surface-sunken',
+                            )}
+                            style={{
+                                width: Math.round(geometry.tick / 2),
+                                height: geometry.tick,
+                                borderRadius: geometry.tick,
+                            }}
+                        />
+                    </View>
+                ))}
 
-            <View className="items-center gap-0.5">
+                {/* One short figure, bounded by the circle rather than by the square. */}
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-value`}
+                    numberOfLines={1}
                     className={cx(
                         'font-semibold text-content-primary text-center',
                         RING_LABEL_CLASS[size],
                     )}
+                    style={{ maxWidth: innerWidth(size) }}
                 >
                     {`${String(Math.round(percent))}%`}
                 </RNText>
-                {caption === undefined ? null : (
-                    <RNText
-                        testID={testID === undefined ? undefined : `${testID}-caption`}
-                        className="text-xs text-content-secondary text-center"
-                    >
-                        {caption}
-                    </RNText>
-                )}
-                {levelLabel === undefined ? null : (
-                    <RNText
-                        testID={testID === undefined ? undefined : `${testID}-level`}
-                        className="text-xs text-content-secondary text-center"
-                    >
-                        {levelLabel}
-                    </RNText>
-                )}
-                {level === undefined ? null : (
-                    <RNText
-                        testID={testID === undefined ? undefined : `${testID}-pattern`}
-                        aria-hidden
-                        accessibilityElementsHidden
-                        className={cx('text-xs tracking-wide', NUTRITION_TEXT_CLASS[level])}
-                    >
-                        {nutritionMark(level)}
-                    </RNText>
-                )}
             </View>
+
+            {caption === undefined ? null : (
+                <RNText
+                    testID={testID === undefined ? undefined : `${testID}-caption`}
+                    className="text-xs text-content-secondary text-center"
+                >
+                    {caption}
+                </RNText>
+            )}
+
+            {level === undefined && levelLabel === undefined ? null : (
+                <View className="flex-row flex-wrap items-center justify-center gap-1">
+                    {level === undefined ? null : (
+                        <RNText
+                            testID={testID === undefined ? undefined : `${testID}-pattern`}
+                            aria-hidden
+                            accessibilityElementsHidden
+                            className={cx('text-xs tracking-wide', NUTRITION_TEXT_CLASS[level])}
+                        >
+                            {nutritionMark(level)}
+                        </RNText>
+                    )}
+                    {levelLabel === undefined ? null : (
+                        <RNText
+                            testID={testID === undefined ? undefined : `${testID}-level`}
+                            className="text-xs text-content-secondary text-center"
+                        >
+                            {levelLabel}
+                        </RNText>
+                    )}
+                </View>
+            )}
         </View>
     );
 }

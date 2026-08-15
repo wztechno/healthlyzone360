@@ -36,3 +36,9 @@ apps/universal/expo-env.d.ts
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# The handoff's design files ship a copy of the product photography so they render
+# standalone. The originals live at apps/universal/assets/images/ and the handoff's own
+# §9 says not to re-add them — two megabytes of duplicate binaries, permanent in git, for
+# artwork the repository already has.
+design_handoff_wellness_green/**/assets/

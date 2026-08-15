@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $branch_id
  * @property string $action
  * @property string $subject_type
- * @property string|null $subject_id
+ * @property string|null $subject_id UUID, or the canonical code of a code-keyed subject
  * @property string|null $purpose_of_use required for sensitive accesses
  * @property string|null $correlation_id
  * @property array<string, mixed>|null $metadata

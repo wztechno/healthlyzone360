@@ -366,6 +366,13 @@ export interface StepContext {
     /** `null` while the allowed set is still being determined; weekday rules are not enforced yet. */
     readonly allowedWeekdays: readonly number[] | null;
     readonly areaStatus: DeliveryAreaStatus;
+    /**
+     * Whether a saved address-book entry is selected. A saved address satisfies the address
+     * requirement by itself (D-084: delivery resolves from the address book, not a typed street
+     * line — the same rule the checkout applies), so the typed-fields validation only gates the
+     * hand-entered path.
+     */
+    readonly hasSavedAddress: boolean;
     readonly earliestStartDate: string;
     readonly translate: (key: string) => string;
 }
@@ -431,7 +438,10 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
 
     if (!isDeliverySlotCode(state.slotCode)) issues.push('commerce:configurator.issues.slot');
 
-    if (!isAddressComplete(state.address, (key) => context.translate(key))) {
+    if (
+        !context.hasSavedAddress &&
+        !isAddressComplete(state.address, (key) => context.translate(key))
+    ) {
         issues.push('commerce:configurator.issues.address');
     }
 

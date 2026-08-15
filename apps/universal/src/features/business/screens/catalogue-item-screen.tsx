@@ -7,15 +7,20 @@ import {
     Stack,
     Table,
     Text,
+    useToast,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import type { VolumeTier } from '@healthy360/api-client/contracts';
+import { MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { useCatalogueItemQuery } from '../../../data/business-hooks.ts';
-import { PrototypeButton } from '../../../prototype/index.ts';
+import {
+    useCatalogueItemQuery,
+    useB2bAddCatalogueItemMutation,
+    B2B_CART_CHANNEL_CODE,
+} from '../../../data/business-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { catalogueKindKey, contractPriceTestId, salesChannelKey } from '../format.ts';
@@ -37,9 +42,9 @@ import { catalogueKindKey, contractPriceTestId, salesChannelKey } from '../forma
  *
  * `CatalogueItem.supportsRecurringOrder` says a line *may* be ordered on a standing schedule, and
  * `BusinessRepository` publishes nothing that would set one up — no recurring-order resource, no
- * schedule request. So that control is a `PrototypeButton` naming the endpoint it is waiting on,
- * which is what `usePrototypeAction` is actually for. Requesting a quotation, by contrast, is a real
- * mutation and is not routed through it.
+ * schedule request. `catalogueScheduleRequest` in `src/features/availability.ts` records that gap and
+ * no control offers it; the badge on the line still tells a buyer the line supports recurring
+ * supply. Requesting a quotation, by contrast, is a real mutation and is offered.
  */
 
 export interface CatalogueItemScreenProps {
@@ -50,9 +55,37 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const toast = useToast();
 
     const query = useCatalogueItemQuery(itemId ?? null);
     const item = query.data;
+    const addToCart = useB2bAddCatalogueItemMutation();
+
+    const onAddToCart = (onSuccess?: () => void) => {
+        if (item === undefined) return;
+        const mealId = item.mealId ?? MealId.unsafe(item.id);
+        addToCart.mutate(
+            { mealId, quantity: item.minimumOrderQuantity },
+            {
+                onSuccess: (cart) => {
+                    toast.show({
+                        testID: 'catalogue-item-added',
+                        tone: 'success',
+                        message: t('business:item.addedToCart', { items: cart.itemCount }),
+                    });
+                    onSuccess?.();
+                },
+            },
+        );
+    };
+
+    const onPlaceOrder = () => {
+        onAddToCart(() => {
+            router.push(
+                `/customer/checkout?channel=${encodeURIComponent(B2B_CART_CHANNEL_CODE)}` as never,
+            );
+        });
+    };
 
     const tierColumns: readonly TableColumn<VolumeTier>[] = [
         {
@@ -91,7 +124,7 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
     const backAction = (
         <Button
             testID="catalogue-item-back"
-            variant="secondary"
+            variant="quiet"
             label={t('business:item.back')}
             onPress={() => {
                 if (item === undefined) {
@@ -204,6 +237,29 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
 
                         <Inline space="sm" wrap>
                             {backAction}
+                            {item.mealId !== null || item.kind === 'meal' ? (
+                                <>
+                                    <Button
+                                        testID="catalogue-item-cart"
+                                        label={t('business:item.addToCart')}
+                                        loading={addToCart.isPending}
+                                        // Wrapped rather than passed by reference: `onPress` hands
+                                        // the press event to its callback, and this one's first
+                                        // parameter is an `onSuccess` continuation it would then
+                                        // try to call.
+                                        onPress={() => {
+                                            onAddToCart();
+                                        }}
+                                    />
+                                    <Button
+                                        testID="catalogue-item-order"
+                                        variant="secondary"
+                                        label={t('business:item.placeOrder')}
+                                        loading={addToCart.isPending}
+                                        onPress={onPlaceOrder}
+                                    />
+                                </>
+                            ) : null}
                             <Button
                                 testID="catalogue-item-quote"
                                 label={t('business:item.quote')}
@@ -213,12 +269,6 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
                                     );
                                 }}
                             />
-                            {item.supportsRecurringOrder ? (
-                                <PrototypeButton
-                                    label={t('business:item.recurringOrder')}
-                                    contract="POST /api/v1/business/recurring-orders"
-                                />
-                            ) : null}
                         </Inline>
                     </Stack>
                 )}

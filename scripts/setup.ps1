@@ -52,7 +52,7 @@ Pop-Location
 Write-Host ""
 Write-Host "Setup complete."
 Write-Host "  API (containerised) : http://localhost:8080  (health: /up)"
-Write-Host "  Mailpit             : http://localhost:8025"
+Write-Host "  Mail (dev)          : logged to apps/api/storage/logs/laravel.log"
 Write-Host "  Garage S3           : http://localhost:3900"
 Write-Host "  PostgreSQL          : localhost:55432 (db healthy360, app role healthy360_app)"
 Write-Host "  Redis               : localhost:6379"

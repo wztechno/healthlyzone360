@@ -6,9 +6,7 @@
     "build": {
         "base": {
             "node": "24.11.1",
-            "env": {
-                "EXPO_PUBLIC_DATA_MODE": "mock"
-            }
+            "env": {}
         },
 
         "development": {
@@ -18,8 +16,7 @@
             "channel": "development",
             "env": {
                 "APP_ENV": "development",
-                "APP_MODE": "all-dev",
-                "EXPO_PUBLIC_DATA_MODE": "mock"
+                "APP_MODE": "all-dev"
             }
         },
         "preview": {
@@ -28,8 +25,7 @@
             "channel": "preview",
             "env": {
                 "APP_ENV": "preview",
-                "APP_MODE": "all-dev",
-                "EXPO_PUBLIC_DATA_MODE": "api"
+                "APP_MODE": "all-dev"
             }
         },
         "production": {
@@ -38,37 +34,36 @@
             "autoIncrement": true,
             "env": {
                 "APP_ENV": "production",
-                "APP_MODE": "customer",
-                "EXPO_PUBLIC_DATA_MODE": "api"
+                "APP_MODE": "customer"
             }
         },
 
         "customer-preview": {
             "extends": "preview",
-            "env": { "APP_ENV": "preview", "APP_MODE": "customer", "EXPO_PUBLIC_DATA_MODE": "api" }
+            "env": { "APP_ENV": "preview", "APP_MODE": "customer" }
         },
         "customer-production": {
             "extends": "production",
-            "env": { "APP_ENV": "production", "APP_MODE": "customer", "EXPO_PUBLIC_DATA_MODE": "api" }
+            "env": { "APP_ENV": "production", "APP_MODE": "customer" }
         },
 
         "staff-preview": {
             "extends": "preview",
-            "env": { "APP_ENV": "preview", "APP_MODE": "staff", "EXPO_PUBLIC_DATA_MODE": "api" }
+            "env": { "APP_ENV": "preview", "APP_MODE": "staff" }
         },
         "staff-production": {
             "extends": "production",
-            "env": { "APP_ENV": "production", "APP_MODE": "staff", "EXPO_PUBLIC_DATA_MODE": "api" }
+            "env": { "APP_ENV": "production", "APP_MODE": "staff" }
         },
 
         "kiosk-preview": {
             "extends": "preview",
-            "env": { "APP_ENV": "preview", "APP_MODE": "kiosk", "EXPO_PUBLIC_DATA_MODE": "api" }
+            "env": { "APP_ENV": "preview", "APP_MODE": "kiosk" }
         },
 
         "driver-preview": {
             "extends": "preview",
-            "env": { "APP_ENV": "preview", "APP_MODE": "driver", "EXPO_PUBLIC_DATA_MODE": "api" }
+            "env": { "APP_ENV": "preview", "APP_MODE": "driver" }
         }
     },
     "submit": {

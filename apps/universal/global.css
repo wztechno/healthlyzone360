@@ -26,6 +26,20 @@
         opacity: 1;
     }
 
+    /* react-native-web TextInput → <input>: strip UA border/outline so the design-system
+       frame (green focus ring) is the only chrome. Without this, focused fields show a
+       black inner rectangle inside the rounded frame. Leave checkboxes, radios, files,
+       and range controls alone — they are not framed the same way. */
+    input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not(
+            [type='button']
+        ):not([type='submit']):not([type='reset']):not([type='image']):not([type='color']),
+    textarea {
+        border: 0;
+        outline: none;
+        background-color: transparent;
+        box-shadow: none;
+    }
+
     /* Per-script typography. `lang` is set before hydration by app/+html.tsx, so the correct family
      and line height apply on first paint rather than after a flash of Latin metrics. */
     html:lang(en),

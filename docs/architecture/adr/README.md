@@ -14,8 +14,9 @@ ADRs record consequential architectural choices only (plan §23). Dependency ver
 | [0008](0008-php-84-pest-5.md) | PHP 8.4 with Pest 5 | Accepted 2026-07-30 |
 | [0009](0009-node-24-expo-57-typescript-6.md) | Node 24 LTS, Expo SDK 57, TypeScript 6 | Accepted 2026-07-30 |
 | [0010](0010-s3-compatible-storage-abstraction.md) | S3-compatible object storage behind the Laravel filesystem abstraction | Accepted 2026-07-30 |
-| [0011](0011-mock-api-repository-boundary.md) | Mock/API repository boundary in the frontend | Accepted 2026-07-30 |
+| [0011](0011-mock-api-repository-boundary.md) | Mock/API repository boundary in the frontend | Superseded by 0013 |
 | [0012](0012-restricted-offline-persistence.md) | Restricted offline persistence | Accepted 2026-07-30 |
+| [0013](0013-api-only-repositories-and-feature-availability.md) | API-only repositories and build-time feature availability | Accepted 2026-08-11 |
 
 ## Conventions
 

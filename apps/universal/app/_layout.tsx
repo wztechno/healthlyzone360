@@ -11,6 +11,8 @@ import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
+import { SpaceGrotesk_500Medium } from '@expo-google-fonts/space-grotesk/500Medium';
+import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk/700Bold';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
@@ -41,6 +43,10 @@ export default function RootLayout() {
         IBMPlexSansArabic_500Medium,
         IBMPlexSansArabic_600SemiBold,
         IBMPlexSansArabic_700Bold,
+        // Display face (mood board Option 02) for Latin headings, KPIs and numeric emphasis. Only
+        // the two cuts the design tokens reference are loaded, to keep the web font payload small.
+        SpaceGrotesk_500Medium,
+        SpaceGrotesk_700Bold,
     });
 
     return (

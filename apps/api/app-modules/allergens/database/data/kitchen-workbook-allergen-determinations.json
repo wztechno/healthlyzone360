@@ -1,0 +1,445 @@
+{
+    "schema_version": 1,
+    "decision_ref": "DEC1 / decision-sheet-order-kitchen.md key 1 (2026-08)",
+    "note": "Standard-knowledge allergen determinations for the ingredients the K1.8 Healthy360 workbook import left undetermined. Every row here is a reading of what the named foodstuff ordinarily contains — not a supplier declaration and not a technical sheet — so every mapping is written requires_supplier_confirmation and the kitchen confirms it against its own suppliers before any of it is treated as verified. Where the ordinary reading is genuinely uncertain the row says may_contain rather than nothing: over-declaring costs a customer a menu option, under-declaring costs them an ambulance.",
+    "defaults": {
+        "source_tenant": "kitchen_declared",
+        "source_platform": "master_list",
+        "verification_status": "requires_supplier_confirmation",
+        "market_scope": "all"
+    },
+    "verified_note": "owner-approved standard-knowledge determination per workbook key 2026-08 (DEC1): assessed and found to carry no allergen class. Kitchen confirmation against supplier specifications is still outstanding.",
+    "determinations": [
+        {
+            "designation": "Bbq Sauce",
+            "allergens": [
+                { "code": "gluten", "containment": "may_contain" },
+                { "code": "soy", "containment": "may_contain" }
+            ],
+            "evidence": "Tomato, vinegar, sugar and spice base. Commercial barbecue sauces standardly carry soy sauce or Worcestershire, both of which bring soy and malted-barley gluten; strengthened beyond a bare 'none' for that reason."
+        },
+        {
+            "designation": "Beef Stock",
+            "allergens": [
+                { "code": "gluten", "containment": "may_contain" },
+                { "code": "celery", "containment": "may_contain" }
+            ],
+            "evidence": "A reduced meat stock carries nothing itself, but commercial stock bases and bouillons standardly carry wheat as a carrier and celery as a mirepoix aromatic. Declared may_contain pending the supplier specification."
+        },
+        {
+            "designation": "Black Pepper Powder",
+            "allergens": [],
+            "evidence": "Ground single spice."
+        },
+        {
+            "designation": "Brisket",
+            "allergens": [],
+            "evidence": "Unprocessed beef cut."
+        },
+        {
+            "designation": "Butter",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Butter Mix",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "Kitchen intermediate built on butter. Consumed by technical sheets and produced by none, so it carries its own determination rather than inheriting one."
+        },
+        {
+            "designation": "Chicken Breast",
+            "allergens": [],
+            "evidence": "Unprocessed poultry cut."
+        },
+        {
+            "designation": "Chicken Breast Marination",
+            "allergens": [
+                { "code": "soy", "containment": "may_contain" },
+                { "code": "gluten", "containment": "may_contain" },
+                { "code": "mustard", "containment": "may_contain" }
+            ],
+            "evidence": "Kitchen intermediate with no technical sheet of its own. The sheets that consume it are marinated preparations whose other lines are soy sauce, mustard and flour-thickened sauces, so the marination is declared may_contain across all three until its own formulation is written down."
+        },
+        {
+            "designation": "Chuck",
+            "allergens": [],
+            "evidence": "Unprocessed beef cut."
+        },
+        {
+            "designation": "Cordon Bleu Marination",
+            "allergens": [
+                { "code": "gluten", "containment": "may_contain" },
+                { "code": "milk", "containment": "may_contain" },
+                { "code": "soy", "containment": "may_contain" },
+                { "code": "mustard", "containment": "may_contain" }
+            ],
+            "evidence": "Kitchen intermediate with no technical sheet. A cordon bleu preparation is a breaded, cheese-filled item, so gluten and milk are the ordinary reading; soy and mustard follow the same marination pattern as the chicken breast marination."
+        },
+        {
+            "designation": "Corn Starch",
+            "allergens": [],
+            "evidence": "Maize starch. Not a gluten-bearing cereal."
+        },
+        {
+            "designation": "Crispy Spice",
+            "allergens": [{ "code": "gluten", "containment": "may_contain" }],
+            "evidence": "A crumbing or dusting blend. Spice blends of this kind standardly carry a wheat-flour carrier."
+        },
+        {
+            "designation": "Demi Glace",
+            "allergens": [
+                { "code": "gluten", "containment": "may_contain" },
+                { "code": "milk", "containment": "may_contain" },
+                { "code": "celery", "containment": "may_contain" }
+            ],
+            "evidence": "A reduced brown sauce. Standardly thickened with a wheat-flour roux, finished with butter, and built on a mirepoix that includes celery."
+        },
+        {
+            "designation": "Dijon Mustard",
+            "allergens": [
+                { "code": "mustard", "containment": "contains" },
+                { "code": "sulphites", "containment": "may_contain" }
+            ],
+            "evidence": "Mustard seed by definition; the white wine or wine vinegar in a Dijon standardly carries sulphites."
+        },
+        {
+            "designation": "Dill",
+            "allergens": [],
+            "evidence": "Fresh herb."
+        },
+        {
+            "designation": "Dill Pickles",
+            "allergens": [{ "code": "sulphites", "containment": "may_contain" }],
+            "evidence": "Brined vegetable. Sulphites are a standard preservative in commercial pickling brines."
+        },
+        {
+            "designation": "Fat",
+            "allergens": [],
+            "evidence": "Rendered beef fat used as a trim component in the mince sheets."
+        },
+        {
+            "designation": "Filet Steak",
+            "allergens": [],
+            "evidence": "Unprocessed beef cut."
+        },
+        {
+            "designation": "Fish Stock",
+            "allergens": [
+                { "code": "fish", "containment": "contains" },
+                { "code": "celery", "containment": "may_contain" },
+                { "code": "gluten", "containment": "may_contain" }
+            ],
+            "evidence": "Fish by definition. Commercial bases standardly carry celery and a wheat carrier."
+        },
+        {
+            "designation": "Flour",
+            "allergens": [{ "code": "gluten", "containment": "contains" }],
+            "evidence": "Wheat flour."
+        },
+        {
+            "designation": "Fresh Cream",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Garlic Powder",
+            "allergens": [],
+            "evidence": "Dehydrated single vegetable."
+        },
+        {
+            "designation": "Ginger Powder",
+            "allergens": [],
+            "evidence": "Ground single spice."
+        },
+        {
+            "designation": "Green Onions",
+            "allergens": [],
+            "evidence": "Fresh vegetable."
+        },
+        {
+            "designation": "Jalapenos",
+            "allergens": [],
+            "evidence": "Fresh chilli. Recorded as the fresh vegetable; the separately listed pickled product carries its own brine determination."
+        },
+        {
+            "designation": "Ketchup",
+            "allergens": [],
+            "evidence": "Tomato, vinegar, sugar and spice. No allergen class in the ordinary formulation."
+        },
+        {
+            "designation": "Lemon Juice",
+            "allergens": [],
+            "evidence": "Pressed citrus juice."
+        },
+        {
+            "designation": "Local Beef",
+            "allergens": [],
+            "evidence": "Unprocessed beef."
+        },
+        {
+            "designation": "Louisiana Sauce",
+            "allergens": [{ "code": "gluten", "containment": "may_contain" }],
+            "evidence": "A cayenne hot sauce. The style standardly carries a wheat-thickened or malt-vinegar base."
+        },
+        {
+            "designation": "Mayonnaise",
+            "allergens": [
+                { "code": "egg", "containment": "contains" },
+                { "code": "mustard", "containment": "may_contain" }
+            ],
+            "evidence": "An egg-yolk emulsion by definition; mustard is a standard emulsifier in commercial mayonnaise."
+        },
+        {
+            "designation": "Milk Liquid",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Mix Cheese Preparation",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "Kitchen intermediate with no technical sheet. A cheese preparation is dairy by definition."
+        },
+        {
+            "designation": "Mozzarella Cheese",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Mustard a L ancienne",
+            "allergens": [
+                { "code": "mustard", "containment": "contains" },
+                { "code": "sulphites", "containment": "may_contain" }
+            ],
+            "evidence": "Wholegrain mustard. Mustard seed by definition; the wine or wine vinegar standardly carries sulphites."
+        },
+        {
+            "designation": "Onion Powder",
+            "allergens": [],
+            "evidence": "Dehydrated single vegetable."
+        },
+        {
+            "designation": "Orange Juice",
+            "allergens": [],
+            "evidence": "Pressed citrus juice."
+        },
+        {
+            "designation": "Panko",
+            "allergens": [{ "code": "gluten", "containment": "contains" }],
+            "evidence": "Wheat breadcrumb."
+        },
+        {
+            "designation": "Parmesan Cheese",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Pesto Mix",
+            "allergens": [
+                { "code": "tree_nut", "containment": "contains" },
+                { "code": "milk", "containment": "contains" }
+            ],
+            "evidence": "Kitchen intermediate. Its own recipe is basil, pine nut and hard cheese, which is tree nut and milk directly rather than by inference."
+        },
+        {
+            "designation": "Pineapple Juice (maccaw)",
+            "allergens": [],
+            "evidence": "Pressed fruit juice."
+        },
+        {
+            "designation": "Red Pepper",
+            "allergens": [],
+            "evidence": "Fresh vegetable."
+        },
+        {
+            "designation": "Red Vinegar",
+            "allergens": [{ "code": "sulphites", "containment": "may_contain" }],
+            "evidence": "Wine vinegar. Sulphites are standard in wine-derived vinegars."
+        },
+        {
+            "designation": "Seven Spices",
+            "allergens": [{ "code": "gluten", "containment": "may_contain" }],
+            "evidence": "A compound spice blend. Blends of this kind standardly carry a cereal carrier or anti-caking agent."
+        },
+        {
+            "designation": "Smoked Paprika",
+            "allergens": [],
+            "evidence": "Ground single spice."
+        },
+        {
+            "designation": "Sour Cream",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Sriracha",
+            "allergens": [],
+            "evidence": "Chilli, garlic, vinegar, sugar and salt. No allergen class in the ordinary formulation."
+        },
+        {
+            "designation": "Sugar",
+            "allergens": [],
+            "evidence": "Refined sucrose."
+        },
+        {
+            "designation": "Sweet Paprika",
+            "allergens": [],
+            "evidence": "Ground single spice."
+        },
+        {
+            "designation": "Swiss Cheese",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Tomato Paste",
+            "allergens": [],
+            "evidence": "Concentrated tomato."
+        },
+        {
+            "designation": "Truffle Oil",
+            "allergens": [],
+            "evidence": "Oil infused with truffle or truffle aroma. Neither component is an allergen class."
+        },
+        {
+            "designation": "Truffle Paste",
+            "allergens": [],
+            "evidence": "Truffle in oil. Neither component is an allergen class."
+        },
+        {
+            "designation": "Turkey Breast",
+            "allergens": [],
+            "evidence": "Unprocessed poultry cut."
+        },
+        {
+            "designation": "Water",
+            "allergens": [],
+            "evidence": "Water."
+        },
+        {
+            "designation": "White Vinegar",
+            "allergens": [{ "code": "sulphites", "containment": "may_contain" }],
+            "evidence": "Distilled vinegar. Sulphites are a standard preservative across the vinegar category."
+        },
+        {
+            "designation": "Worcestershire Sauce",
+            "allergens": [
+                { "code": "fish", "containment": "contains" },
+                { "code": "gluten", "containment": "may_contain" }
+            ],
+            "evidence": "Anchovy is a defining ingredient, so fish is a contains. The malt vinegar in the ordinary formulation carries barley gluten."
+        },
+        {
+            "designation": "Yellow Mustard",
+            "allergens": [{ "code": "mustard", "containment": "contains" }],
+            "evidence": "Mustard seed by definition."
+        },
+        {
+            "designation": "Yogurt",
+            "allergens": [{ "code": "milk", "containment": "contains" }],
+            "evidence": "A dairy product by definition."
+        },
+        {
+            "designation": "Avocado",
+            "allergens": [],
+            "evidence": "Fresh fruit."
+        },
+        {
+            "designation": "Basil",
+            "allergens": [],
+            "evidence": "Fresh herb."
+        },
+        {
+            "designation": "Black Pepper",
+            "allergens": [],
+            "evidence": "Single spice."
+        },
+        {
+            "designation": "Coriander",
+            "allergens": [],
+            "evidence": "Fresh herb."
+        },
+        {
+            "designation": "Garlic",
+            "allergens": [],
+            "evidence": "Fresh vegetable."
+        },
+        {
+            "designation": "Honey",
+            "allergens": [],
+            "evidence": "Honey. Not an allergen class under either the EU-14 or the US Big-9 list."
+        },
+        {
+            "designation": "Lemon",
+            "allergens": [],
+            "evidence": "Fresh citrus fruit."
+        },
+        {
+            "designation": "Mushroom",
+            "allergens": [],
+            "evidence": "Fresh fungus. Not an allergen class."
+        },
+        {
+            "designation": "Olive Oil",
+            "allergens": [],
+            "evidence": "Pressed olive oil."
+        },
+        {
+            "designation": "Onions",
+            "allergens": [],
+            "evidence": "Fresh vegetable."
+        },
+        {
+            "designation": "Oregano",
+            "allergens": [],
+            "evidence": "Dried herb."
+        },
+        {
+            "designation": "Paprika",
+            "allergens": [],
+            "evidence": "Ground single spice."
+        },
+        {
+            "designation": "Parsley",
+            "allergens": [],
+            "evidence": "Fresh herb."
+        },
+        {
+            "designation": "Salt",
+            "allergens": [],
+            "evidence": "Sodium chloride."
+        },
+        {
+            "designation": "Sunflower oil",
+            "allergens": [],
+            "evidence": "Pressed seed oil. Sunflower seed is not an allergen class under either the EU-14 or the US Big-9 list."
+        },
+        {
+            "designation": "Vinegar",
+            "allergens": [{ "code": "sulphites", "containment": "may_contain" }],
+            "evidence": "Sulphites are a standard preservative across the vinegar category."
+        },
+        {
+            "designation": "White pepper",
+            "allergens": [],
+            "evidence": "Ground single spice."
+        }
+    ],
+    "platform_corrections": [
+        {
+            "designation": "Burghul (Bulgur)",
+            "source_ref": "IG-025",
+            "allergens": [{ "code": "gluten", "containment": "contains" }],
+            "resolve_verification_status": "unverified",
+            "note": "owner-approved per workbook key 2026-08; supplier confirmation pending",
+            "evidence": "Burghul is parboiled cracked wheat. The source ingredient sheet tagged it allergen class \"None\" while the same workbook's allergen key listed it under Cereals/Gluten; the owner resolved the contradiction in favour of the allergen key."
+        },
+        {
+            "designation": "Pita bread",
+            "source_ref": "IG-143",
+            "allergens": [{ "code": "gluten", "containment": "contains" }],
+            "resolve_verification_status": "unverified",
+            "note": "owner-approved per workbook key 2026-08; supplier confirmation pending",
+            "evidence": "Pita is a wheat flatbread. The source ingredient sheet tagged it allergen class \"None\" while the same workbook's allergen key listed bread under Cereals/Gluten; the owner resolved the contradiction in favour of the allergen key."
+        }
+    ]
+}

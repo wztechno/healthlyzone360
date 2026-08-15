@@ -1,11 +1,18 @@
 import type {
     CartId,
     CorporateProgrammeId,
+    DeliveryZoneId,
     DietitianId,
+    IngredientId,
+    KitchenBranchId,
     KitchenId,
     MealId,
     MealPlanEntryId,
     MealPlanId,
+    OrderId,
+    PriceListId,
+    ProductId,
+    QuotationId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
@@ -28,6 +35,15 @@ import type {
  * in another — two caches for one fact, and an invalidation that misses half of them). So the map
  * is complete from the start. **Later waves read this file and do not edit it.** A wave that needs a
  * key which is genuinely absent asks for it rather than adding one.
+ *
+ * `kitchenAdmin` is the twelfth root, added whole by K1 for the same reason: the kitchen workspace
+ * is several slices, and each of them would otherwise edit this object.
+ *
+ * `account` and `verification` are the thirteenth and fourteenth, added whole by J1 on the same
+ * terms: the D2C account area is five screens (checklist, contacts, addresses, allergy declaration,
+ * consents) and the one-time-code surface is shared with journeys that have no account at all —
+ * guest ordering, B2B signatories — which is exactly why the challenge does not hang off `account`.
+ * Neither is ever persisted; both are stated in `PERSISTABLE_QUERY_ROOTS`'s note below.
  *
  * ## Shape rules
  *
@@ -54,6 +70,16 @@ export const QUERY_ROOTS = [
     'commerce',
     'business',
     'professional',
+    'kitchenAdmin',
+    'kitchenOps',
+    'kitchenOrders',
+    'kitchenQuotations',
+    'account',
+    'verification',
+    'guest',
+    'b2bApplication',
+    'platformAdmin',
+    'invitations',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -193,7 +219,7 @@ export const queryKeys = {
      */
     commerce: {
         all: () => ['commerce'] as const,
-        cart: () => ['commerce', 'cart'] as const,
+        cart: (channelCode?: string) => ['commerce', 'cart', channelCode ?? 'web-shop'] as const,
         checkoutPreview: (request: QueryScope) =>
             ['commerce', 'checkout', 'preview', request] as const,
         subscriptions: (filter?: QueryScope) =>
@@ -205,6 +231,24 @@ export const queryKeys = {
         /** Cart lines addressed individually, for optimistic quantity edits. */
         cartItem: (cartId: CartId, itemId: string) =>
             ['commerce', 'cart', cartId, 'item', itemId] as const,
+
+        /**
+         * S1. Three entries under the existing root rather than a new one, because a balance, a
+         * ledger and a quote are all facts about the same commerce surface — and every subscription
+         * mutation already invalidates the whole `commerce` prefix, which is exactly what has to
+         * happen when a skip changes the ledger *and* the next delivery date.
+         *
+         * `subscriptionQuote` is keyed by the proposal rather than by the subscription: it is a
+         * query over a configuration nobody has bought yet, and it is what replaced seven previews.
+         */
+        subscriptionBalance: (subscriptionId: SubscriptionId) =>
+            ['commerce', 'subscription', subscriptionId, 'balance'] as const,
+        subscriptionDeliveries: (subscriptionId: SubscriptionId, filter?: QueryScope) =>
+            ['commerce', 'subscription', subscriptionId, 'deliveries', scope(filter)] as const,
+        subscriptionQuote: (request: QueryScope) =>
+            ['commerce', 'subscription', 'quote', request] as const,
+        subscriptionMealChoices: (subscriptionId: SubscriptionId, date: string) =>
+            ['commerce', 'subscription', subscriptionId, 'meal-choices', date] as const,
     },
 
     /**
@@ -215,6 +259,7 @@ export const queryKeys = {
      */
     business: {
         all: () => ['business'] as const,
+        programmes: () => ['business', 'programmes'] as const,
         programme: (programmeId: CorporateProgrammeId) =>
             ['business', 'programme', programmeId] as const,
         catalogue: (filter: QueryScope) => ['business', 'catalogue', filter] as const,
@@ -231,15 +276,367 @@ export const queryKeys = {
         clientPlan: (clientId: UserId, planId: MealPlanId, weekStart: string) =>
             ['professional', 'client-plan', clientId, planId, weekStart] as const,
     },
+
+    /**
+     * ── kitchenAdmin: the kitchen workspace (K1) ────────────────────────────────────────────────
+     *
+     * One entry per entity family plus a detail-by-identifier, so a mutation invalidates the list it
+     * changed and the row it changed, and a lifecycle action invalidates the family prefix.
+     *
+     * **Never persisted, and the reason is not "personal data".** This root holds purchase costs,
+     * technical-sheet cost lines and margins, and the device it renders on is a shared kitchen
+     * tablet that several people sign into. Writing that to disk would leave one kitchen's costs
+     * readable by the next person to pick the tablet up, without anybody having signed in at all.
+     * `PERSISTABLE_QUERY_ROOTS` below therefore stays `['reference', 'catalogue']`.
+     */
+    kitchenAdmin: {
+        all: () => ['kitchenAdmin'] as const,
+
+        /** Platform reference, read-only in this workspace. */
+        allergenClasses: () => ['kitchenAdmin', 'allergen-classes'] as const,
+        serviceAreas: (filter?: QueryScope) =>
+            ['kitchenAdmin', 'service-areas', scope(filter)] as const,
+
+        ingredients: (filter?: QueryScope) =>
+            ['kitchenAdmin', 'ingredients', scope(filter)] as const,
+        /**
+         * One numbered page of the same collection.
+         *
+         * A separate path segment rather than the page folded into the filter object, for a
+         * reason TanStack enforces rather than suggests: an infinite query and a plain query
+         * that share a key store incompatible shapes in one entry — `{pages: [...]}` against a
+         * bare page — and whichever mounts second reads the other's data as its own. The
+         * `['kitchenAdmin', 'ingredients']` prefix still covers both, so invalidation is
+         * unaffected. Same for the six below.
+         */
+        ingredientsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'ingredients', 'page', scope(filter), page] as const,
+        ingredient: (ingredientId: IngredientId) =>
+            ['kitchenAdmin', 'ingredient', ingredientId] as const,
+
+        recipes: (filter?: QueryScope) => ['kitchenAdmin', 'recipes', scope(filter)] as const,
+        recipesPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'recipes', 'page', scope(filter), page] as const,
+        recipe: (recipeId: RecipeId) => ['kitchenAdmin', 'recipe', recipeId] as const,
+        /**
+         * The line editor's roll-up preview.
+         *
+         * Keyed by a **hash of the draft** rather than by the recipe: the preview is a pure function
+         * of the lines on screen, most of which are not saved and some of which belong to a recipe
+         * that does not exist yet. Two people composing the same lines share one cache entry, and
+         * an entry cannot outlive the draft that produced it. The caller computes the hash — the key
+         * map must stay free of hashing policy, or two call sites will hash differently and split
+         * the cache in half.
+         */
+        recipeRollup: (draftHash: string) =>
+            ['kitchenAdmin', 'recipe', 'rollup', draftHash] as const,
+
+        products: (filter?: QueryScope) => ['kitchenAdmin', 'products', scope(filter)] as const,
+        productsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'products', 'page', scope(filter), page] as const,
+        product: (productId: ProductId) => ['kitchenAdmin', 'product', productId] as const,
+
+        priceLists: (filter?: QueryScope) =>
+            ['kitchenAdmin', 'price-lists', scope(filter)] as const,
+        priceListsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'price-lists', 'page', scope(filter), page] as const,
+        priceList: (priceListId: PriceListId) =>
+            ['kitchenAdmin', 'price-list', priceListId] as const,
+
+        meals: (filter?: QueryScope) => ['kitchenAdmin', 'meals', scope(filter)] as const,
+        mealsPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'meals', 'page', scope(filter), page] as const,
+        meal: (mealId: MealId) => ['kitchenAdmin', 'meal', mealId] as const,
+
+        plans: (filter?: QueryScope) => ['kitchenAdmin', 'plans', scope(filter)] as const,
+        plansPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'plans', 'page', scope(filter), page] as const,
+        plan: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan', planId] as const,
+
+        zones: (filter?: QueryScope) => ['kitchenAdmin', 'zones', scope(filter)] as const,
+        zonesPage: (filter: QueryScope | undefined, page: number) =>
+            ['kitchenAdmin', 'zones', 'page', scope(filter), page] as const,
+        zone: (zoneId: DeliveryZoneId) => ['kitchenAdmin', 'zone', zoneId] as const,
+
+        branchOperating: (branchId: KitchenBranchId) =>
+            ['kitchenAdmin', 'branch-operating', branchId] as const,
+
+        /**
+         * The publication review queue (K1.8) — one entry for the whole workbench.
+         *
+         * Deliberately parameterless. The queue is an aggregate over six families, and the hub card
+         * and the `/kitchen/review` screen ask for exactly the same aggregate: giving it one key
+         * means opening the queue from the hub costs nothing, and that a write anywhere in the
+         * workspace invalidates it along with everything else under the root prefix.
+         */
+        review: () => ['kitchenAdmin', 'review'] as const,
+    },
+
+    /**
+     * ── kitchenOps: inventory, receipts-only procurement, production and quality control (O1–O4)
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `kitchenAdmin` for the same reason `KitchenOpsRepository`
+     * is a sibling contract rather than a branch of it (`contracts/kitchen-ops.ts`'s header): none
+     * of these rows is lock-versioned or bilingual, and every list here is either the whole table
+     * (stock items, suppliers) or the most recent fifty (goods receipts, production orders, quality
+     * checks) — there is no row-by-identifier entry because no ops screen reads a single row on its
+     * own; each mutation form re-reads the list it just changed.
+     *
+     * **Never persisted**, on the same terms as `kitchenAdmin`: a stock level and a goods receipt
+     * are exactly as tied to one kitchen's costs as a technical-sheet line is, and this workspace
+     * runs on a shared tablet.
+     */
+    kitchenOps: {
+        all: () => ['kitchenOps'] as const,
+        stockItems: () => ['kitchenOps', 'stock-items'] as const,
+        stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
+        lowStockCount: () => ['kitchenOps', 'low-stock-count'] as const,
+        suppliers: () => ['kitchenOps', 'suppliers'] as const,
+        procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
+        goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
+        purchasesLedger: (filter: object = {}) =>
+            ['kitchenOps', 'purchases-ledger', filter] as const,
+        costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
+        consumptionExceptions: (filter: object = {}) =>
+            ['kitchenOps', 'consumption-exceptions', filter] as const,
+        consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
+        productionOrders: () => ['kitchenOps', 'production-orders'] as const,
+        qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
+    },
+
+    /**
+     * ── kitchenOrders: the seller's view of the orders placed against this kitchen ───────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `commerce`, for the reason
+     * `api-client/src/contracts/kitchen-orders.ts`'s header gives: `commerce` caches the *buyer's*
+     * receipt, and this caches the seller's ticket — the same underlying row, two different shapes,
+     * two different audiences, and an invalidation that should never cross between them. A kitchen
+     * confirming an order must not evict a customer's order history, and vice versa.
+     *
+     * Unlike `kitchenOps`, this family **does** have a row-by-identifier entry: the detail panel
+     * reads one order on its own, and it is the entry that carries the `lockVersion` the three
+     * lifecycle actions send as `If-Match`.
+     *
+     * **Never persisted**, on the same terms as `kitchenAdmin` and `kitchenOps`, and one step
+     * further out than either: an order carries a named customer's delivery address, so it is
+     * commercial data *and* somebody else's personal data, on a tablet the whole kitchen signs into.
+     */
+    kitchenOrders: {
+        all: () => ['kitchenOrders'] as const,
+        list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
+        order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
+    },
+
+    /**
+     * ── kitchenQuotations: the seller's view of the quotations submitted against this kitchen ────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `business`, on exactly the terms `kitchenOrders` is not a
+     * branch of `commerce` (`api-client/src/contracts/kitchen-quotations.ts`): `business` caches the
+     * *buyer's* ask, this caches the *seller's* answer, and pricing a quotation must not evict a
+     * buyer's quotation list — nor should a buyer accepting one evict the kitchen's work queue.
+     *
+     * `list` takes no filter, and the absence is the endpoint's rather than an oversight: the wire
+     * offers neither query parameters nor a cursor here, so there is only ever one list to cache.
+     * The status filter the screen offers is applied to the rows it already holds.
+     *
+     * **Never persisted**, on `kitchenOrders`' terms: a quotation is another organisation's
+     * negotiated commercial position, held on a tablet the whole kitchen signs into.
+     */
+    kitchenQuotations: {
+        all: () => ['kitchenQuotations'] as const,
+        list: () => ['kitchenQuotations', 'list'] as const,
+        quotation: (quotationId: QuotationId) =>
+            ['kitchenQuotations', 'quotation', quotationId] as const,
+    },
+
+    /**
+     * ── account: the D2C account area (J1) ──────────────────────────────────────────────────────
+     *
+     * `overview` and `checklist` are separate entries over overlapping data on purpose. The
+     * checklist is what a mutation on any of the five setup screens invalidates — saving an address
+     * can flip `canActivate` — while the overview additionally carries the contacts and the account
+     * row, which a contact mutation invalidates instead. Giving them one key would make every write
+     * refetch both, and giving the checklist no key of its own would make the account screen
+     * re-read contacts it is not showing.
+     *
+     * **Never persisted.** Addresses, an allergy declaration and a consent record are personal
+     * data, and the declaration is special-category besides (appendix D). `PERSISTABLE_QUERY_ROOTS`
+     * stays as it is.
+     */
+    account: {
+        all: () => ['account'] as const,
+        /** Account row, contacts and checklist in one read. */
+        overview: () => ['account', 'overview'] as const,
+        /** The server's activation evaluator. Never recomputed from the items on the device. */
+        checklist: () => ['account', 'checklist'] as const,
+        addresses: () => ['account', 'addresses'] as const,
+        address: (addressId: string) => ['account', 'address', addressId] as const,
+        dietaryProfile: () => ['account', 'dietary-profile'] as const,
+        consents: () => ['account', 'consents'] as const,
+        /**
+         * The closed list of areas an address may point at.
+         *
+         * Under `account` rather than `reference` despite being non-personal lookup data, because
+         * `AccountRepository` is the contract that answers it and the address editor is the only
+         * thing that asks. Classifying it as `reference` would additionally make it persistable,
+         * and a delivery-area list cached across sessions is a list that can offer an area the
+         * platform has since stopped serving — a save refused on a value the screen supplied, which
+         * is exactly the kind of stale answer §21 is written to prevent.
+         */
+        serviceAreas: () => ['account', 'service-areas'] as const,
+
+        /**
+         * J2. `closurePreconditions` is re-read on every step of the wizard rather than carried
+         * forward from the first one: a subscription created between step two and step four is
+         * exactly the case the blocker registry exists to catch, and a wizard holding a snapshot
+         * would close over it.
+         *
+         * `closureRequest` is parameterless because a person has at most one in flight — the
+         * backend's partial unique index says so — and because the wizard reads it on mount so a
+         * reload lands back on the step it left, with the challenge's cooldown intact.
+         */
+        closurePreconditions: () => ['account', 'closure', 'preconditions'] as const,
+        closureRequest: () => ['account', 'closure', 'request'] as const,
+    },
+
+    /**
+     * ── verification: contact points and one-time codes (J1) ────────────────────────────────────
+     *
+     * Its own root rather than a branch of `account` because the OTP framework serves purposes that
+     * have no account behind them at all — a guest order, a guest deletion request, a B2B
+     * signatory. A key under `account` would make those journeys either invent a second key or
+     * invalidate an account they do not have.
+     *
+     * `challenge` exists so a reload can re-read a live challenge **with its cooldown intact**
+     * rather than issue a second one (`contracts/verification.ts`, journey-forced shape 1). It is
+     * keyed by the challenge identifier because a resend supersedes: the answer carries a new id,
+     * and the old entry must not be reused.
+     */
+    verification: {
+        all: () => ['verification'] as const,
+        contacts: () => ['verification', 'contacts'] as const,
+        challenge: (challengeId: string) => ['verification', 'challenge', challengeId] as const,
+    },
+
+    /**
+     * ── guest: ordering without an account (G1) ─────────────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `commerce`, because everything under it belongs to
+     * somebody who has no account and may never have one. Sharing `commerce`'s root would mean a
+     * sign-in invalidation either missed the guest entries or wiped a signed-in person's basket.
+     *
+     * **Never persisted, and this is the strongest case in the file.** A guest orders from a shared
+     * laptop, a family tablet, a phone handed over at a counter. The session holds a name, a
+     * contact and a delivery address belonging to somebody who *cannot sign in anywhere to clear
+     * it* — there is no account to log out of. Writing any of it to disk would leave it for the next
+     * person to pick the device up. `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     *
+     * `order` is keyed by the human reference rather than the identifier because that is what a
+     * confirmation page is reached with, and what a person actually holds.
+     */
+    guest: {
+        all: () => ['guest'] as const,
+        /** The live guest session behind the stored token — grade, capabilities, contact. */
+        session: () => ['guest', 'session'] as const,
+        /** A placed order, by its quotable reference. */
+        order: (reference: string) => ['guest', 'order', reference] as const,
+        /** What the conversion prompt pre-fills from. */
+        conversionPrefill: () => ['guest', 'conversion-prefill'] as const,
+        /** A live guest passcode challenge, so a reload keeps its cooldown. */
+        challenge: (challengeId: string) => ['guest', 'challenge', challengeId] as const,
+    },
+
+    /**
+     * ── b2bApplication: B2B onboarding (B1) ─────────────────────────────────────────
+     *
+     * Its own root rather than a branch of `business`, and the reason is a permission boundary
+     * rather than tidiness: `business` holds a *corporate buyer's* programme, catalogue and
+     * quotations — data that exists only once an organisation does. An applicant has no
+     * organisation at all (D-027), so an application cached under `business` would be a personal
+     * record filed under a tenant that has not been created yet, and the first thing to invalidate
+     * the `business` prefix would throw it away.
+     *
+     * `current` is parameterless because a person has exactly one live application — the backend's
+     * partial unique index says so. The agreement gets an entry of its own because the signing
+     * screen re-reads it alone: the digest it echoes back has to be the one the server holds *now*,
+     * not one that arrived with an application read five minutes ago.
+     *
+     * **Never persisted.** A registration number, a signatory's identity document and a set of
+     * negotiated commercial terms are all behind this root, and the last of those is confidential
+     * to one buyer relationship. `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     */
+    b2bApplication: {
+        all: () => ['b2bApplication'] as const,
+        /** The applicant's live application, or `null` when they have never started one. */
+        current: () => ['b2bApplication', 'current'] as const,
+        agreement: (applicationId: string) =>
+            ['b2bApplication', 'agreement', applicationId] as const,
+
+        /**
+         * B2. The wind-down, keyed by organisation.
+         *
+         * Under this root rather than `business` for the reason above inverted: an offboarding is a
+         * *relationship* record, not the buying surface, and it must survive the moment the buying
+         * surface is revoked. A key under `business` would be thrown away by the first invalidation
+         * that follows a revocation — which is precisely when the screen still has to render.
+         */
+        offboarding: (organisationId: string) =>
+            ['b2bApplication', 'offboarding', organisationId] as const,
+    },
+
+    /**
+     * PA1 — the platform operator's console.
+     *
+     * The eighteenth root, and it exists rather than hanging off `kitchenAdmin` because the two
+     * describe opposite sides of the same word. `kitchenAdmin` is a kitchen's own workspace and is
+     * invalidated when that kitchen edits itself; this is a list of *other people's* tenants, and
+     * folding it in would mean a platform operator suspending one kitchen threw away the cached
+     * catalogue of the kitchen they happen to also work for.
+     *
+     * Never persisted. It carries owner names and email addresses for organisations the reader does
+     * not belong to, which is the clearest case on the list for keeping it in memory only.
+     */
+    platformAdmin: {
+        all: () => ['platformAdmin'] as const,
+        kitchens: (filter?: QueryScope) => ['platformAdmin', 'kitchens', scope(filter)] as const,
+        kitchen: (kitchen: string) => ['platformAdmin', 'kitchen', kitchen] as const,
+    },
+
+    /**
+     * The token-scoped invitation read (PA1).
+     *
+     * **Keyed by the token**, which is the only thing that identifies it — the invitation's own id
+     * arrives *in* the response and is therefore useless as a key. That makes this the one key in
+     * this file that contains a credential, which is precisely why the root is absent from
+     * `PERSISTED_QUERY_ROOTS` below: a bearer-ish token must not reach disk, least of all on the
+     * shared device somebody opened a colleague's forwarded link on.
+     */
+    invitations: {
+        all: () => ['invitations'] as const,
+        byToken: (token: string) => ['invitations', 'token', token] as const,
+    },
 } as const;
 
 /**
  * Roots whose cached data may survive a restart.
  *
  * Deliberately minimal (plan §21). `session`, `devices`, `nutrition`, `planner`, `vd`, `commerce`,
- * `business` and `professional` are absent and must stay absent: they are authentication responses,
- * personal data or medical-adjacent data, and none of them may touch disk. Adding a root here is a
- * privacy decision, which is why it is a single reviewable list rather than a per-query flag.
+ * `business`, `professional`, `kitchenAdmin`, `account` and `verification` are absent and must stay
+ * absent: they are authentication responses, personal data, medical-adjacent data, or — in
+ * `kitchenAdmin`'s case — confidential commercial data on a device several people share. `account`
+ * additionally holds a special-category allergy declaration and a consent record, and
+ * `verification` holds live one-time-code state whose whole security model is that it is
+ * short-lived. `guest` is the newest absence and the least negotiable one: it holds a name, a
+ * contact and a delivery address belonging to somebody with no account to sign out of, frequently
+ * on a device that is not theirs. Adding a root here is a privacy decision, which is why it is a
+ * single reviewable list rather than a per-query flag. `platformAdmin` (PA1) is absent on the
+ * clearest grounds of any of them: it holds the names and email addresses of the owners of
+ * organisations the reader does not belong to. `kitchenOrders` is absent on both grounds at once —
+ * a kitchen's order book is commercial data *and* a list of named customers' delivery addresses,
+ * held on a tablet the whole kitchen signs into.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

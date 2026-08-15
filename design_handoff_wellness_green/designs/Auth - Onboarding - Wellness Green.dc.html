@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEEE9; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#157043; text-decoration:none; }
+  a:hover { color:#0B3B26; }
+</style>
+</helmet>
+
+<section style="display:flex; flex-direction:column; gap:28px; padding:48px 56px 64px">
+  <div style="display:flex; align-items:baseline; gap:14px">
+    <span style="font-family:'Space Grotesk'; font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#6D28D9">Turn 4 · Auth &amp; onboarding</span>
+    <span style="font-size:13px; color:#5B6673">Sign in, register and the 22-step profile on the approved 1a system — <a href="#4a">4a</a> <a href="#4b">4b</a> <a href="#4c">4c</a> <a href="#4d">4d</a></span>
+  </div>
+  <div id="4a" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">4a</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Sign in</span>
+      <span style="font-size:13px; color:#5B6673">/sign-in — with a rate-limit refusal shown</span>
+    </div>
+    <div style="display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap">
+      <div style="width:1280px; flex:0 0 auto; height:820px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+        <div style="width:472px; flex-shrink:0; position:relative; background:#0B3B26; overflow:hidden; display:flex; flex-direction:column">
+          <div style="position:absolute; inset:0; background:linear-gradient(160deg,#0B3B26 0%,#124F33 55%,#0E6B41 100%)"></div>
+          <div style="position:absolute; right:-110px; top:-90px; width:400px; height:400px; border-radius:999px; background:radial-gradient(circle, rgba(22,163,74,.38) 0%, rgba(22,163,74,0) 70%)"></div>
+          <div style="position:relative; padding:36px 40px 0; display:flex; align-items:center; gap:11px">
+            <div style="width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:15px">H</div>
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:17px; color:#fff">Healthy360</div>
+          </div>
+          <div style="position:relative; padding:32px 40px 0; display:flex; flex-direction:column; gap:16px">
+            <div style="font-family:'Space Grotesk'; font-size:34px; line-height:1.12; font-weight:700; color:#fff; letter-spacing:-0.022em; text-wrap:pretty">Your food, your numbers, in one place.</div>
+            <div style="display:flex; flex-direction:column; gap:13px; margin-top:4px">
+              <div style="display:flex; align-items:flex-start; gap:11px"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" style="flex-shrink:0; margin-top:2px"><circle cx="10" cy="10" r="9" fill="rgba(220,252,231,.16)"></circle><path d="M6 10.2 L8.6 12.8 L14 7.2" stroke="#86EFAC" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="font-size:14.5px; line-height:21px; color:rgba(220,252,231,.86)">Every dish published with its full nutrition record</span></div><div style="display:flex; align-items:flex-start; gap:11px"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" style="flex-shrink:0; margin-top:2px"><circle cx="10" cy="10" r="9" fill="rgba(220,252,231,.16)"></circle><path d="M6 10.2 L8.6 12.8 L14 7.2" stroke="#86EFAC" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="font-size:14.5px; line-height:21px; color:rgba(220,252,231,.86)">A weekly plan you can move, lock and regenerate</span></div><div style="display:flex; align-items:flex-start; gap:11px"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" style="flex-shrink:0; margin-top:2px"><circle cx="10" cy="10" r="9" fill="rgba(220,252,231,.16)"></circle><path d="M6 10.2 L8.6 12.8 L14 7.2" stroke="#86EFAC" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="font-size:14.5px; line-height:21px; color:rgba(220,252,231,.86)">Kitchens and dietitians in one marketplace</span></div>
+            </div>
+          </div>
+          <div style="position:relative; margin-top:auto; padding:28px 40px 0">
+            <div style="border-radius:18px 18px 0 0; overflow:hidden; height:220px; background:#124F33"><img src="assets/landing/hero.hero.webp" alt="" style="width:100%; height:100%; object-fit:cover; display:block"></div>
+          </div>
+        </div>
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; background:#FFFFFF">
+          <div style="padding:26px 44px; display:flex; align-items:center; justify-content:flex-end; gap:16px">
+            <span style="font-size:14px; font-weight:500; color:#5B6673">العربية</span>
+            <span style="font-size:14px; color:#5B6673">New here? <span style="color:#157043; font-weight:700">Create an account</span></span>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:0 44px 44px">
+            <div style="width:100%; max-width:420px; display:flex; flex-direction:column; gap:22px">
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="font-family:'Space Grotesk'; font-size:32px; font-weight:700; color:#1F2937; letter-spacing:-0.022em">Welcome back.</div>
+                <div style="font-size:15px; line-height:23px; color:#5B6673">Sign in to reach your planner, basket and subscriptions.</div>
+              </div>
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:14px 16px; border-radius:13px; background:#FDE5E3; border:1px solid #D16A64">
+                <span style="flex-shrink:0; width:20px; height:20px; border-radius:5px; background:#C02722; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center">!</span>
+                <div style="font-size:13.5px; line-height:20px; color:#8F1F1A">Too many attempts. Try again in 4 minutes, or reset your password.</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:16px">
+                
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Email address<span style="color:#C02722"> *</span></span>
+                  
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; height:52px; padding:0 16px; border-radius:12px; border:1.5px solid #CCEEDA; background:#FFFFFF; ">
+                  <span style="flex:1; min-width:0; font-size:15px; color:#1F2937">layla@example.com</span>
+                  
+                </div>
+                
+                
+              </div>
+                
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Password<span style="color:#C02722"> *</span></span>
+                  <span style="font-size:13px; font-weight:600; color:#157043">Forgot password?</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; height:52px; padding:0 16px; border-radius:12px; border:1.5px solid #16A34A; background:#FFFFFF; box-shadow:0 0 0 3px rgba(22,163,74,.16);">
+                  <span style="flex:1; min-width:0; font-size:15px; color:#1F2937">••••••••••</span>
+                  <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M2 11 C5 6.5 8 5 11 5 C14 5 17 6.5 20 11 C17 15.5 14 17 11 17 C8 17 5 15.5 2 11 Z" stroke="#5B6673" stroke-width="1.7"></path><circle cx="11" cy="11" r="3" stroke="#5B6673" stroke-width="1.7"></circle></svg>
+                </div>
+                
+                
+              </div>
+                <div style="display:flex; align-items:center; gap:11px">
+                  <span style="width:20px; height:20px; border-radius:6px; background:#157043; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                  <span style="font-size:14px; color:#1F2937">Keep me signed in on this device</span>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:12px">
+                <span style="display:inline-flex; align-items:center; justify-content:center; height:54px; border-radius:13px; background:#157043; color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Sign in</span>
+                <span style="display:inline-flex; align-items:center; justify-content:center; height:54px; border-radius:13px; background:#FFFFFF; border:1.5px solid #CCEEDA; color:#1F2937; font-size:15px; font-weight:600">Continue as a guest</span>
+              </div>
+              <div style="padding-top:16px; border-top:1px solid #EDF6F0; font-size:12.5px; line-height:19px; color:#5B6673">This is a prototype over synthetic data. Accounts, orders and professional registrations are invented.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="4b" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">4b</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Register</span>
+      <span style="font-size:13px; color:#5B6673">/register — name, email, password, confirmation, two required consents</span>
+    </div>
+    <div style="display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap">
+      <div style="width:1280px; flex:0 0 auto; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+        <div style="width:472px; flex-shrink:0; position:relative; background:#0B3B26; overflow:hidden; display:flex; flex-direction:column">
+          <div style="position:absolute; inset:0; background:linear-gradient(160deg,#0B3B26 0%,#124F33 55%,#0E6B41 100%)"></div>
+          <div style="position:absolute; right:-110px; top:-90px; width:400px; height:400px; border-radius:999px; background:radial-gradient(circle, rgba(22,163,74,.38) 0%, rgba(22,163,74,0) 70%)"></div>
+          <div style="position:relative; padding:36px 40px 0; display:flex; align-items:center; gap:11px">
+            <div style="width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:15px">H</div>
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:17px; color:#fff">Healthy360</div>
+          </div>
+          <div style="position:relative; padding:32px 40px 0; display:flex; flex-direction:column; gap:16px">
+            <div style="font-family:'Space Grotesk'; font-size:34px; line-height:1.12; font-weight:700; color:#fff; letter-spacing:-0.022em; text-wrap:pretty">Start with a target, not a guess.</div>
+            <div style="display:flex; flex-direction:column; gap:13px; margin-top:4px">
+              <div style="display:flex; align-items:flex-start; gap:11px"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" style="flex-shrink:0; margin-top:2px"><circle cx="10" cy="10" r="9" fill="rgba(220,252,231,.16)"></circle><path d="M6 10.2 L8.6 12.8 L14 7.2" stroke="#86EFAC" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="font-size:14.5px; line-height:21px; color:rgba(220,252,231,.86)">Twenty-two questions, answered once</span></div><div style="display:flex; align-items:flex-start; gap:11px"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" style="flex-shrink:0; margin-top:2px"><circle cx="10" cy="10" r="9" fill="rgba(220,252,231,.16)"></circle><path d="M6 10.2 L8.6 12.8 L14 7.2" stroke="#86EFAC" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="font-size:14.5px; line-height:21px; color:rgba(220,252,231,.86)">Energy and macro targets from published equations</span></div><div style="display:flex; align-items:flex-start; gap:11px"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" style="flex-shrink:0; margin-top:2px"><circle cx="10" cy="10" r="9" fill="rgba(220,252,231,.16)"></circle><path d="M6 10.2 L8.6 12.8 L14 7.2" stroke="#86EFAC" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="font-size:14.5px; line-height:21px; color:rgba(220,252,231,.86)">Allergens carried into every meal you see</span></div>
+            </div>
+          </div>
+          <div style="position:relative; margin-top:auto; padding:28px 40px 0">
+            <div style="border-radius:18px 18px 0 0; overflow:hidden; height:220px; background:#124F33"><img src="assets/how-it-works/target.tile.webp" alt="" style="width:100%; height:100%; object-fit:cover; display:block"></div>
+          </div>
+        </div>
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; background:#FFFFFF">
+          <div style="padding:26px 44px; display:flex; align-items:center; justify-content:flex-end; gap:16px">
+            <span style="font-size:14px; font-weight:500; color:#5B6673">العربية</span>
+            <span style="font-size:14px; color:#5B6673">Already have an account? <span style="color:#157043; font-weight:700">Sign in</span></span>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:0 44px 44px">
+            <div style="width:100%; max-width:420px; display:flex; flex-direction:column; gap:22px">
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="font-family:'Space Grotesk'; font-size:32px; font-weight:700; color:#1F2937; letter-spacing:-0.022em">Create your account.</div>
+                <div style="font-size:15px; line-height:23px; color:#5B6673">We'll email you a link to confirm the address before anything else.</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:16px">
+                
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Name<span style="color:#C02722"> *</span></span>
+                  
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; height:52px; padding:0 16px; border-radius:12px; border:1.5px solid #CCEEDA; background:#FFFFFF; ">
+                  <span style="flex:1; min-width:0; font-size:15px; color:#1F2937">Layla Haddad</span>
+                  
+                </div>
+                
+                
+              </div>
+                
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Email address<span style="color:#C02722"> *</span></span>
+                  
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; height:52px; padding:0 16px; border-radius:12px; border:1.5px solid #CCEEDA; background:#FFFFFF; ">
+                  <span style="flex:1; min-width:0; font-size:15px; color:#1F2937">layla@example.com</span>
+                  
+                </div>
+                
+                
+              </div>
+                
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Password<span style="color:#C02722"> *</span></span>
+                  
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; height:52px; padding:0 16px; border-radius:12px; border:1.5px solid #CCEEDA; background:#FFFFFF; ">
+                  <span style="flex:1; min-width:0; font-size:15px; color:#1F2937">••••••••••</span>
+                  <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M2 11 C5 6.5 8 5 11 5 C14 5 17 6.5 20 11 C17 15.5 14 17 11 17 C8 17 5 15.5 2 11 Z" stroke="#5B6673" stroke-width="1.7"></path><circle cx="11" cy="11" r="3" stroke="#5B6673" stroke-width="1.7"></circle></svg>
+                </div>
+                
+                <span style="font-size:12.5px; color:#5B6673">Use at least 12 characters.</span>
+              </div>
+                
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Confirm password<span style="color:#C02722"> *</span></span>
+                  
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; height:52px; padding:0 16px; border-radius:12px; border:1.5px solid #D16A64; background:#FFFFFF; ">
+                  <span style="flex:1; min-width:0; font-size:15px; color:#1F2937">••••••••</span>
+                  <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M2 11 C5 6.5 8 5 11 5 C14 5 17 6.5 20 11 C17 15.5 14 17 11 17 C8 17 5 15.5 2 11 Z" stroke="#5B6673" stroke-width="1.7"></path><circle cx="11" cy="11" r="3" stroke="#5B6673" stroke-width="1.7"></circle></svg>
+                </div>
+                <div style="display:flex; align-items:center; gap:7px"><span style="width:6px; height:6px; border-radius:999px; background:#C02722"></span><span style="font-size:12.5px; color:#8F1F1A">The two passwords do not match.</span></div>
+                
+              </div>
+                <div style="display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:13px; background:#F7FCF9; border:1px solid #E3F3E9">
+                  <div style="display:flex; align-items:flex-start; gap:11px">
+                    <span style="width:20px; height:20px; border-radius:6px; flex-shrink:0; margin-top:1px; background:#157043; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                    <span style="font-size:13.5px; line-height:20px; color:#1F2937">I accept the <strong>terms of service</strong>.</span>
+                  </div>
+                  <div style="display:flex; align-items:flex-start; gap:11px">
+                    <span style="width:20px; height:20px; border-radius:6px; flex-shrink:0; margin-top:1px; border:1.5px solid #CCEEDA; background:#fff"></span>
+                    <span style="font-size:13.5px; line-height:20px; color:#1F2937">I have read the <strong>privacy notice</strong>.</span>
+                  </div>
+                </div>
+              </div>
+              <span style="display:inline-flex; align-items:center; justify-content:center; height:54px; border-radius:13px; background:#157043; color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Create account</span>
+              <div style="font-size:12.5px; line-height:19px; color:#5B6673">Both agreements are required — an unticked box stops the form rather than submitting silently. This is a prototype over synthetic data; no real account is created.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="4c" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">4c</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Onboarding step</span>
+      <span style="font-size:13px; color:#5B6673">/customer/onboarding/activity — Select plus the option guide</span>
+    </div>
+    <div style="display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap">
+      <div style="width:1280px; flex:0 0 auto; height:940px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+          <div style="width:266px; flex-shrink:0; align-self:stretch; background:#FFFFFF; border-right:1px solid #CCEEDA; padding:24px 18px; display:flex; flex-direction:column; gap:2px">
+            <div style="padding:0 10px 16px">
+              <div style="font-family:'Space Grotesk'; font-size:13px; font-weight:700; color:#157043; letter-spacing:.04em; text-transform:uppercase">Your profile</div>
+              <div style="font-family:'Space Grotesk'; font-size:22px; font-weight:700; color:#1F2937; margin-top:4px">Step 8 of 22</div>
+              <div style="height:8px; border-radius:999px; background:#EDF6F0; overflow:hidden; margin-top:12px"><div style="width:36%; height:100%; border-radius:999px; background:#16A34A"></div></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Introduction</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Units</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Age</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Calculation basis</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Height</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Weight</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Body fat</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:#F0FBF3">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#fff; border:2px solid #16A34A"></span>
+              <span style="font-size:13px; font-weight:700; color:#0B3B26">Activity</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Goal</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Pace</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Diet</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Allergies</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Restrictions</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Dislikes</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Cuisines</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Budget</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Cooking</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Meals</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Meal times</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Preparation</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Summary</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Review</span>
+            </div>
+          </div>
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+          <div style="padding:26px 40px 0; display:flex; align-items:center; justify-content:space-between">
+            <span style="font-size:13.5px; font-weight:600; color:#5B6673">Save and finish later</span>
+            <span style="font-size:13.5px; font-weight:600; color:#5B6673">Sign out</span>
+          </div>
+          <div style="flex:1; padding:22px 40px 0; display:flex; flex-direction:column; gap:22px; max-width:720px">
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <span style="align-self:flex-start; display:inline-flex; align-items:center; padding:4px 11px; border-radius:999px; background:#DCFCE7; color:#14532D; font-size:11.5px; font-weight:700; letter-spacing:.03em">ABOUT YOU</span>
+              <div style="font-family:'Space Grotesk'; font-size:34px; line-height:1.12; font-weight:700; color:#1F2937; letter-spacing:-0.022em">How active is a normal week?</div>
+              <div style="font-size:15.5px; line-height:24px; color:#5B6673">This sets the activity factor we multiply your resting energy by. You can change it any time.</div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <span style="font-size:13px; font-weight:600; color:#1F2937">Activity level<span style="color:#C02722"> *</span></span>
+              <div style="display:flex; align-items:center; gap:12px; height:56px; padding:0 18px; border-radius:12px; border:1.5px solid #16A34A; background:#FFFFFF; box-shadow:0 0 0 3px rgba(22,163,74,.16)">
+                <span style="flex:1; min-width:0; font-size:16px; font-weight:600; color:#1F2937">Moderately active</span>
+                <span style="color:#5B6673; font-size:12px">▾</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:20px; padding:22px 24px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35)">
+              <div style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937; margin-bottom:14px">Which one describes you?</div>
+              <div style="display:flex; flex-direction:column">
+                <div style="display:flex; align-items:flex-start; gap:13px; padding:13px 14px; border-radius:12px; background:transparent; ">
+                  <span style="flex-shrink:0; width:9px; height:9px; border-radius:999px; margin-top:6px; background:#CCEEDA"></span>
+                  <div style="flex:1; min-width:0">
+                    <div style="font-size:14.5px; font-weight:600; color:#1F2937">Sedentary</div>
+                    <div style="font-size:13px; line-height:19px; color:#5B6673; margin-top:2px">Little or no deliberate exercise; desk work and short walks.</div>
+                  </div>
+                  
+                </div><div style="display:flex; align-items:flex-start; gap:13px; padding:13px 14px; border-radius:12px; background:transparent; margin-top:2px">
+                  <span style="flex-shrink:0; width:9px; height:9px; border-radius:999px; margin-top:6px; background:#CCEEDA"></span>
+                  <div style="flex:1; min-width:0">
+                    <div style="font-size:14.5px; font-weight:600; color:#1F2937">Lightly active</div>
+                    <div style="font-size:13px; line-height:19px; color:#5B6673; margin-top:2px">Light exercise or sport one to three days a week.</div>
+                  </div>
+                  
+                </div><div style="display:flex; align-items:flex-start; gap:13px; padding:13px 14px; border-radius:12px; background:#F0FBF3; margin-top:2px">
+                  <span style="flex-shrink:0; width:9px; height:9px; border-radius:999px; margin-top:6px; background:#16A34A"></span>
+                  <div style="flex:1; min-width:0">
+                    <div style="font-size:14.5px; font-weight:700; color:#0B3B26">Moderately active</div>
+                    <div style="font-size:13px; line-height:19px; color:#39434F; margin-top:2px">Moderate exercise or sport three to five days a week.</div>
+                  </div>
+                  <span style="flex-shrink:0; display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; background:#157043; color:#fff; font-size:11px; font-weight:700">Your answer</span>
+                </div><div style="display:flex; align-items:flex-start; gap:13px; padding:13px 14px; border-radius:12px; background:transparent; margin-top:2px">
+                  <span style="flex-shrink:0; width:9px; height:9px; border-radius:999px; margin-top:6px; background:#CCEEDA"></span>
+                  <div style="flex:1; min-width:0">
+                    <div style="font-size:14.5px; font-weight:600; color:#1F2937">Very active</div>
+                    <div style="font-size:13px; line-height:19px; color:#5B6673; margin-top:2px">Hard exercise or sport six or seven days a week.</div>
+                  </div>
+                  
+                </div><div style="display:flex; align-items:flex-start; gap:13px; padding:13px 14px; border-radius:12px; background:transparent; margin-top:2px">
+                  <span style="flex-shrink:0; width:9px; height:9px; border-radius:999px; margin-top:6px; background:#CCEEDA"></span>
+                  <div style="flex:1; min-width:0">
+                    <div style="font-size:14.5px; font-weight:600; color:#1F2937">Extra active</div>
+                    <div style="font-size:13px; line-height:19px; color:#5B6673; margin-top:2px">A physical job, or training twice a day.</div>
+                  </div>
+                  
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:12px; padding:16px 20px; border-radius:14px; background:#E2F1FB; border:1px solid #3690BF; align-items:flex-start">
+              <span style="flex-shrink:0; width:20px; height:20px; border-radius:999px; background:#0369A1; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px">i</span>
+              <div style="font-size:13px; line-height:19px; color:#0B4A6F">Activity factors come from the Mifflin–St Jeor literature and describe a population average. They are guidance only — Healthy360 does not provide medical advice, diagnosis or treatment.</div>
+            </div>
+          </div>
+          <div style="padding:22px 40px 26px; border-top:1px solid #CCEEDA; background:#FFFFFF; display:flex; align-items:center; gap:12px">
+            <span style="display:inline-flex; align-items:center; height:52px; padding:0 22px; border-radius:13px; background:#FFFFFF; border:1.5px solid #CCEEDA; color:#1F2937; font-size:15px; font-weight:600">Back</span>
+            <span style="font-size:13px; color:#5B6673">Step 8 of 22 · About you</span>
+            <span style="margin-left:auto; display:inline-flex; align-items:center; height:52px; padding:0 30px; border-radius:13px; background:#157043; color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Continue</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="4d" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">4d</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Onboarding summary</span>
+      <span style="font-size:13px; color:#5B6673">/customer/onboarding/summary — step 21 of 22</span>
+    </div>
+    <div style="display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap">
+      <div style="width:1280px; flex:0 0 auto;  border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+          <div style="width:266px; flex-shrink:0; align-self:stretch; background:#FFFFFF; border-right:1px solid #CCEEDA; padding:24px 18px; display:flex; flex-direction:column; gap:2px">
+            <div style="padding:0 10px 16px">
+              <div style="font-family:'Space Grotesk'; font-size:13px; font-weight:700; color:#157043; letter-spacing:.04em; text-transform:uppercase">Your profile</div>
+              <div style="font-family:'Space Grotesk'; font-size:22px; font-weight:700; color:#1F2937; margin-top:4px">Step 21 of 22</div>
+              <div style="height:8px; border-radius:999px; background:#EDF6F0; overflow:hidden; margin-top:12px"><div style="width:95%; height:100%; border-radius:999px; background:#16A34A"></div></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Introduction</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Units</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Age</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Calculation basis</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Height</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Weight</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Body fat</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Activity</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Goal</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Pace</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Diet</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Allergies</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Restrictions</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Dislikes</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Cuisines</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Budget</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Cooking</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Meals</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Meal times</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#157043"><svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 6.6 L5.4 9 L10 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="font-size:13px; font-weight:500; color:#5B6673">Preparation</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:#F0FBF3">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#fff; border:2px solid #16A34A"></span>
+              <span style="font-size:13px; font-weight:700; color:#0B3B26">Summary</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:9px; background:transparent">
+              <span style="flex-shrink:0; width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#EDF6F0"></span>
+              <span style="font-size:13px; font-weight:500; color:#646E7C">Review</span>
+            </div>
+          </div>
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+          <div style="padding:26px 40px 0; display:flex; align-items:center; justify-content:space-between">
+            <span style="font-size:13.5px; font-weight:600; color:#5B6673">Save and finish later</span>
+            <span style="font-size:13.5px; font-weight:600; color:#5B6673">Sign out</span>
+          </div>
+          <div style="flex:1; padding:22px 40px 0; display:flex; gap:24px; align-items:flex-start">
+            <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:20px">
+              <div style="display:flex; flex-direction:column; gap:9px">
+                <div style="font-family:'Space Grotesk'; font-size:34px; line-height:1.12; font-weight:700; color:#1F2937; letter-spacing:-0.022em">Does this describe you?</div>
+                <div style="font-size:15.5px; line-height:24px; color:#5B6673">Nineteen answers, grouped by what they're about. Change anything before we calculate.</div>
+              </div>
+              
+              <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:20px; padding:22px 24px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35)">
+                <div style="font-family:'Space Grotesk'; font-size:17px; font-weight:700; color:#0B3B26; margin-bottom:14px">About you</div>
+                <div style="display:flex; flex-direction:column">
+                  <div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; ">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Units</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Metric</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Age</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">34</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Calculation basis</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Weight and height</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Height</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">168 cm</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Weight</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">64.5 kg</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Body fat</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Not given</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Activity</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Moderately active</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div>
+                </div>
+              </div>
+              <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:20px; padding:22px 24px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35)">
+                <div style="font-family:'Space Grotesk'; font-size:17px; font-weight:700; color:#0B3B26; margin-bottom:14px">Your goal</div>
+                <div style="display:flex; flex-direction:column">
+                  <div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; ">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Goal</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Lose weight</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Pace</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">0.4 kg a week</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div>
+                </div>
+              </div>
+              <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:20px; padding:22px 24px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35)">
+                <div style="font-family:'Space Grotesk'; font-size:17px; font-weight:700; color:#0B3B26; margin-bottom:14px">What you eat</div>
+                <div style="display:flex; flex-direction:column">
+                  <div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; ">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Diet</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Pescatarian</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Allergies</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Sesame</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Restrictions</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">None</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Dislikes</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Aubergine</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Cuisines</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Levantine, Mediterranean</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div>
+                </div>
+              </div>
+              <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:20px; padding:22px 24px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35)">
+                <div style="font-family:'Space Grotesk'; font-size:17px; font-weight:700; color:#0B3B26; margin-bottom:14px">How you cook</div>
+                <div style="display:flex; flex-direction:column">
+                  <div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; ">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Budget</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">$60–$90 a week</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Cooking</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Some cooking, three nights</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Meals</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Three a day plus one snack</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Meal times</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Breakfast 7:30, lunch 13:00, dinner 19:30</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div><div style="display:flex; align-items:baseline; gap:16px; padding:11px 0; border-top:1px solid #EDF6F0">
+                    <span style="width:190px; flex-shrink:0; font-size:13.5px; color:#5B6673">Preparation</span>
+                    <span style="flex:1; min-width:0; font-size:14.5px; font-weight:600; color:#1F2937">Batch cook on Sunday</span>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:#157043">Edit</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="width:340px; flex-shrink:0; display:flex; flex-direction:column; gap:16px">
+              <div style="border-radius:20px; padding:24px; background:linear-gradient(150deg,#0B3B26 0%,#124F33 100%); display:flex; flex-direction:column; gap:14px; box-shadow:0 18px 40px -22px rgba(11,59,38,.8)">
+                <div style="font-size:12px; font-weight:700; color:rgba(220,252,231,.7); letter-spacing:.05em; text-transform:uppercase">Your daily target</div>
+                <div style="display:flex; align-items:baseline; gap:8px"><span style="font-family:'Space Grotesk'; font-size:46px; font-weight:700; color:#fff; line-height:1">1,850</span><span style="font-size:14px; color:rgba(220,252,231,.8)">kcal</span></div>
+                <div style="display:flex; flex-direction:column; gap:10px; padding-top:14px; border-top:1px solid rgba(220,252,231,.18)">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:rgba(220,252,231,.82)">Protein</span><span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#fff">120 g<span style="font-size:11.5px; color:rgba(220,252,231,.6)"> · 26%</span></span></div><div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:rgba(220,252,231,.82)">Carbohydrate</span><span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#fff">190 g<span style="font-size:11.5px; color:rgba(220,252,231,.6)"> · 41%</span></span></div><div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:rgba(220,252,231,.82)">Fat</span><span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#fff">68 g<span style="font-size:11.5px; color:rgba(220,252,231,.6)"> · 33%</span></span></div>
+                </div>
+                <div style="font-size:12px; line-height:18px; color:rgba(220,252,231,.6); margin-top:4px">Mifflin–St Jeor, activity factor 1.55, 15% deficit for a 0.4 kg weekly pace.</div>
+              </div>
+              <div style="padding:16px 18px; border-radius:14px; background:#E2F1FB; border:1px solid #3690BF; display:flex; gap:11px; align-items:flex-start">
+                <span style="flex-shrink:0; width:20px; height:20px; border-radius:999px; background:#0369A1; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px">i</span>
+                <div style="font-size:12.5px; line-height:19px; color:#0B4A6F">These figures are an estimate for a population, not a prescription for you. Speak to a qualified professional before acting on them.</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:22px; padding:22px 40px 26px; border-top:1px solid #CCEEDA; background:#FFFFFF; display:flex; align-items:center; gap:12px">
+            <span style="display:inline-flex; align-items:center; height:52px; padding:0 22px; border-radius:13px; background:#FFFFFF; border:1.5px solid #CCEEDA; color:#1F2937; font-size:15px; font-weight:600">Back</span>
+            <span style="font-size:13px; color:#5B6673">Step 21 of 22 · Summary</span>
+            <span style="margin-left:auto; display:inline-flex; align-items:center; height:52px; padding:0 30px; border-radius:13px; background:#157043; color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Looks right — continue</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showMedicalDisclaimer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Wellness pass&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { showMedicalDisclaimer: this.props.showMedicalDisclaimer ?? true };
+  }
+}
+</script>
+</body>
+</html>

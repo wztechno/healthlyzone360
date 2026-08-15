@@ -35,6 +35,12 @@ export interface AccessState {
     readonly emailVerified: boolean;
     readonly organisation?: AccessOrganisation | undefined;
     readonly branch?: AccessBranch | undefined;
+    /**
+     * True when the signed-in person has at least one *active* organisation membership.
+     * Used by the landing resolver so a pure consumer (no memberships) is not forced through
+     * the organisation picker in `all-dev`.
+     */
+    readonly hasActiveMembership: boolean;
     /** Effective permission keys for (user × organisation × branch), e.g. `organisation.view_current`. */
     readonly permissions: ReadonlySet<string>;
     /** Effective feature entitlement keys, e.g. `feature.multi_branch` (see `FEATURE_CODES`). */

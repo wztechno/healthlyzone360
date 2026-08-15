@@ -1,9 +1,12 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { Redirect } from 'expo-router';
 
 /**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
+ * `/patient` — no backend, no screen.
+ *
+ * `patientWorkspace` is unavailable (`src/features/availability.ts`), so the area layout redirects
+ * before this ever mounts. It is still a real redirect rather than an empty component: a route file
+ * that renders nothing is indistinguishable from one somebody forgot to finish.
  */
 export default function PatientIndex() {
-    return <PrototypeScreen area="patient" testID="prototype-patient" />;
+    return <Redirect href="/" />;
 }

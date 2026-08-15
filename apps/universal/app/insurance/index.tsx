@@ -1,9 +1,9 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { Redirect } from 'expo-router';
 
 /**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
+ * `/insurance` — no backend, no screen. See `app/patient/index.tsx`; `insuranceWorkspace` is
+ * unavailable and the area layout redirects before this mounts.
  */
 export default function InsuranceIndex() {
-    return <PrototypeScreen area="insurance" testID="prototype-insurance" />;
+    return <Redirect href="/" />;
 }

@@ -40,6 +40,11 @@ describe('bundled image manifest', () => {
 
 describe('resolveEntityImage', () => {
     it('maps a marketplace meal to its dish photo (40 meals share 20 dishes)', () => {
+        // The three original API demo meals reuse photographs from the customer prototype too.
+        // Keeping these here means API mode cannot silently regress to patterned placeholders.
+        expect(resolveEntityImage('meal-grilled-chicken-freekeh', 'card')).toBeTruthy();
+        expect(resolveEntityImage('meal-mezze-plate', 'card')).toBeTruthy();
+        expect(resolveEntityImage('meal-red-lentil-soup', 'card')).toBeTruthy();
         expect(resolveEntityImage('meal-verdant-herb-garden-bowl', 'card')).toBeTruthy();
         expect(resolveEntityImage('meal-riverstone-training-freekeh', 'detail')).toBeTruthy();
         // Both of the above are built from the same recipe, so they resolve to the same dish photo.

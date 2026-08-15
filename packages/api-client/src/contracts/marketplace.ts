@@ -72,6 +72,21 @@ export interface KitchenBranch {
     readonly isActive: boolean;
 }
 
+/** A named delivery slot the kitchen publishes for checkout. */
+export interface KitchenDeliveryWindow {
+    readonly code: string;
+    /** Localised label from the server (`Accept-Language`). */
+    readonly label: string;
+    /** `HH:mm`, kitchen-local. */
+    readonly startsAt: string;
+    readonly endsAt: string;
+    /**
+     * ISO weekdays the window runs on (1 = Monday … 7 = Sunday).
+     * Empty means every day.
+     */
+    readonly weekdays: readonly number[];
+}
+
 /**
  * Which channels a kitchen is configured for. Eight independent switches rather than a single
  * "type", because a kitchen that delivers to consumers and also fulfils corporate contracts is the
@@ -90,6 +105,8 @@ export interface Kitchen {
     readonly dietClassifications: readonly DietClassification[];
     readonly channels: KitchenSalesChannels;
     readonly branches: readonly KitchenBranch[];
+    /** Active delivery slots published by the kitchen for checkout pickers. */
+    readonly deliveryWindows: readonly KitchenDeliveryWindow[];
     /** Average of published ratings, 0–5, or `null` when too few have been left. */
     readonly rating: number | null;
     readonly ratingCount: number;
@@ -111,6 +128,8 @@ export interface MarketplaceMeal {
     readonly id: MealId;
     readonly kitchenId: KitchenId;
     readonly kitchenName: string;
+    /** Prepared meal or sellable product (sauce, frozen pack, and so on). */
+    readonly itemType: 'meal' | 'product';
     readonly name: string;
     readonly slug: string;
     readonly description: string;
@@ -149,7 +168,16 @@ export interface PlanDurationOption {
     readonly duration: PlanDuration;
     /** Whole percent off the weekly price, `0` when none is offered. */
     readonly discountPercent: number;
-    readonly totalPrice: Money;
+    /**
+     * The whole-run price, when the platform can state one figure for the plan.
+     *
+     * `null` for a plan with more than one active configuration: its variants carry different
+     * weekly prices, so a single plan-level total would be a figure no kitchen quoted. A consumer
+     * of this shape derives the total for the variant actually in front of the person —
+     * `pricePerWeek × weeks × (1 − discount)` — which is what the configurator and the catalogue
+     * both do.
+     */
+    readonly totalPrice: Money | null;
 }
 
 export interface SubscriptionPlan {
@@ -225,6 +253,8 @@ export interface KitchenFilter extends CursorPageRequest {
 export interface MealFilter extends CursorPageRequest {
     readonly query?: string | undefined;
     readonly kitchenIds?: readonly KitchenId[] | undefined;
+    /** Restrict to `meal`, `product`, or both. Omit for both. */
+    readonly itemTypes?: readonly ('meal' | 'product')[] | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
     readonly cuisines?: readonly string[] | undefined;

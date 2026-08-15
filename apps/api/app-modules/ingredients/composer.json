@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/ingredients",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Ingredients\\": "src/",
+			"Healthy360\\Ingredients\\Tests\\": "tests/",
+			"Healthy360\\Ingredients\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Ingredients\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Ingredients\\Providers\\IngredientsServiceProvider"
+			]
+		}
+	}
+}

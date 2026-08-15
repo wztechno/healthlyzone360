@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Symfony\Component\Mailer\Bridge\Brevo\Transport\BrevoTransportFactory;
+use Symfony\Component\Mailer\Transport\Dsn;
+use Symfony\Component\Mailer\Transport\TransportInterface;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -30,6 +35,26 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureRateLimiting();
+        $this->configureBrevoMailTransport();
+    }
+
+    /**
+     * Symfony Brevo API transport (docs: Laravel mail — third-party transports).
+     *
+     * Bearer-token Expo clients never use cookie sessions; the same is true of
+     * mail: verification and OTP notifications are sent from this API via
+     * Laravel Mail, not from the Expo app. `symfony/brevo-mailer` registers
+     * here rather than via `@getbrevo/brevo`, which is the Node SDK.
+     */
+    private function configureBrevoMailTransport(): void
+    {
+        Mail::extend('brevo', function (): TransportInterface {
+            $key = (string) config('services.brevo.key');
+
+            return (new BrevoTransportFactory)->create(
+                new Dsn('brevo+api', 'default', $key === '' ? null : $key),
+            );
+        });
     }
 
     /**
@@ -37,11 +62,76 @@ class AppServiceProvider extends ServiceProvider
      * middleware group. Authentication-specific limiters (login, two-factor,
      * forgot-password, verification) are narrower and live in
      * FortifyServiceProvider.
+     *
+     * `catalogue-import` has **no consumer yet**, and that is deliberate rather
+     * than an oversight. The K1.8 importer is a CLI command
+     * (`kitchen:import-workbook`) run by an operator against a private source
+     * tree; there is no import endpoint and this slice does not add one. The
+     * definition lands now because the limiter is part of the K1 slice
+     * inventory and because the alternative — introducing it in the same commit
+     * as the endpoint it guards — is how a throttle ships untested and
+     * unnoticed. A test pins its shape; the day an import route exists, it has
+     * a limiter that somebody has already looked at.
      */
     protected function configureRateLimiting(): void
     {
-        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(60)
+        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(config('api.rate_limit'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        RateLimiter::for('catalogue-import', fn (Request $request): Limit => Limit::perHour(5)
+            ->by($this->importLimiterKey($request)));
+
+        /*
+         * The token-scoped invitation read (`GET /api/v1/invitations/{token}`).
+         *
+         * Anonymous, so the bucket can only be the address — there is no
+         * identity to key on, which is exactly the condition this limiter
+         * exists for. Twenty a minute rather than the `api` group's sixty: the
+         * endpoint answers "yes, that token names a real invitation", and a
+         * wrong answer is still an answer, so it is the one anonymous read
+         * where the rate matters more than the convenience.
+         *
+         * Twenty is chosen to be invisible to a person and useless to a
+         * search. A human clicks one link, occasionally reloads it, and may
+         * hold two invitations at once; a 256-bit token space is not reachable
+         * at any rate this side of the heat death of the universe, so the
+         * limiter is a floor under an already-safe design rather than the
+         * defence itself.
+         */
+        RateLimiter::for('invitation-lookup', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by((string) $request->ip()));
+    }
+
+    /**
+     * An import is an organisation-level act, so the bucket is the
+     * organisation.
+     *
+     * Five imports an hour is not a defence against a hostile client — the
+     * authentication and permission stack is — it is a defence against a
+     * kitchen re-running a whole catalogue load in a loop because the first
+     * attempt looked slow. The unit that must not do that is the tenant, not
+     * the individual operator: two administrators of one kitchen taking five
+     * runs each is exactly the thing being prevented.
+     *
+     * The fallbacks descend to what is knowable. A request that has not yet
+     * resolved an organisation is keyed by user, and an unauthenticated one by
+     * address — neither is the right bucket, but a limiter that returned an
+     * empty key would put every such caller in one shared bucket, which is a
+     * denial of service dressed as a throttle.
+     */
+    protected function importLimiterKey(Request $request): string
+    {
+        $organisationId = app(TenantContext::class)->organisationId();
+
+        if ($organisationId !== null) {
+            return 'organisation:'.$organisationId;
+        }
+
+        $userId = $request->user()?->getAuthIdentifier();
+
+        return $userId === null
+            ? 'ip:'.(string) $request->ip()
+            : 'user:'.(string) $userId;
     }
 
     /**

@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/catalogues",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\Catalogues\\": "src/",
+			"Healthy360\\Catalogues\\Tests\\": "tests/",
+			"Healthy360\\Catalogues\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\Catalogues\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\Catalogues\\Providers\\CataloguesServiceProvider"
+			]
+		}
+	}
+}

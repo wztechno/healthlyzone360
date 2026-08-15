@@ -13,7 +13,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  *
  * @property string $id
  * @property string $code e.g. g, ml, kcal, cm, kg
- * @property string $unit_system metric | imperial | clinical
+ * @property string $dimension mass | volume | count | serving | package | energy | length
+ * @property string $unit_system metric | imperial | clinical | packaging
+ * @property numeric-string $base_ratio factor to the dimension's canonical base (mass=gram, volume=millilitre); 1 for non-convertible dimensions
  * @property string $name_en
  * @property string $name_ar
  * @property bool $is_active
@@ -31,6 +33,7 @@ class MeasurementUnit extends BaseModel
     protected function casts(): array
     {
         return [
+            'base_ratio' => 'decimal:9',
             'is_active' => 'boolean',
         ];
     }

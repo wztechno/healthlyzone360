@@ -2,7 +2,9 @@ import { Badge, Card, Chip, Inline, Rating, Stack, Text } from '@healthy360/desi
 import type { Kitchen } from '@healthy360/api-client/contracts';
 import { useTranslation } from 'react-i18next';
 
-import { EntityImage } from '../../media/entity-image.tsx';
+import { Text as RNText, View } from 'react-native';
+
+import { EntityImage, MediaChip } from '../../media/entity-image.tsx';
 
 /**
  * One kitchen, as it appears in a list.
@@ -36,12 +38,51 @@ export function KitchenCard({ kitchen, onPress, testID }: KitchenCardProps) {
     const zone = branch?.deliveryZones[0];
     const resolvedTestID = testID ?? `kitchen-card-${kitchen.slug}`;
 
+    const footer = (
+        <View className="flex-col gap-2 border-t border-surface-sunken px-4 pb-4 pt-3">
+            <Inline space="xs" wrap testID={`${resolvedTestID}-channels`}>
+                {kitchen.channels.delivery ? (
+                    <Badge tone="info" label={t('marketplace:channels.delivery')} />
+                ) : null}
+                {kitchen.channels.pickup ? (
+                    <Badge tone="info" label={t('marketplace:channels.pickup')} />
+                ) : null}
+                {kitchen.channels.subscription ? (
+                    <Badge tone="info" label={t('marketplace:channels.subscription')} />
+                ) : null}
+            </Inline>
+
+            {/*
+             * A minimum height whether or not a zone is published, so a kitchen that names none
+             * does not pull its neighbour's channels out of line across the row.
+             */}
+            <Text
+                testID={`${resolvedTestID}-zone`}
+                tone="secondary"
+                variant="caption"
+                numberOfLines={1}
+                className="min-h-[18px]"
+            >
+                {zone === undefined
+                    ? t('marketplace:kitchens.noPublishedZone')
+                    : zone.estimatedMinutes === null
+                      ? t('marketplace:kitchens.deliversTo', { area: zone.area })
+                      : t('marketplace:kitchens.deliversToTimed', {
+                            area: zone.area,
+                            minutes: zone.estimatedMinutes,
+                        })}
+            </Text>
+        </View>
+    );
+
     return (
         <Card
             testID={resolvedTestID}
             padding="none"
             tone="raised"
+            interactive
             onPress={onPress}
+            footer={footer}
             accessibilityLabel={t('marketplace:kitchens.cardLabel', { kitchen: kitchen.name })}
         >
             <EntityImage
@@ -50,21 +91,24 @@ export function KitchenCard({ kitchen, onPress, testID }: KitchenCardProps) {
                 variant="card"
                 seed={kitchen.slug}
                 label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
-                aspect="wide"
+                aspect="card"
+                flush
+                overlayStart={
+                    kitchen.isVerified ? (
+                        <MediaChip label={t('marketplace:kitchens.verified')} />
+                    ) : undefined
+                }
             />
 
-            <Stack space="sm" className="p-4">
+            <Stack space="sm" className="px-4 pt-4">
                 <Stack space="xs">
-                    <Inline space="xs" align="center">
-                        <Text variant="bodyStrong">{kitchen.name}</Text>
-                        {kitchen.isVerified ? (
-                            <Badge
-                                testID={`${resolvedTestID}-verified`}
-                                tone="success"
-                                label={t('marketplace:kitchens.verified')}
-                            />
-                        ) : null}
-                    </Inline>
+                    <RNText
+                        testID={`${resolvedTestID}-verified`}
+                        numberOfLines={2}
+                        className="font-display text-lg leading-tight text-content-primary text-start"
+                    >
+                        {kitchen.name}
+                    </RNText>
                     <Text tone="secondary" variant="caption">
                         {kitchen.tagline}
                     </Text>
@@ -89,29 +133,6 @@ export function KitchenCard({ kitchen, onPress, testID }: KitchenCardProps) {
                         <Chip key={cuisine} label={cuisine} tone="neutral" />
                     ))}
                 </Inline>
-
-                <Inline space="xs" wrap testID={`${resolvedTestID}-channels`}>
-                    {kitchen.channels.delivery ? (
-                        <Badge tone="info" label={t('marketplace:channels.delivery')} />
-                    ) : null}
-                    {kitchen.channels.pickup ? (
-                        <Badge tone="info" label={t('marketplace:channels.pickup')} />
-                    ) : null}
-                    {kitchen.channels.subscription ? (
-                        <Badge tone="info" label={t('marketplace:channels.subscription')} />
-                    ) : null}
-                </Inline>
-
-                {zone === undefined ? null : (
-                    <Text testID={`${resolvedTestID}-zone`} tone="secondary" variant="caption">
-                        {zone.estimatedMinutes === null
-                            ? t('marketplace:kitchens.deliversTo', { area: zone.area })
-                            : t('marketplace:kitchens.deliversToTimed', {
-                                  area: zone.area,
-                                  minutes: zone.estimatedMinutes,
-                              })}
-                    </Text>
-                )}
             </Stack>
         </Card>
     );

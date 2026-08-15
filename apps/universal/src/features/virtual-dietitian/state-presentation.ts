@@ -121,7 +121,14 @@ export const ORIGIN_BADGES: Readonly<Record<VdOriginKind, OriginBadgeSpec>> = {
     ai: {
         kind: 'ai',
         tone: 'info',
-        icon: 'prototype',
+        // The sparkle, which Rule 5 reserves for machine-generated content. It replaces the
+        // `prototype` diamond, which meant nothing and was the nearest glyph available before the
+        // vocabulary gained one that actually says "a machine wrote this".
+        //
+        // The tone is untouched. These four must differ on tone, glyph *and* wording at once, and
+        // that is asserted by test — moving one axis to match a colour scheme is how the set stops
+        // being distinguishable by anything but colour.
+        icon: 'sparkle',
         labelKey: 'virtualDietitian:origin.ai',
         testID: 'vd-origin-ai',
     },

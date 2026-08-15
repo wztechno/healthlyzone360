@@ -152,7 +152,16 @@ it('defaults a branch-scoped membership to its own branch when no header is sent
         ->assertJsonPath('data.branch_id', $this->branch->getKey());
 });
 
-it('leaves an organisation-wide membership without a branch when no header is sent', function (): void {
+it('defaults an organisation-wide membership to the sole active branch when no header is sent', function (): void {
+    $this->actingAs($this->user)
+        ->getJson('/testing/tenancy/branch', ['X-Organisation-Id' => $this->organisation->getKey()])
+        ->assertOk()
+        ->assertJsonPath('data.branch_id', $this->branch->getKey());
+});
+
+it('leaves an organisation-wide membership without a branch when the organisation has more than one active branch', function (): void {
+    OrganisationBranch::factory()->create(['organisation_id' => $this->organisation->getKey()]);
+
     $this->actingAs($this->user)
         ->getJson('/testing/tenancy/branch', ['X-Organisation-Id' => $this->organisation->getKey()])
         ->assertOk()

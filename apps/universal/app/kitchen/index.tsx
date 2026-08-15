@@ -1,9 +1,20 @@
-import { PrototypeScreen } from '../../src/screens/prototype-screen.tsx';
+import { lazyScreen } from '../../src/shell/lazy-screen.tsx';
 
 /**
- * Not functional in Phase 1 (plan §16). One shared screen, one thin route file — no bespoke empty
- * page, and no buttons that cannot do anything.
+ * `/kitchen` — the kitchen workspace hub (phase K1).
+ *
+ * The card grid is driven by `features/kitchen-admin/entity-registry.ts`, so the slices that follow
+ * add a registry entry rather than editing this route.
+ *
+ * Split like every other route in this area — `src/shell/lazy-screen.tsx` says why the whole kitchen
+ * workspace sits behind dynamic imports.
  */
+const KitchenHomeScreen = lazyScreen(
+    'kitchen-home-loading',
+    async () =>
+        (await import('../../src/features/kitchen-admin/screens/index.ts')).KitchenHomeScreen,
+);
+
 export default function KitchenIndex() {
-    return <PrototypeScreen area="kitchen" testID="prototype-kitchen" />;
+    return <KitchenHomeScreen />;
 }

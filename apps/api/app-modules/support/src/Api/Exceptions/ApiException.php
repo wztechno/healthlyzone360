@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Support\Api\Exceptions;
 
 use Healthy360\Support\Api\ApiError;
+use Healthy360\Support\Api\Contracts\ProvidesApiError;
 use Healthy360\Support\Api\ErrorCode;
 use RuntimeException;
 use Throwable;
@@ -18,7 +19,7 @@ use Throwable;
  * Deliberately not `renderable()`: exposing a render() method would let the
  * framework bypass the central renderer and lose the correlation identifier.
  */
-class ApiException extends RuntimeException
+class ApiException extends RuntimeException implements ProvidesApiError
 {
     /**
      * @param  array<string, mixed>  $details

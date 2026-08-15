@@ -71,10 +71,23 @@ export type { ButtonProps, ButtonSize, ButtonVariant, IconButtonProps } from './
 
 export { FormField, REQUIRED_MARK } from './forms/form-field.tsx';
 export type { FieldControlProps, FormFieldProps } from './forms/form-field.tsx';
-export { TextInputField, inputFrameClassName } from './forms/text-input.tsx';
+export { TextInputField, inputControlClassName, inputFrameClassName } from './forms/text-input.tsx';
 export type { TextInputFieldProps } from './forms/text-input.tsx';
 export { PasswordInput } from './forms/password-input.tsx';
 export type { PasswordInputProps } from './forms/password-input.tsx';
+export { OtpInput, normaliseOtpDigits } from './forms/otp-input.tsx';
+export type { OtpInputProps } from './forms/otp-input.tsx';
+export {
+    FILE_UPLOAD_MAX_BYTES,
+    FILE_UPLOAD_MIME_TYPES,
+    FILE_UPLOAD_REJECTIONS,
+    FileUploadField,
+} from './forms/file-upload-field.tsx';
+export type {
+    FileUploadFieldProps,
+    FileUploadRejection,
+    PickedFile,
+} from './forms/file-upload-field.tsx';
 export { Checkbox } from './forms/checkbox.tsx';
 export type { CheckboxProps } from './forms/checkbox.tsx';
 export { Select } from './forms/select.tsx';
@@ -131,11 +144,17 @@ export { SegmentedControl, TABS_VARIANTS, Tabs } from './navigation/tabs.tsx';
 export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './navigation/tabs.tsx';
 export { Stepper } from './navigation/stepper.tsx';
 export type { StepperProps } from './navigation/stepper.tsx';
-export { Breadcrumbs } from './navigation/breadcrumbs.tsx';
-export type { BreadcrumbItem, BreadcrumbsProps } from './navigation/breadcrumbs.tsx';
+export { BREADCRUMB_TONES, Breadcrumbs } from './navigation/breadcrumbs.tsx';
+export type {
+    BreadcrumbItem,
+    BreadcrumbTone,
+    BreadcrumbsProps,
+} from './navigation/breadcrumbs.tsx';
+export { Pagination, paginationSlots } from './navigation/pagination.tsx';
+export type { PaginationProps } from './navigation/pagination.tsx';
 
 export { Table } from './data/table.tsx';
-export type { TableColumn, TableProps } from './data/table.tsx';
+export type { TableColumn, TableProps, TableRowAction, TableSortDirection } from './data/table.tsx';
 export { CalendarGrid } from './data/calendar-grid.tsx';
 export type {
     CalendarCell,

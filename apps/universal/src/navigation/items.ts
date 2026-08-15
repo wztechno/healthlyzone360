@@ -3,6 +3,8 @@ import type { AppMode, RouteArea } from '@healthy360/domain-types';
 import { can, evaluateArea, modeAllows } from '@healthy360/permissions';
 import type { AccessState } from '@healthy360/permissions';
 
+import { isAreaAvailable } from '../features/availability.ts';
+
 /**
  * Navigation declared as data.
  *
@@ -49,7 +51,7 @@ export const WORKSPACE_NAVIGATION: readonly NavigationDescriptor[] = [
         labelKey: 'common:nav.showcase',
         href: '/platform-admin/showcase',
         icon: 'prototype',
-        requiredPermission: 'platform.access_admin',
+        requiredPermission: 'organisation.manage_platform',
         area: 'platform-admin',
     },
 ];
@@ -99,9 +101,14 @@ export interface WorkspaceAreaOption {
  * Which workspace areas this state may open, evaluated through the *same* kernel the route layouts
  * use. `available: false` entries are dropped rather than shown greyed out — offering a destination
  * that refuses on arrival is worse than not offering it.
+ *
+ * Two independent filters, in this order. `modeAllows` is a *packaging* question — is this area
+ * compiled into this build family — and `isAreaAvailable` is a *backend* one: an area whose
+ * endpoints do not exist would redirect straight back here, so it never becomes a tile.
+ * `WORKSPACE_AREAS` itself stays complete; it is the registry, not the menu.
  */
 export function availableWorkspaceAreas(state: AccessState): readonly WorkspaceAreaOption[] {
-    return WORKSPACE_AREAS.filter((area) => modeAllows(state.mode, area))
+    return WORKSPACE_AREAS.filter((area) => modeAllows(state.mode, area) && isAreaAvailable(area))
         .map((area) => ({
             area,
             href: areaHref(area),

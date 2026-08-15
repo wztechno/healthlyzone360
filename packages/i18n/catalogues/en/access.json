@@ -46,10 +46,6 @@
         "title": "One moment",
         "body": "Restoring your session…"
     },
-    "mockMode": {
-        "badge": "Mock data",
-        "description": "This build is reading from mock repositories, not the Healthy360 API."
-    },
     "area": {
         "public": "Healthy360",
         "auth": "Account",

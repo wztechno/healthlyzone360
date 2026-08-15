@@ -13,15 +13,30 @@ import { cx } from '../internal/class-names.ts';
  * technique that survives a live `dir` flip on the web (notes/nativewind-spike.md §4).
  */
 
-export const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
+/**
+ * `quiet` is the demoted-but-still-a-button level, and it is what Sign out becomes.
+ *
+ * It keeps its border on purpose. Borderless was tried and rejected: a bare text control sitting in
+ * a row of filled and outlined buttons reads as disabled rather than as low priority. The border
+ * says "still a button"; the neutral fill and the secondary label say "not the one you came for".
+ *
+ * It sits between `secondary` and `ghost`: `secondary` is a real alternative action and keeps
+ * primary-strength text on a full-weight border, while `ghost` has no box at all and belongs inside
+ * dense rows where a border per control would be noise.
+ */
+export const BUTTON_VARIANTS = ['primary', 'secondary', 'quiet', 'ghost', 'danger'] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
 
 export const BUTTON_SIZES = ['sm', 'md', 'lg'] as const;
 export type ButtonSize = (typeof BUTTON_SIZES)[number];
 
 const CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
-    primary: 'bg-surface-brand border border-transparent',
+    // Hovers to the canopy rather than to a lighter green: the primary is already `brand-surface`
+    // because `brand-500` cannot legally carry small white text (§1.3), so there is nowhere to go
+    // but darker.
+    primary: 'bg-surface-brand border border-transparent hover:bg-surface-canopy',
     secondary: 'bg-surface-raised border border-stroke',
+    quiet: 'bg-surface-raised border border-stroke-subtle',
     ghost: 'bg-transparent border border-transparent',
     danger: 'bg-danger border border-transparent',
 };
@@ -29,6 +44,7 @@ const CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
 const LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     primary: 'text-content-on-brand',
     secondary: 'text-content-primary',
+    quiet: 'text-content-secondary',
     ghost: 'text-content-primary',
     danger: 'text-danger-on-default',
 };
@@ -40,15 +56,26 @@ const CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
 };
 
 const LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'text-sm font-medium',
+    // 14/600 rather than 14/500. Every shell control is a `sm` button, and at 14px a medium weight
+    // on a coloured fill reads as thin. `md` and `lg` are left alone: they are body-sized already
+    // and changing them would restyle every button in the application.
+    sm: 'text-sm font-semibold',
     md: 'text-base font-medium',
     lg: 'text-lg font-semibold',
 };
 
+/**
+ * The spinner cannot inherit `currentColor` through `ActivityIndicator`, so the colour is repeated
+ * here — and it is repeated as a literal because this is a prop, not a class name.
+ *
+ * These were `#4e8a37`, an olive that belongs to no palette this product has ever shipped; against
+ * the wellness green it read as a different brand mid-request. They are `brand-surface` now.
+ */
 const SPINNER_COLOUR: Readonly<Record<ButtonVariant, string>> = {
     primary: '#ffffff',
-    secondary: '#3a8a46',
-    ghost: '#3a8a46',
+    secondary: '#157043',
+    quiet: '#5b6673',
+    ghost: '#157043',
     danger: '#ffffff',
 };
 

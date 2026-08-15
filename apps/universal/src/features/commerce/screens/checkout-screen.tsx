@@ -3,102 +3,132 @@ import {
     Callout,
     Card,
     DateField,
+    FAILURE_MESSAGE_KEYS,
     Heading,
     Inline,
     SegmentedControl,
+    Select,
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type { Cart, CheckoutPreview, DeliveryAddress } from '@healthy360/api-client/contracts';
+import type {
+    Cart,
+    CheckoutPreview,
+    CustomerAddress,
+    PlacedOrder,
+} from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useCartQuery, useCheckoutPreviewQuery } from '../../../data/commerce-hooks.ts';
-import { PrototypeNotice } from '../../../prototype/index.ts';
-import { useValidationTranslate } from '../../../screens/form-helpers.ts';
+import { useAddressesQuery } from '../../../data/account-hooks.ts';
+import {
+    toFailure,
+    useCartQuery,
+    useCheckoutPreviewQuery,
+    usePlaceOrderMutation,
+} from '../../../data/commerce-hooks.ts';
+import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { EMPTY_ADDRESS, formatAddress, toDeliveryAddress, validateAddress } from '../address.ts';
-import type { AddressField, AddressValues } from '../address.ts';
-import { AddressForm } from '../address-form.tsx';
 import { earliestStartDate } from '../dates.ts';
-import { DEFAULT_SLOT_CODE, DELIVERY_SLOTS } from '../delivery.ts';
+import {
+    defaultSlotCodeForKitchen,
+    deliverySlotByCode,
+    deliverySlotsForKitchen,
+} from '../delivery.ts';
 import { PriceSummary } from '../price-summary.tsx';
 import type { PriceRow } from '../price-summary.tsx';
 import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../warnings.ts';
 
 /**
- * `/customer/checkout` — the one-off order checkout, as a prototype.
+ * `/customer/checkout` — one-off order checkout against a saved address.
  *
- * ## No payment fields, anywhere, ever
- *
- * There is no card number here, no expiry, no CVC, no wallet button and no saved-instrument list —
- * and there is nowhere for one to be added later without a contract change, because
- * `CommerceRepository` has no method that takes a payment and no `confirmCheckout` at all. That is
- * deliberate on both sides: a contract that *could* take a payment is a contract somebody
- * eventually wires to a live gateway by accident (`contracts/commerce.ts` says so itself).
- *
- * ## Placing the order is the one prototype action on this screen
- *
- * Everything else — the basket, the pricing, the slot — is real. "Place order" is not, because
- * there is no order to place: no `POST /api/v1/orders` exists, no kitchen is notified and no money
- * moves. So it does not show a toast and disappear. It renders a **success screen** that says, in
- * the person's own language, that nothing was ordered and no payment was taken, and it leaves the
- * basket exactly as it was — because an emptied basket would be the interface asserting that
- * something happened.
- *
- * ## Why the summary is priced twice
- *
- * The first preview prices the basket alone, so a total is on screen before any typing. Pressing
- * *Review order* commits the address, the slot and the date and asks for a second, complete
- * quotation. Re-pricing on every keystroke would be a request per character typed into a street
- * name, which is not something to teach a backend to expect.
+ * Placement requires `addressId` (D-084): delivery zone/fee resolve from the address book, not a
+ * typed street line. Payment is collected at the door (COD) or via the card
+ * sandbox when a payment intent is created after placement — never card PAN in-app.
  */
 
 type Phase = 'collecting' | 'placed';
 
 interface CommittedDelivery {
-    readonly address: DeliveryAddress;
+    readonly addressId: string;
+    readonly addressLabel: string;
     readonly slotCode: string;
     readonly deliveryDate: string;
+}
+
+function formatSavedAddress(address: CustomerAddress): string {
+    const parts = [address.label, address.line1, address.areaName].filter(
+        (part) => part.trim() !== '',
+    );
+    return parts.join(' · ');
 }
 
 export function CheckoutScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
-    const validationTranslate = useValidationTranslate();
+    const params = useLocalSearchParams<{ channel?: string }>();
+    const channelCode =
+        typeof params.channel === 'string' && params.channel !== '' ? params.channel : undefined;
 
-    const cart = useCartQuery();
+    const cart = useCartQuery(true, channelCode);
     const basket: Cart | undefined = cart.data;
+    const addresses = useAddressesQuery();
+    const placeOrder = usePlaceOrderMutation(channelCode);
 
-    const [values, setValues] = useState<AddressValues>(EMPTY_ADDRESS);
-    const [slotCode, setSlotCode] = useState<string>(DEFAULT_SLOT_CODE);
+    const kitchenId = basket?.items[0]?.kitchenId ?? null;
+    const kitchen = useKitchenQuery(kitchenId);
+    const deliverySlots = deliverySlotsForKitchen(kitchen.data);
+
+    const [addressId, setAddressId] = useState<string | null>(null);
+    const [chosenSlotCode, setSlotCode] = useState<string | null>(null);
     const [deliveryDate, setDeliveryDate] = useState<string | null>(() => earliestStartDate());
     const [showErrors, setShowErrors] = useState(false);
     const [committed, setCommitted] = useState<CommittedDelivery | null>(null);
     const [phase, setPhase] = useState<Phase>('collecting');
+    const [placed, setPlaced] = useState<PlacedOrder | null>(null);
 
-    const errors = useMemo(
-        () => validateAddress(values, validationTranslate),
-        [validationTranslate, values],
-    );
-    const addressComplete = Object.keys(errors).length === 0;
+    /*
+     * The slot is *derived* while nobody has chosen one, rather than seeded by an effect.
+     *
+     * The effect this replaces set state during render-commit, which the linter flags for a real
+     * reason: it produced a first paint showing a slot the kitchen does not offer, then a second
+     * one correcting it. Deriving means the very first render already shows the kitchen's default,
+     * and an explicit choice that the kitchen turns out not to offer — the basket changed kitchen
+     * under the person — falls back to the default rather than sticking.
+     */
+    const chosenSlotIsOffered =
+        chosenSlotCode !== null && deliverySlots.some((slot) => slot.code === chosenSlotCode);
+    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCodeForKitchen(kitchen.data);
+
+    const addressList = addresses.data ?? [];
+    const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
 
     const previewRequest = useMemo(() => {
         if (basket === undefined || basket.items.length === 0) return null;
-        if (committed === null) return { cartId: basket.id };
         return {
             cartId: basket.id,
-            address: committed.address,
-            slotCode: committed.slotCode,
-            deliveryDate: committed.deliveryDate,
+            ...(addressId === null ? {} : { addressId }),
+            ...(deliveryDate === null ? {} : { deliveryDate }),
         };
-    }, [basket, committed]);
+    }, [addressId, basket, deliveryDate]);
 
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation: CheckoutPreview | undefined = preview.data;
+    const placeFailure = toFailure(placeOrder.error);
+
+    /*
+     * A refusal names *every* reason it was refused for, and the checkout lists them.
+     *
+     * The alternative — one sentence saying the order could not be placed — sends somebody back to
+     * a basket with nothing to change. Reasons the catalogue has no copy for still appear, as the
+     * server's own code, because a refusal this build has not learned about yet is still a fact
+     * about somebody's dinner.
+     */
+    const refusalReasons =
+        placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
 
     const rows: readonly PriceRow[] =
         quotation === undefined
@@ -115,7 +145,7 @@ export function CheckoutScreen() {
                                 key: 'delivery-free',
                                 label: t('commerce:cart.delivery'),
                                 amount: { amount: 0, currency: quotation.total.currency },
-                                note: t('commerce:cart.deliveryFree'),
+                                note: t('commerce:cart.deliveryAtPlacement'),
                             },
                         ]
                       : [
@@ -133,11 +163,11 @@ export function CheckoutScreen() {
                   },
               ];
 
-    if (phase === 'placed' && committed !== null) {
+    if (phase === 'placed' && placed !== null && committed !== null) {
         return (
-            <PrototypeOrderPlaced
+            <OrderPlaced
+                order={placed}
                 delivery={committed}
-                rows={rows}
                 onBrowse={() => {
                     router.push('/meals');
                 }}
@@ -153,12 +183,31 @@ export function CheckoutScreen() {
 
     const onReview = () => {
         setShowErrors(true);
-        if (!addressComplete || deliveryDate === null) return;
+        if (selectedAddress === null || deliveryDate === null) return;
         setCommitted({
-            address: toDeliveryAddress(values),
+            addressId: selectedAddress.id,
+            addressLabel: formatSavedAddress(selectedAddress),
             slotCode,
             deliveryDate,
         });
+    };
+
+    const onPlace = () => {
+        if (basket === undefined || committed === null) return;
+        placeOrder.mutate(
+            {
+                cartId: basket.id,
+                addressId: committed.addressId,
+                slotCode: committed.slotCode,
+                deliveryDate: committed.deliveryDate,
+            },
+            {
+                onSuccess: (order) => {
+                    setPlaced(order);
+                    setPhase('placed');
+                },
+            },
+        );
     };
 
     return (
@@ -169,11 +218,6 @@ export function CheckoutScreen() {
                 </Heading>
                 <Text tone="secondary">{t('commerce:checkout.body')}</Text>
             </Stack>
-
-            <PrototypeNotice
-                testID="checkout-prototype-notice"
-                body={t('commerce:checkout.prototypeNotice')}
-            />
 
             <QueryStates
                 query={cart}
@@ -199,15 +243,47 @@ export function CheckoutScreen() {
                             <Text tone="secondary" variant="caption">
                                 {t('commerce:checkout.addressBody')}
                             </Text>
-                            <AddressForm
-                                testID="checkout-address-form"
-                                values={values}
-                                errors={showErrors ? errors : {}}
-                                onChange={(field: AddressField, next: string) => {
-                                    setValues((current) => ({ ...current, [field]: next }));
-                                    setCommitted(null);
-                                }}
-                            />
+                            <QueryStates
+                                query={addresses}
+                                isEmpty={addressList.length === 0}
+                                emptyTitle={t('commerce:checkout.noAddressTitle')}
+                                emptyBody={t('commerce:checkout.noAddressBody')}
+                                emptyActions={
+                                    <Button
+                                        testID="checkout-add-address"
+                                        label={t('commerce:checkout.addAddress')}
+                                        onPress={() => {
+                                            router.push('/customer/account/addresses' as never);
+                                        }}
+                                    />
+                                }
+                                skeletonCount={1}
+                                testID="checkout-addresses"
+                            >
+                                <Select
+                                    testID="checkout-address-picker"
+                                    label={t('commerce:checkout.addressTitle')}
+                                    value={addressId}
+                                    onChange={(next) => {
+                                        setAddressId(next);
+                                        setCommitted(null);
+                                    }}
+                                    options={addressList.map((entry) => ({
+                                        value: entry.id,
+                                        label: formatSavedAddress(entry),
+                                    }))}
+                                    placeholder={t('commerce:checkout.addressTitle')}
+                                />
+                                {showErrors && addressId === null ? (
+                                    <Text
+                                        tone="danger"
+                                        variant="caption"
+                                        testID="checkout-address-error"
+                                    >
+                                        {t('commerce:validation.required')}
+                                    </Text>
+                                ) : null}
+                            </QueryStates>
                         </Stack>
 
                         <Stack space="sm" testID="checkout-slot">
@@ -221,18 +297,20 @@ export function CheckoutScreen() {
                                     setSlotCode(next);
                                     setCommitted(null);
                                 }}
-                                items={DELIVERY_SLOTS.map((slot) => ({
+                                items={deliverySlots.map((slot) => ({
                                     value: slot.code,
-                                    label: t(`commerce:slots.${slot.code}`),
+                                    label:
+                                        slot.label ??
+                                        t(`commerce:slots.${slot.code}`, {
+                                            defaultValue: slot.code,
+                                        }),
                                     testID: `checkout-slot-${slot.code}`,
                                 }))}
                             />
                             <Text tone="secondary" variant="caption" testID="checkout-slot-window">
                                 {t('commerce:checkout.slotWindow', {
-                                    from: DELIVERY_SLOTS.find((slot) => slot.code === slotCode)
-                                        ?.startsAt,
-                                    to: DELIVERY_SLOTS.find((slot) => slot.code === slotCode)
-                                        ?.endsAt,
+                                    from: deliverySlotByCode(slotCode, kitchen.data)?.startsAt,
+                                    to: deliverySlotByCode(slotCode, kitchen.data)?.endsAt,
                                 })}
                             </Text>
                         </Stack>
@@ -253,15 +331,6 @@ export function CheckoutScreen() {
                                     ? { error: t('commerce:validation.required') }
                                     : {})}
                             />
-                            {quotation?.earliestDeliveryDate == null ? null : (
-                                <Text tone="secondary" variant="caption" testID="checkout-earliest">
-                                    {t('commerce:checkout.earliest', {
-                                        date: formatter.formatDate(quotation.earliestDeliveryDate, {
-                                            dateStyle: 'full',
-                                        }),
-                                    })}
-                                </Text>
-                            )}
                         </Stack>
 
                         <Card testID="checkout-summary" padding="md" tone="sunken">
@@ -305,6 +374,52 @@ export function CheckoutScreen() {
                                             ),
                                         )}
 
+                                        <Callout
+                                            testID="checkout-payment-notice"
+                                            role="note"
+                                            tone="info"
+                                            icon="info"
+                                            title={t('commerce:checkout.paymentNoticeTitle')}
+                                            body={t('commerce:checkout.paymentNoticeBody')}
+                                        />
+
+                                        {placeFailure === null ? null : (
+                                            <Callout
+                                                testID="checkout-place-error"
+                                                role="alert"
+                                                tone="danger"
+                                                icon="warning"
+                                                title={t('commerce:checkout.placeFailedTitle')}
+                                                body={t(
+                                                    FAILURE_MESSAGE_KEYS[placeFailure.code],
+                                                    // The server's own sentence only when this
+                                                    // build has no copy for the code — never in
+                                                    // preference to it.
+                                                    { defaultValue: placeFailure.message },
+                                                )}
+                                            >
+                                                {refusalReasons.length === 0 ? null : (
+                                                    <Stack
+                                                        space="xs"
+                                                        testID="checkout-place-error-reasons"
+                                                    >
+                                                        {refusalReasons.map((entry) => (
+                                                            <Text
+                                                                key={entry.reason}
+                                                                variant="caption"
+                                                                testID={`checkout-place-error-reason-${entry.reason}`}
+                                                            >
+                                                                {`• ${t(
+                                                                    `errors:orderRefusal.${entry.reason}`,
+                                                                    { defaultValue: entry.reason },
+                                                                )}`}
+                                                            </Text>
+                                                        ))}
+                                                    </Stack>
+                                                )}
+                                            </Callout>
+                                        )}
+
                                         {committed === null ? (
                                             <Button
                                                 testID="checkout-review"
@@ -315,7 +430,7 @@ export function CheckoutScreen() {
                                         ) : (
                                             <Stack space="sm">
                                                 <Text testID="checkout-committed-address">
-                                                    {formatAddress(committed.address)}
+                                                    {committed.addressLabel}
                                                 </Text>
                                                 <Text
                                                     tone="secondary"
@@ -325,6 +440,12 @@ export function CheckoutScreen() {
                                                     {t('commerce:checkout.committedSlot', {
                                                         slot: t(
                                                             `commerce:slots.${committed.slotCode}`,
+                                                            // Same treatment the picker gives: a
+                                                            // kitchen may publish a window code
+                                                            // this catalogue has never heard of,
+                                                            // and the code itself reads better
+                                                            // than `commerce:slots.late_evening`.
+                                                            { defaultValue: committed.slotCode },
                                                         ),
                                                         date: formatter.formatDate(
                                                             committed.deliveryDate,
@@ -347,9 +468,8 @@ export function CheckoutScreen() {
                                                         accessibilityHint={t(
                                                             'commerce:checkout.placeOrderHint',
                                                         )}
-                                                        onPress={() => {
-                                                            setPhase('placed');
-                                                        }}
+                                                        loading={placeOrder.isPending}
+                                                        onPress={onPlace}
                                                     />
                                                 </Inline>
                                             </Stack>
@@ -365,31 +485,46 @@ export function CheckoutScreen() {
     );
 }
 
-interface PrototypeOrderPlacedProps {
+interface OrderPlacedProps {
+    readonly order: PlacedOrder;
     readonly delivery: CommittedDelivery;
-    readonly rows: readonly PriceRow[];
     readonly onBrowse: () => void;
     readonly onCart: () => void;
     readonly onSubscriptions: () => void;
 }
 
-/**
- * The success state, stated honestly.
- *
- * It is a screen rather than a toast for two reasons. A toast disappears, and "no payment was taken"
- * is the single most important sentence in this flow — it must be readable for as long as somebody
- * wants to read it. And a toast over an unchanged checkout form is genuinely ambiguous: did it work?
- * A screen answers that before it is asked.
- */
-function PrototypeOrderPlaced({
-    delivery,
-    rows,
-    onBrowse,
-    onCart,
-    onSubscriptions,
-}: PrototypeOrderPlacedProps) {
+/** Catalogue copy for the price-line codes the order repository emits; unknown codes keep the
+ * server's own label rather than disappearing. */
+const PRICE_LINE_LABEL_KEYS: Record<string, string> = {
+    subtotal: 'commerce:cart.subtotal',
+    delivery: 'commerce:cart.delivery',
+};
+
+function OrderPlaced({ order, delivery, onBrowse, onCart, onSubscriptions }: OrderPlacedProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+
+    /*
+     * Priced from the order, not from the checkout preview. Placement empties the basket, which
+     * disables the preview query — a confirmation that read its figures from there rendered an
+     * empty price block. The placed order carries the figures the platform actually charged for.
+     */
+    const rows: readonly PriceRow[] = [
+        ...order.priceLines.map((line) => {
+            const labelKey = PRICE_LINE_LABEL_KEYS[line.code];
+            return {
+                key: line.code,
+                label: labelKey === undefined ? line.label : t(labelKey),
+                amount: line.amount,
+            };
+        }),
+        {
+            key: 'total',
+            label: t('commerce:cart.total'),
+            amount: order.total,
+            emphasis: true,
+        },
+    ];
 
     return (
         <Stack space="lg" testID="checkout-success-screen">
@@ -399,25 +534,28 @@ function PrototypeOrderPlaced({
                 tone="success"
                 icon="success"
                 title={t('commerce:checkout.successTitle')}
-                body={t('commerce:checkout.successBody')}
+                body={t('commerce:checkout.successBody', { reference: order.reference })}
             />
 
             <Callout
-                testID="checkout-success-prototype"
+                testID="checkout-success-cod"
                 role="note"
                 tone="info"
-                icon="prototype"
-                title={t('commerce:checkout.successPrototypeTitle')}
-                body={t('commerce:checkout.successPrototypeBody')}
+                icon="info"
+                title={t('commerce:checkout.successCodTitle')}
+                body={t('commerce:checkout.successCodBody')}
             />
 
             <Card testID="checkout-success-summary" padding="md" tone="sunken">
                 <Stack space="md">
                     <Text variant="label">{t('commerce:checkout.successSummaryTitle')}</Text>
-                    <Text testID="checkout-success-address">{formatAddress(delivery.address)}</Text>
+                    <Text testID="checkout-success-reference">{order.reference}</Text>
+                    <Text testID="checkout-success-address">{delivery.addressLabel}</Text>
                     <Text tone="secondary" testID="checkout-success-slot">
                         {t('commerce:checkout.committedSlot', {
-                            slot: t(`commerce:slots.${delivery.slotCode}`),
+                            slot: t(`commerce:slots.${delivery.slotCode}`, {
+                                defaultValue: delivery.slotCode,
+                            }),
                             date: formatter.formatDate(delivery.deliveryDate, {
                                 dateStyle: 'full',
                             }),

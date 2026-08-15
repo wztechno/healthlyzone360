@@ -52,6 +52,12 @@ describe('catalogue structure', () => {
             'virtualDietitian',
             'professional',
             'business',
+            'kitchen',
+            'account',
+            'guest',
+            'b2bApplication',
+            'platformAdmin',
+            'invitations',
         ]);
         expect(DEFAULT_NAMESPACE).toBe('common');
         for (const locale of LOCALES) {

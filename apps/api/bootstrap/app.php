@@ -3,12 +3,18 @@
 declare(strict_types=1);
 
 use Healthy360\AccessControl\Http\Middleware\RequirePermission;
+use Healthy360\AccessControl\Http\Middleware\RequirePlatformContext;
+use Healthy360\Customers\Guest\Http\Middleware\ResolveGuestSession;
 use Healthy360\Identity\Http\Middleware\EnsureEmailIsVerified;
+use Healthy360\Identity\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Healthy360\Identity\Http\Middleware\EnsureStatefulRequest;
 use Healthy360\Identity\Http\Middleware\RequireStepUp;
 use Healthy360\Identity\Http\Middleware\TouchUserDevice;
 use Healthy360\Support\Api\ApiExceptionRenderer;
 use Healthy360\Support\Http\Middleware\AssignCorrelationId;
+use Healthy360\Support\Http\Middleware\EnforceIdempotency;
+use Healthy360\Support\Http\Middleware\RequirePrecondition;
+use Healthy360\Tenancy\Http\Middleware\RequireTradingOrganisation;
 use Healthy360\Tenancy\Http\Middleware\ResolveBranchContext;
 use Healthy360\Tenancy\Http\Middleware\ResolveOrganisationContext;
 use Healthy360\Tenancy\Http\Middleware\SetDatabaseTenantContext;
@@ -17,6 +23,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful as SanctumEnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -38,10 +45,29 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Every deployed environment terminates TLS ahead of PHP (Caddy → nginx
+        // → FPM in infrastructure/deploy), so without this the framework sees
+        // the proxy's address as the client address: `throttleApi()` buckets
+        // every caller into one key, and url()/redirect() emit http:// against
+        // an https:// site. The proxy layer is not reachable from outside the
+        // deployment network and rewrites X-Forwarded-For with the real peer
+        // rather than appending to it, so trusting it wholesale is safe here.
+        $middleware->trustProxies(at: '*');
+
         // Sanctum: cookie sessions for first-party origins, bearer tokens
         // for every other client.
         $middleware->statefulApi();
+        $middleware->replaceInGroup(
+            'api',
+            SanctumEnsureFrontendRequestsAreStateful::class,
+            EnsureFrontendRequestsAreStateful::class,
+        );
         $middleware->throttleApi();
+
+        // No web login route exists (`login.store` only). Returning null lets the
+        // authenticator answer API callers with 401 auth.unauthenticated instead
+        // of redirecting to a missing `login` route and surfacing 500.
+        $middleware->redirectGuestsTo(fn (): ?string => null);
 
         // Correlation runs outermost, so even a response produced by a
         // failing middleware leaves with X-Correlation-Id.
@@ -56,8 +82,31 @@ return Application::configure(basePath: dirname(__DIR__))
             'db.context' => SetDatabaseTenantContext::class,
             'org.context' => ResolveOrganisationContext::class,
             'branch.context' => ResolveBranchContext::class,
+
+            // A suspended tenant may still read its workspace; it may not sell
+            // from it (PA1). Declared per write route group rather than
+            // globally, so the read/write line is visible in api-v1.php.
+            'org.trading' => RequireTradingOrganisation::class,
+
+            // Platform-operator surfaces: the selected organisation must be
+            // the platform itself, on top of the platform permission.
+            'platform.context' => RequirePlatformContext::class,
+
             'permission' => RequirePermission::class,
             'step-up' => RequireStepUp::class,
+
+            // The capability-token credential (G1). Resolves X-Guest-Token
+            // into a live session and gates its grade; runs before
+            // `idempotency`, which reads the account it publishes.
+            'guest.session' => ResolveGuestSession::class,
+
+            // Idempotency-Key at the HTTP boundary (§4.14). Applied per route
+            // to the commands that document the header, never globally.
+            'idempotency' => EnforceIdempotency::class,
+
+            // Optimistic concurrency: a write to a lock-versioned resource
+            // must carry the version it was written against (428 without).
+            'precondition' => RequirePrecondition::class,
             'stateful' => EnsureStatefulRequest::class,
             'device.touch' => TouchUserDevice::class,
 

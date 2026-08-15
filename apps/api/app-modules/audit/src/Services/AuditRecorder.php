@@ -26,6 +26,14 @@ final class AuditRecorder
      * Metadata keys whose value is dropped, matched case-insensitively as a
      * substring so `two_factor_secret` and `access_token` are caught too.
      *
+     * The substring match is deliberately blunt and therefore over-matches:
+     * `code` catches any key containing it, so an innocent `allergen_code`
+     * would be redacted into uselessness (OQ-036, risk R-019). The naming
+     * convention is the mitigation until the register question is settled —
+     * metadata keys never end in `_code`; write `allergen_classes` or
+     * `changed_fields` instead. A test asserts the convention holds for the
+     * catalogue vocabulary.
+     *
      * @var list<string>
      */
     private const array REDACTED_KEYS = ['password', 'token', 'secret', 'code', 'authorization', 'cookie'];
@@ -36,7 +44,7 @@ final class AuditRecorder
     ) {}
 
     /**
-     * @param  array<string, scalar|null>  $metadata
+     * @param  array<string, scalar|list<scalar>|null>  $metadata
      */
     public function record(
         string $action,
@@ -69,7 +77,7 @@ final class AuditRecorder
      * trail, so the type system asks for both rather than trusting each call
      * site to remember (06-security-privacy-and-audit.md §3.3).
      *
-     * @param  array<string, scalar|null>  $metadata
+     * @param  array<string, scalar|list<scalar>|null>  $metadata
      */
     public function recordAccess(
         string $action,
@@ -91,8 +99,8 @@ final class AuditRecorder
     }
 
     /**
-     * @param  array<string, scalar|null>  $metadata
-     * @return array<string, scalar|null>
+     * @param  array<string, scalar|list<scalar>|null>  $metadata
+     * @return array<string, scalar|list<scalar>|null>
      */
     private function redact(array $metadata): array
     {

@@ -1,34 +1,25 @@
-import {
-    Button,
-    Card,
-    Heading,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Button, Card, Icon, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
-import { useDietitiansQuery, useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { isPathAvailable } from '../../availability.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
-import { DietitianCard } from '../dietitian-card.tsx';
+import { PageHero } from '../../../ui/page-hero.tsx';
 import { KitchenCard } from '../kitchen-card.tsx';
 import { QueryStates } from '../query-states.tsx';
 
 /**
- * Catalogue families the catalogue wave owns.
+ * Catalogue families, each a real route.
  *
- * They are presented rather than hidden, and pressing one explains what it will be and which
- * endpoint it is waiting on — the visible-but-locked pattern doc 17 (MKT-04) recommends. The
- * alternative, showing a discovery page with a third of the product missing and no acknowledgement,
- * is worse for a reviewer and worse for a person.
+ * The table lists every family the marketplace has; `isPathAvailable` decides which of them has a
+ * backend today. `diets` and `tools` do not, so they are absent rather than shown as tiles that
+ * would bounce a person straight back to this page.
  */
-// Every family became a real route at the catalogue wave, so these are links, not notices.
 const CATALOGUE_FAMILIES: readonly {
     readonly key: string;
     readonly icon: IconName;
@@ -39,6 +30,8 @@ const CATALOGUE_FAMILIES: readonly {
     { key: 'diets', icon: 'filter', href: '/diets/high-protein' },
     { key: 'tools', icon: 'info', href: '/tools/calorie-calculator' },
 ];
+
+const AVAILABLE_FAMILIES = CATALOGUE_FAMILIES.filter((family) => isPathAvailable(family.href));
 
 /**
  * Discover — the marketplace's front door.
@@ -53,11 +46,9 @@ export function DiscoverScreen() {
     const router = useRouter();
     const [term, setTerm] = useState('');
 
-    const kitchens = useKitchensQuery({ limit: 4, channels: ['marketplace'] });
-    const dietitians = useDietitiansQuery({ limit: 3, acceptingClients: true });
+    const kitchens = useKitchensQuery({ limit: 4, channels: ['b2c', 'marketplace'] });
 
     const kitchenItems = kitchens.data?.items ?? [];
-    const dietitianItems = dietitians.data?.items ?? [];
 
     const search = () => {
         const trimmed = term.trim();
@@ -68,32 +59,40 @@ export function DiscoverScreen() {
 
     return (
         <Stack space="xl" testID="discover-screen">
-            <Stack space="sm">
-                <Heading level={1} testID="discover-title">
-                    {t('marketplace:discover.title')}
-                </Heading>
-                <Text tone="secondary">{t('marketplace:discover.subtitle')}</Text>
-                <TextInputField
-                    testID="discover-search"
-                    id="discover-search"
-                    label={t('marketplace:discover.searchLabel')}
-                    placeholder={t('marketplace:discover.searchPlaceholder')}
-                    value={term}
-                    onChangeText={setTerm}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="search"
-                    onSubmitEditing={search}
-                    trailing={<Icon name="search" />}
-                />
-                <Inline space="sm" wrap>
-                    <Button
-                        testID="discover-search-submit"
-                        label={t('marketplace:discover.searchSubmit')}
-                        onPress={search}
-                    />
-                </Inline>
-            </Stack>
+            {/*
+             * Rule 3, on the surface that most needed it: this is the front door, and it opened
+             * with a heading, a line of grey text and a form field. The search panel moves into
+             * the band's trailing column, which is the arrangement the hero exists for — the page
+             * says what it is and offers the one thing you came to do, in the same breath.
+             */}
+            <PageHero
+                testID="discover"
+                title={t('marketplace:discover.title')}
+                subtitle={t('marketplace:discover.subtitle')}
+                trailing={
+                    <View className="flex-col gap-2 rounded-xl bg-surface-raised p-3 shadow-elevation-3">
+                        <TextInputField
+                            testID="discover-search"
+                            id="discover-search"
+                            label={t('marketplace:discover.searchLabel')}
+                            placeholder={t('marketplace:discover.searchPlaceholder')}
+                            value={term}
+                            onChangeText={setTerm}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            returnKeyType="search"
+                            onSubmitEditing={search}
+                            trailing={<Icon name="search" />}
+                        />
+                        <Button
+                            testID="discover-search-submit"
+                            block
+                            label={t('marketplace:discover.searchSubmit')}
+                            onPress={search}
+                        />
+                    </View>
+                }
+            />
 
             <Stack space="sm" testID="discover-kitchens">
                 <SectionHeader
@@ -129,84 +128,57 @@ export function DiscoverScreen() {
                 </QueryStates>
             </Stack>
 
-            <Stack space="sm" testID="discover-dietitians">
-                <SectionHeader
-                    title={t('marketplace:discover.dietitiansTitle')}
-                    description={t('marketplace:discover.dietitiansBody')}
-                    action={{
-                        label: t('marketplace:dietitians.seeAll'),
-                        onPress: () => {
-                            router.push('/dietitians');
-                        },
-                    }}
-                    testID="discover-dietitians-header"
-                />
-                <QueryStates
-                    query={dietitians}
-                    isEmpty={dietitianItems.length === 0}
-                    emptyTitle={t('marketplace:dietitians.emptyTitle')}
-                    emptyBody={t('marketplace:dietitians.emptyBody')}
-                    testID="discover-dietitians-list"
-                >
+            {/*
+             * The families that resolve, with no section header above them.
+             *
+             * `discover.comingTitle` read "Also on the way" and its body said these parts of the
+             * catalogue were being built — true when every family below was a prototype notice,
+             * and a lie now that the two remaining ones are real routes to real screens. Removing
+             * the header is the whole fix; each tile already names itself and says what it holds.
+             */}
+            {AVAILABLE_FAMILIES.length === 0 ? null : (
+                <Stack space="sm" testID="discover-planned">
                     <CardGrid>
-                        {dietitianItems.map((dietitian) => (
-                            <CardGridItem key={dietitian.id}>
-                                <DietitianCard
-                                    dietitian={dietitian}
+                        {AVAILABLE_FAMILIES.map((family) => (
+                            <CardGridItem key={family.key}>
+                                <Card
+                                    testID={`discover-family-${family.key}`}
+                                    padding="md"
                                     onPress={() => {
-                                        router.push(`/dietitians/${String(dietitian.id)}` as never);
+                                        router.push(family.href as never);
                                     }}
-                                />
+                                    accessibilityLabel={t(
+                                        `marketplace:discover.family.${family.key}`,
+                                    )}
+                                >
+                                    <Stack space="xs">
+                                        <EntityImage
+                                            source={resolveMarketingImage(
+                                                `discover/${family.key}.tile`,
+                                            )}
+                                            decorative
+                                            seed={`discover-${family.key}`}
+                                            label={t(`marketplace:discover.family.${family.key}`)}
+                                            aspect="wide"
+                                        />
+                                        <Icon
+                                            name={family.icon}
+                                            size="lg"
+                                            className="text-content-secondary"
+                                        />
+                                        <Text variant="bodyStrong">
+                                            {t(`marketplace:discover.family.${family.key}`)}
+                                        </Text>
+                                        <Text tone="secondary" variant="caption">
+                                            {t(`marketplace:discover.familyBody.${family.key}`)}
+                                        </Text>
+                                    </Stack>
+                                </Card>
                             </CardGridItem>
                         ))}
                     </CardGrid>
-                </QueryStates>
-            </Stack>
-
-            <Stack space="sm" testID="discover-planned">
-                <SectionHeader
-                    title={t('marketplace:discover.comingTitle')}
-                    description={t('marketplace:discover.comingBody')}
-                    testID="discover-planned-header"
-                />
-                <CardGrid>
-                    {CATALOGUE_FAMILIES.map((family) => (
-                        <CardGridItem key={family.key}>
-                            <Card
-                                testID={`discover-family-${family.key}`}
-                                padding="md"
-                                onPress={() => {
-                                    router.push(family.href as never);
-                                }}
-                                accessibilityLabel={t(`marketplace:discover.family.${family.key}`)}
-                            >
-                                <Stack space="xs">
-                                    <EntityImage
-                                        source={resolveMarketingImage(
-                                            `discover/${family.key}.tile`,
-                                        )}
-                                        decorative
-                                        seed={`discover-${family.key}`}
-                                        label={t(`marketplace:discover.family.${family.key}`)}
-                                        aspect="wide"
-                                    />
-                                    <Icon
-                                        name={family.icon}
-                                        size="lg"
-                                        className="text-content-secondary"
-                                    />
-                                    <Text variant="bodyStrong">
-                                        {t(`marketplace:discover.family.${family.key}`)}
-                                    </Text>
-                                    <Text tone="secondary" variant="caption">
-                                        {t(`marketplace:discover.familyBody.${family.key}`)}
-                                    </Text>
-                                </Stack>
-                            </Card>
-                        </CardGridItem>
-                    ))}
-                </CardGrid>
-            </Stack>
+                </Stack>
+            )}
         </Stack>
     );
 }

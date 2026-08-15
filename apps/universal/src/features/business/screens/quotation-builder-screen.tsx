@@ -24,7 +24,6 @@ import {
     useCorporateProgrammeQuery,
     useRequestQuotationMutation,
 } from '../../../data/business-hooks.ts';
-import { PrototypeButton } from '../../../prototype/index.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { earliestStartDate } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -46,9 +45,10 @@ import { contractPriceTestId, isMixedCurrency, lineValue, totalsByCurrency } fro
  * this is not one of them — so pressing submit really does change the world, and the quotation list
  * really does show the new reference.
  *
- * What *is* absent is everything around it: there is no way to save a half-composed draft, no way to
- * accept or decline a quote once it is priced, and no export. Those are the controls routed through
- * `PrototypeButton`, each naming the endpoint it is waiting on.
+ * What *is* absent is everything around it: there is no way to save a half-composed draft and no
+ * export. `quotationExport` in `src/features/availability.ts` records why, and neither the controls
+ * nor the standing "prototype limitation" note that explained them is rendered — a screen that
+ * composes and submits in one go does not need to apologise for the button it does not have.
  *
  * ## The indicative value is per currency, and it is labelled indicative
  *
@@ -127,7 +127,7 @@ export function QuotationBuilderScreen({
     const backAction = (
         <Button
             testID="quotation-builder-back"
-            variant="secondary"
+            variant="quiet"
             label={t('business:builder.back')}
             onPress={() => {
                 if (parsed === null) {
@@ -436,15 +436,7 @@ export function QuotationBuilderScreen({
                         );
                     }}
                 />
-                <PrototypeButton
-                    label={t('business:builder.saveDraft')}
-                    contract="POST /api/v1/business/quotations (draft)"
-                />
             </Inline>
-
-            <Text tone="secondary" variant="caption" testID="quotation-builder-draft-note">
-                {t('business:builder.draftNote')}
-            </Text>
         </Stack>
     );
 }

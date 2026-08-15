@@ -92,17 +92,20 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Expo Doctor
-        working-directory: apps/universal
-        run: pnpm run doctor
+      # No Expo Doctor step: `expo-doctor` ships as its own package and is not a dependency here,
+      # so the step could only ever fail on a clean install. It stays a local tool — run
+      # `pnpm --filter universal run doctor` when dependency drift is the question being asked.
 
-      - name: Web export — all-dev (mock data)
+      # The one artefact everything runs against since ADR-0013: the all-dev api export.
+      # (The mock export and its production negative gate died with the mock implementation;
+      # the surviving production guard — a required EXPO_PUBLIC_API_URL — is asserted below.)
+      - name: Web export — all-dev (api)
         working-directory: apps/universal
         env:
           APP_MODE: all-dev
           APP_ENV: development
-          EXPO_PUBLIC_DATA_MODE: mock
-        run: pnpm run build:web
+          EXPO_PUBLIC_API_URL: http://localhost:8080
+        run: pnpm run build:web:api
 
       # Size budgets, checked on the `all-dev` export because it carries every area of the
       # application at once and is therefore a bound on every narrower build. The numbers and their
@@ -111,44 +114,56 @@ jobs:
         working-directory: apps/universal
         run: pnpm run budget:export
 
-      # One production-ready family, configured exactly as it would ship: production environment,
-      # API data mode, a real base URL. The host is a placeholder because nothing is fetched — the
-      # export only has to *configure and bundle* under production rules.
-      - name: Web export — customer (production, api data)
+      # One production-ready family, configured exactly as it would ship: production environment
+      # and a real base URL. The host is a placeholder because nothing is fetched — the export only
+      # has to *configure and bundle* under production rules.
+      - name: Web export — customer (production)
         working-directory: apps/universal
         env:
           APP_MODE: customer
           APP_ENV: production
-          EXPO_PUBLIC_DATA_MODE: api
           EXPO_PUBLIC_API_URL: https://api.healthy360.invalid
         run: pnpm run build:web:api
 
-      # Mock-cannot-ship gate #1 (plan §18). The *expected* result is a non-zero exit: if this ever
-      # succeeds, a production build could be created against fixtures.
-      - name: Negative test — production refuses mock data
-        working-directory: apps/universal
-        env:
-          APP_MODE: customer
-          APP_ENV: production
-          EXPO_PUBLIC_DATA_MODE: mock
-        run: |
-          if pnpm exec expo config --type public > /dev/null 2>&1; then
-            echo "::error::expo config succeeded with APP_ENV=production and EXPO_PUBLIC_DATA_MODE=mock. Gate #1 is not holding."
-            exit 1
-          fi
-          echo "Refused, as it must be."
-
-  # ── Playwright against the exported mock build ─────────────────────────────────────────────────
+  # ── Playwright read projects against the api export and the real Laravel API ──────────────────
   #
-  # The `acceptance` project (apps/universal/playwright.acceptance.config.ts) is deliberately NOT
-  # run here: it needs the whole Docker stack — PostgreSQL, Redis, the API and Mailpit — with the
-  # demo tenants seeded. Bringing compose up in CI is the follow-up recorded in the phase report.
+  # Same provisioning as `e2e-api` below; this job runs the parallel read-mostly projects while
+  # `e2e-api` runs the single-worker `web-write` mutation project.
   e2e:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, pgsql, redis
+          tools: composer:v2
+          coverage: none
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -159,6 +174,38 @@ jobs:
 
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Create database roles and databases
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55432"
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+        run: bash infrastructure/docker/postgres/init/01-roles-and-databases.sh
+
+      - name: Prepare API environment
+        working-directory: apps/api
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Migrate and seed the demo world
+        working-directory: apps/api
+        run: php artisan migrate:fresh --database=pgsql_migrations --seed --force
+
+      - name: Serve the API
+        working-directory: apps/api
+        env:
+          QUEUE_CONNECTION: sync
+          PHP_CLI_SERVER_WORKERS: "4"
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8080 &
+          timeout 30 bash -c 'until curl -sf http://localhost:8080/up > /dev/null; do sleep 1; done'
+          echo "API is up."
 
       - name: Install Chromium for Playwright
         working-directory: apps/universal
@@ -169,12 +216,14 @@ jobs:
         env:
           APP_MODE: all-dev
           APP_ENV: development
-          EXPO_PUBLIC_DATA_MODE: mock
-        run: pnpm run build:web
+          EXPO_PUBLIC_API_URL: http://localhost:8080
+        run: pnpm run build:web:api
 
       - name: Playwright — web-ltr, web-rtl, a11y
         working-directory: apps/universal
-        run: pnpm exec playwright test --project=web-ltr --project=web-rtl --project=a11y
+        env:
+          EXPO_PUBLIC_API_URL: http://localhost:8080
+        run: pnpm exec playwright test --project=web-ltr --project=web-rtl --project=a11y --workers=4
 
       - if: failure()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
@@ -183,25 +232,50 @@ jobs:
           path: apps/universal/playwright-report
           retention-days: 7
 
-  # ── Visual regression, from the one machine allowed to have an opinion ─────────────────────────
+  # ── Playwright against the exported api build and the real Laravel API ────────────────────────
   #
-  # A screenshot baseline is a claim about how glyphs are rasterised, and that claim is only true on
-  # the machine that made it. So the 38 committed baselines are captured and compared **only** inside
-  # `mcr.microsoft.com/playwright:v1.62.0-noble`, pinned by tag, and the visual projects skip
-  # anywhere else (see apps/universal/e2e/specs/visual-pages.ts).
-  #
-  # The container is started with `docker run` rather than the job-level `container:` key, so that
-  # this is character-for-character the command a developer runs locally through the repository's
-  # `e2e:visual` script. A CI-only invocation is a CI-only failure mode.
-  #
-  # Everything except the browser runs on the host: the install and the export need pnpm and Expo,
-  # and the runner is Linux too, so the mounted `node_modules` is usable from inside the image.
-  visual:
+  # The `web-write` project: `dist-api` served statically, the Laravel
+  # API on :8080 via `php artisan serve`, PostgreSQL and Redis as services — the same provisioning
+  # backend.yml's test job uses. `artisan serve` rather than docker compose because compose builds
+  # a custom PHP image and starts nginx, horizon and garage before a single test runs; the specs
+  # observe none of that. Mail goes to the log (`MAIL_MAILER=log` in .env.example) and the queue
+  # runs sync, so verification links land in `storage/logs/laravel.log` inline with the request —
+  # exactly where the helpers read them.
+  e2e-api:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, pgsql, redis
+          tools: composer:v2
+          coverage: none
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -213,24 +287,62 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Web export (the artefact the baselines describe)
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Create database roles and databases
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55432"
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+        run: bash infrastructure/docker/postgres/init/01-roles-and-databases.sh
+
+      - name: Prepare API environment
+        working-directory: apps/api
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Migrate and seed the demo world
+        working-directory: apps/api
+        run: php artisan migrate:fresh --database=pgsql_migrations --seed --force
+
+      - name: Serve the API
+        working-directory: apps/api
+        env:
+          QUEUE_CONNECTION: sync
+          PHP_CLI_SERVER_WORKERS: "4"
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8080 &
+          timeout 30 bash -c 'until curl -sf http://localhost:8080/up > /dev/null; do sleep 1; done'
+          echo "API is up."
+
+      - name: Web export — api data (the artefact web-write runs against)
         working-directory: apps/universal
         env:
           APP_MODE: all-dev
           APP_ENV: development
-          EXPO_PUBLIC_DATA_MODE: mock
-        run: pnpm run build:web
+          EXPO_PUBLIC_API_URL: http://localhost:8080
+        run: pnpm run build:web:api
 
-      - name: Playwright — visual, visual-rtl, visual-dark (pinned container)
-        run: pnpm run e2e:visual
+      - name: Install Chromium for Playwright
+        working-directory: apps/universal
+        run: pnpm exec playwright install --with-deps chromium
 
-      # The report carries the expected/actual/diff triptych for every failed comparison, which is
-      # the only useful thing to look at when a baseline breaks.
+      - name: Playwright — web-write (single worker, shared database)
+        working-directory: apps/universal
+        env:
+          EXPO_PUBLIC_API_URL: http://localhost:8080
+        run: pnpm run e2e:write
+
       - if: failure()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: playwright-visual-report
+          name: playwright-api-report
           path: |
             apps/universal/playwright-report
             apps/universal/test-results
+            apps/api/storage/logs/laravel.log
           retention-days: 7
