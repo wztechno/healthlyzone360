@@ -6,22 +6,17 @@ namespace Healthy360\Inventory\Services;
 
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
-use Healthy360\Catalogues\Services\DerivedAllergenService;
 use Healthy360\Inventory\Exceptions\InsufficientStock;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\StockItem;
-use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
-use Healthy360\Recipes\Models\RecipeVersion;
-use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\ReferenceData\Exceptions\UnitConversionUnsupported;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\ReferenceData\Services\UnitConversionService;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -31,6 +26,16 @@ use RuntimeException;
  * deduction carries the COGS it cost the kitchen (INV1.2). INV1.5 attributes each
  * deduction to its order line and lets a manager retry a line that could not be
  * deducted at confirm time.
+ *
+ * ## The read half lives next door
+ *
+ * How much of what a meal takes is {@see MealExplosion}'s question — recipe
+ * lines summed per unit, converted, divided by the yield, scaled by the order
+ * quantity. This class is the *write* half: it asks for that reading and then
+ * turns each row into a movement with its COGS, and each refusal into an
+ * exception row. The split exists so a requirement forecast can add up the same
+ * arithmetic without deducting anything, instead of re-deriving it and drifting
+ * from what the shelf actually loses.
  *
  * The whole slice's correctness lives here, so five rules run through all of it.
  *
@@ -78,7 +83,7 @@ use RuntimeException;
  * not the seller, and a deduction that depended on request context would be a
  * deduction that sometimes silently found nothing.
  *
- * @phpstan-type ConsumptionFailure array{catalogue_item_id: string|null, reason_code: string, detail: string}
+ * @phpstan-import-type ConsumptionFailure from MealExplosionResult
  */
 final readonly class OrderConsumptionService implements OrderStockConsumption
 {
@@ -122,7 +127,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
     public function __construct(
         private InventoryService $inventory,
         private UnitConversionService $conversion,
-        private DerivedAllergenService $allergens,
+        private MealExplosion $explosion,
     ) {}
 
     public function consume(Order $order): void
@@ -401,152 +406,56 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
     }
 
     /**
-     * A meal explodes into its published recipe: sum the version's lines per
-     * ingredient, divide by the yield piece count for a per-sold-unit quantity,
-     * apply the waste coefficient as a per-unit multiplier, multiply by the
-     * order line quantity, then deduct — each ingredient converted into its
-     * branch stock item's unit.
+     * A meal line: ask {@see MealExplosion} how much of which shelf this many of
+     * this meal needs, deduct each answer, and record each refusal.
+     *
+     * The arithmetic — grouping the recipe lines by unit, converting, dividing
+     * by the yield, applying waste, scaling by the order quantity — lives in the
+     * explosion so a forecast can run it without deducting. Nothing but the
+     * writing is left here.
      *
      * @param  list<ConsumptionFailure>  $failures
      */
     private function resolveMeal(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures): void
     {
-        $version = $this->allergens->publishedVersion($item);
+        $explosion = $this->explosion->explode(
+            (string) $order->organisation_id,
+            $item,
+            (string) $line->quantity,
+            $branchId,
+        );
 
-        if (! $version instanceof RecipeVersion) {
-            $failures[] = $this->failure((string) $item->getKey(), 'no_recipe_version', 'The meal links no published recipe version to explode into ingredients.');
+        foreach ($explosion->rows as $row) {
+            // The explosion answers in ids so a forecast can sum without
+            // hydrating; deduction is about to write against these two rows, so
+            // it reads them. `withoutTenancy()` on the stock item for the same
+            // reason every other read here is: a subscription-generated order
+            // can confirm inside a job whose ambient tenant is not the seller.
+            $stockItem = StockItem::withoutTenancy()->find($row['stock_item_id']);
 
-            return;
-        }
+            if (! $stockItem instanceof StockItem) {
+                // Unreachable — the explosion read this row moments ago. Recorded
+                // in its own vocabulary rather than skipped, so a shelf that
+                // vanished mid-confirm is never a silent non-deduction.
+                $failures[] = $this->failure((string) $item->getKey(), 'no_stock_item', 'Stock item '.$row['stock_item_id'].' vanished between the recipe explosion and the deduction.');
 
-        $pieceCount = $version->yield_piece_count;
-
-        if ($pieceCount === null || $pieceCount <= 0) {
-            // Without a divisor there is no "per sold unit" — the exact blocker
-            // the plan calls out. Recorded, never guessed as one.
-            $failures[] = $this->failure((string) $item->getKey(), 'no_yield_piece_count', 'The recipe version states no yield piece count to divide by.');
-
-            return;
-        }
-
-        $orderQuantity = $this->numeric((string) $line->quantity);
-        $wasteFactor = bcadd('1', bcdiv($this->numeric((string) $version->waste_coefficient_percent), '100', self::WORKING_SCALE), self::WORKING_SCALE);
-
-        $lines = RecipeVersionLine::withoutTenancy()
-            ->where('recipe_version_id', $version->getKey())
-            ->get();
-
-        /** @var Collection<int, Collection<int, RecipeVersionLine>> $byIngredient */
-        $byIngredient = $lines->groupBy('ingredient_id');
-
-        foreach ($byIngredient as $ingredientId => $ingredientLines) {
-            $this->resolveMealIngredient(
-                $order,
-                $line,
-                $item,
-                $branchId,
-                (string) $ingredientId,
-                $ingredientLines,
-                (string) $pieceCount,
-                $wasteFactor,
-                $orderQuantity,
-                $failures,
-            );
-        }
-    }
-
-    /**
-     * @param  Collection<int, RecipeVersionLine>  $ingredientLines
-     * @param  numeric-string  $pieceCount
-     * @param  numeric-string  $wasteFactor
-     * @param  numeric-string  $orderQuantity
-     * @param  list<ConsumptionFailure>  $failures
-     */
-    private function resolveMealIngredient(
-        Order $order,
-        OrderLine $line,
-        CatalogueItem $item,
-        string $branchId,
-        string $ingredientId,
-        Collection $ingredientLines,
-        string $pieceCount,
-        string $wasteFactor,
-        string $orderQuantity,
-        array &$failures,
-    ): void {
-        $stockItem = $this->resolveStockItem((string) $order->organisation_id, $ingredientId, $branchId);
-
-        if (! $stockItem instanceof StockItem) {
-            $failures[] = $this->failure((string) $item->getKey(), 'no_stock_item', 'Ingredient '.$ingredientId.' has no stock item at the branch to deduct from.');
-
-            return;
-        }
-
-        if ($stockItem->unit_id === null) {
-            $failures[] = $this->failure((string) $item->getKey(), 'no_stock_unit', 'Stock item '.$stockItem->getKey().' has no resolved unit to convert into.');
-
-            return;
-        }
-
-        $stockUnit = MeasurementUnit::query()->find($stockItem->unit_id);
-
-        if (! $stockUnit instanceof MeasurementUnit) {
-            $failures[] = $this->failure((string) $item->getKey(), 'no_stock_unit', 'Stock item '.$stockItem->getKey().' points at a unit that does not exist.');
-
-            return;
-        }
-
-        // Sum the duplicate lines grouped by their own unit, then convert each
-        // group into the stock unit — so same-unit lines sum before any rounding
-        // (the common case) and mixed-unit lines still total correctly.
-        $byUnit = [];
-
-        foreach ($ingredientLines as $recipeLine) {
-            if ($recipeLine->quantity === null || $recipeLine->unit_id === null) {
-                // A published recipe should carry quantities; an unquantified
-                // line is unresolvable, so the ingredient is skipped rather than
-                // summed as if the missing line were zero.
-                $failures[] = $this->failure((string) $item->getKey(), 'unquantified_recipe_line', 'A recipe line for ingredient '.$ingredientId.' has no quantity or unit.');
-
-                return;
+                continue;
             }
 
-            $byUnit[$recipeLine->unit_id] = bcadd($byUnit[$recipeLine->unit_id] ?? '0', $this->numeric((string) $recipeLine->quantity), self::WORKING_SCALE);
-        }
+            $stockUnit = MeasurementUnit::query()->find($row['stock_unit_id']);
 
-        $totalInStockUnit = '0';
+            if (! $stockUnit instanceof MeasurementUnit) {
+                $failures[] = $this->failure((string) $item->getKey(), 'no_stock_unit', 'Stock item '.$row['stock_item_id'].' points at a unit that does not exist.');
 
-        foreach ($byUnit as $unitId => $summedQuantity) {
-            $lineUnit = MeasurementUnit::query()->find($unitId);
-
-            if (! $lineUnit instanceof MeasurementUnit) {
-                $failures[] = $this->failure((string) $item->getKey(), 'no_stock_unit', 'A recipe line for ingredient '.$ingredientId.' points at a unit that does not exist.');
-
-                return;
+                continue;
             }
 
-            try {
-                $converted = $this->conversion->convert($this->round($summedQuantity), $lineUnit, $stockUnit);
-            } catch (UnitConversionUnsupported $exception) {
-                $failures[] = $this->failure((string) $item->getKey(), 'unit_conversion_unsupported', 'Ingredient '.$ingredientId.': '.$exception->getMessage());
-
-                return;
-            }
-
-            $totalInStockUnit = bcadd($totalInStockUnit, $converted, self::WORKING_SCALE);
+            $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, $row['ingredient_id'], $row['quantity'], $failures);
         }
 
-        // per sold unit = Σ line quantities ÷ yield piece count; × waste factor;
-        // × the number of this meal on the order.
-        $perSoldUnit = bcdiv($totalInStockUnit, $pieceCount, self::WORKING_SCALE);
-        $withWaste = bcmul($perSoldUnit, $wasteFactor, self::WORKING_SCALE);
-        $consumed = $this->round(bcmul($withWaste, $orderQuantity, self::WORKING_SCALE));
-
-        if (bccomp($consumed, '0', self::SCALE) <= 0) {
-            return;
+        foreach ($explosion->failures as $failure) {
+            $failures[] = $failure;
         }
-
-        $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, $ingredientId, $consumed, $failures);
     }
 
     /**
@@ -564,7 +473,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        $stockItem = $this->resolveStockItem((string) $order->organisation_id, (string) $item->ingredient_id, $branchId);
+        $stockItem = $this->explosion->resolveStockItem((string) $order->organisation_id, (string) $item->ingredient_id, $branchId);
 
         if (! $stockItem instanceof StockItem) {
             $failures[] = $this->failure((string) $item->getKey(), 'no_stock_item', 'The product has no stock item at the branch to deduct from.');
@@ -791,36 +700,6 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
         $cost->quantity_on_hand = bcadd($this->numeric((string) $cost->quantity_on_hand), $addBackInCostUnit, self::SCALE);
         $cost->save();
-    }
-
-    /**
-     * The branch stock item for an ingredient. When more than one stock item is
-     * linked to the ingredient, the one that already has a level at this branch
-     * wins; otherwise the first by code — a deterministic pick rather than a
-     * guess between equals.
-     */
-    private function resolveStockItem(string $organisationId, string $ingredientId, string $branchId): ?StockItem
-    {
-        $items = StockItem::withoutTenancy()
-            ->where('organisation_id', $organisationId)
-            ->where('ingredient_id', $ingredientId)
-            ->orderBy('code')
-            ->get();
-
-        if ($items->isEmpty()) {
-            return null;
-        }
-
-        if ($items->count() === 1) {
-            return $items->first();
-        }
-
-        $withLevel = $items->first(static fn (StockItem $stockItem): bool => StockLevel::withoutTenancy()
-            ->where('branch_id', $branchId)
-            ->where('stock_item_id', $stockItem->getKey())
-            ->exists());
-
-        return $withLevel ?? $items->first();
     }
 
     private function hasConsumed(Order $order): bool
