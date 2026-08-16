@@ -489,6 +489,22 @@ export const queryKeys = {
          */
         calendar: (filter?: QueryScope) => ['orderDesk', 'calendar', scope(filter)] as const,
         /**
+         * What one branch must buy for a window. Keyed on the whole filter (shape rule 3): the
+         * range and the **branch** together are the view, and the branch in particular is not a
+         * narrowing of a shared answer — two branches' buy lists are two different documents that
+         * happen to look alike, so sharing an entry between them would be the worst possible cache
+         * hit.
+         */
+        requirements: (filter?: QueryScope) =>
+            ['orderDesk', 'requirements', scope(filter)] as const,
+        /**
+         * The hub badge. Keyed on the branch, and on `null` when there is none — the null entry is
+         * a real answer (`count: null`, "nobody chose a shelf") rather than an absent one, so it
+         * caches like any other.
+         */
+        shortfallCount: (branchId: string | null) =>
+            ['orderDesk', 'shortfall-count', branchId] as const,
+        /**
          * The people a run can be given to. No argument, because the endpoint takes none.
          *
          * One entry for the whole workspace: the membership of a kitchen changes on the timescale

@@ -13,9 +13,13 @@ import type {
     OrderDeskQueue,
     OrderDeskQueueFilters,
     OrderDeskQuote,
+    OrderDeskRequirements,
+    OrderDeskRequirementsFilters,
     OrderDeskSaleRequest,
+    OrderDeskShortfallCount,
     PlaceOrderDeskSaleRequest,
 } from '@healthy360/api-client/contracts';
+import type { BranchId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -111,6 +115,72 @@ export function useOrderDeskCalendarQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (filters === null) throw new Error('There is no week to read.');
             return repositories.orderDesk.listCalendar(filters);
+        },
+    });
+}
+
+/**
+ * How long a buy list stays fresh.
+ *
+ * A minute. Longer than the queue's fifteen-second poll and much shorter than the driver
+ * directory's five minutes, because what moves it is somebody receiving a delivery or wasting a
+ * tray — human-scale events that happen while a buyer is reading, but not every few seconds. It is
+ * a `staleTime` rather than a `refetchInterval` on purpose: a table of thirty ingredients redrawing
+ * under somebody's finger while they read down it is worse than a number a minute old.
+ */
+export const REQUIREMENTS_STALE_MS = 60_000;
+
+/**
+ * What one branch must buy for a window.
+ *
+ * `filters` carries a **required** branch, and `null` is how a screen says it has none yet — which
+ * is the state the requirements screen sits in until somebody picks one, and the reason this hook
+ * can be mounted before the question is answerable. Disabled rather than defaulted: a buy list for
+ * a guessed branch is a buy list for the wrong shelf, and it would look exactly like a right one.
+ */
+export function useOrderDeskRequirementsQuery(
+    filters: OrderDeskRequirementsFilters | null,
+    enabled = true,
+): UseQueryResult<OrderDeskRequirements> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.requirements(filters ?? undefined),
+        enabled: enabled && filters !== null && repositories !== null,
+        staleTime: REQUIREMENTS_STALE_MS,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (filters === null) throw new Error('There is no branch to buy for.');
+            return repositories.orderDesk.listRequirements(filters);
+        },
+    });
+}
+
+/**
+ * How many ingredients the next seven days are short of — the hub badge.
+ *
+ * **Asked even when there is no branch**, which is the difference between this and the list beside
+ * it. The endpoint answers `count: null` rather than refusing, and a badge that skipped the request
+ * would have to invent the same null anyway — this way the hub renders one code path whether or not
+ * somebody has chosen a shelf, and the "nothing to show" is the server's answer rather than the
+ * screen's assumption.
+ *
+ * Shares the list's stale window: the two numbers come from the same arithmetic, and a badge that
+ * disagreed with the table underneath it would send somebody looking for a bug.
+ */
+export function useOrderDeskShortfallCountQuery(
+    branchId: BranchId | null,
+    enabled = true,
+): UseQueryResult<OrderDeskShortfallCount> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.shortfallCount(branchId),
+        enabled: enabled && repositories !== null,
+        staleTime: REQUIREMENTS_STALE_MS,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.countRequirementShortfalls(branchId ?? undefined);
         },
     });
 }

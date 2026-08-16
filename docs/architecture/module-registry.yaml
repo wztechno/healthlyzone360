@@ -269,10 +269,19 @@ modules:
   #
   # Procurement and Production already depend on Inventory; none of the four new
   # targets is on their far side, so the graph stays acyclic.
+  #
+  # C5 adds the requirement forecast here and no new edges with it. Its three
+  # demand populations reach `order_lines` through the Orders edge above and
+  # `plan_menu_entries` through the Catalogues one; the third — what a kitchen
+  # still owes its subscribers — arrives through `SubscriptionMealDemand`, this
+  # module's **first outward port**, declared here and answered by Subscriptions
+  # from its own `boot()`. That is why the Subscriptions entry now carries an
+  # Inventory edge and this one carries no Subscriptions edge: the module that
+  # asks never imports the module that answers.
   - name: Inventory
     status: foundation
     phase: 2
-    description: Stock items, per-branch stock levels and an append-only movement ledger (adjust, waste, receipt, consume, yield), plus each ingredient's weighted moving-average cost and its cost-event ledger (INV1.1); auto-deduction on order confirm with COGS valued on the consume movement and reversal on cancel (INV1.2), branching on catalogue item type and recording an exception rather than guessing when a line's consumption cannot be resolved.
+    description: Stock items, per-branch stock levels and an append-only movement ledger (adjust, waste, receipt, consume, yield), plus each ingredient's weighted moving-average cost and its cost-event ledger (INV1.1); auto-deduction on order confirm with COGS valued on the consume movement and reversal on cancel (INV1.2), branching on catalogue item type and recording an exception rather than guessing when a line's consumption cannot be resolved; and the requirement forecast (C5) that adds up a window's orders, meal choices and plan-menu days against one branch's shelves without deducting anything (INV1.2's read half, one explosion, two readers).
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Kitchens, Recipes, Catalogues, Orders]
 
   # INV1.4 adds the monthly cost report here rather than in Inventory, and the
@@ -544,11 +553,30 @@ modules:
   # and the substitution search ask it. The edges all run
   # Subscriptions → the other module and none runs back, so the graph stays
   # acyclic — nothing that may hold code depends on Subscriptions.
+  #
+  # **Inventory joins them at C5**, and it is an edge that exists only so that a
+  # question can be asked in the right direction. The requirement forecast — what
+  # a kitchen must buy for a window — lives in Inventory, because the half of it
+  # nobody can move lives there: `MealExplosion`, `stock_items`, `stock_levels`
+  # and `par_level`. Its two other demand populations are already reachable from
+  # there (`order_lines` over Inventory → Orders, `plan_menu_entries` over
+  # Inventory → Catalogues); this module's tables are the only ones it may not
+  # open. So Inventory declares `SubscriptionMealDemand` and binds a null
+  # default, and `SubscriptionMealDemandAdapter` here answers it — the same shape
+  # as `OrderStockConsumption` with the modules swapped. The edge runs
+  # Subscriptions → Inventory and nothing runs back: Inventory's own chain
+  # (Orders, Kitchens, Recipes, Catalogues, Ingredients, ReferenceData) reaches
+  # nothing that depends on Subscriptions, so the graph stays acyclic.
+  #
+  # The reverse — hosting the forecast in Orders beside the rest of the order
+  # desk, and reaching into Inventory for the explosion — was rejected because it
+  # is not available: Inventory → Orders is a declared edge, so Orders → Inventory
+  # would close exactly the cycle the architecture test rejects.
   - name: Subscriptions
     status: foundation
     phase: 3
     description: Customer subscriptions as a consumable balance of delivery days — weekday selection, the plan's own 24-hour change window over skip, pause, resume, address and window changes, incremental order generation one delivery ahead with a grandfathered per-day price, an absolute allergen gate on automatic substitution, a schedule projection for kitchen demand, renewal at exhaustion, and cancellation with the unused balance recorded as a credit memo for manual settlement. No money movement, no trials, no upgrades or downgrades, and no B2B recurring orders.
-    depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Cart, Orders]
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, Audit, Catalogues, Pricing, Delivery, Customers, Cart, Orders, Inventory]
 
   - name: Payments
     status: foundation

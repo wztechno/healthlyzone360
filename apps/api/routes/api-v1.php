@@ -163,6 +163,8 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
+use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
+use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
@@ -1698,6 +1700,46 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/order-desk/calendar', OrderDeskCalendarController::class)
                     ->middleware('permission:subscription.view_organisation')
                     ->name('catalogue.order-desk.calendar');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | What to buy for it (C5)
+            |--------------------------------------------------------------
+            |
+            | The desk family's third read, and the only one whose controllers
+            | live in another module. The URL is a desk URL because a buyer
+            | looks for it beside the calendar; the code is in Inventory
+            | because that is where the arithmetic and the shelves are, and
+            | because it could not be anywhere else — the registry edge runs
+            | Inventory → Orders, so an orders-module forecast reaching in for
+            | `MealExplosion` would close the cycle the architecture test
+            | rejects. `RequirementForecast` states the whole argument.
+            |
+            | `inventory.view_organisation`, not an order code: the response is
+            | quantities on shelves, and a desk agent who may not see the
+            | stock room has no business with a buy list. Not
+            | `inventory.view_costs_organisation` either — there is no money
+            | anywhere in it, deliberately.
+            |
+            | **`branch_id` breaks the desk convention on purpose, and only on
+            | the list.** Every other endpoint in this family takes it as an
+            | optional narrowing because an organisation-wide agent selects no
+            | branch. Half of this response is `available`, and there is no
+            | honest organisation-wide value for that — summing three shelves
+            | would tell a buyer they have flour while the kitchen that needs
+            | it has none — so the list requires it and refuses `422` without.
+            | The badge beside it does not: a hub tile that errored because
+            | nobody had chosen a branch would be an error where there is no
+            | mistake, so it answers `shortfall_count: null` and the surface
+            | renders nothing rather than a zero it did not earn.
+            |
+            */
+            Route::middleware('permission:inventory.view_organisation')->group(function (): void {
+                Route::get('/order-desk/requirements', OrderDeskRequirementsController::class)
+                    ->name('catalogue.order-desk.requirements');
+                Route::get('/order-desk/requirements/shortfall-count', OrderDeskShortfallCountController::class)
+                    ->name('catalogue.order-desk.requirements.shortfall-count');
             });
 
             /*

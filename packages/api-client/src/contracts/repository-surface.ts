@@ -270,10 +270,12 @@ export const REPOSITORY_SURFACE = {
     orderDesk: [
         'addCustomerAddress',
         'assignDeliveryJob',
+        'countRequirementShortfalls',
         'createCustomer',
         'listCalendar',
         'listDrivers',
         'listQueue',
+        'listRequirements',
         'placeSale',
         'quoteSale',
         'searchCustomers',

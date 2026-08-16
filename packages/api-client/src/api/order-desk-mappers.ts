@@ -12,12 +12,16 @@ import type {
     OrderDeskCustomerCreated,
     OrderDeskDeliveryJob,
     OrderDeskDriver,
+    OrderDeskNotComputable,
     OrderDeskPaymentSummary,
     OrderDeskQueueMeta,
     OrderDeskQueueRow,
     OrderDeskQuote,
     OrderDeskQuoteLine,
     OrderDeskRefusal,
+    OrderDeskRequirement,
+    OrderDeskRequirementsMeta,
+    OrderDeskShortfallCount,
 } from '../contracts/order-desk.ts';
 import type {
     AssignedDeliveryJob as WireAssignedDeliveryJob,
@@ -31,11 +35,15 @@ import type {
     OrderDeskCustomerEnvelope,
     OrderDeskDeliveryJob as WireOrderDeskDeliveryJob,
     OrderDeskDriver as WireOrderDeskDriver,
+    OrderDeskNotComputable as WireOrderDeskNotComputable,
     OrderDeskQuote as WireOrderDeskQuote,
     OrderDeskQuoteLine as WireOrderDeskQuoteLine,
     OrderDeskQuoteRefusal as WireOrderDeskRefusal,
     OrderDeskQueueEnvelope,
+    OrderDeskRequirementRow as WireOrderDeskRequirement,
+    OrderDeskRequirementsEnvelope,
     OrderDeskRow as WireOrderDeskRow,
+    OrderDeskShortfallCountEnvelope,
     OrderPaymentSummary as WireOrderPaymentSummary,
 } from '../generated/types.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
@@ -224,6 +232,71 @@ export function mapCalendarMeta(wire: OrderDeskCalendarEnvelope['meta']): OrderD
         dayCount: wire.day_count,
         maxWindowDays: wire.max_window_days,
     };
+}
+
+/**
+ * One shelf the window needs something of.
+ *
+ * Every field is carried across as it arrived and **nothing is defaulted**. The four quantities are
+ * decimal strings and stay strings — a `Number()` here would be the client quietly disagreeing with
+ * the server about how much flour to buy — and `unit_id`/`unit_code` keep their `null`, which is a
+ * shelf with no resolved unit and takes the em dash rather than a guessed one.
+ *
+ * The two scales are different on purpose (`required` at six places, the rest at four) and are not
+ * reconciled here: the operation explains why, and a mapper that rounded one to match the other
+ * would be publishing a number neither side computed.
+ */
+export function mapOrderDeskRequirement(wire: WireOrderDeskRequirement): OrderDeskRequirement {
+    return {
+        ingredientId: wire.ingredient_id,
+        stockItemId: wire.stock_item_id,
+        code: wire.code,
+        nameEn: wire.name_en,
+        unitId: wire.unit_id,
+        unitCode: wire.unit_code,
+        required: wire.required,
+        available: wire.available,
+        short: wire.short,
+        suggestedBuy: wire.suggested_buy,
+    };
+}
+
+/**
+ * The window's holes.
+ *
+ * `reasons` is passed through in the server's own casing because the keys are a **vocabulary rather
+ * than a shape**: they are looked up for a label and counted, never destructured, and camel-casing
+ * them here would invent client-side names for codes the server owns and may extend.
+ */
+export function mapOrderDeskNotComputable(
+    wire: WireOrderDeskNotComputable,
+): OrderDeskNotComputable {
+    return { days: wire.days, reasons: wire.reasons };
+}
+
+/** What the buy list was measured against — the window, and the shelf `available` is about. */
+export function mapOrderDeskRequirementsMeta(
+    wire: OrderDeskRequirementsEnvelope['meta'],
+): OrderDeskRequirementsMeta {
+    return {
+        from: wire.from,
+        to: wire.to,
+        branchId: wire.branch_id,
+        maxWindowDays: wire.max_window_days,
+    };
+}
+
+/**
+ * The badge.
+ *
+ * `count` keeps its `null` and is **never coalesced to zero**. That single `??` would turn "nobody
+ * chose a branch, so this is unknowable" into "everything is in stock" on a hub tile, which is the
+ * one lie this endpoint was shaped to make impossible.
+ */
+export function mapOrderDeskShortfallCount(
+    wire: OrderDeskShortfallCountEnvelope['data'],
+): OrderDeskShortfallCount {
+    return { count: wire.shortfall_count, branchId: wire.branch_id };
 }
 
 /**

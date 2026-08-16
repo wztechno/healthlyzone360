@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5537 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5575 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2647,6 +2647,8 @@ export interface NamespaceKeys {
     | 'families.orderCalendar.name'
     | 'families.orderDesk.description'
     | 'families.orderDesk.name'
+    | 'families.orderRequirements.description'
+    | 'families.orderRequirements.name'
     | 'families.orders.description'
     | 'families.orders.name'
     | 'families.plans.description'
@@ -2694,6 +2696,7 @@ export interface NamespaceKeys {
     | 'hub.kpi.lowStock'
     | 'hub.kpi.needsReview'
     | 'hub.kpi.publishedMeals'
+    | 'hub.kpi.requirementShortfalls'
     | 'hub.open'
     | 'hub.openReview'
     | 'hub.publishedCount'
@@ -3146,6 +3149,41 @@ export interface NamespaceKeys {
     | 'ops.quotations.total'
     | 'ops.quotations.totalsHeading'
     | 'ops.readyForApi'
+    | 'ops.requirements.branchRequiredBody'
+    | 'ops.requirements.branchRequiredTitle'
+    | 'ops.requirements.columnAvailable'
+    | 'ops.requirements.columnIngredient'
+    | 'ops.requirements.columnRequired'
+    | 'ops.requirements.columnShort'
+    | 'ops.requirements.columnSuggestedBuy'
+    | 'ops.requirements.columnUnit'
+    | 'ops.requirements.emptyBody'
+    | 'ops.requirements.emptyTitle'
+    | 'ops.requirements.filterFrom'
+    | 'ops.requirements.filterTo'
+    | 'ops.requirements.metrics.ingredients'
+    | 'ops.requirements.metrics.notComputable'
+    | 'ops.requirements.metrics.short'
+    | 'ops.requirements.noRowsBody'
+    | 'ops.requirements.noRowsTitle'
+    | 'ops.requirements.notComputableBody'
+    | 'ops.requirements.notComputableTitle'
+    | 'ops.requirements.reason.meal_has_no_recipe'
+    | 'ops.requirements.reason.menu_dish_withdrawn'
+    | 'ops.requirements.reason.no_ingredient_link'
+    | 'ops.requirements.reason.no_stock_item'
+    | 'ops.requirements.reason.no_stock_unit'
+    | 'ops.requirements.reason.no_yield_piece_count'
+    | 'ops.requirements.reason.plan_has_no_menu'
+    | 'ops.requirements.reason.unit_conversion_unsupported'
+    | 'ops.requirements.reason.unquantified_recipe_line'
+    | 'ops.requirements.reasonEntry'
+    | 'ops.requirements.shortBadge'
+    | 'ops.requirements.shortfallCount'
+    | 'ops.requirements.subtitle'
+    | 'ops.requirements.title'
+    | 'ops.requirements.windowInvalidBody'
+    | 'ops.requirements.windowInvalidTitle'
     | 'ops.stock.adjust'
     | 'ops.stock.adjustHint'
     | 'ops.stock.adjustTitle'
@@ -8202,6 +8240,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.orderCalendar.name',
   'kitchen:families.orderDesk.description',
   'kitchen:families.orderDesk.name',
+  'kitchen:families.orderRequirements.description',
+  'kitchen:families.orderRequirements.name',
   'kitchen:families.orders.description',
   'kitchen:families.orders.name',
   'kitchen:families.plans.description',
@@ -8249,6 +8289,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.kpi.lowStock',
   'kitchen:hub.kpi.needsReview',
   'kitchen:hub.kpi.publishedMeals',
+  'kitchen:hub.kpi.requirementShortfalls',
   'kitchen:hub.open',
   'kitchen:hub.openReview',
   'kitchen:hub.publishedCount',
@@ -8701,6 +8742,41 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.total',
   'kitchen:ops.quotations.totalsHeading',
   'kitchen:ops.readyForApi',
+  'kitchen:ops.requirements.branchRequiredBody',
+  'kitchen:ops.requirements.branchRequiredTitle',
+  'kitchen:ops.requirements.columnAvailable',
+  'kitchen:ops.requirements.columnIngredient',
+  'kitchen:ops.requirements.columnRequired',
+  'kitchen:ops.requirements.columnShort',
+  'kitchen:ops.requirements.columnSuggestedBuy',
+  'kitchen:ops.requirements.columnUnit',
+  'kitchen:ops.requirements.emptyBody',
+  'kitchen:ops.requirements.emptyTitle',
+  'kitchen:ops.requirements.filterFrom',
+  'kitchen:ops.requirements.filterTo',
+  'kitchen:ops.requirements.metrics.ingredients',
+  'kitchen:ops.requirements.metrics.notComputable',
+  'kitchen:ops.requirements.metrics.short',
+  'kitchen:ops.requirements.noRowsBody',
+  'kitchen:ops.requirements.noRowsTitle',
+  'kitchen:ops.requirements.notComputableBody',
+  'kitchen:ops.requirements.notComputableTitle',
+  'kitchen:ops.requirements.reason.meal_has_no_recipe',
+  'kitchen:ops.requirements.reason.menu_dish_withdrawn',
+  'kitchen:ops.requirements.reason.no_ingredient_link',
+  'kitchen:ops.requirements.reason.no_stock_item',
+  'kitchen:ops.requirements.reason.no_stock_unit',
+  'kitchen:ops.requirements.reason.no_yield_piece_count',
+  'kitchen:ops.requirements.reason.plan_has_no_menu',
+  'kitchen:ops.requirements.reason.unit_conversion_unsupported',
+  'kitchen:ops.requirements.reason.unquantified_recipe_line',
+  'kitchen:ops.requirements.reasonEntry',
+  'kitchen:ops.requirements.shortBadge',
+  'kitchen:ops.requirements.shortfallCount',
+  'kitchen:ops.requirements.subtitle',
+  'kitchen:ops.requirements.title',
+  'kitchen:ops.requirements.windowInvalidBody',
+  'kitchen:ops.requirements.windowInvalidTitle',
   'kitchen:ops.stock.adjust',
   'kitchen:ops.stock.adjustHint',
   'kitchen:ops.stock.adjustTitle',

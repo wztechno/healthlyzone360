@@ -37,6 +37,7 @@ export { MealEditScreen } from './meal-edit-screen.tsx';
 export { MealsScreen } from './meals-screen.tsx';
 export { OrderDeskCalendarScreen } from './order-desk-calendar-screen.tsx';
 export { OrderDeskSaleScreen } from './order-desk-sale-screen.tsx';
+export { OrderDeskRequirementsScreen } from './order-desk-requirements-screen.tsx';
 export { OrderDeskScreen } from './order-desk-screen.tsx';
 export { OrdersScreen } from './orders-screen.tsx';
 export { PlanEditScreen } from './plan-edit-screen.tsx';

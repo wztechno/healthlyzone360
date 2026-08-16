@@ -10147,6 +10147,197 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/order-desk/requirements:
+    get:
+      operationId: getOrderDeskRequirements
+      tags: [Order desk]
+      summary: What one branch must buy to cook a window
+      description: |
+        The buy list. Every ingredient a window's demand needs, how much of it
+        one branch already holds, and how short that leaves the kitchen.
+
+        ## Three demand populations, one list
+
+        The window's demand comes from three places, counted separately and then
+        merged per shelf:
+
+        * **Real order lines** on every non-cancelled order whose requested
+          delivery date falls in the window — meals and resold products alike,
+          whatever the order's status. A fulfilled order still ate its
+          ingredients that day.
+        * **Meal choices** standing against subscription days that are not orders
+          yet. Somebody has said what fills the slot; generation has not written
+          the line.
+        * **Plan-menu days**: for those same subscription days, every slot the
+          plan's menu names that no choice has claimed. This is what generation
+          will write when it reaches the day, computed early.
+
+        They cannot double-count: the subscription populations only ever cover
+        days no order exists for, and within a day a slot with a choice belongs
+        to the second population and a slot without to the third.
+
+        Quantities are summed per dish **before** the recipe is exploded, so
+        selling one dish sixty times in a window produces one explosion and one
+        rounding step rather than sixty of each.
+
+        ## `branch_id` is required here, and optional everywhere else on the desk
+
+        Every other order-desk operation takes `branch_id` as a narrowing an
+        organisation-wide agent may omit. This one refuses without it, because
+        half the response is `available` and there is no honest organisation-wide
+        value for that: summing three branches' shelves would tell a buyer they
+        have flour while the kitchen that needs it has none.
+
+        **The branch narrows availability, not demand.** A stock item is an
+        organisation-level row while a stock level is a branch's, and both
+        `orders` and `subscriptions` carry nullable branch columns that any
+        narrowing rule would have had to invent a policy for. So this answers
+        "everything this kitchen owes, measured against *this* site's shelf". For
+        a single-site organisation that is exact. For a multi-site one it
+        over-states that site's share and is never short.
+
+        A stock item with **no level row at the branch** reads as `0`, not as
+        unknown: a level row appears with the first movement, so its absence is a
+        shelf holding none of that thing.
+
+        ## `not_computable` is never folded into the numbers
+
+        A dish with no published recipe, a plan whose menu was never written, a
+        recipe line measured in a unit that will not convert into the shelf's —
+        none of these produce a quantity, and **none of them produce a zero
+        either**. "Buy nothing for that" and "we could not work out what to buy
+        for that" are opposite statements. They are reported apart, as a count of
+        days and a breakdown by reason, and a screen should show both.
+
+        `insufficient_stock` is not a reason here: on this surface it is the
+        output, spelled `short`.
+
+        ## Bounds
+
+        `from` and `to` are both required and the window is capped at
+        **thirty-one days counted inclusively** — shorter than the calendar's
+        sixty on purpose. A calendar is a view of commitments; a buy list beyond
+        a month is speculation, and a number that precise about a month that
+        vague invites somebody to act on it. Thirty-one so a whole calendar month
+        always fits in one request.
+
+        Requires `inventory.view_organisation`. Not the costs code: there is no
+        money anywhere in this response.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: from
+          in: query
+          required: true
+          description: First day of the window, inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: |
+            Last day of the window, inclusive. Must not be before `from`, and
+            must not put more than thirty-one days in the window.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: true
+          description: |
+            The shelf to compare against. **Required**, unlike on every other
+            order-desk operation — this is the question rather than a filter over
+            it, because there is no organisation-wide "available".
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The window's requirements against one branch, and the part of it nobody could compute.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskRequirementsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/requirements/shortfall-count:
+    get:
+      operationId: getOrderDeskShortfallCount
+      tags: [Order desk]
+      summary: How many things the next week is short of
+      description: |
+        The badge behind the buy list: how many ingredients the next seven days
+        need more of than the branch holds.
+
+        ## `branch_id` is optional here and required on the list, deliberately
+
+        The list refuses without a branch because there is no honest
+        organisation-wide `available`. That refusal is right for a screen
+        somebody navigated to and wrong for a badge nobody asked for — a hub tile
+        returning `422` because the manager holds an organisation-wide membership
+        would be an error where there is no mistake.
+
+        So an absent branch is **answered**, with `shortfall_count: null` and
+        `branch_id: null` beside it. **Null is not zero and must not render as
+        one.** Zero shortfalls is good news; not knowing is not news at all. Show
+        the number when there is one and show nothing when there is not — the
+        same em-dash rule every other unknown on this platform follows.
+
+        ## Seven days, fixed
+
+        A badge takes no window, because its job is to be the same number every
+        time anybody glances at it and a caller-chosen window would let two
+        people looking at one hub disagree about how bad things are. Seven days
+        from today counted inclusively — long enough that a delivery can still be
+        arranged, short enough that the demand behind it is mostly real orders.
+        "Today" is the application clock rather than the branch's.
+
+        Counts rows whose shortfall is strictly above zero, and nothing else.
+        Not the holes: a thing nobody could compute is a different problem with a
+        different remedy, and folding it in would send a buyer looking for
+        something to order.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            The shelf to judge against. Omitted, the answer is `null` — see the
+            description. Optional here and required on the list beside it.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The count, or null when no branch was named.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskShortfallCountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/order-desk/drivers:
     get:
       operationId: listOrderDeskDrivers
@@ -26897,6 +27088,157 @@ components:
                     The longest window this operation will answer, counted
                     inclusively. Echoed so a client can bound its own date picker
                     instead of discovering the limit as a 422.
+
+    OrderDeskRequirementRow:
+      type: object
+      required: [ingredient_id, stock_item_id, code, name_en, unit_id, unit_code, required, available, short, suggested_buy]
+      additionalProperties: false
+      properties:
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          description: The shelf's own code. Rows are ordered by it, so the list reads the way a store cupboard is walked.
+        name_en:
+          type: string
+          description: |
+            The shelf's name. English only, because `stock_items` carries one
+            name column — the same field the levels list serves as
+            `item_name_en`, not a translation this operation withheld.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The measurement unit every quantity on this row is expressed in. Null when the shelf has no resolved unit.
+        unit_code:
+          type: [string, 'null']
+          description: That unit's code, for rendering. Null when there is no resolved unit — show the em dash rather than a bare number.
+        required:
+          type: string
+          description: |
+            How much the window needs, at **six** decimal places — the scale the
+            explosion computes and the movement ledger stores. Published at six
+            rather than rounded to the column's four, because truncating a
+            computed figure to match what it is compared against would publish a
+            rounder number than the arithmetic produced.
+        available:
+          type: string
+          description: |
+            What the branch holds, at four places. `0` when the shelf has no
+            level row here — that is a shelf holding none, not an unknown.
+        short:
+          type: string
+          description: |
+            `max(0, required − available)`, at four places. **Compared at four**
+            so a rounding tail five decimal places down cannot manufacture a
+            shortfall on a row that balances exactly.
+        suggested_buy:
+          type: string
+          description: |
+            What to order. Where the level has a par: `par − (available −
+            required)`, the quantity that leaves the shelf at par once the window
+            has been cooked. Where it has none, or where that is not positive
+            (a par written below the window's own demand), the bare shortfall —
+            so a par nobody has maintained can never reduce a buy below what the
+            kitchen needs.
+
+    OrderDeskNotComputable:
+      type: object
+      required: [days, reasons]
+      additionalProperties: false
+      description: |
+        The part of the window nobody could turn into a number. **Never a zero
+        in the list above** — "buy nothing for that" and "we could not work out
+        what to buy for that" are opposite statements.
+      properties:
+        days:
+          type: integer
+          minimum: 0
+          description: |
+            Distinct **dates** carrying at least one hole. A date rather than a
+            demand item: two orders and a subscription day all failing on one
+            Tuesday is one day the buy list is incomplete for, which is the
+            question the number answers.
+        reasons:
+          type: object
+          description: |
+            Hole counts by reason code, most days first. A count is **days that
+            reason spoiled**, not occurrences: three ingredients of one dish all
+            failing for the same reason on one day is one day, so an elaborate
+            recipe does not look like a bigger problem than a simple one with the
+            same consequence.
+
+            Only reasons that actually occurred appear. The vocabulary is
+            `plan_has_no_menu`, `menu_dish_withdrawn`, `meal_has_no_recipe`,
+            `no_yield_piece_count`, `unquantified_recipe_line`,
+            `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and
+            `unit_conversion_unsupported`; the map is left open so a code added
+            later reaches a client as data rather than as a schema violation.
+          additionalProperties:
+            type: integer
+            minimum: 1
+
+    OrderDeskRequirementsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [requirements, not_computable]
+          properties:
+            requirements:
+              type: array
+              description: One row per shelf the window needs anything of, ordered by stock-item code.
+              items:
+                $ref: '#/components/schemas/OrderDeskRequirementRow'
+            not_computable:
+              $ref: '#/components/schemas/OrderDeskNotComputable'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [from, to, branch_id, max_window_days]
+              properties:
+                from:
+                  type: string
+                  format: date
+                to:
+                  type: string
+                  format: date
+                branch_id:
+                  $ref: '#/components/schemas/Uuid'
+                max_window_days:
+                  type: integer
+                  description: |
+                    The longest window this operation will answer, counted
+                    inclusively. Echoed so a client can bound its own date picker
+                    instead of discovering the limit as a 422.
+
+    OrderDeskShortfallCountEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [shortfall_count, branch_id]
+          additionalProperties: false
+          properties:
+            shortfall_count:
+              type: [integer, 'null']
+              minimum: 0
+              description: |
+                How many ingredients the next seven days are short of at this
+                branch. **`null` when no `branch_id` was given** — render nothing
+                at all for it, never a zero.
+            branch_id:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+              description: The branch the count is about, echoed so the answer says what it is about. Null exactly when the count is.
+        meta:
+          $ref: '#/components/schemas/Meta'
 
     OrderDeskDriver:
       type: object

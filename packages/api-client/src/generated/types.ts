@@ -5381,6 +5381,136 @@ export type OrderDeskCalendarEnvelope = {
     };
 };
 
+export type OrderDeskRequirementRow = {
+    ingredient_id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * The shelf's own code. Rows are ordered by it, so the list reads the way a store cupboard is walked.
+     */
+    code: string;
+    /**
+     * The shelf's name. English only, because `stock_items` carries one
+     * name column — the same field the levels list serves as
+     * `item_name_en`, not a translation this operation withheld.
+     *
+     */
+    name_en: string;
+    /**
+     * The measurement unit every quantity on this row is expressed in. Null when the shelf has no resolved unit.
+     */
+    unit_id: Uuid | null;
+    /**
+     * That unit's code, for rendering. Null when there is no resolved unit — show the em dash rather than a bare number.
+     */
+    unit_code: string | null;
+    /**
+     * How much the window needs, at **six** decimal places — the scale the
+     * explosion computes and the movement ledger stores. Published at six
+     * rather than rounded to the column's four, because truncating a
+     * computed figure to match what it is compared against would publish a
+     * rounder number than the arithmetic produced.
+     *
+     */
+    required: string;
+    /**
+     * What the branch holds, at four places. `0` when the shelf has no
+     * level row here — that is a shelf holding none, not an unknown.
+     *
+     */
+    available: string;
+    /**
+     * `max(0, required − available)`, at four places. **Compared at four**
+     * so a rounding tail five decimal places down cannot manufacture a
+     * shortfall on a row that balances exactly.
+     *
+     */
+    short: string;
+    /**
+     * What to order. Where the level has a par: `par − (available −
+     * required)`, the quantity that leaves the shelf at par once the window
+     * has been cooked. Where it has none, or where that is not positive
+     * (a par written below the window's own demand), the bare shortfall —
+     * so a par nobody has maintained can never reduce a buy below what the
+     * kitchen needs.
+     *
+     */
+    suggested_buy: string;
+};
+
+/**
+ * The part of the window nobody could turn into a number. **Never a zero
+ * in the list above** — "buy nothing for that" and "we could not work out
+ * what to buy for that" are opposite statements.
+ *
+ */
+export type OrderDeskNotComputable = {
+    /**
+     * Distinct **dates** carrying at least one hole. A date rather than a
+     * demand item: two orders and a subscription day all failing on one
+     * Tuesday is one day the buy list is incomplete for, which is the
+     * question the number answers.
+     *
+     */
+    days: number;
+    /**
+     * Hole counts by reason code, most days first. A count is **days that
+     * reason spoiled**, not occurrences: three ingredients of one dish all
+     * failing for the same reason on one day is one day, so an elaborate
+     * recipe does not look like a bigger problem than a simple one with the
+     * same consequence.
+     *
+     * Only reasons that actually occurred appear. The vocabulary is
+     * `plan_has_no_menu`, `menu_dish_withdrawn`, `meal_has_no_recipe`,
+     * `no_yield_piece_count`, `unquantified_recipe_line`,
+     * `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and
+     * `unit_conversion_unsupported`; the map is left open so a code added
+     * later reaches a client as data rather than as a schema violation.
+     *
+     */
+    reasons: {
+        [key: string]: number;
+    };
+};
+
+export type OrderDeskRequirementsEnvelope = {
+    data: {
+        /**
+         * One row per shelf the window needs anything of, ordered by stock-item code.
+         */
+        requirements: Array<OrderDeskRequirementRow>;
+        not_computable: OrderDeskNotComputable;
+    };
+    meta: Meta & {
+        from: string;
+        to: string;
+        branch_id: Uuid;
+        /**
+         * The longest window this operation will answer, counted
+         * inclusively. Echoed so a client can bound its own date picker
+         * instead of discovering the limit as a 422.
+         *
+         */
+        max_window_days: number;
+    };
+};
+
+export type OrderDeskShortfallCountEnvelope = {
+    data: {
+        /**
+         * How many ingredients the next seven days are short of at this
+         * branch. **`null` when no `branch_id` was given** — render nothing
+         * at all for it, never a zero.
+         *
+         */
+        shortfall_count: number | null;
+        /**
+         * The branch the count is about, echoed so the answer says what it is about. Null exactly when the count is.
+         */
+        branch_id: Uuid | null;
+    };
+    meta: Meta;
+};
+
 export type OrderDeskDriver = {
     user_id: Uuid;
     /**
@@ -22169,6 +22299,141 @@ export type GetOrderDeskCalendarResponses = {
 };
 
 export type GetOrderDeskCalendarResponse = GetOrderDeskCalendarResponses[keyof GetOrderDeskCalendarResponses];
+
+export type GetOrderDeskRequirementsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * First day of the window, inclusive.
+         */
+        from: string;
+        /**
+         * Last day of the window, inclusive. Must not be before `from`, and
+         * must not put more than thirty-one days in the window.
+         *
+         */
+        to: string;
+        /**
+         * The shelf to compare against. **Required**, unlike on every other
+         * order-desk operation — this is the question rather than a filter over
+         * it, because there is no organisation-wide "available".
+         *
+         */
+        branch_id: Uuid;
+    };
+    url: '/catalogue/order-desk/requirements';
+};
+
+export type GetOrderDeskRequirementsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskRequirementsError = GetOrderDeskRequirementsErrors[keyof GetOrderDeskRequirementsErrors];
+
+export type GetOrderDeskRequirementsResponses = {
+    /**
+     * The window's requirements against one branch, and the part of it nobody could compute.
+     */
+    200: OrderDeskRequirementsEnvelope;
+};
+
+export type GetOrderDeskRequirementsResponse = GetOrderDeskRequirementsResponses[keyof GetOrderDeskRequirementsResponses];
+
+export type GetOrderDeskShortfallCountData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * The shelf to judge against. Omitted, the answer is `null` — see the
+         * description. Optional here and required on the list beside it.
+         *
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/requirements/shortfall-count';
+};
+
+export type GetOrderDeskShortfallCountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskShortfallCountError = GetOrderDeskShortfallCountErrors[keyof GetOrderDeskShortfallCountErrors];
+
+export type GetOrderDeskShortfallCountResponses = {
+    /**
+     * The count, or null when no branch was named.
+     */
+    200: OrderDeskShortfallCountEnvelope;
+};
+
+export type GetOrderDeskShortfallCountResponse = GetOrderDeskShortfallCountResponses[keyof GetOrderDeskShortfallCountResponses];
 
 export type ListOrderDeskDriversData = {
     body?: never;

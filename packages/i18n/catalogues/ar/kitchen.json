@@ -55,7 +55,8 @@
             "publishedMeals": "وجبات منشورة",
             "deliveryZones": "مناطق التوصيل",
             "lowStock": "مخزون منخفض",
-            "consumptionExceptions": "استثناءات الاستهلاك"
+            "consumptionExceptions": "استثناءات الاستهلاك",
+            "requirementShortfalls": "نقص هذا الأسبوع"
         }
     },
     "nav": {
@@ -498,6 +499,57 @@
                 "no_ingredient_cost": "لا تكلفة لتقييم البضاعة المُباعة",
                 "insufficient_stock": "مخزون غير كافٍ"
             }
+        },
+        "requirements": {
+            "title": "الاحتياجات",
+            "subtitle": "كل مكوّن تحتاجه الفترة، موزوناً مقابل رفّ فرع واحد. لا يُطلب شيء من هنا — هذه هي القائمة التي يُطلب منها.",
+            "emptyTitle": "لا شيء للشراء بعد",
+            "emptyBody": "متى صار لهذا الفرع طلبات أو أيام اشتراك ضمن الفترة، ظهرت هنا المكوّنات التي تقف خلفها.",
+            "metrics": {
+                "ingredients": "المكوّنات",
+                "short": "نقص",
+                "notComputable": "أيام تعذّر حسابها"
+            },
+            "columnIngredient": "المكوّن",
+            "columnRequired": "المطلوب",
+            "columnAvailable": "المتوفّر",
+            "columnShort": "النقص",
+            "columnSuggestedBuy": "الشراء المقترح",
+            "columnUnit": "الوحدة",
+            "shortBadge": "نقص",
+            "filterFrom": "من",
+            "filterTo": "إلى",
+            "branchRequiredTitle": "اختر فرعاً أولاً",
+            "branchRequiredBody": "قائمة الشراء تقارن ما تحتاجه الأيام القادمة بما هو على رفّ فرع واحد، فهي تحتاج أن تعرف أيّ رفّ. اختر فرعاً لعرضها.",
+            "windowInvalidTitle": "حدّد فترة",
+            "windowInvalidBody": "التاريخان بصيغة YYYY-MM-DD، ولا يجوز أن يسبق الثاني الأول. تصل الفترة إلى 31 يوماً.",
+            "noRowsTitle": "لا شيء للشراء في هذه الفترة",
+            "noRowsBody": "لا طلب ولا اختيار وجبة ولا يوم قائمة ضمن هذه التواريخ يحتاج مكوّناً. وسّع الفترة لترى أبعد.",
+            "notComputableBody": "جزء من هذه الفترة لم يمكن تحويله إلى كمية. وهو خارج القائمة أعلاه، لا محسوباً صفراً.",
+            "shortfallCount_zero": "لا مكوّنات ناقصة خلال الأيام السبعة القادمة",
+            "shortfallCount_one": "مكوّن واحد ناقص خلال الأيام السبعة القادمة",
+            "shortfallCount_two": "مكوّنان ناقصان خلال الأيام السبعة القادمة",
+            "shortfallCount_few": "{{count}} مكوّنات ناقصة خلال الأيام السبعة القادمة",
+            "shortfallCount_many": "{{count}} مكوّنًا ناقصًا خلال الأيام السبعة القادمة",
+            "shortfallCount_other": "{{count}} مكوّن ناقص خلال الأيام السبعة القادمة",
+            "notComputableTitle_zero": "لا أيام تعذّر حسابها",
+            "notComputableTitle_one": "يوم واحد تعذّر حسابه",
+            "notComputableTitle_two": "يومان تعذّر حسابهما",
+            "notComputableTitle_few": "{{count}} أيام تعذّر حسابها",
+            "notComputableTitle_many": "{{count}} يومًا تعذّر حسابه",
+            "notComputableTitle_other": "{{count}} يوم تعذّر حسابه",
+            "reasonEntry": "{{reason}} ({{days}})",
+            "reason": {
+                "plan_has_no_menu": "الباقة بلا قائمة",
+                "menu_dish_withdrawn": "طبق القائمة مسحوب",
+                "meal_has_no_recipe": "الوجبة بلا وصفة",
+                "no_yield_piece_count": "الوصفة لا تذكر عدد الحصص",
+                "unquantified_recipe_line": "سطر الوصفة بلا كمية",
+                "no_ingredient_link": "المنتج غير مرتبط بمكوّن",
+                "no_stock_item": "المكوّن بلا رفّ",
+                "no_stock_unit": "الرفّ بلا وحدة",
+                "unit_conversion_unsupported": "الوحدتان لا تتحوّلان"
+            }
         }
     },
     "kds": {
@@ -917,6 +969,10 @@
         "orderCalendar": {
             "name": "تقويم الطلبات",
             "description": "الأسبوع القادم على ثلاثة سجلات — الطلبات المقدّمة، والتسليمات المحجوزة، وما يُتوقّع أن تجلبه الاشتراكات."
+        },
+        "orderRequirements": {
+            "name": "الاحتياجات",
+            "description": "ما يجب أن يشتريه هذا الفرع لطهي الأيام القادمة — كل مكوّن تحتاجه الفترة، مقابل ما هو موجود على الرف."
         }
     },
     "analytics": {

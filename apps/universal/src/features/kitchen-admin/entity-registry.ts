@@ -242,6 +242,33 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'order-requirements',
+        // A view like its two siblings: it lists ingredients nobody created here, against shelves the
+        // stock family owns, and it writes nothing. A buy list is a reading of two books.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderRequirements.name',
+        descriptionKey: 'kitchen:families.orderRequirements.description',
+        // `▤` again, and for the calendar's reason: this is the same forward book seen a third way —
+        // by ingredient rather than by order or by day — and the group plus the label ("Requirements")
+        // is what separates the three cards. The icon set is a table of typographic characters.
+        icon: 'calendar',
+        // Nested under the desk, like the calendar, with the same deliberate consequence: the
+        // breadcrumb reads "Order desk" and leads back to the queue.
+        href: '/kitchen/order-desk/requirements',
+        // **The inventory code, not the order one** — and this is the group's second asymmetry, the
+        // mirror of the calendar's. The calendar sits on `order.view_organisation` while its endpoint
+        // also demands `subscription.view_organisation`; this one sits on the *only* code its
+        // endpoints ask for, which happens not to be the code the rest of the group carries. A slot
+        // holds one code, so the rule is that it holds the code the screen's own `<Gate>` asks — an
+        // agent who may take orders but may not see the stock room gets the queue and the calendar
+        // and not this, which is exactly right: a buy list is a statement about the store cupboard.
+        permission: INVENTORY_VIEW_PERMISSION,
+        // Nothing is written from a buy list. Ordering the goods is the purchasing surface's, and
+        // counting them is the stock family's.
+        managePermission: null,
+    },
+    {
         key: 'review',
         kind: 'workbench',
         group: 'workbench',

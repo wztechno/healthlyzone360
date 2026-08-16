@@ -516,6 +516,182 @@ describe('createApiOrderDeskRepository — listCalendar', () => {
     });
 });
 
+describe('createApiOrderDeskRepository — requirements', () => {
+    const REQUIREMENTS_META = {
+        correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+        from: '2026-09-07',
+        to: '2026-09-20',
+        branch_id: BRANCH_UUID,
+        max_window_days: 31,
+    };
+
+    const ROW = {
+        ingredient_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4201',
+        stock_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4202',
+        code: 'sku-flour',
+        name_en: 'Flour',
+        unit_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4203',
+        unit_code: 'kg',
+        required: '10.000000',
+        available: '2.0000',
+        short: '8.0000',
+        suggested_buy: '8.0000',
+    };
+
+    it('always sends the branch, unlike every other read on this repository', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: { requirements: [], not_computable: { days: 0, reasons: {} } },
+                    meta: REQUIREMENTS_META,
+                },
+            },
+        ]);
+
+        await repository.listRequirements({
+            from: '2026-09-07',
+            to: '2026-09-20',
+            branchId: BRANCH_UUID as never,
+        });
+
+        // Required rather than optional: half the answer is a quantity on a shelf, and there is no
+        // organisation-wide shelf to have one.
+        expect(calls[0]?.method).toBe('GET');
+        expect(calls[0]?.path).toBe(
+            `/catalogue/order-desk/requirements?from=2026-09-07&to=2026-09-20&branch_id=${BRANCH_UUID}`,
+        );
+        expect(calls[0]?.headers['x-branch-id']).toBeUndefined();
+    });
+
+    /**
+     * The quantities cross as **strings** and the holes stay outside the rows.
+     *
+     * Both halves matter. A `Number()` in the mapper would be the client quietly disagreeing with
+     * the server about how much flour to buy; a `not_computable` folded into the rows as a zero
+     * would read as "you have enough" for a day nobody could compute at all.
+     */
+    it('carries the quantities verbatim and keeps the holes beside the rows', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        requirements: [ROW],
+                        not_computable: { days: 2, reasons: { plan_has_no_menu: 2 } },
+                    },
+                    meta: REQUIREMENTS_META,
+                },
+            },
+        ]);
+
+        const answer = await repository.listRequirements({
+            from: '2026-09-07',
+            to: '2026-09-20',
+            branchId: BRANCH_UUID as never,
+        });
+
+        expect(answer.requirements).toEqual([
+            {
+                ingredientId: ROW.ingredient_id,
+                stockItemId: ROW.stock_item_id,
+                code: 'sku-flour',
+                nameEn: 'Flour',
+                unitId: ROW.unit_id,
+                unitCode: 'kg',
+                required: '10.000000',
+                available: '2.0000',
+                short: '8.0000',
+                suggestedBuy: '8.0000',
+            },
+        ]);
+        expect(answer.notComputable).toEqual({ days: 2, reasons: { plan_has_no_menu: 2 } });
+        expect(answer.meta).toEqual({
+            from: '2026-09-07',
+            to: '2026-09-20',
+            branchId: BRANCH_UUID,
+            maxWindowDays: 31,
+        });
+    });
+
+    it('keeps a null unit as null rather than inventing a label for it', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        requirements: [{ ...ROW, unit_id: null, unit_code: null }],
+                        not_computable: { days: 0, reasons: {} },
+                    },
+                    meta: REQUIREMENTS_META,
+                },
+            },
+        ]);
+
+        const answer = await repository.listRequirements({
+            from: '2026-09-07',
+            to: '2026-09-20',
+            branchId: BRANCH_UUID as never,
+        });
+
+        expect(answer.requirements[0]?.unitId).toBeNull();
+        expect(answer.requirements[0]?.unitCode).toBeNull();
+    });
+
+    it('omits branch_id entirely from the badge when there is none, and keeps the null count null', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: { shortfall_count: null, branch_id: null },
+                    meta: { correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903' },
+                },
+            },
+        ]);
+
+        const answer = await repository.countRequirementShortfalls();
+
+        // `branch_id=` would be a caller naming a field it has no value for; the endpoint's whole
+        // answer to "no branch" is a null count rather than a refusal.
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/requirements/shortfall-count');
+        // Never coalesced to zero: that single `??` would turn "unknowable" into "all in stock".
+        expect(answer).toEqual({ count: null, branchId: null });
+    });
+
+    it('sends the branch when there is one, and answers the count', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: { shortfall_count: 3, branch_id: BRANCH_UUID },
+                    meta: { correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4904' },
+                },
+            },
+        ]);
+
+        const answer = await repository.countRequirementShortfalls(BRANCH_UUID as never);
+
+        expect(calls[0]?.path).toBe(
+            `/catalogue/order-desk/requirements/shortfall-count?branch_id=${BRANCH_UUID}`,
+        );
+        expect(answer).toEqual({ count: 3, branchId: BRANCH_UUID });
+    });
+
+    it('answers zero as zero, which is a different fact from null', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: { shortfall_count: 0, branch_id: BRANCH_UUID },
+                    meta: { correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4905' },
+                },
+            },
+        ]);
+
+        expect((await repository.countRequirementShortfalls(BRANCH_UUID as never)).count).toBe(0);
+    });
+});
+
 describe('createApiOrderDeskRepository — listDrivers', () => {
     const DRIVERS_META = {
         correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',

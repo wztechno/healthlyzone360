@@ -3849,6 +3849,51 @@ export const zOrderDeskCalendarEnvelope = z.object({
     }))
 });
 
+export const zOrderDeskRequirementRow = z.object({
+    ingredient_id: zUuid,
+    stock_item_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_code: z.string().nullable(),
+    required: z.string(),
+    available: z.string(),
+    short: z.string(),
+    suggested_buy: z.string()
+});
+
+/**
+ * The part of the window nobody could turn into a number. **Never a zero
+ * in the list above** — "buy nothing for that" and "we could not work out
+ * what to buy for that" are opposite statements.
+ *
+ */
+export const zOrderDeskNotComputable = z.object({
+    days: z.int().gte(0),
+    reasons: z.record(z.string(), z.int().gte(1))
+});
+
+export const zOrderDeskRequirementsEnvelope = z.object({
+    data: z.object({
+        requirements: z.array(zOrderDeskRequirementRow),
+        not_computable: zOrderDeskNotComputable
+    }),
+    meta: zMeta.and(z.object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        branch_id: zUuid,
+        max_window_days: z.int()
+    }))
+});
+
+export const zOrderDeskShortfallCountEnvelope = z.object({
+    data: z.object({
+        shortfall_count: z.int().gte(0).nullable(),
+        branch_id: zUuid.nullable()
+    }),
+    meta: zMeta
+});
+
 export const zOrderDeskDriver = z.object({
     user_id: zUuid,
     display_name: z.string().nullable()
@@ -10508,6 +10553,36 @@ export const zGetOrderDeskCalendarQuery = z.object({
  * Every day of the window, each with its three counts and their split by slot.
  */
 export const zGetOrderDeskCalendarResponse = zOrderDeskCalendarEnvelope;
+
+export const zGetOrderDeskRequirementsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskRequirementsQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    branch_id: zUuid
+});
+
+/**
+ * The window's requirements against one branch, and the part of it nobody could compute.
+ */
+export const zGetOrderDeskRequirementsResponse = zOrderDeskRequirementsEnvelope;
+
+export const zGetOrderDeskShortfallCountHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskShortfallCountQuery = z.object({
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The count, or null when no branch was named.
+ */
+export const zGetOrderDeskShortfallCountResponse = zOrderDeskShortfallCountEnvelope;
 
 export const zListOrderDeskDriversHeaders = z.object({
     'X-Organisation-Id': zUuid,

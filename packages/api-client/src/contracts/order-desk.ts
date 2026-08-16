@@ -392,6 +392,113 @@ export interface OrderDeskCalendarFilters {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * What to buy for it
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * One shelf the window needs something of.
+ *
+ * Every quantity is a **decimal string**, not a number, and for the reason every other quantity on
+ * this client is: a `numeric` column crossed through IEEE-754 is a quantity that stops being the one
+ * the server computed. `required` carries six places (the scale the recipe explosion works at) while
+ * `available`, `short` and `suggestedBuy` carry four (the scale the stock column stores). The
+ * difference is deliberate on the server's side — see the operation — and is passed through here
+ * rather than normalised, because rounding a figure to make two columns agree is inventing one.
+ *
+ * `unitCode` is null when the shelf has no resolved unit. That is a genuine unknown and takes the em
+ * dash; the quantities beside it are still real.
+ */
+export interface OrderDeskRequirement {
+    readonly ingredientId: string;
+    readonly stockItemId: string;
+    /** The shelf's own code. Rows arrive ordered by it. */
+    readonly code: string;
+    /**
+     * The shelf's name, English only — `stock_items` carries one name column, the same field the
+     * stock levels list serves as `item_name_en`. Not a translation this operation withheld.
+     */
+    readonly nameEn: string;
+    readonly unitId: string | null;
+    readonly unitCode: string | null;
+    /** How much the window needs, six decimal places. */
+    readonly required: string;
+    /** What the branch holds, four places. `0` is a shelf holding none — never an unknown. */
+    readonly available: string;
+    /** `max(0, required − available)`, four places. Zero is a true zero. */
+    readonly short: string;
+    /** What to order: buy-up-to-par where a par is set, the bare shortfall otherwise. */
+    readonly suggestedBuy: string;
+}
+
+/**
+ * The part of the window nobody could turn into a number.
+ *
+ * **Never render this as a zero in the table.** "Buy nothing for that" and "we could not work out
+ * what to buy for that" are opposite statements, and the whole reason this arrives as a separate
+ * object rather than as rows with empty quantities is that a client cannot then merge them by
+ * accident.
+ *
+ * `days` counts distinct **dates**, not demand items: two orders and a subscription day all failing
+ * on one Tuesday is one day the buy list is incomplete for. `reasons` counts, per code, the days
+ * that code spoiled — so an elaborate recipe failing on one day does not outweigh a simple one.
+ *
+ * `reasons` is an open map on purpose. The server's vocabulary today is `plan_has_no_menu`,
+ * `menu_dish_withdrawn`, `meal_has_no_recipe`, `no_yield_piece_count`, `unquantified_recipe_line`,
+ * `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and `unit_conversion_unsupported`; a code
+ * added later must reach a screen as data rather than as a parse failure, so a renderer looks its
+ * label up with a fallback to the code itself.
+ */
+export interface OrderDeskNotComputable {
+    readonly days: number;
+    readonly reasons: Readonly<Record<string, number>>;
+}
+
+/** What the server answered against, echoed because a buy list for the wrong shelf looks identical. */
+export interface OrderDeskRequirementsMeta {
+    /** `YYYY-MM-DD`, inclusive. */
+    readonly from: string;
+    /** `YYYY-MM-DD`, inclusive. */
+    readonly to: string;
+    /** The branch the `available` column is about. Always present — the operation requires it. */
+    readonly branchId: string;
+    /** The longest window this operation will answer, counted inclusively. */
+    readonly maxWindowDays: number;
+}
+
+/** A branch's buy list for a window, and the part of that window nobody could compute. */
+export interface OrderDeskRequirements {
+    readonly requirements: readonly OrderDeskRequirement[];
+    readonly notComputable: OrderDeskNotComputable;
+    readonly meta: OrderDeskRequirementsMeta;
+}
+
+export interface OrderDeskRequirementsFilters {
+    /** `YYYY-MM-DD`, inclusive. Required. */
+    readonly from: string;
+    /** `YYYY-MM-DD`, inclusive. Not before `from`, and no more than `maxWindowDays` after it. */
+    readonly to: string;
+    /**
+     * **Required, unlike every other filter on this contract.** Half the answer is `available`, and
+     * there is no honest organisation-wide value for a quantity on a shelf. The branch narrows
+     * availability only — the demand stays the whole organisation's book.
+     */
+    readonly branchId: BranchId;
+}
+
+/**
+ * The badge behind the buy list: how many ingredients the next seven days are short of.
+ *
+ * **`count` is `null` when no branch was named, and null is not zero.** Zero shortfalls is good
+ * news; not knowing is not news at all, so a badge renders *nothing* for null rather than a
+ * reassuring `0`. The window is fixed at seven days server-side and takes no parameter, so two
+ * people looking at one hub cannot disagree about how bad things are.
+ */
+export interface OrderDeskShortfallCount {
+    readonly count: number | null;
+    readonly branchId: string | null;
+}
+
+/* ------------------------------------------------------------------------------------------------
  * The people a run can be given to
  * ---------------------------------------------------------------------------------------------- */
 
@@ -705,6 +812,38 @@ export interface OrderDeskRepository {
      * screen bound its next request instead of discovering the ceiling by hitting it.
      */
     listCalendar(filters: OrderDeskCalendarFilters): Promise<OrderDeskCalendar>;
+
+    /**
+     * What one branch must buy to cook a window, and the part of that window nobody could compute.
+     *
+     * `branchId` is **required** here where it is optional everywhere else on this contract, and the
+     * signature enforces it rather than leaving it to the server's `422`: a screen that could ask
+     * this question without a branch would have to decide what an organisation-wide `available`
+     * means, and there is no answer — summing three sites' shelves says a kitchen has flour while
+     * the one that needs it has none.
+     *
+     * Answers {@link OrderDeskRequirements} rather than a bare array for the calendar's reason, plus
+     * one of its own: `notComputable` must arrive *beside* the rows rather than inside them, because
+     * a hole rendered as a zero quantity is the single worst mistake a buy list can make.
+     *
+     * The window is capped server-side at `meta.maxWindowDays` (thirty-one at the time of writing —
+     * shorter than the calendar's sixty, because a buy list beyond a month is speculation) and a
+     * longer one is a `422` naming `to` rather than a silent truncation.
+     */
+    listRequirements(filters: OrderDeskRequirementsFilters): Promise<OrderDeskRequirements>;
+
+    /**
+     * How many ingredients the next seven days are short of — the hub badge.
+     *
+     * `branchId` is optional here and required on {@link OrderDeskRepository.listRequirements}, which
+     * is the whole point: a badge nobody asked for must not be an error because the manager holds an
+     * organisation-wide membership. Omitted, the answer is `count: null`, and **a null count renders
+     * as nothing at all** — see {@link OrderDeskShortfallCount}.
+     *
+     * The window is the server's and takes no parameter. Cheap enough to poll on a hub, and answered
+     * against the application clock rather than the branch's.
+     */
+    countRequirementShortfalls(branchId?: BranchId | undefined): Promise<OrderDeskShortfallCount>;
 
     /**
      * The people {@link OrderDeskRepository.assignDeliveryJob} will accept.

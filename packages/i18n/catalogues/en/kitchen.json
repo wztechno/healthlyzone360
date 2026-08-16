@@ -39,7 +39,8 @@
             "publishedMeals": "Published meals",
             "deliveryZones": "Delivery zones",
             "lowStock": "Low stock",
-            "consumptionExceptions": "Consumption exceptions"
+            "consumptionExceptions": "Consumption exceptions",
+            "requirementShortfalls": "Short for the week"
         }
     },
     "nav": {
@@ -470,6 +471,49 @@
                 "no_ingredient_cost": "No cost to value COGS",
                 "insufficient_stock": "Not enough stock"
             }
+        },
+        "requirements": {
+            "title": "Requirements",
+            "subtitle": "Every ingredient the window needs, weighed against one branch's shelf. Nothing here is ordered — this is the list to order from.",
+            "emptyTitle": "Nothing to buy yet",
+            "emptyBody": "Once this branch has orders or subscription days in the window, the ingredients behind them appear here.",
+            "metrics": {
+                "ingredients": "Ingredients",
+                "short": "Short",
+                "notComputable": "Days not computable"
+            },
+            "columnIngredient": "Ingredient",
+            "columnRequired": "Required",
+            "columnAvailable": "Available",
+            "columnShort": "Short",
+            "columnSuggestedBuy": "Suggested buy",
+            "columnUnit": "Unit",
+            "shortBadge": "Short",
+            "filterFrom": "From",
+            "filterTo": "To",
+            "branchRequiredTitle": "Choose a branch first",
+            "branchRequiredBody": "A buy list compares what the days ahead need against what is on one branch's shelf, so it needs to know which shelf. Select a branch to see it.",
+            "windowInvalidTitle": "Name a window",
+            "windowInvalidBody": "Both dates are YYYY-MM-DD, and the second cannot come before the first. A window may be up to 31 days.",
+            "noRowsTitle": "Nothing to buy for this window",
+            "noRowsBody": "No order, meal choice or menu day in these dates needs an ingredient. Widen the window to see further ahead.",
+            "notComputableBody": "Part of this window could not be turned into a quantity. It is left out of the list above rather than counted as nothing.",
+            "shortfallCount_one": "{{count}} ingredient short in the next 7 days",
+            "shortfallCount_other": "{{count}} ingredients short in the next 7 days",
+            "notComputableTitle_one": "{{count}} day could not be worked out",
+            "notComputableTitle_other": "{{count}} days could not be worked out",
+            "reasonEntry": "{{reason}} ({{days}})",
+            "reason": {
+                "plan_has_no_menu": "Plan has no menu",
+                "menu_dish_withdrawn": "Menu dish withdrawn",
+                "meal_has_no_recipe": "Meal has no recipe",
+                "no_yield_piece_count": "Recipe states no yield",
+                "unquantified_recipe_line": "Recipe line has no quantity",
+                "no_ingredient_link": "Product links no ingredient",
+                "no_stock_item": "Ingredient has no shelf",
+                "no_stock_unit": "Shelf has no unit",
+                "unit_conversion_unsupported": "Units will not convert"
+            }
         }
     },
     "kds": {
@@ -885,6 +929,10 @@
         "orderCalendar": {
             "name": "Order calendar",
             "description": "The week ahead on three books — orders placed, deliveries claimed, and what the subscriptions are expected to bring."
+        },
+        "orderRequirements": {
+            "name": "Requirements",
+            "description": "What this branch must buy to cook the days ahead — every ingredient the window needs, against what is on the shelf."
         }
     },
     "analytics": {

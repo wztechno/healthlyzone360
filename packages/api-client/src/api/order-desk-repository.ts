@@ -1,3 +1,5 @@
+import type { BranchId } from '@healthy360/domain-types';
+
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
     AddOrderDeskCustomerAddressRequest,
@@ -15,7 +17,10 @@ import type {
     OrderDeskQueueFilters,
     OrderDeskQuote,
     OrderDeskRepository,
+    OrderDeskRequirements,
+    OrderDeskRequirementsFilters,
     OrderDeskSaleRequest,
+    OrderDeskShortfallCount,
     PlaceOrderDeskSaleRequest,
 } from '../contracts/order-desk.ts';
 import type {
@@ -31,8 +36,10 @@ import type {
     OrderDeskDriversEnvelope,
     OrderDeskQuote as WireOrderDeskQuote,
     OrderDeskQueueEnvelope,
+    OrderDeskRequirementsEnvelope,
     OrderDeskRow as WireOrderDeskRow,
     OrderDeskSaleBase,
+    OrderDeskShortfallCountEnvelope,
     PlaceOrderDeskRequest,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
@@ -45,9 +52,13 @@ import {
     mapOrderDeskCustomerAddress,
     mapOrderDeskCustomerCreated,
     mapOrderDeskDriver,
+    mapOrderDeskNotComputable,
     mapOrderDeskQueueMeta,
     mapOrderDeskQueueRow,
     mapOrderDeskQuote,
+    mapOrderDeskRequirement,
+    mapOrderDeskRequirementsMeta,
+    mapOrderDeskShortfallCount,
 } from './order-desk-mappers.ts';
 import type { Transport } from './transport.ts';
 
@@ -160,6 +171,22 @@ function calendarQuery(filters: OrderDeskCalendarFilters): string {
     return `?${search.toString()}`;
 }
 
+/**
+ * The buy list's query string.
+ *
+ * All three parameters are set unconditionally, `branch_id` included — this is the one order-desk
+ * operation that requires it, because half the answer is a quantity on a shelf and there is no
+ * organisation-wide shelf. The signature already made it non-optional; this is where that promise
+ * becomes a request.
+ */
+function requirementsQuery(filters: OrderDeskRequirementsFilters): string {
+    return `?${new URLSearchParams({
+        from: filters.from,
+        to: filters.to,
+        branch_id: String(filters.branchId),
+    }).toString()}`;
+}
+
 /** The lock version as an entity tag, matching `kitchen-orders-repository.ts`'s `ifMatch`. */
 function ifMatch(lockVersion: number): Readonly<Record<string, string>> {
     return { 'If-Match': `"${lockVersion}"` };
@@ -234,6 +261,44 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 days: payload.data.days.map(mapCalendarDay),
                 meta: mapCalendarMeta(payload.meta as OrderDeskCalendarEnvelope['meta']),
             };
+        },
+
+        async listRequirements(
+            filters: OrderDeskRequirementsFilters,
+        ): Promise<OrderDeskRequirements> {
+            const payload = await transport.requestEnvelope<OrderDeskRequirementsEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/requirements${requirementsQuery(filters)}`,
+            });
+
+            return {
+                requirements: payload.data.requirements.map(mapOrderDeskRequirement),
+                // Kept beside the rows rather than folded into them. A hole is not a zero, and the
+                // one place a client could confuse the two is right here.
+                notComputable: mapOrderDeskNotComputable(payload.data.not_computable),
+                meta: mapOrderDeskRequirementsMeta(
+                    payload.meta as OrderDeskRequirementsEnvelope['meta'],
+                ),
+            };
+        },
+
+        async countRequirementShortfalls(
+            branchId?: BranchId | undefined,
+        ): Promise<OrderDeskShortfallCount> {
+            // Omitted rather than sent empty when there is no branch: `branch_id=` is a caller
+            // naming a field it has no value for, and the endpoint's whole answer to "no branch" is
+            // a `null` count rather than a refusal.
+            const query =
+                branchId === undefined ? '' : `?branch_id=${encodeURIComponent(String(branchId))}`;
+
+            const envelope = await transport.requestEnvelope<
+                OrderDeskShortfallCountEnvelope['data']
+            >({
+                method: 'GET',
+                path: `/catalogue/order-desk/requirements/shortfall-count${query}`,
+            });
+
+            return mapOrderDeskShortfallCount(envelope.data);
         },
 
         async listDrivers(): Promise<OrderDeskDrivers> {
