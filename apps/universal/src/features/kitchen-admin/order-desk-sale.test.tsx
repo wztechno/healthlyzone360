@@ -146,6 +146,9 @@ function placedOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         deliveryFeeMinor: null,
         totalMinor: 3_200,
         paymentMethod: 'cash_at_counter',
+        // A walk-in: the wizard's own starting shape, and the one whose order comes back already
+        // fulfilled — which is what the completed step asserts about.
+        fulfilmentType: 'counter',
         delivery: {
             label: null,
             lineOne: null,

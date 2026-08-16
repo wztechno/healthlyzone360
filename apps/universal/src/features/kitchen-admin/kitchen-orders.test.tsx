@@ -86,6 +86,7 @@ function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         deliveryFeeMinor: null,
         totalMinor: 5_000,
         paymentMethod: 'cash_on_delivery',
+        fulfilmentType: 'delivery',
         delivery: DELIVERY,
         placedAt: '2026-08-06T07:12:00Z',
         confirmedAt: null,

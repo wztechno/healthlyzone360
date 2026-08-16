@@ -108,13 +108,29 @@ export function useKitchenOrderQuery(
     });
 }
 
-/** Seeds the fresh record into its own entry, then invalidates every list. See the module note. */
+/**
+ * Seeds the fresh record into its own entry, then invalidates every list that shows it. See the
+ * module note.
+ *
+ * **Two roots, named explicitly.** The same order is listed by the order book and by the Order Desk
+ * queue through two endpoints with two different sorts, and `query-keys.ts` keeps them as separate
+ * roots precisely so a fifteen-second poll on one does not evict the other. The cost of that
+ * separation is this second line: a lifecycle write changes the status the desk queue draws and the
+ * window a confirmed order falls into, so a desk left holding the old row would offer "Confirm" on
+ * an order somebody at the book already confirmed. Naming both is a decision a reader can see,
+ * rather than a coupling that happens to hold — and it is the same pair
+ * `usePlaceOrderDeskSaleMutation` names for the same reason.
+ *
+ * Invalidating a root nothing is subscribed to costs nothing, so the order book pays no price for
+ * keeping the desk honest.
+ */
 function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
     const queryClient = useQueryClient();
 
     return (order: KitchenOrder) => {
         queryClient.setQueryData(queryKeys.kitchenOrders.order(order.id), order);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
     };
 }
 

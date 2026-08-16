@@ -104,6 +104,10 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         deliveryFeeMinor: wire.delivery_fee_minor,
         totalMinor: wire.total_minor,
         paymentMethod: wire.payment_method,
+        // Read literally rather than defaulted to `'delivery'`: the column's *database* default is
+        // delivery, and repeating that here would turn a wire fault into a confident claim that an
+        // order nobody is driving anywhere is going out on a van.
+        fulfilmentType: wire.fulfilment_type,
         delivery: mapDelivery(wire.delivery),
         placedAt: wire.placed_at,
         confirmedAt: wire.confirmed_at,

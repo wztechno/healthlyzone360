@@ -407,6 +407,7 @@ export type {
 
 export {
     KITCHEN_ORDER_CANCELLATION_REASONS,
+    KITCHEN_ORDER_FULFILMENT_TYPES,
     KITCHEN_ORDER_OPEN_STATUSES,
     KITCHEN_ORDER_PAYMENT_METHODS,
     KITCHEN_ORDER_STATUSES,
@@ -417,6 +418,7 @@ export type {
     KitchenOrderCancellationReason,
     KitchenOrderDelivery,
     KitchenOrderFilters,
+    KitchenOrderFulfilmentType,
     KitchenOrderLine,
     KitchenOrderLineAllergen,
     KitchenOrderPage,
@@ -434,6 +436,8 @@ export {
 } from './order-desk.ts';
 export type {
     AddOrderDeskCustomerAddressRequest,
+    AssignDeliveryJobRequest,
+    AssignedDeliveryJob,
     CreateOrderDeskCustomerRequest,
     OrderDeskBasketLine,
     OrderDeskCounterPayment,
@@ -464,6 +468,7 @@ export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs
 export type {
     DeliverDriverJobRequest,
     DriverJob,
+    DriverJobDelivery,
     DriverJobStatus,
     DriverJobsRepository,
     DriverJobTrackingStatus,

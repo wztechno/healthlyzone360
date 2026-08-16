@@ -56,7 +56,11 @@ import { useAccessState, useSession } from '../../../session/session-provider.ts
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_CREATE_ON_BEHALF_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
-import { kitchenOrderStatusKey, kitchenOrderStatusTone } from '../ops-format.ts';
+import {
+    kitchenOrderPaymentMethodKey,
+    kitchenOrderStatusKey,
+    kitchenOrderStatusTone,
+} from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import {
     MAX_LINE_QUANTITY,
@@ -181,12 +185,6 @@ const STEP_LABEL_KEYS: Readonly<Record<OrderDeskSaleStep, string>> = {
     basket: 'kitchen:desk.sale.step.basket',
     payment: 'kitchen:desk.sale.step.payment',
     review: 'kitchen:desk.sale.step.review',
-};
-
-const PAYMENT_METHOD_LABEL_KEYS: Readonly<Record<KitchenOrderPaymentMethod, string>> = {
-    cash_on_delivery: 'kitchen:desk.sale.method.cashOnDelivery',
-    cash_at_counter: 'kitchen:desk.sale.method.cashAtCounter',
-    wish: 'kitchen:desk.sale.method.wish',
 };
 
 /**
@@ -1418,7 +1416,7 @@ function PaymentStep({
                     }}
                     items={paymentMethodsFor(state.fulfilmentType).map((candidate) => ({
                         value: candidate,
-                        label: t(PAYMENT_METHOD_LABEL_KEYS[candidate]),
+                        label: t(kitchenOrderPaymentMethodKey(candidate)),
                         testID: `kitchen-order-desk-sale-payment-method-${candidate}`,
                     }))}
                 />
@@ -1512,7 +1510,7 @@ function ReviewStep({
                 {state.fulfilmentType === 'counter' ? (
                     <Text testID="kitchen-order-desk-sale-review-method">
                         {t('kitchen:desk.sale.reviewMethod', {
-                            method: t(PAYMENT_METHOD_LABEL_KEYS[state.paymentMethod]),
+                            method: t(kitchenOrderPaymentMethodKey(state.paymentMethod)),
                         })}
                     </Text>
                 ) : (
@@ -1527,7 +1525,7 @@ function ReviewStep({
                         onChange={onMethod}
                         items={paymentMethodsFor(state.fulfilmentType).map((candidate) => ({
                             value: candidate,
-                            label: t(PAYMENT_METHOD_LABEL_KEYS[candidate]),
+                            label: t(kitchenOrderPaymentMethodKey(candidate)),
                             testID: `kitchen-order-desk-sale-review-method-${candidate}`,
                         }))}
                     />

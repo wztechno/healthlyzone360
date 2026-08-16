@@ -84,7 +84,11 @@ export type KitchenOrderCancellationReason = (typeof KITCHEN_ORDER_CANCELLATION_
  * This is the **intent** captured when the order was placed; how the money actually turned up is on
  * the order's payment receipts, which are deliberately not constrained to agree with it.
  */
-export const KITCHEN_ORDER_PAYMENT_METHODS = ['cash_on_delivery', 'cash_at_counter', 'wish'] as const;
+export const KITCHEN_ORDER_PAYMENT_METHODS = [
+    'cash_on_delivery',
+    'cash_at_counter',
+    'wish',
+] as const;
 export type KitchenOrderPaymentMethod = (typeof KITCHEN_ORDER_PAYMENT_METHODS)[number];
 
 export interface KitchenOrderLineAllergen {
@@ -142,6 +146,22 @@ export interface KitchenOrderDelivery {
     readonly zoneId: DeliveryZoneId | null;
 }
 
+/**
+ * How this order leaves the kitchen, decided at placement and **never afterwards**.
+ *
+ * Not a delivery *status*: where an order has got to is {@link KitchenOrderStatus}, which moves,
+ * and this never does. An order taken for delivery and collected by an impatient customer is a
+ * delivery that was handed over early — rewriting the type would leave the fee already snapshotted
+ * on the row unexplainable.
+ *
+ * `delivery` is the column's default, so every order placed before this vocabulary existed carries
+ * it. The desk's own {@link OrderDeskFulfilmentType} is the same three values in a different order
+ * (counter first, because that is the sale a counter makes most often) and is proved to be the same
+ * set by a `satisfies` in `order-desk.ts` — one vocabulary, two orderings, no drift.
+ */
+export const KITCHEN_ORDER_FULFILMENT_TYPES = ['delivery', 'pickup', 'counter'] as const;
+export type KitchenOrderFulfilmentType = (typeof KITCHEN_ORDER_FULFILMENT_TYPES)[number];
+
 export interface KitchenOrder {
     readonly id: OrderId;
     /** The human-quotable reference — what a customer reads over the phone. Unique platform-wide. */
@@ -154,6 +174,12 @@ export interface KitchenOrder {
     readonly deliveryFeeMinor: number | null;
     readonly totalMinor: number;
     readonly paymentMethod: KitchenOrderPaymentMethod;
+    /**
+     * Which of the three shapes this order is. Never null on the wire — the column has a default and
+     * a CHECK behind it — and it is what tells a screen that {@link KitchenOrderDelivery} being all
+     * nulls is a *collection* rather than a delivery missing its address.
+     */
+    readonly fulfilmentType: KitchenOrderFulfilmentType;
     readonly delivery: KitchenOrderDelivery;
     readonly placedAt: IsoDateTime;
     readonly confirmedAt: IsoDateTime | null;

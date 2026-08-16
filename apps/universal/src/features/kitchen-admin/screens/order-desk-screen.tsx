@@ -1,4 +1,6 @@
 import type {
+    KitchenOrder,
+    KitchenOrderLine,
     OrderDeskQueueFilters,
     OrderDeskQueueRow,
     OrderDeskQueueStatus,
@@ -10,6 +12,7 @@ import {
     Button,
     Callout,
     Card,
+    Drawer,
     EmptyState,
     ErrorState,
     FilterChip,
@@ -22,6 +25,7 @@ import {
     Table,
     Text,
     TextInputField,
+    useToast,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -29,16 +33,30 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import {
+    useConfirmOrderMutation,
+    useFulfilOrderMutation,
+    useKitchenOrderQuery,
+} from '../../../data/kitchen-orders-hooks.ts';
 import { useOrderDeskQueueQuery } from '../../../data/order-desk-hooks.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
+import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
 import {
+    canConfirmKitchenOrder,
+    canFulfilKitchenOrder,
+    deliveryJobStatusKey,
+    deliveryJobTrackingKey,
+    kitchenOrderFulfilmentTypeKey,
+    kitchenOrderPaymentMethodKey,
     kitchenOrderStatusKey,
     kitchenOrderStatusTone,
+    orderDeskDeliveryState,
+    orderDeskDeliveryStateKey,
+    orderDeskDeliveryStateTone,
     orderDeskDueTone,
     orderDeskRowTestId,
 } from '../ops-format.ts';
@@ -57,11 +75,46 @@ import {
  * and a header that reordered two hundred rows locally would quietly answer a different question
  * from the one the screen exists to answer.
  *
- * ## What it does not do yet
+ * ## The drawer re-reads the order it was opened from — and keeps the row it was opened from
  *
- * Nothing on a row is pressable. The detail drawer, the payment column and the delivery column all
- * arrive with the slices that give them something to show; a row that opened nothing, or an
- * `onPress` with an empty body, would be a dead control shipped as a placeholder.
+ * Two reads, and each answers something the other cannot. The **detail** read
+ * (`useKitchenOrderQuery`) is what the transitions send `If-Match` from: the version a queue row was
+ * rendered from can be a poll or two old, and sending it would earn a `resource.conflict` the person
+ * did nothing to deserve. This is `orders-screen.tsx`'s rule, and the write responses are seeded
+ * straight back into that entry by the hook, which is what lets "Fulfil" fire immediately after
+ * "Confirm" with a version the server will accept.
+ *
+ * The **row** is kept because the detail endpoint does not serve a delivery job or a payment
+ * position at all — those live only on the queue's own row. So the drawer holds the row it was
+ * opened from and re-reads it out of the live queue on every poll, falling back to the last known
+ * copy when the order leaves the queue (which is exactly what fulfilling it does). A drawer that
+ * dropped its delivery block the instant the agent closed the order would look like a fault.
+ *
+ * ## Closing is offered on evidence, not gated on it
+ *
+ * "Fulfil" means *the customer has it*, and on a delivery the only evidence of that is the driver's
+ * own stamp — which arrives on the job's tracking axis, minutes after it happened, and sometimes not
+ * at all when a phone is in a pocket in a lift. So the desk is **not blocked** on
+ * `tracking_status === 'delivered'`: an agent on the telephone to a customer who has the food in
+ * their hands knows something the board does not. What the drawer does instead is put the tracking
+ * status *beside* the button, so the close is made informed rather than blind.
+ *
+ * A counter sale never reaches this drawer needing anything: it arrives already `fulfilled` and
+ * therefore is not in the open queue at all.
+ *
+ * ## The delivery column, and the assignment that is not here
+ *
+ * The column reads {@link orderDeskDeliveryState} — five states, four of which this queue meets
+ * often (see `ops-format.ts` for what each one means and why none collapses into another).
+ *
+ * **There is no Assign control on this screen, and its absence is a wire gap rather than a
+ * decision.** `POST /delivery/jobs/{job}/assign` takes a `driver_user_id` that must name an active
+ * member of the organisation, and **no endpoint on this platform lists an organisation's members** —
+ * not `/me/memberships` (the caller's own), not the invitations index (offers by email, gated behind
+ * `membership.view_organisation`, and blind to anybody who joined another way). So a picker here
+ * could only offer a free-text box for a UUID, which is not a control anybody can use correctly and
+ * is a way to hand tonight's run to a typo. `orderDesk.assignDeliveryJob` is implemented and tested
+ * on the client and is waiting for a directory to point at.
  *
  * ## The queue is organisation-wide, and that is a decision rather than an omission
  *
@@ -118,6 +171,26 @@ const WINDOW_LABEL_KEYS: Readonly<Record<OrderDeskWindow, string>> = {
  */
 const EM_DASH = '—';
 
+/** One labelled fact in the drawer. Never a table: these are pairs, not a dataset. */
+function DetailRow({
+    testID,
+    label,
+    value,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly value: string;
+}) {
+    return (
+        <Inline space="sm" align="start" justify="between" wrap>
+            <Text tone="secondary" variant="caption">
+                {label}
+            </Text>
+            <Text testID={testID}>{value}</Text>
+        </Inline>
+    );
+}
+
 export function OrderDeskScreen() {
     return (
         <Gate
@@ -163,11 +236,21 @@ function OrderDeskQueueList() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const toast = useToast();
     const { online } = useOnlineStatus();
+    const canManage = useCan(ORDER_MANAGE_PERMISSION);
 
     const [deskWindow, setDeskWindow] = useState<OrderDeskWindow>('today');
     const [statuses, setStatuses] = useState<readonly OrderDeskQueueStatus[]>([]);
     const [query, setQuery] = useState('');
+    /**
+     * The row the drawer was opened from, held rather than looked up by identifier.
+     *
+     * Fulfilling an order takes it out of the open queue, so a `rows.find(…)` alone would empty the
+     * drawer at the moment of success. This is the last known copy; {@link selectedRow} prefers the
+     * live one whenever the queue still has it.
+     */
+    const [selected, setSelected] = useState<OrderDeskQueueRow | null>(null);
 
     const now = useTickingNow(ORDER_DESK_POLL_MS, online);
     const trimmed = query.trim();
@@ -192,10 +275,37 @@ function OrderDeskQueueList() {
         refetchInterval: online ? ORDER_DESK_POLL_MS : false,
     });
 
-    const rows = queue.data?.rows ?? [];
+    /**
+     * Memoised because {@link selectedRow} depends on it: `?? []` would mint a fresh empty array on
+     * every render, and the drawer would re-derive its row on every tick of the due clock.
+     */
+    const rows = useMemo<readonly OrderDeskQueueRow[]>(() => queue.data?.rows ?? [], [queue.data]);
     const meta = queue.data?.meta ?? null;
     const failure = toFailure(queue.error);
     const filtered = trimmed !== '' || statuses.length > 0 || deskWindow !== 'today';
+
+    /**
+     * The open row as the queue currently has it, or the copy the drawer was opened with.
+     *
+     * The fresh one while the order is still open — so a poll that lands a driver on the job updates
+     * the drawer under the agent's eyes — and the stale one once the order leaves the queue, which
+     * is what fulfilling it does. Neither is a lock version: the transitions read the detail for
+     * that.
+     */
+    const selectedRow = useMemo<OrderDeskQueueRow | null>(() => {
+        if (selected === null) return null;
+        return rows.find((row) => row.id === selected.id) ?? selected;
+    }, [rows, selected]);
+
+    const detail = useKitchenOrderQuery(selected?.id ?? null);
+    const confirmOrder = useConfirmOrderMutation();
+    const fulfilOrder = useFulfilOrderMutation();
+
+    const order = detail.data ?? null;
+    const detailFailure = toFailure(detail.error);
+    const actionPending = confirmOrder.isPending || fulfilOrder.isPending;
+    const actionFailure = toFailure(confirmOrder.error) ?? toFailure(fulfilOrder.error);
+    const isConflict = actionFailure?.code === 'resource.conflict';
 
     function toggleStatus(status: OrderDeskQueueStatus, selected: boolean) {
         setStatuses((current) =>
@@ -207,6 +317,47 @@ function OrderDeskQueueList() {
         setDeskWindow('today');
         setStatuses([]);
         setQuery('');
+    }
+
+    function clearActionState() {
+        confirmOrder.reset();
+        fulfilOrder.reset();
+    }
+
+    function openDetail(row: OrderDeskQueueRow) {
+        clearActionState();
+        setSelected(row);
+    }
+
+    function closeDetail() {
+        setSelected(null);
+        clearActionState();
+    }
+
+    /**
+     * Confirm or close, with the version the **detail** read answered.
+     *
+     * Never `selectedRow.lockVersion`: the row was rendered from a poll that may be fifteen seconds
+     * old, and the point of re-reading the order is to hold a validator the server will still
+     * accept.
+     */
+    function transition(action: 'confirm' | 'fulfil') {
+        if (order === null) return;
+        const request = { id: order.id, lockVersion: order.lockVersion };
+        const onSuccess = (next: KitchenOrder) => {
+            toast.show({
+                testID: `kitchen-order-desk-${action}ed-toast`,
+                tone: 'success',
+                message: t(
+                    action === 'confirm'
+                        ? 'kitchen:ops.orders.confirmedToast'
+                        : 'kitchen:ops.orders.fulfilledToast',
+                    { number: next.orderNumber },
+                ),
+            });
+        };
+        if (action === 'confirm') confirmOrder.mutate(request, { onSuccess });
+        else fulfilOrder.mutate(request, { onSuccess });
     }
 
     const columns: readonly TableColumn<OrderDeskQueueRow>[] = [
@@ -292,12 +443,144 @@ function OrderDeskQueueList() {
             ),
         },
         {
+            key: 'delivery',
+            header: t('kitchen:desk.columnDelivery'),
+            flex: 2,
+            render: (row) => {
+                const state = orderDeskDeliveryState(row);
+                const testID = `${orderDeskRowTestId(String(row.id))}-delivery`;
+
+                // A pickup or a counter sale is never driven anywhere, so the cell has nothing to
+                // say — the same em dash every other "nothing here" cell in this workspace uses,
+                // rather than a badge announcing the absence of a thing that was never coming.
+                if (state === 'not_delivered') {
+                    return (
+                        <Text
+                            tone="secondary"
+                            testID={testID}
+                            accessibilityLabel={t(
+                                'kitchen:desk.a11y.noDeliveryRun',
+                                // The type is what makes the dash meaningful to somebody who cannot
+                                // see the column beside it.
+                                { type: t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType)) },
+                            )}
+                        >
+                            {EM_DASH}
+                        </Text>
+                    );
+                }
+
+                return (
+                    <Stack space="none" testID={testID}>
+                        <Badge
+                            testID={`${testID}-state`}
+                            tone={orderDeskDeliveryStateTone(state)}
+                            label={t(orderDeskDeliveryStateKey(state))}
+                        />
+                        {/*
+                         * The tracking axis, and only when there is a run to have one. It is what
+                         * the *customer* has been told, which is a different fact from the dispatch
+                         * state above it and the one an agent quotes on the telephone.
+                         */}
+                        {row.deliveryJob === null ? null : (
+                            <Text variant="caption" tone="secondary" testID={`${testID}-tracking`}>
+                                {t(deliveryJobTrackingKey(row.deliveryJob.trackingStatus))}
+                            </Text>
+                        )}
+                    </Stack>
+                );
+            },
+        },
+        {
+            key: 'payment',
+            header: t('kitchen:desk.columnPayment'),
+            flex: 2,
+            render: (row) => {
+                const testID = `${orderDeskRowTestId(String(row.id))}-payment`;
+                return (
+                    <Stack space="none" testID={testID}>
+                        {/*
+                         * The order's *intended* method, which is what an agent asks the customer
+                         * for — read before any money arrives, so it is the leading line.
+                         */}
+                        <Text testID={`${testID}-method`}>
+                            {t(kitchenOrderPaymentMethodKey(row.payment.method))}
+                        </Text>
+                        {/*
+                         * "Receipted", never "paid". The platform holds no proof that money exists,
+                         * only that somebody wrote down that it arrived — and the outstanding case
+                         * shows the *shortfall* rather than a bare "no", because part-payments are
+                         * ordinary and the number is what the agent has to collect.
+                         */}
+                        {row.payment.receipted ? (
+                            <Badge
+                                testID={`${testID}-state`}
+                                tone="success"
+                                label={t('kitchen:desk.payment.receipted')}
+                            />
+                        ) : (
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID={`${testID}-outstanding`}
+                            >
+                                {t('kitchen:desk.payment.outstanding', {
+                                    amount: formatMoney(formatter, {
+                                        amount: row.totalMinor - row.payment.receivedMinor,
+                                        currency: row.currencyCode,
+                                    }),
+                                })}
+                            </Text>
+                        )}
+                    </Stack>
+                );
+            },
+        },
+        {
             key: 'total',
             header: t('kitchen:desk.columnTotal'),
             numeric: true,
             render: (row) => (
                 <Text variant="bodyStrong" testID={`${orderDeskRowTestId(String(row.id))}-total`}>
                     {formatMoney(formatter, { amount: row.totalMinor, currency: row.currencyCode })}
+                </Text>
+            ),
+        },
+    ];
+
+    const lineColumns: readonly TableColumn<KitchenOrderLine>[] = [
+        {
+            key: 'name',
+            header: t('kitchen:ops.orders.linesHeading'),
+            rowHeader: true,
+            flex: 2,
+            render: (line) => (
+                <Stack space="none">
+                    <Text variant="bodyStrong">{line.nameEn}</Text>
+                    {line.variantLabel === null ? null : (
+                        <Text variant="caption" tone="secondary">
+                            {line.variantLabel}
+                        </Text>
+                    )}
+                </Stack>
+            ),
+        },
+        {
+            key: 'quantity',
+            header: t('kitchen:ops.orders.lineQuantity'),
+            numeric: true,
+            render: (line) => <Text>{formatter.formatNumber(Number(line.quantity))}</Text>,
+        },
+        {
+            key: 'lineTotal',
+            header: t('kitchen:ops.orders.lineTotal'),
+            numeric: true,
+            render: (line) => (
+                <Text>
+                    {formatMoney(formatter, {
+                        amount: line.lineTotalMinor,
+                        currency: line.currencyCode,
+                    })}
                 </Text>
             ),
         },
@@ -483,9 +766,305 @@ function OrderDeskQueueList() {
                         columns={columns}
                         rows={rows}
                         rowKey={(row) => String(row.id)}
+                        rowAction={{
+                            header: t('kitchen:desk.columnActions'),
+                            render: (row) => (
+                                <Button
+                                    testID={`${orderDeskRowTestId(String(row.id))}-open`}
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:desk.open')}
+                                    onPress={() => {
+                                        openDetail(row);
+                                    }}
+                                />
+                            ),
+                        }}
                     />
                 </Stack>
             )}
+
+            <Drawer
+                testID="kitchen-order-desk-detail"
+                placement="end"
+                open={selected !== null}
+                onClose={closeDetail}
+                title={
+                    selectedRow === null
+                        ? t('kitchen:desk.title')
+                        : t('kitchen:ops.orders.detailTitle', { number: selectedRow.orderNumber })
+                }
+                className="w-[520px]"
+                footer={
+                    order === null || !canManage ? undefined : (
+                        <Inline space="sm" wrap justify="end" align="center">
+                            {/*
+                             * The driver's own axis, beside the button that closes the order rather
+                             * than instead of it. The desk is not blocked on a delivery stamp — see
+                             * the file header — so this is what makes the close an informed one.
+                             */}
+                            {selectedRow?.deliveryJob == null ||
+                            !canFulfilKitchenOrder(order.status) ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID="kitchen-order-desk-detail-fulfil-tracking"
+                                >
+                                    {t(
+                                        deliveryJobTrackingKey(
+                                            selectedRow.deliveryJob.trackingStatus,
+                                        ),
+                                    )}
+                                </Text>
+                            )}
+                            {canConfirmKitchenOrder(order.status) ? (
+                                <Button
+                                    testID="kitchen-order-desk-detail-confirm"
+                                    label={t('kitchen:ops.orders.confirm')}
+                                    loading={confirmOrder.isPending}
+                                    disabled={actionPending}
+                                    onPress={() => {
+                                        transition('confirm');
+                                    }}
+                                />
+                            ) : null}
+                            {canFulfilKitchenOrder(order.status) ? (
+                                <Button
+                                    testID="kitchen-order-desk-detail-fulfil"
+                                    label={t('kitchen:ops.orders.fulfil')}
+                                    loading={fulfilOrder.isPending}
+                                    disabled={actionPending}
+                                    onPress={() => {
+                                        transition('fulfil');
+                                    }}
+                                />
+                            ) : null}
+                        </Inline>
+                    )
+                }
+            >
+                {detail.isPending ? (
+                    <Skeleton testID="kitchen-order-desk-detail-loading" heightClassName="h-40" />
+                ) : detailFailure !== null ? (
+                    <ErrorState
+                        testID="kitchen-order-desk-detail-error"
+                        title={t('kitchen:ops.orders.detailLoadErrorTitle')}
+                        failure={detailFailure}
+                        onRetry={() => {
+                            void detail.refetch();
+                        }}
+                        retrying={detail.isFetching}
+                    />
+                ) : order === null ? null : (
+                    <Stack space="lg" testID="kitchen-order-desk-detail-body">
+                        <Inline space="sm" align="center" wrap>
+                            <Badge
+                                testID="kitchen-order-desk-detail-status"
+                                tone={kitchenOrderStatusTone(order.status)}
+                                label={t(kitchenOrderStatusKey(order.status))}
+                            />
+                            <Badge
+                                testID="kitchen-order-desk-detail-type"
+                                tone="neutral"
+                                icon={null}
+                                label={t(kitchenOrderFulfilmentTypeKey(order.fulfilmentType))}
+                            />
+                        </Inline>
+
+                        {actionFailure === null ? null : isConflict ? (
+                            // Somebody else moved this order. The remedy is to re-read and show
+                            // what actually happened — never a silent retry, which would resolve
+                            // the race in favour of whoever clicked last.
+                            <Callout
+                                testID="kitchen-order-desk-detail-conflict"
+                                tone="warning"
+                                role="alert"
+                                title={t('kitchen:ops.orders.conflictTitle')}
+                                body={t('kitchen:ops.orders.conflictBody')}
+                                actions={
+                                    <Button
+                                        testID="kitchen-order-desk-detail-conflict-refresh"
+                                        size="sm"
+                                        variant="secondary"
+                                        label={t('kitchen:ops.orders.conflictRefresh')}
+                                        loading={detail.isFetching}
+                                        onPress={() => {
+                                            clearActionState();
+                                            void detail.refetch();
+                                            void queue.refetch();
+                                        }}
+                                    />
+                                }
+                            />
+                        ) : (
+                            <Text testID="kitchen-order-desk-detail-action-error" tone="danger">
+                                {actionFailure.message}
+                            </Text>
+                        )}
+
+                        <Stack space="xs" testID="kitchen-order-desk-detail-payment">
+                            <Heading level={3}>{t('kitchen:desk.paymentHeading')}</Heading>
+                            <DetailRow
+                                testID="kitchen-order-desk-detail-payment-method"
+                                label={t('kitchen:desk.paymentMethod')}
+                                value={t(
+                                    kitchenOrderPaymentMethodKey(
+                                        selectedRow?.payment.method ?? order.paymentMethod,
+                                    ),
+                                )}
+                            />
+                            {/*
+                             * The receipt figures come from the queue row, because the detail
+                             * endpoint does not serve them: an order read on its own says what was
+                             * *intended*, and what has actually arrived is the queue's own column.
+                             */}
+                            {selectedRow === null ? null : (
+                                <>
+                                    <DetailRow
+                                        testID="kitchen-order-desk-detail-payment-received"
+                                        label={t('kitchen:desk.paymentReceived')}
+                                        value={formatMoney(formatter, {
+                                            amount: selectedRow.payment.receivedMinor,
+                                            currency: selectedRow.currencyCode,
+                                        })}
+                                    />
+                                    <DetailRow
+                                        testID="kitchen-order-desk-detail-payment-state"
+                                        label={t('kitchen:desk.paymentState')}
+                                        value={t(
+                                            selectedRow.payment.receipted
+                                                ? 'kitchen:desk.payment.receipted'
+                                                : 'kitchen:desk.payment.notReceipted',
+                                        )}
+                                    />
+                                </>
+                            )}
+                        </Stack>
+
+                        {/*
+                         * The run, and only for an order that has one to have. A pickup showing an
+                         * empty "Delivery" section would be a heading about nothing.
+                         */}
+                        {selectedRow === null ||
+                        orderDeskDeliveryState(selectedRow) === 'not_delivered' ? null : (
+                            <Stack space="xs" testID="kitchen-order-desk-detail-delivery">
+                                <Heading level={3}>{t('kitchen:desk.deliveryHeading')}</Heading>
+                                <DetailRow
+                                    testID="kitchen-order-desk-detail-delivery-state"
+                                    label={t('kitchen:desk.deliveryState')}
+                                    value={t(
+                                        orderDeskDeliveryStateKey(
+                                            orderDeskDeliveryState(selectedRow),
+                                        ),
+                                    )}
+                                />
+                                {selectedRow.deliveryJob === null ? null : (
+                                    <>
+                                        <DetailRow
+                                            testID="kitchen-order-desk-detail-delivery-status"
+                                            label={t('kitchen:desk.deliveryStatus')}
+                                            value={t(
+                                                deliveryJobStatusKey(
+                                                    selectedRow.deliveryJob.status,
+                                                ),
+                                            )}
+                                        />
+                                        <DetailRow
+                                            testID="kitchen-order-desk-detail-delivery-tracking"
+                                            label={t('kitchen:desk.deliveryTracking')}
+                                            value={t(
+                                                deliveryJobTrackingKey(
+                                                    selectedRow.deliveryJob.trackingStatus,
+                                                ),
+                                            )}
+                                        />
+                                        <DetailRow
+                                            testID="kitchen-order-desk-detail-delivery-assigned-at"
+                                            label={t('kitchen:desk.deliveryAssignedAt')}
+                                            // Null on a run nobody has taken — which the state row
+                                            // above has already said in words.
+                                            value={
+                                                selectedRow.deliveryJob.assignedAt === null
+                                                    ? t('kitchen:common.notRecorded')
+                                                    : formatter.formatDate(
+                                                          selectedRow.deliveryJob.assignedAt,
+                                                      )
+                                            }
+                                        />
+                                    </>
+                                )}
+                                {/*
+                                 * Said once, in the one place somebody would look for the control
+                                 * that is not there. The wire has the write; nothing on this
+                                 * platform can name the people it takes.
+                                 */}
+                                {orderDeskDeliveryState(selectedRow) === 'unassigned' ? (
+                                    <Callout
+                                        testID="kitchen-order-desk-detail-assign-unavailable"
+                                        tone="info"
+                                        role="status"
+                                        title={t('kitchen:desk.assignUnavailableTitle')}
+                                        body={t('kitchen:desk.assignUnavailableBody')}
+                                    />
+                                ) : null}
+                            </Stack>
+                        )}
+
+                        <Stack space="sm">
+                            <Heading level={3} testID="kitchen-order-desk-detail-lines-heading">
+                                {t('kitchen:ops.orders.linesHeading')}
+                            </Heading>
+                            {/*
+                             * No `rowAction` and no pressable rows: every control in this drawer is
+                             * in the footer, so nothing here can nest one interactive element
+                             * inside another.
+                             */}
+                            <Table<KitchenOrderLine>
+                                testID="kitchen-order-desk-detail-lines"
+                                caption={t('kitchen:ops.orders.linesHeading')}
+                                captionHidden
+                                columns={lineColumns}
+                                rows={order.lines}
+                                rowKey={(line) => line.id}
+                            />
+                        </Stack>
+
+                        <Stack space="xs" testID="kitchen-order-desk-detail-totals">
+                            <Heading level={3}>{t('kitchen:ops.orders.totalsHeading')}</Heading>
+                            <DetailRow
+                                testID="kitchen-order-desk-detail-subtotal"
+                                label={t('kitchen:ops.orders.subtotal')}
+                                value={formatMoney(formatter, {
+                                    amount: order.subtotalMinor,
+                                    currency: order.currencyCode,
+                                })}
+                            />
+                            <DetailRow
+                                testID="kitchen-order-desk-detail-delivery-fee"
+                                label={t('kitchen:ops.orders.deliveryFee')}
+                                // `null` is not zero: a free delivery and a collection that never
+                                // had a fee are different facts.
+                                value={
+                                    order.deliveryFeeMinor === null
+                                        ? t('kitchen:ops.orders.noDeliveryFee')
+                                        : formatMoney(formatter, {
+                                              amount: order.deliveryFeeMinor,
+                                              currency: order.currencyCode,
+                                          })
+                                }
+                            />
+                            <DetailRow
+                                testID="kitchen-order-desk-detail-total"
+                                label={t('kitchen:ops.orders.total')}
+                                value={formatMoney(formatter, {
+                                    amount: order.totalMinor,
+                                    currency: order.currencyCode,
+                                })}
+                            />
+                        </Stack>
+                    </Stack>
+                )}
+            </Drawer>
         </Stack>
     );
 }

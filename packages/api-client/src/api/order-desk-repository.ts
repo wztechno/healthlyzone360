@@ -1,6 +1,8 @@
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
     AddOrderDeskCustomerAddressRequest,
+    AssignDeliveryJobRequest,
+    AssignedDeliveryJob,
     CreateOrderDeskCustomerRequest,
     OrderDeskBasketLine,
     OrderDeskCustomerAddress,
@@ -14,6 +16,7 @@ import type {
     PlaceOrderDeskSaleRequest,
 } from '../contracts/order-desk.ts';
 import type {
+    AssignedDeliveryJob as WireAssignedDeliveryJob,
     CustomerAddressEnvelope,
     KitchenOrder as WireKitchenOrder,
     OrderDeskBasketLine as WireOrderDeskBasketLine,
@@ -29,6 +32,7 @@ import type {
 import { generateRequestId } from './config.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
 import {
+    mapAssignedDeliveryJob,
     mapOrderDeskCustomer,
     mapOrderDeskCustomerAddress,
     mapOrderDeskCustomerCreated,
@@ -66,13 +70,21 @@ import type { Transport } from './transport.ts';
  * organisation-wide desk agent selects no branch, so a header that had to be present could not
  * express the organisation-wide read. See `contracts/order-desk.ts`.
  *
- * ## The writes, and the one thing they all have in common
+ * ## The writes, and the one thing five of them have in common
  *
- * Selling adds five operations, and none of them is lock-versioned: there is no `If-Match` anywhere
- * on this surface because nothing here *edits* an existing row — a sale creates one. The lifecycle
- * writes an order needs afterwards are still `kitchenOrders`' (the same rows, the same
- * `lockVersion`, one contract), and duplicating them behind a desk-shaped name would give two
- * modules the ability to move the same order with two different ideas of what version they hold.
+ * Selling adds five operations and none of them is lock-versioned, because nothing there *edits* an
+ * existing row — a sale creates one. The lifecycle writes an order needs afterwards are still
+ * `kitchenOrders`' (the same rows, the same `lockVersion`, one contract), and duplicating them
+ * behind a desk-shaped name would give two modules the ability to move the same order with two
+ * different ideas of what version they hold.
+ *
+ * **`assignDeliveryJob` is the exception and it sends `If-Match`.** It edits a row somebody else may
+ * be editing — two dispatchers can see the same free driver on the same board — and the validator it
+ * sends is the *job's*, carried on the queue row for exactly this reason. It lives on this
+ * repository rather than on `driverJobs` because that contract is one driver's own run sheet, and
+ * deciding whose evening this is belongs to the desk that took the order. The path is literal
+ * (`/delivery/jobs/{job}/assign`) rather than under `/catalogue/order-desk`, because that is where
+ * the delivery module's route actually is.
  *
  * **`Idempotency-Key` is minted here, per attempt, and no screen can forget it.** Two of these
  * operations create records that cannot be un-created — an order and a customer account — and the
@@ -111,6 +123,11 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
 
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;
+}
+
+/** The lock version as an entity tag, matching `kitchen-orders-repository.ts`'s `ifMatch`. */
+function ifMatch(lockVersion: number): Readonly<Record<string, string>> {
+    return { 'If-Match': `"${lockVersion}"` };
 }
 
 /** One basket line, in the wire's own casing. */
@@ -271,6 +288,18 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 },
             });
             return mapOrderDeskCustomerAddress(payload.address);
+        },
+
+        async assignDeliveryJob(request: AssignDeliveryJobRequest): Promise<AssignedDeliveryJob> {
+            const payload = await transport.request<{ readonly job: WireAssignedDeliveryJob }>({
+                method: 'POST',
+                // Literal, and outside the `order-desk` prefix on purpose: the route belongs to the
+                // delivery module. Only the *authority* to use it is the desk's.
+                path: `/delivery/jobs/${encodeURIComponent(request.jobId)}/assign`,
+                headers: ifMatch(request.lockVersion),
+                body: { driver_user_id: request.driverUserId },
+            });
+            return mapAssignedDeliveryJob(payload.job);
         },
     };
 }

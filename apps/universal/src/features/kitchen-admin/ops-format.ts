@@ -1,8 +1,13 @@
 import type {
+    DriverJobStatus,
+    DriverJobTrackingStatus,
     KitchenOrderCancellationReason,
+    KitchenOrderFulfilmentType,
+    KitchenOrderPaymentMethod,
     KitchenOrderStatus,
     KitchenQuotationLine,
     KitchenQuotationStatus,
+    OrderDeskQueueRow,
     ProductionOrderStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
@@ -198,6 +203,139 @@ export function minutesPastDue(dueAt: string, now: Date): number {
  */
 export function orderDeskDueTone(dueAt: string, now: Date): BadgeTone {
     return ticketAgeTone(minutesPastDue(dueAt, now));
+}
+
+/**
+ * How an order is being paid, as words.
+ *
+ * Lives here rather than in either screen because both the sale wizard and the queue name the same
+ * three methods, and a second copy of this table beside the queue's payment cell would be the one
+ * that stopped matching. The keys are the wizard's own (`desk.sale.method.*`) rather than duplicated
+ * under a queue-shaped name: the words are identical, and translating "Cash at the counter" twice
+ * would eventually produce two translations of it.
+ */
+const KITCHEN_ORDER_PAYMENT_METHOD_KEYS: Readonly<Record<KitchenOrderPaymentMethod, string>> = {
+    cash_on_delivery: 'kitchen:desk.sale.method.cashOnDelivery',
+    cash_at_counter: 'kitchen:desk.sale.method.cashAtCounter',
+    wish: 'kitchen:desk.sale.method.wish',
+};
+
+export function kitchenOrderPaymentMethodKey(method: KitchenOrderPaymentMethod): string {
+    return KITCHEN_ORDER_PAYMENT_METHOD_KEYS[method];
+}
+
+const KITCHEN_ORDER_FULFILMENT_TYPE_KEYS: Readonly<Record<KitchenOrderFulfilmentType, string>> = {
+    delivery: 'kitchen:desk.sale.type.delivery',
+    pickup: 'kitchen:desk.sale.type.pickup',
+    counter: 'kitchen:desk.sale.type.counter',
+};
+
+export function kitchenOrderFulfilmentTypeKey(type: KitchenOrderFulfilmentType): string {
+    return KITCHEN_ORDER_FULFILMENT_TYPE_KEYS[type];
+}
+
+/* ── the delivery run behind an order ────────────────────────────────────────────────────────── */
+
+/**
+ * Which of four things the delivery column has to say about a row.
+ *
+ * The four are not four renderings of one fact; they are four different states of the world, and
+ * collapsing any pair would lose something a desk acts on:
+ *
+ * - `not_delivered` — a pickup or a counter sale. Nothing is being driven anywhere, ever. The cell
+ *   is an em dash, on the same terms as every other "nothing to say here" cell in this workspace.
+ * - `awaiting_confirmation` — a delivery still `placed`. The run is created *on confirm*, so there
+ *   is nothing missing here: confirming the order is what makes one.
+ * - `unassigned` — a run exists and nobody has it. This is the only state that is somebody's job
+ *   right now, which is why it is the only one that carries a warning tone.
+ * - `assigned` — somebody has it, and the row says when they were given it.
+ *
+ * A confirmed delivery with no job at all also reads as `unassigned`… and it must not, so it does
+ * not: it reads as {@link OrderDeskDeliveryState.no_run}, the fifth state, which is an order
+ * confirmed before the delivery chain existed. Nothing will ever project a job for it and no amount
+ * of waiting will change that, so a cell promising a driver would be promising a driver forever.
+ */
+export type OrderDeskDeliveryState =
+    'not_delivered' | 'awaiting_confirmation' | 'no_run' | 'unassigned' | 'assigned';
+
+/**
+ * Read the state from the row, and **only** from the row.
+ *
+ * `deliveryJob === null` is true of three different orders and the wire says so explicitly; the two
+ * fields that tell them apart — `fulfilmentType` and `status` — are on the same row, which is why
+ * this is a pure function of one argument rather than something the screen assembles from a job read
+ * and a guess.
+ */
+export function orderDeskDeliveryState(row: OrderDeskQueueRow): OrderDeskDeliveryState {
+    if (row.fulfilmentType !== 'delivery') return 'not_delivered';
+    if (row.deliveryJob === null) {
+        return row.status === 'placed' ? 'awaiting_confirmation' : 'no_run';
+    }
+    return row.deliveryJob.driverUserId === null ? 'unassigned' : 'assigned';
+}
+
+const ORDER_DESK_DELIVERY_STATE_KEYS: Readonly<Record<OrderDeskDeliveryState, string>> = {
+    not_delivered: 'kitchen:desk.delivery.notDelivered',
+    awaiting_confirmation: 'kitchen:desk.delivery.awaitingConfirmation',
+    no_run: 'kitchen:desk.delivery.noRun',
+    unassigned: 'kitchen:desk.delivery.unassigned',
+    assigned: 'kitchen:desk.delivery.assigned',
+};
+
+export function orderDeskDeliveryStateKey(state: OrderDeskDeliveryState): string {
+    return ORDER_DESK_DELIVERY_STATE_KEYS[state];
+}
+
+/**
+ * The tone the delivery cell carries.
+ *
+ * Only `unassigned` is loud, and it is loud for the reason `placed` is on an order status badge: it
+ * is the one state on this list that is *somebody's job right now*. `no_run` is deliberately not a
+ * danger tone — an order confirmed before the delivery chain shipped is history, not a fault
+ * somebody at this desk can fix — and the label carries the whole of the meaning either way.
+ */
+const ORDER_DESK_DELIVERY_STATE_TONES: Readonly<Record<OrderDeskDeliveryState, BadgeTone>> = {
+    not_delivered: 'neutral',
+    awaiting_confirmation: 'neutral',
+    no_run: 'neutral',
+    unassigned: 'warning',
+    assigned: 'info',
+};
+
+export function orderDeskDeliveryStateTone(state: OrderDeskDeliveryState): BadgeTone {
+    return ORDER_DESK_DELIVERY_STATE_TONES[state];
+}
+
+/**
+ * The two axes of a delivery job, as the *desk* says them.
+ *
+ * Not the driver screen's `kitchen:driver.status.*` keys, and that is about voice rather than about
+ * vocabulary: "Assigned to you" is true on a run sheet and false on a dispatch board, where the
+ * whole question is *whose* it is. The values are the same wire enum, read whole in both places.
+ */
+const DELIVERY_JOB_STATUS_KEYS: Readonly<Record<DriverJobStatus, string>> = {
+    pending: 'kitchen:desk.delivery.status.pending',
+    assigned: 'kitchen:desk.delivery.status.assigned',
+    in_transit: 'kitchen:desk.delivery.status.inTransit',
+    delivered: 'kitchen:desk.delivery.status.delivered',
+    failed: 'kitchen:desk.delivery.status.failed',
+    cancelled: 'kitchen:desk.delivery.status.cancelled',
+};
+
+export function deliveryJobStatusKey(status: DriverJobStatus): string {
+    return DELIVERY_JOB_STATUS_KEYS[status];
+}
+
+const DELIVERY_JOB_TRACKING_KEYS: Readonly<Record<DriverJobTrackingStatus, string>> = {
+    awaiting_assignment: 'kitchen:desk.delivery.tracking.awaitingAssignment',
+    picked_up: 'kitchen:desk.delivery.tracking.pickedUp',
+    en_route: 'kitchen:desk.delivery.tracking.enRoute',
+    arrived: 'kitchen:desk.delivery.tracking.arrived',
+    delivered: 'kitchen:desk.delivery.tracking.delivered',
+};
+
+export function deliveryJobTrackingKey(status: DriverJobTrackingStatus): string {
+    return DELIVERY_JOB_TRACKING_KEYS[status];
 }
 
 /* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */

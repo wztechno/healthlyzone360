@@ -37,12 +37,36 @@ jest.mock('expo-router', () => ({
 const JOB_ONE = 'test-0000-delivery-job-0001';
 const JOB_TWO = 'test-0000-delivery-job-0002';
 
+/**
+ * The address snapshot, filled in. Every field is nullable on the wire and the tests below author
+ * the empty shapes explicitly, so the default here is the *complete* one — a fixture that started
+ * half-empty would make "the card draws what was recorded" pass by accident.
+ */
+function driverDelivery(overrides: Partial<DriverJob['delivery']> = {}): DriverJob['delivery'] {
+    return {
+        lineOne: 'Villa 12, Street 8b',
+        building: 'Block C',
+        floor: '3',
+        apartment: '304',
+        directions: 'Gate on the north side',
+        areaNameEn: 'Al Quoz 1',
+        areaNameAr: 'القوز ١',
+        windowCode: 'morning',
+        requestedDate: '2026-08-16',
+        phone: '+971500000001',
+        ...overrides,
+    };
+}
+
 function driverJob(overrides: Partial<DriverJob> = {}): DriverJob {
     return {
         id: JOB_ONE,
         orderId: 'test-0000-order-0001' as OrderId,
+        orderNumber: 'H360-2026-0148',
         status: 'assigned',
         trackingStatus: 'awaiting_assignment',
+        assignedAt: '2026-08-16T06:40:00.000Z',
+        delivery: driverDelivery(),
         ...overrides,
     };
 }
@@ -53,6 +77,7 @@ function seedJobs(): DriverJob[] {
         driverJob({
             id: JOB_TWO,
             orderId: 'test-0000-order-0002' as OrderId,
+            orderNumber: 'H360-2026-0149',
             status: 'in_transit',
             trackingStatus: 'en_route',
         }),
@@ -205,15 +230,121 @@ describe('the driver run sheet ladder', () => {
         expect(screen.getByTestId(jobTestId(JOB_ONE))).toBeTruthy();
         expect(screen.getByTestId(jobTestId(JOB_TWO))).toBeTruthy();
 
-        // The order the driver reads out, from the endpoint — never invented here.
+        // The number printed on the bag, from the endpoint — never invented here, and never the
+        // identifier when a number exists.
         expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-order`)).toHaveTextContent(
-            'test-0000-order-0001',
+            'H360-2026-0148',
         );
 
         // Two axes, because "assigned but not collected" and "collected" are one dispatch state
         // and two different things the customer has been told.
         expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-status`)).toBeTruthy();
         expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-tracking`)).toBeTruthy();
+    });
+});
+
+describe('what a run-sheet card says about the delivery', () => {
+    it('draws the address coarse to fine, with the number the order was given', async () => {
+        const sheet = createRunSheet([driverJob()]);
+        await renderRunSheet({ listJobs: () => sheet.listJobs() });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const card = jobTestId(JOB_ONE);
+        expect(screen.getByTestId(`${card}-address-line-one`)).toHaveTextContent(
+            'Villa 12, Street 8b',
+        );
+        // Building, floor, apartment on one line — the order somebody walking up to a block reads
+        // them in — joined by the locale's own separator rather than a hard-coded comma.
+        expect(screen.getByTestId(`${card}-address-unit`)).toHaveTextContent('Block C, 3, 304');
+        expect(screen.getByTestId(`${card}-address-area`)).toHaveTextContent('Al Quoz 1');
+        expect(screen.getByTestId(`${card}-directions`)).toHaveTextContent(
+            'Directions: Gate on the north side',
+        );
+
+        // The number **the order was given**, so a driver who cannot find the building rings the
+        // person expecting them.
+        expect(screen.getByTestId(`${card}-phone`)).toHaveTextContent('Ring +971500000001');
+        expect(screen.getByTestId(`${card}-assigned-at`)).toBeTruthy();
+        expect(screen.queryByTestId(`${card}-no-address`)).toBeNull();
+    });
+
+    it('draws nothing for the parts nobody recorded, rather than labelled blanks', async () => {
+        const sheet = createRunSheet([
+            driverJob({
+                assignedAt: null,
+                delivery: driverDelivery({
+                    building: null,
+                    floor: null,
+                    apartment: null,
+                    directions: null,
+                    phone: null,
+                }),
+            }),
+        ]);
+        await renderRunSheet({ listJobs: () => sheet.listJobs() });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const card = jobTestId(JOB_ONE);
+        // A labelled empty line for a floor nobody wrote down is noise in a stairwell.
+        expect(screen.queryByTestId(`${card}-address-unit`)).toBeNull();
+        expect(screen.queryByTestId(`${card}-directions`)).toBeNull();
+        expect(screen.queryByTestId(`${card}-phone`)).toBeNull();
+        expect(screen.queryByTestId(`${card}-assigned-at`)).toBeNull();
+        // What *was* recorded is still drawn.
+        expect(screen.getByTestId(`${card}-address-line-one`)).toHaveTextContent(
+            'Villa 12, Street 8b',
+        );
+    });
+
+    it('says so plainly when the order recorded no destination at all', async () => {
+        const sheet = createRunSheet([
+            driverJob({
+                delivery: driverDelivery({ lineOne: null, areaNameEn: null, areaNameAr: null }),
+            }),
+        ]);
+        await renderRunSheet({ listJobs: () => sheet.listJobs() });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        // An empty address block would look like a rendering fault; this tells the driver what to
+        // do about it instead.
+        expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-no-address`)).toBeTruthy();
+        expect(screen.queryByTestId(`${jobTestId(JOB_ONE)}-address`)).toBeNull();
+    });
+
+    it('falls back to the order identifier, visibly, when the job carries no number', async () => {
+        const sheet = createRunSheet([driverJob({ orderNumber: null })]);
+        await renderRunSheet({ listJobs: () => sheet.listJobs() });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        // The fallback is the screen's, not the mapper's: "this job carries no number" stays a
+        // fact all the way to the point where something has to be drawn.
+        expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-order`)).toHaveTextContent(
+            'test-0000-order-0001',
+        );
     });
 });
 
@@ -241,9 +372,9 @@ describe('delivering a job', () => {
         await waitFor(() => {
             expect(screen.getByTestId('driver-jobs-deliver-dialog')).toBeTruthy();
         });
-        // The dialog names the order it is about to close, from the endpoint's own value.
+        // The dialog names the order it is about to close in the same words the card just used.
         expect(screen.getByTestId('driver-jobs-deliver-order')).toHaveTextContent(
-            'Order test-0000-order-0001',
+            'Order H360-2026-0148',
         );
 
         // `TextInputField` puts its own testID on the labelled field and `-input` on the control.

@@ -1,7 +1,9 @@
 import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
+import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
 import type {
     KitchenOrder,
+    KitchenOrderFulfilmentType,
     KitchenOrderPaymentMethod,
     KitchenOrderStatus,
 } from './kitchen-orders.ts';
@@ -35,15 +37,16 @@ import type {
  * all — so every row sorts, and nothing lands in a silent "unknown" bucket at the bottom. A client
  * must never re-derive it from `delivery.requestedDate`: it would not have the branch's clock.
  *
- * ## `payment` is filled; `deliveryJob` is still a seat
+ * ## Both seats are now filled
  *
- * Both were declared as untyped seats while nothing populated them, so the row would not change
- * shape under a screen when they landed. The receipts operation has since filled the payment seat,
- * so it is typed here as {@link OrderDeskPaymentSummary} and is **never null** — an order whose
- * payment position is unknown is not a state this platform reaches, and zero received against a
- * total is a position rather than an absence. `deliveryJob` keeps the untyped seat on the original
- * terms: inventing a shape for a block nothing has ever populated would be a promise this contract
- * cannot keep.
+ * `payment` and `deliveryJob` were declared as untyped seats while nothing populated them, so the
+ * row would not change shape under a screen when they landed. Both have since been filled by the
+ * operations that write them, and both are typed here on their own terms.
+ *
+ * {@link OrderDeskPaymentSummary} is **never null** — an order whose payment position is unknown is
+ * not a state this platform reaches, and zero received against a total is a position rather than an
+ * absence. {@link OrderDeskDeliveryJob} *is* nullable, and its null is a real answer about three
+ * different orders — see its own note.
  *
  * ## `customer` is optional, and its optionality is the disclosure boundary
  *
@@ -116,8 +119,96 @@ export interface OrderDeskPaymentSummary {
     readonly receipted: boolean;
 }
 
-/** The delivery-run seat. **Always `null` in this phase** — see the file header. */
-export type OrderDeskDeliveryJob = Readonly<Record<string, unknown>>;
+/**
+ * The run this order became: which driver has it, what state it is in, and when it was handed over.
+ *
+ * ## `null` is a real answer, and it is true of three different orders
+ *
+ * A pickup or a counter sale is never driven anywhere. A delivery order still `placed` has no run
+ * yet, because a job is projected on *confirm* — the moment a kitchen commits to cook — and a placed
+ * order may still be cancelled without a driver hearing about it. And a delivery order confirmed
+ * before the delivery chain shipped was never projected and will not be retrospectively.
+ *
+ * All three read as `null` here, deliberately: the job is the same absence in every case. A screen
+ * that needs to tell them apart has {@link KitchenOrder.fulfilmentType} and
+ * {@link KitchenOrder.status} on the same row, which is where those two facts already live — and a
+ * three-valued "why is there no job" field would be a second, quieter copy of them.
+ *
+ * ## The statuses are the driver contract's, read whole
+ *
+ * `status` and `trackingStatus` are {@link DriverJobStatus} and {@link DriverJobTrackingStatus}
+ * rather than desk-shaped unions of the same six and five values. There is one delivery job and one
+ * wire vocabulary for it; the dispatch seat and the driver's seat differ in *what they may do* with
+ * a job, never in what states one can be in. Two copies would agree today and drift the day the
+ * wire gains a seventh.
+ *
+ * ## There is no address here, and no driver name
+ *
+ * Where the food is going is already on the row's own `delivery` block, and a second copy inside the
+ * job would be two answers to one question. `driverUserId` is an identifier and **not** a person a
+ * screen can name: no operation on this surface resolves a member to a display name, so a column
+ * showing it would be showing a UUID. It is here because it answers "has anybody been given this?",
+ * which is the question the desk actually asks.
+ */
+export interface OrderDeskDeliveryJob {
+    /**
+     * The job. Unbranded, on the same terms as {@link DriverJob.id}: no `DeliveryJobId` codec exists
+     * and this identifier is never crossed with another kind — it is read from a row and handed
+     * straight back to {@link OrderDeskRepository.assignDeliveryJob}.
+     */
+    readonly id: string;
+    readonly status: DriverJobStatus;
+    readonly trackingStatus: DriverJobTrackingStatus;
+    /** `null` until dispatch assigns one. */
+    readonly driverUserId: string | null;
+    readonly assignedAt: IsoDateTime | null;
+    /**
+     * The job's **own** validator, carried on the queue row so an assignment has its `If-Match`
+     * without re-reading the job.
+     *
+     * It is not the order's `lockVersion` and the two move independently: assigning a driver
+     * deliberately does not touch the order, so a screen holding both must send each to its own
+     * write. Crossing them earns a `resource.conflict` on a race nobody entered.
+     */
+    readonly lockVersion: number;
+}
+
+/**
+ * The job as it stands after an assignment, with the validator to send next.
+ *
+ * A superset of what the queue row carries plus `orderId`, which is what the wire answers: a board
+ * refreshing one row from this response does not have to reconcile two vocabularies. Nothing here
+ * is re-derived — in particular `status` and `trackingStatus` are read from the response rather than
+ * assumed to be `assigned`, because what an assignment does to the tracking axis is the server's
+ * decision and a client that guessed would tell a customer something nobody promised them.
+ */
+export interface AssignedDeliveryJob extends OrderDeskDeliveryJob {
+    readonly orderId: string;
+}
+
+/**
+ * Who takes this run.
+ *
+ * One object carrying the job, the person and the validator — the shape every other lock-versioned
+ * write on this client uses ({@link QuoteKitchenQuotationRequest}, the B2B application's writes) —
+ * because `lockVersion` is not an optional refinement of the call, it is half of what makes it safe.
+ *
+ * `driverUserId` deliberately has **no null**: unassigning is a different decision — it would need
+ * its own route and its own audit action — and cannot arrive here as an omitted key. The identifier
+ * must name an **active member of this organisation**; one that does not is a `422` carrying
+ * `details.fields.driver_user_id`, which is a validation failure about the person rather than a
+ * refusal about the job.
+ */
+export interface AssignDeliveryJobRequest {
+    /** The job's identifier, from {@link OrderDeskDeliveryJob.id}. */
+    readonly jobId: string;
+    readonly driverUserId: string;
+    /**
+     * The **job's** version, from {@link OrderDeskDeliveryJob.lockVersion} — never the order's. The
+     * two rows are versioned separately and assigning a driver does not touch the order.
+     */
+    readonly lockVersion: number;
+}
 
 export interface OrderDeskQueueRow extends KitchenOrder {
     /**
@@ -128,6 +219,7 @@ export interface OrderDeskQueueRow extends KitchenOrder {
     readonly dueAt: IsoDateTime;
     /** Never null. See {@link OrderDeskPaymentSummary}. */
     readonly payment: OrderDeskPaymentSummary;
+    /** `null` on three quite different orders — see {@link OrderDeskDeliveryJob}. */
     readonly deliveryJob: OrderDeskDeliveryJob | null;
     /** Absent — not null — without `order.view_customer_contact_organisation`. See the header. */
     readonly customer?: OrderDeskCustomerContact | undefined;
@@ -203,7 +295,11 @@ export interface OrderDeskQueueFilters {
  *
  * Ordered counter-first because that is the shortest sale and the one a counter makes most often.
  */
-export const ORDER_DESK_FULFILMENT_TYPES = ['counter', 'pickup', 'delivery'] as const;
+export const ORDER_DESK_FULFILMENT_TYPES = [
+    'counter',
+    'pickup',
+    'delivery',
+] as const satisfies readonly KitchenOrderFulfilmentType[];
 export type OrderDeskFulfilmentType = (typeof ORDER_DESK_FULFILMENT_TYPES)[number];
 
 /**
@@ -485,4 +581,36 @@ export interface OrderDeskRepository {
     addCustomerAddress(
         request: AddOrderDeskCustomerAddressRequest,
     ): Promise<OrderDeskCustomerAddress>;
+
+    /**
+     * Give a run to a driver — **the one write on this surface that is lock-versioned**.
+     *
+     * `request.lockVersion` is the *job's*, read from {@link OrderDeskQueueRow.deliveryJob}, never
+     * the order's: the two rows have separate validators and assigning a driver does not touch the
+     * order. It is required, and required by this signature rather than by the server alone — the
+     * endpoint answers `428 request.precondition_required` when the header is absent, which is a
+     * round trip spent learning something the caller already held.
+     *
+     * Three refusals are worth telling apart at the call site, and all three arrive as failures
+     * rather than as data (this is a write, not a quote):
+     *
+     * - **`409 resource.conflict`** — two different situations under one code. A lost race carries
+     *   `currentLockVersion`, which is the value to reload against. A job that has already finished
+     *   carries **none**: the endpoint names the terminal state in `details.status`, but
+     *   `contracts/failure.ts` normalises this code down to the optional version and drops the rest,
+     *   so on this client the two are told apart by whether a number came back. That is the right
+     *   distinction anyway — re-reading will not make a delivered job assignable.
+     * - **`422 validation.failed`** — `fields.driver_user_id`: the named person is not an active
+     *   member here. A fact about the *person*, correctable in a picker.
+     * - **`404`** — another organisation's job, decided before the body is read. Never a `403`,
+     *   because confirming that the identifier names something real is itself a disclosure.
+     *
+     * Answers the job with its **new** validator, so a board can offer a reassignment immediately
+     * without a re-read.
+     *
+     * **There is no operation on this client that lists the people this call names.** No endpoint
+     * anywhere on the wire serves an organisation's members, so nothing here can turn a driver into
+     * a name a screen could offer. The identifier has to come from somewhere that already holds one.
+     */
+    assignDeliveryJob(request: AssignDeliveryJobRequest): Promise<AssignedDeliveryJob>;
 }

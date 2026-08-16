@@ -43,12 +43,32 @@ const JOB_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3001';
 const OTHER_JOB_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3002';
 const ORDER_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3101';
 
+/** Every address part authored, so a mapper that dropped one would show as a missing field. */
+function wireDelivery(overrides: Record<string, unknown> = {}) {
+    return {
+        line_one: 'Villa 12, Street 8b',
+        building: 'Block C',
+        floor: '3',
+        apartment: '304',
+        directions: 'Gate on the north side, park by the bins',
+        area_name_en: 'Al Quoz 1',
+        area_name_ar: 'القوز ١',
+        window_code: 'morning',
+        requested_date: '2026-08-16',
+        phone: '+971500000001',
+        ...overrides,
+    };
+}
+
 function wireJob(overrides: Record<string, unknown> = {}) {
     return {
         id: JOB_UUID,
         order_id: ORDER_UUID,
+        order_number: 'H360-2026-0148',
         status: 'assigned',
         tracking_status: 'awaiting_assignment',
+        assigned_at: '2026-08-16T06:40:00+00:00',
+        delivery: wireDelivery(),
         ...overrides,
     };
 }
@@ -87,6 +107,71 @@ describe('createApiDriverJobsRepository — listJobs', () => {
         expect(jobs[0]?.trackingStatus).toBe('awaiting_assignment');
         expect(jobs[1]?.status).toBe('in_transit');
         expect(jobs[1]?.trackingStatus).toBe('en_route');
+    });
+
+    it('carries the order number, the hand-over instant and the whole address snapshot', async () => {
+        const { repository } = harness([
+            { status: 200, body: { data: { jobs: [wireJob()] }, meta: {} } },
+        ]);
+
+        const [job] = await repository.listJobs();
+        if (job === undefined) throw new Error('the run sheet answered no jobs');
+
+        // The number printed on the bag — what a courier matches an order to, rather than the
+        // identifier the row is keyed on.
+        expect(job.orderNumber).toBe('H360-2026-0148');
+        expect(job.assignedAt).toBe('2026-08-16T06:40:00+00:00');
+        expect(job.delivery).toEqual({
+            lineOne: 'Villa 12, Street 8b',
+            building: 'Block C',
+            floor: '3',
+            apartment: '304',
+            directions: 'Gate on the north side, park by the bins',
+            areaNameEn: 'Al Quoz 1',
+            areaNameAr: 'القوز ١',
+            windowCode: 'morning',
+            requestedDate: '2026-08-16',
+            // The number the *order* was given, not the customer's best current one.
+            phone: '+971500000001',
+        });
+    });
+
+    it('keeps every absence an absence rather than inventing a number or a blank line', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        jobs: [
+                            wireJob({
+                                order_number: null,
+                                assigned_at: null,
+                                delivery: wireDelivery({
+                                    building: null,
+                                    floor: null,
+                                    apartment: null,
+                                    directions: null,
+                                    phone: null,
+                                }),
+                            }),
+                        ],
+                    },
+                    meta: {},
+                },
+            },
+        ]);
+
+        const [job] = await repository.listJobs();
+        if (job === undefined) throw new Error('the run sheet answered no jobs');
+
+        // Never defaulted to the order identifier: "no number on this job" and "here is the number"
+        // are different facts, and the fallback is the screen's to make visibly.
+        expect(job.orderNumber).toBeNull();
+        expect(job.assignedAt).toBeNull();
+        expect(job.delivery.building).toBeNull();
+        expect(job.delivery.phone).toBeNull();
+        // The parts that *were* recorded still arrive.
+        expect(job.delivery.lineOne).toBe('Villa 12, Street 8b');
     });
 
     it('answers an empty run sheet as an empty array, not as a failure', async () => {

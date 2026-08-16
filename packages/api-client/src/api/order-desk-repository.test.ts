@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { asApiFailure } from '../contracts/failure.ts';
 import { createMemoryTokenStore } from '../contracts/session.ts';
 import { createApiOrderDeskRepository } from './order-desk-repository.ts';
 import { createTransport } from './transport.ts';
@@ -55,6 +56,8 @@ function harness(responses: readonly { status: number; body: unknown }[]) {
 const ORDER_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4001';
 const OTHER_ORDER_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4002';
 const BRANCH_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4101';
+const JOB_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4501';
+const DRIVER_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4502';
 
 function wireRow(overrides: Record<string, unknown> = {}) {
     return {
@@ -67,6 +70,7 @@ function wireRow(overrides: Record<string, unknown> = {}) {
         delivery_fee_minor: 1_500,
         total_minor: 16_000,
         payment_method: 'cash_on_delivery',
+        fulfilment_type: 'delivery',
         delivery: {
             label: 'Home',
             line_one: 'Villa 12, Street 8b',
@@ -154,7 +158,92 @@ describe('createApiOrderDeskRepository — listQueue', () => {
             receipted: false,
         });
         expect(row.deliveryJob).toBeNull();
+        // Read literally rather than defaulted from the column's own default: a screen decides
+        // whether to draw a delivery column from this field.
+        expect(row.fulfilmentType).toBe('delivery');
         expect(row.customer).toEqual({ displayName: 'Layla Haddad', phone: '+971500000001' });
+    });
+
+    it('maps the delivery job whole, and keeps a null one null', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        wireRow({
+                            status: 'confirmed',
+                            delivery_job: {
+                                id: JOB_UUID,
+                                status: 'assigned',
+                                tracking_status: 'en_route',
+                                driver_user_id: DRIVER_UUID,
+                                assigned_at: '2026-08-16T04:10:00+00:00',
+                                lock_version: 3,
+                            },
+                        }),
+                        // A pickup: never driven anywhere, so there is no run and never will be.
+                        wireRow({
+                            id: OTHER_ORDER_UUID,
+                            fulfilment_type: 'pickup',
+                            delivery_job: null,
+                        }),
+                    ],
+                    meta: { ...META, count: 2 },
+                },
+            },
+        ]);
+
+        const { rows } = await repository.listQueue();
+
+        expect(rows[0]?.deliveryJob).toEqual({
+            id: JOB_UUID,
+            status: 'assigned',
+            trackingStatus: 'en_route',
+            driverUserId: DRIVER_UUID,
+            assignedAt: '2026-08-16T04:10:00+00:00',
+            // The job's own validator, not the order's — the two move independently, and the
+            // order above is still on `lock_version: 1`.
+            lockVersion: 3,
+        });
+        expect(rows[0]?.lockVersion).toBe(1);
+
+        // Not defaulted to `{}`: a run that exists with nothing in it is the one reading of this
+        // field that is never true.
+        expect(rows[1]?.deliveryJob).toBeNull();
+        expect(rows[1]?.fulfilmentType).toBe('pickup');
+    });
+
+    it('carries an unassigned job through with a null driver rather than dropping the job', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        wireRow({
+                            status: 'confirmed',
+                            delivery_job: {
+                                id: JOB_UUID,
+                                status: 'pending',
+                                tracking_status: 'awaiting_assignment',
+                                driver_user_id: null,
+                                assigned_at: null,
+                                lock_version: 0,
+                            },
+                        }),
+                    ],
+                    meta: META,
+                },
+            },
+        ]);
+
+        const [row] = (await repository.listQueue()).rows;
+
+        // "A run exists and nobody has it" is a different state from "there is no run", and the
+        // desk acts on the first and waits on the second.
+        expect(row?.deliveryJob?.driverUserId).toBeNull();
+        expect(row?.deliveryJob?.assignedAt).toBeNull();
+        // Zero is a real validator on a job nobody has written to yet, never a missing one.
+        expect(row?.deliveryJob?.lockVersion).toBe(0);
     });
 
     it('keeps an absent customer block absent rather than turning it into nulls', async () => {
@@ -582,5 +671,176 @@ describe('createApiOrderDeskRepository — customers', () => {
         });
         expect(address.isDeliverable).toBe(true);
         expect(address.lineTwo).toBeNull();
+    });
+});
+
+describe('createApiOrderDeskRepository — assignDeliveryJob', () => {
+    function assignedJob(overrides: Record<string, unknown> = {}) {
+        return {
+            id: JOB_UUID,
+            order_id: ORDER_UUID,
+            status: 'assigned',
+            tracking_status: 'awaiting_assignment',
+            driver_user_id: DRIVER_UUID,
+            assigned_at: '2026-08-16T04:10:00+00:00',
+            lock_version: 4,
+            ...overrides,
+        };
+    }
+
+    it('posts to the delivery module’s own path with the job’s version as If-Match', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: { job: assignedJob() }, meta: {} } },
+        ]);
+
+        const job = await repository.assignDeliveryJob({
+            jobId: JOB_UUID,
+            driverUserId: DRIVER_UUID,
+            lockVersion: 3,
+        });
+
+        expect(calls[0]?.method).toBe('POST');
+        // Literal and outside the `order-desk` prefix: the route belongs to the delivery module,
+        // and only the authority to use it is the desk's.
+        expect(calls[0]?.path).toBe(`/delivery/jobs/${JOB_UUID}/assign`);
+        // Quoted, the form the server serves in `ETag` and the form its parser expects. Required:
+        // absent is a 428 the caller would have spent a round trip to learn.
+        expect(calls[0]?.headers['if-match']).toBe('"3"');
+        // The body is the person and nothing else — no version, no order, no status.
+        expect(calls[0]?.body).toEqual({ driver_user_id: DRIVER_UUID });
+
+        // The new validator comes back, so a reassignment needs no re-read.
+        expect(job).toEqual({
+            id: JOB_UUID,
+            orderId: ORDER_UUID,
+            status: 'assigned',
+            trackingStatus: 'awaiting_assignment',
+            driverUserId: DRIVER_UUID,
+            assignedAt: '2026-08-16T04:10:00+00:00',
+            lockVersion: 4,
+        });
+    });
+
+    it('reports the tracking axis the server chose rather than assuming assignment moved it', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                // The dispatch axis moved; what the customer has been told did not.
+                body: { data: { job: assignedJob({ tracking_status: 'awaiting_assignment' }) } },
+            },
+        ]);
+
+        const job = await repository.assignDeliveryJob({
+            jobId: JOB_UUID,
+            driverUserId: DRIVER_UUID,
+            lockVersion: 3,
+        });
+
+        // A client that inferred `picked_up` from "somebody now has it" would tell a customer
+        // something nobody promised them.
+        expect(job.status).toBe('assigned');
+        expect(job.trackingStatus).toBe('awaiting_assignment');
+    });
+
+    it('passes a lost race through as a conflict carrying the version to reload against', async () => {
+        const { repository } = harness([
+            {
+                status: 409,
+                body: {
+                    error: {
+                        code: 'resource.conflict',
+                        message: 'This job changed while you were working on it.',
+                        details: { current_lock_version: 5 },
+                        correlation_id: 'c-409',
+                    },
+                },
+            },
+        ]);
+
+        await expect(
+            repository.assignDeliveryJob({
+                jobId: JOB_UUID,
+                driverUserId: DRIVER_UUID,
+                lockVersion: 3,
+            }),
+        ).rejects.toSatisfy((caught: unknown) => {
+            const failure = asApiFailure(caught);
+            // Normalised by `failure.ts` into the one field a screen acts on. The dialog offers a
+            // reload against this number rather than re-reading the whole queue for it.
+            return failure?.code === 'resource.conflict' && failure.currentLockVersion === 5;
+        });
+    });
+
+    /**
+     * A job that has already finished arrives as the same code with **no version on it**, and that
+     * absence is the only thing separating the two conflicts on this client.
+     *
+     * `failure.ts` normalises `resource.conflict` down to `currentLockVersion?`, so
+     * `details.status: 'delivered'` — which the endpoint does send — is dropped before a screen sees
+     * it. That is deliberate over there (the field is optional precisely because conflicts without a
+     * version exist), and it means a caller distinguishes "reload and try again" from "this run is
+     * over" by whether a number came back, never by reading a status the client does not carry.
+     */
+    it('answers a finished job as a conflict with no version to reload against', async () => {
+        const { repository } = harness([
+            {
+                status: 409,
+                body: {
+                    error: {
+                        code: 'resource.conflict',
+                        message: 'This run has already finished.',
+                        details: { status: 'delivered' },
+                        correlation_id: 'c-409-terminal',
+                    },
+                },
+            },
+        ]);
+
+        await expect(
+            repository.assignDeliveryJob({
+                jobId: JOB_UUID,
+                driverUserId: DRIVER_UUID,
+                lockVersion: 3,
+            }),
+        ).rejects.toSatisfy((caught: unknown) => {
+            const failure = asApiFailure(caught);
+            return (
+                failure?.code === 'resource.conflict' && failure.currentLockVersion === undefined
+            );
+        });
+    });
+
+    it('passes a non-member through as a field validation failure, not as a refusal', async () => {
+        const { repository } = harness([
+            {
+                status: 422,
+                body: {
+                    error: {
+                        code: 'validation.failed',
+                        message: 'The submitted data is invalid.',
+                        details: {
+                            fields: { driver_user_id: ['That person is not a member here.'] },
+                        },
+                        correlation_id: 'c-422',
+                    },
+                },
+            },
+        ]);
+
+        await expect(
+            repository.assignDeliveryJob({
+                jobId: JOB_UUID,
+                driverUserId: DRIVER_UUID,
+                lockVersion: 3,
+            }),
+        ).rejects.toSatisfy((caught: unknown) => {
+            const failure = asApiFailure(caught);
+            // A validation failure about the *person*, which is what makes it correctable in a
+            // picker rather than a refusal about the job.
+            return (
+                failure?.code === 'validation.failed' &&
+                failure.fields['driver_user_id'] !== undefined
+            );
+        });
     });
 });

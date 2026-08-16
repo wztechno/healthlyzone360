@@ -538,6 +538,10 @@
         "emptyBody": "تظهر المهام هنا فور إسناد إحداها إليك من قسم التوزيع.",
         "orderLabel": "الطلب",
         "orderReference": "الطلب {{reference}}",
+        "noAddress": "لم يُسجَّل عنوان على هذا الطلب. اتصل بالمطبخ قبل الانطلاق.",
+        "directions": "إرشادات: {{directions}}",
+        "phone": "اتصل بـ {{phone}}",
+        "assignedAt": "أُسندت إليك في {{at}}",
         "deliver": "تأكيد التسليم",
         "deliverTitle": "هل تريد تأكيد إتمام هذا التسليم؟",
         "deliverBody": "يُبلّغ هذا المطبخ بأن العميل استلم طلبه. ولا يمكن التراجع عنه من هنا.",
@@ -582,6 +586,10 @@
         "columnSlot": "الفترة",
         "columnStatus": "الحالة",
         "columnTotal": "الإجمالي",
+        "columnDelivery": "التوصيل",
+        "columnPayment": "الدفع",
+        "columnActions": "إجراءات",
+        "open": "فتح",
         "noSlot": "لم تُحدَّد فترة",
         "loadErrorTitle": "تعذّر تحميل قائمة الطلبات",
         "emptyTitle": "لا شيء مستحق",
@@ -591,8 +599,47 @@
         "clearFilters": "مسح عوامل التصفية",
         "truncatedTitle": "تُعرض أول {{limit}} طلب",
         "truncatedBody": "عدد الطلبات المطابقة أكبر مما يعرضه هذا العرض، ولا توجد صفحة ثانية. ضيّق النطاق أو الفترة أو الحالة للوصول إلى البقية.",
+        "paymentHeading": "الدفع",
+        "paymentMethod": "طريقة الدفع",
+        "paymentReceived": "المستلم حتى الآن",
+        "paymentState": "الوضع",
+        "deliveryHeading": "الرحلة",
+        "deliveryState": "أين وصلت",
+        "deliveryStatus": "الإرسال",
+        "deliveryTracking": "ما أُبلغ به العميل",
+        "deliveryAssignedAt": "أُسندت إلى سائق",
+        "assignUnavailableTitle": "لا يمكن اختيار سائق هنا بعد",
+        "assignUnavailableBody": "يحتاج إسناد الرحلة إلى قائمة بمن يمكنهم أخذها، ولا شيء في هذه المنصة يستطيع سردهم بعد. تبقى الرحلة في الانتظار حتى تتوفر القائمة لقسم الإرسال.",
+        "delivery": {
+            "notDelivered": "لا يوجد توصيل",
+            "awaitingConfirmation": "عند التأكيد",
+            "noRun": "لا توجد رحلة مسجلة",
+            "unassigned": "بحاجة إلى سائق",
+            "assigned": "مع سائق",
+            "status": {
+                "pending": "في الانتظار",
+                "assigned": "مُسندة",
+                "inTransit": "في الطريق",
+                "delivered": "تم التسليم",
+                "failed": "تعذر التسليم",
+                "cancelled": "ملغاة"
+            },
+            "tracking": {
+                "awaitingAssignment": "بانتظار سائق",
+                "pickedUp": "تم الاستلام",
+                "enRoute": "في الطريق",
+                "arrived": "وصل",
+                "delivered": "تم التسليم"
+            }
+        },
+        "payment": {
+            "receipted": "مسدّد",
+            "notReceipted": "غير مسدّد",
+            "outstanding": "متبقٍ {{amount}}"
+        },
         "a11y": {
-            "noCustomerName": "لا يوجد اسم عميل على هذا الطلب."
+            "noCustomerName": "لا يوجد اسم عميل على هذا الطلب.",
+            "noDeliveryRun": "طلب {{type}}. لا يُقاد إلى أي مكان."
         },
         "newSale": "بيع جديد",
         "sale": {

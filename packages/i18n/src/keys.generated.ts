@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5455 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5494 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2349,14 +2349,41 @@ export interface NamespaceKeys {
     | 'containment.contains'
     | 'containment.mayContain'
     | 'desk.a11y.noCustomerName'
+    | 'desk.a11y.noDeliveryRun'
+    | 'desk.assignUnavailableBody'
+    | 'desk.assignUnavailableTitle'
     | 'desk.caption'
     | 'desk.clearFilters'
+    | 'desk.columnActions'
     | 'desk.columnCustomer'
+    | 'desk.columnDelivery'
     | 'desk.columnDue'
     | 'desk.columnNumber'
+    | 'desk.columnPayment'
     | 'desk.columnSlot'
     | 'desk.columnStatus'
     | 'desk.columnTotal'
+    | 'desk.delivery.assigned'
+    | 'desk.delivery.awaitingConfirmation'
+    | 'desk.delivery.noRun'
+    | 'desk.delivery.notDelivered'
+    | 'desk.delivery.status.assigned'
+    | 'desk.delivery.status.cancelled'
+    | 'desk.delivery.status.delivered'
+    | 'desk.delivery.status.failed'
+    | 'desk.delivery.status.inTransit'
+    | 'desk.delivery.status.pending'
+    | 'desk.delivery.tracking.arrived'
+    | 'desk.delivery.tracking.awaitingAssignment'
+    | 'desk.delivery.tracking.delivered'
+    | 'desk.delivery.tracking.enRoute'
+    | 'desk.delivery.tracking.pickedUp'
+    | 'desk.delivery.unassigned'
+    | 'desk.deliveryAssignedAt'
+    | 'desk.deliveryHeading'
+    | 'desk.deliveryState'
+    | 'desk.deliveryStatus'
+    | 'desk.deliveryTracking'
     | 'desk.emptyBody'
     | 'desk.emptyTitle'
     | 'desk.filteredEmptyBody'
@@ -2365,6 +2392,14 @@ export interface NamespaceKeys {
     | 'desk.measuredOn'
     | 'desk.newSale'
     | 'desk.noSlot'
+    | 'desk.open'
+    | 'desk.payment.notReceipted'
+    | 'desk.payment.outstanding'
+    | 'desk.payment.receipted'
+    | 'desk.paymentHeading'
+    | 'desk.paymentMethod'
+    | 'desk.paymentReceived'
+    | 'desk.paymentState'
     | 'desk.refusal.address_not_applicable'
     | 'desk.refusal.address_not_deliverable'
     | 'desk.refusal.address_required'
@@ -2495,18 +2530,22 @@ export interface NamespaceKeys {
     | 'desk.window.overdue'
     | 'desk.window.today'
     | 'desk.windowLabel'
+    | 'driver.assignedAt'
     | 'driver.deliver'
     | 'driver.deliverBody'
     | 'driver.deliverConfirm'
     | 'driver.deliverDismiss'
     | 'driver.deliverTitle'
+    | 'driver.directions'
     | 'driver.emptyBody'
     | 'driver.emptyTitle'
     | 'driver.loadErrorTitle'
+    | 'driver.noAddress'
     | 'driver.notesHint'
     | 'driver.notesLabel'
     | 'driver.orderLabel'
     | 'driver.orderReference'
+    | 'driver.phone'
     | 'driver.status.assigned'
     | 'driver.status.cancelled'
     | 'driver.status.delivered'
@@ -7822,14 +7861,41 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
   'kitchen:desk.a11y.noCustomerName',
+  'kitchen:desk.a11y.noDeliveryRun',
+  'kitchen:desk.assignUnavailableBody',
+  'kitchen:desk.assignUnavailableTitle',
   'kitchen:desk.caption',
   'kitchen:desk.clearFilters',
+  'kitchen:desk.columnActions',
   'kitchen:desk.columnCustomer',
+  'kitchen:desk.columnDelivery',
   'kitchen:desk.columnDue',
   'kitchen:desk.columnNumber',
+  'kitchen:desk.columnPayment',
   'kitchen:desk.columnSlot',
   'kitchen:desk.columnStatus',
   'kitchen:desk.columnTotal',
+  'kitchen:desk.delivery.assigned',
+  'kitchen:desk.delivery.awaitingConfirmation',
+  'kitchen:desk.delivery.noRun',
+  'kitchen:desk.delivery.notDelivered',
+  'kitchen:desk.delivery.status.assigned',
+  'kitchen:desk.delivery.status.cancelled',
+  'kitchen:desk.delivery.status.delivered',
+  'kitchen:desk.delivery.status.failed',
+  'kitchen:desk.delivery.status.inTransit',
+  'kitchen:desk.delivery.status.pending',
+  'kitchen:desk.delivery.tracking.arrived',
+  'kitchen:desk.delivery.tracking.awaitingAssignment',
+  'kitchen:desk.delivery.tracking.delivered',
+  'kitchen:desk.delivery.tracking.enRoute',
+  'kitchen:desk.delivery.tracking.pickedUp',
+  'kitchen:desk.delivery.unassigned',
+  'kitchen:desk.deliveryAssignedAt',
+  'kitchen:desk.deliveryHeading',
+  'kitchen:desk.deliveryState',
+  'kitchen:desk.deliveryStatus',
+  'kitchen:desk.deliveryTracking',
   'kitchen:desk.emptyBody',
   'kitchen:desk.emptyTitle',
   'kitchen:desk.filteredEmptyBody',
@@ -7838,6 +7904,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.measuredOn',
   'kitchen:desk.newSale',
   'kitchen:desk.noSlot',
+  'kitchen:desk.open',
+  'kitchen:desk.payment.notReceipted',
+  'kitchen:desk.payment.outstanding',
+  'kitchen:desk.payment.receipted',
+  'kitchen:desk.paymentHeading',
+  'kitchen:desk.paymentMethod',
+  'kitchen:desk.paymentReceived',
+  'kitchen:desk.paymentState',
   'kitchen:desk.refusal.address_not_applicable',
   'kitchen:desk.refusal.address_not_deliverable',
   'kitchen:desk.refusal.address_required',
@@ -7968,18 +8042,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.window.overdue',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
+  'kitchen:driver.assignedAt',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
   'kitchen:driver.deliverConfirm',
   'kitchen:driver.deliverDismiss',
   'kitchen:driver.deliverTitle',
+  'kitchen:driver.directions',
   'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
   'kitchen:driver.loadErrorTitle',
+  'kitchen:driver.noAddress',
   'kitchen:driver.notesHint',
   'kitchen:driver.notesLabel',
   'kitchen:driver.orderLabel',
   'kitchen:driver.orderReference',
+  'kitchen:driver.phone',
   'kitchen:driver.status.assigned',
   'kitchen:driver.status.cancelled',
   'kitchen:driver.status.delivered',

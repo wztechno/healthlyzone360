@@ -624,6 +624,56 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await expectNoSeriousViolations(page, 'kitchen-order-desk-overdue');
     });
 
+    /**
+     * The desk's detail drawer, open over the queue behind it.
+     *
+     * The risks here are the ones a slide-in brings and a page does not. A dialog without an
+     * accessible name, a focus trap that never took, and — the one this drawer is most exposed to —
+     * **nested interactive content**: it holds a table of lines, a heading stack and a footer of
+     * transition buttons, and a row that had become pressable around those buttons would be a
+     * serious axe finding invisible by eye. It also renders `role="alert"` and `role="status"`
+     * callouts (the conflict warning, the note about assignment) whose live regions have to be named
+     * rather than coloured.
+     *
+     * Opening a row is a **read**: the drawer re-reads the order and writes nothing until somebody
+     * presses Confirm or Fulfil, which this sweep never does. So it is safe in a project that runs
+     * in parallel with three others. The queue may legitimately be empty on a demonstration
+     * database, which is why the sweep is skipped rather than failed in that case — an empty queue
+     * is a state the earlier tests already cover.
+     */
+    test('the desk detail drawer, open over the queue behind it', async ({ page }) => {
+        await openOrderDesk(page);
+
+        const openButton = page.locator('[data-testid$="-open"]').first();
+        test.skip(
+            (await page.getByTestId('kitchen-order-desk-table').count()) === 0,
+            'nothing is due on this database, so there is no row to open',
+        );
+
+        await openButton.click();
+        await expect(page.getByTestId('kitchen-order-desk-detail-body')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-detail');
+    });
+
+    /**
+     * The same drawer at phone width, where its own line table becomes stacked cards inside an
+     * overlay. Two switches at once — the drawer's layout and `Table`'s presentation — and the
+     * labelled-field relationship is what goes missing unnoticed when they land together.
+     */
+    test('the desk detail drawer on a phone', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openOrderDesk(page);
+
+        test.skip(
+            (await page.getByTestId('kitchen-order-desk-table').count()) === 0,
+            'nothing is due on this database, so there is no row to open',
+        );
+
+        await page.locator('[data-testid$="-open"]').first().click();
+        await expect(page.getByTestId('kitchen-order-desk-detail-body')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-detail-narrow');
+    });
+
     /* ── the review queue (K1.8) ─────────────────────────────────────────────────────────────── */
 
     /**

@@ -1,4 +1,4 @@
-import type { OrderId } from '@healthy360/domain-types';
+import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
 
 /**
  * A driver's own run sheet — the delivery jobs assigned to the signed-in person, and the one action
@@ -15,6 +15,14 @@ import type { OrderId } from '@healthy360/domain-types';
  * The narrowing is `where driver_user_id = me`, which is ownership rather than authority — which is
  * why the two driver routes carry no permission code at all, only `org.context`. Nothing on this
  * contract may be reached for somebody else's jobs, because there is no call shape that could ask.
+ *
+ * ## What a row carries, and the one thing it deliberately does not
+ *
+ * The order's *number*, where it is going in enough detail to find a door, when the run was handed
+ * over, and the number to ring when the building still cannot be found. `driverUserId` is absent
+ * because it would say the same thing on every row — the caller's own id, which they already have.
+ * Money is absent for a related reason: a driver collecting cash on delivery is a real flow and it
+ * belongs to the receipts ledger, not bolted onto a run sheet.
  *
  * ## No cursor, no cap, no filters
  *
@@ -78,6 +86,41 @@ export const DRIVER_JOB_TRACKING_STATUSES = [
 ] as const;
 export type DriverJobTrackingStatus = (typeof DRIVER_JOB_TRACKING_STATUSES)[number];
 
+/**
+ * Where this run is going, **as the order recorded it at placement** — never as the customer's
+ * address book stands now.
+ *
+ * A customer who edits their address at eight o'clock has not changed where tonight's food is going,
+ * and a run sheet reading the live address would send a driver to a door the order was never for.
+ *
+ * Every field is nullable and the nulls are ordinary rather than faults: an order placed before the
+ * snapshot was widened carries no building or floor, an as-soon-as-possible order names no day, and
+ * a kitchen that has not named its slots has no window code. The screen renders what it has and
+ * omits the rest — an "unknown" line for a floor nobody recorded is noise on a phone held one-handed
+ * in a stairwell.
+ */
+export interface DriverJobDelivery {
+    /** The street. What gets somebody to the building. */
+    readonly lineOne: string | null;
+    readonly building: string | null;
+    readonly floor: string | null;
+    readonly apartment: string | null;
+    /** Free text the customer wrote for the courier. Never parsed. */
+    readonly directions: string | null;
+    readonly areaNameEn: string | null;
+    readonly areaNameAr: string | null;
+    readonly windowCode: string | null;
+    /** `YYYY-MM-DD`, or `null` on an order that named no day. */
+    readonly requestedDate: string | null;
+    /**
+     * E.164, and it is **the number the order was given** — resolved from the contact point the
+     * snapshot names, not the customer's best current number. `null` when the order named none, with
+     * no fallback: a substitution would answer a different question while looking like the same
+     * field, and this route carries no permission code to hold a customer-contact lookup behind.
+     */
+    readonly phone: string | null;
+}
+
 export interface DriverJob {
     /**
      * The delivery job. Unbranded: no `DeliveryJobId` codec exists in `@healthy360/domain-types`,
@@ -90,8 +133,21 @@ export interface DriverJob {
      * the reference a driver reads out and the kitchen looks up.
      */
     readonly orderId: OrderId;
+    /**
+     * The number printed on the bag, so a courier can match one to the other.
+     *
+     * Nullable on the wire and kept nullable here rather than defaulted to the identifier: "this job
+     * carries no number" and "here is the number" are different facts, and a screen that wants a
+     * heading either way should fall back visibly, at the point of rendering, rather than be handed
+     * a UUID wearing the name of a reference somebody could read aloud.
+     */
+    readonly orderNumber: string | null;
     readonly status: DriverJobStatus;
     readonly trackingStatus: DriverJobTrackingStatus;
+    /** When this run was handed to the caller. `null` on a job nobody has assigned. */
+    readonly assignedAt: IsoDateTime | null;
+    /** Never null itself — see {@link DriverJobDelivery}, whose every field is. */
+    readonly delivery: DriverJobDelivery;
 }
 
 /**

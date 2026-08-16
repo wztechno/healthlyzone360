@@ -510,6 +510,10 @@
         "emptyBody": "Jobs appear here the moment dispatch assigns one to you.",
         "orderLabel": "Order",
         "orderReference": "Order {{reference}}",
+        "noAddress": "No address was recorded on this order. Ring the kitchen before you set off.",
+        "directions": "Directions: {{directions}}",
+        "phone": "Ring {{phone}}",
+        "assignedAt": "Given to you at {{at}}",
         "deliver": "Mark delivered",
         "deliverTitle": "Mark this delivery as done?",
         "deliverBody": "This tells the kitchen the customer has the order. It cannot be undone from here.",
@@ -554,6 +558,10 @@
         "columnSlot": "Slot",
         "columnStatus": "Status",
         "columnTotal": "Total",
+        "columnDelivery": "Delivery",
+        "columnPayment": "Payment",
+        "columnActions": "Actions",
+        "open": "Open",
         "noSlot": "No slot named",
         "loadErrorTitle": "The queue could not be loaded",
         "emptyTitle": "Nothing due",
@@ -563,8 +571,47 @@
         "clearFilters": "Clear filters",
         "truncatedTitle": "Showing the first {{limit}} orders",
         "truncatedBody": "More orders matched than this view will ever show, and there is no second page. Narrow the window, the slot or the status to reach the rest.",
+        "paymentHeading": "Payment",
+        "paymentMethod": "Paying by",
+        "paymentReceived": "Received so far",
+        "paymentState": "Position",
+        "deliveryHeading": "The run",
+        "deliveryState": "Where it stands",
+        "deliveryStatus": "Dispatch",
+        "deliveryTracking": "The customer has been told",
+        "deliveryAssignedAt": "Given to a driver",
+        "assignUnavailableTitle": "A driver cannot be chosen here yet",
+        "assignUnavailableBody": "Assigning a run needs a list of the people who could take it, and nothing on this platform can list them yet. The run stays waiting until dispatch is given one.",
+        "delivery": {
+            "notDelivered": "Not delivered",
+            "awaitingConfirmation": "On confirmation",
+            "noRun": "No run recorded",
+            "unassigned": "Needs a driver",
+            "assigned": "With a driver",
+            "status": {
+                "pending": "Waiting",
+                "assigned": "Assigned",
+                "inTransit": "On the road",
+                "delivered": "Delivered",
+                "failed": "Could not deliver",
+                "cancelled": "Cancelled"
+            },
+            "tracking": {
+                "awaitingAssignment": "Waiting for a driver",
+                "pickedUp": "Collected",
+                "enRoute": "On the way",
+                "arrived": "Arrived",
+                "delivered": "Delivered"
+            }
+        },
+        "payment": {
+            "receipted": "Settled",
+            "notReceipted": "Not settled",
+            "outstanding": "{{amount}} outstanding"
+        },
         "a11y": {
-            "noCustomerName": "No customer name on this order."
+            "noCustomerName": "No customer name on this order.",
+            "noDeliveryRun": "A {{type}} order. Nothing is driven anywhere."
         },
         "newSale": "New sale",
         "sale": {

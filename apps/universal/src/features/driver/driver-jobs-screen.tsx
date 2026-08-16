@@ -1,4 +1,4 @@
-import type { DriverJob } from '@healthy360/api-client/contracts';
+import type { DriverJob, DriverJobDelivery } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -14,6 +14,7 @@ import {
     TextInputField,
 } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -38,13 +39,27 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * `AreaShell` already applies it; the `Gate` below repeats it so the screen refuses on its own
  * terms when it is rendered outside the shell.
  *
- * ## What a row can say, and what it cannot yet
+ * ## What a row says
  *
- * The wire carries four fields — the job, the order, and the two status axes. It does **not** carry
- * the order *number*, which is the thing a driver actually reads out to a kitchen or a customer, so
- * the row shows the order identifier the endpoint sent rather than a friendlier string this screen
- * would have to invent. When the delivery-chain backend widens the row, that value is the one to
- * put in the heading; nothing else here changes.
+ * The number printed on the bag, both status axes, where the food is going in enough detail to find
+ * a door, when the run was handed over, and the number to ring when the building still cannot be
+ * found. That is what somebody standing next to a van needs and it is the whole of what the wire
+ * carries — no money (a driver collecting cash belongs to the receipts ledger, not to a run sheet)
+ * and no `driverUserId` (it would say "you" on every row).
+ *
+ * **The heading falls back visibly.** `orderNumber` is nullable on the wire, so a job without one
+ * shows the order identifier — which is what this screen showed on every row before the number
+ * existed. The fallback is made here rather than in the mapper on purpose: "this job carries no
+ * number" is a fact worth keeping, and a mapper that substituted the identifier would hand every
+ * screen a UUID wearing the name of a reference somebody could read aloud.
+ *
+ * **The address is drawn from what was recorded and nothing else.** Every part of the snapshot is
+ * nullable and the nulls are ordinary — an order placed before the snapshot was widened has no
+ * floor, a kitchen that has not named its slots has no window — so an absent part is simply not
+ * drawn. A labelled empty line for a floor nobody wrote down is noise on a phone held one-handed in
+ * a stairwell. It is also the address **as the order recorded it**, never the customer's address
+ * book as it stands now: a customer who moved at eight o'clock has not changed where tonight's food
+ * is going.
  *
  * Both statuses are shown because they are two different facts. `status` is where dispatch thinks
  * the job is; `trackingStatus` is what the customer has already been told. "Assigned but not yet
@@ -94,6 +109,26 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  */
 export const DRIVER_POLL_MS = 15_000;
 
+/**
+ * The area's name in the reader's own language, or the other one, or nothing.
+ *
+ * Four lines here rather than `kitchen-admin/format.ts`'s `displayName` for the reason the poll
+ * cadence is declared here rather than imported: the `driver` build family compiles this area alone,
+ * and that module pulls the catalogue's contracts, the nutrition package and the design system's
+ * badge vocabulary in behind it — a large amount of kitchen for one string on a phone.
+ *
+ * It also answers a different question. `displayName` takes a `LocalisedText` whose two sides are
+ * non-null strings and reports whether it fell back, because an admin editing a catalogue row needs
+ * to know a translation is missing. Both sides are nullable here and a driver can do nothing about
+ * either, so the fallback is silent and `null` means the order recorded no area at all.
+ */
+function areaNameFor(delivery: DriverJobDelivery, locale: string): string | null {
+    const arabic = locale.toLowerCase().startsWith('ar');
+    const preferred = arabic ? delivery.areaNameAr : delivery.areaNameEn;
+    const other = arabic ? delivery.areaNameEn : delivery.areaNameAr;
+    return preferred ?? other;
+}
+
 export function DriverJobsScreen() {
     return (
         <Gate area="driver" testID="driver-jobs">
@@ -104,6 +139,7 @@ export function DriverJobsScreen() {
 
 function DriverJobs() {
     const { t } = useTranslation();
+    const { locale } = useLocale();
     const { online } = useOnlineStatus();
 
     const jobs = useDriverJobsQuery(true, { refetchInterval: online ? DRIVER_POLL_MS : false });
@@ -185,6 +221,7 @@ function DriverJobs() {
                         <JobCard
                             key={job.id}
                             job={job}
+                            locale={locale}
                             disabled={deliver.isPending}
                             onDeliver={openDeliver}
                         />
@@ -220,7 +257,9 @@ function DriverJobs() {
                     {delivering === null ? null : (
                         <Text variant="caption" tone="secondary" testID="driver-jobs-deliver-order">
                             {t('kitchen:driver.orderReference', {
-                                reference: String(delivering.orderId),
+                                // The same fallback the card heading makes, so the dialog names the
+                                // job in the words the driver just read.
+                                reference: delivering.orderNumber ?? String(delivering.orderId),
                             })}
                         </Text>
                     )}
@@ -268,6 +307,8 @@ function statusTone(status: DriverJob['status']): BadgeTone {
 
 interface JobCardProps {
     readonly job: DriverJob;
+    /** The reader's locale, for the area name. Passed down rather than read again per card. */
+    readonly locale: string;
     /** A stamp is in flight for some job — every Deliver button waits for it. */
     readonly disabled: boolean;
     readonly onDeliver: (job: DriverJob) => void;
@@ -279,9 +320,23 @@ interface JobCardProps {
  * The card takes no `onPress`. It holds a button, and a pressable card around a button is both an
  * axe `nested-interactive` violation and a way to deliver an order with a mistimed thumb.
  */
-function JobCard({ job, disabled, onDeliver }: JobCardProps) {
+function JobCard({ job, locale, disabled, onDeliver }: JobCardProps) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
     const testID = `driver-job-${job.id}`;
+
+    const { delivery } = job;
+    const areaName = areaNameFor(delivery, locale);
+    /**
+     * Building, floor and apartment on one line, in that order.
+     *
+     * Coarse to fine, which is the order somebody walking up to a block reads them in, and joined
+     * with the locale's own list separator so the line does not hard-code a comma into Arabic.
+     * Empty when the order recorded none of the three, and the line is then not drawn at all.
+     */
+    const unitParts = [delivery.building, delivery.floor, delivery.apartment].filter(
+        (part): part is string => part !== null && part !== '',
+    );
 
     return (
         <Card padding="md" testID={testID}>
@@ -289,8 +344,12 @@ function JobCard({ job, disabled, onDeliver }: JobCardProps) {
                 <Text variant="caption" tone="secondary">
                     {t('kitchen:driver.orderLabel')}
                 </Text>
+                {/*
+                 * The number printed on the bag, falling back to the identifier when the job
+                 * carries none — see the file header on why the fallback is here.
+                 */}
                 <Heading level={2} testID={`${testID}-order`}>
-                    {String(job.orderId)}
+                    {job.orderNumber ?? String(job.orderId)}
                 </Heading>
 
                 <Inline space="xs" wrap testID={`${testID}-statuses`}>
@@ -306,6 +365,68 @@ function JobCard({ job, disabled, onDeliver }: JobCardProps) {
                         label={t(`kitchen:driver.tracking.${job.trackingStatus}`)}
                     />
                 </Inline>
+
+                {/*
+                 * Where it is going. Every part is nullable and an absent one is simply not drawn —
+                 * a labelled blank for a floor nobody recorded is noise in a stairwell.
+                 */}
+                {delivery.lineOne === null && areaName === null ? (
+                    <Text variant="caption" tone="secondary" testID={`${testID}-no-address`}>
+                        {t('kitchen:driver.noAddress')}
+                    </Text>
+                ) : (
+                    <Stack space="none" testID={`${testID}-address`}>
+                        {delivery.lineOne === null ? null : (
+                            <Text variant="bodyStrong" testID={`${testID}-address-line-one`}>
+                                {delivery.lineOne}
+                            </Text>
+                        )}
+                        {unitParts.length === 0 ? null : (
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID={`${testID}-address-unit`}
+                            >
+                                {unitParts.join(t('kitchen:common.listSeparator'))}
+                            </Text>
+                        )}
+                        {areaName === null ? null : (
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID={`${testID}-address-area`}
+                            >
+                                {areaName}
+                            </Text>
+                        )}
+                    </Stack>
+                )}
+
+                {delivery.directions === null ? null : (
+                    <Text variant="caption" tone="secondary" testID={`${testID}-directions`}>
+                        {t('kitchen:driver.directions', { directions: delivery.directions })}
+                    </Text>
+                )}
+
+                {/*
+                 * The number **the order was given**, not the customer's best current one — so a
+                 * driver who cannot find the building rings the person who is expecting them. Text
+                 * rather than a dialling link: a tappable number inside a card that also holds the
+                 * delivery button is a second target for a thumb that is already in a hurry.
+                 */}
+                {delivery.phone === null ? null : (
+                    <Text testID={`${testID}-phone`}>
+                        {t('kitchen:driver.phone', { phone: delivery.phone })}
+                    </Text>
+                )}
+
+                {job.assignedAt === null ? null : (
+                    <Text variant="caption" tone="secondary" testID={`${testID}-assigned-at`}>
+                        {t('kitchen:driver.assignedAt', {
+                            at: formatter.formatDate(job.assignedAt, { timeStyle: 'short' }),
+                        })}
+                    </Text>
+                )}
 
                 <Button
                     testID={`${testID}-deliver`}

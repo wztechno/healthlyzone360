@@ -1,10 +1,12 @@
 import type { CurrencyCode } from '@healthy360/domain-types';
 
 import type {
+    AssignedDeliveryJob,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
     OrderDeskCustomerCreated,
+    OrderDeskDeliveryJob,
     OrderDeskPaymentSummary,
     OrderDeskQueueMeta,
     OrderDeskQueueRow,
@@ -13,10 +15,12 @@ import type {
     OrderDeskRefusal,
 } from '../contracts/order-desk.ts';
 import type {
+    AssignedDeliveryJob as WireAssignedDeliveryJob,
     CustomerAddress as WireCustomerAddress,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerContact as WireOrderDeskCustomerContact,
     OrderDeskCustomerEnvelope,
+    OrderDeskDeliveryJob as WireOrderDeskDeliveryJob,
     OrderDeskQuote as WireOrderDeskQuote,
     OrderDeskQuoteLine as WireOrderDeskQuoteLine,
     OrderDeskQuoteRefusal as WireOrderDeskRefusal,
@@ -59,17 +63,55 @@ function mapCustomer(wire: WireOrderDeskCustomerContact): OrderDeskCustomerConta
  * difference under `exactOptionalPropertyTypes`, and a screen would have no way to tell a refusal
  * from an anonymised customer.
  *
- * `delivery_job` is carried through as it arrives — always `null` in this phase, and deliberately
- * not defaulted to `{}`: an empty object would claim a run exists with nothing in it, which is the
- * one reading of that field that is never true.
+ * `delivery_job` keeps its `null` rather than being defaulted to an empty object: a run that exists
+ * with nothing in it is the one reading of that field which is never true, and the absence is a real
+ * answer about three different orders — see `contracts/order-desk.ts`.
  */
 export function mapOrderDeskQueueRow(wire: WireOrderDeskRow): OrderDeskQueueRow {
     return {
         ...mapKitchenOrder(wire),
         dueAt: wire.due_at,
         payment: mapPaymentSummary(wire.payment),
-        deliveryJob: wire.delivery_job,
+        deliveryJob: wire.delivery_job === null ? null : mapOrderDeskDeliveryJob(wire.delivery_job),
         ...(wire.customer === undefined ? {} : { customer: mapCustomer(wire.customer) }),
+    };
+}
+
+/**
+ * The run an order became.
+ *
+ * Both status axes are assigned straight across rather than narrowed or defaulted, on the same terms
+ * as `driver-jobs-mappers.ts`: the generated unions *are* this contract's unions, so the compiler
+ * proves the two vocabularies agree and the day the wire gains a seventh dispatch state this line
+ * stops building — which is the right place to find out. A `?? 'pending'` fallback would put a row
+ * on the board claiming a job had not started.
+ *
+ * `lock_version` is read without a fallback for a sharper reason: it is the validator an assignment
+ * sends, and a defaulted zero would be a *plausible* value that loses the race it was meant to win.
+ */
+export function mapOrderDeskDeliveryJob(wire: WireOrderDeskDeliveryJob): OrderDeskDeliveryJob {
+    return {
+        id: wire.id,
+        status: wire.status,
+        trackingStatus: wire.tracking_status,
+        driverUserId: wire.driver_user_id,
+        assignedAt: wire.assigned_at,
+        lockVersion: wire.lock_version,
+    };
+}
+
+/**
+ * The job as it stands after an assignment.
+ *
+ * Composed from {@link mapOrderDeskDeliveryJob} plus the one field the response adds, because the
+ * wire shape is that superset and restating six fields here would be a second copy of a mapping that
+ * already has a test. Nothing is re-derived — in particular `status` is not assumed to be `assigned`
+ * — because what an assignment does to either axis is the server's decision to report.
+ */
+export function mapAssignedDeliveryJob(wire: WireAssignedDeliveryJob): AssignedDeliveryJob {
+    return {
+        ...mapOrderDeskDeliveryJob(wire),
+        orderId: wire.order_id,
     };
 }
 

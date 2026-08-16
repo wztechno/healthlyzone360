@@ -269,6 +269,7 @@ export const REPOSITORY_SURFACE = {
     kitchenOrders: ['cancelOrder', 'confirmOrder', 'fulfilOrder', 'getOrder', 'listOrders'],
     orderDesk: [
         'addCustomerAddress',
+        'assignDeliveryJob',
         'createCustomer',
         'listQueue',
         'placeSale',

@@ -621,12 +621,60 @@ test.describe('kitchen workspace (ar, RTL)', () => {
             await expect(
                 page.getByTestId('kitchen-order-desk-table-columnheader-due'),
             ).toContainText(ARABIC_SCRIPT);
+            // The two columns the queue-actions slice added, in the same direction as the rest.
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-delivery'),
+            ).toContainText(ARABIC_SCRIPT);
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-payment'),
+            ).toContainText(ARABIC_SCRIPT);
         } else {
             await expect(page.getByTestId('kitchen-order-desk-empty')).toContainText(ARABIC_SCRIPT);
         }
 
-        // And the queue must stay inside itself: a six-column table is the easiest place in this
+        // And the queue must stay inside itself: an eight-column table is the easiest place in this
         // workspace to push the document sideways, in either direction.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
+
+    /**
+     * The desk's detail drawer in Arabic, where a slide-in meets the direction rule.
+     *
+     * A `Drawer` with `placement="end"` is the one overlay in this workspace whose *position*
+     * depends on direction: "end" is the right-hand edge in English and the left-hand one here, and
+     * a panel that had been pinned with a physical `right` would open on the wrong side of the
+     * screen without any test noticing. The drawer also carries a fixed pixel width, which is the
+     * classic way an overlay pushes the document sideways in the direction it was not designed in.
+     *
+     * Opening a row is a read; nothing here presses Confirm or Fulfil.
+     */
+    test('translates the desk detail drawer and keeps it inside the document', async ({ page }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-order-desk-open').click();
+        await expect(page.getByTestId('kitchen-order-desk-screen')).toBeVisible();
+
+        test.skip(
+            (await page.getByTestId('kitchen-order-desk-table').count()) === 0,
+            'nothing is due on this database, so there is no row to open',
+        );
+
+        await page.locator('[data-testid$="-open"]').first().click();
+        await expect(page.getByTestId('kitchen-order-desk-detail-body')).toBeVisible();
+
+        // The two blocks this slice added to the drawer, both translated. The payment block is on
+        // every order; the delivery one only when something is being driven, so it is conditional
+        // here for the same reason it is conditional in the screen.
+        await expect(page.getByTestId('kitchen-order-desk-detail-payment')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        const run = page.getByTestId('kitchen-order-desk-detail-delivery');
+        if ((await run.count()) > 0) {
+            await expect(run).toContainText(ARABIC_SCRIPT);
+        }
+
         const overflow = await page.evaluate(
             () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
         );
