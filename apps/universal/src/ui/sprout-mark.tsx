@@ -151,23 +151,45 @@ export function SproutMark({ label, size = DEFAULT_SIZE, testID }: SproutMarkPro
     useEffect(() => {
         if (!enabled) return;
 
+        let cancelled = false;
+
         /*
-         * Linear, and deliberately so. The easing lives in the *curves* instead: warping one shared
-         * clock would warp each leaf's phase differently and the four would stop being a quarter of
-         * a cycle apart.
+         * The cycle restarts itself instead of using `Animated.loop`.
+         *
+         * `loop` shipped here first and stopped after a pass or two on the web, leaving a sprout
+         * frozen mid-unfurl for the rest of the wait. Its contract is that one interrupted
+         * iteration ends the whole loop — it hands the completion straight back and never restarts
+         * — and on a splash there is plenty to interrupt it: the tree above re-renders as the
+         * session resolves, and the tab is often still settling its first frames.
+         *
+         * Restarting by hand takes that decision back. An iteration that finishes starts the next
+         * one; an iteration that is *interrupted* also starts the next one, because on a loading
+         * mark "something disturbed the animation" is never a reason to stand still for the rest
+         * of the wait. Only the effect's own teardown stops it, and that is what `cancelled` is
+         * for.
+         *
+         * The timing itself is linear, deliberately: the easing lives in the *curves*, and warping
+         * one shared clock would warp each leaf's phase differently until the four stopped being a
+         * quarter of a cycle apart.
          */
-        const loop = Animated.loop(
+        const runCycle = () => {
+            if (cancelled) return;
+            clock.setValue(0);
             Animated.timing(clock, {
                 toValue: 1,
                 duration: CYCLE_MS,
                 easing: Easing.linear,
                 useNativeDriver: true,
-            }),
-        );
-        loop.start();
+            }).start(() => {
+                runCycle();
+            });
+        };
+
+        runCycle();
 
         return () => {
-            loop.stop();
+            cancelled = true;
+            clock.stopAnimation();
             clock.setValue(0);
         };
     }, [enabled, clock]);

@@ -1,8 +1,13 @@
 import { createI18n } from '@healthy360/i18n';
 import { render, screen } from '@testing-library/react-native';
+import { act } from 'react';
 import { I18nextProvider } from 'react-i18next';
+import { Animated } from 'react-native';
 
 import { SproutMark } from './sprout-mark.tsx';
+
+/** One full cycle of the mark, mirrored from the component so the timing test can outrun it. */
+const CYCLE_MS = 2400;
 
 /**
  * The splash mark.
@@ -104,6 +109,32 @@ describe('SproutMark', () => {
             .reduce((total, opacity) => total + opacity, 0);
 
         expect(ink).toBeGreaterThanOrEqual(1);
+    });
+
+    it('starts the next cycle every time one ends, however it ended', async () => {
+        /*
+         * The bug this exists for: the mark ran a pass or two and then held still for the rest of
+         * the wait, because `Animated.loop` ends the whole loop the first time an iteration is
+         * interrupted — and a splash, sitting under a tree that re-renders as the session resolves,
+         * gets interrupted. Counting the timings started over several cycles is the only honest way
+         * to assert "it keeps going", short of watching it.
+         */
+        jest.useFakeTimers();
+        const timing = jest.spyOn(Animated, 'timing');
+
+        try {
+            await renderMark();
+            const started = timing.mock.calls.length;
+
+            await act(async () => {
+                jest.advanceTimersByTime(CYCLE_MS * 3);
+            });
+
+            expect(timing.mock.calls.length).toBeGreaterThan(started);
+        } finally {
+            timing.mockRestore();
+            jest.useRealTimers();
+        }
     });
 
     it('is one drawing at any size, so the splash and an inline version cannot drift apart', async () => {
