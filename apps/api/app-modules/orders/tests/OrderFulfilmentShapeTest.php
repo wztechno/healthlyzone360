@@ -345,14 +345,18 @@ it('carries the new fields onto a desk queue row without the desk presenter bein
         'sales_channel_id' => $this->channelId,
     ]);
 
-    $row = app(OrderDeskPresenter::class)->row($order, [], now()->toIso8601String(), 0, false);
+    // Nothing is paid and there is no run: a counter sale is never driven
+    // anywhere, so the delivery-job seat is null by construction here rather
+    // than by omission.
+    $row = app(OrderDeskPresenter::class)->row($order, [], now()->toIso8601String(), 0, null, false);
 
     expect($row)->toHaveKeys(['fulfilment_type', 'placed_on_behalf_by', 'delivery'])
         ->and($row['fulfilment_type'])->toBe('counter')
         ->and($row['placed_on_behalf_by'])->toBeNull()
         ->and($row['customer_account_id'])->toBeNull()
         ->and($row['delivery'])->toHaveKeys(['building', 'floor', 'apartment', 'directions', 'contact_point_id'])
-        ->and($row['delivery']['line_one'])->toBeNull();
+        ->and($row['delivery']['line_one'])->toBeNull()
+        ->and($row['delivery_job'])->toBeNull();
 });
 
 it('states the shape rule in the database rather than only in a service', function (): void {

@@ -6,11 +6,13 @@ namespace Healthy360\Orders\Providers;
 
 use Healthy360\B2b\Contracts\SellerOpenOrders;
 use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
+use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Contracts\OpenOrderQuery;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Services\BranchScheduleLookup;
 use Healthy360\Orders\Services\BuyerOpenOrderQuery;
+use Healthy360\Orders\Services\NullDeliveryJobProjection;
 use Healthy360\Orders\Services\NullOrderStockConsumption;
 use Healthy360\Orders\Services\OrderQuery;
 use Healthy360\Orders\Services\OrderSnapshotRedaction;
@@ -51,13 +53,22 @@ use Illuminate\Support\ServiceProvider;
  * the null answers exist for a deployment without this module, and where this
  * module is present it must win regardless of provider order.
  *
- * **One it declares and answers with a null default** (INV1.2):
- * `OrderStockConsumption` → `NullOrderStockConsumption`. This is the mirror of
- * the two edges above — a port pointing *outward*, so that confirming an order
- * takes ingredients off the shelf without this module ever learning that an
- * inventory module exists. The inventory module binds the real implementation
- * over this default from its own `boot()`; where inventory is absent, an order
- * still confirms and cancels and nothing moves.
+ * **Two it declares and answers with a null default**, both fired from the same
+ * lifecycle chokepoint and both pointing *outward*, so that confirming an order
+ * has consequences in modules this one never learns the names of. The module
+ * that owns each consequence binds the real implementation over the default from
+ * its own `boot()`; where that module is absent, an order still confirms and
+ * nothing happens.
+ *
+ *  * INV1.2's `OrderStockConsumption` → `NullOrderStockConsumption`, so that
+ *    confirming takes ingredients off the shelf without this module ever
+ *    learning that an inventory module exists.
+ *  * C3's `DeliveryJobProjection` → `NullDeliveryJobProjection`, so that
+ *    confirming a *delivery* order creates the job a driver runs. This one is
+ *    the port pattern doing work the other does not: the registry edge already
+ *    runs Orders → Delivery for the zone fee, so without a port this module
+ *    would be inserting rows into another module's table and the coupling would
+ *    be mutual. Declaring the question here keeps the write where the table is.
  */
 class OrdersServiceProvider extends ServiceProvider
 {
@@ -70,6 +81,7 @@ class OrdersServiceProvider extends ServiceProvider
         $this->app->bind(SellerOpenOrders::class, BuyerOpenOrderQuery::class);
 
         $this->app->bind(OrderStockConsumption::class, NullOrderStockConsumption::class);
+        $this->app->bind(DeliveryJobProjection::class, NullDeliveryJobProjection::class);
     }
 
     public function boot(): void {}

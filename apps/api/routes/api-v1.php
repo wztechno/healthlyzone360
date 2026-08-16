@@ -125,6 +125,7 @@ use Healthy360\Customers\Http\Controllers\CustomerAccountShowController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountStoreController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileReplaceController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileShowController;
+use Healthy360\Delivery\Http\Controllers\DeliveryJobAssignController;
 use Healthy360\Delivery\Http\Controllers\DeliveryJobIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowStoreController;
@@ -621,18 +622,35 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | header was always required in substance; it is now required in the
         | routing table, which is where a reader can see it.
         |
-        | No permission code. A driver is staff of the kitchen whose jobs
-        | these are, and the narrowing that matters is `driver_user_id` — the
-        | caller's own assignments — which is ownership rather than authority
-        | and is enforced in the controllers. `/delivery/jobs` is the
-        | dispatcher's view of the same table and is scoped by the
-        | organisation alone.
+        | No permission code on the three **reads**. A driver is staff of the
+        | kitchen whose jobs these are, and the narrowing that matters is
+        | `driver_user_id` — the caller's own assignments — which is ownership
+        | rather than authority and is enforced in the controllers.
+        | `/delivery/jobs` is the dispatcher's view of the same table and is
+        | scoped by the organisation alone.
+        |
+        | **`assign` is the exception, and it is the only write here that
+        | somebody could be wrong to make** (C3). Deciding whose run this is
+        | *is* authority — it commits a person's evening — so it carries
+        | `order.manage_organisation`, the same code that confirms the order
+        | the run came from, rather than a new `delivery.*` one: a manager who
+        | may accept a sale and cancel it should not need a second grant to say
+        | who takes it out. `delivery_zone.manage_organisation` governs the
+        | *map* and is deliberately not reused for tonight's rota.
+        |
+        | `precondition` because two dispatchers share one board and can see
+        | the same free driver; the validator is folded into the conditional
+        | UPDATE inside the controller.
         */
         Route::middleware('org.context')->group(function (): void {
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
 
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
+
+            Route::post('/delivery/jobs/{job}/assign', DeliveryJobAssignController::class)
+                ->middleware(['permission:order.manage_organisation', 'precondition'])
+                ->name('delivery.jobs.assign');
         });
 
         /*

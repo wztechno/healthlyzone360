@@ -24,6 +24,19 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * different messages, and folding them into one column would mean choosing
  * which of those two audiences to serve badly.
  *
+ * **One job per order**, enforced by a unique index on `order_id` rather than
+ * by whoever happens to be writing. Since C3 that index is also the whole of
+ * the projection's idempotency: `DeliveryJobProjector` inserts and treats a
+ * 23505 as "already done", because the confirm transaction it runs inside can
+ * re-run and a read-then-write would lose that race.
+ *
+ * **`lock_version` guards assignment, and nothing else on this row.** A
+ * dispatch board is a shared screen, and two dispatchers can see the same
+ * unassigned run and the same free driver. The driver's own `deliver` stamp is
+ * deliberately unguarded — nobody is racing a driver for their own job, and a
+ * conflict dialog on a phone at somebody's door is worse than a re-stamped
+ * timestamp.
+ *
  * @property string $id
  * @property string $organisation_id
  * @property string $order_id
@@ -34,6 +47,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property string|null $proof_of_delivery_notes
  * @property CarbonImmutable|null $assigned_at
  * @property CarbonImmutable|null $delivered_at
+ * @property int $lock_version
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
@@ -46,6 +60,7 @@ class DeliveryJob extends BaseModel implements OrganisationScoped
         return [
             'assigned_at' => 'immutable_datetime',
             'delivered_at' => 'immutable_datetime',
+            'lock_version' => 'integer',
         ];
     }
 }

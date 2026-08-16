@@ -82,7 +82,20 @@ use Healthy360\Orders\Presenters\OrderPresenter;
  * recomputed: a presenter that went to the database per row would turn two
  * hundred rows into two hundred round trips.
  *
- * `delivery_job` is still the seat it was — C3's — and still null.
+ * `delivery_job` has now arrived too, and unlike `payment` it **is** nullable —
+ * because "there is no run" is a fact about an order rather than a gap in the
+ * server's knowledge, and it is true of three different orders for three good
+ * reasons. A pickup or a counter sale is never driven anywhere. A delivery order
+ * still `placed` has no job yet, because `OrderLifecycle::confirm()` is what
+ * projects one and a placed order may still be cancelled without a driver ever
+ * hearing about it. And a delivery order confirmed before C3 shipped was never
+ * projected at all. All three read as `null`, which is the honest answer to
+ * "which run is this" in every one of them; a desk that needs to distinguish
+ * them has `fulfilment_type` and `status` on the same row.
+ *
+ * It arrives the same way the payment sum does — resolved for the whole page by
+ * `OrderDeskQueue::deliveryJobsByOrder()` — and it carries the job's
+ * `lock_version` so the Assign dialog has its `If-Match` without a second read.
  *
  * ## The `@return` shape is a restatement, and it moves when `kitchen()` moves
  *
@@ -111,10 +124,12 @@ final class OrderDeskPresenter
      * through a missing requested day to `placed_at`.
      *
      * `$receivedMinor` is the sum of this order's receipts, zero when it has
-     * none, and it comes from the same place and for the same reason: the queue
-     * derived it for the whole page in one statement.
+     * none, and `$deliveryJob` is the run it became, null when there is none.
+     * Both come from the same place and for the same reason: the queue derived
+     * them for the whole page in one statement each.
      *
      * @param  iterable<int, OrderLine>  $lines
+     * @param  array{id: string, status: string, tracking_status: string, driver_user_id: string|null, assigned_at: string|null, lock_version: int}|null  $deliveryJob
      * @param  array{display_name: string|null, phone: string|null}|null  $contact
      * @return array{
      *     id: string,
@@ -176,7 +191,7 @@ final class OrderDeskPresenter
      *     updated_at: string|null,
      *     due_at: string,
      *     payment: array{method: string, received_minor: int, receipted: bool},
-     *     delivery_job: array<string, mixed>|null,
+     *     delivery_job: array{id: string, status: string, tracking_status: string, driver_user_id: string|null, assigned_at: string|null, lock_version: int}|null,
      *     customer?: array{display_name: string|null, phone: string|null}
      * }
      */
@@ -185,6 +200,7 @@ final class OrderDeskPresenter
         iterable $lines,
         string $dueAt,
         int $receivedMinor,
+        ?array $deliveryJob,
         bool $includeContact,
         ?array $contact = null,
     ): array {
@@ -199,10 +215,11 @@ final class OrderDeskPresenter
         // "receipted" would eventually disagree.
         $row['payment'] = $this->orders->paymentSummary($order, $receivedMinor);
 
-        // Still the seat it was declared as. See the class docblock: C3 fills
-        // it, and the key exists now so the shape does not change under a
-        // client when it does.
-        $row['delivery_job'] = null;
+        // The seat C3 declared, now filled. Null is a real answer here — no
+        // pickup, no counter sale and no unconfirmed delivery has a run — and
+        // the key is present either way, which is what the seat was declared
+        // early to guarantee.
+        $row['delivery_job'] = $deliveryJob;
 
         if ($includeContact) {
             // Null-safe throughout, and every level of it is reachable. The

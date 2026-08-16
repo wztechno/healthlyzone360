@@ -4698,18 +4698,44 @@ export type OrderPaymentReceiptEnvelope = {
 export type OrderDeskWindow = 'today' | 'overdue' | 'next_7';
 
 /**
- * **Always `null` in this phase.** The seat a delivery job sits in once
- * confirming a delivery order creates one (phase C3): which driver has it,
- * what state the run is in, and when it was assigned.
+ * The run this order became: which driver has it, what state it is in, and
+ * when it was assigned.
  *
- * Declared before anything fills it so that the row does not change shape
- * under a client when it does — the same argument the payment seat was
- * declared on, and that seat has since been filled by
- * `OrderPaymentSummary`.
+ * **`null` is a real answer, and it is true of three different orders.** A
+ * pickup or a counter sale is never driven anywhere. A delivery order still
+ * `placed` has no run yet, because a job is projected on *confirm* — the
+ * moment a kitchen commits to cook — and a placed order may still be
+ * cancelled without a driver hearing about it. And a delivery order
+ * confirmed before C3 shipped was never projected and will not be
+ * retrospectively. All three read as `null`; a screen that needs to
+ * distinguish them has `fulfilment_type` and `status` on the same row.
+ *
+ * **No address here.** Where the food is going is already on the row's own
+ * `delivery` block, and a second copy inside the job would be two answers
+ * to one question.
+ *
+ * This seat was declared nullable and empty before anything could fill it,
+ * so the row would not change shape under a client when C3 arrived — the
+ * same argument the payment seat was declared on.
  *
  */
 export type OrderDeskDeliveryJob = {
-    [key: string]: unknown;
+    id: Uuid;
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+    /**
+     * `null` until dispatch assigns one.
+     */
+    driver_user_id: Uuid | null;
+    assigned_at: string | null;
+    /**
+     * The job's own validator, carried on the queue row so an Assign dialog
+     * has its `If-Match` without re-reading the job. It is **not** the
+     * order's `lock_version` and the two move independently — assigning a
+     * driver deliberately does not touch the order.
+     *
+     */
+    lock_version: number;
 };
 
 /**
@@ -6938,15 +6964,106 @@ export type DeliveryJob = {
 };
 
 /**
- * The same job on the driver's own run sheet. `driver_user_id` is absent
- * because it would say the same thing on every row.
+ * Where this run is going, **as the order recorded it at placement** — never
+ * as the customer's address book stands now. A customer who edits their
+ * address at eight o'clock has not changed where tonight's food is going,
+ * and a run sheet reading the live address would send a driver to a door
+ * the order was never for.
+ *
+ * Every field is nullable, and the nulls are ordinary: an order placed
+ * before the snapshot was widened carries no building or floor, an
+ * as-soon-as-possible order names no day, and a kitchen that has not named
+ * its slots has no window code.
+ *
+ */
+export type DriverJobDelivery = {
+    /**
+     * The street. What gets somebody to the building.
+     */
+    line_one: string | null;
+    building: string | null;
+    floor: string | null;
+    apartment: string | null;
+    /**
+     * Free text the customer wrote for the courier. Never parsed.
+     */
+    directions: string | null;
+    area_name_en: string | null;
+    area_name_ar: string | null;
+    window_code: string | null;
+    requested_date: string | null;
+    /**
+     * E.164, and it is **the number the order was given** — resolved from
+     * the contact point the snapshot names, not the customer's best current
+     * number. `null` when the order named none, with no fallback: a
+     * substitution would answer a different question while looking like the
+     * same field, and this route carries no permission code to hold a
+     * customer-contact lookup behind. The desk has
+     * `order.view_customer_contact_organisation` for that.
+     *
+     */
+    phone: string | null;
+};
+
+/**
+ * The same job on the driver's own run sheet, carrying what somebody
+ * standing next to a van needs: which order this is, where the food is
+ * going in enough detail to find a door, when it was promised, when they
+ * were given it, and the number to ring when they still cannot find the
+ * building.
+ *
+ * `driver_user_id` is absent because it would say the same thing on every
+ * row — the caller's own id, which they already have — and the dispatch
+ * board is the surface where whose job it is is worth answering. Money is
+ * absent for a related reason: a driver collecting cash on delivery is a
+ * real flow and it belongs to the receipts ledger, not bolted onto a run
+ * sheet.
  *
  */
 export type DriverJob = {
     id: Uuid;
     order_id: Uuid;
+    /**
+     * The number printed on the bag, so a courier can match one to the other.
+     */
+    order_number: string | null;
     status: DeliveryJobStatus;
     tracking_status: DeliveryJobTrackingStatus;
+    /**
+     * When this run was handed to the caller. `null` on a job nobody has assigned.
+     */
+    assigned_at: string | null;
+    delivery: DriverJobDelivery;
+};
+
+export type AssignDeliveryJobRequest = {
+    /**
+     * An **active member** of this organisation. There is deliberately no
+     * null: unassigning a run is a different decision and would need its
+     * own route and its own audit action rather than arriving as an omitted
+     * key.
+     *
+     */
+    driver_user_id: Uuid;
+};
+
+/**
+ * The dispatch board's shape plus what the assignment just decided. A
+ * superset rather than a different shape, so a board refreshing one row
+ * from this response does not have to reconcile two vocabularies.
+ *
+ */
+export type AssignedDeliveryJob = {
+    id: Uuid;
+    order_id: Uuid;
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+    driver_user_id: Uuid | null;
+    assigned_at: string | null;
+    /**
+     * The validator to send as `If-Match` on the next write.
+     */
+    lock_version: number;
 };
 
 export type DeliverDriverJobRequest = {
@@ -9437,8 +9554,11 @@ export type KycDocumentPath = Uuid;
 export type KycAccessPurpose = string;
 
 /**
- * The delivery job identifier. One that is not the caller's own answers
- * 404, decided before the request body is looked at.
+ * The delivery job identifier. On the driver routes, one that is not the
+ * caller's own answers 404, decided before the request body is looked at;
+ * on the dispatcher's `assign`, one belonging to another organisation
+ * answers 404 for the same reason — a 403 would confirm that the
+ * identifier names something real.
  *
  */
 export type DeliveryJobPath = Uuid;
@@ -23264,8 +23384,11 @@ export type DeliverDriverJobData = {
     };
     path: {
         /**
-         * The delivery job identifier. One that is not the caller's own answers
-         * 404, decided before the request body is looked at.
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
          *
          */
         job: Uuid;
@@ -23322,9 +23445,13 @@ export type DeliverDriverJobResponses = {
             job: {
                 id: Uuid;
                 /**
-                 * Always `delivered` on success.
+                 * Always `delivered` on success. Typed as the job
+                 * status enum rather than a bare string so a client
+                 * reads it with the same vocabulary the two lists
+                 * serve.
+                 *
                  */
-                status: string;
+                status: DeliveryJobStatus;
             };
         };
         meta: Meta;
@@ -23332,6 +23459,111 @@ export type DeliverDriverJobResponses = {
 };
 
 export type DeliverDriverJobResponse = DeliverDriverJobResponses[keyof DeliverDriverJobResponses];
+
+export type AssignDeliveryJobData = {
+    body: AssignDeliveryJobRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/delivery/jobs/{job}/assign';
+};
+
+export type AssignDeliveryJobErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AssignDeliveryJobError = AssignDeliveryJobErrors[keyof AssignDeliveryJobErrors];
+
+export type AssignDeliveryJobResponses = {
+    /**
+     * The job as it now stands, with its new validator.
+     */
+    200: {
+        data: {
+            job: AssignedDeliveryJob;
+        };
+        meta: Meta;
+    };
+};
+
+export type AssignDeliveryJobResponse = AssignDeliveryJobResponses[keyof AssignDeliveryJobResponses];
 
 export type CreatePaymentIntentData = {
     body: CreatePaymentIntentRequest;

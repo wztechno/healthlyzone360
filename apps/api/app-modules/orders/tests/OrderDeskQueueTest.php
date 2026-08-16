@@ -11,6 +11,7 @@ use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -50,6 +51,16 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 | takings on every row, and `>` instead of `>=` shows a kitchen that has been
 | paid in full as still owed the money — so the pair is pinned at the boundary
 | and across two orders.
+|
+| The `delivery_job` tests are a third kind again: a *seat being filled*. The key
+| was declared nullable and empty before anything could put a run in it, so the
+| shape would not change under a client when C3 arrived; these pin that it is now
+| populated for a confirmed delivery order — carrying the `lock_version` the
+| Assign dialog sends back as `If-Match` — and still null for the three orders
+| that legitimately have no run: a pickup, a counter sale, and a delivery nobody
+| has confirmed yet. The isolation case matters more here than it looks, because
+| the lookup is by order id across a whole page and a missing organisation
+| predicate would decorate a row with another kitchen's dispatch.
 |
 | The last three tests are about disclosure rather than arithmetic. A desk row is
 | the only kitchen-facing projection on this platform that carries a customer's
@@ -494,6 +505,97 @@ it('keeps one order\'s receipts off another order\'s row', function (): void {
         ->and($rows[1]['id'])->toBe((string) $unpaid->getKey())
         ->and($rows[1]['payment']['received_minor'])->toBe(0)
         ->and($rows[1]['payment']['receipted'])->toBeFalse();
+});
+
+it('carries the run a confirmed delivery order became, with the validator the assign dialog needs', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $order = deskOrder($this, ['requested_delivery_date' => '2026-05-10', 'status' => OrderStatus::Confirmed, 'confirmed_at' => now()]);
+    $driver = deskAgent($this->orgId, 'runner-desk@kitchen.test', ['order.view_organisation']);
+
+    $job = DeliveryJob::withoutTenancy()->create([
+        'organisation_id' => $this->orgId,
+        'order_id' => $order->getKey(),
+        'status' => 'assigned',
+        'tracking_status' => 'awaiting_assignment',
+        'driver_user_id' => $driver->getKey(),
+        'assigned_at' => now(),
+        'lock_version' => 3,
+    ]);
+
+    $row = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('data.0');
+
+    // Six fields and no address: everything about *where* the food is going is
+    // already on the row's own `delivery` block, and a second copy inside the
+    // job would be two answers to one question.
+    expect($row['delivery_job'])->toBe([
+        'id' => (string) $job->getKey(),
+        'status' => 'assigned',
+        'tracking_status' => 'awaiting_assignment',
+        'driver_user_id' => (string) $driver->getKey(),
+        'assigned_at' => '2026-05-10T08:00:00+00:00',
+        // The `If-Match` the Assign dialog sends back, carried on the row it is
+        // about so a desk never has to re-read the job to write to it.
+        'lock_version' => 3,
+    ]);
+});
+
+it('leaves the run null for a delivery order nobody has confirmed yet', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    // A job is projected on *confirm*, not on placement: a placed order may
+    // still be cancelled without a driver ever hearing about it.
+    deskOrder($this, ['requested_delivery_date' => '2026-05-10']);
+
+    expect($this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('data.0.delivery_job'))
+        ->toBeNull();
+});
+
+it('leaves the run null for pickup and counter orders', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    // Nobody drives these anywhere, so there is nothing to dispatch and the
+    // absence is the fact rather than a gap.
+    Order::factory()->pickup()->confirmed()->create([
+        'organisation_id' => $this->orgId,
+        'customer_account_id' => $this->customerId,
+        'sales_channel_id' => $this->channelId,
+        'requested_delivery_date' => '2026-05-10',
+        'placed_at' => '2026-05-10 06:00:00',
+    ]);
+
+    Order::factory()->counter()->confirmed()->create([
+        'organisation_id' => $this->orgId,
+        'sales_channel_id' => $this->channelId,
+        'requested_delivery_date' => '2026-05-10',
+        'placed_at' => '2026-05-10 07:00:00',
+    ]);
+
+    $jobs = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('data.*.delivery_job');
+
+    expect($jobs)->toBe([null, null]);
+});
+
+it('keeps one kitchen\'s runs off another kitchen\'s queue rows', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    // The lookup is scoped by the organisation as well as by the order id — the
+    // model's own global scope — so a job written against a foreign order can
+    // never decorate a row here.
+    $order = deskOrder($this, ['requested_delivery_date' => '2026-05-10', 'status' => OrderStatus::Confirmed, 'confirmed_at' => now()]);
+
+    $foreign = PricingWorld::kitchen('foreign-desk@kitchen.test');
+
+    DeliveryJob::withoutTenancy()->create([
+        'organisation_id' => $foreign->organisation->getKey(),
+        'order_id' => $order->getKey(),
+        'status' => 'pending',
+        'tracking_status' => 'awaiting_assignment',
+        'lock_version' => 0,
+    ]);
+
+    expect($this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('data.0.delivery_job'))
+        ->toBeNull();
 });
 
 it('withholds the customer\'s name and number from a caller without the contact code', function (): void {

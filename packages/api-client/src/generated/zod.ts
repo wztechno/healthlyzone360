@@ -3516,19 +3516,6 @@ export const zOrderDeskWindow = z.enum([
 ]);
 
 /**
- * **Always `null` in this phase.** The seat a delivery job sits in once
- * confirming a delivery order creates one (phase C3): which driver has it,
- * what state the run is in, and when it was assigned.
- *
- * Declared before anything fills it so that the row does not change shape
- * under a client when it does — the same argument the payment seat was
- * declared on, and that seat has since been filled by
- * `OrderPaymentSummary`.
- *
- */
-export const zOrderDeskDeliveryJob = z.record(z.string(), z.unknown());
-
-/**
  * The customer's name, and the number somebody can ring them on.
  *
  * **Present only when the caller holds
@@ -3550,25 +3537,6 @@ export const zOrderDeskDeliveryJob = z.record(z.string(), z.unknown());
 export const zOrderDeskCustomerContact = z.object({
     display_name: z.string().nullable(),
     phone: z.string().nullable()
-});
-
-export const zOrderDeskRow = zKitchenOrder.and(z.object({
-    due_at: z.iso.datetime({ offset: true }),
-    payment: zOrderPaymentSummary,
-    delivery_job: zOrderDeskDeliveryJob.nullable(),
-    customer: zOrderDeskCustomerContact.optional()
-}));
-
-export const zOrderDeskQueueEnvelope = z.object({
-    data: z.array(zOrderDeskRow),
-    meta: zMeta.and(z.object({
-        count: z.int().gte(0),
-        limit: z.int(),
-        truncated: z.boolean(),
-        window: zOrderDeskWindow,
-        today: z.iso.date(),
-        timezone: z.string()
-    }))
 });
 
 /**
@@ -5193,6 +5161,56 @@ export const zDeliveryJobTrackingStatus = z.enum([
 ]);
 
 /**
+ * The run this order became: which driver has it, what state it is in, and
+ * when it was assigned.
+ *
+ * **`null` is a real answer, and it is true of three different orders.** A
+ * pickup or a counter sale is never driven anywhere. A delivery order still
+ * `placed` has no run yet, because a job is projected on *confirm* — the
+ * moment a kitchen commits to cook — and a placed order may still be
+ * cancelled without a driver hearing about it. And a delivery order
+ * confirmed before C3 shipped was never projected and will not be
+ * retrospectively. All three read as `null`; a screen that needs to
+ * distinguish them has `fulfilment_type` and `status` on the same row.
+ *
+ * **No address here.** Where the food is going is already on the row's own
+ * `delivery` block, and a second copy inside the job would be two answers
+ * to one question.
+ *
+ * This seat was declared nullable and empty before anything could fill it,
+ * so the row would not change shape under a client when C3 arrived — the
+ * same argument the payment seat was declared on.
+ *
+ */
+export const zOrderDeskDeliveryJob = z.object({
+    id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_user_id: zUuid.nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int()
+});
+
+export const zOrderDeskRow = zKitchenOrder.and(z.object({
+    due_at: z.iso.datetime({ offset: true }),
+    payment: zOrderPaymentSummary,
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
+
+export const zOrderDeskQueueEnvelope = z.object({
+    data: z.array(zOrderDeskRow),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int(),
+        truncated: z.boolean(),
+        window: zOrderDeskWindow,
+        today: z.iso.date(),
+        timezone: z.string()
+    }))
+});
+
+/**
  * A delivery job as the dispatch board sees it.
  */
 export const zDeliveryJob = z.object({
@@ -5204,15 +5222,74 @@ export const zDeliveryJob = z.object({
 });
 
 /**
- * The same job on the driver's own run sheet. `driver_user_id` is absent
- * because it would say the same thing on every row.
+ * Where this run is going, **as the order recorded it at placement** — never
+ * as the customer's address book stands now. A customer who edits their
+ * address at eight o'clock has not changed where tonight's food is going,
+ * and a run sheet reading the live address would send a driver to a door
+ * the order was never for.
+ *
+ * Every field is nullable, and the nulls are ordinary: an order placed
+ * before the snapshot was widened carries no building or floor, an
+ * as-soon-as-possible order names no day, and a kitchen that has not named
+ * its slots has no window code.
+ *
+ */
+export const zDriverJobDelivery = z.object({
+    line_one: z.string().nullable(),
+    building: z.string().nullable(),
+    floor: z.string().nullable(),
+    apartment: z.string().nullable(),
+    directions: z.string().nullable(),
+    area_name_en: z.string().nullable(),
+    area_name_ar: z.string().nullable(),
+    window_code: z.string().nullable(),
+    requested_date: z.iso.date().nullable(),
+    phone: z.string().nullable()
+});
+
+/**
+ * The same job on the driver's own run sheet, carrying what somebody
+ * standing next to a van needs: which order this is, where the food is
+ * going in enough detail to find a door, when it was promised, when they
+ * were given it, and the number to ring when they still cannot find the
+ * building.
+ *
+ * `driver_user_id` is absent because it would say the same thing on every
+ * row — the caller's own id, which they already have — and the dispatch
+ * board is the surface where whose job it is is worth answering. Money is
+ * absent for a related reason: a driver collecting cash on delivery is a
+ * real flow and it belongs to the receipts ledger, not bolted onto a run
+ * sheet.
  *
  */
 export const zDriverJob = z.object({
     id: zUuid,
     order_id: zUuid,
+    order_number: z.string().nullable(),
     status: zDeliveryJobStatus,
-    tracking_status: zDeliveryJobTrackingStatus
+    tracking_status: zDeliveryJobTrackingStatus,
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    delivery: zDriverJobDelivery
+});
+
+export const zAssignDeliveryJobRequest = z.object({
+    driver_user_id: zUuid
+});
+
+/**
+ * The dispatch board's shape plus what the assignment just decided. A
+ * superset rather than a different shape, so a board refreshing one row
+ * from this response does not have to reconcile two vocabularies.
+ *
+ */
+export const zAssignedDeliveryJob = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_user_id: zUuid.nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int()
 });
 
 export const zDeliverDriverJobRequest = z.object({
@@ -7177,8 +7254,11 @@ export const zKycDocumentPath = zUuid;
 export const zKycAccessPurpose = z.string().min(1).max(160);
 
 /**
- * The delivery job identifier. One that is not the caller's own answers
- * 404, decided before the request body is looked at.
+ * The delivery job identifier. On the driver routes, one that is not the
+ * caller's own answers 404, decided before the request body is looked at;
+ * on the dispatcher's `assign`, one belonging to another organisation
+ * answers 404 for the same reason — a 403 would confirm that the
+ * identifier names something real.
  *
  */
 export const zDeliveryJobPath = zUuid;
@@ -10695,8 +10775,30 @@ export const zDeliverDriverJobResponse = z.object({
     data: z.object({
         job: z.object({
             id: zUuid,
-            status: z.string()
+            status: zDeliveryJobStatus
         })
+    }),
+    meta: zMeta
+});
+
+export const zAssignDeliveryJobBody = zAssignDeliveryJobRequest;
+
+export const zAssignDeliveryJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAssignDeliveryJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job as it now stands, with its new validator.
+ */
+export const zAssignDeliveryJobResponse = z.object({
+    data: z.object({
+        job: zAssignedDeliveryJob
     }),
     meta: zMeta
 });

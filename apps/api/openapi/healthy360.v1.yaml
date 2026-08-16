@@ -11648,6 +11648,21 @@ paths:
         ownership, and there is no role that would make somebody else's run
         sheet theirs.
 
+        **The row carries what somebody standing next to a van needs** (C3):
+        the order number printed on the bag, the whole delivery snapshot — the
+        street, the building, the floor, the flat, the customer's own directions,
+        the area, the promised slot and day — the moment the run was handed over,
+        and the number to ring when the building still cannot be found. Before
+        C3 it served four identifiers and two status strings, which was honest
+        while nothing created delivery jobs and there was no driver client to
+        read them, and stopped being honest the moment confirming an order
+        started projecting real runs.
+
+        Every delivery field comes from the **order's snapshot** as it stood at
+        placement, never from the customer's address book: a customer editing
+        their address at eight o'clock has not changed where tonight's food is
+        going.
+
         `driver_user_id` is deliberately **absent** from the rows here. It
         would say the same thing on every one of them, and the dispatch board
         is the surface where whose job it is matters.
@@ -11745,9 +11760,13 @@ paths:
                           id:
                             $ref: '#/components/schemas/Uuid'
                           status:
-                            type: string
-                            description: Always `delivered` on success.
-                            examples: [delivered]
+                            allOf:
+                              - $ref: '#/components/schemas/DeliveryJobStatus'
+                            description: |
+                              Always `delivered` on success. Typed as the job
+                              status enum rather than a bare string so a client
+                              reads it with the same vocabulary the two lists
+                              serve.
                         additionalProperties: false
                   meta:
                     $ref: '#/components/schemas/Meta'
@@ -11761,6 +11780,117 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /delivery/jobs/{job}/assign:
+    post:
+      operationId: assignDeliveryJob
+      tags: [Delivery]
+      summary: Give a run to a driver
+      description: |
+        Names the driver who is taking this delivery out, stamps the moment, and
+        moves the job to `assigned`.
+
+        **The first write on this table two people can race**, which is why
+        `delivery_jobs` gained a `lock_version` with this operation. A dispatch
+        board is a shared screen: two dispatchers can be looking at the same
+        unassigned run and the same free driver, and without a validator the
+        second write silently wins — one driver is told about a job that is no
+        longer theirs, and the row remembers only the later decision.
+
+        The version is folded into the conditional `UPDATE`'s own `WHERE`, so
+        there is no window between reading it and writing the row. Absent is
+        **428**, stale is **409** carrying `details.current_lock_version`,
+        `details.status` and `details.driver_user_id` so a board can re-render
+        without a second round trip. A header present but not a Healthy360
+        validator is **400**, not 409: the client has not lost a race, it has
+        sent nonsense.
+
+        **Re-assignment is permitted**, under a fresh `If-Match`. Drivers get
+        sick and vans break down, and a run handed to somebody who cannot do it
+        is the most likely reason anybody opens this twice; refusing would leave
+        a dispatcher with no move except to cancel a delivery the customer is
+        still expecting. The validator is what makes it deliberate — re-assigning
+        requires having read the job *since* it was last assigned.
+        `assigned_at` is re-stamped, because the useful question is when the
+        person now holding the run was given it; every earlier answer survives in
+        the audit trail.
+
+        **A `delivered` or `cancelled` run refuses**, `409` with
+        `details.status`. Assignment sets `status = assigned`, and applying that
+        to a finished job would leave a row simultaneously assigned and stamped
+        `delivered_at`.
+
+        **`driver_user_id` must name an active member of this organisation.**
+        Anything else — a stranger, a former employee, an invitation nobody
+        accepted, a perfectly real courier who works for the kitchen next door —
+        is **422** `validation.failed` with the message on
+        `details.fields.driver_user_id`. A 404 would be the wrong answer: the
+        job is real and the caller may reach it; what is wrong is one field of
+        the body.
+
+        **`tracking_status` deliberately does not move.** The customer-facing
+        vocabulary runs `awaiting_assignment → picked_up → en_route → arrived →
+        delivered` and there is no value between the first two, because *a
+        driver has been named but has not collected the food* is not a message a
+        customer is owed. **The order is not touched either** — not its status,
+        not its `lock_version`: a dispatcher naming a driver changes nothing the
+        customer agreed to, and bumping the order's validator would invalidate
+        every desk screen holding it for a change none of them can see.
+
+        Requires `order.manage_organisation` — the same code that confirms the
+        order this run came from. The three *reads* on this table carry no
+        permission code because they are narrowed by ownership; deciding whose
+        evening this is, is authority. A job belonging to another organisation is
+        **404**, never 403.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignDeliveryJobRequest'
+      responses:
+        '200':
+          description: The job as it now stands, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [job]
+                    properties:
+                      job:
+                        $ref: '#/components/schemas/AssignedDeliveryJob'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -17089,8 +17219,11 @@ components:
       in: path
       required: true
       description: |
-        The delivery job identifier. One that is not the caller's own answers
-        404, decided before the request body is looked at.
+        The delivery job identifier. On the driver routes, one that is not the
+        caller's own answers 404, decided before the request body is looked at;
+        on the dispatcher's `assign`, one belonging to another organisation
+        answers 404 for the same reason — a 403 would confirm that the
+        identifier names something real.
       schema:
         $ref: '#/components/schemas/Uuid'
     PaymentIntentPath:
@@ -25543,16 +25676,50 @@ components:
 
     OrderDeskDeliveryJob:
       type: object
+      required: [id, status, tracking_status, driver_user_id, assigned_at, lock_version]
       description: |
-        **Always `null` in this phase.** The seat a delivery job sits in once
-        confirming a delivery order creates one (phase C3): which driver has it,
-        what state the run is in, and when it was assigned.
+        The run this order became: which driver has it, what state it is in, and
+        when it was assigned.
 
-        Declared before anything fills it so that the row does not change shape
-        under a client when it does — the same argument the payment seat was
-        declared on, and that seat has since been filled by
-        `OrderPaymentSummary`.
-      additionalProperties: true
+        **`null` is a real answer, and it is true of three different orders.** A
+        pickup or a counter sale is never driven anywhere. A delivery order still
+        `placed` has no run yet, because a job is projected on *confirm* — the
+        moment a kitchen commits to cook — and a placed order may still be
+        cancelled without a driver hearing about it. And a delivery order
+        confirmed before C3 shipped was never projected and will not be
+        retrospectively. All three read as `null`; a screen that needs to
+        distinguish them has `fulfilment_type` and `status` on the same row.
+
+        **No address here.** Where the food is going is already on the row's own
+        `delivery` block, and a second copy inside the job would be two answers
+        to one question.
+
+        This seat was declared nullable and empty before anything could fill it,
+        so the row would not change shape under a client when C3 arrived — the
+        same argument the payment seat was declared on.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        driver_user_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: '`null` until dispatch assigns one.'
+        assigned_at:
+          type: ['string', 'null']
+          format: date-time
+        lock_version:
+          type: integer
+          description: |
+            The job's own validator, carried on the queue row so an Assign dialog
+            has its `If-Match` without re-reading the job. It is **not** the
+            order's `lock_version` and the two move independently — assigning a
+            driver deliberately does not touch the order.
+      additionalProperties: false
 
     OrderDeskCustomerContact:
       type: object
@@ -25610,7 +25777,7 @@ components:
           description: |
             One row of the desk queue: everything the order book's row carries,
             plus the queue's own arithmetic, the order's payment position, and
-            the one seat a later phase still fills.
+            the run it became.
 
             `payment` is **never null**. Every order has a payment position, and
             "nothing has been paid" is `received_minor: 0` with
@@ -25618,6 +25785,11 @@ components:
             third state meaning nothing a desk could act on. It is derived for
             the whole page in one grouped aggregate over the receipts ledger,
             never a query per row.
+
+            `delivery_job` **is** nullable, and the difference is the point:
+            "there is no run" is a fact about an order rather than a gap in the
+            server's knowledge. It is resolved for the whole page in one
+            statement, the same batching rule the payment aggregate follows.
 
             The `allOf` is honest here rather than a documentation convenience.
             This shape really is the kitchen shape **plus** fields — the server
@@ -28791,9 +28963,107 @@ components:
       additionalProperties: false
       description: A delivery job as the dispatch board sees it.
 
+    DriverJobDelivery:
+      type: object
+      required: [line_one, building, floor, apartment, directions, area_name_en, area_name_ar, window_code, requested_date, phone]
+      description: |
+        Where this run is going, **as the order recorded it at placement** — never
+        as the customer's address book stands now. A customer who edits their
+        address at eight o'clock has not changed where tonight's food is going,
+        and a run sheet reading the live address would send a driver to a door
+        the order was never for.
+
+        Every field is nullable, and the nulls are ordinary: an order placed
+        before the snapshot was widened carries no building or floor, an
+        as-soon-as-possible order names no day, and a kitchen that has not named
+        its slots has no window code.
+      properties:
+        line_one:
+          type: ['string', 'null']
+          description: The street. What gets somebody to the building.
+        building:
+          type: ['string', 'null']
+        floor:
+          type: ['string', 'null']
+        apartment:
+          type: ['string', 'null']
+        directions:
+          type: ['string', 'null']
+          description: Free text the customer wrote for the courier. Never parsed.
+        area_name_en:
+          type: ['string', 'null']
+        area_name_ar:
+          type: ['string', 'null']
+        window_code:
+          type: ['string', 'null']
+        requested_date:
+          type: ['string', 'null']
+          format: date
+        phone:
+          type: ['string', 'null']
+          description: |
+            E.164, and it is **the number the order was given** — resolved from
+            the contact point the snapshot names, not the customer's best current
+            number. `null` when the order named none, with no fallback: a
+            substitution would answer a different question while looking like the
+            same field, and this route carries no permission code to hold a
+            customer-contact lookup behind. The desk has
+            `order.view_customer_contact_organisation` for that.
+      additionalProperties: false
+
     DriverJob:
       type: object
-      required: [id, order_id, status, tracking_status]
+      required: [id, order_id, order_number, status, tracking_status, assigned_at, delivery]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type: ['string', 'null']
+          description: The number printed on the bag, so a courier can match one to the other.
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        assigned_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When this run was handed to the caller. `null` on a job nobody has assigned.
+        delivery:
+          $ref: '#/components/schemas/DriverJobDelivery'
+      additionalProperties: false
+      description: |
+        The same job on the driver's own run sheet, carrying what somebody
+        standing next to a van needs: which order this is, where the food is
+        going in enough detail to find a door, when it was promised, when they
+        were given it, and the number to ring when they still cannot find the
+        building.
+
+        `driver_user_id` is absent because it would say the same thing on every
+        row — the caller's own id, which they already have — and the dispatch
+        board is the surface where whose job it is is worth answering. Money is
+        absent for a related reason: a driver collecting cash on delivery is a
+        real flow and it belongs to the receipts ledger, not bolted onto a run
+        sheet.
+
+    AssignDeliveryJobRequest:
+      type: object
+      required: [driver_user_id]
+      properties:
+        driver_user_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: |
+            An **active member** of this organisation. There is deliberately no
+            null: unassigning a run is a different decision and would need its
+            own route and its own audit action rather than arriving as an omitted
+            key.
+      additionalProperties: false
+
+    AssignedDeliveryJob:
+      type: object
+      required: [id, order_id, status, tracking_status, driver_user_id, assigned_at, lock_version]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -28803,10 +29073,21 @@ components:
           $ref: '#/components/schemas/DeliveryJobStatus'
         tracking_status:
           $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        driver_user_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        assigned_at:
+          type: ['string', 'null']
+          format: date-time
+        lock_version:
+          type: integer
+          description: The validator to send as `If-Match` on the next write.
       additionalProperties: false
       description: |
-        The same job on the driver's own run sheet. `driver_user_id` is absent
-        because it would say the same thing on every row.
+        The dispatch board's shape plus what the assignment just decided. A
+        superset rather than a different shape, so a board refreshing one row
+        from this response does not have to reconcile two vocabularies.
 
     DeliverDriverJobRequest:
       type: object

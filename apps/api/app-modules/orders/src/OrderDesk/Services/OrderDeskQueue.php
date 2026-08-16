@@ -7,6 +7,7 @@ namespace Healthy360\Orders\OrderDesk\Services;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\OrderDesk\Enums\OrderDeskWindow;
@@ -316,6 +317,68 @@ final class OrderDeskQueue
         }
 
         return $received;
+    }
+
+    /**
+     * The run each of these orders has become, in **one** statement.
+     *
+     * Keyed by order because the relationship is one-to-one and enforced as
+     * such: `delivery_jobs` is unique on `order_id`, which is also what makes
+     * `DeliveryJobProjector` idempotent, so a map rather than a list per order
+     * is the shape the schema guarantees rather than a convenience.
+     *
+     * Batched over the whole page for the reason `receivedByOrder()` and
+     * `linesFor()` are: two hundred rows is two hundred round trips if this is
+     * got wrong, and here it would be two hundred round trips that each return
+     * at most one row.
+     *
+     * **Absence is the answer, not a gap.** An order with no entry has no run,
+     * and that is true of three different orders for three good reasons — a
+     * pickup or counter sale, which nobody drives anywhere; a delivery order
+     * still `placed`, because a job is projected on *confirm* and a placed order
+     * may yet be cancelled without a driver hearing about it; and any delivery
+     * order confirmed before C3 existed, which was never projected and will not
+     * be retrospectively. The caller reads all three as `delivery_job: null`,
+     * which is honest for each: there is no run.
+     *
+     * Read through `DeliveryJob` rather than as a table, unlike `contact_points`
+     * in `contactsFor()`. The distinction is the module registry: Orders →
+     * Delivery is a declared edge this module already spends on the zone fee, so
+     * the model costs nothing new — and it brings the organisation scope with
+     * it, which is a second predicate on a cross-order lookup for free.
+     *
+     * @param  list<string>  $orderIds
+     * @return array<string, array{id: string, status: string, tracking_status: string, driver_user_id: string|null, assigned_at: string|null, lock_version: int}>
+     */
+    public function deliveryJobsByOrder(array $orderIds): array
+    {
+        $orderIds = array_values(array_unique(array_filter($orderIds, static fn (string $id): bool => $id !== '')));
+
+        if ($orderIds === []) {
+            return [];
+        }
+
+        $jobs = [];
+
+        $rows = DeliveryJob::query()
+            ->whereIn('order_id', $orderIds)
+            ->get(['id', 'order_id', 'status', 'tracking_status', 'driver_user_id', 'assigned_at', 'lock_version']);
+
+        foreach ($rows as $row) {
+            $jobs[(string) $row->order_id] = [
+                'id' => (string) $row->getKey(),
+                'status' => $row->status,
+                'tracking_status' => $row->tracking_status,
+                'driver_user_id' => $row->driver_user_id,
+                'assigned_at' => $row->assigned_at?->utc()->toIso8601String(),
+                // The validator the Assign dialog has to send back as `If-Match`,
+                // carried on the row it is about so a desk never has to re-read
+                // the job to write to it.
+                'lock_version' => $row->lock_version,
+            ];
+        }
+
+        return $jobs;
     }
 
     /**

@@ -102,6 +102,12 @@ final class OrderDeskQueueController
         // broken: two hundred rows, two hundred round trips.
         $received = $this->queue->receivedByOrder($orderIds);
 
+        // And one statement for the whole page's runs, for the same reason. An
+        // order absent from this map has no delivery job, which is true of every
+        // pickup and counter sale and of every delivery order nobody has
+        // confirmed yet.
+        $deliveryJobs = $this->queue->deliveryJobsByOrder($orderIds);
+
         // Resolved once for the whole page rather than per row, and only when
         // it will be spent: an unpermitted caller never causes the confidential
         // columns to be read at all.
@@ -123,6 +129,9 @@ final class OrderDeskQueueController
                 // Absent from the aggregate means nothing has been paid, which
                 // is a zero rather than a missing figure.
                 $received[$id] ?? 0,
+                // Absent from this one means there is no run, which is a null
+                // rather than a missing object — see the presenter.
+                $deliveryJobs[$id] ?? null,
                 $includeContact,
                 $contacts[(string) $order->customer_account_id] ?? null,
             );
