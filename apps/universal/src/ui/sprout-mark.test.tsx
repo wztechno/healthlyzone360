@@ -89,26 +89,33 @@ describe('SproutMark', () => {
         expect(angles).toEqual(['45deg', '135deg', '225deg', '315deg']);
     });
 
-    it('has leaves on show in its very first frame, never a bare seed', async () => {
+    it('begins the cycle at the seed and lets the four leaves come up out of step', async () => {
         await renderMark();
 
         /*
-         * This is the regression that shipped, and it is a property of the *mark*, not of any one
-         * leaf: a leaf is supposed to fade to nothing, that is the unfurl. What must never happen is
-         * all four doing it at once.
+         * The study's choreography, and the one thing about this mark that kept getting redesigned
+         * on its behalf. `animation-delay: 0s, .16s, .32s, .48s` over a 2.4s `unfurl` means the
+         * cycle opens on a bare seed and the leaves grow one after another, each starting before the
+         * one before it has finished — then fade the same way.
          *
-         * The study staggered them by a sixth of a second, so they were effectively in step and the
-         * sprout blinked out together once a cycle — combined opacity 0.26 at its worst. A session
-         * restores in a couple of hundred milliseconds, so landing in that blink showed a bare seed,
-         * which is exactly what got reported. A quarter-cycle apart, the worst instant of the loop
-         * still carries a whole leaf's worth of ink, and frame zero carries two.
+         * Two properties say that and nothing about taste: the first frame is closed, and the four
+         * leaves are at four *different* points of the unfurl. A quarter-cycle stagger passes the
+         * second and fails the first; leaves in lockstep pass the first and fail the second.
+         *
+         * Being out of step is read off scale rather than opacity, because three of the four are
+         * legitimately at opacity zero here — the curve is flat across the seam — while no two of
+         * them are ever the same size.
          */
-        const ink = screen
-            .getAllByTestId(/^splash-leaf-/, HIDDEN)
-            .map((leaf) => (flatten(leaf.props.style).opacity as number | undefined) ?? 1)
-            .reduce((total, opacity) => total + opacity, 0);
+        const leaves = screen.getAllByTestId(/^splash-leaf-/, HIDDEN).map((leaf) => {
+            const style = flatten(leaf.props.style);
+            return {
+                opacity: (style.opacity as number | undefined) ?? 1,
+                scale: (style.transform as { scale?: number }[])[1]?.scale ?? 1,
+            };
+        });
 
-        expect(ink).toBeGreaterThanOrEqual(1);
+        expect(Math.max(...leaves.map((leaf) => leaf.opacity))).toBeLessThan(0.5);
+        expect(new Set(leaves.map((leaf) => leaf.scale.toFixed(3))).size).toBe(leaves.length);
     });
 
     it('starts the next cycle every time one ends, however it ended', async () => {
