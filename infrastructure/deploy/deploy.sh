@@ -9,7 +9,9 @@
 # invalidating sessions, tokens or anything encrypted with the old key.
 #
 # Environment knobs:
-#   DEMO_PASSWORD  password every seeded persona ends up with (default: password)
+#   DEMO_PASSWORD  password every seeded persona ends up with. Remembered in
+#                  .env after the first run, so later deploys keep it without
+#                  being told again; pass it to change it.
 #   SKIP_SEED=1    migrate but leave existing data alone
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -23,7 +25,11 @@ if [ -z "$SITE_ADDRESS" ]; then
     exit 1
 fi
 
-DEMO_PASSWORD="${DEMO_PASSWORD:-password}"
+# Captured before .env is sourced, because sourcing would otherwise clobber an
+# override given on the command line with the stored value. Precedence is
+# therefore: what this run was told, then what the instance remembers, then the
+# seeder's own password.
+DEMO_PASSWORD_ARG="${DEMO_PASSWORD:-}"
 
 # 32 URL-safe characters. Deliberately not the raw base64: these values travel
 # through an env file, a compose substitution and a psql variable, and the
@@ -49,6 +55,18 @@ fi
 if [ "$SITE_ADDRESS" != "$(sed -n 's/^SITE_ADDRESS=//p' .env)" ]; then
     sed -i "s|^SITE_ADDRESS=.*|SITE_ADDRESS=$SITE_ADDRESS|" .env
 fi
+
+# The tester password is remembered here rather than passed on every deploy.
+# It has to be: the seeders write their own `password` into these accounts, so
+# a deploy that does not know the real one silently hands every tester account
+# back to the value the repository documents publicly.
+DEMO_PASSWORD="${DEMO_PASSWORD_ARG:-${DEMO_PASSWORD:-password}}"
+{ grep -v '^DEMO_PASSWORD=' .env || true; } > .env.next
+# Single-quoted: this file is sourced by this script and parsed by compose, and
+# a password is the one value here not drawn from a restricted alphabet.
+printf "DEMO_PASSWORD='%s'\n" "$DEMO_PASSWORD" >> .env.next
+mv .env.next .env
+chmod 600 .env
 
 # ---------------------------------------------------------------------------
 # 2. Application environment — rewritten every run, key preserved

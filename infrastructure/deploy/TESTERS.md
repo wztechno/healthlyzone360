@@ -6,7 +6,12 @@ time the instance is re-seeded — a tester who breaks something gets it back on
 the next deploy.
 
 **Site:** <https://157-230-121-66.nip.io>
-**Password:** `password` — for every account below.
+**Password:** `h360-NzvkXeQLXlYL` — for every account below.
+
+> Not the `password` the seeders write. The instance is publicly reachable, so
+> the accounts are rotated after seeding; `deploy.sh` remembers the value in the
+> droplet's `.env` and re-applies it on every deploy, because seeding would
+> otherwise hand them back to the documented default.
 
 > These are demonstration accounts on a test instance holding synthetic data.
 > Nothing here is a real person, a real kitchen or a real payment.
