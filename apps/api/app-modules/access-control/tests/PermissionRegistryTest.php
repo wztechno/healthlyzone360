@@ -119,3 +119,42 @@ it('gives the organisation owner exactly the organisation permission set', funct
     expect(PermissionRegistry::templateRoles()['organisation_owner']['permissions'])
         ->toEqualCanonicalizing(array_keys(PermissionRegistry::organisationPermissions()));
 });
+
+it('lets the order desk read the range it sells without deciding it', function (): void {
+    // Pinned as a set rather than a count, because the interesting facts about
+    // this role are which side of each pair it sits on rather than how many
+    // codes it holds.
+    //
+    // `catalogue.view_organisation` is the newest of them and was missing when
+    // the role was first written: the sale wizard's item picker reads the
+    // kitchen's own catalogue, and without the view code a desk agent is a
+    // counter agent who cannot see the menu. Its absent partners are the point
+    // of the pin — an agent sells the range at the tariff and changes neither.
+    $desk = PermissionRegistry::templateRoles()['order_desk_agent']['permissions'];
+
+    expect($desk)->toEqualCanonicalizing([
+        'catalogue.view_organisation',
+        'order.view_organisation',
+        'order.manage_organisation',
+        'order.create_on_behalf_organisation',
+        'customer.create_on_behalf_organisation',
+        'order.view_customer_contact_organisation',
+        'subscription.view_organisation',
+        'inventory.view_organisation',
+    ]);
+
+    foreach ([
+        'catalogue.manage_organisation',
+        'catalogue.publish_organisation',
+        'plan.manage_organisation',
+        'price_list.manage_organisation',
+        'recipe.manage_organisation',
+
+        // What the soup cost the kitchen is the commercial side's. An agent
+        // counts the shelf without ever seeing it in money — the whole point
+        // of INV1's cost split.
+        'inventory.view_costs_organisation',
+    ] as $withheld) {
+        expect($desk)->not->toContain($withheld);
+    }
+});

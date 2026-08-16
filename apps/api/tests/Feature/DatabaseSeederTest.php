@@ -385,7 +385,12 @@ it('seeds the platform template roles with the expected grants', function (strin
     'chef edits recipes and their costs and runs inventory, but never publishes and never sees a price or an inventory cost' => ['kitchen_chef', 7],
     'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
     'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
-    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, and decides neither the range nor the tariff' => ['order_desk_agent', 7],
+    // Eight, not seven: the role gained `catalogue.view_organisation` with the
+    // sale wizard's item picker, which reads the kitchen's own catalogue to
+    // find out what there is to sell and 403s without it. Reading the range is
+    // still not deciding it — the manage and publish codes stay absent, which
+    // is the half of this row the name is about.
+    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 8],
 ]);
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {

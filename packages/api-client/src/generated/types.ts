@@ -2233,6 +2233,97 @@ export type PlanProfileEnvelope = {
 };
 
 /**
+ * The four sittings, the same vocabulary a subscription meal choice
+ * stores — generation copies this value straight onto a choice row.
+ *
+ */
+export type PlanMenuSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+/**
+ * One dish, in one slot, on one day of the plan's cycle.
+ *
+ */
+export type PlanMenuEntry = {
+    id: Uuid;
+    /**
+     * 1-based day of the cycle. **Day 1 is the anchor date itself**, and
+     * the cycle is anchored to the *plan*, not to each subscriber — every
+     * subscriber eats the same dish on the same date, which is what makes
+     * a day one production run rather than an à la carte service.
+     *
+     */
+    cycle_day: number;
+    slot: PlanMenuSlot;
+    /**
+     * Disambiguates the kitchen that serves lunch twice. Defaults to 1.
+     *
+     */
+    sequence: number;
+    meal_catalogue_item_id: Uuid;
+    meal_name_en: string | null;
+    meal_name_ar: string | null;
+};
+
+/**
+ * The rotation the entries sit on. **Both null means no menu is
+ * published**, which is the behaviour every plan has by default and the
+ * state in which a subscription order deducts no stock.
+ *
+ */
+export type PlanMenuCycle = {
+    cycle_days: number | null;
+    /**
+     * The date cycle day 1 falls on. A date rather than an instant: a
+     * cycle turns over at the kitchen's midnight.
+     *
+     */
+    anchor_date: string | null;
+};
+
+export type PlanMenuEnvelope = {
+    data: {
+        item: AdminCatalogueItem;
+        cycle: PlanMenuCycle;
+        entries: Array<PlanMenuEntry>;
+    };
+    meta: Meta & {
+        count: number;
+    };
+};
+
+/**
+ * The complete menu. All three fields are required to be *present* and
+ * may all be null or empty: that combination withdraws the menu, which is
+ * a decision a kitchen makes and not a field they forgot.
+ *
+ * They move together. Entries with no cycle length, or a cycle length
+ * with no entries, or a cycle length with no anchor, are each `422` —
+ * see the operation description.
+ *
+ * `catalogue_item_id` is not a field: the plan is in the URL.
+ *
+ */
+export type ReplacePlanMenuRequest = {
+    entries: Array<{
+        cycle_day: number;
+        slot: PlanMenuSlot;
+        /**
+         * Defaults to 1.
+         */
+        sequence?: number | null;
+        /**
+         * Must be a **published meal** of this kitchen. A menu entry is
+         * a promise to serve the dish, so a draft or a retired one is
+         * `422`.
+         *
+         */
+        meal_catalogue_item_id: Uuid;
+    }>;
+    menu_cycle_days: number | null;
+    menu_cycle_anchor_date: string | null;
+};
+
+/**
  * One cell of a plan's availability matrix, together with the variant that
  * carries it. **The variant is the priceable thing**: a price row names
  * `catalogue_item_variant_id`, exactly as it does for a pack.
@@ -17233,6 +17324,175 @@ export type ReplacePlanVariantsResponses = {
 };
 
 export type ReplacePlanVariantsResponse = ReplacePlanVariantsResponses[keyof ReplacePlanVariantsResponses];
+
+export type GetPlanMenuData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/menu';
+};
+
+export type GetPlanMenuErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetPlanMenuError = GetPlanMenuErrors[keyof GetPlanMenuErrors];
+
+export type GetPlanMenuResponses = {
+    /**
+     * The plan, its cycle configuration and every entry on its menu.
+     */
+    200: PlanMenuEnvelope;
+};
+
+export type GetPlanMenuResponse = GetPlanMenuResponses[keyof GetPlanMenuResponses];
+
+export type ReplacePlanMenuData = {
+    body: ReplacePlanMenuRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/menu';
+};
+
+export type ReplacePlanMenuErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplacePlanMenuError = ReplacePlanMenuErrors[keyof ReplacePlanMenuErrors];
+
+export type ReplacePlanMenuResponses = {
+    /**
+     * The plan, the cycle it now runs on, and every entry it now has.
+     */
+    200: PlanMenuEnvelope;
+};
+
+export type ReplacePlanMenuResponse = ReplacePlanMenuResponses[keyof ReplacePlanMenuResponses];
 
 export type ListPlanVariantDurationsData = {
     body?: never;

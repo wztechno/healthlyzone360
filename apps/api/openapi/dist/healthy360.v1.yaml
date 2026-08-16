@@ -6271,6 +6271,150 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/plans/{item}/menu:
+    get:
+      operationId: getPlanMenu
+      tags:
+        - Subscription plans
+      summary: A plan's fixed menu
+      description: |
+        What the plan serves, on which day of its cycle — ordered the way a
+        chef reads it: day, then sitting in the order of the day rather than
+        alphabetically, then the second lunch after the first.
+
+        Each entry carries the dish's name beside its identifier, so an editor
+        drawing a week of slots does not have to resolve forty identifiers to
+        do it.
+
+        `cycle` is served even when it is empty: `cycle_days: null` is the
+        whole "this plan has no menu" fact, and it is the same answer whether
+        the plan has no profile at all or a profile with no menu on it.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The plan, its cycle configuration and every entry on its menu.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanMenuEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replacePlanMenu
+      tags:
+        - Subscription plans
+      summary: Replace a plan's fixed menu
+      description: |
+        ## Publishing a menu changes what a subscription order does to stock
+
+        **Today a confirmed fixed-menu subscription order deducts nothing.** No
+        meal lines are generated for a plan whose subscribers have made no
+        choices, and the plan line itself consumes nothing by design — the
+        kitchen ships food while its recorded shelves never move.
+
+        **The moment a menu exists for a plan, that stops, for that plan
+        alone.** Generation fills each day's slots from the menu, those become
+        real order lines, and confirming an order explodes each one through its
+        published recipe and deducts the ingredients. What comes with it:
+
+        * every meal on the menu with no published recipe version starts
+          raising `no_recipe_version` consumption exceptions, one per confirmed
+          order per day;
+        * every meal whose recipe version has no yield piece count starts
+          raising `no_yield_piece_count` the same way;
+        * both are blocking reasons, so they stay open until a person settles
+          them.
+
+        There is no flag and no kitchen-wide switch: **publishing a menu is the
+        opt-in, and it is per plan.** Recipe one plan, publish its menu, watch
+        the exceptions, then do the next one.
+
+        ## The menu is one document
+
+        `entries`, `menu_cycle_days` and `menu_cycle_anchor_date` are submitted
+        and stored together. Half of it is `422`: dishes with no cycle have no
+        modulus to resolve a date against, and a cycle with no dishes would
+        announce a menu whose every day is empty. Sending **no** entries and
+        **no** cycle is the one legal half-state, because it is not one — it
+        withdraws the menu and returns the plan to today's behaviour.
+
+        The two cycle fields are columns on the plan profile and are **not**
+        writable through `PUT …/profile`: that endpoint is a whole-document
+        write, and a client sending a body written before those columns existed
+        would silently withdraw a kitchen's menu.
+
+        ## The rest
+
+        **Entries are replaced, not merged**, and absent ones are deleted
+        rather than archived — nothing references a menu entry, no price is
+        quoted against one, and the dish is protected by its own delete
+        restriction. Two days may therefore swap their dishes in one
+        submission.
+
+        A dish must be this kitchen's, must be a **meal**, and must be
+        **published** — a menu entry is a promise to serve it. A `cycle_day`
+        beyond the submitted cycle length is `422`, and so is one slot filled
+        twice.
+
+        **`If-Match` carries the item's validator.** Requires
+        `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePlanMenuRequest'
+      responses:
+        '200':
+          description: The plan, the cycle it now runs on, and every entry it now has.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanMenuEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/plans/{item}/variant-durations:
     get:
       operationId: listPlanVariantDurations
@@ -22987,6 +23131,173 @@ components:
                 gate refuses, and deliberately not filled in with defaults.
         meta:
           $ref: '#/components/schemas/Meta'
+    PlanMenuSlot:
+      type: string
+      enum:
+        - breakfast
+        - lunch
+        - dinner
+        - snack
+      description: |
+        The four sittings, the same vocabulary a subscription meal choice
+        stores — generation copies this value straight onto a choice row.
+    PlanMenuEntry:
+      type: object
+      required:
+        - id
+        - cycle_day
+        - slot
+        - sequence
+        - meal_catalogue_item_id
+        - meal_name_en
+        - meal_name_ar
+      description: |
+        One dish, in one slot, on one day of the plan's cycle.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        cycle_day:
+          type: integer
+          minimum: 1
+          maximum: 366
+          description: |
+            1-based day of the cycle. **Day 1 is the anchor date itself**, and
+            the cycle is anchored to the *plan*, not to each subscriber — every
+            subscriber eats the same dish on the same date, which is what makes
+            a day one production run rather than an à la carte service.
+        slot:
+          $ref: '#/components/schemas/PlanMenuSlot'
+        sequence:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: |
+            Disambiguates the kitchen that serves lunch twice. Defaults to 1.
+        meal_catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        meal_name_en:
+          type:
+            - string
+            - 'null'
+        meal_name_ar:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    PlanMenuCycle:
+      type: object
+      required:
+        - cycle_days
+        - anchor_date
+      description: |
+        The rotation the entries sit on. **Both null means no menu is
+        published**, which is the behaviour every plan has by default and the
+        state in which a subscription order deducts no stock.
+      properties:
+        cycle_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 366
+        anchor_date:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: |
+            The date cycle day 1 falls on. A date rather than an instant: a
+            cycle turns over at the kitchen's midnight.
+    PlanMenuEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - item
+            - cycle
+            - entries
+          properties:
+            item:
+              $ref: '#/components/schemas/AdminCatalogueItem'
+            cycle:
+              $ref: '#/components/schemas/PlanMenuCycle'
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlanMenuEntry'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - count
+              properties:
+                count:
+                  type: integer
+    ReplacePlanMenuRequest:
+      type: object
+      required:
+        - entries
+        - menu_cycle_days
+        - menu_cycle_anchor_date
+      description: |
+        The complete menu. All three fields are required to be *present* and
+        may all be null or empty: that combination withdraws the menu, which is
+        a decision a kitchen makes and not a field they forgot.
+
+        They move together. Entries with no cycle length, or a cycle length
+        with no entries, or a cycle length with no anchor, are each `422` —
+        see the operation description.
+
+        `catalogue_item_id` is not a field: the plan is in the URL.
+      properties:
+        entries:
+          type: array
+          maxItems: 400
+          items:
+            type: object
+            required:
+              - cycle_day
+              - slot
+              - meal_catalogue_item_id
+            properties:
+              cycle_day:
+                type: integer
+                minimum: 1
+                maximum: 366
+              slot:
+                $ref: '#/components/schemas/PlanMenuSlot'
+              sequence:
+                type:
+                  - integer
+                  - 'null'
+                minimum: 1
+                maximum: 12
+                description: Defaults to 1.
+              meal_catalogue_item_id:
+                allOf:
+                  - $ref: '#/components/schemas/Uuid'
+                description: |
+                  Must be a **published meal** of this kitchen. A menu entry is
+                  a promise to serve the dish, so a draft or a retired one is
+                  `422`.
+            additionalProperties: false
+        menu_cycle_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 366
+        menu_cycle_anchor_date:
+          type:
+            - string
+            - 'null'
+          format: date
+      additionalProperties: false
     PlanVariantCell:
       type: object
       required:

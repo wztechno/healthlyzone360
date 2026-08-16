@@ -761,10 +761,21 @@ final class PermissionRegistry
             // to cook it would need somebody standing behind it all afternoon.
             //
             // **What they deliberately cannot do is decide what the kitchen
-            // sells or what it charges.** No `catalogue.*`, no `price_list.*`,
-            // no `plan.*`, no `recipe.*`. An agent sells the range at the
-            // tariff, and the two codes that would let them change either are
-            // the two that would turn a busy counter into an unpriced one.
+            // sells or what it charges.** No `catalogue.manage_organisation`,
+            // no `catalogue.publish_organisation`, no `price_list.*`, no
+            // `plan.*`, no `recipe.*`. An agent sells the range at the tariff,
+            // and the codes that would let them change either are the ones
+            // that would turn a busy counter into an unpriced one.
+            //
+            // `catalogue.view_organisation` **is** here, and it was missing
+            // when the role was first written. The sale wizard's item picker
+            // reads the kitchen's own catalogue to find out what there is to
+            // sell; without the view code that screen is a 403 and the role is
+            // a counter agent who cannot see the menu. The pair splits exactly
+            // where every other role in this table splits it — reading the
+            // range is not deciding it — and this is the same line
+            // `kitchen_staff` sits on, who read the catalogue and change
+            // nothing.
             //
             // `inventory.view_organisation` and **not**
             // `inventory.view_costs_organisation`: an agent needs to know
@@ -783,6 +794,7 @@ final class PermissionRegistry
                 'name_en' => 'Order desk agent',
                 'name_ar' => 'موظف مكتب الطلبات',
                 'permissions' => [
+                    'catalogue.view_organisation',
                     'order.view_organisation',
                     'order.manage_organisation',
                     'order.create_on_behalf_organisation',

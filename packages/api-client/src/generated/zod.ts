@@ -1681,6 +1681,77 @@ export const zPlanProfileEnvelope = z.object({
 });
 
 /**
+ * The four sittings, the same vocabulary a subscription meal choice
+ * stores — generation copies this value straight onto a choice row.
+ *
+ */
+export const zPlanMenuSlot = z.enum([
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack'
+]);
+
+/**
+ * One dish, in one slot, on one day of the plan's cycle.
+ *
+ */
+export const zPlanMenuEntry = z.object({
+    id: zUuid,
+    cycle_day: z.int().gte(1).lte(366),
+    slot: zPlanMenuSlot,
+    sequence: z.int().gte(1).lte(12),
+    meal_catalogue_item_id: zUuid,
+    meal_name_en: z.string().nullable(),
+    meal_name_ar: z.string().nullable()
+});
+
+/**
+ * The rotation the entries sit on. **Both null means no menu is
+ * published**, which is the behaviour every plan has by default and the
+ * state in which a subscription order deducts no stock.
+ *
+ */
+export const zPlanMenuCycle = z.object({
+    cycle_days: z.int().gte(1).lte(366).nullable(),
+    anchor_date: z.iso.date().nullable()
+});
+
+export const zPlanMenuEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        cycle: zPlanMenuCycle,
+        entries: z.array(zPlanMenuEntry)
+    }),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+/**
+ * The complete menu. All three fields are required to be *present* and
+ * may all be null or empty: that combination withdraws the menu, which is
+ * a decision a kitchen makes and not a field they forgot.
+ *
+ * They move together. Entries with no cycle length, or a cycle length
+ * with no entries, or a cycle length with no anchor, are each `422` —
+ * see the operation description.
+ *
+ * `catalogue_item_id` is not a field: the plan is in the URL.
+ *
+ */
+export const zReplacePlanMenuRequest = z.object({
+    entries: z.array(z.object({
+        cycle_day: z.int().gte(1).lte(366),
+        slot: zPlanMenuSlot,
+        sequence: z.int().gte(1).lte(12).nullish(),
+        meal_catalogue_item_id: zUuid
+    })).max(400),
+    menu_cycle_days: z.int().gte(1).lte(366).nullable(),
+    menu_cycle_anchor_date: z.iso.date().nullable()
+});
+
+/**
  * One cell of a plan's availability matrix, together with the variant that
  * carries it. **The variant is the priceable thing**: a price row names
  * `catalogue_item_variant_id`, exactly as it does for a pack.
@@ -9348,6 +9419,43 @@ export const zReplacePlanVariantsPath = z.object({
  *
  */
 export const zReplacePlanVariantsResponse = zPlanVariantsEnvelope;
+
+export const zGetPlanMenuHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetPlanMenuPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan, its cycle configuration and every entry on its menu.
+ */
+export const zGetPlanMenuResponse = zPlanMenuEnvelope;
+
+export const zReplacePlanMenuBody = zReplacePlanMenuRequest;
+
+export const zReplacePlanMenuHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePlanMenuPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan, the cycle it now runs on, and every entry it now has.
+ */
+export const zReplacePlanMenuResponse = zPlanMenuEnvelope;
 
 export const zListPlanVariantDurationsHeaders = z.object({
     'X-Organisation-Id': zUuid,

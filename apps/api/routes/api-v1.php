@@ -86,6 +86,8 @@ use Healthy360\Catalogues\Http\Controllers\PlanDurationUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandStoreController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandUpdateController;
+use Healthy360\Catalogues\Http\Controllers\PlanMenuIndexController;
+use Healthy360\Catalogues\Http\Controllers\PlanMenuReplaceController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileShowController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanVariantDurationIndexController;
@@ -1276,6 +1278,33 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/plans/{item}/variant-durations', PlanVariantDurationReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.plans.variant-durations.replace');
+
+                /*
+                | The fixed menu — what the plan serves, on which day of its
+                | cycle. A fourth face of the same listing, so it takes the
+                | same `If-Match` on the **item's** validator that the profile
+                | and the matrix do.
+                |
+                | The read sits here rather than beside the profile read
+                | below, because the boundary that section draws is between
+                | what a customer will be shown and what a merchandiser
+                | decides. A menu editor is the second; the customer-facing
+                | "what is for dinner on Thursday" is a marketplace surface
+                | with its own presenter.
+                |
+                | The PUT also carries `menu_cycle_days` and
+                | `menu_cycle_anchor_date`, which are columns on
+                | `subscription_plan_profiles` and are **not** writable
+                | through `PUT …/profile`: that endpoint is a whole-document
+                | write, and a client sending a body written before those
+                | columns existed would silently withdraw a kitchen's menu.
+                | `PlanMenuService` is their only writer.
+                */
+                Route::get('/plans/{item}/menu', PlanMenuIndexController::class)->name('catalogue.plans.menu.index');
+
+                Route::put('/plans/{item}/menu', PlanMenuReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.plans.menu.replace');
             });
 
             /*

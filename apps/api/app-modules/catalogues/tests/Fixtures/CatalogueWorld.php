@@ -226,6 +226,23 @@ final class CatalogueWorld
     }
 
     /**
+     * A published meal — the only thing a plan menu will accept on a slot.
+     *
+     * Published rather than draft, because a menu entry is a promise to serve
+     * the dish and the service refuses anything else. A fixture that built the
+     * refused state by default would make every menu test set the status by
+     * hand before it could test anything else.
+     */
+    public static function publishedMeal(object $tenant, string $nameEn = 'Grilled chicken'): CatalogueItem
+    {
+        return CatalogueItem::factory()->meal()->published()->create([
+            'catalogue_id' => $tenant->catalogue->getKey(),
+            'organisation_id' => $tenant->organisation->getKey(),
+            'name_en' => $nameEn,
+        ]);
+    }
+
+    /**
      * A draft product with one active pack, which is the smallest thing the
      * publish gate accepts.
      */
