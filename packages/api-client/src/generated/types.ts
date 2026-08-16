@@ -5285,6 +5285,129 @@ export type OrderDeskCustomerEnvelope = {
     meta: Meta;
 };
 
+/**
+ * Three counts of three different kinds of thing, and **they are never
+ * summed**. There is deliberately no total anywhere in this schema.
+ *
+ * They overlap by construction: a projected day becomes a claimed one, a
+ * claimed one becomes an order, and the forecast is optimistic about days a
+ * claim already exists for. Adding them over-counts, and a kitchen ordering
+ * ingredients from the result would over-buy quietly. Render three numbers.
+ *
+ */
+export type OrderDeskCalendarCounts = {
+    /**
+     * Real orders due this day — every non-cancelled status, because a
+     * fulfilled order still left the kitchen that day. Orders with no
+     * requested delivery date are counted on no day at all.
+     *
+     */
+    order: number;
+    /**
+     * Subscription delivery days the generator has **claimed** and not yet
+     * turned into an order. A commitment that exists as a row. Skipped days
+     * are not deliveries and are counted nowhere.
+     *
+     */
+    scheduled: number;
+    /**
+     * **A forecast, not a fact.** Days computed from an active
+     * subscription's weekday pattern and remaining balance, which no row
+     * asserts. The projection does not consult the generator's own cursor,
+     * so after an outage — while the hourly tick catches up one delivery
+     * per hour — it keeps showing the pattern the customer bought rather
+     * than the backlog the kitchen is working. Right for planning, wrong
+     * for promising; label it on the screen. Paused subscriptions project
+     * nothing.
+     *
+     */
+    projected: number;
+};
+
+export type OrderDeskCalendarWindow = {
+    /**
+     * The delivery slot's own code, or **`null`** for the day's unslotted
+     * work — legitimate on both books. Null rather than a placeholder word
+     * because a code is a kitchen's own vocabulary and any word invented
+     * here would be one a kitchen could also have typed. The null entry, if
+     * present, is last.
+     *
+     */
+    code: string | null;
+    counts: OrderDeskCalendarCounts;
+};
+
+export type OrderDeskCalendarDay = {
+    date: string;
+    counts: OrderDeskCalendarCounts;
+    /**
+     * The day's counts split by delivery slot, named slots alphabetically
+     * and the unslotted bucket last. Only slots carrying something appear —
+     * a screen already knows its own slots, and sixty days of empty ones
+     * would be mostly zeroes.
+     *
+     */
+    windows: Array<OrderDeskCalendarWindow>;
+};
+
+export type OrderDeskCalendarEnvelope = {
+    data: {
+        /**
+         * Every day of the requested window in date order, **including the
+         * empty ones**: a calendar with holes is one the client has to
+         * reconstruct, and "nothing that day" is itself an answer.
+         *
+         */
+        days: Array<OrderDeskCalendarDay>;
+    };
+    meta: Meta & {
+        from: string;
+        to: string;
+        /**
+         * How many squares the grid has. A count of **days**, never of
+         * work: there is no count of work anywhere in this response,
+         * because that would be the total the three bases must not
+         * have.
+         *
+         */
+        day_count: number;
+        /**
+         * The longest window this operation will answer, counted
+         * inclusively. Echoed so a client can bound its own date picker
+         * instead of discovering the limit as a 422.
+         *
+         */
+        max_window_days: number;
+    };
+};
+
+export type OrderDeskDriver = {
+    user_id: Uuid;
+    /**
+     * The person's name, from their profile. **Null when they have no
+     * profile yet** — a member whose account was created but never
+     * completed is still a member, and leaving them out would make them
+     * unassignable. Render the em dash the platform uses for every other
+     * unknown rather than inventing a placeholder.
+     *
+     */
+    display_name: string | null;
+};
+
+export type OrderDeskDriversEnvelope = {
+    data: Array<OrderDeskDriver>;
+    meta: Meta & {
+        count: number;
+        /**
+         * The most rows this operation will ever return. There is no
+         * second page: a kitchen with more active members than this has
+         * an organisation chart rather than a rota.
+         *
+         */
+        limit: number;
+    };
+};
+
 export type CreateOrderDeskCustomerRequest = {
     /**
      * What the caller says their name is. One field rather than a
@@ -21972,6 +22095,131 @@ export type AddOrderDeskCustomerAddressResponses = {
 };
 
 export type AddOrderDeskCustomerAddressResponse = AddOrderDeskCustomerAddressResponses[keyof AddOrderDeskCustomerAddressResponses];
+
+export type GetOrderDeskCalendarData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * First day of the window, inclusive.
+         */
+        from: string;
+        /**
+         * Last day of the window, inclusive. Must not be before `from`, and
+         * must not put more than sixty days in the window.
+         *
+         */
+        to: string;
+        /**
+         * Narrow every basis to one production site. Omitted, the calendar is
+         * organisation-wide. Unlike on the queue it names no clock: a
+         * calendar's days are the dates customers asked for rather than
+         * instants.
+         *
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/calendar';
+};
+
+export type GetOrderDeskCalendarErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskCalendarError = GetOrderDeskCalendarErrors[keyof GetOrderDeskCalendarErrors];
+
+export type GetOrderDeskCalendarResponses = {
+    /**
+     * Every day of the window, each with its three counts and their split by slot.
+     */
+    200: OrderDeskCalendarEnvelope;
+};
+
+export type GetOrderDeskCalendarResponse = GetOrderDeskCalendarResponses[keyof GetOrderDeskCalendarResponses];
+
+export type ListOrderDeskDriversData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/drivers';
+};
+
+export type ListOrderDeskDriversErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderDeskDriversError = ListOrderDeskDriversErrors[keyof ListOrderDeskDriversErrors];
+
+export type ListOrderDeskDriversResponses = {
+    /**
+     * This organisation's active members, named where a name exists.
+     */
+    200: OrderDeskDriversEnvelope;
+};
+
+export type ListOrderDeskDriversResponse = ListOrderDeskDriversResponses[keyof ListOrderDeskDriversResponses];
 
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;

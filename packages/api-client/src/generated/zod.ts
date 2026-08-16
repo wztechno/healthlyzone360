@@ -3810,6 +3810,58 @@ export const zOrderDeskCustomerEnvelope = z.object({
     meta: zMeta
 });
 
+/**
+ * Three counts of three different kinds of thing, and **they are never
+ * summed**. There is deliberately no total anywhere in this schema.
+ *
+ * They overlap by construction: a projected day becomes a claimed one, a
+ * claimed one becomes an order, and the forecast is optimistic about days a
+ * claim already exists for. Adding them over-counts, and a kitchen ordering
+ * ingredients from the result would over-buy quietly. Render three numbers.
+ *
+ */
+export const zOrderDeskCalendarCounts = z.object({
+    order: z.int().gte(0),
+    scheduled: z.int().gte(0),
+    projected: z.int().gte(0)
+});
+
+export const zOrderDeskCalendarWindow = z.object({
+    code: z.string().max(40).nullable(),
+    counts: zOrderDeskCalendarCounts
+});
+
+export const zOrderDeskCalendarDay = z.object({
+    date: z.iso.date(),
+    counts: zOrderDeskCalendarCounts,
+    windows: z.array(zOrderDeskCalendarWindow)
+});
+
+export const zOrderDeskCalendarEnvelope = z.object({
+    data: z.object({
+        days: z.array(zOrderDeskCalendarDay)
+    }),
+    meta: zMeta.and(z.object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        day_count: z.int().gte(1),
+        max_window_days: z.int()
+    }))
+});
+
+export const zOrderDeskDriver = z.object({
+    user_id: zUuid,
+    display_name: z.string().nullable()
+});
+
+export const zOrderDeskDriversEnvelope = z.object({
+    data: z.array(zOrderDeskDriver),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int()
+    }))
+});
+
 export const zCreateOrderDeskCustomerRequest = z.object({
     display_name: z.string().max(255),
     phone: z.string().max(255),
@@ -10440,6 +10492,32 @@ export const zAddOrderDeskCustomerAddressPath = z.object({
  * The address was added, with whether anybody delivers to it today.
  */
 export const zAddOrderDeskCustomerAddressResponse = zCustomerAddressEnvelope;
+
+export const zGetOrderDeskCalendarHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskCalendarQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * Every day of the window, each with its three counts and their split by slot.
+ */
+export const zGetOrderDeskCalendarResponse = zOrderDeskCalendarEnvelope;
+
+export const zListOrderDeskDriversHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * This organisation's active members, named where a name exists.
+ */
+export const zListOrderDeskDriversResponse = zOrderDeskDriversEnvelope;
 
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 

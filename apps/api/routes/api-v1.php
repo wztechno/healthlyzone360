@@ -189,9 +189,11 @@ use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
@@ -1641,6 +1643,100 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/orders', OrderDeskPlacementController::class)
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | The shape of the week (C4)
+            |--------------------------------------------------------------
+            |
+            | The queue is the open book in the order it has to be worked; this
+            | is how much is committed on each day and in each slot, so that
+            | somebody deciding whether to take one more delivery for Thursday
+            | can see Thursday. Three bases — real orders, subscription days the
+            | generator has claimed, and days a weekday pattern forecasts — and
+            | they are **never summed**. There is no total key anywhere in the
+            | response, because the three overlap in ways no arithmetic
+            | expresses and a kitchen buying ingredients off a total would buy
+            | too much.
+            |
+            | **Two permission codes**, `order.view_organisation` and
+            | `subscription.view_organisation`, because the response unions two
+            | books the platform deliberately keeps apart: a subscription is a
+            | standing commercial arrangement carrying a captured price, and
+            | `KitchenSubscriptionScheduleController` exists to say that reading
+            | today's order list is not by itself a reason to see who is
+            | committed to what and for how long. A calendar that aggregated
+            | around that distinction would make it ornamental. Refused from
+            | either side, and the first code to deny is the one the 403 names.
+            |
+            | Written the way `POST /catalogue/recipes/{recipe}/versions/
+            | {version}/cost-snapshots` and the platform's B2B offboarding
+            | routes write it: the group states the code the family shares and
+            | the route adds the one only it needs. The aliases stack because
+            | gathered middleware is deduplicated on the **resolved string** and
+            | the two differ by their parameter — this is the desk's first
+            | two-code route, not the platform's.
+            |
+            | The sixty-day cap is enforced **by this controller**, not
+            | inherited. The cap on the subscription-schedule endpoint is a
+            | private constant on another controller in another module; it
+            | protects nothing here, and the projection behind the third basis
+            | is the same O(subscriptions × days) cost with a query per
+            | subscription. `from` and `to` are both required, unlike that
+            | endpoint's defaults: a calendar screen always knows which weeks it
+            | is showing, and a server-invented fortnight would be a different
+            | fortnight from the one on the grid.
+            |
+            | `branch_id` is a query parameter, the desk convention. It narrows
+            | an organisation-wide book to one production site and nothing more
+            | — unlike on the queue it names no clock, because a calendar's days
+            | are dates the customer asked for rather than instants.
+            |
+            */
+            Route::middleware('permission:order.view_organisation')->group(function (): void {
+                Route::get('/order-desk/calendar', OrderDeskCalendarController::class)
+                    ->middleware('permission:subscription.view_organisation')
+                    ->name('catalogue.order-desk.calendar');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Who can take the run (C4)
+            |--------------------------------------------------------------
+            |
+            | The picker behind `POST /delivery/jobs/{job}/assign`. That
+            | endpoint takes a `driver_user_id` and refuses anybody who is not
+            | an **active** member of this organisation; this is where a
+            | dispatcher legitimately obtains one, and the two apply the same
+            | predicate to the same table so that a list cannot offer somebody
+            | the assign endpoint would then refuse.
+            |
+            | It lists **every** active member, and that is not an oversight.
+            | There is no driver role on this platform by design — the driver's
+            | own run-sheet routes (`/driver/jobs`, further up this file) narrow
+            | by `driver_user_id` rather than by a permission code, because
+            | *a driver is staff of the kitchen whose jobs these are* —
+            | and inventing one here would mean a kitchen could not hand
+            | tonight's late delivery to the chef who offered to drop it off on
+            | the way home. The endpoint answers a question of fact, who works
+            | here; the picker is where a kitchen's operating judgement lives.
+            |
+            | Names are why it exists at all. `organisation_memberships` carries
+            | a `user_id` and nothing a human reads, `users` deliberately
+            | carries no name, and the invitations surface serves email
+            | addresses — so without this a dispatcher would be picking a driver
+            | out of a column of addresses.
+            |
+            | `order.manage_organisation`, the same code the assign endpoint
+            | carries and the same audience. A separate code for reading the
+            | list of candidates would be an authority nobody could usefully
+            | hold on its own.
+            |
+            */
+            Route::middleware('permission:order.manage_organisation')->group(function (): void {
+                Route::get('/order-desk/drivers', OrderDeskDriverIndexController::class)
+                    ->name('catalogue.order-desk.drivers.index');
             });
 
             /*

@@ -10263,6 +10263,183 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/calendar:
+    get:
+      operationId: getOrderDeskCalendar
+      tags:
+        - Order desk
+      summary: The shape of the week, counted three ways
+      description: |
+        **Not the queue with dates on it.** The queue is the open book in the
+        order it has to be worked. This is how much is committed on each day and
+        in each slot, so that somebody deciding whether to take one more delivery
+        for Thursday can see Thursday.
+
+        ## Three bases, and they are never added together
+
+        Each day carries three counts, and they mean three different things:
+
+        * `order` — real rows in the order book. Somebody agreed to something.
+        * `scheduled` — subscription delivery days the generator has claimed and
+          not yet placed an order for. A commitment with no order behind it yet.
+        * `projected` — days computed from an active subscription's weekday
+          pattern and remaining balance. **A forecast**; nothing asserts them.
+
+        **Never sum them, and note that this response gives you no total to be
+        tempted by.** The three overlap: a projected day becomes a claim, a claim
+        becomes an order, and the forecast is optimistic about days a claim
+        already exists for. A kitchen ordering ingredients against a total would
+        over-buy, quietly, at the end of a month in which nothing looked wrong.
+        Render three numbers.
+
+        **`projected` is a forecast and degrades as one.** The projection behind
+        it reads weekday patterns and remaining balances and does **not** consult
+        the generator's own cursor, so after an outage — while the hourly tick
+        catches up one delivery per hour — it keeps showing the pattern the
+        customer bought rather than the backlog the kitchen is actually working.
+        It is the right number for planning and the wrong number for promising,
+        and a screen should label it.
+
+        ## Which orders are counted
+
+        Every non-cancelled order whose requested delivery date falls in the
+        window, **whatever its status**. A fulfilled order still left the kitchen
+        that day — that is what fulfilled means — and a calendar that dropped it
+        would empty yesterday out as the day was worked, which is the opposite of
+        a production record. Cancelled orders count nowhere.
+
+        Orders with **no requested delivery date are excluded**, which is not the
+        queue's rule. The queue shows a dateless order today, because a queue is
+        a list of work in hand. A calendar is a grid of days, and an order nobody
+        named a day for has no square to sit in.
+
+        ## Windows
+
+        `windows` splits a day's three counts by delivery slot. Work with no
+        named slot — legitimate on both books — is an entry whose `code` is
+        **`null`**, not a placeholder word: a code is a kitchen's own vocabulary,
+        and any word this operation invented would be one a kitchen could also
+        have typed. Named slots come first, alphabetically; the null bucket is
+        last.
+
+        Only slots that carry something appear on a day, and **every day of the
+        window appears** even when all three of its counts are zero.
+
+        ## Permissions and bounds
+
+        Requires **both** `order.view_organisation` and
+        `subscription.view_organisation`, because it is the one order-desk
+        operation that unions two books the platform deliberately keeps apart.
+        Holding either alone is a `403`.
+
+        `from` and `to` are both required and the window is capped at **sixty
+        days counted inclusively**: sixty answers, sixty-one is a `422` naming
+        `to`. The cap exists because the projection behind the third basis costs
+        one query per active subscription per request.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: from
+          in: query
+          required: true
+          description: First day of the window, inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: |
+            Last day of the window, inclusive. Must not be before `from`, and
+            must not put more than sixty days in the window.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            Narrow every basis to one production site. Omitted, the calendar is
+            organisation-wide. Unlike on the queue it names no clock: a
+            calendar's days are the dates customers asked for rather than
+            instants.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every day of the window, each with its three counts and their split by slot.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCalendarEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/drivers:
+    get:
+      operationId: listOrderDeskDrivers
+      tags:
+        - Order desk
+      summary: Who this kitchen can send out with its food
+      description: |
+        The picker behind `POST /delivery/jobs/{job}/assign`. That operation
+        takes a `driver_user_id` and refuses anybody who is not an **active**
+        member of the organisation; this is where one legitimately comes from,
+        and the two apply the same predicate to the same table so that a list
+        cannot offer somebody the assign call would then refuse.
+
+        **Every active member is listed, and that is deliberate.** There is no
+        driver role on this platform: a driver is staff of the kitchen whose jobs
+        these are, and the driver's own surface narrows by who holds the run
+        rather than by a permission code. A role here would mean a kitchen could
+        not hand tonight's late delivery to the chef who offered to drop it off
+        on the way home. So this answers a question of *fact* — who works here,
+        right now — and **the picker is where a kitchen's operating judgement
+        lives**. A dispatcher looking at a list of colleagues knows which of them
+        drives; the server does not and has never been told.
+
+        `active` and nothing else: an invitation nobody accepted, a suspension
+        and an ended employment are all membership rows, and none of them is
+        somebody a kitchen can send out with its food.
+
+        `display_name` may be **null** — a member whose profile has not been
+        completed is still a member, and refusing to list them would leave a
+        dispatcher unable to assign a job to somebody demonstrably on the
+        payroll. Nameless members sort last. Render the platform's em dash rather
+        than inventing a placeholder.
+
+        Requires `order.manage_organisation`, the same code the assign operation
+        carries and the same audience. A hundred rows, alphabetically, with no
+        cursor: a kitchen with more than a hundred active members has an
+        organisation chart rather than a rota, and a picker is not the surface
+        for browsing one.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: This organisation's active members, named where a name exists.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskDriversEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /guest/sessions:
     post:
       operationId: startGuestSession
@@ -28568,6 +28745,185 @@ components:
                 $ref: '#/components/schemas/OrderDeskCustomer'
         meta:
           $ref: '#/components/schemas/Meta'
+    OrderDeskCalendarCounts:
+      type: object
+      required:
+        - order
+        - scheduled
+        - projected
+      additionalProperties: false
+      description: |
+        Three counts of three different kinds of thing, and **they are never
+        summed**. There is deliberately no total anywhere in this schema.
+
+        They overlap by construction: a projected day becomes a claimed one, a
+        claimed one becomes an order, and the forecast is optimistic about days a
+        claim already exists for. Adding them over-counts, and a kitchen ordering
+        ingredients from the result would over-buy quietly. Render three numbers.
+      properties:
+        order:
+          type: integer
+          minimum: 0
+          description: |
+            Real orders due this day — every non-cancelled status, because a
+            fulfilled order still left the kitchen that day. Orders with no
+            requested delivery date are counted on no day at all.
+        scheduled:
+          type: integer
+          minimum: 0
+          description: |
+            Subscription delivery days the generator has **claimed** and not yet
+            turned into an order. A commitment that exists as a row. Skipped days
+            are not deliveries and are counted nowhere.
+        projected:
+          type: integer
+          minimum: 0
+          description: |
+            **A forecast, not a fact.** Days computed from an active
+            subscription's weekday pattern and remaining balance, which no row
+            asserts. The projection does not consult the generator's own cursor,
+            so after an outage — while the hourly tick catches up one delivery
+            per hour — it keeps showing the pattern the customer bought rather
+            than the backlog the kitchen is working. Right for planning, wrong
+            for promising; label it on the screen. Paused subscriptions project
+            nothing.
+    OrderDeskCalendarWindow:
+      type: object
+      required:
+        - code
+        - counts
+      additionalProperties: false
+      properties:
+        code:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+          description: |
+            The delivery slot's own code, or **`null`** for the day's unslotted
+            work — legitimate on both books. Null rather than a placeholder word
+            because a code is a kitchen's own vocabulary and any word invented
+            here would be one a kitchen could also have typed. The null entry, if
+            present, is last.
+        counts:
+          $ref: '#/components/schemas/OrderDeskCalendarCounts'
+    OrderDeskCalendarDay:
+      type: object
+      required:
+        - date
+        - counts
+        - windows
+      additionalProperties: false
+      properties:
+        date:
+          type: string
+          format: date
+        counts:
+          $ref: '#/components/schemas/OrderDeskCalendarCounts'
+        windows:
+          type: array
+          description: |
+            The day's counts split by delivery slot, named slots alphabetically
+            and the unslotted bucket last. Only slots carrying something appear —
+            a screen already knows its own slots, and sixty days of empty ones
+            would be mostly zeroes.
+          items:
+            $ref: '#/components/schemas/OrderDeskCalendarWindow'
+    OrderDeskCalendarEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - days
+          properties:
+            days:
+              type: array
+              description: |
+                Every day of the requested window in date order, **including the
+                empty ones**: a calendar with holes is one the client has to
+                reconstruct, and "nothing that day" is itself an answer.
+              items:
+                $ref: '#/components/schemas/OrderDeskCalendarDay'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - from
+                - to
+                - day_count
+                - max_window_days
+              properties:
+                from:
+                  type: string
+                  format: date
+                to:
+                  type: string
+                  format: date
+                day_count:
+                  type: integer
+                  minimum: 1
+                  description: |
+                    How many squares the grid has. A count of **days**, never of
+                    work: there is no count of work anywhere in this response,
+                    because that would be the total the three bases must not
+                    have.
+                max_window_days:
+                  type: integer
+                  description: |
+                    The longest window this operation will answer, counted
+                    inclusively. Echoed so a client can bound its own date picker
+                    instead of discovering the limit as a 422.
+    OrderDeskDriver:
+      type: object
+      required:
+        - user_id
+        - display_name
+      additionalProperties: false
+      properties:
+        user_id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type:
+            - string
+            - 'null'
+          description: |
+            The person's name, from their profile. **Null when they have no
+            profile yet** — a member whose account was created but never
+            completed is still a member, and leaving them out would make them
+            unassignable. Render the em dash the platform uses for every other
+            unknown rather than inventing a placeholder.
+    OrderDeskDriversEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskDriver'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - count
+                - limit
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                limit:
+                  type: integer
+                  description: |
+                    The most rows this operation will ever return. There is no
+                    second page: a kitchen with more active members than this has
+                    an organisation chart rather than a rota.
     CreateOrderDeskCustomerRequest:
       type: object
       required:
