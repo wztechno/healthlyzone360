@@ -210,10 +210,18 @@ export function SproutMark({ label, size = DEFAULT_SIZE, testID }: SproutMarkPro
                     importantForAccessibility="no-hide-descendants"
                     style={{
                         position: 'absolute',
-                        // Centred in the box and turned about its own pointed corner, so the four
-                        // sweep out of the seed rather than pivoting on the middle of the mark.
-                        left: centre - leaf / 2,
-                        top: centre - leaf / 2,
+                        /*
+                         * The leaf's pointed corner sits exactly on the middle of the mark and it
+                         * turns about that corner, so all four points meet at one place and the
+                         * seed can sit there — the leaves then radiate *from* the seed.
+                         *
+                         * The study centred the leaf in its box instead, which puts the meeting
+                         * point down and to the left of the middle while the seed stays in it: the
+                         * dot ends up beside the sprout rather than inside it. Faithful to the
+                         * study, wrong on the screen, so this is the one place it departs.
+                         */
+                        left: centre,
+                        top: centre - leaf,
                         width: leaf,
                         height: leaf,
                         transformOrigin: '0% 100%',
