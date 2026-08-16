@@ -1,7 +1,10 @@
 import { ApiError, apiFailure, conflictFailure } from '@healthy360/api-client';
 import type {
+    AssignDeliveryJobRequest,
+    AssignedDeliveryJob,
     KitchenOrder,
     OrderDeskDeliveryJob,
+    OrderDeskDrivers,
     OrderDeskQueue,
     OrderDeskQueueFilters,
     OrderDeskQueueMeta,
@@ -885,12 +888,12 @@ describe('order desk queue — the detail drawer', () => {
             'Not settled',
         );
 
-        // A run nobody has taken says so once, in the one place somebody would go looking for the
-        // control that is not there.
+        // A run nobody has taken says so once, and now offers the control in the one place
+        // somebody would go looking for it. The picker itself has its own suite below.
         expect(screen.getByTestId('kitchen-order-desk-detail-delivery-state')).toHaveTextContent(
             'Needs a driver',
         );
-        expect(screen.getByTestId('kitchen-order-desk-detail-assign-unavailable')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
     });
 
     it('draws no delivery section at all for an order nothing is driven for', async () => {
@@ -1010,5 +1013,331 @@ describe('order desk queue — the detail drawer', () => {
             { timeout: 5000 },
         );
         expect(screen.queryByTestId('kitchen-order-desk-detail-conflict')).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Giving the run to somebody
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The driver picker, and the two quite different things a `409` can mean here.
+ *
+ * The whole suite turns on one distinction that lives nowhere else on this client: `resource.conflict`
+ * is normalised down to an optional `currentLockVersion` by `contracts/failure.ts`, so **whether a
+ * number came back** is the only signal separating "somebody else took this run, look again" from
+ * "this run is over, nothing will make it assignable". Both paths are authored below, and each
+ * asserts the *absence* of the other's remedy — a Refresh button offered on a delivered job would be
+ * an invitation to press the same wall twice.
+ */
+describe('order desk queue — the driver picker', () => {
+    const DRIVER_ONE = 'test-0000-user-0001';
+    const DRIVER_TWO = 'test-0000-user-0002';
+    const NAMELESS = 'test-0000-user-0003';
+
+    /** Named first, nameless last — the order the server sorts in, reproduced rather than re-sorted. */
+    const DRIVERS = {
+        rows: [
+            { userId: DRIVER_ONE, displayName: 'Rania Haddad' },
+            { userId: DRIVER_TWO, displayName: 'Samir Khoury' },
+            // A member whose account exists and whose profile never got a name. Still assignable.
+            { userId: NAMELESS, displayName: null },
+        ],
+        limit: 100,
+    } as const;
+
+    /** A confirmed delivery with a run nobody has taken — the state the picker exists for. */
+    function unassignedRow(job: Partial<OrderDeskDeliveryJob> = {}): OrderDeskQueueRow {
+        return deskRow({
+            id: orderIdAt(1),
+            status: 'confirmed',
+            fulfilmentType: 'delivery',
+            lockVersion: 3,
+            deliveryJob: deliveryJob(job),
+        });
+    }
+
+    async function renderPicker(overrides: {
+        readonly row?: OrderDeskQueueRow | undefined;
+        readonly listDrivers?: (() => Promise<OrderDeskDrivers>) | undefined;
+        readonly assignDeliveryJob?:
+            ((request: AssignDeliveryJobRequest) => Promise<AssignedDeliveryJob>) | undefined;
+    }) {
+        const row = overrides.row ?? unassignedRow();
+        return renderStubScreen(<OrderDeskScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                orderDesk: {
+                    listQueue: async () => queue([row]),
+                    listDrivers: overrides.listDrivers ?? (async () => DRIVERS),
+                    ...(overrides.assignDeliveryJob === undefined
+                        ? {}
+                        : { assignDeliveryJob: overrides.assignDeliveryJob }),
+                },
+                kitchenOrders: { getOrder: async () => detailOrder(row) },
+            },
+        });
+    }
+
+    async function openPicker() {
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-assign'));
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-assign-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+    }
+
+    it('lists the drivers only once the picker is opened, and never before', async () => {
+        const { repositories } = await renderPicker({});
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // A directory of the organisation's members has no business being read by a queue that
+        // polls every fifteen seconds and may never assign anything.
+        expect(repositories.orderDesk.listDrivers).not.toHaveBeenCalled();
+
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
+        });
+        // Still not: the drawer is a reading surface.
+        expect(repositories.orderDesk.listDrivers).not.toHaveBeenCalled();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-assign'));
+        await waitFor(
+            () => {
+                expect(repositories.orderDesk.listDrivers).toHaveBeenCalledTimes(1);
+            },
+            { timeout: 5000 },
+        );
+    });
+
+    it('renders a nameless member as an em dash that says in words what it stands for', async () => {
+        await renderPicker({});
+        await openPicker();
+
+        const nameless = screen.getByTestId(`kitchen-order-desk-assign-driver-${NAMELESS}`);
+        expect(nameless).toHaveTextContent(/—/);
+        // The dash is silent, so the row carries its own sentence for anybody listening.
+        expect(screen.getByLabelText('This member has no name on their profile.')).toBeTruthy();
+        // And they are still choosable: leaving them out would make a member unassignable.
+        expect(
+            screen.getByTestId(`kitchen-order-desk-assign-driver-${NAMELESS}-choose`),
+        ).toBeTruthy();
+    });
+
+    it('narrows the list client-side and drops the nameless row, which has nothing to match', async () => {
+        await renderPicker({});
+        await openPicker();
+
+        fireEvent.changeText(screen.getByTestId('kitchen-order-desk-assign-search'), 'rania');
+
+        await waitFor(() => {
+            expect(
+                screen.queryByTestId(`kitchen-order-desk-assign-driver-${DRIVER_TWO}`),
+            ).toBeNull();
+        });
+        expect(screen.getByTestId(`kitchen-order-desk-assign-driver-${DRIVER_ONE}`)).toBeTruthy();
+        // No text to match, so no match — which is why the empty state offers to clear the box
+        // rather than claiming nobody is available.
+        expect(screen.queryByTestId(`kitchen-order-desk-assign-driver-${NAMELESS}`)).toBeNull();
+    });
+
+    it('sends the job’s own version, never the order’s, and says who has it', async () => {
+        const row = unassignedRow();
+        const { repositories } = await renderPicker({
+            row,
+            assignDeliveryJob: async () => ({
+                id: row.deliveryJob?.id ?? '',
+                orderId: String(row.id),
+                status: 'assigned' as const,
+                trackingStatus: 'awaiting_assignment' as const,
+                driverUserId: DRIVER_ONE,
+                assignedAt: minutesFromNow(0),
+                lockVersion: 8,
+            }),
+        });
+        await openPicker();
+
+        fireEvent.press(
+            screen.getByTestId(`kitchen-order-desk-assign-driver-${DRIVER_ONE}-choose`),
+        );
+        // Choosing is not assigning: the row swaps its button for a "Chosen" badge and the footer
+        // action becomes pressable. Waiting for that is the assertion that the two steps are two.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`kitchen-order-desk-assign-driver-${DRIVER_ONE}-chosen`),
+            ).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-assign-confirm'));
+
+        await waitFor(
+            () => {
+                expect(repositories.orderDesk.assignDeliveryJob).toHaveBeenCalledTimes(1);
+            },
+            { timeout: 5000 },
+        );
+        expect(repositories.orderDesk.assignDeliveryJob).toHaveBeenCalledWith({
+            jobId: JOB_ID,
+            driverUserId: DRIVER_ONE,
+            // The **job's** validator (7), deliberately unequal to the order's (3): crossing them
+            // would earn a conflict on a race nobody entered.
+            lockVersion: 7,
+        });
+
+        // The toast is the announcement — the application's own polite live region.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-assigned-toast')).toHaveTextContent(
+                    /Rania Haddad/,
+                );
+            },
+            { timeout: 5000 },
+        );
+        // The decision is made, so the dialog is gone; the drawer stays on the order.
+        expect(screen.queryByTestId('kitchen-order-desk-assign-list')).toBeNull();
+    });
+
+    it('offers a refresh when the conflict carries a version — somebody else got there first', async () => {
+        const { repositories } = await renderPicker({
+            assignDeliveryJob: async () => {
+                throw new ApiError(conflictFailure({ currentLockVersion: 9 }));
+            },
+        });
+        await openPicker();
+
+        fireEvent.press(
+            screen.getByTestId(`kitchen-order-desk-assign-driver-${DRIVER_ONE}-choose`),
+        );
+        // Choosing is not assigning: the row swaps its button for a "Chosen" badge and the footer
+        // action becomes pressable. Waiting for that is the assertion that the two steps are two.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`kitchen-order-desk-assign-driver-${DRIVER_ONE}-chosen`),
+            ).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-assign-confirm'));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-assign-conflict')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.getByTestId('kitchen-order-desk-assign-conflict')).toHaveTextContent(
+            /Somebody else took this run/,
+        );
+        // The version is what makes re-reading worth doing, so the remedy is offered.
+        expect(screen.getByTestId('kitchen-order-desk-assign-conflict-refresh')).toBeTruthy();
+        // One attempt. A silent retry would resolve the race in favour of whoever clicked last.
+        expect(repositories.orderDesk.assignDeliveryJob).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers no retry at all when the conflict carries no version — the run is over', async () => {
+        const { repositories } = await renderPicker({
+            // The endpoint names the terminal state in `details.status`; `failure.ts` drops it and
+            // keeps only the absent version, which is the whole discriminator on this client.
+            assignDeliveryJob: async () => {
+                throw new ApiError(conflictFailure());
+            },
+        });
+        await openPicker();
+
+        fireEvent.press(
+            screen.getByTestId(`kitchen-order-desk-assign-driver-${DRIVER_ONE}-choose`),
+        );
+        // Choosing is not assigning: the row swaps its button for a "Chosen" badge and the footer
+        // action becomes pressable. Waiting for that is the assertion that the two steps are two.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`kitchen-order-desk-assign-driver-${DRIVER_ONE}-chosen`),
+            ).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-assign-confirm'));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-assign-conflict')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.getByTestId('kitchen-order-desk-assign-conflict')).toHaveTextContent(
+            /This run is over/,
+        );
+        // No Refresh: re-reading will not make a delivered job assignable, and offering it would
+        // be the screen pretending otherwise.
+        expect(screen.queryByTestId('kitchen-order-desk-assign-conflict-refresh')).toBeNull();
+        expect(repositories.orderDesk.assignDeliveryJob).toHaveBeenCalledTimes(1);
+    });
+
+    it('hides the control entirely for a run that has already finished', async () => {
+        await renderPicker({
+            row: unassignedRow({
+                status: 'delivered',
+                trackingStatus: 'delivered',
+                driverUserId: DRIVER_TWO,
+            }),
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-delivery')).toBeTruthy();
+        });
+        // The server would refuse it; the screen does not offer it. Both, deliberately — the race
+        // between the frame and the press is real on a fifteen-second poll.
+        expect(screen.queryByTestId('kitchen-order-desk-detail-assign')).toBeNull();
+    });
+
+    it('shows the ladder’s failure and empty rungs inside the dialog rather than an empty list', async () => {
+        await renderPicker({ listDrivers: async () => ({ rows: [], limit: 100 }) });
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-assign'));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-assign-empty')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // Nobody at all is a different sentence from nobody matching a search.
+        expect(screen.getByTestId('kitchen-order-desk-assign-empty')).toHaveTextContent(
+            /Nobody is active in this kitchen/,
+        );
+        // Nothing to confirm, so the confirming action has nothing to do.
+        expect(screen.queryByTestId('kitchen-order-desk-assign-list')).toBeNull();
     });
 });

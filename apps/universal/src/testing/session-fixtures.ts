@@ -59,6 +59,14 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'inventory.view_organisation',
     'inventory.manage_organisation',
     'inventory.view_costs_organisation',
+    // S1/C4. The backend has granted `subscription.view_organisation` to `kitchen_manager` since the
+    // schedule projection landed, and it is deliberately *not* folded into `order.view_organisation`
+    // there: a subscription is a standing commercial arrangement with a captured price, and reading
+    // today's order list is not by itself a reason to see who is committed to what. Added here when
+    // the order-desk calendar first needed it — its endpoint requires this code *and* the order one,
+    // because two of its three bases are subscription arithmetic — which is exactly the drift this
+    // fixture's "mirrors the template roles" promise exists to prevent.
+    'subscription.view_organisation',
     'device.manage_own',
     'session.revoke_own',
 ];

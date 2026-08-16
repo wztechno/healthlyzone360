@@ -5,9 +5,12 @@ import type {
     AssignedDeliveryJob,
     CreateOrderDeskCustomerRequest,
     OrderDeskBasketLine,
+    OrderDeskCalendar,
+    OrderDeskCalendarFilters,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerSearch,
+    OrderDeskDrivers,
     OrderDeskQueue,
     OrderDeskQueueFilters,
     OrderDeskQuote,
@@ -20,9 +23,12 @@ import type {
     CustomerAddressEnvelope,
     KitchenOrder as WireKitchenOrder,
     OrderDeskBasketLine as WireOrderDeskBasketLine,
+    OrderDeskCalendarEnvelope,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerEnvelope,
     OrderDeskCustomersEnvelope,
+    OrderDeskDriver as WireOrderDeskDriver,
+    OrderDeskDriversEnvelope,
     OrderDeskQuote as WireOrderDeskQuote,
     OrderDeskQueueEnvelope,
     OrderDeskRow as WireOrderDeskRow,
@@ -33,9 +39,12 @@ import { generateRequestId } from './config.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
 import {
     mapAssignedDeliveryJob,
+    mapCalendarDay,
+    mapCalendarMeta,
     mapOrderDeskCustomer,
     mapOrderDeskCustomerAddress,
     mapOrderDeskCustomerCreated,
+    mapOrderDeskDriver,
     mapOrderDeskQueueMeta,
     mapOrderDeskQueueRow,
     mapOrderDeskQuote,
@@ -69,6 +78,19 @@ import type { Transport } from './transport.ts';
  * is the endpoint's convention for the whole `order-desk` family and it is deliberate: an
  * organisation-wide desk agent selects no branch, so a header that had to be present could not
  * express the organisation-wide read. See `contracts/order-desk.ts`.
+ *
+ * ## The other two reads
+ *
+ * `listCalendar` walks the same rows by *date* rather than by due-ness, and answers three separate
+ * counts per day which this module never adds together — the shape is passed through verbatim, and
+ * the reason a total would be wrong is stated once, in the contract, rather than in every mapper
+ * that could have invented one. It requires `from` and `to`: an implied window is a calendar whose
+ * caller cannot say what it drew.
+ *
+ * `listDrivers` is the directory `assignDeliveryJob` spent a whole slice without. It takes no query
+ * parameters at all — not even `branch_id`, because a member belongs to the kitchen rather than to
+ * one of its production sites — and it is unpaged, which is why `limit` is answered alongside the
+ * rows.
  *
  * ## The writes, and the one thing five of them have in common
  *
@@ -123,6 +145,19 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
 
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;
+}
+
+/**
+ * The calendar's query string.
+ *
+ * `from` and `to` are set unconditionally because the endpoint requires both — there is no default
+ * window here and a request without them is a `422` rather than a sensible guess. `branch_id` is
+ * the same query parameter the queue sends, for the same reason (see the header).
+ */
+function calendarQuery(filters: OrderDeskCalendarFilters): string {
+    const search = new URLSearchParams({ from: filters.from, to: filters.to });
+    if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
+    return `?${search.toString()}`;
 }
 
 /** The lock version as an entity tag, matching `kitchen-orders-repository.ts`'s `ifMatch`. */
@@ -182,6 +217,38 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return {
                 rows: envelope.data.map(mapOrderDeskQueueRow),
                 meta: mapOrderDeskQueueMeta(envelope.meta as OrderDeskQueueEnvelope['meta']),
+            };
+        },
+
+        async listCalendar(filters: OrderDeskCalendarFilters): Promise<OrderDeskCalendar> {
+            // `data` is an *object* carrying `days` rather than the bare array the queue answers,
+            // which is the wire's own shape and is left alone here. The envelope is still read
+            // whole, because `meta` carries the range the server actually walked and the ceiling it
+            // would have refused past — neither of which is derivable from the days themselves.
+            const payload = await transport.requestEnvelope<OrderDeskCalendarEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/calendar${calendarQuery(filters)}`,
+            });
+
+            return {
+                days: payload.data.days.map(mapCalendarDay),
+                meta: mapCalendarMeta(payload.meta as OrderDeskCalendarEnvelope['meta']),
+            };
+        },
+
+        async listDrivers(): Promise<OrderDeskDrivers> {
+            const envelope = await transport.requestEnvelope<readonly WireOrderDeskDriver[]>({
+                method: 'GET',
+                // No query at all: the endpoint takes none, and the organisation is the
+                // transport's. A `branch_id` here would be an invented narrowing — a member is a
+                // member of the kitchen, not of one of its production sites.
+                path: '/catalogue/order-desk/drivers',
+            });
+
+            const meta = envelope.meta as OrderDeskDriversEnvelope['meta'];
+            return {
+                rows: envelope.data.map(mapOrderDeskDriver),
+                limit: meta.limit,
             };
         },
 

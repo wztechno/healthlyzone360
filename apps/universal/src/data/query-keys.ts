@@ -479,6 +479,23 @@ export const queryKeys = {
          * takes nothing else, and the org scope is the transport's.
          */
         customers: (query: string) => ['orderDesk', 'customers', query] as const,
+        /**
+         * The same orders counted by *date* rather than by due-ness.
+         *
+         * A sibling of `queue` rather than a branch of it, and keyed on the whole filter object per
+         * shape rule 3: the range and the branch together are one *view*, so paging back a week is
+         * a different entry rather than a mutation of this one — which is what lets the previous
+         * week stay in cache while somebody arrows back and forth over a month.
+         */
+        calendar: (filter?: QueryScope) => ['orderDesk', 'calendar', scope(filter)] as const,
+        /**
+         * The people a run can be given to. No argument, because the endpoint takes none.
+         *
+         * One entry for the whole workspace: the membership of a kitchen changes on the timescale
+         * of employment, so every picker on every screen wants the same answer and none of them
+         * wants its own copy.
+         */
+        drivers: () => ['orderDesk', 'drivers'] as const,
     },
 
     /**

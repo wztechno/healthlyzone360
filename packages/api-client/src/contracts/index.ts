@@ -429,6 +429,8 @@ export type {
 } from './kitchen-orders.ts';
 
 export {
+    CALENDAR_BASES,
+    CALENDAR_FORECAST_BASIS,
     ORDER_DESK_CUSTOMER_ORIGINS,
     ORDER_DESK_FULFILMENT_TYPES,
     ORDER_DESK_QUEUE_STATUSES,
@@ -438,8 +440,15 @@ export type {
     AddOrderDeskCustomerAddressRequest,
     AssignDeliveryJobRequest,
     AssignedDeliveryJob,
+    CalendarBasis,
     CreateOrderDeskCustomerRequest,
     OrderDeskBasketLine,
+    OrderDeskCalendar,
+    OrderDeskCalendarCounts,
+    OrderDeskCalendarDay,
+    OrderDeskCalendarFilters,
+    OrderDeskCalendarMeta,
+    OrderDeskCalendarWindow,
     OrderDeskCounterPayment,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
@@ -448,6 +457,8 @@ export type {
     OrderDeskCustomerOrigin,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryJob,
+    OrderDeskDriver,
+    OrderDeskDrivers,
     OrderDeskFulfilmentType,
     OrderDeskPaymentSummary,
     OrderDeskQueue,

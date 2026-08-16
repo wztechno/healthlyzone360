@@ -381,6 +381,203 @@ function wireQuote(overrides: Record<string, unknown> = {}) {
     };
 }
 
+describe('createApiOrderDeskRepository — listCalendar', () => {
+    function counts(order: number, scheduled: number, projected: number) {
+        return { order, scheduled, projected };
+    }
+
+    const CALENDAR_META = {
+        correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4901',
+        from: '2026-08-17',
+        to: '2026-08-23',
+        day_count: 7,
+        max_window_days: 60,
+    };
+
+    it('sends both bounds and no branch when none was named', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: { days: [] }, meta: CALENDAR_META } },
+        ]);
+
+        await repository.listCalendar({ from: '2026-08-17', to: '2026-08-23' });
+
+        expect(calls[0]?.method).toBe('GET');
+        // Both bounds always: this endpoint has no default window, and an absent one is a 422
+        // rather than a sensible guess.
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/calendar?from=2026-08-17&to=2026-08-23');
+    });
+
+    it('sends branch_id as a query parameter, matching the rest of the order-desk family', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: { days: [] }, meta: CALENDAR_META } },
+        ]);
+
+        await repository.listCalendar({
+            from: '2026-08-17',
+            to: '2026-08-23',
+            branchId: BRANCH_UUID as never,
+        });
+
+        // Not `X-Branch-Id`: an organisation-wide desk agent selects no branch at all, so a header
+        // that had to be present could not express the organisation-wide read.
+        expect(calls[0]?.path).toBe(
+            `/catalogue/order-desk/calendar?from=2026-08-17&to=2026-08-23&branch_id=${BRANCH_UUID}`,
+        );
+        expect(calls[0]?.headers['x-branch-id']).toBeUndefined();
+    });
+
+    /**
+     * The three bases arrive separately and stay separate.
+     *
+     * The assertion is deliberately on the *whole* mapped day rather than on three fields: a mapper
+     * that grew a convenient `total` would pass three field assertions and fail this one, which is
+     * the only place on this client where that mistake is cheap to make and expensive to find.
+     */
+    it('maps the three bases without adding them, and keeps the unslotted bucket last', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        days: [
+                            {
+                                date: '2026-08-17',
+                                counts: counts(2, 3, 4),
+                                windows: [
+                                    { code: 'morning', counts: counts(2, 1, 1) },
+                                    { code: null, counts: counts(0, 2, 3) },
+                                ],
+                            },
+                        ],
+                    },
+                    meta: CALENDAR_META,
+                },
+            },
+        ]);
+
+        const calendar = await repository.listCalendar({ from: '2026-08-17', to: '2026-08-23' });
+
+        expect(calendar.days).toEqual([
+            {
+                date: '2026-08-17',
+                counts: { order: 2, scheduled: 3, projected: 4 },
+                windows: [
+                    { code: 'morning', counts: { order: 2, scheduled: 1, projected: 1 } },
+                    // Null rather than a placeholder word, and last, exactly as it arrived.
+                    { code: null, counts: { order: 0, scheduled: 2, projected: 3 } },
+                ],
+            },
+        ]);
+    });
+
+    it('answers the range and the ceiling the server measured against', async () => {
+        const { repository } = harness([
+            { status: 200, body: { data: { days: [] }, meta: CALENDAR_META } },
+        ]);
+
+        const calendar = await repository.listCalendar({ from: '2026-08-17', to: '2026-08-23' });
+
+        // `maxWindowDays` is carried even though nothing this client asks for comes near it: a
+        // screen that knows the ceiling bounds its own range instead of learning it from a 422.
+        expect(calendar.meta).toEqual({
+            from: '2026-08-17',
+            to: '2026-08-23',
+            dayCount: 7,
+            maxWindowDays: 60,
+        });
+    });
+
+    it('keeps an empty day rather than dropping it, because a hole is not an answer', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        days: [
+                            { date: '2026-08-17', counts: counts(0, 0, 0), windows: [] },
+                            {
+                                date: '2026-08-18',
+                                counts: counts(1, 0, 0),
+                                windows: [{ code: 'evening', counts: counts(1, 0, 0) }],
+                            },
+                        ],
+                    },
+                    meta: CALENDAR_META,
+                },
+            },
+        ]);
+
+        const calendar = await repository.listCalendar({ from: '2026-08-17', to: '2026-08-23' });
+
+        expect(calendar.days).toHaveLength(2);
+        expect(calendar.days[0]?.windows).toEqual([]);
+        // Zero on every book, which is a fact about the day rather than a missing row.
+        expect(calendar.days[0]?.counts).toEqual({ order: 0, scheduled: 0, projected: 0 });
+    });
+});
+
+describe('createApiOrderDeskRepository — listDrivers', () => {
+    const DRIVERS_META = {
+        correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+        count: 2,
+        limit: 100,
+    };
+
+    it('reads the literal path with no query at all', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: [], meta: { ...DRIVERS_META, count: 0 } } },
+        ]);
+
+        await repository.listDrivers();
+
+        expect(calls[0]?.method).toBe('GET');
+        // No `branch_id`: a member belongs to the kitchen, not to one of its production sites.
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/drivers');
+    });
+
+    it('keeps a nameless member with a null name rather than substituting the identifier', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        { user_id: DRIVER_UUID, display_name: 'Rania Haddad' },
+                        { user_id: OTHER_ORDER_UUID, display_name: null },
+                    ],
+                    meta: DRIVERS_META,
+                },
+            },
+        ]);
+
+        const drivers = await repository.listDrivers();
+
+        expect(drivers.rows).toEqual([
+            { userId: DRIVER_UUID, displayName: 'Rania Haddad' },
+            // Still assignable, and still nameless. Putting the UUID here would claim it was a
+            // person; the em dash belongs to the screen.
+            { userId: OTHER_ORDER_UUID, displayName: null },
+        ]);
+    });
+
+    it('answers the cap alongside the rows, because there is no second page', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [{ user_id: DRIVER_UUID, display_name: 'Rania Haddad' }],
+                    meta: { ...DRIVERS_META, count: 1 },
+                },
+            },
+        ]);
+
+        const drivers = await repository.listDrivers();
+
+        // A screen showing exactly `limit` rows without saying so would look like it had found
+        // them all.
+        expect(drivers.limit).toBe(100);
+    });
+});
+
 describe('createApiOrderDeskRepository — quoteSale', () => {
     it('posts the basket and answers the priced quote', async () => {
         const { repository, calls } = harness([

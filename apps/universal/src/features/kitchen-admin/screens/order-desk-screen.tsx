@@ -1,6 +1,7 @@
 import type {
     KitchenOrder,
     KitchenOrderLine,
+    OrderDeskDeliveryJob,
     OrderDeskQueueFilters,
     OrderDeskQueueRow,
     OrderDeskQueueStatus,
@@ -12,6 +13,7 @@ import {
     Button,
     Callout,
     Card,
+    Dialog,
     Drawer,
     EmptyState,
     ErrorState,
@@ -40,16 +42,22 @@ import {
     useFulfilOrderMutation,
     useKitchenOrderQuery,
 } from '../../../data/kitchen-orders-hooks.ts';
-import { useOrderDeskQueueQuery } from '../../../data/order-desk-hooks.ts';
+import {
+    useAssignDeliveryJobMutation,
+    useOrderDeskDriversQuery,
+    useOrderDeskQueueQuery,
+} from '../../../data/order-desk-hooks.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
 import {
+    canAssignDeliveryJob,
     canConfirmKitchenOrder,
     canFulfilKitchenOrder,
     deliveryJobStatusKey,
     deliveryJobTrackingKey,
+    filterDrivers,
     kitchenOrderFulfilmentTypeKey,
     kitchenOrderPaymentMethodKey,
     kitchenOrderStatusKey,
@@ -102,19 +110,18 @@ import {
  * A counter sale never reaches this drawer needing anything: it arrives already `fulfilled` and
  * therefore is not in the open queue at all.
  *
- * ## The delivery column, and the assignment that is not here
+ * ## The delivery column, and the assignment that finally has a picker
  *
  * The column reads {@link orderDeskDeliveryState} — five states, four of which this queue meets
  * often (see `ops-format.ts` for what each one means and why none collapses into another).
  *
- * **There is no Assign control on this screen, and its absence is a wire gap rather than a
- * decision.** `POST /delivery/jobs/{job}/assign` takes a `driver_user_id` that must name an active
- * member of the organisation, and **no endpoint on this platform lists an organisation's members** —
- * not `/me/memberships` (the caller's own), not the invitations index (offers by email, gated behind
- * `membership.view_organisation`, and blind to anybody who joined another way). So a picker here
- * could only offer a free-text box for a UUID, which is not a control anybody can use correctly and
- * is a way to hand tonight's run to a typo. `orderDesk.assignDeliveryJob` is implemented and tested
- * on the client and is waiting for a directory to point at.
+ * The drawer now offers **Assign**, and the reason it did not for a whole slice is worth keeping:
+ * `POST /delivery/jobs/{job}/assign` takes a `driver_user_id` that must name an active member of
+ * the organisation, and until `GET /catalogue/order-desk/drivers` landed nothing on this platform
+ * listed one — so the only control that could have been drawn was a free-text box for a UUID, which
+ * is a way to hand tonight's run to a typo. The picker is {@link AssignDriverDialog}; the validator
+ * it sends is the **job's**, which rides on the queue row for exactly this purpose, and the two
+ * readings of `409` are told apart there rather than here.
  *
  * ## The queue is organisation-wide, and that is a decision rather than an omission
  *
@@ -170,6 +177,262 @@ const WINDOW_LABEL_KEYS: Readonly<Record<OrderDeskWindow, string>> = {
  * quite different reasons to reach for it and the name is what makes them read as one rule.
  */
 const EM_DASH = '—';
+
+/**
+ * Choose whose evening this is.
+ *
+ * ## Why a dialog rather than a step in the drawer
+ *
+ * The drawer is a *reading* surface — the order, its money, its run — and it stays open behind this.
+ * Assigning is one decision with one confirmation, taken and finished, which is what a dialog is
+ * for; folding a searchable list of a hundred people into a panel somebody is reading would push
+ * the lifecycle buttons off the bottom of a laptop screen.
+ *
+ * ## The search is client-side, and that is a fact about the endpoint
+ *
+ * `listDrivers` is bounded at a hundred rows, has no second page and takes no search parameter, so
+ * every row this picker could ever offer arrives in one read. `filterDrivers` narrows it without a
+ * round trip per keystroke. A nameless member cannot match a non-empty search — there is no text to
+ * match — which is why the "nothing found" state offers to clear the box rather than announcing
+ * that nobody is available.
+ *
+ * ## The two conflicts, and how a screen tells them apart
+ *
+ * `409 resource.conflict` covers two quite different situations, and on this client the only thing
+ * separating them is whether a version came back (`contracts/failure.ts` normalises the code down to
+ * the optional `currentLockVersion` and drops the rest):
+ *
+ * - **with a version** — a lost race. Somebody else took the run in the seconds since this drawer
+ *   was drawn. The remedy is to re-read and look again, so a Refresh button is offered.
+ * - **without one** — the run is over: delivered, failed or cancelled. There is **no retry offered
+ *   at all**, because re-reading will not make a delivered job assignable, and a Refresh button
+ *   there would be an invitation to press the same wall twice.
+ *
+ * That discriminator is the assign operation's own documented contract, and it is the reason this
+ * dialog never simply prints `failure.message` for a conflict.
+ *
+ * ## The version it sends is the job's
+ *
+ * Never the order's. The two rows are versioned separately and assigning a driver deliberately does
+ * not touch the order — crossing them would earn a `resource.conflict` on a race nobody entered.
+ * The job's validator rides on the queue row for exactly this reason, so no second read is needed.
+ */
+function AssignDriverDialog({
+    job,
+    orderNumber,
+    onClose,
+    onAssigned,
+    onRefresh,
+    refreshing,
+}: {
+    readonly job: OrderDeskDeliveryJob;
+    readonly orderNumber: string;
+    readonly onClose: () => void;
+    readonly onAssigned: (driverName: string) => void;
+    readonly onRefresh: () => void;
+    readonly refreshing: boolean;
+}) {
+    const { t } = useTranslation();
+    const [query, setQuery] = useState('');
+    const [chosen, setChosen] = useState<string | null>(null);
+
+    // Mounted only while the picker is open — see the note above — so the read starts here and a
+    // directory of the organisation's members never sits behind a queue that polls every fifteen
+    // seconds and may never assign anything.
+    const drivers = useOrderDeskDriversQuery();
+    const assign = useAssignDeliveryJobMutation();
+
+    const rows = useMemo(() => drivers.data?.rows ?? [], [drivers.data]);
+    const filtered = useMemo(() => filterDrivers(rows, query), [rows, query]);
+    const listFailure = toFailure(drivers.error);
+    const assignFailure = toFailure(assign.error);
+    const conflict = assignFailure?.code === 'resource.conflict' ? assignFailure : null;
+    // The discriminator, in one place. A number means a lost race; its absence means the run is
+    // over — see the component note.
+    const lostRace = conflict !== null && conflict.currentLockVersion !== undefined;
+
+    // Looked up in the **whole** list rather than the filtered one: somebody who chooses a person
+    // and then types in the search box has still chosen them, and reading the name out of the
+    // narrowed list would announce an em dash for a driver who has one.
+    const chosenDriver = rows.find((driver) => driver.userId === chosen) ?? null;
+
+    function confirm() {
+        if (chosen === null) return;
+        assign.mutate(
+            // The **job's** version, from the queue row. Never `order.lockVersion`.
+            { jobId: job.id, driverUserId: chosen, lockVersion: job.lockVersion },
+            {
+                onSuccess: () => {
+                    onAssigned(chosenDriver?.displayName ?? EM_DASH);
+                },
+            },
+        );
+    }
+
+    return (
+        <Dialog
+            testID="kitchen-order-desk-assign"
+            open
+            onClose={onClose}
+            title={t('kitchen:desk.assign.title')}
+            description={t('kitchen:desk.assign.description', { number: orderNumber })}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-order-desk-assign-cancel"
+                        variant="secondary"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-order-desk-assign-confirm"
+                        label={t('kitchen:desk.assign.confirm')}
+                        loading={assign.isPending}
+                        // Nothing chosen is not an error to report, it is a button that has
+                        // nothing to do yet.
+                        disabled={chosen === null || assign.isPending}
+                        onPress={confirm}
+                    />
+                </>
+            }
+        >
+            {assignFailure === null ? null : conflict !== null ? (
+                <Callout
+                    testID="kitchen-order-desk-assign-conflict"
+                    tone="warning"
+                    role="alert"
+                    title={t(
+                        lostRace
+                            ? 'kitchen:desk.assign.raceTitle'
+                            : 'kitchen:desk.assign.terminalTitle',
+                    )}
+                    body={t(
+                        lostRace
+                            ? 'kitchen:desk.assign.raceBody'
+                            : 'kitchen:desk.assign.terminalBody',
+                    )}
+                    actions={
+                        lostRace ? (
+                            <Button
+                                testID="kitchen-order-desk-assign-conflict-refresh"
+                                size="sm"
+                                variant="secondary"
+                                label={t('kitchen:ops.orders.conflictRefresh')}
+                                loading={refreshing}
+                                onPress={() => {
+                                    assign.reset();
+                                    onRefresh();
+                                }}
+                            />
+                        ) : undefined
+                    }
+                />
+            ) : (
+                <Text testID="kitchen-order-desk-assign-error" tone="danger" role="alert">
+                    {assignFailure.message}
+                </Text>
+            )}
+
+            <TextInputField
+                testID="kitchen-order-desk-assign-search"
+                id="kitchen-order-desk-assign-search"
+                label={t('kitchen:desk.assign.searchLabel')}
+                placeholder={t('kitchen:desk.assign.searchPlaceholder')}
+                hint={t('kitchen:desk.assign.searchHint')}
+                value={query}
+                onChangeText={setQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+                inputMode="search"
+                returnKeyType="search"
+                trailing={<Icon name="search" />}
+            />
+
+            {drivers.isPending ? (
+                <Skeleton testID="kitchen-order-desk-assign-loading" heightClassName="h-24" />
+            ) : listFailure !== null ? (
+                <ErrorState
+                    testID="kitchen-order-desk-assign-list-error"
+                    title={t('kitchen:desk.assign.listErrorTitle')}
+                    failure={listFailure}
+                    onRetry={() => {
+                        void drivers.refetch();
+                    }}
+                    retrying={drivers.isFetching}
+                />
+            ) : filtered.length === 0 ? (
+                <EmptyState
+                    testID="kitchen-order-desk-assign-empty"
+                    title={t(
+                        rows.length === 0
+                            ? 'kitchen:desk.assign.noneTitle'
+                            : 'kitchen:desk.assign.noMatchTitle',
+                    )}
+                    body={t(
+                        rows.length === 0
+                            ? 'kitchen:desk.assign.noneBody'
+                            : 'kitchen:desk.assign.noMatchBody',
+                    )}
+                />
+            ) : (
+                <Stack space="xs" testID="kitchen-order-desk-assign-list">
+                    {filtered.map((driver) => (
+                        // The card is inert and the button is the control — a pressable card
+                        // wrapping a button is nested-interactive, which axe reports as serious.
+                        // The same shape the sale wizard's customer picker uses, for the same
+                        // reason: choosing is not assigning. The confirmation is the footer
+                        // button, because a list of a hundred one-tap assignments would be one
+                        // mis-tap away from sending tonight's run to the wrong person.
+                        <Card
+                            key={driver.userId}
+                            padding="sm"
+                            testID={`kitchen-order-desk-assign-driver-${driver.userId}`}
+                        >
+                            <Inline space="sm" align="center" wrap justify="between">
+                                <Text
+                                    variant="bodyStrong"
+                                    // The dash is silent to a screen reader, so the row says in
+                                    // words what it has instead of a name.
+                                    {...(driver.displayName === null
+                                        ? { accessibilityLabel: t('kitchen:desk.assign.unnamed') }
+                                        : {})}
+                                >
+                                    {driver.displayName ?? EM_DASH}
+                                </Text>
+                                {chosen === driver.userId ? (
+                                    <Badge
+                                        testID={`kitchen-order-desk-assign-driver-${driver.userId}-chosen`}
+                                        tone="success"
+                                        label={t('kitchen:desk.assign.chosen')}
+                                    />
+                                ) : (
+                                    <Button
+                                        testID={`kitchen-order-desk-assign-driver-${driver.userId}-choose`}
+                                        size="sm"
+                                        variant="secondary"
+                                        label={t('kitchen:desk.assign.choose')}
+                                        onPress={() => {
+                                            setChosen(driver.userId);
+                                        }}
+                                    />
+                                )}
+                            </Inline>
+                        </Card>
+                    ))}
+                    {rows.length >= (drivers.data?.limit ?? Number.POSITIVE_INFINITY) ? (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-order-desk-assign-capped"
+                        >
+                            {t('kitchen:desk.assign.capped', { limit: drivers.data?.limit ?? 0 })}
+                        </Text>
+                    ) : null}
+                </Stack>
+            )}
+        </Dialog>
+    );
+}
 
 /** One labelled fact in the drawer. Never a table: these are pairs, not a dataset. */
 function DetailRow({
@@ -251,6 +514,15 @@ function OrderDeskQueueList() {
      * live one whenever the queue still has it.
      */
     const [selected, setSelected] = useState<OrderDeskQueueRow | null>(null);
+    /**
+     * Whether the driver picker is open.
+     *
+     * A boolean rather than a held job: the dialog reads the run off {@link selectedRow}, which is
+     * re-derived from the live queue on every poll — so a job that gained a driver, or a validator
+     * that moved, is the one the confirmation sends. A copy taken at open time would be exactly the
+     * stale version the endpoint exists to reject.
+     */
+    const [assigning, setAssigning] = useState(false);
 
     const now = useTickingNow(ORDER_DESK_POLL_MS, online);
     const trimmed = query.trim();
@@ -331,7 +603,30 @@ function OrderDeskQueueList() {
 
     function closeDetail() {
         setSelected(null);
+        setAssigning(false);
         clearActionState();
+    }
+
+    function openAssign() {
+        setAssigning(true);
+    }
+
+    /**
+     * The run has somebody. Say who, and let the poll bring the row up to date.
+     *
+     * The toast is the announcement — it is the application's own polite live region
+     * (`design-system/src/overlays/toast.tsx`), so this is not a second mechanism bolted on for a
+     * screen reader but the same one every other write on this surface uses. The dialog closes
+     * because the decision is made; the drawer stays open on the order, which is what the person
+     * was reading.
+     */
+    function onAssigned(driverName: string) {
+        setAssigning(false);
+        toast.show({
+            testID: 'kitchen-order-desk-assigned-toast',
+            tone: 'success',
+            message: t('kitchen:desk.assign.assignedToast', { name: driverName }),
+        });
     }
 
     /**
@@ -994,19 +1289,29 @@ function OrderDeskQueueList() {
                                     </>
                                 )}
                                 {/*
-                                 * Said once, in the one place somebody would look for the control
-                                 * that is not there. The wire has the write; nothing on this
-                                 * platform can name the people it takes.
+                                 * The control that spent a slice not existing. `canManage` gates
+                                 * it on the same code the lifecycle buttons take: choosing whose
+                                 * evening this is, is managing the order rather than reading it.
                                  */}
-                                {orderDeskDeliveryState(selectedRow) === 'unassigned' ? (
-                                    <Callout
-                                        testID="kitchen-order-desk-detail-assign-unavailable"
-                                        tone="info"
-                                        role="status"
-                                        title={t('kitchen:desk.assignUnavailableTitle')}
-                                        body={t('kitchen:desk.assignUnavailableBody')}
-                                    />
-                                ) : null}
+                                {selectedRow.deliveryJob === null ||
+                                !canManage ||
+                                !canAssignDeliveryJob(selectedRow.deliveryJob.status) ? null : (
+                                    <Inline space="sm" wrap>
+                                        <Button
+                                            testID="kitchen-order-desk-detail-assign"
+                                            size="sm"
+                                            variant="secondary"
+                                            label={t(
+                                                selectedRow.deliveryJob.driverUserId === null
+                                                    ? 'kitchen:desk.assign.open'
+                                                    : 'kitchen:desk.assign.reopen',
+                                            )}
+                                            onPress={() => {
+                                                openAssign();
+                                            }}
+                                        />
+                                    </Inline>
+                                )}
                             </Stack>
                         )}
 
@@ -1065,6 +1370,30 @@ function OrderDeskQueueList() {
                     </Stack>
                 )}
             </Drawer>
+
+            {/*
+             * Outside the drawer rather than inside it: the drawer's body scrolls, and a modal
+             * mounted inside a scrolling panel is a modal whose focus trap fights the panel's.
+             *
+             * **Mounted only while it is open**, which is what gives every opening a clean sheet —
+             * no stale search text, no refusal from the previous order — without an effect that
+             * resets four pieces of state and re-renders to do it. It reads the job off
+             * `selectedRow`, the live queue row, so the validator it sends is the current one.
+             */}
+            {assigning && selectedRow?.deliveryJob != null ? (
+                <AssignDriverDialog
+                    job={selectedRow.deliveryJob}
+                    orderNumber={selectedRow.orderNumber}
+                    onClose={() => {
+                        setAssigning(false);
+                    }}
+                    onAssigned={onAssigned}
+                    onRefresh={() => {
+                        void queue.refetch();
+                    }}
+                    refreshing={queue.isFetching}
+                />
+            ) : null}
         </Stack>
     );
 }

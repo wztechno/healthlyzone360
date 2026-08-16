@@ -680,4 +680,92 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         );
         expect(overflow).toBeLessThanOrEqual(1);
     });
+
+    /**
+     * The order calendar in Arabic — the riskiest direction surface this workspace has.
+     *
+     * `CalendarGrid` mirrors itself by having no geometry to mirror: its day columns are flex
+     * children in source order, so the first day of the week sits on the **right** here and on the
+     * left in English, with no `left`, `right`, `start` or `end` inset anywhere in the component.
+     * That is a strong claim and it is exactly the kind that holds until somebody adds one absolute
+     * offset, so it is measured rather than asserted: the first column's box must be to the right of
+     * the last column's, and nothing may push the document sideways.
+     *
+     * The week itself is *not* re-derived per locale. It starts on Monday under both, because one
+     * ISO week-start convention across the application is what stops two screens disagreeing about
+     * which seven days "this week" means; what changes is which edge Monday is drawn at, and the
+     * weekday names, which come from the locale's own formatter.
+     */
+    test('mirrors the order calendar by column order alone, and keeps the week Monday-first', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+
+        await expect(page.getByTestId('kitchen-family-order-calendar-name')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await page.getByTestId('kitchen-family-order-calendar-open').click();
+        await expect(page.getByTestId('kitchen-order-desk-calendar-screen')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-order-desk-calendar-title')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-calendar-subtitle')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        // The standing note that the three books are never added is copy, so it is translated.
+        await expect(page.getByTestId('kitchen-order-desk-calendar-bases')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-calendar-next')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // A quiet week is a legitimate answer on a demonstration database, and its empty state has
+        // to be translated too — which is precisely the gap a spec that waited for a grid would
+        // miss.
+        const grid = page.getByTestId('kitchen-order-desk-calendar-grid');
+        if ((await grid.count()) === 0) {
+            await expect(page.getByTestId('kitchen-order-desk-calendar-empty')).toContainText(
+                ARABIC_SCRIPT,
+            );
+        } else {
+            const columns = page.locator('[data-testid^="kitchen-order-desk-calendar-grid-day-"]');
+            await expect(columns.first()).toBeVisible();
+            expect(await columns.count()).toBe(7);
+
+            const first = await columns.first().boundingBox();
+            const last = await columns.last().boundingBox();
+            expect(first).not.toBeNull();
+            expect(last).not.toBeNull();
+            // Right-to-left: the week's first day is drawn at the right-hand edge. In `web-ltr`
+            // this same grid reads the other way, and neither run needs a mirrored coordinate to
+            // make it happen.
+            expect(first?.x ?? 0).toBeGreaterThan(last?.x ?? 0);
+
+            // The columns are the week's days in order, which is the property the component
+            // promises the caller owns — and the day the grid started sorting them itself, this
+            // fails.
+            const keys = await columns.evaluateAll((nodes) =>
+                nodes.map((node) => node.getAttribute('data-testid') ?? ''),
+            );
+            const dates = keys.map((key) =>
+                key.replace('kitchen-order-desk-calendar-grid-day-', ''),
+            );
+            expect([...dates].sort()).toEqual(dates);
+            // Monday first, in Arabic as in English: `new Date(…).getUTCDay()` is 1 on a Monday.
+            const weekday = await page.evaluate(
+                (date) => new Date(`${date}T00:00:00.000Z`).getUTCDay(),
+                dates[0] ?? '',
+            );
+            expect(weekday).toBe(1);
+        }
+
+        // Seven columns of three figures each is the widest thing in this workspace after the queue
+        // table, and the one most likely to push the document sideways in either direction.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
 });

@@ -2,11 +2,16 @@ import type { CurrencyCode } from '@healthy360/domain-types';
 
 import type {
     AssignedDeliveryJob,
+    OrderDeskCalendarCounts,
+    OrderDeskCalendarDay,
+    OrderDeskCalendarMeta,
+    OrderDeskCalendarWindow,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
     OrderDeskCustomerCreated,
     OrderDeskDeliveryJob,
+    OrderDeskDriver,
     OrderDeskPaymentSummary,
     OrderDeskQueueMeta,
     OrderDeskQueueRow,
@@ -17,10 +22,15 @@ import type {
 import type {
     AssignedDeliveryJob as WireAssignedDeliveryJob,
     CustomerAddress as WireCustomerAddress,
+    OrderDeskCalendarCounts as WireCalendarCounts,
+    OrderDeskCalendarDay as WireCalendarDay,
+    OrderDeskCalendarEnvelope,
+    OrderDeskCalendarWindow as WireCalendarWindow,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerContact as WireOrderDeskCustomerContact,
     OrderDeskCustomerEnvelope,
     OrderDeskDeliveryJob as WireOrderDeskDeliveryJob,
+    OrderDeskDriver as WireOrderDeskDriver,
     OrderDeskQuote as WireOrderDeskQuote,
     OrderDeskQuoteLine as WireOrderDeskQuoteLine,
     OrderDeskQuoteRefusal as WireOrderDeskRefusal,
@@ -148,6 +158,83 @@ export function mapOrderDeskQueueMeta(wire: OrderDeskQueueEnvelope['meta']): Ord
         today: wire.today,
         timezone: wire.timezone,
     };
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The calendar, and the people a run can be given to
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * A day's three books.
+ *
+ * Field by field, with **nothing derived**. There is no total here and there will never be one: the
+ * three overlap by construction, and the single most damaging thing this mapper could do is offer a
+ * convenient `total` that a screen then renders. Adding a fourth field would also make the mapper
+ * the place the rule gets broken, which is precisely where nobody looks for it.
+ *
+ * Nothing is defaulted either. Every count is required on the wire, and a `?? 0` would turn a
+ * malformed response into a confident "nothing is due that day".
+ */
+export function mapCalendarCounts(wire: WireCalendarCounts): OrderDeskCalendarCounts {
+    return {
+        order: wire.order,
+        scheduled: wire.scheduled,
+        projected: wire.projected,
+    };
+}
+
+/**
+ * One slot's share of a day.
+ *
+ * `code` keeps its `null` rather than being widened to a string: the unslotted bucket is a real
+ * bucket, and any placeholder invented here would be a word a kitchen could also have typed as a
+ * genuine code — at which point two different things would render identically.
+ */
+export function mapCalendarWindow(wire: WireCalendarWindow): OrderDeskCalendarWindow {
+    return { code: wire.code, counts: mapCalendarCounts(wire.counts) };
+}
+
+/**
+ * One day.
+ *
+ * `windows` is mapped in the order it arrived — named slots then the unslotted bucket — because the
+ * server ordered it and a client that re-sorted would be a second opinion about a sequence that
+ * already has one. The **union across a week** is a different question, and it belongs to whichever
+ * screen is drawing the week rather than to this mapper, which sees one day at a time.
+ */
+export function mapCalendarDay(wire: WireCalendarDay): OrderDeskCalendarDay {
+    return {
+        date: wire.date,
+        counts: mapCalendarCounts(wire.counts),
+        windows: wire.windows.map(mapCalendarWindow),
+    };
+}
+
+/**
+ * What the calendar was measured against.
+ *
+ * `max_window_days` is carried rather than dropped even though no request the client makes today
+ * comes near it: it is the server's own ceiling, and a client that knows it can bound its range
+ * instead of learning the limit from a `422` in front of somebody.
+ */
+export function mapCalendarMeta(wire: OrderDeskCalendarEnvelope['meta']): OrderDeskCalendarMeta {
+    return {
+        from: wire.from,
+        to: wire.to,
+        dayCount: wire.day_count,
+        maxWindowDays: wire.max_window_days,
+    };
+}
+
+/**
+ * One member of this organisation, as somebody a run can be given to.
+ *
+ * `display_name` keeps its `null` — a member whose profile was never completed is still assignable,
+ * and substituting the identifier for the name here would put a UUID in a picker while claiming it
+ * was a person. The em dash is the screen's to render, on the same terms as every other unknown.
+ */
+export function mapOrderDeskDriver(wire: WireOrderDeskDriver): OrderDeskDriver {
+    return { userId: wire.user_id, displayName: wire.display_name };
 }
 
 /* ------------------------------------------------------------------------------------------------

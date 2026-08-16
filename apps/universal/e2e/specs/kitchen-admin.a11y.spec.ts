@@ -674,6 +674,107 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await expectNoSeriousViolations(page, 'kitchen-order-desk-detail-narrow');
     });
 
+    /**
+     * The driver picker, open over the drawer over the queue.
+     *
+     * Two overlays deep is the deepest this workspace stacks, and it is the one place where a focus
+     * trap can be taken from a dialog by the drawer underneath it — a `dialog` without an accessible
+     * name, or with the drawer's own content still reachable behind it, is a serious finding and is
+     * invisible by eye. The list itself carries the other risk this sweep exists for: each row is a
+     * card with a button in it, and a card that had become pressable *around* that button would be
+     * nested-interactive.
+     *
+     * **Opening the picker is a read.** It lists the organisation's members and writes nothing until
+     * somebody confirms, which this sweep never does — so it is safe beside three parallel projects.
+     * Skipped when the queue has no delivery run waiting for a driver, which is an ordinary state on
+     * a shared database rather than a fault.
+     */
+    test('the driver picker, open over the drawer', async ({ page }) => {
+        await openOrderDesk(page);
+
+        test.skip(
+            (await page.getByTestId('kitchen-order-desk-table').count()) === 0,
+            'nothing is due on this database, so there is no row to open',
+        );
+
+        await page.locator('[data-testid$="-open"]').first().click();
+        await expect(page.getByTestId('kitchen-order-desk-detail-body')).toBeVisible();
+
+        const assign = page.getByTestId('kitchen-order-desk-detail-assign');
+        test.skip(
+            (await assign.count()) === 0,
+            'this order has no delivery run that can still be given to somebody',
+        );
+
+        await assign.click();
+        await expect(page.getByTestId('kitchen-order-desk-assign')).toBeVisible();
+        // Either rung of the ladder is worth sweeping: a kitchen with no active members lands on
+        // the empty state, and an empty state inside a dialog is its own heading-order risk.
+        await expect(
+            page
+                .getByTestId('kitchen-order-desk-assign-list')
+                .or(page.getByTestId('kitchen-order-desk-assign-empty')),
+        ).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-assign');
+    });
+
+    /* ── the order calendar (C4) ─────────────────────────────────────────────────────────────── */
+
+    /**
+     * The order calendar.
+     *
+     * `CalendarGrid` claims **no** table or grid semantics — its DOM is column-major, and asserting
+     * `role="grid"` over that would promise a screen reader a row-by-row reading it cannot deliver.
+     * So the accessibility of this screen rests entirely on three things a sweep can check: each day
+     * column is a labelled `group`, every square that is an em dash or a dashed forecast box carries
+     * its own sentence rather than relying on the drawing, and the week navigation speaks through a
+     * named live region. A square whose only signal was a border style would pass an eye test and
+     * fail somebody using a screen reader completely.
+     *
+     * Navigating a week is local to this screen — it changes a query range and writes nothing — so
+     * the sweep can press "next" and check the state that lands.
+     */
+    async function openOrderCalendar(page: Page) {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-order-calendar-open').click();
+        await expect(page.getByTestId('kitchen-order-desk-calendar-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-order-desk-calendar-toolbar')).toBeVisible();
+    }
+
+    test('the order calendar, with its day columns and its forecast squares', async ({ page }) => {
+        await openOrderCalendar(page);
+        await expect(
+            page
+                .getByTestId('kitchen-order-desk-calendar-grid')
+                .or(page.getByTestId('kitchen-order-desk-calendar-empty')),
+        ).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-calendar');
+    });
+
+    /**
+     * The calendar after a week change, which is the state its live region exists for: the whole
+     * grid is replaced without a navigation event, and a region that had lost its name or its role
+     * in the swap would announce nothing at all.
+     */
+    test('the calendar after moving a week', async ({ page }) => {
+        await openOrderCalendar(page);
+        await page.getByTestId('kitchen-order-desk-calendar-next').click();
+        await expect(page.getByTestId('kitchen-order-desk-calendar-announcer')).not.toBeEmpty();
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-calendar-next-week');
+    });
+
+    /**
+     * The same calendar at phone width, where seven columns of three figures are asked to hold their
+     * shape in a 390-pixel viewport. `CalendarGrid` never scrolls the document sideways by design;
+     * what a sweep catches here is the text that goes to one pixel wide rather than wrapping, and
+     * the contrast a squeezed caption loses.
+     */
+    test('the calendar on a phone', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openOrderCalendar(page);
+        await expectNoSeriousViolations(page, 'kitchen-order-desk-calendar-narrow');
+    });
+
     /* ── the review queue (K1.8) ─────────────────────────────────────────────────────────────── */
 
     /**

@@ -580,8 +580,30 @@
         "deliveryStatus": "Dispatch",
         "deliveryTracking": "The customer has been told",
         "deliveryAssignedAt": "Given to a driver",
-        "assignUnavailableTitle": "A driver cannot be chosen here yet",
-        "assignUnavailableBody": "Assigning a run needs a list of the people who could take it, and nothing on this platform can list them yet. The run stays waiting until dispatch is given one.",
+        "assign": {
+            "open": "Assign a driver",
+            "reopen": "Change driver",
+            "title": "Who takes this run?",
+            "description": "Order {{number}}. Only the person you choose is told about it.",
+            "searchLabel": "Find a driver",
+            "searchPlaceholder": "Part of a name",
+            "searchHint": "Everybody with an active membership here is listed. Somebody who has not put a name on their profile can only be found with this box empty.",
+            "choose": "Choose",
+            "chosen": "Chosen",
+            "unnamed": "This member has no name on their profile.",
+            "confirm": "Give them the run",
+            "capped": "Showing the first {{limit}}. Narrow the search to reach the rest.",
+            "listErrorTitle": "The drivers could not be listed",
+            "noneTitle": "Nobody is active in this kitchen",
+            "noneBody": "A run can only go to somebody with an active membership here. Add them to the kitchen first and they will appear in this list.",
+            "noMatchTitle": "Nobody matches that",
+            "noMatchBody": "Clear the search to see everybody, including anyone who has not put a name on their profile yet.",
+            "assignedToast": "The run is with {{name}}.",
+            "raceTitle": "Somebody else took this run",
+            "raceBody": "It changed while this was open, so nothing was assigned. Refresh to see who has it, then decide again.",
+            "terminalTitle": "This run is over",
+            "terminalBody": "It has already been delivered, failed or been cancelled, so it cannot be given to anybody. Refreshing will not change that."
+        },
         "delivery": {
             "notDelivered": "Not delivered",
             "awaitingConfirmation": "On confirmation",
@@ -747,6 +769,34 @@
             "unpriced": "That article has no counter price. Add it to a price list the desk uses."
         }
     },
+    "calendar": {
+        "title": "Order calendar",
+        "subtitle": "The week ahead on three separate books: what exists, what has been claimed, and what is only expected.",
+        "gridLabel": "Calendar for {{range}}",
+        "range": "{{from}} to {{to}}",
+        "dayCount_one": "{{count}} day",
+        "dayCount_other": "{{count}} days",
+        "previousWeek": "Previous week",
+        "nextWeek": "Next week",
+        "thisWeek": "This week",
+        "basesTitle": "Three numbers, never one",
+        "basesBody": "Orders, scheduled deliveries and the forecast overlap: an expected day becomes a scheduled one, and a scheduled one becomes an order. Adding them counts the same meal twice, so they are shown side by side and never totalled.",
+        "basis": {
+            "order": "Orders",
+            "scheduled": "Scheduled",
+            "projected": "Forecast"
+        },
+        "noSlot": "No slot named",
+        "loadErrorTitle": "The calendar could not be loaded",
+        "emptyTitle": "Nothing this week",
+        "emptyBody": "No orders, no scheduled deliveries and nothing forecast between these dates. Look at another week, or take a sale at the desk.",
+        "a11y": {
+            "showing": "Showing {{from}} to {{to}}.",
+            "projected": "Forecast: {{count}}. Worked out from subscription patterns, not a booking.",
+            "unknown": "This day was not answered.",
+            "nothing": "Nothing on any book."
+        }
+    },
     "families": {
         "ingredients": {
             "name": "Ingredients",
@@ -831,6 +881,10 @@
         "orderDesk": {
             "name": "Order desk",
             "description": "Every open order in the order it is due — what is late, what is next, and who to ring about it."
+        },
+        "orderCalendar": {
+            "name": "Order calendar",
+            "description": "The week ahead on three books — orders placed, deliveries claimed, and what the subscriptions are expected to bring."
         }
     },
     "analytics": {

@@ -277,6 +277,155 @@ export interface OrderDeskQueueFilters {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * The calendar: the same week counted three ways
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * How much work a day carries, on three separate books.
+ *
+ * **They are never added together, and there is deliberately no total in this type.** They overlap
+ * by construction — a projected day becomes a claimed one, a claimed one becomes an order, and the
+ * forecast is optimistic about days a claim already exists for — so a sum over-counts, and a kitchen
+ * buying ingredients from that sum over-buys quietly. Three numbers, rendered as three numbers.
+ *
+ * The naming is the wire's and it is worth keeping: `order` is what exists, `scheduled` is what has
+ * been claimed, `projected` is what is merely expected.
+ */
+export interface OrderDeskCalendarCounts {
+    /** Real orders due that day, every non-cancelled status. Dateless orders are counted nowhere. */
+    readonly order: number;
+    /** Subscription delivery days the generator has claimed and not yet turned into an order. */
+    readonly scheduled: number;
+    /**
+     * **A forecast, not a fact.** Computed from an active subscription's weekday pattern and
+     * remaining balance, and no row asserts it: the projection does not consult the generator's own
+     * cursor, so after an outage it keeps showing the pattern the customer bought rather than the
+     * backlog the kitchen is working. Right for planning, wrong for promising — a screen showing it
+     * must **label** it, which is why {@link CALENDAR_FORECAST_BASIS} exists rather than each screen
+     * remembering which of the three words meant "guess".
+     */
+    readonly projected: number;
+}
+
+/** The three books, in the order a day is read: what exists, what is claimed, what is expected. */
+export const CALENDAR_BASES = ['order', 'scheduled', 'projected'] as const;
+export type CalendarBasis = (typeof CALENDAR_BASES)[number];
+
+/**
+ * The one basis that is a forecast rather than a record.
+ *
+ * Named here rather than spelled `=== 'projected'` at each call site, because "which of these is a
+ * guess?" is a fact about the wire and not about any one screen — and the day a fourth basis lands,
+ * a screen that hard-coded the word would silently stop labelling it.
+ */
+export const CALENDAR_FORECAST_BASIS: CalendarBasis = 'projected';
+
+/**
+ * One delivery slot's share of a day.
+ *
+ * `code` is the kitchen's own vocabulary, or **`null`** for the day's unslotted work — legitimate on
+ * both books, and null rather than an invented placeholder word because any word chosen here would
+ * be one a kitchen could also have typed as a real code. The null entry, when present, is last.
+ *
+ * **Only slots carrying something appear.** A slot missing from a day is therefore a *true zero*,
+ * not an unknown: the server walked every day and omitted the empty ones. A screen must not render
+ * an em dash for it — see {@link OrderDeskCalendar} for the one case that genuinely is unknown.
+ */
+export interface OrderDeskCalendarWindow {
+    readonly code: string | null;
+    readonly counts: OrderDeskCalendarCounts;
+}
+
+export interface OrderDeskCalendarDay {
+    /** `YYYY-MM-DD`. */
+    readonly date: string;
+    /** The whole day. Equal to its windows summed **per basis** — never across them. */
+    readonly counts: OrderDeskCalendarCounts;
+    /** Named slots first, the unslotted bucket last. Empty on a day with nothing on any book. */
+    readonly windows: readonly OrderDeskCalendarWindow[];
+}
+
+/** What the server answered against, echoed because the client did not choose all of it. */
+export interface OrderDeskCalendarMeta {
+    /** `YYYY-MM-DD`, inclusive. */
+    readonly from: string;
+    /** `YYYY-MM-DD`, inclusive. */
+    readonly to: string;
+    /**
+     * How many squares the grid has. A count of **days**, never of work — there is no count of work
+     * anywhere in this response, because that would be the total the three bases must not have.
+     */
+    readonly dayCount: number;
+    /**
+     * The longest window this operation will answer, counted inclusively. Echoed so a client can
+     * bound its own range rather than discover the limit as a `422`.
+     */
+    readonly maxWindowDays: number;
+}
+
+/**
+ * A window of days, each counted three ways.
+ *
+ * **Every day of the requested range is present, including the empty ones** — a calendar with holes
+ * is one the client has to reconstruct, and "nothing that day" is itself an answer. That promise is
+ * what makes the one unknown case sharp: a screen renders the days *it* derived (a week, a month),
+ * and a date that is not in `days` was not answered at all. That is an em dash, never a zero — a
+ * zero would say "nothing is due" about a day nobody asked about.
+ */
+export interface OrderDeskCalendar {
+    readonly days: readonly OrderDeskCalendarDay[];
+    readonly meta: OrderDeskCalendarMeta;
+}
+
+export interface OrderDeskCalendarFilters {
+    /** `YYYY-MM-DD`, inclusive. Required — this endpoint has no default window. */
+    readonly from: string;
+    /** `YYYY-MM-DD`, inclusive. Not before `from`, and no more than `maxWindowDays` after it. */
+    readonly to: string;
+    /**
+     * Narrow every basis to one production site. Omitted, the calendar is organisation-wide.
+     *
+     * Unlike on the queue it names **no clock**: a calendar's days are the dates customers asked
+     * for, which are dates rather than instants, so there is nothing here for a timezone to move.
+     */
+    readonly branchId?: BranchId | undefined;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The people a run can be given to
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * Somebody who could take tonight's run.
+ *
+ * This organisation's **active members**, not a driver role: no `driver` template role exists on
+ * this platform, and the assign endpoint's own rule is "an active member of this organisation".
+ * Listing anything narrower here would offer a picker that refuses half its own rows.
+ *
+ * `displayName` is null for a member whose account exists but whose profile was never completed.
+ * They are still a member and still assignable, so they are listed — with the em dash the platform
+ * uses for every other unknown, and sorted after everybody who has a name, because a list that
+ * opened with three dashes would look broken rather than incomplete.
+ */
+export interface OrderDeskDriver {
+    readonly userId: string;
+    readonly displayName: string | null;
+}
+
+/**
+ * One driver listing.
+ *
+ * Carries `limit` as well as the rows for the reason {@link OrderDeskCustomerSearch} does: there is
+ * **no second page**, and a screen that showed exactly `limit` rows without saying so would look
+ * like it had found them all. A kitchen with more active members than this has an organisation
+ * chart rather than a rota.
+ */
+export interface OrderDeskDrivers {
+    readonly rows: readonly OrderDeskDriver[];
+    readonly limit: number;
+}
+
+/* ------------------------------------------------------------------------------------------------
  * Selling: the quote, the placement, and the customer a sale is for
  * ---------------------------------------------------------------------------------------------- */
 
@@ -543,6 +692,35 @@ export interface OrderDeskRepository {
     listQueue(filters?: OrderDeskQueueFilters): Promise<OrderDeskQueue>;
 
     /**
+     * The same days counted on three separate books.
+     *
+     * `from` and `to` are **required**: this operation has no default window, because a calendar
+     * with an implied range is one whose caller cannot say what it drew. The range is capped
+     * server-side (`meta.maxWindowDays`, sixty days at the time of writing) and a longer one is a
+     * `422` rather than a truncation — a silently shortened calendar would be a screen quietly
+     * lying about the far end of the month.
+     *
+     * Answers {@link OrderDeskCalendar} rather than a bare array of days for the queue's reason:
+     * `meta` carries the answer's own terms, and `maxWindowDays` in particular is what lets a
+     * screen bound its next request instead of discovering the ceiling by hitting it.
+     */
+    listCalendar(filters: OrderDeskCalendarFilters): Promise<OrderDeskCalendar>;
+
+    /**
+     * The people {@link OrderDeskRepository.assignDeliveryJob} will accept.
+     *
+     * This organisation's active members, named where a name exists. It exists so that assigning a
+     * run is a choice between people rather than a typed identifier: the assign endpoint takes a
+     * `driver_user_id` that must name an active member, and until this operation landed the only
+     * control a screen could offer was a free-text box for a UUID.
+     *
+     * Bounded and unpaged — see {@link OrderDeskDrivers}. Read when a picker opens rather than kept
+     * warm: the membership of a kitchen changes on the timescale of employment, and the answer is
+     * only ever wanted at the moment somebody is choosing.
+     */
+    listDrivers(): Promise<OrderDeskDrivers>;
+
+    /**
      * What this basket would come to. **The only price authority on this surface.**
      *
      * No client ever computes a desk total: the tariff that prices the counter is resolved
@@ -608,9 +786,10 @@ export interface OrderDeskRepository {
      * Answers the job with its **new** validator, so a board can offer a reassignment immediately
      * without a re-read.
      *
-     * **There is no operation on this client that lists the people this call names.** No endpoint
-     * anywhere on the wire serves an organisation's members, so nothing here can turn a driver into
-     * a name a screen could offer. The identifier has to come from somewhere that already holds one.
+     * The people this call names are listed by {@link OrderDeskRepository.listDrivers}, which is
+     * what turns the `driverUserId` from a UUID somebody types into a person somebody picks. Before
+     * that operation existed there was no directory anywhere on the wire, and this method sat
+     * implemented and unreachable for exactly that reason.
      */
     assignDeliveryJob(request: AssignDeliveryJobRequest): Promise<AssignedDeliveryJob>;
 }

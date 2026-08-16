@@ -109,6 +109,18 @@ export const INVENTORY_VIEW_PERMISSION = 'inventory.view_organisation';
 export const INVENTORY_MANAGE_PERMISSION = 'inventory.manage_organisation';
 
 /**
+ * Reading this kitchen's subscriptions.
+ *
+ * No family is gated on it — `EntityFamily.permission` carries one code, and the surface that needs
+ * this one needs it *alongside* `order.view_organisation` rather than instead of it. The order-desk
+ * calendar counts three books, two of which are subscription arithmetic, and its endpoint demands
+ * both codes; the screen's own `<Gate>` therefore asks for both while its hub card is offered on the
+ * order code, which is what the group is. The constant lives here so the screen names the same
+ * string the backend route does rather than spelling it inline.
+ */
+export const SUBSCRIPTION_VIEW_PERMISSION = 'subscription.view_organisation';
+
+/**
  * How a family's card reports how much is in it.
  *
  * `managed` families are counted from their own listing and can carry a draft badge; `reference`
@@ -196,6 +208,38 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // for it, because the field is simply absent from rows a caller may not read it on.
         permission: ORDER_VIEW_PERMISSION,
         managePermission: ORDER_MANAGE_PERMISSION,
+    },
+    {
+        key: 'order-calendar',
+        // A view, not a family of records — the same reading the queue beside it takes. It has no
+        // listing of its own, nothing is created from it and nothing has a lifecycle: it counts
+        // three books that other surfaces own.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderCalendar.name',
+        descriptionKey: 'kitchen:families.orderCalendar.description',
+        // `▤`, the ruled sheet — a week laid out in squares, which is literally what this opens.
+        // It is the queue's glyph too, and here the duplication is honest rather than a compromise:
+        // the two cards are the same work seen at two scales, they sit together in one group, and
+        // their labels ("Order desk", "Order calendar") separate them. The workspace-wide note
+        // applies unchanged — the icon set is a table of typographic characters.
+        icon: 'calendar',
+        // Nested under the desk rather than a prefix-disjoint sibling, because the calendar *is*
+        // part of the desk and the route tree says so. One consequence, and it is deliberate:
+        // `isKitchenNavActive` matches this path against `/kitchen/order-desk` as well, and
+        // `kitchen-ops-shell.tsx` takes the **first** registry family that matches — so the
+        // breadcrumb on this screen reads "Order desk", clickable back to the queue, exactly as it
+        // does on the sale wizard one route over. A trail that offered the way back to the queue is
+        // the right trail for a surface that has no actions of its own.
+        href: '/kitchen/order-desk/calendar',
+        // The order code, matching the queue and the group. The endpoint additionally requires
+        // `subscription.view_organisation`, which this registry has no second slot for — the
+        // screen's `<Gate>` asks for both, and a role holding only this half meets the workspace's
+        // refusal page rather than a calendar with two empty books.
+        permission: ORDER_VIEW_PERMISSION,
+        // Nothing is written from a calendar. Every action it might suggest — confirming an order,
+        // assigning a run — happens on the queue, which holds the lock versions.
+        managePermission: null,
     },
     {
         key: 'review',

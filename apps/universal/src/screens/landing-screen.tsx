@@ -1,9 +1,10 @@
-import { Card, ErrorState, Heading, Spinner, Stack, Text } from '@healthy360/design-system';
+import { ErrorState, Heading, Stack } from '@healthy360/design-system';
 import { apiFailure } from '@healthy360/api-client';
 import { Redirect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { resolveAppLandingRoute } from '../navigation/landing.ts';
+import { SproutMark } from '../ui/sprout-mark.tsx';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 
 /**
@@ -49,6 +50,14 @@ export function LandingScreen() {
 
     if (landing.reason === 'session_restoring') {
         return (
+            /*
+             * The card, the spinner and the wordmark are all gone. What is left is the mark on the
+             * page's own ground: a splash that says nothing is better than a splash that apologises,
+             * and the sentence this used to show still reaches anyone using a screen reader through
+             * the mark's accessible name. `session-restoring-screen` stays — `e2e/specs/helpers.ts`
+             * depends on this splash *not* answering to `landing-screen`, because "still restoring"
+             * is a reason to keep waiting rather than a result.
+             */
             <Stack
                 testID="session-restoring-screen"
                 space="md"
@@ -56,17 +65,7 @@ export function LandingScreen() {
                 justify="center"
                 className="flex-1 p-8"
             >
-                <Card padding="lg" tone="raised">
-                    <Spinner
-                        testID="session-restoring"
-                        size="large"
-                        showLabel
-                        label={t('common:state.restoringSession')}
-                    />
-                    <Text tone="secondary" align="center">
-                        {t('common:app.name')}
-                    </Text>
-                </Card>
+                <SproutMark testID="session-restoring" label={t('common:state.restoringSession')} />
             </Stack>
         );
     }

@@ -1,10 +1,15 @@
 import type {
     AddOrderDeskCustomerAddressRequest,
+    AssignDeliveryJobRequest,
+    AssignedDeliveryJob,
     CreateOrderDeskCustomerRequest,
     KitchenOrder,
+    OrderDeskCalendar,
+    OrderDeskCalendarFilters,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerSearch,
+    OrderDeskDrivers,
     OrderDeskQueue,
     OrderDeskQueueFilters,
     OrderDeskQuote,
@@ -18,7 +23,8 @@ import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
 /**
- * The Order Desk queue's data access — one read, and the cadence that keeps it live.
+ * The Order Desk's data access — the queue and the cadence that keeps it live, the week beside it,
+ * and the writes that work them both.
  *
  * ## Why the poll lives here rather than at the call site
  *
@@ -70,6 +76,107 @@ export function useOrderDeskQueueQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.listQueue(filters);
+        },
+    });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The week, and the people who can carry it
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The same orders counted by date, three ways.
+ *
+ * A plain query with **no poll at all**, and the contrast with the queue above is the whole point.
+ * The queue is a live work surface measured in minutes; a calendar is read to plan a week, and two
+ * of its three bases are subscription arithmetic that does not move between one glance and the
+ * next. A fifteen-second interval here would be a request every fifteen seconds for an answer that
+ * changes when somebody places an order — which invalidation already handles.
+ *
+ * `filters` is passed to the key as one object (query-key shape rule 3), so a memoised filter is
+ * the identity that decides whether this is the same week. `null` disables the read, which is how a
+ * screen that has not resolved its week yet asks for nothing rather than asking for the calendar of
+ * an undefined range.
+ */
+export function useOrderDeskCalendarQuery(
+    filters: OrderDeskCalendarFilters | null,
+    enabled = true,
+): UseQueryResult<OrderDeskCalendar> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.calendar(filters ?? undefined),
+        enabled: enabled && filters !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (filters === null) throw new Error('There is no week to read.');
+            return repositories.orderDesk.listCalendar(filters);
+        },
+    });
+}
+
+/**
+ * How long a driver listing stays fresh.
+ *
+ * Five minutes, which is short next to how often a kitchen's membership changes and long next to
+ * how often somebody opens the picker. The number exists so that assigning four runs in a row is
+ * one request rather than four: the dialog mounts its query on open, and without a stale window
+ * every open would refetch a list that could not have changed in the thirty seconds since the last
+ * one. Exported because the assign dialog's own test asserts the second open does not re-read.
+ */
+export const DRIVERS_STALE_MS = 5 * 60_000;
+
+/**
+ * The people a run can be given to.
+ *
+ * **Fetched when a picker opens, not kept warm.** `enabled` is the dialog's own open state, which
+ * is what keeps a directory of the organisation's members off a queue screen that is polling every
+ * fifteen seconds and may never assign anything. The answer is bounded and unpaged, so the whole
+ * list arrives at once and the search over it is the screen's, client-side.
+ */
+export function useOrderDeskDriversQuery(enabled = true): UseQueryResult<OrderDeskDrivers> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.drivers(),
+        enabled: enabled && repositories !== null,
+        staleTime: DRIVERS_STALE_MS,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.listDrivers();
+        },
+    });
+}
+
+/**
+ * Give a run to a driver.
+ *
+ * **Only the desk root is invalidated, and only it should be.** The job lives on the queue's own
+ * row and nowhere else: the order detail endpoint does not serve a delivery job at all, so evicting
+ * `kitchenOrders` would refetch an order whose answer this write cannot have changed. That is the
+ * mirror image of {@link usePlaceOrderDeskSaleMutation}, which names both roots because a sale
+ * writes a row both of them list — and the two hooks disagreeing on purpose is what makes the
+ * separation of the roots a decision rather than an accident.
+ *
+ * There is **no retry**, and here the reason is sharper than usual. A `409` is either a lost race —
+ * somebody else took the run, and retrying would resolve it in favour of whoever clicked last — or
+ * a job that has already finished, which no amount of retrying makes assignable. Both are answered
+ * by the screen, and neither by the client.
+ */
+export function useAssignDeliveryJobMutation(): UseMutationResult<
+    AssignedDeliveryJob,
+    unknown,
+    AssignDeliveryJobRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: AssignDeliveryJobRequest) =>
+            repositories.orderDesk.assignDeliveryJob(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },
     });
 }

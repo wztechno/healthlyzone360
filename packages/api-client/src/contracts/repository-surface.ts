@@ -271,6 +271,8 @@ export const REPOSITORY_SURFACE = {
         'addCustomerAddress',
         'assignDeliveryJob',
         'createCustomer',
+        'listCalendar',
+        'listDrivers',
         'listQueue',
         'placeSale',
         'quoteSale',

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5494 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5537 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2304,6 +2304,27 @@ export interface NamespaceKeys {
     | 'branchHours.title'
     | 'branchHours.titleFor'
     | 'branchHours.weekIntro'
+    | 'calendar.a11y.nothing'
+    | 'calendar.a11y.projected'
+    | 'calendar.a11y.showing'
+    | 'calendar.a11y.unknown'
+    | 'calendar.basesBody'
+    | 'calendar.basesTitle'
+    | 'calendar.basis.order'
+    | 'calendar.basis.projected'
+    | 'calendar.basis.scheduled'
+    | 'calendar.dayCount'
+    | 'calendar.emptyBody'
+    | 'calendar.emptyTitle'
+    | 'calendar.gridLabel'
+    | 'calendar.loadErrorTitle'
+    | 'calendar.nextWeek'
+    | 'calendar.noSlot'
+    | 'calendar.previousWeek'
+    | 'calendar.range'
+    | 'calendar.subtitle'
+    | 'calendar.thisWeek'
+    | 'calendar.title'
     | 'channels.createFirst'
     | 'channels.fromHint'
     | 'channels.fromLabel'
@@ -2350,8 +2371,28 @@ export interface NamespaceKeys {
     | 'containment.mayContain'
     | 'desk.a11y.noCustomerName'
     | 'desk.a11y.noDeliveryRun'
-    | 'desk.assignUnavailableBody'
-    | 'desk.assignUnavailableTitle'
+    | 'desk.assign.assignedToast'
+    | 'desk.assign.capped'
+    | 'desk.assign.choose'
+    | 'desk.assign.chosen'
+    | 'desk.assign.confirm'
+    | 'desk.assign.description'
+    | 'desk.assign.listErrorTitle'
+    | 'desk.assign.noMatchBody'
+    | 'desk.assign.noMatchTitle'
+    | 'desk.assign.noneBody'
+    | 'desk.assign.noneTitle'
+    | 'desk.assign.open'
+    | 'desk.assign.raceBody'
+    | 'desk.assign.raceTitle'
+    | 'desk.assign.reopen'
+    | 'desk.assign.searchHint'
+    | 'desk.assign.searchLabel'
+    | 'desk.assign.searchPlaceholder'
+    | 'desk.assign.terminalBody'
+    | 'desk.assign.terminalTitle'
+    | 'desk.assign.title'
+    | 'desk.assign.unnamed'
     | 'desk.caption'
     | 'desk.clearFilters'
     | 'desk.columnActions'
@@ -2602,6 +2643,8 @@ export interface NamespaceKeys {
     | 'families.ingredients.name'
     | 'families.meals.description'
     | 'families.meals.name'
+    | 'families.orderCalendar.description'
+    | 'families.orderCalendar.name'
     | 'families.orderDesk.description'
     | 'families.orderDesk.name'
     | 'families.orders.description'
@@ -7816,6 +7859,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.title',
   'kitchen:branchHours.titleFor',
   'kitchen:branchHours.weekIntro',
+  'kitchen:calendar.a11y.nothing',
+  'kitchen:calendar.a11y.projected',
+  'kitchen:calendar.a11y.showing',
+  'kitchen:calendar.a11y.unknown',
+  'kitchen:calendar.basesBody',
+  'kitchen:calendar.basesTitle',
+  'kitchen:calendar.basis.order',
+  'kitchen:calendar.basis.projected',
+  'kitchen:calendar.basis.scheduled',
+  'kitchen:calendar.dayCount',
+  'kitchen:calendar.emptyBody',
+  'kitchen:calendar.emptyTitle',
+  'kitchen:calendar.gridLabel',
+  'kitchen:calendar.loadErrorTitle',
+  'kitchen:calendar.nextWeek',
+  'kitchen:calendar.noSlot',
+  'kitchen:calendar.previousWeek',
+  'kitchen:calendar.range',
+  'kitchen:calendar.subtitle',
+  'kitchen:calendar.thisWeek',
+  'kitchen:calendar.title',
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
   'kitchen:channels.fromLabel',
@@ -7862,8 +7926,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:containment.mayContain',
   'kitchen:desk.a11y.noCustomerName',
   'kitchen:desk.a11y.noDeliveryRun',
-  'kitchen:desk.assignUnavailableBody',
-  'kitchen:desk.assignUnavailableTitle',
+  'kitchen:desk.assign.assignedToast',
+  'kitchen:desk.assign.capped',
+  'kitchen:desk.assign.choose',
+  'kitchen:desk.assign.chosen',
+  'kitchen:desk.assign.confirm',
+  'kitchen:desk.assign.description',
+  'kitchen:desk.assign.listErrorTitle',
+  'kitchen:desk.assign.noMatchBody',
+  'kitchen:desk.assign.noMatchTitle',
+  'kitchen:desk.assign.noneBody',
+  'kitchen:desk.assign.noneTitle',
+  'kitchen:desk.assign.open',
+  'kitchen:desk.assign.raceBody',
+  'kitchen:desk.assign.raceTitle',
+  'kitchen:desk.assign.reopen',
+  'kitchen:desk.assign.searchHint',
+  'kitchen:desk.assign.searchLabel',
+  'kitchen:desk.assign.searchPlaceholder',
+  'kitchen:desk.assign.terminalBody',
+  'kitchen:desk.assign.terminalTitle',
+  'kitchen:desk.assign.title',
+  'kitchen:desk.assign.unnamed',
   'kitchen:desk.caption',
   'kitchen:desk.clearFilters',
   'kitchen:desk.columnActions',
@@ -8114,6 +8198,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
   'kitchen:families.meals.name',
+  'kitchen:families.orderCalendar.description',
+  'kitchen:families.orderCalendar.name',
   'kitchen:families.orderDesk.description',
   'kitchen:families.orderDesk.name',
   'kitchen:families.orders.description',

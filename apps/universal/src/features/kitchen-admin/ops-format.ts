@@ -7,6 +7,7 @@ import type {
     KitchenOrderStatus,
     KitchenQuotationLine,
     KitchenQuotationStatus,
+    OrderDeskDriver,
     OrderDeskQueueRow,
     ProductionOrderStatus,
     QualityCheckStatus,
@@ -336,6 +337,69 @@ const DELIVERY_JOB_TRACKING_KEYS: Readonly<Record<DriverJobTrackingStatus, strin
 
 export function deliveryJobTrackingKey(status: DriverJobTrackingStatus): string {
     return DELIVERY_JOB_TRACKING_KEYS[status];
+}
+
+/**
+ * Whether a run can still be given to somebody.
+ *
+ * A closed record rather than a `!TERMINAL.includes(…)` test, so the day the wire gains a seventh
+ * dispatch state this stops compiling and somebody decides what it means — which is exactly the
+ * decision a permissive default would make silently and wrongly.
+ *
+ * The three `false` rows are the states the endpoint answers `409` on with **no**
+ * `currentLockVersion`: a delivered, failed or cancelled run is over, and re-reading it will not
+ * make it assignable. Hiding the control there is an experience improvement and nothing more — the
+ * server remains the authority, and the drawer still handles a run that finishes between the frame
+ * it rendered and the press, because that race is real on a fifteen-second poll.
+ *
+ * `in_transit` is deliberately `true`. A driver on the road who breaks down is a dispatcher's
+ * ordinary evening, and refusing the reassignment client-side would leave the food where it is.
+ */
+const DELIVERY_JOB_ASSIGNABLE: Readonly<Record<DriverJobStatus, boolean>> = {
+    pending: true,
+    assigned: true,
+    in_transit: true,
+    delivered: false,
+    failed: false,
+    cancelled: false,
+};
+
+export function canAssignDeliveryJob(status: DriverJobStatus): boolean {
+    return DELIVERY_JOB_ASSIGNABLE[status];
+}
+
+/**
+ * The drivers whose name contains `query`, in the order the server answered them.
+ *
+ * **Client-side, and only because the list is small and whole.** The endpoint is bounded at a
+ * hundred rows with no second page and no search parameter of its own, so every row a picker could
+ * ever offer is already in hand; a round trip per keystroke would be a request to re-fetch a list
+ * the screen is holding. A surface with a cursor would have to ask the server instead, and this
+ * function would be the wrong shape for it — which is the point of it living here rather than
+ * inside a component that could quietly grow one.
+ *
+ * Three properties worth stating:
+ *
+ * - **Order is never touched.** The server sorts by name with the nameless last, in SQL, over the
+ *   whole membership rather than over the page it returned; re-sorting here would be a second
+ *   opinion about a sequence that has already been decided properly.
+ * - **A nameless member drops out of a non-empty search**, and cannot do otherwise: there is no
+ *   text to match. They are still offered whenever the box is empty, which is how somebody reaches
+ *   them — and it is why the empty state of this picker says to clear the search rather than
+ *   claiming nobody is available.
+ * - Matching is case-insensitive on the locale's own terms (`toLocaleLowerCase`), because a picker
+ *   that could not find "رانيا" by typing it would be a picker for English names.
+ */
+export function filterDrivers(
+    drivers: readonly OrderDeskDriver[],
+    query: string,
+): readonly OrderDeskDriver[] {
+    const needle = query.trim().toLocaleLowerCase();
+    if (needle === '') return drivers;
+    return drivers.filter(
+        (driver) =>
+            driver.displayName !== null && driver.displayName.toLocaleLowerCase().includes(needle),
+    );
 }
 
 /* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */
