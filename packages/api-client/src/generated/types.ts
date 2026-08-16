@@ -3101,9 +3101,19 @@ export type MarketplacePlan = {
     variants: Array<MarketplacePlanVariant>;
     durations: Array<MarketplacePlanDuration>;
     /**
-     * Always empty. No table links a plan to the meals a representative
-     * week would contain, and assembling one from the catalogue would be
-     * the system writing a menu.
+     * The first dishes of the plan's own fixed menu, distinct and in the
+     * order the kitchen serves them — cycle day, then sitting in the order
+     * of the day, then sequence. Published dishes only: a withdrawn one is
+     * omitted rather than advertised.
+     *
+     * **Empty when the plan publishes no menu**, which is the ordinary
+     * case for a free-selection plan and for a plan whose kitchen has not
+     * written its menu down. The identifiers are always read from the
+     * kitchen's stated menu and never assembled from its catalogue — a
+     * sample the platform composed itself would be the platform writing a
+     * menu.
+     *
+     * Capped at twelve: it is a sample of the menu, not the menu.
      *
      */
     sample_meal_ids: Array<Uuid>;

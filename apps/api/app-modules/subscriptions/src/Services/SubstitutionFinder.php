@@ -9,7 +9,9 @@ use Healthy360\Cart\Services\LineProbe;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\PlanMenuService;
 use Healthy360\Subscriptions\Contracts\MealSafety;
 use Healthy360\Subscriptions\Models\Subscription;
 
@@ -22,10 +24,22 @@ use Healthy360\Subscriptions\Models\Subscription;
  * implemented as written; the fourth is implemented as far as the data allows,
  * and the gap is stated rather than papered over:
  *
- *  * **Same plan** — the candidate must be a `meal` in the same organisation
- *    and offered on the same sales channel on the delivery date, which is what
- *    "reachable through this plan" means in K1's model. There is no menu table
- *    linking plans to dishes yet, so a tighter reading is not expressible.
+ *  * **Same plan** — read as tightly as the plan lets it be read. A plan that
+ *    publishes a menu *has* a repertoire: `plan_menu_entries` names every dish
+ *    it serves, and a substitute is drawn from that list and nowhere else. §6's
+ *    "within the same plan" is then literal rather than approximate — the
+ *    customer receives something the plan actually offers, and the kitchen
+ *    receives a picking list of dishes it was already cooking that cycle. The
+ *    day of the cycle is deliberately **not** part of the narrowing: the
+ *    replaced dish is being replaced precisely because that day's answer failed,
+ *    and a plan cooking eight dishes a week has eight candidates, not one.
+ *
+ *    A plan with **no** menu keeps the older, wider reading — a `meal` in the
+ *    same organisation, offered on the same sales channel on the delivery date,
+ *    which is what "reachable through this plan" means when the plan has not
+ *    said. That reading is the honest maximum for such a plan, not a fallback
+ *    worth apologising for: it was the whole of this predicate until there was
+ *    a menu table to read.
  *  * **Same meal type** — the candidate must share the replaced meal's
  *    `product_category_id`. That column is the closest thing the catalogue has
  *    to a meal type; a meal carries no breakfast/lunch/dinner attribute of its
@@ -59,6 +73,7 @@ final readonly class SubstitutionFinder
     public function __construct(
         private MealSafety $safety,
         private LineProbe $probe,
+        private PlanMenuService $menus,
     ) {}
 
     /**
@@ -95,11 +110,16 @@ final readonly class SubstitutionFinder
             return [null, 'channel_unknown'];
         }
 
+        $repertoire = $this->repertoireOf($subscription);
+
         $candidates = CatalogueItem::withoutTenancy()
             ->where('organisation_id', $subscription->organisation_id)
             ->where('item_type', CatalogueItemType::Meal->value)
             ->where('status', CatalogueItemStatus::Published->value)
             ->whereKeyNot($replacing->getKey())
+            // A plan that has written its menu down is a plan that has said
+            // which dishes belong to it. Null means it has not.
+            ->when($repertoire !== null, fn ($query) => $query->whereKey($repertoire))
             ->when(
                 $replacing->product_category_id === null,
                 fn ($query) => $query->whereNull('product_category_id'),
@@ -135,5 +155,43 @@ final readonly class SubstitutionFinder
         }
 
         return [null, 'no_safe_candidate'];
+    }
+
+    /**
+     * Every dish the subscription's plan serves, or **null** when the plan
+     * publishes no menu.
+     *
+     * Null is "narrow by nothing", which is not the same as an empty list. A
+     * published menu with exactly one dish on it, being the dish that is
+     * unsafe, legitimately leaves no candidate at all — and the caller answers
+     * `no_safe_candidate`, which is the truth. An empty list collapsed into
+     * null would instead search the kitchen's whole catalogue and send food
+     * from a plan the customer did not buy.
+     *
+     * `withoutTenancy()` with the subscription's own `organisation_id`, the
+     * rule this module follows: substitution runs inside the hourly generation
+     * job, which has no ambient tenant.
+     *
+     * @return list<string>|null
+     */
+    private function repertoireOf(Subscription $subscription): ?array
+    {
+        $plan = CatalogueItem::withoutTenancy()
+            ->whereKey($subscription->catalogue_item_id)
+            ->where('organisation_id', $subscription->organisation_id)
+            ->first();
+
+        if (! $plan instanceof CatalogueItem) {
+            return null;
+        }
+
+        if ($this->menus->cycleFor($plan)['cycle_days'] === null) {
+            return null;
+        }
+
+        return array_values(array_unique(array_map(
+            static fn (PlanMenuEntry $entry): string => $entry->meal_catalogue_item_id,
+            $this->menus->entriesFor($plan),
+        )));
     }
 }

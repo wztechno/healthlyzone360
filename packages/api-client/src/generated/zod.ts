@@ -2313,7 +2313,7 @@ export const zMarketplacePlan = z.object({
     diet_classifications: z.array(z.string()),
     variants: z.array(zMarketplacePlanVariant),
     durations: z.array(zMarketplacePlanDuration),
-    sample_meal_ids: z.array(zUuid),
+    sample_meal_ids: z.array(zUuid).max(12),
     image_placeholder_id: z.string(),
     rating: z.number().nullable(),
     rating_count: z.int().gte(0)

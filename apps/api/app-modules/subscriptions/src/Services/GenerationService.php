@@ -6,6 +6,8 @@ namespace Healthy360\Subscriptions\Services;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\PlanMenuEntry;
+use Healthy360\Catalogues\Services\PlanMenuService;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -23,6 +25,7 @@ use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Subscriptions\Models\SubscriptionMealChoice;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Identifiers\IdentifierService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -83,6 +86,8 @@ final readonly class GenerationService
         private ChangeWindow $window,
         private RenewalService $renewals,
         private SubscriptionJournal $journal,
+        private PlanMenuService $menus,
+        private IdentifierService $identifiers,
     ) {}
 
     /**
@@ -335,12 +340,36 @@ final readonly class GenerationService
      *
      * **Where the dishes come from.** A customer's choices for the date, when
      * the plan allows Free Selection and they made some before the cut-off
-     * (§7). When they made none, the kitchen's default fills the slot — and
-     * K1 has no menu table, so today the honest kitchen default is *no named
-     * dish at all*: the order carries the plan-day line and the kitchen packs
-     * to the plan. That is a real gap and it is recorded as one rather than
-     * papered over with an invented default, because inventing a dish would
-     * make the allergen record claim a check nobody performed.
+     * (§7). When they made none, the kitchen's default fills the slot — and the
+     * kitchen's default is now a thing the kitchen has written down.
+     *
+     * **The gap this docblock used to record is closed.** It said K1 had no
+     * menu table, so the only honest default was *no named dish at all*: the
+     * order carried the plan-day line and the kitchen packed to the plan.
+     * `plan_menu_entries` now states what a fixed-menu plan serves in each slot
+     * of each day of its cycle, and `fillFromPlanMenu()` — which runs before
+     * this method reads anything — turns the day's entries into real
+     * `kitchen_default` choice rows. From there they are indistinguishable from
+     * a customer's own: the same allergen check, the same substitution rules,
+     * the same ledger. Nothing below this line knows where a row came from,
+     * which is the point — the safety gate must not have two doors.
+     *
+     * **A plan with no menu behaves exactly as it did.**
+     * `menu_cycle_days IS NULL` is the entire signal, `fillFromPlanMenu()`
+     * returns on it before writing anything, and such a day still generates
+     * with no meal lines at all. Publishing a menu is therefore the per-plan
+     * cut-over: it is the act that starts generating meal lines and, through
+     * them, starts deducting ingredients on confirm.
+     *
+     * **A withdrawn dish leaves the slot empty rather than being packed.** A
+     * menu entry is a promise the kitchen made when it wrote the menu; a dish
+     * that is no longer published is one the kitchen has since taken off sale,
+     * and the two together are a promise it has retracted. Such a slot is left
+     * exactly as a menu-less day leaves it — unfilled, no row, no line — rather
+     * than shipping food the kitchen withdrew, because the rule the old
+     * docblock refused to break still holds: never invent a dish, and never let
+     * the allergen record claim a check nobody performed on food nobody agreed
+     * to send.
      *
      * @return array{0: list<CatalogueItem>, 1: list<array<string, mixed>>} the safe dishes, and the slots that could not be filled
      */
@@ -350,6 +379,8 @@ final readonly class GenerationService
         CarbonImmutable $date,
         CarbonImmutable $now,
     ): array {
+        $this->fillFromPlanMenu($subscription, $date);
+
         $choices = SubscriptionMealChoice::query()
             ->where('subscription_id', $subscription->getKey())
             ->whereDate('delivery_date', $date->toDateString())
@@ -425,6 +456,111 @@ final readonly class GenerationService
         }
 
         return [$meals, $unfillable];
+    }
+
+    /**
+     * Write the plan's own menu into this day's empty slots, and return.
+     *
+     * **The customer wins without a read-first race.** Every row goes in
+     * through one `insertOrIgnore`, and `subscription_meal_choices_one_per_slot`
+     * — unique on `(subscription_id, delivery_date, slot, sequence)` — is what
+     * decides. A slot the customer already chose, or that a previous tick
+     * already defaulted, silently keeps the row it has. Reading first and
+     * writing what was missing would be the same answer with a window in the
+     * middle of it, and two application servers ticking at once is exactly the
+     * situation `claim()` is built around.
+     *
+     * **A menu-less plan is untouched.** `cycleFor()` answers null for a plan
+     * with no menu, for a plan with no profile at all, and for one whose menu
+     * has been withdrawn — one shape of nothing — and this returns on it before
+     * a single row is written. That is what keeps every plan that has no menu
+     * generating precisely the orders it generated yesterday.
+     *
+     * **The dish's status is re-read, in one query for the whole day.** A menu
+     * is written once and read for months; a dish on it can be retired in
+     * between, and a retired dish is one the kitchen has withdrawn from sale.
+     * Packing it to a customer because a months-old row still names it is the
+     * failure this service has always refused, so such an entry produces no
+     * row and the slot stays empty. `mealsFor()` reads the day's dishes
+     * together rather than one per slot, so the honesty costs one query and not
+     * one per sitting.
+     *
+     * **Tenancy.** This runs inside the hourly job, which has no ambient
+     * tenant: every catalogue read is `withoutTenancy()` with the
+     * subscription's own `organisation_id` stated explicitly — the seller is
+     * the subscription's column, never a header somebody chose. The choice rows
+     * themselves carry no tenancy scope (`SubscriptionMealChoice` is not
+     * `OrganisationScoped`, the decision `Subscription` records) and are
+     * narrowed by the subscription instead.
+     */
+    private function fillFromPlanMenu(Subscription $subscription, CarbonImmutable $date): void
+    {
+        $plan = CatalogueItem::withoutTenancy()
+            ->whereKey($subscription->catalogue_item_id)
+            ->where('organisation_id', $subscription->organisation_id)
+            ->first();
+
+        if (! $plan instanceof CatalogueItem) {
+            return;
+        }
+
+        $cycle = $this->menus->cycleFor($plan);
+        $cycleDays = $cycle['cycle_days'];
+        $anchorDate = $cycle['anchor_date'];
+
+        if ($cycleDays === null || $anchorDate === null) {
+            return;
+        }
+
+        $cycleDay = PlanMenuEntry::cycleDayFor($date, CarbonImmutable::parse($anchorDate), $cycleDays);
+
+        $entries = array_values(array_filter(
+            $this->menus->entriesFor($plan),
+            static fn (PlanMenuEntry $entry): bool => $entry->cycle_day === $cycleDay,
+        ));
+
+        if ($entries === []) {
+            return;
+        }
+
+        $meals = $this->menus->mealsFor($entries);
+        $now = CarbonImmutable::now();
+        $rows = [];
+
+        foreach ($entries as $entry) {
+            $meal = $meals[$entry->meal_catalogue_item_id] ?? null;
+
+            if (! $meal instanceof CatalogueItem || ! $meal->status->isConsumerVisible()) {
+                continue;
+            }
+
+            $rows[] = [
+                'id' => $this->identifiers->generate(),
+                'subscription_id' => (string) $subscription->getKey(),
+                'organisation_id' => $subscription->organisation_id,
+                // Left null for the reason `MealChoiceService` gives about a
+                // customer's own row: nothing reads it, and the delivery row is
+                // reachable from the date this one already carries.
+                'subscription_delivery_id' => null,
+                'delivery_date' => $date->toDateString(),
+                'slot' => $entry->slot,
+                'sequence' => $entry->sequence,
+                'catalogue_item_id' => $entry->meal_catalogue_item_id,
+                'catalogue_item_variant_id' => null,
+                'source' => MealChoiceSource::KitchenDefault->value,
+                // No actor: an hourly job is not a person, and a column that
+                // named one would be naming whoever last touched the menu.
+                'created_by' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if ($rows === []) {
+            return;
+        }
+
+        SubscriptionMealChoice::query()->insertOrIgnore($rows);
     }
 
     /**

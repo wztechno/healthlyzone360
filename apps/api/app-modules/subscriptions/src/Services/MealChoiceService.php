@@ -7,7 +7,9 @@ namespace Healthy360\Subscriptions\Services;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Catalogues\Services\PlanMenuService;
 use Healthy360\Subscriptions\Enums\MealChoiceSource;
 use Healthy360\Subscriptions\Exceptions\SubscriptionChangeRefused;
 use Healthy360\Subscriptions\Models\Subscription;
@@ -38,12 +40,21 @@ use Illuminate\Support\Facades\DB;
  *
  * ## What it will not overwrite
  *
- * Only `customer`-source rows are cleared. A `substituted` row is generation's
- * record that something a person chose was unsafe and what went instead; a
- * `kitchen_default` row is the kitchen's own filling of a slot. Letting a
- * customer's later `PUT` delete either would erase the substitution audit — the
- * one audit an allergy complaint needs most — so a day that has been generated
- * is refused outright rather than partially rewritten.
+ * `customer` and `kitchen_default` rows are cleared; a `substituted` row is
+ * not. The substituted row is generation's record that something a person chose
+ * was unsafe and what went instead, and letting a later `PUT` delete it would
+ * erase the substitution audit — the one audit an allergy complaint needs most
+ * — so a day that has been generated is refused outright rather than partially
+ * rewritten.
+ *
+ * A `kitchen_default` row is a different thing: it is the plan menu's own
+ * filling of a slot nobody had chosen, written by generation from
+ * `plan_menu_entries`. It is not evidence of anything a person did, and it
+ * occupies the same `(subscription, date, slot, sequence)` coordinate a
+ * customer's choice would — so leaving it in place while inserting the
+ * customer's row beside it would raise a raw unique violation rather than a
+ * refusal anyone could act on. **The default yields to the person**, which is
+ * both the correct commercial answer and the only one the index admits.
  *
  * ## The four gates
  *
@@ -75,6 +86,7 @@ final readonly class MealChoiceService
         private ChangeWindow $window,
         private SubscriptionJournal $journal,
         private TenantContext $context,
+        private PlanMenuService $menus,
     ) {}
 
     /**
@@ -135,7 +147,7 @@ final readonly class MealChoiceService
             SubscriptionMealChoice::query()
                 ->where('subscription_id', $subscription->getKey())
                 ->whereDate('delivery_date', $day->toDateString())
-                ->where('source', MealChoiceSource::Customer->value)
+                ->whereIn('source', [MealChoiceSource::Customer->value, MealChoiceSource::KitchenDefault->value])
                 ->delete();
 
             foreach ($meals as $position => $meal) {
@@ -186,19 +198,56 @@ final readonly class MealChoiceService
     }
 
     /**
-     * Whether each named dish is one this kitchen sells to consumers.
+     * Whether each named dish is one this kitchen sells to consumers, and — on
+     * a plan that publishes a menu — one this plan serves at all.
      *
      * `withoutTenancy()` and an explicit `organisation_id` filter, the rule this
      * module follows throughout: a customer is a member of no organisation, so
      * an ambient scope would find nothing, and the seller is the subscription's
      * own column rather than a header the caller chose.
      *
+     * ## `meal_not_on_plan_menu` asks about the plan's repertoire, not the day's
+     *
+     * The fourth check fires **only** when the plan has a published menu, and
+     * it refuses a dish that appears on no entry of that menu — on any cycle
+     * day. It is deliberately not date-specific, and this method deliberately
+     * does not take the delivery date although `replace()` has one in scope and
+     * could pass it.
+     *
+     * Three arguments, in the order they decided it:
+     *
+     *  * **Per-day would make free selection meaningless.** This service only
+     *    runs on a plan whose profile sets `allows_free_selection`, and on such
+     *    a plan the menu is the kitchen's *default*, not its dictate — the
+     *    slot's filling for a customer who chooses nothing. Narrowing a choice
+     *    to the day's own entries would let a customer choose exactly what they
+     *    would have been sent anyway, which is not a choice.
+     *  * **It would refuse Thursday's dish chosen on Tuesday.** A customer
+     *    reading a plan sees the rotation, not one day of it; a dish they saw on
+     *    the menu is a dish the plan serves, and telling them otherwise because
+     *    they picked it for the wrong date is a rule nobody could have followed.
+     *  * **It would rot.** A menu re-published with a new anchor or a longer
+     *    cycle moves every date's entries. A per-day rule would retroactively
+     *    invalidate choices that were legal when they were made, without
+     *    anything rewriting them.
+     *
+     * What the repertoire reading still refuses is the thing worth refusing: a
+     * dish the kitchen sells but never puts on this plan. A free-selection plan
+     * with **no** menu keeps exactly three checks — there is no repertoire to
+     * compare against, and inventing one from the kitchen's whole catalogue
+     * would be the narrowing this reading rejects, applied backwards.
+     *
      * @param  list<array{slot: string, sequence?: int|null, catalogue_item_id: string, catalogue_item_variant_id?: string|null}>  $meals
      * @return list<array<string, mixed>>
      */
     private function mealReasons(Subscription $subscription, array $meals): array
     {
+        if ($meals === []) {
+            return [];
+        }
+
         $reasons = [];
+        $repertoire = $this->planRepertoire($subscription);
 
         foreach ($meals as $meal) {
             $item = CatalogueItem::withoutTenancy()
@@ -222,8 +271,44 @@ final readonly class MealChoiceService
             if (! $item->status->isConsumerVisible()) {
                 $reasons[] = ['reason' => 'meal_not_published', 'catalogue_item_id' => $meal['catalogue_item_id'], 'status' => $item->status->value];
             }
+
+            if ($repertoire !== null && ! in_array((string) $item->getKey(), $repertoire, true)) {
+                $reasons[] = ['reason' => 'meal_not_on_plan_menu', 'catalogue_item_id' => $meal['catalogue_item_id']];
+            }
         }
 
         return $reasons;
+    }
+
+    /**
+     * Every dish the plan's menu names, on any day of its cycle — or **null**
+     * when the plan publishes no menu.
+     *
+     * Null and `[]` are different answers and the caller reads them as such:
+     * null is "this plan has no repertoire to be off", while an empty list
+     * would be "it has one and it is empty", which the menu service refuses to
+     * store. Read once per call rather than once per submitted dish.
+     *
+     * @return list<string>|null
+     */
+    private function planRepertoire(Subscription $subscription): ?array
+    {
+        $plan = CatalogueItem::withoutTenancy()
+            ->whereKey($subscription->catalogue_item_id)
+            ->where('organisation_id', $subscription->organisation_id)
+            ->first();
+
+        if (! $plan instanceof CatalogueItem) {
+            return null;
+        }
+
+        if ($this->menus->cycleFor($plan)['cycle_days'] === null) {
+            return null;
+        }
+
+        return array_values(array_unique(array_map(
+            static fn (PlanMenuEntry $entry): string => $entry->meal_catalogue_item_id,
+            $this->menus->entriesFor($plan),
+        )));
     }
 }

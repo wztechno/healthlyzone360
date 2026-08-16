@@ -41,9 +41,24 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  * ## Fields the platform has no data for
  *
  * `category_slugs` is `[]` — nothing groups plans into marketing categories.
- * `sample_meal_ids` is `[]` — there is no table linking a plan to the meals a
- * representative week would contain, and assembling one from the kitchen's
- * catalogue would be the system writing a menu.
+ *
+ * ## `sample_meal_ids` is the kitchen's menu, and only ever the kitchen's menu
+ *
+ * This field used to be `[]` with an argument attached: no table linked a plan
+ * to the meals a representative week would contain, and assembling one from the
+ * kitchen's catalogue would have been the system writing a menu. The table now
+ * exists — `plan_menu_entries`, written through
+ * `PUT /catalogue/plans/{item}/menu` — so the field carries the first dishes of
+ * the plan's own cycle, in the order the kitchen serves them, and the argument
+ * is untouched rather than overturned: the ids are still never assembled, only
+ * read.
+ *
+ * A plan that publishes no menu therefore still carries `[]`, and that is not a
+ * degraded case. A free-selection plan has no fixed week to sample, and a plan
+ * whose kitchen has not written its menu down has not said what it serves —
+ * `[]` is the honest answer to both, and the client already renders it as one.
+ * The cap and the published-only filter live in
+ * `MarketplacePlans::sampleMealIdsOf()`, where the query is.
  */
 final class MarketplacePlanPresenter
 {
@@ -57,6 +72,7 @@ final class MarketplacePlanPresenter
      *     daily: ResolvedPrice|null
      * }>  $configurations
      * @param  list<array{duration: PlanDuration, discount_percent: string|null, total_price: ResolvedPrice|null}>  $durations
+     * @param  list<string>  $sampleMealIds
      * @return array<string, mixed>
      */
     public function plan(
@@ -66,6 +82,7 @@ final class MarketplacePlanPresenter
         array $dietClassifications,
         array $configurations,
         array $durations,
+        array $sampleMealIds = [],
     ): array {
         return [
             'id' => (string) $plan->getKey(),
@@ -89,7 +106,7 @@ final class MarketplacePlanPresenter
                 fn (array $duration): array => $this->duration($duration, $locale),
                 $durations,
             ),
-            'sample_meal_ids' => [],
+            'sample_meal_ids' => $sampleMealIds,
             'image_placeholder_id' => 'plan-'.$plan->slug,
             'rating' => null,
             'rating_count' => 0,

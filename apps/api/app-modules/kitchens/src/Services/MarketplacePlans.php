@@ -14,6 +14,7 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\EnergyBand;
 use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SalesChannel;
@@ -69,6 +70,9 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final readonly class MarketplacePlans
 {
+    /** How many of a plan's menu dishes a public sample carries — see `sampleMealIdsOf()`. */
+    public const int SAMPLE_MEAL_LIMIT = 12;
+
     public function __construct(
         private PriceResolver $prices,
         private DatabaseTenantContext $tenantContext,
@@ -136,6 +140,56 @@ final readonly class MarketplacePlans
         $profile = SubscriptionPlanProfile::withoutTenancy()->whereKey($plan->getKey())->first();
 
         return $profile instanceof SubscriptionPlanProfile ? $profile : null;
+    }
+
+    /**
+     * The first dishes of the plan's own menu, in the order it serves them.
+     *
+     * **The profile is the gate, and it is free.** `menu_cycle_days IS NULL` is
+     * the platform-wide signal for "this plan publishes no menu", the projector
+     * has already read the profile for other reasons, and a plan without one
+     * costs this method no query at all. That matters because the plan list
+     * asks it once per plan on the page.
+     *
+     * **Published dishes only.** A marketplace page naming a dish the kitchen
+     * has withdrawn would be an advertisement for food nobody can buy, and the
+     * consumer meal endpoints serve published items only — so an unpublished
+     * identifier here would simply resolve to nothing on the client and leave a
+     * gap in the sample menu. The join filters them out at the source.
+     *
+     * **Capped at a sample, because that is what the field is.** Twelve dishes,
+     * in cycle order, distinct. A 28-day cycle would otherwise publish a
+     * kitchen's entire repertoire on a marketing card; the plan detail screen
+     * resolves these identifiers against a single 50-meal page of the kitchen's
+     * catalogue, so a longer list would start silently disappearing anyway; and
+     * the configurator rotates the list over a seven-day preview, which twelve
+     * covers without repeating. It is a taste of the menu, not the menu — the
+     * menu itself is the kitchen's to serve, and `PUT /catalogue/plans/{item}/menu`
+     * is where it is stated.
+     *
+     * @return list<string>
+     */
+    public function sampleMealIdsOf(CatalogueItem $plan, ?SubscriptionPlanProfile $profile): array
+    {
+        if ($profile === null || $profile->menu_cycle_days === null) {
+            return [];
+        }
+
+        /** @var list<string> $ids */
+        $ids = PlanMenuEntry::withoutTenancy()
+            ->join('catalogue_items', 'catalogue_items.id', '=', 'plan_menu_entries.meal_catalogue_item_id')
+            ->where('plan_menu_entries.catalogue_item_id', $plan->getKey())
+            ->where('catalogue_items.status', CatalogueItemStatus::Published->value)
+            ->orderBy('plan_menu_entries.cycle_day')
+            // The order of the day, not the alphabet: `breakfast, dinner,
+            // lunch, snack` is not a day. The same CASE `PlanMenuService`
+            // reads the menu back with.
+            ->orderByRaw("CASE plan_menu_entries.slot WHEN 'breakfast' THEN 1 WHEN 'lunch' THEN 2 WHEN 'dinner' THEN 3 ELSE 4 END")
+            ->orderBy('plan_menu_entries.sequence')
+            ->pluck('plan_menu_entries.meal_catalogue_item_id')
+            ->all();
+
+        return array_slice(array_values(array_unique($ids)), 0, self::SAMPLE_MEAL_LIMIT);
     }
 
     /**
