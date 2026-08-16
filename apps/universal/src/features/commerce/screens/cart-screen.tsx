@@ -261,6 +261,13 @@ function CartLine({
                     </Text>
                 </Inline>
 
+                {/*
+                 * Capped, because a stepper is a control and not a band. The basket line is a
+                 * column, so without a width this stretched to the full line — 1090 units on a
+                 * desktop for two buttons and a two-digit number, with the minus and the plus at
+                 * opposite ends of the screen. The cap is the width the control actually wants and
+                 * the phone already gave it, so nothing changes below `sm`.
+                 */}
                 <NumberStepper
                     testID={`cart-line-${item.id}-quantity`}
                     label={t('commerce:cart.quantityLabel', { meal: item.name })}
@@ -273,6 +280,7 @@ function CartLine({
                         if (next === null) return;
                         onQuantity(next);
                     }}
+                    className="max-w-[220px]"
                 />
 
                 <Inline space="sm" wrap>

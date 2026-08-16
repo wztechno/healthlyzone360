@@ -72,10 +72,21 @@ export function CardGrid({ children, testID }: CardGridProps) {
     );
 }
 
-/** One cell of {@link CardGrid}: at least 260 units wide, sharing the row otherwise. */
+/**
+ * One cell of {@link CardGrid}: at least 260 units wide, sharing the row otherwise, and never
+ * wider than a cell in a full row.
+ *
+ * That last clause is the `max-w`. A wrapping row gives its free space to whatever is on the line,
+ * so a collection whose count is not a multiple of the column count ended with a card blown up to
+ * the whole width — seven kitchens meant six cards at 373 and a seventh at 1152, a billboard with
+ * an 864-unit image under a tidy grid. The cap is not a taste: 1152 is the shell's content width,
+ * the grid's gap is 16, and three cells fit, so `(1152 - 2 × 16) ÷ 3` is exactly what a cell gets
+ * when the row is full. Capping there can therefore never change a full row — it only stops a
+ * short one from stretching.
+ */
 export function CardGridItem({ children, testID }: CardGridProps) {
     return (
-        <View testID={testID} className="min-w-[260px] flex-1 grow basis-[280px]">
+        <View testID={testID} className="min-w-[260px] max-w-[373px] flex-1 grow basis-[280px]">
             {children}
         </View>
     );
