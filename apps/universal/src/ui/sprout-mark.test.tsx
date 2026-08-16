@@ -62,13 +62,15 @@ describe('SproutMark', () => {
     it('hides the drawing from assistive technology, which hears the mark itself instead', async () => {
         await renderMark();
 
-        // One `aria-hidden` on the rosette covers every leaf under it, which is why the leaves
-        // themselves carry none: four hidden siblings and a hidden parent say the same thing twice.
-        const rosette = screen.getByTestId('splash-rosette', HIDDEN);
-        expect(rosette.props['aria-hidden']).toBe(true);
-        expect(rosette.props.importantForAccessibility).toBe('no-hide-descendants');
-
-        expect(screen.getAllByTestId(/^splash-leaf-/, HIDDEN)).toHaveLength(4);
+        const parts = [
+            ...screen.getAllByTestId(/^splash-leaf-/, HIDDEN),
+            screen.getByTestId('splash-seed', HIDDEN),
+        ];
+        expect(parts).toHaveLength(5);
+        for (const part of parts) {
+            expect(part.props['aria-hidden']).toBe(true);
+            expect(part.props.importantForAccessibility).toBe('no-hide-descendants');
+        }
     });
 
     it('turns each leaf a quarter further round, so the four open as a rosette', async () => {
@@ -82,23 +84,26 @@ describe('SproutMark', () => {
         expect(angles).toEqual(['45deg', '135deg', '225deg', '315deg']);
     });
 
-    it('is already the finished sprout on its very first frame', async () => {
+    it('has leaves on show in its very first frame, never a bare seed', async () => {
         await renderMark();
 
         /*
-         * This is the regression that shipped. The leaves used to fade up from nothing, so frame
-         * zero was four invisible leaves over one small seed — and when the animation did not run
-         * on the web, the splash was a motionless dot. Every leaf must therefore be opaque and
-         * close to full size before a single frame has been drawn, which is what makes a failure to
-         * animate look still rather than broken.
+         * This is the regression that shipped, and it is a property of the *mark*, not of any one
+         * leaf: a leaf is supposed to fade to nothing, that is the unfurl. What must never happen is
+         * all four doing it at once.
+         *
+         * The study staggered them by a sixth of a second, so they were effectively in step and the
+         * sprout blinked out together once a cycle — combined opacity 0.26 at its worst. A session
+         * restores in a couple of hundred milliseconds, so landing in that blink showed a bare seed,
+         * which is exactly what got reported. A quarter-cycle apart, the worst instant of the loop
+         * still carries a whole leaf's worth of ink, and frame zero carries two.
          */
-        for (const leaf of screen.getAllByTestId(/^splash-leaf-/, HIDDEN)) {
-            const style = flatten(leaf.props.style);
-            const scale = (style.transform as { scale?: number }[])[1]?.scale ?? 1;
+        const ink = screen
+            .getAllByTestId(/^splash-leaf-/, HIDDEN)
+            .map((leaf) => (flatten(leaf.props.style).opacity as number | undefined) ?? 1)
+            .reduce((total, opacity) => total + opacity, 0);
 
-            expect(style.opacity ?? 1).toBe(1);
-            expect(scale).toBeGreaterThanOrEqual(0.9);
-        }
+        expect(ink).toBeGreaterThanOrEqual(1);
     });
 
     it('is one drawing at any size, so the splash and an inline version cannot drift apart', async () => {
