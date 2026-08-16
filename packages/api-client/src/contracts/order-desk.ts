@@ -1,6 +1,10 @@
-import type { BranchId, IsoDateTime } from '@healthy360/domain-types';
+import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
-import type { KitchenOrder, KitchenOrderStatus } from './kitchen-orders.ts';
+import type {
+    KitchenOrder,
+    KitchenOrderPaymentMethod,
+    KitchenOrderStatus,
+} from './kitchen-orders.ts';
 
 /**
  * The Order Desk's queue — the open order book in the order somebody at a desk has to work it.
@@ -31,15 +35,15 @@ import type { KitchenOrder, KitchenOrderStatus } from './kitchen-orders.ts';
  * all — so every row sorts, and nothing lands in a silent "unknown" bucket at the bottom. A client
  * must never re-derive it from `delivery.requestedDate`: it would not have the branch's clock.
  *
- * ## `payment` and `deliveryJob` are declared now and always null in this phase
+ * ## `payment` is filled; `deliveryJob` is still a seat
  *
- * They are the seats a payment receipt and a delivery job take once the desk can take money and
- * confirming a delivery order creates a run. Declared here rather than added later so the row does
- * not change shape under a screen: a client written today branches on `payment === null` and reads a
- * receipt tomorrow, where one written against an absent key would have to change twice. Their
- * contents are deliberately untyped (`Record<string, unknown>`) — the wire declares them the same
- * way, and inventing a shape for a block nothing has ever populated would be a promise this
- * contract cannot keep.
+ * Both were declared as untyped seats while nothing populated them, so the row would not change
+ * shape under a screen when they landed. The receipts operation has since filled the payment seat,
+ * so it is typed here as {@link OrderDeskPaymentSummary} and is **never null** — an order whose
+ * payment position is unknown is not a state this platform reaches, and zero received against a
+ * total is a position rather than an absence. `deliveryJob` keeps the untyped seat on the original
+ * terms: inventing a shape for a block nothing has ever populated would be a promise this contract
+ * cannot keep.
  *
  * ## `customer` is optional, and its optionality is the disclosure boundary
  *
@@ -95,12 +99,24 @@ export interface OrderDeskCustomerContact {
 }
 
 /**
- * The receipt seat. **Always `null` in this phase** — see the file header for why it is declared
- * before anything fills it, and why its contents are not typed until they exist.
+ * Where an order stands on being paid — derived on read and **stored nowhere**.
+ *
+ * `method` is the order's *intended* method, not any receipt's: a desk reads this before the money
+ * arrives, because it is how somebody knows what to ask the customer for.
+ *
+ * **`receipted`, not `paid`.** The word is doing real work. This platform holds no proof that money
+ * exists, only that somebody wrote down that it arrived. It is `receivedMinor >= totalMinor`, an
+ * inequality in both directions: a part payment leaves it false until the balance lands, and an
+ * over-payment does not make it truer.
  */
-export type OrderDeskPayment = Readonly<Record<string, unknown>>;
+export interface OrderDeskPaymentSummary {
+    readonly method: KitchenOrderPaymentMethod;
+    /** The sum of every receipt against this order, in the order's currency. Zero, never null. */
+    readonly receivedMinor: number;
+    readonly receipted: boolean;
+}
 
-/** The delivery-run seat. **Always `null` in this phase**, on `OrderDeskPayment`'s terms. */
+/** The delivery-run seat. **Always `null` in this phase** — see the file header. */
 export type OrderDeskDeliveryJob = Readonly<Record<string, unknown>>;
 
 export interface OrderDeskQueueRow extends KitchenOrder {
@@ -110,7 +126,8 @@ export interface OrderDeskQueueRow extends KitchenOrder {
      * client: the fall-through chain runs on the branch's clock, which no screen holds.
      */
     readonly dueAt: IsoDateTime;
-    readonly payment: OrderDeskPayment | null;
+    /** Never null. See {@link OrderDeskPaymentSummary}. */
+    readonly payment: OrderDeskPaymentSummary;
     readonly deliveryJob: OrderDeskDeliveryJob | null;
     /** Absent — not null — without `order.view_customer_contact_organisation`. See the header. */
     readonly customer?: OrderDeskCustomerContact | undefined;
@@ -167,6 +184,259 @@ export interface OrderDeskQueueFilters {
     readonly query?: string | undefined;
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * Selling: the quote, the placement, and the customer a sale is for
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The three shapes a desk sale can take, and the whole of what distinguishes them.
+ *
+ * `fulfilmentType` decides which of the other fields are **required, forbidden or merely allowed**,
+ * and the rule is not soft: a body carrying a field its shape forbids is refused rather than having
+ * the field quietly dropped, because a field supplied and ignored means the caller believed
+ * something about this order that is not true of it.
+ *
+ * - `counter` — a walk-in. No address ever. Pays now: {@link PlaceOrderDeskSaleRequest.payment} is
+ *   **required**, and the order comes back already `fulfilled`.
+ * - `pickup` — collected later. Needs a customer, takes **no** address, pays on collection.
+ * - `delivery` — needs a customer **and** one of that customer's addresses; pays at the door.
+ *
+ * Ordered counter-first because that is the shortest sale and the one a counter makes most often.
+ */
+export const ORDER_DESK_FULFILMENT_TYPES = ['counter', 'pickup', 'delivery'] as const;
+export type OrderDeskFulfilmentType = (typeof ORDER_DESK_FULFILMENT_TYPES)[number];
+
+/**
+ * One line as the desk sends it — one tap, or several merged.
+ *
+ * Both endpoints merge lines naming the same `(article, pack)` into one whose quantity is the sum,
+ * first-seen position preserved, because `order_lines` holds one row per article. The client
+ * aggregates too, so the number the agent reads out is the number that will be charged.
+ */
+export interface OrderDeskBasketLine {
+    readonly catalogueItemId: string;
+    /** `null` for an article sold plain. An article and the same article in a pack are two lines. */
+    readonly catalogueItemVariantId: string | null;
+    /** A decimal string, never a number — a counter sells 0.35 kg as readily as three coffees. */
+    readonly quantity: string;
+}
+
+/** Everything a quote and a sale share. A sale adds only how the customer is paying. */
+export interface OrderDeskSaleRequest {
+    readonly fulfilmentType: OrderDeskFulfilmentType;
+    readonly lines: readonly OrderDeskBasketLine[];
+    /**
+     * Which branch produces this. **Not a filter**: it decides which cut-off applies and which
+     * branch-scoped delivery zone wins, both of which change the answer.
+     */
+    readonly branchId?: BranchId | undefined;
+    /** Required for pickup and delivery. Resolved by identifier, never inferred from the caller. */
+    readonly customerAccountId?: string | undefined;
+    /** Delivery only, and it must belong to `customerAccountId` — one that does not is a `404`. */
+    readonly customerAddressId?: string | undefined;
+    /** `YYYY-MM-DD`. Applies to a pickup as well as a delivery; a counter sale has no day. */
+    readonly requestedDeliveryDate?: string | undefined;
+    readonly deliveryWindowCode?: string | undefined;
+}
+
+/**
+ * One thing standing between this basket and a sale, **as data**.
+ *
+ * Refusals arrive on a `200` from the quote and inside the `409` envelope from the placement — they
+ * are not errors, they are the answer. `reason` is a stable machine key; `context` is whatever
+ * identifies the offending thing (`catalogueItemId` on a line refusal, `cutOffAt` on a schedule
+ * one), carried through untyped because the two endpoints extend that vocabulary together and
+ * pinning the context keys per reason would freeze it.
+ *
+ * Line-level reasons: `item_unknown`, `item_not_published`, `variant_unknown`, `variant_not_active`,
+ * `channel_unavailable`, `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+ * `customer_required`, `address_required`, `address_not_applicable`, `address_not_deliverable`,
+ * `area_not_served`, `zone_suspended`, `currency_mismatch`, `cut_off_passed`, `branch_closed`,
+ * `date_in_the_past`.
+ */
+export interface OrderDeskRefusal {
+    readonly reason: string;
+    /** Everything the wire sent alongside `reason`, in wire casing. Rendered, never branched on. */
+    readonly context: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * One line of the quote, priced or explained.
+ *
+ * The price-bearing fields are **null together** whenever the line was refused: there is no price to
+ * show for an article the kitchen has withdrawn, and a zero would read as free. `refusals` says why;
+ * an empty array says the line is sellable.
+ */
+export interface OrderDeskQuoteLine {
+    readonly catalogueItemId: string;
+    readonly catalogueItemVariantId: string | null;
+    /** The **merged** quantity — duplicate taps summed, because that is what will be charged. */
+    readonly quantity: string;
+    /** Null when the article could not be read at all — another kitchen's, or one since deleted. */
+    readonly nameEn: string | null;
+    readonly nameAr: string | null;
+    readonly unitPriceMinor: number | null;
+    /** Rounded once at the line total, so rounding cannot compound across an order. */
+    readonly lineTotalMinor: number | null;
+    readonly currencyCode: CurrencyCode;
+    readonly refusals: readonly OrderDeskRefusal[];
+}
+
+/**
+ * What this basket would come to, and everything standing in the way of it.
+ *
+ * **The totals are summed over the refusal-free lines only**, and they are offered even when the
+ * sale cannot proceed, because "drop the soup and it comes to eleven dollars" is the agent's next
+ * sentence. They are not what would be charged — that is what {@link OrderDeskQuote.quotable} is
+ * for, and it is false whenever *any* refusal exists at all.
+ */
+export interface OrderDeskQuote {
+    readonly lines: readonly OrderDeskQuoteLine[];
+    readonly subtotalMinor: number;
+    /**
+     * **Null rather than zero when no fee applies.** Zero is a fee somebody decided on — a
+     * free-delivery zone — and a pickup or a counter sale has no fee at all. Null also when the
+     * destination was refused, because an unserved area has no fee to quote.
+     */
+    readonly deliveryFeeMinor: number | null;
+    readonly totalMinor: number;
+    /** The desk channel's own tariff currency. Nothing is ever converted. */
+    readonly currencyCode: CurrencyCode;
+    /** Order-level refusals — the shape, the destination, the schedule. Line refusals are on lines. */
+    readonly refusals: readonly OrderDeskRefusal[];
+    readonly quotable: boolean;
+}
+
+/**
+ * Money handed over at the counter, recorded as it happens.
+ *
+ * Present on a `counter` sale and **refused on the other two**, because that is what the three words
+ * mean: a walk-in pays now, and a counter order left unpaid would be a pickup wearing the wrong
+ * label. A delivery is settled at the door and a pickup on collection, both afterwards through the
+ * receipts operation, recorded by whoever actually took the money.
+ *
+ * **There is no amount.** The receipt is written for exactly the order's total. A discrepancy at the
+ * till is a till problem, not an order problem.
+ */
+export interface OrderDeskCounterPayment {
+    /**
+     * How the money turned up — deliberately **not** constrained to equal the order's
+     * `paymentMethod`. A sale taken as cash and settled by a WISH transfer while the customer stood
+     * there is an ordinary evening.
+     */
+    readonly method: KitchenOrderPaymentMethod;
+    /** The transfer identifier on a WISH payment. Confidential at rest. */
+    readonly reference?: string | undefined;
+    readonly notes?: string | undefined;
+}
+
+export interface PlaceOrderDeskSaleRequest extends OrderDeskSaleRequest {
+    /** Required on every placement — the intent recorded on the order. */
+    readonly paymentMethod: KitchenOrderPaymentMethod;
+    /** Required on `counter`, **prohibited** on the other two. A `422` either way. */
+    readonly payment?: OrderDeskCounterPayment | undefined;
+}
+
+/** How a customer record came to exist. `staff` is a caller some kitchen wrote down at a desk. */
+export const ORDER_DESK_CUSTOMER_ORIGINS = [
+    'self_service',
+    'guest',
+    'b2b_provisioning',
+    'staff',
+    'import',
+] as const;
+export type OrderDeskCustomerOrigin = (typeof ORDER_DESK_CUSTOMER_ORIGINS)[number];
+
+/**
+ * A customer as the order desk sees them: enough to pick the right one out of a list of five, and
+ * nothing more.
+ *
+ * The disclosure is a name and a number — the same pair the queue row carries, behind the same
+ * permission code, because a search revealing more than the queue would make the queue's gating
+ * pointless. No email, no account identifier, no addresses, no order history.
+ */
+export interface OrderDeskCustomer {
+    readonly id: string;
+    /** Null on an anonymised account. */
+    readonly displayName: string | null;
+    /** E.164, as the contact point stores it. Served verified or not. */
+    readonly phone: string | null;
+    readonly origin: OrderDeskCustomerOrigin;
+    /** Whether **this** kitchen holds at least one order against the account — a regular. */
+    readonly hasOrdersWithOrg: boolean;
+}
+
+/**
+ * One customer search.
+ *
+ * Carries `limit` as well as the rows because there is **no second page**: the agent has somebody on
+ * the telephone, and the answer to a full list is a longer query. A screen that showed exactly
+ * `limit` rows without saying so would look like it had found them all.
+ */
+export interface OrderDeskCustomerSearch {
+    readonly rows: readonly OrderDeskCustomer[];
+    readonly limit: number;
+}
+
+export interface CreateOrderDeskCustomerRequest {
+    /** One field rather than a given/family pair — the platform's customer may be a company. */
+    readonly displayName: string;
+    /**
+     * **Required, because a cold caller is a telephone number.** Already in E.164, or a `422`: the
+     * platform does not infer a country code from a local number, because guessing would send
+     * somebody else's handset a passcode.
+     */
+    readonly phone: string;
+    readonly preferredLanguageCode?: string | undefined;
+    readonly countryCode?: string | undefined;
+}
+
+/**
+ * A newly written customer, and who else already answers to that number.
+ *
+ * `possibleDuplicates` is a **warning, never a refusal**: two customers genuinely share a telephone
+ * — a household, a reception desk, an office floor — and refusing would make an existing customer's
+ * flatmate unserveable at a counter with somebody waiting. Always present; usually empty.
+ */
+export interface OrderDeskCustomerCreated {
+    readonly customer: OrderDeskCustomer;
+    readonly possibleDuplicates: readonly OrderDeskCustomer[];
+}
+
+/**
+ * An address written down for a customer at the desk.
+ *
+ * `deliveryAreaId` is a foreign key into the platform gazetteer and **never free text** — matching a
+ * typed area name against a delivery zone is how an order gets accepted for somewhere nobody drives
+ * to. Whether anybody serves it is answered at save time, as `isDeliverable`.
+ */
+export interface AddOrderDeskCustomerAddressRequest {
+    readonly customerAccountId: string;
+    readonly deliveryAreaId: string;
+    readonly label?: string | undefined;
+    readonly lineOne: string;
+    readonly lineTwo?: string | undefined;
+    readonly building?: string | undefined;
+    readonly floor?: string | undefined;
+    readonly apartment?: string | undefined;
+    readonly directions?: string | undefined;
+    readonly postalCode?: string | undefined;
+}
+
+/** The saved address, as much of it as the desk needs to name it again. */
+export interface OrderDeskCustomerAddress {
+    readonly id: string;
+    readonly label: string | null;
+    readonly lineOne: string;
+    readonly lineTwo: string | null;
+    readonly deliveryAreaId: string;
+    /**
+     * Whether anybody serves this area **today**, recomputed on every read — not the same as "was
+     * accepted": a zone can be paused after an address was saved.
+     */
+    readonly isDeliverable: boolean;
+}
+
 export interface OrderDeskRepository {
     /**
      * The open queue in due order, capped, with the day and clock it was measured against.
@@ -175,4 +445,44 @@ export interface OrderDeskRepository {
      * decoration — a screen that dropped it would show a capped list as if it were the whole one.
      */
     listQueue(filters?: OrderDeskQueueFilters): Promise<OrderDeskQueue>;
+
+    /**
+     * What this basket would come to. **The only price authority on this surface.**
+     *
+     * No client ever computes a desk total: the tariff that prices the counter is resolved
+     * server-side through the desk channel's own price lists, in priority order, and a number
+     * derived any other way would disagree with the sale that follows it. Refusals come back on a
+     * `200` as data.
+     */
+    quoteSale(request: OrderDeskSaleRequest): Promise<OrderDeskQuote>;
+
+    /**
+     * Sell it.
+     *
+     * Answers the order as the kitchen sees it: `placed` on a delivery or a pickup, and **already
+     * `fulfilled`** on a counter sale — one call performs the whole till transaction, so there is
+     * nothing left for the agent to do afterwards. A refused placement is a `409`
+     * `order.placement_refused` carrying its reasons; it is **never** retried automatically.
+     */
+    placeSale(request: PlaceOrderDeskSaleRequest): Promise<KitchenOrder>;
+
+    /**
+     * Find the customer this sale is for. **Three characters minimum** — the server refuses less
+     * with a `422`, and the screen mirrors the gate so a two-letter query is a hint rather than an
+     * error.
+     */
+    searchCustomers(query: string): Promise<OrderDeskCustomerSearch>;
+
+    /** Write down a cold caller. Answers the new row **and** who else already has that number. */
+    createCustomer(request: CreateOrderDeskCustomerRequest): Promise<OrderDeskCustomerCreated>;
+
+    /**
+     * Add an address to a customer, for a delivery.
+     *
+     * There is no operation to *list* a customer's addresses from the desk, so every delivery taken
+     * here writes the destination down as the caller gives it. See the sale screen's own note.
+     */
+    addCustomerAddress(
+        request: AddOrderDeskCustomerAddressRequest,
+    ): Promise<OrderDeskCustomerAddress>;
 }

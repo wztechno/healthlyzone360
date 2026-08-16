@@ -88,7 +88,9 @@ function deskRow(overrides: Partial<OrderDeskQueueRow> = {}): OrderDeskQueueRow 
         lineCount: 0,
         lines: [],
         dueAt: minutesFromNow(90),
-        payment: null,
+        // Never null on the wire: an order with no receipt has received zero, which is a payment
+        // position rather than an absent one.
+        payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
         deliveryJob: null,
         ...overrides,
     };

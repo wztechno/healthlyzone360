@@ -25,6 +25,7 @@ import {
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -161,6 +162,7 @@ function useTickingNow(intervalMs: number, running: boolean): Date {
 function OrderDeskQueueList() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const router = useRouter();
     const { online } = useOnlineStatus();
 
     const [deskWindow, setDeskWindow] = useState<OrderDeskWindow>('today');
@@ -329,6 +331,27 @@ function OrderDeskQueueList() {
 
             <Card tone="raised" padding="md" testID="kitchen-order-desk-toolbar">
                 <Stack space="sm">
+                    {/*
+                     * The queue's primary action, and its first: this screen had none, because
+                     * until the desk could sell there was nothing for one to do. It sits at the top
+                     * of the toolbar rather than beside the filters — starting a sale is not a way
+                     * of narrowing the queue, and a customer at the counter is not waiting for
+                     * somebody to scroll.
+                     *
+                     * A `Link`-wrapped `Button` is not the house pattern here; the router push is,
+                     * because the surrounding surfaces navigate that way and a nested anchor around
+                     * a button is the nested-interactive trap the basket is built to avoid.
+                     */}
+                    <Inline space="sm" wrap testID="kitchen-order-desk-actions">
+                        <Button
+                            testID="kitchen-order-desk-new-sale"
+                            label={t('kitchen:desk.newSale')}
+                            onPress={() => {
+                                router.push('/kitchen/order-desk/sale');
+                            }}
+                        />
+                    </Inline>
+
                     <SegmentedControl<OrderDeskWindow>
                         testID="kitchen-order-desk-window"
                         label={t('kitchen:desk.windowLabel')}

@@ -426,18 +426,38 @@ export type {
     KitchenOrderTransitionRequest,
 } from './kitchen-orders.ts';
 
-export { ORDER_DESK_QUEUE_STATUSES, ORDER_DESK_WINDOWS } from './order-desk.ts';
+export {
+    ORDER_DESK_CUSTOMER_ORIGINS,
+    ORDER_DESK_FULFILMENT_TYPES,
+    ORDER_DESK_QUEUE_STATUSES,
+    ORDER_DESK_WINDOWS,
+} from './order-desk.ts';
 export type {
+    AddOrderDeskCustomerAddressRequest,
+    CreateOrderDeskCustomerRequest,
+    OrderDeskBasketLine,
+    OrderDeskCounterPayment,
+    OrderDeskCustomer,
+    OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
+    OrderDeskCustomerCreated,
+    OrderDeskCustomerOrigin,
+    OrderDeskCustomerSearch,
     OrderDeskDeliveryJob,
-    OrderDeskPayment,
+    OrderDeskFulfilmentType,
+    OrderDeskPaymentSummary,
     OrderDeskQueue,
     OrderDeskQueueFilters,
     OrderDeskQueueMeta,
     OrderDeskQueueRow,
     OrderDeskQueueStatus,
+    OrderDeskQuote,
+    OrderDeskQuoteLine,
+    OrderDeskRefusal,
     OrderDeskRepository,
+    OrderDeskSaleRequest,
     OrderDeskWindow,
+    PlaceOrderDeskSaleRequest,
 } from './order-desk.ts';
 
 export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';

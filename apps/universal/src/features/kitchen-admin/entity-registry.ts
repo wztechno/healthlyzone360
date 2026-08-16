@@ -61,6 +61,25 @@ export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 
 /**
+ * Placing an order **for somebody else** — the authority the Order Desk's sale wizard needs, and its
+ * own code rather than `order.manage_organisation`.
+ *
+ * Moving an order that a customer placed and *creating* one in a customer's name are different
+ * powers: the first changes the state of an obligation somebody already entered into, the second
+ * creates the obligation. The backend grants them separately, and a desk agent holds both while a
+ * kitchen chef holds neither.
+ */
+export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organisation';
+
+/**
+ * Writing down a customer the kitchen has never met — a cold caller with no login.
+ *
+ * Separate from placing on their behalf because the two are refused separately: a desk that may take
+ * an order for an existing customer is not automatically a desk that may create account records.
+ */
+export const CUSTOMER_CREATE_ON_BEHALF_PERMISSION = 'customer.create_on_behalf_organisation';
+
+/**
  * The B2B quotation pair (B4), split for the reason `price_list.*` was split in K1.5: seeing what a
  * corporate buyer submitted and deciding what to charge them for it are different authorities, and
  * the backend grants both only to `kitchen_manager` and `commercial_manager`.

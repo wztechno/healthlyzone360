@@ -462,6 +462,23 @@ export const queryKeys = {
     orderDesk: {
         all: () => ['orderDesk'] as const,
         queue: (filter?: QueryScope) => ['orderDesk', 'queue', scope(filter)] as const,
+        /**
+         * What a basket would come to. Keyed on the whole sale request (shape rule 3), because the
+         * quote is a function of *all* of it — the fulfilment type, the customer, the address and
+         * every line — and two of those change the total without changing the basket.
+         *
+         * A cache entry rather than a mutation because it is a **read**: the same basket asked
+         * twice is the same answer, the wizard steps back and forth over it, and a `useQuery` is
+         * what keeps the last good total on screen while the next one is in flight (a mutation
+         * would blank it on every keystroke). It happens to travel by `POST`, which is a fact about
+         * the request body's size, not about whether it changes anything.
+         */
+        quote: (request?: QueryScope) => ['orderDesk', 'quote', scope(request)] as const,
+        /**
+         * The customer search behind the sale wizard. Keyed on the query text alone: the endpoint
+         * takes nothing else, and the org scope is the transport's.
+         */
+        customers: (query: string) => ['orderDesk', 'customers', query] as const,
     },
 
     /**
